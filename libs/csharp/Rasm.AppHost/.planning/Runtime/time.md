@@ -1,11 +1,11 @@
 # [APPHOST_TIME_AND_DEADLINES]
 
-One temporal law serves the whole suite: `TimeProvider` owns elapsed measurement, NodaTime `IClock` owns semantic instants, and one injected `ClockPolicy` record pairs them — consumer capsules bind the pair at construction. `DeadlineClass` is the nine-row bound vocabulary that every duration literal in the four packages traces to, `SchedulePort` is the suite's single scheduler — Cronos cron rows and fixed-period rows carry every scheduled concern, with maintenance-lease policy values deciding cross-process ownership — and `FencingToken` is the decoded CARRIER of the store-issued lease generation riding that maintenance lease — the Persistence store's row-CAS predicate is the authoritative fence, the monotone single-writer correctness proof a timeout alone cannot give, and AppHost mints no token of its own. BCL temporal shapes cross only at the admission seam, receipts stamp `Instant` and `Duration`, and the test row swaps deterministic fakes through the same record.
+One temporal law serves the whole suite: `TimeProvider` owns elapsed measurement, NodaTime `IClock` owns semantic instants, and one injected `ClockPolicy` record pairs them — consumer capsules bind the pair at construction. `DeadlineClass` is the bound deadline vocabulary that every duration literal in the four packages traces to, `SchedulePort` is the suite's single scheduler — Cronos cron rows and fixed-period rows carry every scheduled concern, with maintenance-lease policy values deciding cross-process ownership — and `FencingToken` is the decoded CARRIER of the store-issued lease generation riding that maintenance lease — the Persistence store's row-CAS predicate is the authoritative fence, the monotone single-writer correctness proof a timeout alone cannot give, and AppHost mints no token of its own. BCL temporal shapes cross only at the admission seam, receipts stamp `Instant` and `Duration`, and the test row swaps deterministic fakes through the same record.
 
 ## [01]-[INDEX]
 
 - [02]-[CLOCK_SPLIT]: One injected clock pair; elapsed versus semantic time with sentinel admission.
-- [03]-[DEADLINE_TAXONOMY]: Nine deadline rows; every suite duration literal traces here.
+- [03]-[DEADLINE_TAXONOMY]: Deadline rows and their escalation arcs; every suite duration literal traces here.
 - [04]-[SCHEDULE_PORT]: The suite scheduler with cron and period rows and lease values.
 - [05]-[FENCING_TOKEN]: Decoded store-issued token carrier; the store's CAS predicate is the fence.
 
@@ -57,12 +57,12 @@ public sealed record ClockPolicy(TimeProvider Time, IClock Clock) {
 ## [03]-[DEADLINE_TAXONOMY]
 
 - Owner: `DeadlineClass`
-- Cases: startup, ready-probe, health-probe, drain-cooperative, drain-forced, hop-attempt, hop-total, support-window, cache-ttl
+- Cases: startup, ready-probe, health-probe, drain-cooperative, drain-forced, hop-attempt, hop-total, lane-attempt, lane-fold, support-window, cache-ttl
 - Entry: `public DeadlineReceipt Receipt(DeadlineClass row, long mark, Option<Duration> allotted = default)` — pure value; the outcome derives from measurement, never from a caller flag.
 - Receipt: `DeadlineReceipt` — class, allotted `Duration`, consumed `Duration`, outcome, `Instant` stamp.
 - Packages: Thinktecture.Runtime.Extensions, NodaTime, LanguageExt.Core, BCL inbox
 - Growth: a new bound is one `DeadlineClass` row; profile variance stays one policy value through `Resolve`; zero new surface.
-- Boundary: every duration bound in the suite traces to a row here or to a policy row on its owning page — a bare `TimeSpan` literal anywhere else is the named defect; profile variance enters `Resolve` as one override-table swap at the composition root, and consumers read the frozen table, never the raw rows; the cancellation spine, hop registry, drain conductor, and cache lanes consume these rows as values — drain-cooperative escalates to drain-forced and every other miss is forced; the cooperative allotment is the telemetry-flush budget — a ForceFlush during plugin unload runs inside drain-cooperative, and an overrun escalates through the `Escalation` arc to drain-forced, the terminal forced-flush bound past which the drain conductor abandons in-flight export, so the flush latency is one `escalatesTo` arc, never a separate timer.
+- Boundary: every duration bound in the suite traces to a row here or to a policy row on its owning page — a bare `TimeSpan` literal anywhere else is the named defect; profile variance enters `Resolve` as one override-table swap at the composition root, and consumers read the frozen table, never the raw rows; the cancellation spine, hop registry, work-lane governor, drain conductor, and cache lanes consume these rows as values — drain-cooperative escalates to drain-forced and every other miss is forced; the two lane rows are the in-process axis the transport rows never covered, so a `LanePolicy` reaching for `hop-attempt` prices an in-process fold on a socket's budget and is the substitution this pair deletes, while the interactive-versus-fold split is the lane's own rank and never a profile override; the cooperative allotment is the telemetry-flush budget — a ForceFlush during plugin unload runs inside drain-cooperative, and an overrun escalates through the `Escalation` arc to drain-forced, the terminal forced-flush bound past which the drain conductor abandons in-flight export, so the flush latency is one `escalatesTo` arc, never a separate timer.
 
 ```csharp signature
 
@@ -77,6 +77,15 @@ public sealed partial class DeadlineClass {
     public static readonly DeadlineClass DrainForced = new("drain-forced", allotted: Duration.FromSeconds(5), escalatesTo: null);
     public static readonly DeadlineClass HopAttempt = new("hop-attempt", allotted: Duration.FromSeconds(10), escalatesTo: null);
     public static readonly DeadlineClass HopTotal = new("hop-total", allotted: Duration.FromSeconds(30), escalatesTo: null);
+    // In-process work-lane attempt bounds — the two classes `LanePolicy.Attempt` reads and `LaneGuard`'s
+    // AddTimeout applies. Two rows because one cannot serve both halves of the lane vocabulary: a latency-lane
+    // ceiling long enough for a whole-model fold protects nothing, and a fold ceiling short enough for an
+    // interactive lane kills every fold it guards. Both are ABANDONMENT ceilings rather than expected
+    // durations — the work is cooperative and reports its own stage fractions, so a run reaching either bound
+    // has stopped answering, and neither escalates because the forced half belongs to the composed fold's own
+    // abandonment witness rather than a second timer this taxonomy would race it with.
+    public static readonly DeadlineClass LaneAttempt = new("lane-attempt", allotted: Duration.FromSeconds(30), escalatesTo: null);
+    public static readonly DeadlineClass LaneFold = new("lane-fold", allotted: Duration.FromMinutes(10), escalatesTo: null);
     public static readonly DeadlineClass SupportWindow = new("support-window", allotted: Duration.FromSeconds(120), escalatesTo: null);
     public static readonly DeadlineClass CacheTtl = new("cache-ttl", allotted: Duration.FromMinutes(5), escalatesTo: null);
 

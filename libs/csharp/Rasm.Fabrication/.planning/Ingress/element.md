@@ -2,31 +2,33 @@
 
 `ElementImport` admits baked geometry once, lowers fabrication evidence into one `ElementReceipt`, then projects without reopening `ElementGraph`. `ElementSource` admits one graph and an identity-distinct subject roster whose arity selects singular or batch outcome. `ElementPayload` admits distinct representation slots with at most one mesh carrier and derives one count-framed identity.
 
-`ElementFact` is the numeric, symbolic, and typed-property row family. Independent duplicate-path conflicts accumulate with path-derived loci before `AdmittedComponent` mints, while tolerance-equal observations coalesce. `PropertyValue.Render()` and `CanonicalBytes(CanonicalWriter)` remain the sole value projections. `ElementReceipt.Topology` preserves canonical `Relationship` rows, and each realizing `Connect` lowers into `AdmittedComponent.Connections`; `At` stays absent because the interface is a blob content key.
+`FactColumn` is the ONE evidence row: a declared member name paired with the reader that pulls its value, so a path is composed by `FactScope` and a member name is never spelled beside its own access. Every path mints as a `PropertyName` through `PropertyCategory.Fabrication.Row`, which is exactly the key space `AdmittedComponent.Quantities`, `.Properties`, `ComponentLayer.MaterialKey`, and `ComponentConnection` already demand. The edge snapshot is canonically ORDERED before any ordinal reaches a path, so the component's content key is a function of the edge set rather than of graph traversal order. Independent duplicate-path conflicts accumulate with path-derived loci before `AdmittedComponent` mints, while tolerance-equal observations coalesce. `ElementReceipt.Topology` preserves the ordered `Relationship` rows, and each realizing `Connect` lowers into `AdmittedComponent.Connections`; `At` stays absent because the interface is a blob content key.
 
 ## [01]-[INDEX]
 
-- [02]-[ELEMENT_INGRESS]: `RepresentationSlot` identifiers with their graph-key accessors, the `ElementGeometry`/`ElementPayload` carrier a slot admits, `ElementSource` graph-bearing ingress, `ElementFact` evidence rows, and the `ElementReceipt` sealing component, topology, canonical bytes, and fault locus.
-- [03]-[LIFECYCLE]: `ElementImport.Admit` baking each distinct subject once under graph tolerance with arity-selected singular or batch admission, and `ElementEgress` projection reading the receipt alone.
+- [02]-[ELEMENT_INGRESS]: `RepresentationSlot` identifiers with their graph-key accessors, the `ElementGeometry`/`ElementPayload` carrier a slot admits, `ElementSource` graph-bearing ingress, the `FactValue`/`ElementFact` evidence row, and the `ElementReceipt` sealing component, topology, canonical bytes, and fault locus.
+- [03]-[FACT_COLUMNS]: `FactScope`, `FactColumn`, and the declared column tables every fabrication fact folds through.
+- [04]-[LIFECYCLE]: `ElementImport.Admit` baking each distinct subject once under graph tolerance with arity-selected singular or batch admission, and `ElementImport.Project` reading the receipt alone.
 
 ## [02]-[ELEMENT_INGRESS]
 
-- Owner: `ElementSource` owns graph-bearing ingress; `ElementSubject` owns element identity with resolved representation; `ElementReceipt` owns the admitted carrier, canonical relationship rows, typed facts, canonical property bytes, and fault locus; `ElementImport` owns admission and egress.
-- Cases: `ElementGeometry` closes mesh, profile, and axis carriers; `ElementFact.Property` preserves every `PropertyValue` case; `ElementAdmission` preserves singular and batch cardinality; `ElementEgress` selects `Component` · `Topology` · `Facts` · `CanonicalProperties`; `ElementProjection` returns the matching result or committed byte count.
+- Owner: `ElementSource` owns graph-bearing ingress; `ElementSubject` owns element identity with resolved representation; `ElementReceipt` owns the admitted carrier, ordered relationship rows, typed facts, canonical property bytes, and fault locus; `ElementImport` owns admission and egress.
+- Cases: `ElementGeometry` closes mesh, profile, and axis carriers; `FactValue` closes numeric, symbolic, and typed-property readings and preserves every `PropertyValue` case; `ElementAdmission` preserves singular and batch cardinality; `ElementEgress` selects `Component` · `Topology` · `Facts` · `CanonicalProperties`; `ElementProjection` returns the matching result or committed byte count.
 - Law: `RepresentationSlot` closes `Body` · `Axis` · `Box` · `FootPrint`, each row carrying the `RepresentationContentHash` accessor its key names, so a new identifier is one row and no arm re-spells an identifier string.
-- Entry: `ElementImport.Admit(ElementSource)` bakes each subject once and returns `Fin<ElementAdmission>`; `ElementImport.Project(ElementReceipt, ElementEgress)` returns `Fin<ElementProjection>` without graph access.
-- Auto: generated `Switch` members keep every closed family total; `ElementSource` and `ElementPayload` admit non-empty distinct rosters through their generated factories; `Validation<Error, _>` accumulates independent batch and duplicate-path faults; `CanonicalWriter` owns value bytes and `ArrayPoolBufferWriter<byte>` owns the caller-scoped pooled egress buffer.
-- Receipt: `ElementReceipt` carries `AdmittedComponent`, `Seq<Relationship>`, `ElementFactSet`, count-prefixed canonical property bytes, and the element content locus; `ElementAdmission` preserves one or many receipts.
+- Law: a fact PATH is a `PropertyName` minted under the seam's own `PropertyCategory.Fabrication` prefix — the key space `AdmittedComponent` reads — so a bare string key never reaches the component and a `PropertyName.Create` at a write site is the deleted form.
+- Auto: generated `Switch` members keep every closed family total, so equivalence and rendering dispatch through the union rather than a tuple pattern that goes silently non-total on a new case; the derived quantity and property maps are HELD, so a fold reading both pays one build.
+- Receipt: `ElementReceipt` carries `AdmittedComponent`, the ordered `Seq<Relationship>`, `ElementFactSet`, count-prefixed canonical property bytes, and the element content locus; `ElementAdmission` preserves one or many receipts.
 - Boundary: `ElementGraph` never crosses the receipt; `Relationship`, `PropertyValue`, `MaterialComposition`, `MaterialPropertySet`, and `MaterialUsage` remain their canonical generated owners; `NodeId` and provider types lower to strings or content keys only at fact egress; no connection line is synthesized, and a `Connect` row without a realizing element stays topology-only because `ComponentConnection` demands a realizing key; faults from `Rasm.Element` pass through unchanged and local ingress or egress conflicts mint `IngressTranslation`; canonical-property ordering and caller-buffer commit are the serialization-boundary statement kernels.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ------------------------------------------------------------------------------------------------------------------------------
 using System.Globalization;
-using System.Text;
+using System.Linq;
 using CommunityToolkit.HighPerformance.Buffers;
 using LanguageExt;
 using LanguageExt.Common;
 using Rasm.Domain;
+using Rasm.Element.Classification;
 using Rasm.Element.Composition;
 using Rasm.Element.Graph;
 using Rasm.Element.Projection;
@@ -37,6 +39,10 @@ using Rasm.Meshing;
 using Thinktecture;
 using UnitsNet;
 using static LanguageExt.Prelude;
+// `PropertyBag` and `QuantityBag` are `global using` aliases inside `Rasm.Element`, and a global using is
+// compilation-scoped — it never flows to a referencing assembly — so this one re-mints them over the same closure.
+using PropertyBag = Rasm.Element.Properties.ValueBag<Rasm.Element.Properties.PropertyValue>;
+using QuantityBag = Rasm.Element.Properties.ValueBag<Rasm.Element.Properties.MeasureValue>;
 
 namespace Rasm.Fabrication.Ingress;
 
@@ -55,16 +61,19 @@ public sealed partial class RepresentationSlot {
 }
 
 // --- [MODELS] ---------------------------------------------------------------------------------------------------------------------------------------
-[Union]
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ElementGeometry {
-    public sealed partial record Mesh(MeshSpace Value) : ElementGeometry;
-    public sealed partial record Profiles(Arr<Loop> Value) : ElementGeometry;
-    public sealed partial record Centreline(Edge3 Value) : ElementGeometry;
+    private ElementGeometry() { }
+
+    public sealed record Mesh(MeshSpace Value) : ElementGeometry;
+    public sealed record Profiles(Arr<Loop> Value) : ElementGeometry;
+    public sealed record Centreline(Edge3 Value) : ElementGeometry;
 }
 
 public sealed record ElementPart(RepresentationSlot Slot, ElementGeometry Value);
 
 [ComplexValueObject]
+[ValidationError<FabricationFault>]
 public sealed partial class ElementPayload {
     public Seq<ElementPart> Parts { get; }
 
@@ -79,123 +88,503 @@ public sealed partial class ElementPayload {
         .Head
         .IfNone(Arr<Loop>());
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Seq<ElementPart> parts) {
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref Seq<ElementPart> parts) {
         parts = toSeq(parts.OrderBy(static part => part.Slot.Key, StringComparer.Ordinal));
-        validationError = parts.IsEmpty
-            ? new ValidationError("element payload carries no representation part")
-            : parts.GroupBy(static part => part.Slot.Key, StringComparer.Ordinal).Count() != parts.Count
-                ? new ValidationError("element payload repeats a representation slot")
-                : parts.Exists(static part => !part.Slot.Admits(part.Value))
-                    ? new ValidationError("element payload geometry does not match its representation slot")
-                : parts.Count(static part => part.Value is ElementGeometry.Mesh) > 1
-                    ? new ValidationError("element payload carries multiple mesh representations")
-                : parts.Exists(static part => part.Value is ElementGeometry.Mesh or ElementGeometry.Profiles)
-                    ? null
-                    : new ValidationError("element payload carries no fabricable carrier");
+        validationError = Refusal(parts);
     }
+
+    public static Fin<ElementPayload> Admit(Seq<ElementPart> parts) =>
+        Validate(parts, out ElementPayload payload).Admitted(payload);
+
+    // Each clause names the slot invariant it decides, so a payload refusal is addressable at the locus rather than
+    // through one aggregate message a caller has to parse.
+    private static FabricationFault? Refusal(Seq<ElementPart> parts) =>
+        parts.IsEmpty ? Inadmissible("parts")
+        : parts.Map(static part => part.Slot.Key).Distinct().Count != parts.Count ? Inadmissible("slot-repeat")
+        : parts.Exists(static part => !part.Slot.Admits(part.Value)) ? Inadmissible("slot-carrier")
+        : parts.Count(static part => part.Value is ElementGeometry.Mesh) > 1 ? Inadmissible("mesh-arity")
+        : parts.Exists(static part => part.Value is ElementGeometry.Mesh or ElementGeometry.Profiles) ? null
+        : Inadmissible("fabricable");
+
+    private static FabricationFault Inadmissible(string slot) =>
+        new FabricationFault.PolicyInadmissible(FabConcern.Ingress, $"element-payload:{slot}");
 }
 
 public sealed record ElementSubject(NodeId Id, ElementPayload Payload);
 
 [ComplexValueObject]
+[ValidationError<FabricationFault>]
 public sealed partial class ElementSource {
     public ElementGraph Graph { get; }
     public Seq<ElementSubject> Subjects { get; }
     public Op Key { get; }
 
+    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref ValidationError? validationError,
+        ref FabricationFault? validationError,
         ref ElementGraph graph,
         ref Seq<ElementSubject> subjects,
-        ref Op key) =>
-        validationError = subjects.IsEmpty
-            ? new ValidationError("element source carries no subject")
-            : subjects.GroupBy(static subject => subject.Id.Value, StringComparer.Ordinal).Count() != subjects.Count
-                ? new ValidationError("element source repeats a subject identity")
-                : null;
+        ref Op key) {
+        if (subjects.IsEmpty || subjects.Map(static subject => subject.Id.Value).Distinct().Count != subjects.Count)
+            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Ingress, "element-source:subjects");
+    }
+
+    public static Fin<ElementSource> Admit(ElementGraph graph, Seq<ElementSubject> subjects, Op key) =>
+        Validate(graph, subjects, key, out ElementSource source).Admitted(source);
 }
 
-[Union]
-public abstract partial record ElementFact {
-    public sealed partial record Numeric(string Path, double Value) : ElementFact;
-    public sealed partial record Symbolic(string Path, string Value) : ElementFact;
-    public sealed partial record Property(string Path, PropertyValue Value) : ElementFact;
+// The reading a column produced. Equivalence and rendering ride the generated total `Switch`, so a new reading kind
+// cannot slip past a tuple pattern that silently answers false for every pair it never enumerated.
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record FactValue {
+    private FactValue() { }
 
-    public string Locus => Switch(
-        numeric: static value => value.Path,
-        symbolic: static value => value.Path,
-        property: static value => value.Path);
+    public sealed record Number(double Value) : FactValue;
+    public sealed record Text(string Value) : FactValue;
+    public sealed record Typed(PropertyValue Value) : FactValue;
 
     // Two readings of one path arrive through independent unit conversions, so numeric agreement is a tolerance test;
     // exact bit equality would fault a graph whose quantities merely round differently.
-    public bool Equivalent(ElementFact other, double tolerance) => (this, other) switch {
-        (Numeric left, Numeric right) => Math.Abs(left.Value - right.Value) <= tolerance,
-        (Symbolic left, Symbolic right) => StringComparer.Ordinal.Equals(left.Value, right.Value),
-        (Property left, Property right) => left.Value.Equals(right.Value),
-        _ => false,
-    };
+    public bool Equivalent(FactValue other, double tolerance) => Switch(
+        state: (Other: other, Tolerance: tolerance),
+        number: static (probe, row) => probe.Other is Number peer && Math.Abs(row.Value - peer.Value) <= probe.Tolerance,
+        text: static (probe, row) => probe.Other is Text peer && StringComparer.Ordinal.Equals(row.Value, peer.Value),
+        typed: static (probe, row) => probe.Other is Typed peer && row.Value.Equals(peer.Value));
+
+    public Option<double> Quantity => Switch(
+        number: static row => Some(row.Value),
+        text: static _ => Option<double>.None,
+        typed: static _ => Option<double>.None);
+
+    public Option<string> Rendered => Switch(
+        number: static _ => Option<string>.None,
+        text: static row => Some(row.Value),
+        typed: static row => Some(row.Value.Render()));
+}
+
+public sealed record ElementFact(PropertyName Path, FactValue Value) {
+    public bool Equivalent(ElementFact other, double tolerance) => Value.Equivalent(other.Value, tolerance);
 }
 
 [ComplexValueObject]
+[ValidationError<FabricationFault>]
 public sealed partial class ElementFactSet {
     public Seq<ElementFact> Rows { get; }
 
+    // Both projections are DERIVED from the admitted rows and HELD, so a component admission reading quantities and
+    // properties folds the stream once. The fold is total: the rows arrive coalesced one per path, and a later
+    // reading of a path that survived the conflict census replaces rather than throwing.
     [IgnoreMember]
-    public Map<string, double> Quantities => Rows
-        .Choose(static row => row is ElementFact.Numeric numeric ? Some((numeric.Path, numeric.Value)) : None)
-        .Fold(Map<string, double>(), static (map, row) => map.Add(row.Path, row.Value));
+    private Map<PropertyName, double>? quantities;
 
     [IgnoreMember]
-    public Map<string, string> Properties => Rows
-        .Choose(static row => row switch {
-            ElementFact.Symbolic symbolic => Some((Path: symbolic.Path, Value: symbolic.Value)),
-            ElementFact.Property property => Some((Path: property.Path, Value: property.Value.Render())),
-            _ => None,
-        })
-        .Fold(Map<string, string>(), static (map, row) => map.Add(row.Path, row.Value));
+    private Map<PropertyName, string>? properties;
+
+    [IgnoreMember]
+    public Map<PropertyName, double> Quantities => quantities ??= Rows
+        .Choose(static row => row.Value.Quantity.Map(value => (row.Path, Value: value)))
+        .Fold(Map<PropertyName, double>(), static (index, row) => index.AddOrUpdate(row.Path, row.Value));
+
+    [IgnoreMember]
+    public Map<PropertyName, string> Properties => properties ??= Rows
+        .Choose(static row => row.Value.Rendered.Map(value => (row.Path, Value: value)))
+        .Fold(Map<PropertyName, string>(), static (index, row) => index.AddOrUpdate(row.Path, row.Value));
+
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref Seq<ElementFact> rows) {
+        if (rows.Map(static row => row.Path).Distinct().Count != rows.Count)
+            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Ingress, "element-facts:path-repeat");
+    }
+
+    public static Fin<ElementFactSet> Admit(Seq<ElementFact> rows) =>
+        Validate(rows, out ElementFactSet facts).Admitted(facts);
 }
 
 [ComplexValueObject]
+[ValidationError<FabricationFault>]
 public sealed partial class ElementReceipt {
     public AdmittedComponent Component { get; }
     public Seq<Relationship> Topology { get; }
     public ElementFactSet Facts { get; }
     public ReadOnlyMemory<byte> CanonicalProperties { get; }
     public UInt128 Locus { get; }
+
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(
+        ref FabricationFault? validationError,
+        ref AdmittedComponent component,
+        ref Seq<Relationship> topology,
+        ref ElementFactSet facts,
+        ref ReadOnlyMemory<byte> canonicalProperties,
+        ref UInt128 locus) {
+        if (locus == UInt128.Zero)
+            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Ingress, "element-receipt:locus");
+    }
+
+    public static Fin<ElementReceipt> Admit(
+        AdmittedComponent component,
+        Seq<Relationship> topology,
+        ElementFactSet facts,
+        ReadOnlyMemory<byte> canonicalProperties,
+        UInt128 locus) =>
+        Validate(component, topology, facts, canonicalProperties, locus, out ElementReceipt receipt).Admitted(receipt);
 }
 
-[Union]
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ElementAdmission {
-    public sealed partial record One(ElementReceipt Receipt) : ElementAdmission;
-    public sealed partial record Many(Seq<ElementReceipt> Receipts) : ElementAdmission;
+    private ElementAdmission() { }
+
+    public sealed record One(ElementReceipt Receipt) : ElementAdmission;
+    public sealed record Many(Seq<ElementReceipt> Receipts) : ElementAdmission;
 }
 
-[Union]
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ElementEgress {
-    public sealed partial record Component : ElementEgress;
-    public sealed partial record Topology : ElementEgress;
-    public sealed partial record Facts : ElementEgress;
-    public sealed partial record CanonicalProperties(ArrayPoolBufferWriter<byte> Destination) : ElementEgress;
+    private ElementEgress() { }
+
+    public sealed record Component : ElementEgress;
+    public sealed record Topology : ElementEgress;
+    public sealed record Facts : ElementEgress;
+    public sealed record CanonicalProperties(ArrayPoolBufferWriter<byte> Destination) : ElementEgress;
 }
 
-[Union]
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ElementProjection {
-    public sealed partial record Component(AdmittedComponent Value) : ElementProjection;
-    public sealed partial record Topology(Seq<Relationship> Value) : ElementProjection;
-    public sealed partial record Facts(ElementFactSet Value) : ElementProjection;
-    public sealed partial record Written(int Count) : ElementProjection;
+    private ElementProjection() { }
+
+    public sealed record Component(AdmittedComponent Value) : ElementProjection;
+    public sealed record Topology(Seq<Relationship> Value) : ElementProjection;
+    public sealed record Facts(ElementFactSet Value) : ElementProjection;
+    public sealed record Written(int Count) : ElementProjection;
+}
+```
+
+## [03]-[FACT_COLUMNS]
+
+- Owner: `FactColumn` owns one member's row name and its reader; `FactScope` owns path composition; `ElementColumns` owns every declared table the lowering folds.
+- Law: a member NAME appears exactly once, in the row that mints it, and the reader sits on the same line — so a fact path can never drift from the member it reports, and the interpolation that composed a root at each of a hundred and fifty sites collapses to the one join `FactScope.Row` runs.
+- Law: an absent reading is `None` and emits NO row. An optional column that emitted a zero published a measured value the graph never carried, and the coalescing census would then treat two absences as agreeing readings.
+- Cases: a column reads a number, a symbol, or a typed `PropertyValue`; the sources are `Element` itself, one material composition case, one `MaterialPropertySet` family, one section profile, one usage case, and one relationship case.
+- Auto: banded and indicator rosters (`AcousticBand`, `ImpactCategory`, `LifecycleStage`) fold their OWN `Items`, so a new band or indicator is a generated row and never a column here.
+- Growth: a new fabrication fact is one row on the owning table; a new source family is one table and one arm on the lowering fold.
+- Boundary: this cluster reads member VALUES only — no admission, no conversion policy, no fault. Unit lifting stays at the `Rasm.Element` measure owner, which already publishes SI scalars.
+
+```csharp signature
+// --- [MODELS] ---------------------------------------------------------------------------------------------------------------------------------------
+// --- [FACT_COLUMNS]
+// The qualifier chain a column hangs under. One join composes the whole path and one mint seats it in the seam's own
+// key space, so no site interpolates a root and no site spells `PropertyName.Create`.
+public readonly record struct FactScope(string Prefix) {
+    public static readonly FactScope Root = new(string.Empty);
+
+    public FactScope Then(string segment) => new(Prefix.Length == 0 ? segment : $"{Prefix}.{segment}");
+
+    public FactScope Then(string segment, int ordinal) => Then(segment).Then(ordinal.ToString(CultureInfo.InvariantCulture));
+
+    public PropertyName Row(string column) =>
+        PropertyCategory.Fabrication.Row(Prefix.Length == 0 ? column : $"{Prefix}.{column}");
 }
 
+public sealed record FactColumn<TSource>(string Name, Func<TSource, Option<FactValue>> Read) {
+    public Option<ElementFact> Of(FactScope scope, TSource source) =>
+        Read(source).Map(value => new ElementFact(scope.Row(Name), value));
+}
+
+// `Emit` is the ONE fan: a table meets a scope and a source and yields its rows. It is named apart from `Fold`
+// because `Seq<A>` publishes its own two-argument `Fold`, and an extension shadowed by an instance member is a
+// resolution accident waiting for the day a state type happens to bind.
+public static class FactColumns {
+    public static Seq<ElementFact> Emit<TSource>(this Seq<FactColumn<TSource>> columns, FactScope scope, TSource source) =>
+        columns.Choose(column => column.Of(scope, source));
+}
+
+// The declared tables. Every fabrication fact the ingress publishes resolves to a row here, so the roster is one
+// readable census of what a fabrication consumer can key on. The six row constructors sit on this owner rather than
+// beside `FactColumn`, so a table declaration reads as one unqualified expression.
+public static class ElementColumns {
+    // The row a caller-authored property bag names its material through, and the one symbolic fallback the lowering
+    // derives when a single material composition is unambiguous.
+    public const string MaterialRow = "material";
+
+    public static readonly Seq<FactColumn<Element>> Identity = Seq(
+        Sym<Element>("Element.Id", static row => row.Id.Value),
+        Sym<Element>("Element.Kind", static row => row.Kind.Key),
+        Sym<Element>("Element.PredefinedType", static row => row.PredefinedType.Key),
+        Sym<Element>("Element.Name", static row => row.Name),
+        Sym<Element>("Element.Tag", static row => row.Tag),
+        Sym<Element>("Element.Classification.System", static row => row.Classification.System),
+        Sym<Element>("Element.Classification.Code", static row => row.Classification.Code),
+        Sym<Element>("Element.Classification.Edition", static row => row.Classification.Edition),
+        SymOpt<Element>("Element.ExternalId", static row => row.ExternalId),
+        SymOpt<Element>("Element.TypeId", static row => row.TypeId.Map(static id => id.Value)));
+
+    public static readonly Seq<FactColumn<Classification>> Classification = Seq(
+        Sym<Classification>("System", static row => row.System),
+        Sym<Classification>("Code", static row => row.Code),
+        Sym<Classification>("Edition", static row => row.Edition));
+
+    // The counters ride one composite source because the relation and connection censuses are derived beside the
+    // baked element rather than read off it.
+    public static readonly Seq<FactColumn<ComponentCensus>> Census = Seq(
+        Num<ComponentCensus>("Component.Parts", static row => row.Baked.Parts.Count),
+        Num<ComponentCensus>("Component.Materials", static row => row.Baked.Materials.Count),
+        Num<ComponentCensus>("Component.Properties", static row => row.Baked.Properties.Count),
+        Num<ComponentCensus>("Component.Quantities", static row => row.Baked.Quantities.Count),
+        Num<ComponentCensus>("Component.Assessments", static row => row.Baked.Assessments.Count),
+        Num<ComponentCensus>("Component.Coverages", static row => row.Baked.Coverages.Count),
+        Num<ComponentCensus>("Component.Relations", static row => row.Topology.Count),
+        Num<ComponentCensus>("Component.Connections", static row => row.Connections.Count),
+        Num<ComponentCensus>("Component.Openings", static row => row.Topology.Count(static relation => relation is Relationship.Void)),
+        Num<ComponentCensus>("Component.HasAppearance", static row => row.Baked.Appearance.IsSome ? 1.0 : 0.0),
+        Num<ComponentCensus>("Component.HasHistory", static row => row.Baked.History.IsSome ? 1.0 : 0.0));
+
+    public static readonly Seq<FactColumn<MaterialComposition.Single>> Single = Seq(
+        Sym<MaterialComposition.Single>("Material", static row => row.Material.Value));
+
+    public static readonly Seq<FactColumn<MaterialLayer>> Layer = Seq(
+        Sym<MaterialLayer>("Material", static row => row.Material.Value),
+        Sym<MaterialLayer>("Name", static row => row.LayerName),
+        Num<MaterialLayer>("Thickness", static row => row.Thickness.Si));
+
+    public static readonly Seq<FactColumn<MaterialComposition.ProfileSet>> ProfileSet = Seq(
+        Sym<MaterialComposition.ProfileSet>("Material", static row => row.Material.Value),
+        Sym<MaterialComposition.ProfileSet>("Profile.Standard", static row => row.Profile.Standard),
+        Sym<MaterialComposition.ProfileSet>("Profile.Designation", static row => row.Profile.Designation),
+        Sym<MaterialComposition.ProfileSet>("Profile.ContentKey", static row => row.Profile.ContentKey.ToString()));
+
+    public static readonly Seq<FactColumn<MaterialConstituent>> Constituent = Seq(
+        Sym<MaterialConstituent>("Material", static row => row.Material.Value),
+        Sym<MaterialConstituent>("Category", static row => row.Category),
+        Num<MaterialConstituent>("Fraction", static row => row.Fraction));
+
+    public static readonly Seq<FactColumn<PropertyEvidence>> Evidence = Seq(
+        Sym<PropertyEvidence>("Evidence.Source", static row => row.Source),
+        Sym<PropertyEvidence>("Evidence.Reference", static row => row.Reference),
+        SymOpt<PropertyEvidence>("Evidence.ValidUntil",
+            static row => row.ValidUntil.Map(static date => date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture))));
+
+    public static readonly Seq<FactColumn<MaterialPropertySet.Mechanical>> Mechanical = Seq(
+        Num<MaterialPropertySet.Mechanical>("Density", static row => row.Density.Si),
+        Num<MaterialPropertySet.Mechanical>("YoungsModulus", static row => row.YoungsModulus.Si),
+        Num<MaterialPropertySet.Mechanical>("ShearModulus", static row => row.ShearModulus.Si),
+        Num<MaterialPropertySet.Mechanical>("YieldStrength", static row => row.YieldStrength.Si),
+        Num<MaterialPropertySet.Mechanical>("UltimateStrength", static row => row.UltimateStrength.Si),
+        Num<MaterialPropertySet.Mechanical>("PoissonsRatio", static row => row.PoissonsRatio),
+        Num<MaterialPropertySet.Mechanical>("ThermalExpansionPerK", static row => row.ThermalExpansionPerK));
+
+    public static readonly Seq<FactColumn<MaterialPropertySet.Orthotropic>> Orthotropic = Seq(
+        Num<MaterialPropertySet.Orthotropic>("Density", static row => row.Density.Si),
+        Num<MaterialPropertySet.Orthotropic>("E1Parallel", static row => row.E1Parallel.Si),
+        Num<MaterialPropertySet.Orthotropic>("E2Perpendicular", static row => row.E2Perpendicular.Si),
+        Num<MaterialPropertySet.Orthotropic>("ShearModulus", static row => row.ShearModulus.Si),
+        Num<MaterialPropertySet.Orthotropic>("Strength1Parallel", static row => row.Strength1Parallel.Si),
+        Num<MaterialPropertySet.Orthotropic>("Strength2Perpendicular", static row => row.Strength2Perpendicular.Si),
+        Num<MaterialPropertySet.Orthotropic>("ThermalExpansionPerK", static row => row.ThermalExpansionPerK));
+
+    public static readonly Seq<FactColumn<MaterialPropertySet.Thermal>> Thermal = Seq(
+        Num<MaterialPropertySet.Thermal>("Conductivity", static row => row.Conductivity.Si),
+        Num<MaterialPropertySet.Thermal>("SpecificHeat", static row => row.SpecificHeat.Si),
+        Num<MaterialPropertySet.Thermal>("UValue", static row => row.UValue.Si),
+        Num<MaterialPropertySet.Thermal>("VapourResistanceFactor", static row => row.VapourResistanceFactor));
+
+    public static readonly Seq<FactColumn<MaterialPropertySet.Acoustic>> Acoustic = Seq(
+        Num<MaterialPropertySet.Acoustic>("Nrc", static row => row.Nrc),
+        Num<MaterialPropertySet.Acoustic>("Saa", static row => row.Saa),
+        Num<MaterialPropertySet.Acoustic>("StcWeighted", static row => row.StcWeighted),
+        Num<MaterialPropertySet.Acoustic>("Rw", static row => row.Rw),
+        Opt<MaterialPropertySet.Acoustic>("DynamicStiffnessMNPerM3", static row => row.DynamicStiffnessMNPerM3),
+        Opt<MaterialPropertySet.Acoustic>("FlowResistivityPaSPerM2", static row => row.FlowResistivityPaSPerM2),
+        Opt<MaterialPropertySet.Acoustic>("LossFactor", static row => row.LossFactor));
+
+    // The band roster is the generated vocabulary's own, so a new third-octave band is a row at its owner and no
+    // column here names a frequency.
+    public static readonly Seq<FactColumn<AcousticReading>> Band = Seq(
+        Num<AcousticReading>("Absorption", static row => row.Set.At(row.Band)),
+        Num<AcousticReading>("SoundReductionIndexDb", static row => row.Set.SriAt(row.Band)));
+
+    public static readonly Seq<FactColumn<MaterialPropertySet.Fire>> Fire = Seq(
+        Num<MaterialPropertySet.Fire>("LoadBearingMinutes", static row => row.Resistance.LoadBearingMinutes),
+        Num<MaterialPropertySet.Fire>("IntegrityMinutes", static row => row.Resistance.IntegrityMinutes),
+        Num<MaterialPropertySet.Fire>("InsulationMinutes", static row => row.Resistance.InsulationMinutes),
+        Sym<MaterialPropertySet.Fire>("Reaction", static row => row.Reaction.Key),
+        Sym<MaterialPropertySet.Fire>("Smoke", static row => row.Smoke.Key),
+        Sym<MaterialPropertySet.Fire>("Droplets", static row => row.Droplets.Key));
+
+    public static readonly Seq<FactColumn<MaterialPropertySet.Environmental>> Environmental = Seq(
+        Num<MaterialPropertySet.Environmental>("RecycledContent", static row => row.RecycledContent),
+        Num<MaterialPropertySet.Environmental>("EndOfLifeRecovery", static row => row.EndOfLifeRecovery),
+        Num<MaterialPropertySet.Environmental>("WholeLifeGwp", static row => row.WholeLifeGwp),
+        Sym<MaterialPropertySet.Environmental>("Basis", static row => row.Basis.Key));
+
+    public static readonly Seq<FactColumn<ImpactReading>> Impact = Seq(
+        Num<ImpactReading>("Indicator", static row => row.Set.IndicatorAt(row.Category, row.Stage)));
+
+    public static readonly Seq<FactColumn<MaterialPropertySet.Cost>> Cost = Seq(
+        Num<MaterialPropertySet.Cost>("SupplyPerUnit", static row => row.SupplyPerUnit),
+        Num<MaterialPropertySet.Cost>("InstallPerUnit", static row => row.InstallPerUnit),
+        Num<MaterialPropertySet.Cost>("LifecyclePerUnit", static row => row.LifecyclePerUnit),
+        Sym<MaterialPropertySet.Cost>("Basis", static row => row.Basis.Key),
+        Sym<MaterialPropertySet.Cost>("Currency", static row => row.Currency.Value));
+
+    public static readonly Seq<FactColumn<MaterialPropertySet.Damping>> Damping = Seq(
+        Num<MaterialPropertySet.Damping>("DampingRatio", static row => row.DampingRatio),
+        Num<MaterialPropertySet.Damping>("StructuralLossFactor", static row => row.StructuralLossFactor),
+        Opt<MaterialPropertySet.Damping>("RayleighAlphaPerS", static row => row.Rayleigh.Map(static pair => pair.AlphaPerS)),
+        Opt<MaterialPropertySet.Damping>("RayleighBetaS", static row => row.Rayleigh.Map(static pair => pair.BetaS)));
+
+    public static readonly Seq<FactColumn<MaterialPropertySet.Hygrothermal>> Hygrothermal = Seq(
+        Num<MaterialPropertySet.Hygrothermal>("Porosity", static row => row.Porosity),
+        Num<MaterialPropertySet.Hygrothermal>("WaterContent80Rh", static row => row.WaterContent80Rh.Si),
+        Num<MaterialPropertySet.Hygrothermal>("FreeWaterSaturation", static row => row.FreeWaterSaturation.Si),
+        Opt<MaterialPropertySet.Hygrothermal>("WaterAbsorptionKgPerM2SqrtS", static row => row.WaterAbsorptionKgPerM2SqrtS));
+
+    public static readonly Seq<FactColumn<MaterialPropertySet.Durability>> Durability = Seq(
+        Num<MaterialPropertySet.Durability>("CarbonationRateMmPerSqrtYear", static row => row.CarbonationRateMmPerSqrtYear),
+        Num<MaterialPropertySet.Durability>("ChlorideDiffusion", static row => row.ChlorideDiffusion.Si),
+        Num<MaterialPropertySet.Durability>("AgeingExponent", static row => row.AgeingExponent));
+
+    public static readonly Seq<FactColumn<MaterialPropertySet.Optical>> Optical = Seq(
+        Num<MaterialPropertySet.Optical>("VisibleTransmittance", static row => row.VisibleTransmittance),
+        Num<MaterialPropertySet.Optical>("VisibleReflectanceFront", static row => row.VisibleReflectanceFront),
+        Num<MaterialPropertySet.Optical>("VisibleReflectanceBack", static row => row.VisibleReflectanceBack),
+        Num<MaterialPropertySet.Optical>("SolarTransmittance", static row => row.SolarTransmittance),
+        Num<MaterialPropertySet.Optical>("SolarReflectanceFront", static row => row.SolarReflectanceFront),
+        Num<MaterialPropertySet.Optical>("SolarReflectanceBack", static row => row.SolarReflectanceBack),
+        Num<MaterialPropertySet.Optical>("SolarAbsorptanceFront", static row => row.SolarAbsorptanceFront),
+        Num<MaterialPropertySet.Optical>("SolarAbsorptanceBack", static row => row.SolarAbsorptanceBack),
+        Num<MaterialPropertySet.Optical>("ThermalIrTransmittance", static row => row.ThermalIrTransmittance),
+        Num<MaterialPropertySet.Optical>("ThermalIrEmissivityFront", static row => row.ThermalIrEmissivityFront),
+        Num<MaterialPropertySet.Optical>("ThermalIrEmissivityBack", static row => row.ThermalIrEmissivityBack));
+
+    public static readonly Seq<FactColumn<CurveSample>> Sample = Seq(
+        Num<CurveSample>("Axis", static row => row.Axis),
+        Num<CurveSample>("Value", static row => row.Value));
+
+    public static readonly Seq<FactColumn<SectionProperties>> Section = Seq(
+        Num<SectionProperties>("Area", static row => row.Area.Si),
+        Num<SectionProperties>("Iyy", static row => row.Iyy.Si),
+        Num<SectionProperties>("Izz", static row => row.Izz.Si),
+        Num<SectionProperties>("J", static row => row.J.Si),
+        Num<SectionProperties>("Iw", static row => row.Iw.Si),
+        Num<SectionProperties>("Wely", static row => row.Wely.Si),
+        Num<SectionProperties>("Welz", static row => row.Welz.Si),
+        Num<SectionProperties>("Wply", static row => row.Wply.Si),
+        Num<SectionProperties>("Wplz", static row => row.Wplz.Si),
+        Num<SectionProperties>("AvY", static row => row.AvY.Si),
+        Num<SectionProperties>("AvZ", static row => row.AvZ.Si),
+        Num<SectionProperties>("RadiusOfGyrationMajor", static row => row.RadiusOfGyrationMajor.Si),
+        Num<SectionProperties>("RadiusOfGyrationMinor", static row => row.RadiusOfGyrationMinor.Si),
+        Num<SectionProperties>("Depth", static row => row.Depth.Si),
+        Num<SectionProperties>("Width", static row => row.Width.Si),
+        Num<SectionProperties>("HeatedPerimeter", static row => row.HeatedPerimeter.Si),
+        Num<SectionProperties>("AxisDistance", static row => row.AxisDistance.Si),
+        Num<SectionProperties>("ShearCentreY", static row => row.ShearCentreY.Si),
+        Num<SectionProperties>("ShearCentreZ", static row => row.ShearCentreZ.Si),
+        Num<SectionProperties>("MonosymmetryFactor", static row => row.MonosymmetryFactor));
+
+    public static readonly Seq<FactColumn<MaterialUsage.LayerSet>> LayerUsage = Seq(
+        Sym<MaterialUsage.LayerSet>("Direction", static row => row.Direction.Key),
+        Sym<MaterialUsage.LayerSet>("Sense", static row => row.Sense.Key),
+        Measure<MaterialUsage.LayerSet>("OffsetFromReferenceLine", static row => row.OffsetFromReferenceLine),
+        Measure<MaterialUsage.LayerSet>("ReferenceExtent", static row => row.ReferenceExtent));
+
+    public static readonly Seq<FactColumn<MaterialUsage.ProfileSet>> ProfileUsage = Seq(
+        SymOpt<MaterialUsage.ProfileSet>("CardinalPoint", static row => row.CardinalPoint.Map(static point => point.Key)),
+        Measure<MaterialUsage.ProfileSet>("ReferenceExtent", static row => row.ReferenceExtent));
+
+    public static readonly Seq<FactColumn<PropertyBag>> Bag = Seq(
+        Sym<PropertyBag>("Inheritance", static row => row.Inheritance.Key),
+        Sym<PropertyBag>("Source", static row => row.Source.Token));
+
+    public static readonly Seq<FactColumn<Relationship.Compose>> Compose = Seq(
+        Sym<Relationship.Compose>("Whole", static row => row.Whole.Value),
+        Sym<Relationship.Compose>("Part", static row => row.Part.Value),
+        Sym<Relationship.Compose>("Kind", static row => row.SubKind.Key),
+        Opt<Relationship.Compose>("Ordinal", static row => row.Ordinal.Map(static value => (double)value)));
+
+    public static readonly Seq<FactColumn<Relationship.Assign>> Assign = Seq(
+        Sym<Relationship.Assign>("Subject", static row => row.Subject.Value),
+        Sym<Relationship.Assign>("Definition", static row => row.Definition.Value),
+        Sym<Relationship.Assign>("Kind", static row => row.SubKind.Key));
+
+    public static readonly Seq<FactColumn<Relationship.Associate>> Associate = Seq(
+        Sym<Relationship.Associate>("Subject", static row => row.Subject.Value),
+        Sym<Relationship.Associate>("Resource", static row => row.Resource.Value));
+
+    public static readonly Seq<FactColumn<Relationship.Connect>> Connect = Seq(
+        Sym<Relationship.Connect>("From", static row => row.From.Value),
+        Sym<Relationship.Connect>("To", static row => row.To.Value),
+        Sym<Relationship.Connect>("Kind", static row => row.SubKind.Key),
+        SymOpt<Relationship.Connect>("Realizing", static row => row.Realizing.Map(static node => node.Value)),
+        SymOpt<Relationship.Connect>("Interface", static row => row.Interface.Map(static key => key.ToString())));
+
+    public static readonly Seq<FactColumn<Relationship.Void>> Opening = Seq(
+        Sym<Relationship.Void>("Host", static row => row.Host.Value),
+        Sym<Relationship.Void>("Feature", static row => row.Feature.Value),
+        Sym<Relationship.Void>("Kind", static row => row.SubKind.Key));
+
+    public static readonly Seq<FactColumn<Relationship.Generic>> Generic = Seq(
+        Sym<Relationship.Generic>("WireName", static row => row.WireName),
+        Sym<Relationship.Generic>("Source", static row => row.Source.Value),
+        Sym<Relationship.Generic>("Target", static row => row.Target.Value));
+
+    public static readonly Seq<FactColumn<RelationshipParticipant>> Participant = Seq(
+        Sym<RelationshipParticipant>("Node", static row => row.Node.Value),
+        Sym<RelationshipParticipant>("Role", static row => row.Role),
+        Opt<RelationshipParticipant>("Ordinal", static row => row.Ordinal.Map(static value => (double)value)));
+
+    private static FactColumn<TSource> Num<TSource>(string name, Func<TSource, double> read) =>
+        new(name, source => Some<FactValue>(new FactValue.Number(read(source))));
+
+    private static FactColumn<TSource> Opt<TSource>(string name, Func<TSource, Option<double>> read) =>
+        new(name, source => read(source).Map(static value => (FactValue)new FactValue.Number(value)));
+
+    private static FactColumn<TSource> Measure<TSource>(string name, Func<TSource, Option<MeasureValue>> read) =>
+        new(name, source => read(source).Map(static value => (FactValue)new FactValue.Number(value.Si)));
+
+    private static FactColumn<TSource> Sym<TSource>(string name, Func<TSource, string> read) =>
+        new(name, source => Some<FactValue>(new FactValue.Text(read(source))));
+
+    private static FactColumn<TSource> SymOpt<TSource>(string name, Func<TSource, Option<string>> read) =>
+        new(name, source => read(source).Map(static value => (FactValue)new FactValue.Text(value)));
+
+    private static FactColumn<TSource> Typed<TSource>(string name, Func<TSource, PropertyValue> read) =>
+        new(name, source => Some<FactValue>(new FactValue.Typed(read(source))));
+}
+
+// The composite sources a column table reads. Each is the exact tuple its own table needs, so a reader never reaches
+// past the row it was handed.
+public readonly record struct ComponentCensus(Element Baked, Seq<Relationship> Topology, Arr<ComponentConnection> Connections);
+
+public readonly record struct AcousticReading(MaterialPropertySet.Acoustic Set, AcousticBand Band);
+
+public readonly record struct ImpactReading(MaterialPropertySet.Environmental Set, ImpactCategory Category, LifecycleStage Stage);
+
+public readonly record struct CurveSample(double Axis, double Value);
+```
+
+## [04]-[LIFECYCLE]
+
+- Owner: `ElementImport` owns admission, the fact lowering, and receipt-only egress.
+- Law: the edge snapshot is ORDERED before any ordinal reaches a fact path. `EdgesAt` hands edges in graph traversal order, so an index-keyed path re-keys the whole component the day the graph re-orders its adjacency; sorting on the relation's own discriminant and endpoints makes each ordinal a function of the edge SET, and two rows tying on every ordering column are indistinguishable to every consumer.
+- Entry: `ElementImport.Admit(ElementSource)` bakes each subject once and returns `Fin<ElementAdmission>`; `ElementImport.Project(ElementReceipt, ElementEgress)` returns `Fin<ElementProjection>` without graph access.
+- Auto: arity alone selects the outcome case — the admitted source already proved the roster non-empty and identity-distinct, so a singular request can never arrive as a vacuous batch. `Validation<Error, _>` accumulates independent batch and duplicate-path faults; every owner admits through its generated `Validate` and the one `Admitted` bridge, so no `Try.lift` wraps a throwing `Create`.
+- Receipt: one grouping serves both the conflict census and the coalesced store, and each conflict carries its own path-derived locus so an accumulated batch names every offending path instead of repeating one error.
+- Exemption: `CanonicalProperties` is a statement kernel — the ordered bag walk is the serialization boundary itself, and `CanonicalWriter` is mutable-fluent, so the loop IS the byte law.
+- Packages: `CommunityToolkit.HighPerformance` (`ArrayPoolBufferWriter<byte>` egress destination), `Rasm.Element` (`ElementGraph.Bake`, `CanonicalWriter`, `ContentHash`, `PropertyCategory`), LanguageExt.Core rails, `UnitsNet` at the layer-thickness projection.
+- Boundary: writer disposal stays with the caller; a buffer failure rails through the retained locus rather than escaping the `Fin` return.
+
+```csharp signature
 // --- [OPERATIONS] -----------------------------------------------------------------------------------------------------------------------------------
 public static class ElementImport {
-    const string MaterialRow = "material";
+    // A unit separator cannot occur in a node id, a case key, or a sub-kind key, so the joined ordering key is
+    // injective over the columns it joins.
+    private const char Field = '\u001F';
 
-    // Arity alone selects the outcome case; the admitted source proves the roster is non-empty and identity-distinct,
-    // so a singular request can never arrive as a vacuous batch.
     public static Fin<ElementAdmission> Admit(ElementSource source) =>
         source.Subjects
-            .Map(subject => AdmitOne(source.Graph, subject, source.Key).ToValidation())
-            .Traverse(static receipt => receipt)
+            .Traverse(subject => AdmitOne(source.Graph, subject, source.Key).ToValidation())
             .As()
             .ToFin()
             .Map(static receipts => receipts.Head
@@ -216,11 +605,11 @@ public static class ElementImport {
                 return new ElementProjection.Written(request.Destination.WrittenCount - before);
             }).Run().MapFail(_ => Translation(state.Locus)));
 
-    static Fin<ElementReceipt> AdmitOne(ElementGraph graph, ElementSubject subject, Op key) =>
+    private static Fin<ElementReceipt> AdmitOne(ElementGraph graph, ElementSubject subject, Op key) =>
         from baked in graph.Bake(subject.Id, key)
-        let topology = toSeq(graph.EdgesAt(baked.Id))
+        let topology = Ordered(graph.EdgesAt(baked.Id))
         let tolerance = graph.Header.Tolerance
-        let locus = LocusOf(baked.Id, path: string.Empty, tolerance)
+        let locus = LocusOf(baked.Id, FactScope.Root.Row(nameof(Element)), tolerance)
         let fault = Translation(locus)
         from representation in Resolve(baked, subject.Payload, tolerance, fault)
         let connections = ConnectionsOf(topology)
@@ -234,25 +623,19 @@ public static class ElementImport {
             connections,
             facts.Quantities,
             facts.Properties).MapFail(_ => fault)
-        from receipt in Try.lift(() => ElementReceipt.Create(
-                component,
-                topology,
-                facts,
-                CanonicalProperties(graph, baked),
-                locus))
-            .Run()
+        from receipt in ElementReceipt
+            .Admit(component, topology, facts, CanonicalProperties(graph, baked), locus)
             .MapFail(_ => fault)
         select receipt;
 
     // Combined representation key count-frames the roster and length-frames each slot key, so a one-part and a
     // two-part payload can never collide and a slot rename cannot silently reuse an existing identity.
-    static Fin<UInt128> Resolve(Element baked, ElementPayload payload, double tolerance, Error fault) =>
+    private static Fin<UInt128> Resolve(Element baked, ElementPayload payload, double tolerance, Error fault) =>
         payload.Parts
-            .Map(part => part.Slot.Locate(baked.Representations)
+            .Traverse(part => part.Slot.Locate(baked.Representations)
                 .Map(key => (Slot: part.Slot.Key, Key: key))
                 .ToFin(fault)
                 .ToValidation())
-            .Traverse(static row => row)
             .As()
             .ToFin()
             .Map(rows => rows
@@ -260,132 +643,114 @@ public static class ElementImport {
                     static (writer, row) => writer.String(row.Slot).U128(row.Key)))
             .Map(static writer => ContentHash.Of(writer.ToBytes().Span));
 
-    // Realizing element makes a connection fabricable; bare adjacency remains receipt topology.
-    // ComponentConnection carries the interface blob key and leaves At absent.
-    static Arr<ComponentConnection> ConnectionsOf(Seq<Relationship> topology) =>
+    // The ONE ordering. Its key joins the discriminant, the endpoints, and the sub-kind — every column a consumer can
+    // distinguish two edges by — so the ordinal a fact path carries is stable across graph rebuilds.
+    private static Seq<Relationship> Ordered(IEnumerable<Relationship> edges) =>
+        toSeq(toSeq(edges).OrderBy(OrderKey, StringComparer.Ordinal));
+
+    private static string OrderKey(Relationship relation) => relation.Switch(
+        compose: static row => Join(nameof(Relationship.Compose), row.Whole.Value, row.Part.Value, row.SubKind.Key),
+        assign: static row => Join(nameof(Relationship.Assign), row.Subject.Value, row.Definition.Value, row.SubKind.Key),
+        associate: static row => Join(nameof(Relationship.Associate), row.Subject.Value, row.Resource.Value, string.Empty),
+        connect: static row => Join(nameof(Relationship.Connect), row.From.Value, row.To.Value, row.SubKind.Key),
+        @void: static row => Join(nameof(Relationship.Void), row.Host.Value, row.Feature.Value, row.SubKind.Key),
+        generic: static row => Join(nameof(Relationship.Generic), row.Source.Value, row.Target.Value, row.WireName));
+
+    private static string Join(string discriminant, string first, string second, string qualifier) =>
+        string.Join(Field, discriminant, first, second, qualifier);
+
+    // Realizing element makes a connection fabricable; bare adjacency remains receipt topology. `ComponentConnection`
+    // carries the interface blob key and leaves `At` absent, and both keys mint in the seam's own vocabulary.
+    private static Arr<ComponentConnection> ConnectionsOf(Seq<Relationship> topology) =>
         topology.Choose(static relation => relation is Relationship.Connect connect
             ? connect.Realizing.Bind(realizing => connect.Interface.Map(key => new ComponentConnection(
-                key.ToString(CultureInfo.InvariantCulture), realizing.Value, Option<Edge3>.None)))
+                PropertyCategory.Fabrication.Row(key.ToString(CultureInfo.InvariantCulture)),
+                PropertyCategory.Fabrication.Row(realizing.Value),
+                Option<Edge3>.None)))
             : None).ToArr();
 
-    static Arr<ComponentLayer> LayersOf(Element baked) =>
+    private static Arr<ComponentLayer> LayersOf(Element baked) =>
         baked.Materials.Bind(static material => material.Material.Composition.Switch(
             single: static _ => Seq<ComponentLayer>(),
             layerSet: static set => set.Layers.Map(static layer => new ComponentLayer(
                 layer.LayerName,
                 Length.FromMeters(layer.Thickness.Si).Millimeters,
-                layer.Material.Value)),
+                PropertyCategory.Fabrication.Row(layer.Material.Value))),
             profileSet: static _ => Seq<ComponentLayer>(),
             constituentSet: static _ => Seq<ComponentLayer>())).ToArr();
 
-    static Option<double> SheetOf(Element baked) {
+    private static Option<double> SheetOf(Element baked) {
         Seq<double> stacks = baked.Materials
             .Choose(static material => material.Material.Composition is MaterialComposition.LayerSet set
                 ? Some(Length.FromMeters(set.TotalThickness).Millimeters)
                 : None);
-        return stacks.Count == 1 ? Some(stacks.Head) : None;
+        return stacks.Head.Filter(_ => stacks.Count == 1);
     }
 
-    static Fin<ElementFactSet> FactsOf(
+    private static Fin<ElementFactSet> FactsOf(
         Element baked,
         Seq<Relationship> topology,
         Arr<ComponentConnection> connections,
         double tolerance,
         Error fault) {
-        Seq<ElementFact> rows = IdentityRows(baked)
-            + CompositionRows(baked)
-            + MaterialRows(baked)
-            + UsageRows(baked)
-            + SectionRows(baked)
-            + QuantityRows(baked)
-            + PropertyRows(baked)
-            + TopologyRows(topology)
-            + Seq<ElementFact>(
-                new ElementFact.Numeric("Component.Parts", baked.Parts.Count),
-                new ElementFact.Numeric("Component.Materials", baked.Materials.Count),
-                new ElementFact.Numeric("Component.Properties", baked.Properties.Count),
-                new ElementFact.Numeric("Component.Quantities", baked.Quantities.Count),
-                new ElementFact.Numeric("Component.Assessments", baked.Assessments.Count),
-                new ElementFact.Numeric("Component.Coverages", baked.Coverages.Count),
-                new ElementFact.Numeric("Component.Relations", topology.Count),
-                new ElementFact.Numeric("Component.Connections", connections.Count),
-                new ElementFact.Numeric("Component.Openings", topology.Count(static relation => relation is Relationship.Void)),
-                new ElementFact.Numeric("Component.HasAppearance", baked.Appearance.IsSome ? 1.0 : 0.0),
-                new ElementFact.Numeric("Component.HasHistory", baked.History.IsSome ? 1.0 : 0.0));
+        Seq<ElementFact> rows =
+            ElementColumns.Identity.Emit(FactScope.Root, baked)
+            + baked.Classifications.Map((row, index) =>
+                ElementColumns.Classification.Emit(FactScope.Root.Then("Element.Classification", index), row)).Bind(identity)
+            + baked.Representations.ByIdentifier.Pairs.Map(pair => new ElementFact(
+                FactScope.Root.Then("Element.Representation").Row(pair.Key), new FactValue.Text(pair.Value.ToString())))
+            + ElementColumns.Census.Emit(FactScope.Root, new ComponentCensus(baked, topology, connections))
+            + baked.Materials.Bind(MaterialRows)
+            + baked.Quantities.Bind(QuantityRows)
+            + baked.Properties.Bind(PropertyRows)
+            + MaterialFallback(baked)
+            + topology.Map(RelationRows).Bind(identity);
 
         // One grouping serves both the conflict census and the coalesced store, and each conflict carries its own
         // path-derived locus so an accumulated batch names every offending path instead of repeating one error.
-        Seq<(string Path, Seq<ElementFact> Rows)> grouped = toSeq(rows.GroupBy(static row => row.Locus, StringComparer.Ordinal))
+        Seq<(PropertyName Path, Seq<ElementFact> Rows)> grouped = toSeq(rows.GroupBy(static row => row.Path))
             .Map(static group => (Path: group.Key, Rows: toSeq(group)));
         Seq<Validation<Error, Unit>> conflicts = grouped
             .Choose(group => group.Rows.ForAll(row => group.Rows.ForAll(other => row.Equivalent(other, tolerance)))
                 ? None
                 : Some(Fin.Fail<Unit>(Translation(LocusOf(baked.Id, group.Path, tolerance))).ToValidation()))
             + baked.Properties.Bind(static bag => bag.Values.Pairs)
-                .Choose(pair => pair.Key.Value == MaterialRow && pair.Value is not PropertyValue.Text
-                    ? Some(Fin.Fail<Unit>(Translation(LocusOf(baked.Id, MaterialRow, tolerance))).ToValidation())
+                .Choose(pair => pair.Key.Value == ElementColumns.MaterialRow && pair.Value is not PropertyValue.Text
+                    ? Some(Fin.Fail<Unit>(Translation(LocusOf(baked.Id,
+                        FactScope.Root.Row(ElementColumns.MaterialRow), tolerance))).ToValidation())
                     : None);
 
         return conflicts.Traverse(static conflict => conflict)
             .As()
             .ToFin()
-            .Bind(_ => Try.lift(() => ElementFactSet.Create(grouped.Choose(static group => group.Rows.Head)))
-                .Run()
-                .MapFail(_ => fault));
+            .Bind(_ => ElementFactSet.Admit(grouped.Choose(static group => group.Rows.Head)).MapFail(_ => fault));
     }
 
-    static UInt128 LocusOf(NodeId id, string path, double tolerance) =>
-        ContentHash.Of(new CanonicalWriter(tolerance).String(id.Value).String(path).ToBytes().Span);
+    private static UInt128 LocusOf(NodeId id, PropertyName path, double tolerance) =>
+        ContentHash.Of(new CanonicalWriter(tolerance).String(id.Value).String(path.Value).ToBytes().Span);
 
-    static Seq<ElementFact> IdentityRows(Element baked) => Seq<ElementFact>(
-        new ElementFact.Symbolic("Element.Id", baked.Id.Value),
-        new ElementFact.Symbolic("Element.Kind", baked.Kind.Key),
-        new ElementFact.Symbolic("Element.PredefinedType", baked.PredefinedType.Key),
-        new ElementFact.Symbolic("Element.Name", baked.Name),
-        new ElementFact.Symbolic("Element.Tag", baked.Tag),
-        new ElementFact.Symbolic("Element.Classification.System", baked.Classification.System),
-        new ElementFact.Symbolic("Element.Classification.Code", baked.Classification.Code),
-        new ElementFact.Symbolic("Element.Classification.Edition", baked.Classification.Edition))
-        + baked.ExternalId.Map(value => Seq<ElementFact>(new ElementFact.Symbolic("Element.ExternalId", value))).IfNone(Seq<ElementFact>())
-        + baked.TypeId.Map(value => Seq<ElementFact>(new ElementFact.Symbolic("Element.TypeId", value.Value))).IfNone(Seq<ElementFact>())
-        + baked.Classifications.Map((classification, index) => Seq<ElementFact>(
-            new ElementFact.Symbolic($"Element.Classification.{index}.System", classification.System),
-            new ElementFact.Symbolic($"Element.Classification.{index}.Code", classification.Code),
-            new ElementFact.Symbolic($"Element.Classification.{index}.Edition", classification.Edition))).Bind(identity)
-        + baked.Representations.ByIdentifier.Pairs.Map(pair =>
-            (ElementFact)new ElementFact.Symbolic($"Element.Representation.{pair.Key}", pair.Value.ToString()));
+    private static Seq<ElementFact> MaterialRows(BakedMaterial material) {
+        string key = material.Material.MaterialKey.Value;
+        FactScope root = FactScope.Root.Then("Material").Then(key);
+        FactScope composition = root.Then("Composition");
+        return material.Material.Composition.Switch(
+            state: composition,
+            single: static (scope, row) => Kind(scope, nameof(MaterialComposition.Single))
+                + ElementColumns.Single.Emit(scope, row),
+            layerSet: static (scope, row) => Kind(scope, nameof(MaterialComposition.LayerSet))
+                + row.Layers.Map((layer, index) => ElementColumns.Layer.Emit(scope.Then("Layer", index), layer)).Bind(identity),
+            profileSet: static (scope, row) => Kind(scope, nameof(MaterialComposition.ProfileSet))
+                + ElementColumns.ProfileSet.Emit(scope, row),
+            constituentSet: static (scope, row) => Kind(scope, nameof(MaterialComposition.ConstituentSet))
+                + row.Constituents.Map((constituent, index) =>
+                    ElementColumns.Constituent.Emit(scope.Then("Constituent", index), constituent)).Bind(identity))
+            + material.Material.Properties.Bind(property => PropertySetRows(root, property))
+            + SectionRows(root, material.Material.Composition)
+            + UsageRows(FactScope.Root.Then("Usage").Then(key), material.Usage);
+    }
 
-    static Seq<ElementFact> CompositionRows(Element baked) =>
-        baked.Materials.Bind(material => {
-            string root = $"Material.{material.Material.MaterialKey.Value}.Composition";
-            return material.Material.Composition.Switch(
-                single: single => Seq<ElementFact>(
-                    new ElementFact.Symbolic($"{root}.Kind", nameof(MaterialComposition.Single)),
-                    new ElementFact.Symbolic($"{root}.Material", single.Material.Value)),
-                layerSet: set => Seq<ElementFact>(new ElementFact.Symbolic($"{root}.Kind", nameof(MaterialComposition.LayerSet)))
-                    + set.Layers.Map((layer, index) => Seq<ElementFact>(
-                        new ElementFact.Symbolic($"{root}.Layer.{index}.Material", layer.Material.Value),
-                        new ElementFact.Symbolic($"{root}.Layer.{index}.Name", layer.LayerName),
-                        new ElementFact.Numeric($"{root}.Layer.{index}.Thickness", layer.Thickness.Si))).Bind(identity),
-                profileSet: profile => Seq<ElementFact>(
-                    new ElementFact.Symbolic($"{root}.Kind", nameof(MaterialComposition.ProfileSet)),
-                    new ElementFact.Symbolic($"{root}.Material", profile.Material.Value),
-                    new ElementFact.Symbolic($"{root}.Profile.Standard", profile.Profile.Standard),
-                    new ElementFact.Symbolic($"{root}.Profile.Designation", profile.Profile.Designation),
-                    new ElementFact.Symbolic($"{root}.Profile.ContentKey", profile.Profile.ContentKey.ToString())),
-                constituentSet: set => Seq<ElementFact>(new ElementFact.Symbolic($"{root}.Kind", nameof(MaterialComposition.ConstituentSet)))
-                    + set.Constituents.Map((constituent, index) => Seq<ElementFact>(
-                        new ElementFact.Symbolic($"{root}.Constituent.{index}.Material", constituent.Material.Value),
-                        new ElementFact.Symbolic($"{root}.Constituent.{index}.Category", constituent.Category),
-                        new ElementFact.Numeric($"{root}.Constituent.{index}.Fraction", constituent.Fraction))).Bind(identity));
-        });
-
-    static Seq<ElementFact> MaterialRows(Element baked) =>
-        baked.Materials.Bind(material => material.Material.Properties.Bind(property =>
-            PropertySetRows(material.Material.MaterialKey.Value, property)));
-
-    static Seq<ElementFact> PropertySetRows(string material, MaterialPropertySet property) {
-        string family = property.Map(
+    private static Seq<ElementFact> PropertySetRows(FactScope root, MaterialPropertySet property) {
+        FactScope scope = root.Then(property.Map(
             mechanical: nameof(MaterialPropertySet.Mechanical),
             orthotropic: nameof(MaterialPropertySet.Orthotropic),
             thermal: nameof(MaterialPropertySet.Thermal),
@@ -396,134 +761,102 @@ public static class ElementImport {
             damping: nameof(MaterialPropertySet.Damping),
             hygrothermal: nameof(MaterialPropertySet.Hygrothermal),
             durability: nameof(MaterialPropertySet.Durability),
-            optical: nameof(MaterialPropertySet.Optical));
-        string root = $"Material.{material}.{family}";
-        Seq<ElementFact> evidence = Seq<ElementFact>(
-            new ElementFact.Symbolic($"{root}.Evidence.Source", property.Evidence.Source),
-            new ElementFact.Symbolic($"{root}.Evidence.Reference", property.Evidence.Reference))
-            + property.Evidence.ValidUntil.Map(date => Seq<ElementFact>(
-                new ElementFact.Symbolic($"{root}.Evidence.ValidUntil", date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)))).IfNone(Seq<ElementFact>());
-
-        return evidence + property.Switch(
-            mechanical: value => Numbers(root, ("Density", value.Density.Si), ("YoungsModulus", value.YoungsModulus.Si),
-                ("ShearModulus", value.ShearModulus.Si), ("YieldStrength", value.YieldStrength.Si),
-                ("UltimateStrength", value.UltimateStrength.Si), ("PoissonsRatio", value.PoissonsRatio),
-                ("ThermalExpansionPerK", value.ThermalExpansionPerK)),
-            orthotropic: value => Numbers(root, ("Density", value.Density.Si), ("E1Parallel", value.E1Parallel.Si),
-                ("E2Perpendicular", value.E2Perpendicular.Si), ("ShearModulus", value.ShearModulus.Si),
-                ("Strength1Parallel", value.Strength1Parallel.Si), ("Strength2Perpendicular", value.Strength2Perpendicular.Si),
-                ("ThermalExpansionPerK", value.ThermalExpansionPerK)),
-            thermal: value => Numbers(root, ("Conductivity", value.Conductivity.Si), ("SpecificHeat", value.SpecificHeat.Si),
-                ("UValue", value.UValue.Si), ("VapourResistanceFactor", value.VapourResistanceFactor)),
-            acoustic: value => Numbers(root, ("Nrc", value.Nrc), ("Saa", value.Saa), ("StcWeighted", value.StcWeighted), ("Rw", value.Rw))
-                + toSeq(AcousticBand.Items).Bind(band => Numbers(root,
-                    ($"Absorption.{band.CenterHz}Hz", value.At(band)),
-                    ($"SoundReductionIndexDb.{band.CenterHz}Hz", value.SriAt(band))))
-                + OptionalNumber(root, "DynamicStiffnessMNPerM3", value.DynamicStiffnessMNPerM3)
-                + OptionalNumber(root, "FlowResistivityPaSPerM2", value.FlowResistivityPaSPerM2)
-                + OptionalNumber(root, "LossFactor", value.LossFactor),
-            fire: value => Numbers(root, ("LoadBearingMinutes", value.Resistance.LoadBearingMinutes),
-                ("IntegrityMinutes", value.Resistance.IntegrityMinutes), ("InsulationMinutes", value.Resistance.InsulationMinutes))
-                + Symbols(root, ("Reaction", value.Reaction.Key), ("Smoke", value.Smoke.Key), ("Droplets", value.Droplets.Key)),
-            environmental: value => Numbers(root, ("RecycledContent", value.RecycledContent),
-                ("EndOfLifeRecovery", value.EndOfLifeRecovery), ("WholeLifeGwp", value.WholeLifeGwp))
-                + Symbols(root, ("Basis", value.Basis.Key))
-                + toSeq(ImpactCategory.Items).Bind(category => toSeq(LifecycleStage.Items).Map(stage =>
-                    (ElementFact)new ElementFact.Numeric($"{root}.Impact.{category.Name}.{stage.Module}", value.IndicatorAt(category, stage)))),
-            cost: value => Numbers(root, ("SupplyPerUnit", value.SupplyPerUnit), ("InstallPerUnit", value.InstallPerUnit),
-                ("LifecyclePerUnit", value.LifecyclePerUnit)) + Symbols(root, ("Basis", value.Basis.Key), ("Currency", value.Currency.Value)),
-            damping: value => Numbers(root, ("DampingRatio", value.DampingRatio), ("StructuralLossFactor", value.StructuralLossFactor))
-                + value.Rayleigh.Map(pair => Numbers(root, ("RayleighAlphaPerS", pair.AlphaPerS), ("RayleighBetaS", pair.BetaS))).IfNone(Seq<ElementFact>()),
-            hygrothermal: value => Numbers(root, ("Porosity", value.Porosity), ("WaterContent80Rh", value.WaterContent80Rh.Si),
-                ("FreeWaterSaturation", value.FreeWaterSaturation.Si))
-                + OptionalNumber(root, "WaterAbsorptionKgPerM2SqrtS", value.WaterAbsorptionKgPerM2SqrtS)
-                + Curve(root, "SorptionIsotherm", value.SorptionIsotherm)
-                + Curve(root, "LiquidTransport", value.LiquidTransport)
-                + Curve(root, "MoistureConductivity", value.MoistureConductivity),
-            durability: value => Numbers(root, ("CarbonationRateMmPerSqrtYear", value.CarbonationRateMmPerSqrtYear),
-                ("ChlorideDiffusion", value.ChlorideDiffusion.Si), ("AgeingExponent", value.AgeingExponent)),
-            optical: value => Numbers(root, ("VisibleTransmittance", value.VisibleTransmittance),
-                ("VisibleReflectanceFront", value.VisibleReflectanceFront), ("VisibleReflectanceBack", value.VisibleReflectanceBack),
-                ("SolarTransmittance", value.SolarTransmittance), ("SolarReflectanceFront", value.SolarReflectanceFront),
-                ("SolarReflectanceBack", value.SolarReflectanceBack), ("SolarAbsorptanceFront", value.SolarAbsorptanceFront),
-                ("SolarAbsorptanceBack", value.SolarAbsorptanceBack), ("ThermalIrTransmittance", value.ThermalIrTransmittance),
-                ("ThermalIrEmissivityFront", value.ThermalIrEmissivityFront), ("ThermalIrEmissivityBack", value.ThermalIrEmissivityBack)));
+            optical: nameof(MaterialPropertySet.Optical)));
+        return ElementColumns.Evidence.Emit(scope, property.Evidence) + property.Switch(
+            state: scope,
+            mechanical: static (at, row) => ElementColumns.Mechanical.Emit(at, row),
+            orthotropic: static (at, row) => ElementColumns.Orthotropic.Emit(at, row),
+            thermal: static (at, row) => ElementColumns.Thermal.Emit(at, row),
+            acoustic: static (at, row) => ElementColumns.Acoustic.Emit(at, row)
+                + toSeq(AcousticBand.Items).Map(band => ElementColumns.Band
+                    .Fold(at.Then(band.CenterHz.ToString(CultureInfo.InvariantCulture)), new AcousticReading(row, band)))
+                    .Bind(identity),
+            fire: static (at, row) => ElementColumns.Fire.Emit(at, row),
+            environmental: static (at, row) => ElementColumns.Environmental.Emit(at, row)
+                + toSeq(ImpactCategory.Items).Bind(category => toSeq(LifecycleStage.Items).Map(stage => ElementColumns.Impact
+                    .Fold(at.Then("Impact").Then(category.Name).Then(stage.Module), new ImpactReading(row, category, stage))))
+                    .Bind(identity),
+            cost: static (at, row) => ElementColumns.Cost.Emit(at, row),
+            damping: static (at, row) => ElementColumns.Damping.Emit(at, row),
+            hygrothermal: static (at, row) => ElementColumns.Hygrothermal.Emit(at, row)
+                + CurveRows(at.Then("SorptionIsotherm"), row.SorptionIsotherm)
+                + CurveRows(at.Then("LiquidTransport"), row.LiquidTransport)
+                + CurveRows(at.Then("MoistureConductivity"), row.MoistureConductivity),
+            durability: static (at, row) => ElementColumns.Durability.Emit(at, row),
+            optical: static (at, row) => ElementColumns.Optical.Emit(at, row));
     }
 
-    static Seq<ElementFact> UsageRows(Element baked) =>
-        baked.Materials.Bind(material => Usage($"Usage.{material.Material.MaterialKey.Value}", material.Usage));
+    private static Seq<ElementFact> SectionRows(FactScope root, MaterialComposition composition) =>
+        composition is MaterialComposition.ProfileSet profile
+            ? profile.Section.Map(section => ElementColumns.Section.Emit(root.Then("Section"), section)).IfNone(Seq<ElementFact>())
+            : Seq<ElementFact>();
 
-    static Seq<ElementFact> SectionRows(Element baked) =>
-        baked.Materials.Bind(material => material.Material.Composition is MaterialComposition.ProfileSet profile
-            ? profile.Section.Map(section => Numbers($"Material.{material.Material.MaterialKey.Value}.Section",
-                ("Area", section.Area.Si), ("Iyy", section.Iyy.Si), ("Izz", section.Izz.Si), ("J", section.J.Si), ("Iw", section.Iw.Si),
-                ("Wely", section.Wely.Si), ("Welz", section.Welz.Si), ("Wply", section.Wply.Si), ("Wplz", section.Wplz.Si),
-                ("AvY", section.AvY.Si), ("AvZ", section.AvZ.Si), ("RadiusOfGyrationMajor", section.RadiusOfGyrationMajor.Si),
-                ("RadiusOfGyrationMinor", section.RadiusOfGyrationMinor.Si), ("Depth", section.Depth.Si), ("Width", section.Width.Si),
-                ("HeatedPerimeter", section.HeatedPerimeter.Si), ("AxisDistance", section.AxisDistance.Si),
-                ("ShearCentreY", section.ShearCentreY.Si), ("ShearCentreZ", section.ShearCentreZ.Si),
-                ("MonosymmetryFactor", section.MonosymmetryFactor))).IfNone(Seq<ElementFact>())
-            : Seq<ElementFact>());
+    private static Seq<ElementFact> UsageRows(FactScope scope, MaterialUsage usage) => usage.Switch(
+        state: scope,
+        none: static (at, _) => Kind(at, nameof(MaterialUsage.None)),
+        layerSet: static (at, row) => Kind(at, nameof(MaterialUsage.LayerSet)) + ElementColumns.LayerUsage.Emit(at, row),
+        profileSet: static (at, row) => Kind(at, nameof(MaterialUsage.ProfileSet)) + ElementColumns.ProfileUsage.Emit(at, row));
 
-    static Seq<ElementFact> QuantityRows(Element baked) =>
-        baked.Quantities.Bind(bag => Seq<ElementFact>(
-            new ElementFact.Symbolic($"Quantity.{bag.SetName}.Inheritance", bag.Inheritance.Key),
-            new ElementFact.Symbolic($"Quantity.{bag.SetName}.Source", bag.Source.Token))
-            + bag.Values.Pairs.Map(pair =>
-                (ElementFact)new ElementFact.Numeric($"Quantity.{bag.SetName}.{pair.Key.Value}", pair.Value.Si)));
+    private static Seq<ElementFact> QuantityRows(QuantityBag bag) {
+        FactScope scope = FactScope.Root.Then("Quantity").Then(bag.SetName);
+        return ElementColumns.Bag.Emit(scope, bag)
+            + bag.Values.Pairs.Map(pair => new ElementFact(scope.Row(pair.Key.Value), new FactValue.Number(pair.Value.Si)));
+    }
 
-    static Seq<ElementFact> PropertyRows(Element baked) {
-        Seq<ElementFact> authored = baked.Properties.Bind(bag => Seq<ElementFact>(
-            new ElementFact.Symbolic($"Property.{bag.SetName}.Inheritance", bag.Inheritance.Key),
-            new ElementFact.Symbolic($"Property.{bag.SetName}.Source", bag.Source.Token))
-            + bag.Values.Pairs.Map(pair =>
-                (ElementFact)new ElementFact.Property($"Property.{bag.SetName}.{pair.Key.Value}", pair.Value)));
-        Seq<string> candidates = toSeq(baked.Materials
-            .Map(static row => row.Material.MaterialKey.Value)
-            .GroupBy(static key => key, StringComparer.Ordinal))
-            .Map(static group => group.Key);
-        Option<string> fallback = candidates.Head.Filter(_ => candidates.Count == 1);
-        Option<string> material = baked.Properties
+    private static Seq<ElementFact> PropertyRows(PropertyBag bag) {
+        FactScope scope = FactScope.Root.Then("Property").Then(bag.SetName);
+        return ElementColumns.Bag.Emit(scope, bag)
+            + bag.Values.Pairs.Map(pair => new ElementFact(scope.Row(pair.Key.Value), new FactValue.Typed(pair.Value)));
+    }
+
+    // The authored material row wins; an unambiguous single composition is the only fallback, so a multi-material
+    // element with no authored row publishes none rather than electing one arbitrarily.
+    private static Seq<ElementFact> MaterialFallback(Element baked) {
+        Seq<string> candidates = baked.Materials.Map(static row => row.Material.MaterialKey.Value).Distinct();
+        Option<string> elected = baked.Properties
             .Bind(static bag => bag.Values.Pairs)
-            .Choose(static pair => pair.Key.Value == MaterialRow && pair.Value is PropertyValue.Text text ? Some(text.Value) : None)
+            .Choose(static pair => pair.Key.Value == ElementColumns.MaterialRow && pair.Value is PropertyValue.Text text
+                ? Some(text.Value)
+                : None)
             .Head
-            | fallback;
-        return authored + material.Map(value => Seq<ElementFact>(new ElementFact.Symbolic(MaterialRow, value))).IfNone(Seq<ElementFact>());
+            | candidates.Head.Filter(_ => candidates.Count == 1);
+        return elected
+            .Map(static value => Seq<ElementFact>(new ElementFact(
+                FactScope.Root.Row(ElementColumns.MaterialRow), new FactValue.Text(value))))
+            .IfNone(Seq<ElementFact>());
     }
 
-    static Seq<ElementFact> TopologyRows(Seq<Relationship> topology) =>
-        topology.Map((relation, index) => relation.Switch(
-            compose: value => Symbols($"Relation.{index}",
-                    ("Case", nameof(Relationship.Compose)), ("Whole", value.Whole.Value), ("Part", value.Part.Value),
-                    ("Kind", value.SubKind.Key))
-                + value.Ordinal.Map(ordinal => Numbers($"Relation.{index}", ("Ordinal", ordinal))).IfNone(Seq<ElementFact>()),
-            assign: value => Symbols($"Relation.{index}",
-                ("Case", nameof(Relationship.Assign)), ("Subject", value.Subject.Value),
-                ("Definition", value.Definition.Value), ("Kind", value.SubKind.Key)),
-            associate: value => Symbols($"Relation.{index}",
-                    ("Case", nameof(Relationship.Associate)), ("Subject", value.Subject.Value), ("Resource", value.Resource.Value))
-                + Usage($"Relation.{index}.Usage", value.Usage),
-            connect: value => Symbols($"Relation.{index}",
-                    ("Case", nameof(Relationship.Connect)), ("From", value.From.Value), ("To", value.To.Value),
-                    ("Kind", value.SubKind.Key))
-                + value.Realizing.Map(realizing => Symbols($"Relation.{index}", ("Realizing", realizing.Value))).IfNone(Seq<ElementFact>())
-                + value.Interface.Map(key => Symbols($"Relation.{index}", ("Interface", key.ToString()))).IfNone(Seq<ElementFact>()),
-            @void: value => Symbols($"Relation.{index}",
-                ("Case", nameof(Relationship.Void)), ("Host", value.Host.Value), ("Feature", value.Feature.Value),
-                ("Kind", value.SubKind.Key)),
-            generic: value => Symbols($"Relation.{index}",
-                    ("Case", nameof(Relationship.Generic)), ("WireName", value.WireName),
-                    ("Source", value.Source.Value), ("Target", value.Target.Value))
-                + value.Attributes.Pairs.Map(pair =>
-                    (ElementFact)new ElementFact.Property($"Relation.{index}.Attribute.{pair.Key.Value}", pair.Value))
-                + value.Participants.Map((participant, participantIndex) => Seq<ElementFact>(
-                    new ElementFact.Symbolic($"Relation.{index}.Participant.{participantIndex}.Node", participant.Node.Value),
-                    new ElementFact.Symbolic($"Relation.{index}.Participant.{participantIndex}.Role", participant.Role))
-                    + participant.Ordinal.Map(ordinal => Numbers(
-                        $"Relation.{index}.Participant.{participantIndex}", ("Ordinal", ordinal))).IfNone(Seq<ElementFact>())).Bind(identity)))
-            .Bind(identity);
+    private static Seq<ElementFact> RelationRows(Relationship relation, int index) {
+        FactScope scope = FactScope.Root.Then("Relation", index);
+        return relation.Switch(
+            state: scope,
+            compose: static (at, row) => Kind(at, nameof(Relationship.Compose)) + ElementColumns.Compose.Emit(at, row),
+            assign: static (at, row) => Kind(at, nameof(Relationship.Assign)) + ElementColumns.Assign.Emit(at, row),
+            associate: static (at, row) => Kind(at, nameof(Relationship.Associate))
+                + ElementColumns.Associate.Emit(at, row) + UsageRows(at.Then("Usage"), row.Usage),
+            connect: static (at, row) => Kind(at, nameof(Relationship.Connect)) + ElementColumns.Connect.Emit(at, row),
+            @void: static (at, row) => Kind(at, nameof(Relationship.Void)) + ElementColumns.Opening.Emit(at, row),
+            generic: static (at, row) => Kind(at, nameof(Relationship.Generic)) + ElementColumns.Generic.Emit(at, row)
+                + row.Attributes.Pairs.Map(pair => new ElementFact(
+                    at.Then("Attribute").Row(pair.Key.Value), new FactValue.Typed(pair.Value)))
+                + row.Participants.Map((participant, ordinal) =>
+                    ElementColumns.Participant.Emit(at.Then("Participant", ordinal), participant)).Bind(identity));
+    }
 
-    static ReadOnlyMemory<byte> CanonicalProperties(ElementGraph graph, Element baked) {
+    private static Seq<ElementFact> CurveRows(FactScope scope, Option<SampledCurve> curve) =>
+        curve.Map(value => toSeq(value.Axis).Zip(toSeq(value.Values))
+            .Map((pair, index) => ElementColumns.Sample.Emit(scope.Then(index.ToString(CultureInfo.InvariantCulture)),
+                new CurveSample(pair.Item1, pair.Item2)))
+            .Bind(identity)).IfNone(Seq<ElementFact>());
+
+    // The case discriminant is the one row every case family shares, so it lands beside the table rather than as a
+    // first column each table restates.
+    private static Seq<ElementFact> Kind(FactScope scope, string discriminant) =>
+        Seq<ElementFact>(new ElementFact(scope.Row("Kind"), new FactValue.Text(discriminant)));
+
+    // Exemption: the ordered bag walk IS the serialization boundary, and `CanonicalWriter` is mutable-fluent, so the
+    // statement kernel is the byte law rather than an imperative accumulation of a value.
+    private static ReadOnlyMemory<byte> CanonicalProperties(ElementGraph graph, Element baked) {
         CanonicalWriter writer = new(graph.Header.Tolerance);
         Seq<PropertyBag> bags = toSeq(baked.Properties.OrderBy(static bag => bag.SetName, StringComparer.Ordinal));
         writer.Ordinal(bags.Count);
@@ -537,46 +870,12 @@ public static class ElementImport {
         return writer.ToBytes();
     }
 
-    static Seq<ElementFact> Numbers(string root, params (string Name, double Value)[] values) =>
-        toSeq(values).Map(value => (ElementFact)new ElementFact.Numeric($"{root}.{value.Name}", value.Value));
-
-    static Seq<ElementFact> Symbols(string root, params (string Name, string Value)[] values) =>
-        toSeq(values).Map(value => (ElementFact)new ElementFact.Symbolic($"{root}.{value.Name}", value.Value));
-
-    // OptionalNumber, never Optional: a member named Optional captures the Prelude combinator inside this type.
-    static Seq<ElementFact> OptionalNumber(string root, string name, Option<double> value) =>
-        value.Map(number => Numbers(root, (name, number))).IfNone(Seq<ElementFact>());
-
-    static Seq<ElementFact> OptionalMeasure(string root, string name, Option<MeasureValue> value) =>
-        value.Map(measure => Numbers(root, (name, measure.Si))).IfNone(Seq<ElementFact>());
-
-    static Seq<ElementFact> Curve(string root, string name, Option<SampledCurve> curve) =>
-        curve.Map(value => toSeq(value.Axis).Zip(toSeq(value.Values))
-            .Map((pair, index) => Seq<ElementFact>(
-                new ElementFact.Numeric($"{root}.{name}.{index}.Axis", pair.Item1),
-                new ElementFact.Numeric($"{root}.{name}.{index}.Value", pair.Item2)))
-            .Bind(identity)).IfNone(Seq<ElementFact>());
-
-    static Seq<ElementFact> Usage(string root, MaterialUsage usage) => usage.Switch(
-        none: _ => Symbols(root, ("Kind", nameof(MaterialUsage.None))),
-        layerSet: value => Symbols(root,
-                ("Kind", nameof(MaterialUsage.LayerSet)), ("Direction", value.Direction.Key), ("Sense", value.Sense.Key))
-            + OptionalMeasure(root, "OffsetFromReferenceLine", value.OffsetFromReferenceLine)
-            + OptionalMeasure(root, "ReferenceExtent", value.ReferenceExtent),
-        profileSet: value => Symbols(root, ("Kind", nameof(MaterialUsage.ProfileSet)))
-            + value.CardinalPoint.Map(point => Numbers(root, ("CardinalPoint", point.Key))).IfNone(Seq<ElementFact>())
-            + OptionalMeasure(root, "ReferenceExtent", value.ReferenceExtent));
-
-    static Error Translation(UInt128 locus) =>
-        new FabricationFault.IngressTranslation(new SourceLocus.ElementNode(locus));
+    private static Error Translation(UInt128 locus) =>
+        FabricationFault.Sourced(new SourceLocus.ElementNode(locus));
 }
 ```
 
-## [03]-[LIFECYCLE]
-
-`ElementSource` admits a distinct, non-empty subject roster over one graph. Each subject bakes once, snapshots `EdgesAt`, derives one representation identity, coalesces facts under graph tolerance, lowers realizing connections, and seals `ElementReceipt`; roster arity selects singular or batch admission. `ElementImport.Project` reads only the receipt, rails buffer failures through the retained locus, and leaves writer disposal with the caller.
-
-## [04]-[RESEARCH]
+## [05]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.

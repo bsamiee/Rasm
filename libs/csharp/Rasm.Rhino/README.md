@@ -42,6 +42,12 @@ Every alignment travels down the one kernel seam. Every measured surface mints t
 - [25]-[LIFECYCLE](.planning/Blocks/lifecycle.md): `BlockLifecycle` composes ingress, preview vault, deferred refresh, eviction, and native disposal.
 - [26]-[OPERATIONS](.planning/Blocks/operations.md): `Blocks.Commit` runs read and transaction rails through plan grants and additive receipts.
 
+[PLUGIN]:
+- [72]-[LIFECYCLE](.planning/Plugin/lifecycle.md): `RasmPlugIn` seats the one host plug-in derivation and routes each override onto a typed phase.
+- [73]-[CENSUS](.planning/Plugin/census.md): `PluginCensus.Ask` answers the installed registry; `PluginRegistry.Commit` owns load and load protection.
+- [74]-[LICENSING](.planning/Plugin/licensing.md): `Licenses.Ask` folds Zoo entitlement; its acquisition arm continues the plug-in derivation.
+- [75]-[DOCUMENT](.planning/Plugin/document.md): `Participation.Cross` rides the archive frame; `PluginSettings.Commit` bridges the settings rail.
+
 [MODELING]:
 - [27]-[SOLIDS](.planning/Modeling/solids.md): `Solids.Build` runs Brep booleans, fillets, offsets, pipes, and joins on the `ModelGate` spine.
 - [28]-[LOFTING](.planning/Modeling/lofting.md): `Lofts.Build` folds rail sweeps, lofts, patches, and developable lofting into one policy rail.

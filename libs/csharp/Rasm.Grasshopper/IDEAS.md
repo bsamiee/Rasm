@@ -19,19 +19,7 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 Capability, Shape, Unlocks, and Anchors are required on every open card; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Ideas state higher-order concepts, never landing-grain tasks.
 -->
 
-[LOG_CLASSIFICATION_SWEEP]-[QUEUED]: Classified log egress — every GH boundary log line carries its sensitivity class to the app-root redactor.
-- Capability: log payloads embedding user content, document names, plugin paths, or host identity leave the boundary classification-tagged, so the fail-closed app-root redactor sees every sensitive value instead of passing unclassified lines through unredacted.
-- Shape: a sensitivity taxonomy and total classification sweep over the folder's log partial roster, at parity with the Rhino `HostSensitivity` discipline; lands across `libs/csharp/Rasm.Grasshopper/.planning/Shell/telemetry.md` and the retaining log-partial owners.
-- Unlocks: one redaction posture across both host boundaries; a GH document title or user path stops crossing the export seam invisible.
-- Anchors: `libs/csharp/.planning/RULINGS.md` boundary-classification row; the landed `GhLog` admission and per-ALC custody; the app-root `DataClassification` value set.
-- Ripple: `[SHELL_LOG_CLASSIFY]` decomposes this.
-
-[LAYER_OVERLAY_CONSUMER]-[QUEUED]: Canvas overlays composite through the CoreAnimation layer graph instead of repainting every frame.
-- Capability: canvas-owned decoration that survives a frame without a repaint — badges, focus rings, drag ghosts, and progress chrome ride a mounted layer tree the compositor animates, so motion costs no paint pass and wide-colour fill stays Display-P3 end to end.
-- Shape: a canvas-side composer over `libs/csharp/Rasm.Grasshopper/.planning/Platform/composition.md` `Compose.Mount` and `LayerPaint`, seated on `libs/csharp/Rasm.Grasshopper/.planning/Canvas/paint.md` beside `PaintPlan` and anchored through `Platform/native.md` `MacAnchor`.
-- Unlocks: the layer graph, its style mint, its glide attachment, and its effect family gain their first consumer; a decorated canvas stops paying a full mark walk per animated frame.
-- Anchors: `Platform/composition.md` `LayerNode`/`LayerMount`/`LayerPaint`/`Glides`/`Effects`; `Canvas/paint.md` `PathSpec.Build` supplying the Eto path `LayerPaint.Stroked` converts; `Canvas/motion.md` `CanvasPacer` for the frame edge.
-- Tension: the strata law points S2 Canvas down at S1 Platform, so the composer seats on the canvas side; a Platform-side canvas composer inverts the one forbidden direction.
+(none)
 
 ## [02]-[CLOSED]
 
@@ -39,6 +27,8 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 [ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
+[LOG_CLASSIFICATION_SWEEP]-[COMPLETE]: `Shell/telemetry.md` landed `GhSensitivity` (the four app-root taxonomy spellings + attribute subclasses + `Values` on the contributor port's `Classifications` column) and the sweep classified all eleven payload parameters across the five log partials — every `detail` `[UserContent]`, `DispatchStall.operation` `[MachineIdentity]`, bounded keys unclassified; parity with the Rhino `HostSensitivity` discipline holds.
+[LAYER_OVERLAY_CONSUMER]-[COMPLETE]: `Canvas/paint.md` `[05]-[OVERLAY]` landed `OverlayNode`/`CanvasOverlay` over `Compose.Mount`/`LayerPaint`/`Glides`/`MacAnchor` with per-ordinal glide, halt, and re-frame; the zero-paint-pass claim is live-proven (mounted sublayer animates compositor-side with zero canvas paint events), the canvas backing layer's 8-bit format routes wide colour onto the overlay layer's own contents, and spring motion rides `GlidePlan.SprungCase`'s kernel `SpringShape` projection.
 [GH_TELEMETRY_FAN]-[COMPLETE]: `Shell/telemetry.md` landed `GhTelemetry`/`GhInstruments`/`GhEvidence` — the typed pre-envelope fold with per-ALC custody; the app root mints the string-scoped kernel `TelemetryContributorPort` and admits the `Rasm.Grasshopper` meter by name, so no app-root adapter member exists.
 [GH_HOOKS_REGISTRY]-[DROPPED]: invalidated by the substrate-homing collapse — the `(point, scope, token)`-keyed registry with `Tap`/`Faults`/`LastFault` was per-folder hook machinery the kernel signal capsule owns; `Shell/hooks.md` now composes `GhHooks` as scoped `(point, scope)` kernel `HookPoint<HookSignal>` instances with the shared `IsolatedFault` evidence cell.
 [DRAIN_AND_JOURNAL]-[COMPLETE]: `Shell/events.md` [05]-[DRAIN] landed `EvidenceDrain` (bounded, `itemDropped`-accounted) and `Shell/journal.md` landed `SessionJournal` with `Mount`/`Append`/`Export` — document attribution keys `DocumentCase` ids only.

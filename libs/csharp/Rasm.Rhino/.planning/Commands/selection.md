@@ -2,11 +2,35 @@
 
 `Picks` owns native-reference projection, programmatic picking, detached evidence, geometry retention, and measured-query re-entry. Every owned `ObjRef` is projected and disposed inside one terminal window; every borrowed `ObjRef` remains scoped to the caller.
 
-## [01]-[EVIDENCE]
+## [01]-[INDEX]
 
-`PickCapture` carries durable object identity, view identity, detail identity, and an evidence-shaped `PickOrigin`. Its outer admission re-validates every public nested case and rebuilds canonical evidence before storage. `PickMethod` re-closes the host `SelectionMethod` wire as a keyed row — `Other` is the ordinal `0` every non-mouse selection (`SelAll`, a script, a saved set) reports, so admission is a roster lookup and never a positivity bound, which would refuse exactly those picks. `PickOrigin` carries that row beside the total point/curve/surface evidence product.
+- [02]-[EVIDENCE]: `PickMethod`, `PickOrigin`, `PickView`, and the detached `PickCapture`.
+- [03]-[PARTS]: `Picked` and the `PartKind` projector roster.
+- [04]-[POLICY]: `PickGesture`, `PickRender`, `PickRule`, `PickPolicy`, and `PickReceipt`.
+- [05]-[PROJECTION]: the `Picks` capture, part, retain, execute, and measure entries.
+- [06]-[BOUNDARY]: the detachment and affinity carves.
+- [07]-[RESEARCH]: open verification rows.
+
+## [02]-[EVIDENCE]
+
+`PickCapture` is `IDetachedDocumentResult` — it crosses `Demand` by construction — and carries durable object identity, view identity, detail identity, and an evidence-shaped `PickOrigin`.
+
+- Law: the two parameter probes are HANDLE-RETURNING, not scalar-returning — `CurveParameter` and `SurfaceParameter` each hand back a live geometry wrapper whose parent is a fresh host `ObjRef`, so the capture brackets each wrapper at its own call and only the admitted scalar leaves. Reading the `out` value and discarding the return strands one native reference per pick per axis, and the leak is invisible because the scalar arrives correctly. Its outer admission re-validates every public nested case and rebuilds canonical evidence before storage. `PickMethod` re-closes the host `SelectionMethod` wire as a keyed row — `Other` is the ordinal `0` every non-mouse selection (`SelAll`, a script, a saved set) reports, so admission is a roster lookup and never a positivity bound, which would refuse exactly those picks. `PickOrigin` carries that row beside the total point/curve/surface evidence product.
 
 ```csharp signature
+// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+using System.Collections.Generic;
+using Rasm.Analysis;
+using Rasm.Domain;
+using Rasm.Rhino.Document;
+using Rhino;
+using Rhino.Display;
+using Rhino.DocObjects;
+using Rhino.Geometry;
+using Rhino.Input.Custom;
+
+namespace Rasm.Rhino.Commands;
+
 // --- [TYPES] ------------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class PickMethod {
@@ -18,7 +42,7 @@ public sealed partial class PickMethod {
     internal SelectionMethod Native => (SelectionMethod)Key;
 
     internal static Fin<PickMethod> Of(SelectionMethod native, Op key) =>
-        TryGet((int)native, out PickMethod? row) ? Fin.Succ(value: row) : Fin.Fail<PickMethod>(error: key.InvalidResult());
+        key.Row<int, PickMethod>((int)native);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -99,7 +123,7 @@ public sealed record PickCapture(
     Guid ObjectId,
     ComponentIndex Component,
     PickOrigin Origin,
-    Option<PickView> View) {
+    Option<PickView> View) : IDetachedDocumentResult {
     internal static Fin<PickCapture> Admit(
         Guid objectId,
         ComponentIndex component,
@@ -124,7 +148,7 @@ public sealed record PickCapture(
 }
 ```
 
-## [02]-[PARTS]
+## [03]-[PARTS]
 
 `Picked` closes every catalogued `ObjRef` projection: one generic `Shaped<T>` case carries every `GeometryBase`-derived part, and the object, grip, and SubD-component cases carry the references that are not geometry — `SubDFace`/`SubDEdge`/`SubDVertex` derive from `SubDComponent`, not `GeometryBase`, so their parts never enter the geometry egress. `Picked` is the manual generic family the generator cannot lift. `PartKind` binds each requested capability directly to its native member, so absence fails as an unsupported part and never falls through reflection or assignability.
 
@@ -192,7 +216,7 @@ public sealed partial class PartKind {
 }
 ```
 
-## [03]-[POLICY]
+## [04]-[POLICY]
 
 `PickPolicy` is generated from `PickRule` data. One row owns each independent `PickContext` dimension, and duplicate dimensions fail admission; adding a host dimension extends the case family instead of widening a constructor bag. Every host discriminant re-closes as a keyed row — `PickGesture` over `PickStyle`, `PickRender` over `PickMode`, each keyed on the host ordinal so the roster cannot silently outgrow a hand-numbered literal — and the view dimension carries the durable `PickView` serial, resolved to a live `RhinoView` at `Apply`. A stored policy therefore holds no host handle and no raw host enum, so it survives a view closing between authoring and execution as a typed refusal rather than a dangling reference.
 
@@ -230,14 +254,19 @@ public abstract partial record PickRule : ISlotted {
 
     public virtual object SlotKey => GetType();
 
-    internal Fin<Unit> Admit(Op key) => this switch {
-        InView row => Optional(row.Value).ToFin(Fail: key.InvalidInput()).Bind(view => view.Admit(key)).Map(static _ => unit),
-        Along row => guard(row.Value.IsValid, key.InvalidInput()).ToFin(),
-        Styled row => guard(row.Value is not null, key.InvalidInput()).ToFin(),
-        Rendered row => guard(row.Value is not null, key.InvalidInput()).ToFin(),
-        Transformed row => guard(row.Value.IsValid, key.InvalidInput()).ToFin(),
-        _ => Fin.Succ(value: unit),
-    };
+    internal Fin<Unit> Admit(Op key) => Switch(
+        state: key,
+        inView: static (op, rule) => op.Need(rule.Value)
+            .Bind(view => view.Admit(op)).Map(static _ => unit),
+        along: static (op, rule) => guard(rule.Value.IsValid, op.InvalidInput()).ToFin(),
+        styled: static (op, rule) => guard(rule.Value is not null, op.InvalidInput()).ToFin(),
+        rendered: static (op, rule) => guard(rule.Value is not null, op.InvalidInput()).ToFin(),
+        // The three payload-free toggles each state their own admission; a catch-all admits the next case that
+        // grows a payload without anyone noticing it was never validated.
+        grouped: static (_, _) => Fin.Succ(value: unit),
+        subObjected: static (_, _) => Fin.Succ(value: unit),
+        transformed: static (op, rule) => guard(rule.Value.IsValid, op.InvalidInput()).ToFin(),
+        refreshClipping: static (_, _) => Fin.Succ(value: unit));
 
     internal Fin<Unit> Apply(PickContext context, Op key) =>
         Switch(
@@ -288,7 +317,7 @@ public sealed record PickReceipt(
     Seq<PickCapture> Captures) : IDetachedDocumentResult;
 ```
 
-## [04]-[PROJECTION]
+## [05]-[PROJECTION]
 
 `Picks.Capture` projects borrowed references without taking custody. `CaptureOwned` consumes a returned reference sequence, accumulates every independent projection failure, and releases every entry. `Execute` derives and disposes one `PickContext`, captures `GetObjectUsed`, and returns only detached evidence. `Part` is a SCOPED projector, never an accessor: it mints the `Picked` view, hands it to the caller's projection, and lets it die with the call — the live `RhinoObject`, `GripObject`, `SubDComponent`, and `GeometryBase` it wraps carry no lease and no scope of their own, so returning the `Picked` itself is the deleted form and `Retain` is the one crossing that converts a part into owned custody.
 
@@ -297,39 +326,48 @@ public sealed record PickReceipt(
 public static class Picks {
     public static Fin<PickCapture> Capture(ObjRef reference, Op key) =>
         from _ in guard(RhinoApp.IsOnMainThread, key.InvalidContext())
-        from active in Optional(reference).ToFin(Fail: key.InvalidInput())
-        from capture in key.Catch(() => {
-            Point3d point = active.SelectionPoint();
-            Fin<PickMethod> method = PickMethod.Of(native: active.SelectionMethod(), key: key);
-            Option<double> curve = active.CurveParameter(parameter: out double t) is null ? None : Some(t);
-            Option<Point2d> surface = active.SurfaceParameter(u: out double u, v: out double v) is null
-                ? None
-                : Some(new Point2d(x: u, y: v));
-            uint detailSerial = active.SelectionViewDetailSerialNumber();
-            return
-                from admittedMethod in method
-                from origin in PickOrigin.Admit(
-                    method: admittedMethod,
-                    point: point,
-                    curve: curve,
-                    surface: surface,
-                    key: key)
-                from view in PickView.Admit(
-                    view: Optional(active.SelectionView()),
-                    detailSerial: detailSerial,
-                    key: key)
-                from admitted in PickCapture.Admit(
-                    objectId: active.ObjectId,
-                    component: active.GeometryComponentIndex,
-                    origin: origin,
-                    view: view,
-                    key: key)
-                select admitted;
-        })
+        from active in key.Need(reference)
+        from capture in
+            from admittedMethod in key.Catch(() => PickMethod.Of(native: active.SelectionMethod(), key: key))
+            from curve in CurveAt(reference: active, key: key)
+            from surface in SurfaceAt(reference: active, key: key)
+            from origin in key.Catch(() => PickOrigin.Admit(
+                method: admittedMethod,
+                point: active.SelectionPoint(),
+                curve: curve,
+                surface: surface,
+                key: key))
+            from view in key.Catch(() => PickView.Admit(
+                view: Optional(active.SelectionView()),
+                detailSerial: active.SelectionViewDetailSerialNumber(),
+                key: key))
+            from admitted in key.Catch(() => PickCapture.Admit(
+                objectId: active.ObjectId,
+                component: active.GeometryComponentIndex,
+                origin: origin,
+                view: view,
+                key: key))
+            select admitted
         select capture;
 
+    // `ObjRef.CurveParameter`/`SurfaceParameter` do not answer a scalar — each returns a LIVE geometry wrapper
+    // beside its `out` value, and for a non-top-level pointer the host mints a FRESH `ObjRef` as that wrapper's
+    // parent inside `ObjRefToGeometryHelper`. Reading the scalar and dropping the wrapper on the floor therefore
+    // strands one native reference per pick per axis. Each probe brackets its wrapper on the same statement, so
+    // the parent becomes unreachable at once and only the scalar leaves; the parent itself is GC-reclaimed, the
+    // residual this seam cannot close because the host exposes no handle to it.
+    private static Fin<Option<double>> CurveAt(ObjRef reference, Op key) => key.Catch(() => {
+        using Curve? curve = reference.CurveParameter(parameter: out double parameter);
+        return Fin.Succ(value: curve is null ? Option<double>.None : Some(parameter));
+    });
+
+    private static Fin<Option<Point2d>> SurfaceAt(ObjRef reference, Op key) => key.Catch(() => {
+        using Surface? surface = reference.SurfaceParameter(u: out double u, v: out double v);
+        return Fin.Succ(value: surface is null ? Option<Point2d>.None : Some(new Point2d(x: u, y: v)));
+    });
+
     public static Fin<Seq<PickCapture>> CaptureOwned(IEnumerable<ObjRef> references, Op key) {
-        return Optional(references).ToFin(Fail: key.InvalidInput()).Bind(source => key.Catch(() => {
+        return key.Need(references).Bind(source => key.Catch(() => {
             List<ObjRef> owned = [];
             try {
                 foreach (ObjRef reference in source) owned.Add(reference);
@@ -346,9 +384,9 @@ public static class Picks {
     public static Fin<TOut> Part<TOut>(ObjRef reference, PartKind ask, Func<Picked, Fin<TOut>> project, Op key)
         where TOut : notnull =>
         from _ in guard(RhinoApp.IsOnMainThread, key.InvalidContext())
-        from active in Optional(reference).ToFin(Fail: key.InvalidInput())
-        from kind in Optional(ask).ToFin(Fail: key.InvalidInput())
-        from body in Optional(project).ToFin(Fail: key.InvalidInput())
+        from active in key.Need(reference)
+        from kind in key.Need(ask)
+        from body in key.Need(project)
         from part in key.Catch(() => kind.Project(reference: active)
             .ToFin(key.Unsupported(geometryType: typeof(ObjRef), outputType: typeof(Picked))))
         from result in key.Catch(() => body(arg: part))
@@ -366,8 +404,8 @@ public static class Picks {
     public static Fin<PickReceipt> Execute(DocumentSession session, PickPolicy policy) {
         Op op = Op.Of();
         return from _ in guard(RhinoApp.IsOnMainThread, op.InvalidContext())
-               from target in Optional(session).ToFin(Fail: op.InvalidInput())
-               from active in Optional(policy).ToFin(Fail: op.InvalidInput())
+               from target in op.Need(session)
+               from active in op.Need(policy)
                from receipt in target.Demand(
                    use: document =>
                        from defaultView in Optional(document.Views.ActiveView).ToFin(Fail: op.MissingContext())
@@ -397,22 +435,27 @@ public static class Picks {
         Seq<GeometryBase> subjects)
         where TOut : notnull {
         Op op = Op.Of();
-        return Optional(session).ToFin(Fail: op.InvalidInput())
-            .Bind(active => active.Context(key: op))
-            .Bind(domain => Analyze.In(context: domain)
-                .Run(operation: Analyze.Query<GeometryBase, TOut>(query: ask, key: op), input: [.. subjects])
-                .ToFin());
+        return from active in op.Need(session)
+               from query in op.Need(ask)
+               from _ in guard(
+                   !subjects.IsEmpty && subjects.ForAll(static shape => shape is not null),
+                   op.InvalidInput()).ToFin()
+               from domain in active.Context(key: op)
+               from measured in Analyze.In(context: domain)
+                   .Run(operation: Analyze.Query<GeometryBase, TOut>(query: query, key: op), input: [.. subjects])
+                   .ToFin()
+               select measured;
     }
 }
 ```
 
-## [05]-[BOUNDARY]
+## [06]-[BOUNDARY]
 
 `PickCapture` crosses into `Objects` as detached identity and selection evidence, and `GeometryHandle` crosses into document geometry custody. `PickPolicy` is durable by design and holds only detached rows — `PickView` serials, keyed `PickGesture`/`PickRender`, admitted value structs — so no `ObjRef`, `RhinoView`, `PickContext`, or live geometry payload becomes durable state. `Picked` is call-window-bounded structurally rather than by convention: `Part` scopes it into one projection and no entry on the page returns it.
 
 `Commands/**` is S1 and the marshal seam `HostThread` is S2, so an affinity guard here reads `RhinoApp.IsOnMainThread` directly — composing the seam downward is the forbidden upward edge, and the cost of that carve is that command-lane crossings stay off the marshal-latency ledger.
 
-## [06]-[RESEARCH]
+## [07]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.

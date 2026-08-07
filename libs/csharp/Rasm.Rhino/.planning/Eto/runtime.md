@@ -22,6 +22,7 @@
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using Eto.Drawing;
 using Eto.Forms;
+using LanguageExt.UnsafeValueAccess;
 using Rasm.Csp;
 using Rasm.Domain;
 using Rasm.Numerics;
@@ -76,14 +77,16 @@ public static class UiThread {
 
 ## [03]-[AMBIENT]
 
-- Owner: `Pulse` leases `UITimer` and advances one kernel `MonotonicTimeline` beat chain per lease; `Displays`, `PointerState`, and `ModifierState` snapshot ambient facts; `ModifierWatch` leases the push edge; `CursorRow` applies one cursor vocabulary. Every `Displays` read is pure topology, so `Capture` alone crosses `UiThread` and alone returns a lease — it is the only member that mints a host resource.
+- Owner: `Pulse` leases `UITimer` and advances one kernel `MonotonicTimeline` beat chain per lease under one `FaultPosture` row; `Displays`, `PointerState`, and `ModifierState` snapshot ambient facts; `ModifierWatch` leases the push edge; `CursorRow` applies one cursor vocabulary. Every `Displays` read is pure topology, so `Capture` alone crosses `UiThread` and alone returns a lease — it is the only member that mints a host resource.
+- Law: an `Atom.Swap` body is a pure projection across this folder — `Swap` re-runs its body under contention, so a body that publishes a beat, reports a fault, or stops a timer runs that effect once per retry; `Pulse.Tick` advances the chain, installs the advance, and publishes off the installed value after the swap returns.
+- Law: display topology rails end to end — `Screen.PrimaryScreen` and `Screen.FromPoint` answer absent in a session with no attached display, so a bare projection inherits the host's absence as a dereference; an absent screen refuses as `UiFault.Unavailable` naming the host member that answered, on the read members exactly as on `Capture`.
 - Law: ambient input answers both modalities — `PointerState.Read`/`ModifierState.Read` poll "now" and `ModifierWatch` over `Keyboard.ModifiersChanged` delivers the EDGE, because a drag gesture and a modifier-sensitive tool both change behaviour the instant a modifier moves and a poll-only owner cannot see a chord pressed mid-drag until the next unrelated read; the watch is a `UiLease` with the same interlocked one-shot inverse every Eto capsule carries.
 - Law: `PointerState.Held(MouseButtons)` folds the host `Mouse.IsAnyButtonPressed` multi-button predicate rather than masking the snapshot, so a chord test reads live provider state where the instance `Holds` reads the captured frame — the snapshot answers what a gesture began with and the predicate what the device holds now.
 - Law: the pointer twin gates and rails because `Mouse.IsSupported` exists; `Keyboard` publishes no such flag, so `ModifierState.Read` is bare and total by host contract while `Locked` composes the `SupportedLockKeys` membership set the host DOES declare and answers `Option<bool>`. Host surface owns that asymmetry, stated here so it never reads as an ungated twin.
-- Entry: `Pulse.Start` accepts cadence and clock explicitly — the clock admits through `MonotonicTimeline.Of`, `Capture` seeds the origin, and each tick advances the chain through `Beat`, so no tick reads or subtracts raw provider timestamps.
-- Receipt: `PulseBeat` COMPOSES the kernel `MonotonicBeat` and adds the cadence-only columns — requested interval, drift, missed beats — projecting ordinal, elapsed, and delta off the composed evidence; a flat re-spelling of ordinal and elapsed beside the cadence columns re-mints temporal identity and forks drift semantics against the sibling host boundary, and is the deleted form. `Pulse.Failures` retains primary callback faults plus reporter faults.
+- Entry: `Pulse.Start` accepts cadence, clock, and fault posture explicitly — the clock admits through `MonotonicTimeline.Of`, `Capture` seeds the origin, and each tick advances the chain through `Beat`, so no tick reads or subtracts raw provider timestamps.
+- Receipt: `PulseBeat` COMPOSES the kernel `MonotonicBeat` and adds the cadence-only columns — requested interval, drift, missed beats — projecting ordinal, elapsed, and delta off the composed evidence and answering the acceptance oracle through that same evidence; a flat re-spelling of ordinal and elapsed beside the cadence columns re-mints temporal identity and forks drift semantics against the sibling host boundary, and is the deleted form. `Pulse.Failures` retains primary callback faults plus reporter faults, and `FaultPosture.Halt` stops the host timer on the first fault so a broken publisher cannot fault once per interval for the rest of the process.
 - Auto: display topology is re-read rather than cached; pointer reads reject unsupported backends before touching provider state.
-- Growth: another beat metric extends `PulseBeat`; another cursor is one `CursorRow` row.
+- Growth: another beat metric extends `PulseBeat`; another cursor is one `CursorRow` row; another pacing policy is one `FaultPosture` row.
 - Boundary: `Pulse` paces UI housekeeping and is the ONE portable cadence in the boundary — viewport motion owns frame pacing and composes this lease for its timer row rather than reaching `UITimer` itself, so one beat chain and one disposal serve both; `Pause`/`Resume` suspend the host timer without breaking the chain, so a resumed drive continues its ordinal.
 - Exemption: `UITimer` construction, start, and release form the callback-boundary statement seam; a failed start disposes the unleased timer.
 
@@ -109,13 +112,23 @@ public sealed partial class CursorRow {
     public Unit Override() => Op.Side(() => Mouse.SetCursor(Resolve()));
 }
 
+[SmartEnum<int>]
+public sealed partial class FaultPosture {
+    public static readonly FaultPosture Halt = new(key: 0, haltsOnFault: true);
+    public static readonly FaultPosture Continue = new(key: 1, haltsOnFault: false);
+    public bool HaltsOnFault { get; }
+}
+
 // --- [MODELS] -------------------------------------------------------------------------------
 // Temporal identity is the kernel's: the beat COMPOSES `MonotonicBeat` and adds cadence-only columns, so ordinal and elapsed
 // have one spelling across both host boundaries and a timeline change cannot fork drift semantics between them.
-public readonly record struct PulseBeat(MonotonicBeat Evidence, TimeSpan Interval, TimeSpan Drift, long Missed) {
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct PulseBeat(MonotonicBeat Evidence, TimeSpan Interval, TimeSpan Drift, long Missed)
+    : IValidityEvidence {
     public long Ordinal => Evidence.Ordinal;
     public TimeSpan Elapsed => Evidence.Elapsed;
     public TimeSpan Delta => Evidence.Delta;
+    public bool IsValid => ValidityClaim.Evidence(evidence: Evidence);
 }
 
 public sealed record DisplayFacts(
@@ -192,6 +205,7 @@ public sealed class Pulse : UiLease {
     private readonly TimeSpan interval;
     private readonly Action<PulseBeat> publish;
     private readonly Action<Error> report;
+    private readonly FaultPosture posture;
     private readonly Atom<Seq<Error>> failures = Atom(Seq<Error>());
     private readonly Op key;
 
@@ -202,6 +216,7 @@ public sealed class Pulse : UiLease {
         TimeSpan interval,
         Action<PulseBeat> publish,
         Action<Error> report,
+        FaultPosture posture,
         Op key) {
         this.timer = timer;
         this.timeline = timeline;
@@ -209,6 +224,7 @@ public sealed class Pulse : UiLease {
         this.interval = interval;
         this.publish = publish;
         this.report = report;
+        this.posture = posture;
         this.key = key;
     }
 
@@ -219,11 +235,13 @@ public sealed class Pulse : UiLease {
         TimeProvider clock,
         Action<PulseBeat> publish,
         Action<Error> report,
+        FaultPosture? posture = null,
         Op? key = null) {
         Op op = key.OrDefault();
         return op.Catch(() => {
             ArgumentNullException.ThrowIfNull(publish);
             ArgumentNullException.ThrowIfNull(report);
+            FaultPosture policy = posture ?? FaultPosture.Halt;
             TimeSpan interval = TimeSpan.FromSeconds(seconds.Value);
             return interval.Ticks < 1
                 ? Fin.Fail<Pulse>(new UiFault.Rejected(Key: op, Field: nameof(seconds), Reason: "timer cadence is below host resolution"))
@@ -234,7 +252,7 @@ public sealed class Pulse : UiLease {
                         bool started = false;
                         try {
                             timer = new UITimer((_, _) => pulse!.Tick()) { Interval = seconds.Value };
-                            pulse = new Pulse(timer, timeline, origin, interval, publish, report, op);
+                            pulse = new Pulse(timer, timeline, origin, interval, publish, report, policy, op);
                             timer.Start();
                             started = true;
                             return Fin.Succ(pulse);
@@ -252,38 +270,67 @@ public sealed class Pulse : UiLease {
 
     protected override Fin<Unit> Free() => Seq<Action>(timer.Stop, timer.Dispose).Drained(key);
 
-    private void Tick() => _ = chain.Swap(prior => prior
-        .Match(Some: held => timeline.Beat(seed: held, key: key), None: () => timeline.Beat(seed: origin, key: key))
-        .Match(
+    // The swap body advances nothing but the cell: publication, retention, and the posture decision all read the value
+    // the swap returned. A `Swap` body that published would publish once per contended retry, and the beat a
+    // subscriber saw would then disagree with the beat the chain holds.
+    private void Tick() {
+        Fin<MonotonicBeat> advanced = chain.Value.Match(
+            Some: held => timeline.Beat(seed: held, key: key),
+            None: () => timeline.Beat(seed: origin, key: key));
+        _ = advanced.Match(
             Succ: beat => {
-                _ = key.Catch(() => {
-                    publish(new PulseBeat(
-                        Evidence: beat,
-                        Interval: interval,
-                        Drift: beat.Elapsed - TimeSpan.FromTicks(interval.Ticks * beat.Ordinal),
-                        Missed: Math.Max(0L, (beat.Elapsed.Ticks / interval.Ticks) - beat.Ordinal)));
+                _ = chain.Swap(_ => Some(beat));
+                return Settle(key.Catch(() => {
+                    publish(Sounded(beat));
                     return Fin.Succ(unit);
-                }).Match(Succ: static published => published, Fail: Retain);
-                return Some(beat);
+                }));
             },
-            Fail: fault => (Retain(fault), prior).Item2));
+            Fail: fault => Settle(Fin.Fail<Unit>(fault)));
+    }
+
+    private PulseBeat Sounded(MonotonicBeat beat) => new(
+        Evidence: beat,
+        Interval: interval,
+        Drift: beat.Elapsed - TimeSpan.FromTicks(interval.Ticks * beat.Ordinal),
+        Missed: Math.Max(0L, (beat.Elapsed.Ticks / interval.Ticks) - beat.Ordinal));
+
+    // Posture governs the timer, never the ledger: every fault retains, and `Halt` additionally stops the host timer so
+    // a pulse that cannot advance its chain or serve its publisher stops instead of refaulting every interval.
+    private Unit Settle(Fin<Unit> outcome) => outcome.Match(
+        Succ: static settled => settled,
+        Fail: fault => (Retain(fault), Op.SideWhen(condition: posture.HaltsOnFault, action: timer.Stop)).Item2);
 
     private Unit Retain(Error fault) =>
         ignore(failures.Swap(held => held.Add(fault.Reported(report, key))));
 }
 
 public static class Displays {
-    public static Seq<DisplayFacts> Roster() => toSeq(Screen.Screens).Map(Snapshot);
-    public static DisplayFacts Primary() => Snapshot(Screen.PrimaryScreen);
-    public static DisplayFacts At(PointF point) => Snapshot(Screen.FromPoint(point));
-    public static DisplayFacts Covering(RectangleF bounds) => Snapshot(Screen.FromRectangle(bounds));
+    // Every read answers absence the same way the host does. A display-less session — a headless Rhino, a detached
+    // remote seat, a screen unplugged between two reads — hands back no screen at all, so the one member that resolves
+    // a screen resolves it once, for topology and for capture alike, and a caller reads the refusal instead of the host.
+    public static Fin<Seq<DisplayFacts>> Roster(Op? key = null) =>
+        key.OrDefault().Catch(() => Fin.Succ(toSeq(Screen.Screens).Map(Snapshot).Strict()));
+
+    public static Fin<DisplayFacts> Primary(Op? key = null) =>
+        Facts(key.OrDefault(), static () => Screen.PrimaryScreen, nameof(Screen.PrimaryScreen)).Map(Snapshot);
+
+    public static Fin<DisplayFacts> At(PointF point, Op? key = null) =>
+        Facts(key.OrDefault(), () => Screen.FromPoint(point), nameof(Screen.FromPoint)).Map(Snapshot);
+
+    public static Fin<DisplayFacts> Covering(RectangleF bounds, Op? key = null) =>
+        Facts(key.OrDefault(), () => Screen.FromRectangle(bounds), nameof(Screen.FromRectangle)).Map(Snapshot);
+
     // One display member has a side effect and it is the one minting a host resource, so it is also the one that
     // crosses: a grab returns leased under caller custody and runs UI-affine like every other host-touching owner here.
     public static Fin<Lease<Image>> Capture(RectangleF bounds, Op? key = null) {
         Op op = key.OrDefault();
-        return UiThread.Run(new UiDispatch<Lease<Image>>.Blocking(() => op.Catch(() => Fin.Succ(
-            value: (Lease<Image>)new Lease<Image>.Owned(Value: Screen.FromRectangle(bounds).GetImage(bounds))))), op).Result;
+        return UiThread.Run(new UiDispatch<Lease<Image>>.Blocking(() =>
+            Facts(op, () => Screen.FromRectangle(bounds), nameof(Screen.FromRectangle)).Bind(screen => op.Catch(() =>
+                Fin.Succ(value: (Lease<Image>)new Lease<Image>.Owned(Value: screen.GetImage(bounds)))))), op).Result;
     }
+
+    private static Fin<Screen> Facts(Op op, Func<Screen?> read, string capability) =>
+        op.Catch(() => Optional(read()).ToFin(new UiFault.Unavailable(Key: op, Capability: capability)));
 
     private static DisplayFacts Snapshot(Screen screen) =>
         new(screen.Bounds, screen.WorkingArea, screen.DPI, screen.Scale, screen.LogicalPixelSize, screen.IsPrimary);
@@ -295,9 +342,9 @@ public static class Displays {
 - Owner: `Transfer` folds read, write, inspect, and clear operations over clipboard or drag bundles; `Drop` hides `DragEventArgs` after admission.
 - Cases: `PayloadSlot` spans text, HTML, image, URI, bytes, stream, and boxed payloads; `TransferQuery` mirrors every readable shape, while `PayloadPresence` makes optional versus required reads explicit.
 - Entry: `Transfer.Apply` is the one bidirectional transfer entry; awaited `Transfer.Begin` marshals the complete drag lifetime through `UiThread`, and `Drop.Of` admits drop ingress.
-- Receipt: optional reads preserve absence in `TransferReceipt.Read`; required absence returns `UiFault.AbsentPayload`; writes expose every slot fact, and detached drag bundles publish only after every fact succeeds.
+- Receipt: optional reads preserve absence in `TransferReceipt.Read` and carry the admitted slot leased; required absence returns `UiFault.AbsentPayload`; writes expose every slot fact, and detached drag bundles publish only after every fact succeeds.
 - Growth: another payload shape adds one `PayloadSlot` case, one `TransferQuery` case, and compiler-forced fold arms.
-- Boundary: `DragEventArgs` remains private inside `Drop`; byte slots detach into immutable storage before egress, and `Transfer.Begin` takes custody of every DISPOSABLE slot — streamed and picture alike — through drag completion and releases each on either outcome, so a slot's host resource is drained by its conformance rather than by a per-case filter.
+- Boundary: `DragEventArgs` remains private inside `Drop`; byte slots detach into immutable storage before egress, and custody is SYMMETRIC across the seam — `Transfer.Begin` takes custody of every slot through drag completion and drains each on either outcome, while a read hands its slot back as `Lease<PayloadSlot>` in the same custody form `Displays.Capture` returns, so a clipboard image or bundle stream never crosses out of this owner unowned.
 - Exemption: provider effect and drop-description assignment form the drag/drop statement seam.
 
 ```csharp signature
@@ -323,29 +370,33 @@ public readonly partial struct Mime {
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record PayloadSlot {
+public abstract partial record PayloadSlot : IDisposable {
     private PayloadSlot() { }
+    private int released;
+
     public sealed record Text(string Value) : PayloadSlot;
     public sealed record Html(string Value) : PayloadSlot;
-    // Picture slots carry a host `Image` on exactly the ownership terms a stream does, so this case joins the
-    // disposable family rather than relying on a drag cleanup that filters for one case name.
-    public sealed record Picture(Image Value) : PayloadSlot, IDisposable {
-        private int released;
-        public void Dispose() {
-            if (Interlocked.Exchange(ref released, 1) == 0)
-                Value.Dispose();
-        }
-    }
+    public sealed record Picture(Image Value) : PayloadSlot;
     public sealed record Linked(Seq<Uri> Value) : PayloadSlot;
     public sealed record Bytes(Mime Key, Arr<byte> Value) : PayloadSlot;
-    public sealed record Streamed(Mime Key, Stream Value) : PayloadSlot, IDisposable {
-        private int released;
-        public void Dispose() {
-            if (Interlocked.Exchange(ref released, 1) == 0)
-                Value.Dispose();
-        }
-    }
+    public sealed record Streamed(Mime Key, Stream Value) : PayloadSlot;
     public sealed record Boxed(Mime Key, object Value) : PayloadSlot;
+
+    // Release is TOTAL over the union and one-shot on the base, so custody belongs to the slot rather than to the case
+    // a caller happened to receive — a picture and a stream drain their host resource, every value case answers the
+    // no-op arm, and both rails hand slots across as `Lease<PayloadSlot>` on exactly those terms.
+    public void Dispose() {
+        if (Interlocked.Exchange(ref released, 1) != 0)
+            return;
+        _ = Switch(
+            text: static _ => unit,
+            html: static _ => unit,
+            picture: static slot => Op.Side(slot.Value.Dispose),
+            linked: static _ => unit,
+            bytes: static _ => unit,
+            streamed: static slot => Op.Side(slot.Value.Dispose),
+            boxed: static _ => unit);
+    }
 
     internal string Identity => Switch(
         text: static _ => nameof(Text),
@@ -397,7 +448,7 @@ public abstract partial record TransferOp {
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record TransferReceipt {
     private TransferReceipt() { }
-    public sealed record Read(Option<PayloadSlot> Payload) : TransferReceipt;
+    public sealed record Read(Option<Lease<PayloadSlot>> Payload) : TransferReceipt;
     public sealed record Written(Seq<TransferWriteFact> Slots) : TransferReceipt {
         public int Count => Slots.Filter(static fact => fact.IsValid).Count;
 
@@ -490,7 +541,8 @@ public static class Transfer {
         key.OrDefault().Catch(() => operation.Switch(
             state: (Target: target, Key: key.OrDefault()),
             read: static (held, op) => Read(held.Target, op.Query).Match(
-                Some: payload => Fin.Succ<TransferReceipt>(new TransferReceipt.Read(Some(payload))),
+                Some: payload => Fin.Succ<TransferReceipt>(new TransferReceipt.Read(
+                    Some((Lease<PayloadSlot>)new Lease<PayloadSlot>.Owned(Value: payload)))),
                 None: () => op.Presence.IsRequired
                     ? Fin.Fail<TransferReceipt>(new UiFault.AbsentPayload(Key: held.Key, Payload: op.Query.Identity))
                     : Fin.Succ<TransferReceipt>(new TransferReceipt.Read(None))),
@@ -522,11 +574,9 @@ public static class Transfer {
                         }))
                     : Fin.Fail<DragReceipt>(new UiFault.Rejected(Key: op, Field: nameof(plan.Slots), Reason: "drag payload was not written")));
         });
-        // Draining keys on the DISPOSABLE conformance, not on a case name, so a slot joining the family needs no edit
-        // here and no disposable case can be forgotten by a filter that enumerates cases.
-        Fin<Unit> cleanup = plan.Slots
-            .Choose(static slot => slot is IDisposable owned ? Some<Action>(owned.Dispose) : None)
-            .Drained(op);
+        // Release is total over the union, so the drag drains every slot it took custody of: no case filter to keep in
+        // step with the case list, and no slot whose host resource survives because a filter did not name its case.
+        Fin<Unit> cleanup = plan.Slots.Map(static slot => (Action)slot.Dispose).Drained(op);
         return outcome.Sealed(cleanup);
     }
 
@@ -559,7 +609,7 @@ public static class Transfer {
 ## [05]-[PRESENCE]
 
 - Owner: `Toast` owns notification activation, `TrayLease` owns tray lifetime, and `TaskbarPulse` plus `PresenceBadge` project process status through `UiThread`.
-- Entry: `ToastDelivery.Deliver`, `TrayLease.Show`, `TaskbarPulse.Apply`, and `PresenceBadge.Apply` synchronously marshal their complete presence transaction and return its `Fin`.
+- Entry: `ToastDelivery.Deliver`, `TrayLease.Show`, `TaskbarPulse.Apply`, and `PresenceBadge.Apply` synchronously marshal their complete presence transaction and return its `Fin`; `TaskbarPulse.Land` is that same transaction without the crossing, for a caller inside a host callback that already owns the UI-affine scope.
 - Receipt: `ToastLease` and `TrayLease` extend `UiLease`, retain activation and reporter failures, and marshal deterministic release through the same owner; taskbar state is recoverable from `PulseState`.
 - Growth: another progress mode is one `PulseState` case carrying exactly the evidence `Taskbar.SetProgress` consumes.
 - Boundary: a notification requiring a tray indicator rejects an absent anchor before `Show`; macOS notification refusal remains a host fault.
@@ -699,7 +749,7 @@ public static class ToastDelivery {
             _ = toast.Content.Iter(image => owned.ContentImage = image);
             if (owned.RequiresTrayIndicator && anchor.IsNone)
                 return Fin.Fail<ToastLease>(new UiFault.Unavailable(Key: op, Capability: nameof(TrayIndicator)));
-            owned.Show(anchor.Map(static held => held.Indicator).IfNoneUnsafe((TrayIndicator?)null));
+            owned.Show(anchor.Map(static held => held.Indicator).ValueUnsafe());
             return Fin.Succ(new ToastLease(toast.Key, owned, onActivated, report, op));
         }).MapFail(fault => Optional(notification).Map(owned =>
             op.Catch(() => Fin.Succ(Op.Side(owned.Dispose))).Match(
@@ -711,12 +761,17 @@ public static class ToastDelivery {
 public static class TaskbarPulse {
     public static Fin<Unit> Apply(PulseState state, Op? key = null) {
         Op op = key.OrDefault();
-        return UiThread.Run(new UiDispatch<Unit>.Blocking(() => op.Catch(() => {
-            (TaskbarProgressState host, float progress) = state.Project();
-            Taskbar.SetProgress(host, progress);
-            return Fin.Succ(unit);
-        })), op).Result;
+        return UiThread.Run(new UiDispatch<Unit>.Blocking(() => Land(state, op)), op).Result;
     }
+
+    // `Apply` is the marshalling entry and `Land` the same transaction with NO crossing, so a caller already holding a
+    // UI-affine scope picks its own dispatch case: a host callback raised while that scope's thread is blocked would
+    // re-enter `Invoke` against the very thread it is waiting on, and `UiDispatch.Current` refuses rather than blocks.
+    internal static Fin<Unit> Land(PulseState state, Op op) => op.Catch(() => {
+        (TaskbarProgressState host, float progress) = state.Project();
+        Taskbar.SetProgress(host, progress);
+        return Fin.Succ(unit);
+    });
 }
 
 public static class PresenceBadge {

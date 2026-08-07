@@ -11,10 +11,10 @@ CPU tensor dispatch binds each `TensorOpFamily` row to one arity kernel, claim-g
 ## [02]-[KERNEL_DISPATCH]
 
 - Owner: `TensorOps`
-- Entry: `TensorOps.Map` and its arity-shaped siblings validate common extents before selecting one closed row. `Segment` validates every segment id before grouped reduction, `Gather`/`Scatter` prove every index against the addressed extent before element movement, `Pool` validates rank, axis, window, stride, and exact destination shape before arbitrary-axis reduction, and `Partition` selects inline, block, or plane execution from the admitted claim. Every span-shaped method catches at its statement seam because ref-struct operands never cross an effect closure.
+- Entry: `TensorOps.Map` and its arity-shaped siblings validate common extents before selecting one closed row. `Segment` validates every segment id before grouped reduction, `Gather`/`Scatter` prove every index against the addressed extent before element movement, `Pool` validates rank, axis, window, stride, and exact destination shape before arbitrary-axis reduction, and `Partition` selects inline or blocked execution from the admitted claim. Every span-shaped method catches at its statement seam because ref-struct operands never cross an effect closure.
 - Packages: System.Numerics.Tensors, CommunityToolkit.HighPerformance, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
-- Growth: a new operation binds one entry on its arity kernel table; a new activation is one `Activations<T>` composed fold with one `Unary` row, a new pooling row is one `PoolReducers<T>` window-reducer entry on the shared `Pool` fold, a new predicate-aggregate is one `AggregateReducers<T>` entry on the shared `Aggregate` fold, a new segmented reduction is one `SegmentReducers<T>` seed/combine/finalize row on the shared `Segment` fold, an index-driven structural op is one row-gated span arity beside `Gather`/`Scatter`, and a new element-domain op is one `ComplexKernels`/`QuaternionKernels` entry — never a sibling activation/pooling/aggregate/segment/complex method; a matrix kernel is one lowering row read from `Tensor/factor#KERNEL_LOWERING`, never a span-kernel entry; the partition column is one claim-gated execution path reading `CpuBudget.PartitionCap` and the claim's route column, never a new owner; zero new surface.
-- Boundary: arity tables bind only verified `TensorPrimitives` members at compatible generic constraints. Author folds cover activation, complex, and quaternion operations that have no direct member, and vector normalization composes `Norm` then `Divide` against the reduced magnitude rather than binding a row of its own; matrix operations lower through the numeric lane; pooling reduces arbitrary axes through tuple policy rows; predicates, reductions, masks, segments, index gathers/scatters, partitions, and conversions retain their distinct destination and admission shapes. Frozen indexes use ordinal comparison, and ref-struct kernels remain statement-shaped. Kernel-interior `SpanOwner`/`MemoryOwner` scratch rents ride the intent-level `Tensor/memory#ALLOCATION_AXIS` `AllocationClass.Grant` — admission grants once against the intent-declared bound covering the kernel working set, so an interior rent never re-grants and never chooses a class at the call site.
+- Growth: a new operation binds one entry on its arity kernel table; a new activation is one `Activations<T>` composed fold with one `Unary` row, a new pooling row is one `PoolReducers<T>` window-reducer entry on the shared `Pool` fold, a new predicate-aggregate is one `AggregateReducers<T>` entry on the shared `Aggregate` fold, a new segmented reduction is one `SegmentReducers<T>` seed/combine/finalize row on the shared `Segment` fold, an index-driven structural op is one row-gated span arity beside `Gather`/`Scatter`, and a new element-domain op is one `ComplexKernels`/`QuaternionKernels` entry — never a sibling activation/pooling/aggregate/segment/complex method; a matrix kernel is one lowering row read from `Tensor/factor#KERNEL_LOWERING`, never a span-kernel entry; the partition column is one claim-gated execution path reading `CpuBudget.PartitionCap`, never a new owner; zero new surface.
+- Boundary: arity tables bind only verified `TensorPrimitives` members at compatible generic constraints. Author folds cover activation, complex, and quaternion operations that have no direct member, and vector normalization composes `Norm` then `Divide` against the reduced magnitude rather than binding a row of its own; matrix operations lower through the numeric lane; pooling reduces arbitrary axes through tuple policy rows; predicates, reductions, masks, segments, index gathers/scatters, partitions, and conversions retain their distinct destination and admission shapes. Frozen indexes use ordinal comparison, and ref-struct kernels remain statement-shaped. Kernel-interior `SpanOwner`/`MemoryOwner` scratch is EXEMPT from the `Tensor/memory#ALLOCATION_AXIS` `AllocationClass.Grant` edge by declared law: a rent whose entire life is one kernel body — sized by the operand extent the caller already admitted, released on the same frame, visible to no other lane — produces evidence no receipt reader acts on, and granting it would stamp one `AllocationEvidence` value per elementwise call. `Grant` admits STAGING allocations alone, so an interior rent neither re-grants nor picks a class at the call site. `KernelCensus.Complete` proves the row/kernel bijection once at composition — `TensorOpKind` names the owner each row must resolve in — so a family minted without its binding refuses to compose instead of surfacing `kernel-row-miss` on whichever lane reaches it first.
 
 ```csharp signature
 // --- [TYPES] -------------------------------------------------------------------------------
@@ -240,7 +240,7 @@ public static class ComplexKernels {
         [TensorOpFamily.Negate] = TensorPrimitives.Negate,
         [TensorOpFamily.Conjugate] = Projection.Elementwise<Complex>(Complex.Conjugate),
         [TensorOpFamily.ComplexExp] = Projection.Elementwise<Complex>(Complex.Exp),
-        [TensorOpFamily.ComplexLog] = Projection.Elementwise<Complex>(static x => Complex.Log(x)),
+        [TensorOpFamily.ComplexLog] = Projection.Elementwise<Complex>(Complex.Log),
     }.ToFrozenDictionary();
     public static readonly FrozenDictionary<TensorOpFamily, MagnitudeKernel> Magnitude = new Dictionary<TensorOpFamily, MagnitudeKernel> {
         [TensorOpFamily.ComplexAbs] = Projection.Magnitude(static x => x.Magnitude),
@@ -473,41 +473,78 @@ public static class TensorOps {
         }
         catch (Exception ex) { return Threw<Unit>(row, ex); }
     }
+    // The winning claim is the WHOLE partition gate: absent, the span kernel runs inline; present, the length
+    // splits into `CpuBudget.PartitionCap` blocks over `ParallelHelper.For`. A second "plane" route spelling its
+    // launch as `For2D(0, rows, 0, 1)` walks one block per row — this same blocked walk at a caller-supplied block
+    // size — so it published two shapes for one execution and is deleted along with its 2-D action structs.
     public static Fin<Unit> Partition<T>(TensorOpFamily row, ReadOnlyMemory<T> x, Memory<T> destination, CpuBudget budget, Option<BenchmarkRow> claim) where T : IFloatingPointIeee754<T> =>
         claim.Match(
             None: () => Map(row, x.Span, destination.Span),
-            Some: won => x.Length != destination.Length ? TensorFault.Fail<Unit>("length-mismatch", row.Key, $"{x.Length}!={destination.Length}")
+            Some: _ => x.Length != destination.Length ? TensorFault.Fail<Unit>("length-mismatch", row.Key, $"{x.Length}!={destination.Length}")
                 : TensorKernels<T>.Unary.GetValueOrDefault(row) is { } kernel
-                ? won.Route.Switch(
-                    state: (Row: row, X: x, Dest: destination, Kernel: kernel, Budget: budget),
-                    blocked: static s => Effects.ToFin(() => ParallelHelper.For(0, Blocks(s.X.Length, s.Budget.PartitionCap), new MapBlock<T>(s.X, s.Dest, BlockSize(s.X.Length, s.Budget.PartitionCap), s.Kernel), minimumActionsPerThread: 1)),
-                    plane: static (s, plane) => plane.Rows <= 0 || plane.Columns <= 0 || (long)plane.Rows * plane.Columns != s.X.Length
-                        ? TensorFault.Fail<Unit>("partition-plane", s.Row.Key, $"{plane.Rows}x{plane.Columns}!={s.X.Length}")
-                        : Effects.ToFin(() => ParallelHelper.For2D(0, plane.Rows, 0, 1, new PlaneBlock<T>(s.X, s.Dest, plane.Columns, s.Kernel))))
+                ? Effects.ToFin(() => ParallelHelper.For(0, Blocks(x.Length, budget.PartitionCap), new MapBlock<T>(x, destination, BlockSize(x.Length, budget.PartitionCap), kernel), minimumActionsPerThread: 1))
                 : Miss<Unit>(row));
     public static Fin<Unit> Partition<T>(TensorOpFamily row, ReadOnlyMemory<T> x, ReadOnlyMemory<T> y, Memory<T> destination, CpuBudget budget, Option<BenchmarkRow> claim) where T : IFloatingPointIeee754<T> =>
         claim.Match(
             None: () => Zip(row, x.Span, y.Span, destination.Span),
-            Some: won => x.Length != destination.Length || y.Length != destination.Length ? TensorFault.Fail<Unit>("length-mismatch", row.Key, $"{x.Length}/{y.Length}!={destination.Length}")
+            Some: _ => x.Length != destination.Length || y.Length != destination.Length ? TensorFault.Fail<Unit>("length-mismatch", row.Key, $"{x.Length}/{y.Length}!={destination.Length}")
                 : TensorKernels<T>.Binary.GetValueOrDefault(row) is { } kernel
-                ? won.Route.Switch(
-                    state: (Row: row, X: x, Y: y, Dest: destination, Kernel: kernel, Budget: budget),
-                    blocked: static s => Effects.ToFin(() => ParallelHelper.For(0, Blocks(s.X.Length, s.Budget.PartitionCap), new ZipBlock<T>(s.X, s.Y, s.Dest, BlockSize(s.X.Length, s.Budget.PartitionCap), s.Kernel), minimumActionsPerThread: 1)),
-                    plane: static (s, plane) => plane.Rows <= 0 || plane.Columns <= 0 || (long)plane.Rows * plane.Columns != s.X.Length
-                        ? TensorFault.Fail<Unit>("partition-plane", s.Row.Key, $"{plane.Rows}x{plane.Columns}!={s.X.Length}")
-                        : Effects.ToFin(() => ParallelHelper.For2D(0, plane.Rows, 0, 1, new PlaneZipBlock<T>(s.X, s.Y, s.Dest, plane.Columns, s.Kernel))))
+                ? Effects.ToFin(() => ParallelHelper.For(0, Blocks(x.Length, budget.PartitionCap), new ZipBlock<T>(x, y, destination, BlockSize(x.Length, budget.PartitionCap), kernel), minimumActionsPerThread: 1))
                 : Miss<Unit>(row));
     private static int BlockSize(int length, int cap) => Math.Max(1, checked((int)((length + (long)Math.Max(1, cap) - 1) / Math.Max(1, cap))));
     private static int Blocks(int length, int cap) => (length + BlockSize(length, cap) - 1) / BlockSize(length, cap);
     private static Fin<A> Miss<A>(TensorOpFamily row) => TensorFault.Fail<A>("kernel-row-miss", row.Key);
 }
 
-// --- [TABLES] ------------------------------------------------------------------------------
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record PartitionRoute {
-    private PartitionRoute() { }
-    public sealed record Blocked : PartitionRoute;
-    public sealed record Plane(int Rows, int Columns) : PartitionRoute;
+// Boot-time bijection census over the row/kernel pairing. `TensorOpKind` names WHICH owner must hold a row, so a
+// family minted under a kind whose table it never entered faults at composition instead of surfacing as a
+// `kernel-row-miss` on the first intent that reaches it — months after the row landed, on whichever lane happened
+// to ask first. The composition root runs this once and refuses to compose on a gap.
+public static class KernelCensus {
+    // Rows the span arities own by IDENTITY, gating on the row inside a named method rather than through a
+    // dictionary; without this set the census reports a false gap for each.
+    static readonly FrozenSet<TensorOpFamily> Inline = new[] {
+        TensorOpFamily.Gather, TensorOpFamily.Scatter, TensorOpFamily.MaskedWrite,
+        TensorOpFamily.HammingDistance, TensorOpFamily.HammingBitDistance,
+        TensorOpFamily.RootN, TensorOpFamily.ScaleB,
+    }.ToFrozenSet();
+
+    // Each probe instantiates the generic table at the widest element the kind admits — `double` for the real
+    // lanes, `long` for the integer lanes — because a table's KEY SET is element-invariant.
+    static readonly FrozenDictionary<TensorOpKind, Func<TensorOpFamily, bool>> Owners = new Dictionary<TensorOpKind, Func<TensorOpFamily, bool>> {
+        [TensorOpKind.Elementwise] = Pointwise,
+        [TensorOpKind.Rounding] = Pointwise,
+        [TensorOpKind.Transcendental] = Pointwise,
+        [TensorOpKind.Reduction] = static row => TensorKernels<double>.Fold.ContainsKey(row) || TensorKernels<double>.PairFold.ContainsKey(row)
+            || TensorKernels<double>.Index.ContainsKey(row) || SegmentReducers<double>.Rows.ContainsKey(row),
+        [TensorOpKind.Statistics] = static row => TensorKernels<double>.Fold.ContainsKey(row),
+        [TensorOpKind.Bitwise] = static row => IntegerKernels<long>.Unary.ContainsKey(row) || IntegerKernels<long>.Binary.ContainsKey(row) || IntegerKernels<long>.Shift.ContainsKey(row),
+        [TensorOpKind.Population] = static row => IntegerKernels<long>.Unary.ContainsKey(row),
+        [TensorOpKind.Similarity] = static row => TensorKernels<double>.PairFold.ContainsKey(row) || Inline.Contains(row),
+        [TensorOpKind.Conversion] = static row => ConvertKernels<double, float>.Rows.ContainsKey(row) || IntegerConvertKernels<double, long>.Rows.ContainsKey(row)
+            || HalfConvertKernels.Narrow.ContainsKey(row) || HalfConvertKernels.Widen.ContainsKey(row),
+        [TensorOpKind.Predicate] = static row => MaskKernels<double>.Rows.ContainsKey(row) || AggregateReducers<double>.Rows.ContainsKey(row) || TensorKernels<double>.Sign.ContainsKey(row),
+        [TensorOpKind.Matrix] = KernelLowering.IsMatrix,
+        [TensorOpKind.Structural] = static row => PoolReducers<double>.Rows.ContainsKey(row) || Inline.Contains(row),
+        [TensorOpKind.Geometry] = GeometryAdjoint.Rows.ContainsKey,
+    }.ToFrozenDictionary();
+
+    static bool Pointwise(TensorOpFamily row) =>
+        TensorKernels<double>.Unary.ContainsKey(row) || TensorKernels<double>.Binary.ContainsKey(row)
+        || TensorKernels<double>.Ternary.ContainsKey(row) || TensorKernels<double>.Dual.ContainsKey(row) || TensorKernels<double>.Sign.ContainsKey(row)
+        || ComplexKernels.Unary.ContainsKey(row) || ComplexKernels.Binary.ContainsKey(row) || ComplexKernels.Magnitude.ContainsKey(row)
+        || QuaternionKernels.Unary.ContainsKey(row) || QuaternionKernels.Binary.ContainsKey(row)
+        || Inline.Contains(row);
+
+    public static Fin<Unit> Complete() {
+        Seq<string> unbound = toSeq(TensorOpFamily.Items)
+            .Filter(static row => Owners.GetValueOrDefault(row.Kind) is not { } owns || !owns(row))
+            .Map(static row => $"{row.Kind.Key}/{row.Key}");
+        Seq<string> unrouted = toSeq(TensorOpKind.Items).Filter(static kind => !EquivalenceLaw.Routes(kind)).Map(static kind => kind.Key);
+        return unbound.IsEmpty && unrouted.IsEmpty
+            ? Fin.Succ(unit)
+            : TensorFault.Fail<Unit>("census-unbound", string.Join(',', unbound), string.Join(',', unrouted));
+    }
 }
 
 // --- [COMPOSITION] -------------------------------------------------------------------------
@@ -519,13 +556,6 @@ public readonly struct MapBlock<T>(ReadOnlyMemory<T> source, Memory<T> destinati
     }
 }
 
-public readonly struct PlaneBlock<T>(ReadOnlyMemory<T> source, Memory<T> destination, int columns, UnaryKernel<T> kernel) : IAction2D {
-    public void Invoke(int i, int j) {
-        int start = i * columns;
-        kernel(source.Span.Slice(start, columns), destination.Span.Slice(start, columns));
-    }
-}
-
 public readonly struct ZipBlock<T>(ReadOnlyMemory<T> x, ReadOnlyMemory<T> y, Memory<T> destination, int blockSize, BinaryKernel<T> kernel) : IAction {
     public void Invoke(int block) {
         int start = block * blockSize;
@@ -533,23 +563,16 @@ public readonly struct ZipBlock<T>(ReadOnlyMemory<T> x, ReadOnlyMemory<T> y, Mem
         kernel(x.Span.Slice(start, length), y.Span.Slice(start, length), destination.Span.Slice(start, length));
     }
 }
-
-public readonly struct PlaneZipBlock<T>(ReadOnlyMemory<T> x, ReadOnlyMemory<T> y, Memory<T> destination, int columns, BinaryKernel<T> kernel) : IAction2D {
-    public void Invoke(int i, int j) {
-        int start = i * columns;
-        kernel(x.Span.Slice(start, columns), y.Span.Slice(start, columns), destination.Span.Slice(start, columns));
-    }
-}
 ```
 
 ## [03]-[EQUIVALENCE_INTEROP]
 
-- Owner: `EquivalencePolicy`; `AdjointMode` `[SmartEnum<string>]` forward/reverse rows; `DifferentiableOp` the per-`TensorOpFamily` binding table carrying the reverse-mode vector-Jacobian-product, the `Diagonal` flag, and the forward-mode Jacobian-vector-product as a TOTAL (non-optional) `Func` column on every bound row; `Sensitivity` the ONE directional-derivative owner carrying each non-elementwise op's reverse VJP and forward JVP — sharing one body wherever the two directions coincide so a `Forward`/`Backward` class pair with copy-pasted SoftMax/MatMul bodies is the deleted illusory-dual form — with the MatMul weight projection selected by `AdjointMode` (`Wᵀ` reverse for `ȳ·Wᵀ`, `W` forward for `ẋ·W`), the symmetric SoftMax Jacobian shared across both directions, and the `Operator` DDG geometry apply selecting the page-owned `OperatorRow.Adjoint` (reverse transpose `Aᵀ·ȳ`) or `OperatorRow.Apply` (forward pushforward `A·ṫ`) — the row table composing the kernel `Rasm.Numerics` `DiscreteCalculus`; `SensitivityLaw` the static dual-mode adjoint, forward and reverse tape sweeps over BOTH the `(op, primal)` and `GeometryTape` tapes, the generalized Gauss-Newton `JᵀJ·v` (reverse-over-forward) surface, AND the hyper-dual scalar leg — the THIRD leg of the ONE `Sensitivity` family beside the geometry tape and the `Symbolic/lowering` symbolic tape: a general smooth scalar objective authored once over the `HyperJet` hyper-dual scalar yields the EXACT gradient (order 1) and the EXACT gradient+Hessian (order 2) in one evaluation through `DDScalar.Variables`/`GetGradient()`/`GetHessian()`, deleting the finite-difference fall its consumers carried (a fourth parallel gradient mechanism is the deleted form); `JacobianColoring` the graph-coloring sparse-Jacobian assembler over the AD tape into the `Tensor/factor#SPARSE_SOLVE` CSR storage.
-- Entry: `EquivalenceLaw.Prove` admits a positive sample count, captures distribution and kernel boundaries, and applies `ToleranceClass.Bound`. `SensitivityLaw.Adjoint`, `Chain`, `Pushforward`, and `GaussNewton` keep derivative shape and operator failures on `Fin`; `Gradient` and `Hessian` trap hyper-dual evaluation. `JacobianColoring.Of` admits matrix extents and every sparsity coordinate before `Assemble` recovers colored derivatives into CSR storage.
+- Owner: `EquivalencePolicy`; `AdjointMode` `[SmartEnum<string>]` forward/reverse rows; `DifferentiableOp` the per-`TensorOpFamily` binding table carrying the reverse-mode vector-Jacobian-product, the `Diagonal` flag, and the forward-mode Jacobian-vector-product as a TOTAL (non-optional) `Func` column on every bound row; `Sensitivity` the ONE directional-derivative owner carrying each non-elementwise op's reverse VJP and forward JVP — sharing one body wherever the two directions coincide so a `Forward`/`Backward` class pair with copy-pasted SoftMax/MatMul bodies is the deleted illusory-dual form — with the MatMul weight projection selected by `AdjointMode` (`Wᵀ` reverse for `ȳ·Wᵀ`, `W` forward for `ẋ·W`), the symmetric SoftMax Jacobian shared across both directions, and the `Operator` DDG geometry apply selecting the page-owned `OperatorRow.Adjoint` (reverse transpose `Aᵀ·ȳ`) or `OperatorRow.Apply` (forward pushforward `A·ṫ`) — the row table composing the kernel `Rasm.Numerics` `DiscreteCalculus`; `TapeStep` the ONE tape entry — op, forward input, and the row's held-operand payload — under the convention that `Primal` is the forward input on every row and extra recorded data rides `Payload`; `SensitivityLaw` the static dual-mode adjoint, forward and reverse tape sweeps over BOTH the `TapeStep` and `GeometryTape` tapes, the generalized Gauss-Newton `JᵀJ·v` (reverse-over-forward) surface, AND the hyper-dual scalar leg — the THIRD leg of the ONE `Sensitivity` family beside the geometry tape and the `Symbolic/lowering` symbolic tape: a general smooth scalar objective authored once over the `HyperJet` hyper-dual scalar yields the EXACT gradient (order 1) and the EXACT gradient+Hessian (order 2) in one evaluation through `DDScalar.Variables`/`GetGradient()`/`GetHessian()`, deleting the finite-difference fall its consumers carried (a fourth parallel gradient mechanism is the deleted form); `JacobianColoring` the graph-coloring sparse-Jacobian assembler over the AD tape into the `Tensor/factor#SPARSE_SOLVE` CSR storage.
+- Entry: `EquivalenceLaw.Prove` admits a positive sample count, captures distribution and kernel boundaries, and applies `ToleranceClass.Bound`, passing the `EquivalencePolicy.Seed` draw key to the one oracle that mints its own fixture. `SensitivityLaw.Adjoint`, `Chain`, `Pushforward`, and `GaussNewton` keep derivative shape and operator failures on `Fin`, every sweep two-argument because the `Tensor/factor#KERNEL_LOWERING` `ShardDispatch` the MatMul row lowers against rides the geometry it derives from the operand shape; `Gradient` and `Hessian` trap hyper-dual evaluation. `JacobianColoring.Of` admits matrix extents and every sparsity coordinate before `Assemble` recovers colored derivatives into CSR storage.
 - Receipt: equivalence runs and explicit copy points materialize as TensorRun receipt evidence at the sink edge, stamped through the threaded NodaTime `IClock`/BCL `TimeProvider` pair (the App-owned `ClockPolicy` stays at composition) and keyed by `CorrelationId`; the copy points are exactly the three named bridges the `ORT_BRIDGE` capsule owns, the `Span2D` staging-plane view, and the `ByteString` remote-edge projection.
 - Packages: Rasm (project), System.Numerics.Tensors, MathNet.Numerics, HyperJet (the hyper-dual scalar-AD leg — `DDScalar`/`DDScalar1..15`/`DDScalarSpan`, `GetGradient()`/`GetHessian()` MathNet export), Microsoft.ML.OnnxRuntime, CommunityToolkit.HighPerformance, NodaTime, LanguageExt.Core
 - Growth: a new kernel route is one `TensorOpFamily` row with one `EquivalencePolicy` row; convolution lands as one matrix-kind row lowered through `Tensor/factor#KERNEL_LOWERING` im2col and pooling as one structural-kind row lowered to the strided-window route; a new differentiable operator is one `DifferentiableOp` row binding its vector-Jacobian-product and (for a non-elementwise op) its Jacobian-vector-product to one `Sensitivity` directional body, so the six DDG geometry rows each gain reverse-mode adjoint coverage by one `DifferentiableOp` row routing to `Sensitivity.Operator` under `AdjointMode.Reverse` and forward coverage under `AdjointMode.Forward`, a new geometry operator (remeshing-step, connection-Laplacian) lands as one `Tensor/vocabulary#OPERATION_TABLE` geometry row with one `GeometryAdjoint.Rows` binding, a generalized Gauss-Newton curvature operator is one `SensitivityLaw.GaussNewton` composition over the existing forward+reverse primitives, while the EXACT Hessian-vector product is a distinct second-order capability that grows an `f''` curvature column on `DifferentiableOp` and a flowing-activation tape (never a free composition of first-order primitives), and a large sparse Jacobian is one `JacobianColoring` over the same tape into the `Tensor/factor#SPARSE_SOLVE` CSR storage — never a parallel autodiff surface; a new gradient SOURCE is one leg on the `Sensitivity` family (the hyperdual scalar leg is the proof — one pair of entries, no fourth mechanism); zero new surface.
-- Boundary: `TensorOps` binds verified span members directly, routes matrix rows through `KernelLowering`, folds arbitrary-axis pooling over dense outer×axis×inner coordinates, and rejects missing geometry or arity before mutation. `EquivalenceLaw` compares span kernels against scalar or reassociated references, matrix kernels against `KernelLowering.ProveGemm`, and geometry kernels against the recorded `OperatorRow` transpose identity. `SensitivityLaw` composes total forward and reverse maps, matrix-free `JᵀJ·v`, sparse coloring, and hyper-dual scalar derivatives without parallel gradient owners.
+- Boundary: `TensorOps` binds verified span members directly, routes matrix rows through `KernelLowering`, folds arbitrary-axis pooling over dense outer×axis×inner coordinates, and rejects missing geometry or arity before mutation. `EquivalenceLaw` selects its oracle by `TensorOpKind` — pointwise kinds against the scalar tail, reducing kinds against the reassociated order, matrix against `KernelLowering.ProveGemm`, fixture kinds against the recorded `OperatorRow` transpose identity — and shifts the right-operand fill away from zero on the rows whose gap a zero divisor or base would dominate. `SensitivityLaw` composes total forward and reverse maps, matrix-free `JᵀJ·v`, sparse coloring, and hyper-dual scalar derivatives without parallel gradient owners.
 
 ```csharp signature
 // --- [TYPES] -------------------------------------------------------------------------------
@@ -562,8 +585,12 @@ public sealed partial class AdjointMode {
 }
 
 // --- [MODELS] ------------------------------------------------------------------------------
-public sealed record EquivalencePolicy(TensorOpFamily Family, int SampleCount) {
-    public static EquivalencePolicy For(TensorOpFamily family) => new(family, SampleCount: 256);
+// `SampleCount` sizes the probe and `Seed` keys the draw of every oracle that mints its OWN operands — the
+// matrix arm, whose GEMM reference draws a square pair through the kernel `Deterministic.Source`. The two are
+// separate columns because a size that doubles as a stream key re-draws a different problem on every re-proof,
+// so two runs of one row compare nothing.
+public sealed record EquivalencePolicy(TensorOpFamily Family, int SampleCount, long Seed) {
+    public static EquivalencePolicy For(TensorOpFamily family) => new(family, SampleCount: 256, Seed: 0L);
 }
 
 public readonly record struct EquivalenceProof(TensorOpFamily Family, double MaxDeviation, int Length, double Mass, double CancellationRatio, int SampleCount, Duration Elapsed, Instant At, CorrelationId Correlation) {
@@ -572,7 +599,8 @@ public readonly record struct EquivalenceProof(TensorOpFamily Family, double Max
     // forecloses): a catastrophically-cancelling reduction is `Vacuous` and certifies nothing. The deviation is
     // ABSOLUTE (the envelope is N·ε·Σ|x|, never relative), so the proof carries `Length`/`Mass`/`CancellationRatio`.
     public double Bound => Family.Tolerance.Bound(Length, Mass);
-    public bool Holds => Family.Tolerance.Holds(MaxDeviation, Length, Mass, CancellationRatio);
+    public ProofVerdict Verdict => Family.Tolerance.Verdict(MaxDeviation, Length, Mass, CancellationRatio);
+    public bool Holds => Verdict.Certifies;
 
     public static EquivalenceProof Of(TensorOpFamily family, ProofEvidence evidence, int sampleCount, Duration elapsed, Instant at, CorrelationId correlation) =>
         new(family, evidence.Deviation, evidence.Length, evidence.Mass, evidence.CancellationRatio, sampleCount, elapsed, at, correlation);
@@ -580,10 +608,11 @@ public readonly record struct EquivalenceProof(TensorOpFamily Family, double Max
 
 // Op-agnostic proof evidence funnels every `Prove` arm into `EquivalenceProof`: the absolute max-abs
 // deviation, the accumulation length and operand mass the `ToleranceClass` envelope keys, and the cancellation
-// ratio the `Vacuous` gate reads. The matrix/geometry families have no scalar-tail span reference, so the
-// data-only `Prove` yields `Unprovable` (deviation `+inf`, ratio 1.0 — an honest non-proof, not vacuousness): the
-// matrix family routes to `Tensor/factor#KERNEL_LOWERING` `KernelLowering.ProveGemm` and the geometry family to
-// `EquivalenceLaw.ProveOperator` over a mesh fixture, each returning real evidence.
+// ratio the `Vacuous` gate reads. `Unprovable` is the NON-MEASUREMENT — deviation `+inf`, ratio 1.0 — which the
+// verdict fold reads as `unprovable-unmeasured` rather than a violation, because no oracle ran: the structural
+// and geometry kinds carry no data fixture here, so the geometry gate is `EquivalenceLaw.ProveOperator` over a
+// `MeshAdjointSnapshot`, and the matrix kind reaches real evidence through
+// `Tensor/factor#KERNEL_LOWERING` `KernelLowering.ProveGemm` inside `Prove` itself.
 public readonly record struct ProofEvidence(double Deviation, int Length, double Mass, double CancellationRatio) {
     public static readonly ProofEvidence Unprovable = new(double.PositiveInfinity, 0, 0.0, 1.0);
 }
@@ -591,7 +620,7 @@ public readonly record struct ProofEvidence(double Deviation, int Length, double
 public static class StagePlane {
     // Span2D is a ref struct riding neither a tuple nor a Fin, so the plane leaves through `out` while admission
     // and the copy-point receipt stay on the rail; rows·columns must exactly cover the rented backing.
-    public static Fin<CopyPoint> Stage(MemoryOwner<float> backing, int rows, int columns, IClock clock, TimeProvider time, CorrelationId correlation, out Span2D<float> plane) {
+    public static Fin<CopyPoint> Stage(MemoryOwner<float> backing, int rows, int columns, IClock clock, CorrelationId correlation, out Span2D<float> plane) {
         plane = default;
         if (rows <= 0 || columns <= 0 || (long)rows * columns != backing.Length) {
             return TensorFault.Fail<CopyPoint>("stage-plane-shape", $"{rows}x{columns}!={backing.Length}");
@@ -601,7 +630,11 @@ public static class StagePlane {
     }
 }
 
-public readonly record struct MatMulGeometry(int Rows, int Inner, int Columns, ShardPlan ShardPlan) {
+// The geometry carries the `ShardDispatch` WHOLE, because the dispatch is the lowering's one argument and an
+// adjoint sweep holds no transport of its own: an operand-shape-derived geometry spells `Local`, and a
+// farm-planned one is constructed by whoever holds the stub, arriving here as a `Farm` already paired with its
+// context. A bare plan riding this slot beside a context threaded down the sweep is the deleted form.
+public readonly record struct MatMulGeometry(int Rows, int Inner, int Columns, ShardDispatch Dispatch) {
     public static Fin<MatMulGeometry> Admit(ReadOnlyMemory<float> weights, ReadOnlyMemory<float> direction, AdjointMode mode) {
         int known = direction.Length;
         if (known <= 0 || weights.Length == 0 || weights.Length % known != 0) {
@@ -609,8 +642,8 @@ public readonly record struct MatMulGeometry(int Rows, int Inner, int Columns, S
         }
         int other = weights.Length / known;
         return Fin.Succ(mode == AdjointMode.Forward
-            ? new MatMulGeometry(Rows: 1, Inner: known, Columns: other, new ShardPlan.Single())
-            : new MatMulGeometry(Rows: 1, Inner: other, Columns: known, new ShardPlan.Single()));
+            ? new MatMulGeometry(Rows: 1, Inner: known, Columns: other, new ShardDispatch.Local())
+            : new MatMulGeometry(Rows: 1, Inner: other, Columns: known, new ShardDispatch.Local()));
     }
 
     public Matrix<double> DirectionMatrix(ReadOnlyMemory<float> direction, AdjointMode mode) {
@@ -642,13 +675,17 @@ public readonly record struct MatMulGeometry(int Rows, int Inner, int Columns, S
 // OperatorRow.Adjoint (the transpose Aᵀ·ȳ) for reverse and OperatorRow.Apply (a linear operator is its own
 // pushforward A·ṫ) for forward over the recorded mesh snapshot.
 public static class Sensitivity {
-    // Sensitivity is the synchronous Fin family; the lowering IO (shard-plan effects) runs exactly once at this
-    // boundary so the directional-derivative rail stays uniform with SoftMax/Sum/Dot/Operator.
+    // Sensitivity is the synchronous Fin family; the lowering IO (shard-dispatch effects) runs exactly once at
+    // this boundary so the directional-derivative rail stays uniform with SoftMax/Sum/Dot/Operator. The geometry
+    // hands the lowering its one `ShardDispatch`, so a local adjoint names no transport and no derivative
+    // signature widens for an ambient it never reads. The lowered result reads its SOLUTION alone — a local
+    // lowering decomposes nothing and carries an empty receipt roster, so an adjoint folding it would publish a
+    // factorization no route ran.
     public static Fin<ReadOnlyMemory<float>> MatMul(ReadOnlyMemory<float> weights, ReadOnlyMemory<float> direction, AdjointMode mode) =>
         MatMulGeometry.Admit(weights, direction, mode).Bind(geometry =>
-            KernelLowering.Lower(TensorOpFamily.MatMul, geometry.DirectionMatrix(direction, mode), geometry.WeightMatrix(weights, mode), geometry.ShardPlan)
+            KernelLowering.Lower(TensorOpFamily.MatMul, geometry.DirectionMatrix(direction, mode), geometry.WeightMatrix(weights, mode), geometry.Dispatch)
                 .Run()
-                .Map(geometry.Flatten));
+                .Map(outcome => geometry.Flatten(outcome.Solution)));
 
     public static Fin<ReadOnlyMemory<float>> SoftMax(ReadOnlyMemory<float> primal, ReadOnlyMemory<float> direction) {
         if (primal.Length != direction.Length) { return TensorFault.Fail<ReadOnlyMemory<float>>("adjoint-length", TensorOpFamily.SoftMax.Key, $"{primal.Length}!={direction.Length}"); }
@@ -662,28 +699,29 @@ public static class Sensitivity {
         return Fin.Succ<ReadOnlyMemory<float>>(jacobian.ToArray());
     }
 
-    // Reduction directional derivatives are non-diagonal vector→scalar maps. Sum's reverse VJP broadcasts the
-    // scalar cotangent over the recorded input extent (x̄ᵢ = ȳ) and its forward JVP contracts the tangent to the
-    // scalar Σẋ; Dot's reverse VJP scales the held operand (the recorded primal y) by the scalar cotangent
-    // (x̄ᵢ = ȳ·yᵢ) and its forward JVP contracts the tangent with the held operand (ẏ = ẋ·y). These are the
-    // dimension-changing reduction adjoints the constitutive strain-energy norm / quadratic-form tapes ride.
-    public static Fin<ReadOnlyMemory<float>> Sum(ReadOnlyMemory<float> primal, ReadOnlyMemory<float> direction, AdjointMode mode) {
-        if (mode == AdjointMode.Forward && primal.Length != direction.Length) { return TensorFault.Fail<ReadOnlyMemory<float>>("adjoint-length", TensorOpFamily.Sum.Key, $"{primal.Length}!={direction.Length}"); }
+    // Reduction directional derivatives are non-diagonal vector→scalar maps. Sum reads the forward INPUT for its
+    // extent alone: the reverse VJP broadcasts the scalar cotangent over it (x̄ᵢ = ȳ) and the forward JVP contracts
+    // the tangent to the scalar Σẋ. Dot reads the HELD operand the tape carries as payload: the reverse VJP scales
+    // it by the scalar cotangent (x̄ᵢ = ȳ·yᵢ) and the forward JVP contracts the tangent with it (ẏ = ẋ·y). These are
+    // the dimension-changing reduction adjoints the constitutive strain-energy norm / quadratic-form tapes ride.
+    public static Fin<ReadOnlyMemory<float>> Sum(ReadOnlyMemory<float> input, ReadOnlyMemory<float> direction, AdjointMode mode) {
+        if (mode == AdjointMode.Forward && input.Length != direction.Length) { return TensorFault.Fail<ReadOnlyMemory<float>>("adjoint-length", TensorOpFamily.Sum.Key, $"{input.Length}!={direction.Length}"); }
         if (mode == AdjointMode.Reverse && direction.Length != 1) { return TensorFault.Fail<ReadOnlyMemory<float>>("adjoint-seed", TensorOpFamily.Sum.Key, direction.Length.ToString()); }
         if (mode == AdjointMode.Forward) { return Fin.Succ<ReadOnlyMemory<float>>(new[] { TensorPrimitives.Sum(direction.Span) }); }
-        float[] broadcast = new float[primal.Length];
+        float[] broadcast = new float[input.Length];
         Array.Fill(broadcast, direction.Span[0]);
         return Fin.Succ<ReadOnlyMemory<float>>(broadcast);
     }
 
-    public static Fin<ReadOnlyMemory<float>> Dot(ReadOnlyMemory<float> primal, ReadOnlyMemory<float> direction, AdjointMode mode) {
-        if (mode == AdjointMode.Forward && primal.Length != direction.Length) { return TensorFault.Fail<ReadOnlyMemory<float>>("adjoint-length", TensorOpFamily.Dot.Key, $"{primal.Length}!={direction.Length}"); }
+    public static Fin<ReadOnlyMemory<float>> Dot(ReadOnlyMemory<float> held, ReadOnlyMemory<float> direction, AdjointMode mode) {
+        if (held.IsEmpty) { return TensorFault.Fail<ReadOnlyMemory<float>>("adjoint-payload", TensorOpFamily.Dot.Key, "held-operand"); }
+        if (mode == AdjointMode.Forward && held.Length != direction.Length) { return TensorFault.Fail<ReadOnlyMemory<float>>("adjoint-length", TensorOpFamily.Dot.Key, $"{held.Length}!={direction.Length}"); }
         if (mode == AdjointMode.Reverse && direction.Length != 1) { return TensorFault.Fail<ReadOnlyMemory<float>>("adjoint-seed", TensorOpFamily.Dot.Key, direction.Length.ToString()); }
         if (mode == AdjointMode.Forward) {
-            return Fin.Succ<ReadOnlyMemory<float>>(new[] { TensorPrimitives.Dot<float>(direction.Span, primal.Span) });
+            return Fin.Succ<ReadOnlyMemory<float>>(new[] { TensorPrimitives.Dot<float>(direction.Span, held.Span) });
         }
-        float[] scaled = new float[primal.Length];
-        TensorPrimitives.Multiply(primal.Span, direction.Span[0], scaled);
+        float[] scaled = new float[held.Length];
+        TensorPrimitives.Multiply(held.Span, direction.Span[0], scaled);
         return Fin.Succ<ReadOnlyMemory<float>>(scaled);
     }
 
@@ -705,6 +743,18 @@ public static class Sensitivity {
         }
         catch (Exception ex) { return TensorFault.Fail<ReadOnlyMemory<float>>("operator-adjoint", step.Op.Key, ex.Message); }
     }
+}
+
+// ONE tape convention: `Primal` is the forward INPUT on every row without exception, and a derivative body
+// recomputes whatever local value it needs from it. A row recording its OUTPUT (tanh's y, sigmoid's y), its HELD
+// operand (multiply's y), or a precomputed local coefficient under that same slot reads identically at the call
+// site and mis-differentiates the moment its algebra moves. `Payload` is the row's SECOND recorded operand — the
+// held factor, the exponent, the weight block — empty on a row that needs none, so the extra data has its own
+// slot instead of colonizing the primal's.
+public readonly record struct TapeStep(TensorOpFamily Op, ReadOnlyMemory<float> Primal, ReadOnlyMemory<float> Payload) {
+    public static TapeStep Of(TensorOpFamily op, ReadOnlyMemory<float> primal) => new(op, primal, ReadOnlyMemory<float>.Empty);
+
+    public static TapeStep Of(TensorOpFamily op, ReadOnlyMemory<float> primal, ReadOnlyMemory<float> payload) => new(op, primal, payload);
 }
 
 public readonly record struct GeometryTape(TensorOpFamily Op, MeshAdjointSnapshot Snapshot);
@@ -824,96 +874,116 @@ public static class GeometryAdjoint {
     }
 }
 
+// Both directional columns are `(step, direction) → Fin`: a derivative reads the tape step and the direction and
+// nothing else, and the MatMul row's `Tensor/factor#KERNEL_LOWERING` GEMM lowers against the `ShardDispatch` its
+// own geometry derives. No row here names transport, so no row carries a column it never reads.
 public sealed record DifferentiableOp(
     TensorOpFamily Forward,
     bool Diagonal,
-    Func<ReadOnlyMemory<float>, ReadOnlyMemory<float>, Fin<ReadOnlyMemory<float>>> Vjp,
-    Func<ReadOnlyMemory<float>, ReadOnlyMemory<float>, Fin<ReadOnlyMemory<float>>> Jvp) {
+    Func<TapeStep, ReadOnlyMemory<float>, Fin<ReadOnlyMemory<float>>> Vjp,
+    Func<TapeStep, ReadOnlyMemory<float>, Fin<ReadOnlyMemory<float>>> Jvp) {
     public static readonly FrozenDictionary<TensorOpFamily, DifferentiableOp> Rows = new Dictionary<TensorOpFamily, DifferentiableOp> {
-        [TensorOpFamily.Tanh] = Diag(TensorOpFamily.Tanh, static (primal, seed) => Elementwise(primal, seed, static p => 1f - p * p)),
-        [TensorOpFamily.Sigmoid] = Diag(TensorOpFamily.Sigmoid, static (primal, seed) => Elementwise(primal, seed, static p => p * (1f - p))),
-        [TensorOpFamily.Exp] = Diag(TensorOpFamily.Exp, static (primal, seed) => Elementwise(primal, seed, static p => p)),
-        [TensorOpFamily.Log] = Diag(TensorOpFamily.Log, static (primal, seed) => Elementwise(primal, seed, static p => 1f / p)),
-        [TensorOpFamily.ReLU] = Diag(TensorOpFamily.ReLU, static (primal, seed) => Elementwise(primal, seed, static p => p > 0f ? 1f : 0f)),
-        // Elementwise-ring chain rows stay diagonal in the flowing operand the (op, primal)
-        // tape threads, the held operand (or a precomputed local coefficient) recorded as the primal — the MatMul
-        // `primal=weight` convention extended to the scalar ring. Add/Subtract differentiate the addend/minuend
-        // (∂=1, the held operand carried but unread); Multiply scales by the held factor (∂=y, primal=y); Divide
-        // by the reciprocal denominator (∂=1/y, primal=y); Pow records the power-rule diagonal y·x^(y−1) as its
-        // primal because the local derivative needs BOTH base and exponent (neither snapshot alone suffices) —
-        // Stored pullback supplies the cotangent multiplier and the constitutive return-map / multi-term
-        // stored-energy tape vocabulary the `Solver/constitutive#CONSTITUTIVE` stress-update/contact tapes compose.
-        [TensorOpFamily.Add] = Diag(TensorOpFamily.Add, static (primal, seed) => Elementwise(primal, seed, static _ => 1f)),
-        [TensorOpFamily.Subtract] = Diag(TensorOpFamily.Subtract, static (primal, seed) => Elementwise(primal, seed, static _ => 1f)),
-        [TensorOpFamily.Multiply] = Diag(TensorOpFamily.Multiply, static (primal, seed) => Elementwise(primal, seed, static p => p)),
-        [TensorOpFamily.Divide] = Diag(TensorOpFamily.Divide, static (primal, seed) => Elementwise(primal, seed, static p => 1f / p)),
-        [TensorOpFamily.Pow] = Diag(TensorOpFamily.Pow, static (primal, seed) => Elementwise(primal, seed, static p => p)),
+        // Every diagonal derivative reads the INPUT x and recomputes its own local value: tanh recomputes t=tanh(x)
+        // for 1−t², sigmoid recomputes s for s(1−s), exp recomputes eˣ. Recording those outputs instead would save
+        // one transcendental per element and cost the tape its one readable convention — the trade this owner refuses.
+        [TensorOpFamily.Tanh] = Diag(TensorOpFamily.Tanh, static x => { float t = float.Tanh(x); return 1f - (t * t); }),
+        [TensorOpFamily.Sigmoid] = Diag(TensorOpFamily.Sigmoid, static x => { float s = 1f / (1f + float.Exp(-x)); return s * (1f - s); }),
+        [TensorOpFamily.Exp] = Diag(TensorOpFamily.Exp, float.Exp),
+        [TensorOpFamily.Log] = Diag(TensorOpFamily.Log, static x => 1f / x),
+        [TensorOpFamily.ReLU] = Diag(TensorOpFamily.ReLU, static x => x > 0f ? 1f : 0f),
+        // Elementwise-ring rows stay diagonal in the flowing operand. Add/Subtract differentiate the addend/minuend
+        // (∂=1); Multiply scales by the held factor (∂=y); Divide by the reciprocal denominator (∂=1/y); Pow needs
+        // BOTH base and exponent (∂=y·x^(y−1)), which is exactly why the exponent rides `Payload` rather than
+        // displacing the input under `Primal`. These supply the constitutive return-map / multi-term stored-energy
+        // tape vocabulary the `Solver/constitutive#CONSTITUTIVE` stress-update and contact tapes compose.
+        [TensorOpFamily.Add] = Diag(TensorOpFamily.Add, static _ => 1f),
+        [TensorOpFamily.Subtract] = Diag(TensorOpFamily.Subtract, static _ => 1f),
+        [TensorOpFamily.Multiply] = Held(TensorOpFamily.Multiply, static (_, y) => y),
+        [TensorOpFamily.Divide] = Held(TensorOpFamily.Divide, static (_, y) => 1f / y),
+        [TensorOpFamily.Pow] = Held(TensorOpFamily.Pow, static (x, y) => y * float.Pow(x, y - 1f)),
         // MatMul is genuinely bilinear: the reverse VJP applies Wᵀ, the forward JVP applies W, so the two
-        // arms are distinct directional maps, not the deleted copy-paste-identical body.
+        // arms are distinct directional maps, not the deleted copy-paste-identical body. The weight block is the
+        // recorded second operand, so it reads from `Payload` like every other held operand.
         [TensorOpFamily.MatMul] = Bilinear(TensorOpFamily.MatMul,
-            static (weights, seed) => Sensitivity.MatMul(weights, seed, AdjointMode.Reverse),
-            static (weights, tangent) => Sensitivity.MatMul(weights, tangent, AdjointMode.Forward)),
+            static (step, seed) => Sensitivity.MatMul(step.Payload, seed, AdjointMode.Reverse),
+            static (step, tangent) => Sensitivity.MatMul(step.Payload, tangent, AdjointMode.Forward)),
         // SoftMax's Jacobian is symmetric, so one body serves both directions — Bilinear with the same map
-        // names the shared identity instead of duplicating it.
+        // names the shared identity instead of duplicating it — and it recomputes y from the recorded input.
         [TensorOpFamily.SoftMax] = Bilinear(TensorOpFamily.SoftMax,
-            static (primal, seed) => Sensitivity.SoftMax(primal, seed),
-            static (primal, tangent) => Sensitivity.SoftMax(primal, tangent)),
+            static (step, seed) => Sensitivity.SoftMax(step.Primal, seed),
+            static (step, tangent) => Sensitivity.SoftMax(step.Primal, tangent)),
         // Reduction rows are non-diagonal (vector→scalar), so reverse VJP and forward JVP are genuinely
-        // distinct directional maps routed to the one `Sensitivity` owner, not a shared diagonal fold: Sum
-        // broadcasts the scalar cotangent over the recorded extent (reverse) and contracts the tangent to Σẋ
-        // (forward); Dot scales the held operand by the scalar cotangent (reverse) and contracts the tangent
-        // with it (forward). These supply the strain-energy norm / quadratic-form tape vocabulary the
-        // `Solver/constitutive#CONSTITUTIVE` exact return-map (algorithmic) tangent composes.
+        // distinct directional maps routed to the one `Sensitivity` owner: Sum reads the input for its extent,
+        // Dot the held operand from `Payload`.
         [TensorOpFamily.Sum] = Bilinear(TensorOpFamily.Sum,
-            static (primal, seed) => Sensitivity.Sum(primal, seed, AdjointMode.Reverse),
-            static (primal, tangent) => Sensitivity.Sum(primal, tangent, AdjointMode.Forward)),
+            static (step, seed) => Sensitivity.Sum(step.Primal, seed, AdjointMode.Reverse),
+            static (step, tangent) => Sensitivity.Sum(step.Primal, tangent, AdjointMode.Forward)),
         [TensorOpFamily.Dot] = Bilinear(TensorOpFamily.Dot,
-            static (primal, seed) => Sensitivity.Dot(primal, seed, AdjointMode.Reverse),
-            static (primal, tangent) => Sensitivity.Dot(primal, tangent, AdjointMode.Forward)),
+            static (step, seed) => Sensitivity.Dot(step.Payload, seed, AdjointMode.Reverse),
+            static (step, tangent) => Sensitivity.Dot(step.Payload, tangent, AdjointMode.Forward)),
     }.ToFrozenDictionary();
 
-    // Diagonal Jacobians collapse an elementwise op's VJP and JVP into the one `direction .* f'(primal)` fold,
-    // so both directions bind the same derivative body.
-    static DifferentiableOp Diag(TensorOpFamily forward, Func<ReadOnlyMemory<float>, ReadOnlyMemory<float>, ReadOnlyMemory<float>> derivative) =>
+    // Diagonal Jacobians collapse an elementwise op's VJP and JVP into the one `direction .* f'(x)` fold, so both
+    // directions bind the same derivative body over the recorded input.
+    static DifferentiableOp Diag(TensorOpFamily forward, Func<float, float> derivative) =>
         new(forward, Diagonal: true,
-            (primal, seed) => Capture(forward, () => Fin.Succ(derivative(primal, seed))),
-            (primal, tangent) => Capture(forward, () => Fin.Succ(derivative(primal, tangent))));
+            (step, seed) => Capture(forward, () => Pointwise(step, seed, derivative)),
+            (step, tangent) => Capture(forward, () => Pointwise(step, tangent, derivative)));
+
+    // A held-operand row reads `(x, y)` per element, so a missing or mis-sized payload is a MALFORMED tape and
+    // rails `adjoint-payload` — an empty payload silently read as zero returns a derivative of zero, which the
+    // sweep then propagates as a legitimate vanishing gradient.
+    static DifferentiableOp Held(TensorOpFamily forward, Func<float, float, float> derivative) =>
+        new(forward, Diagonal: true,
+            (step, seed) => Capture(forward, () => Paired(step, seed, derivative)),
+            (step, tangent) => Capture(forward, () => Paired(step, tangent, derivative)));
 
     // Forward is total over every bound row: each carries a real JVP, so the prior Option<Jvp> + the dead
     // <no-forward-jvp> fault are deleted — a row either resolves both directions or is absent (no-adjoint-row).
-    static DifferentiableOp Bilinear(TensorOpFamily forward, Func<ReadOnlyMemory<float>, ReadOnlyMemory<float>, Fin<ReadOnlyMemory<float>>> vjp, Func<ReadOnlyMemory<float>, ReadOnlyMemory<float>, Fin<ReadOnlyMemory<float>>> jvp) =>
+    static DifferentiableOp Bilinear(TensorOpFamily forward, Func<TapeStep, ReadOnlyMemory<float>, Fin<ReadOnlyMemory<float>>> vjp, Func<TapeStep, ReadOnlyMemory<float>, Fin<ReadOnlyMemory<float>>> jvp) =>
         new(forward, Diagonal: false,
-            (primal, seed) => Capture(forward, () => vjp(primal, seed)),
-            (primal, tangent) => Capture(forward, () => jvp(primal, tangent)));
+            (step, seed) => Capture(forward, () => vjp(step, seed)),
+            (step, tangent) => Capture(forward, () => jvp(step, tangent)));
 
     static Fin<ReadOnlyMemory<float>> Capture(TensorOpFamily row, Func<Fin<ReadOnlyMemory<float>>> run) =>
         Try.lift(run).Run().MapFail(error => TensorFault.Symbol("adjoint-threw", row.Key, error.Message)).Bind(static result => result);
 
-    static ReadOnlyMemory<float> Elementwise(ReadOnlyMemory<float> primal, ReadOnlyMemory<float> cotangent, Func<float, float> derivative) {
-        using MemoryOwner<float> owner = MemoryOwner<float>.Allocate(cotangent.Length, AllocationMode.Clear);
-        Span<float> result = owner.Span;
-        for (int i = 0; i < result.Length; i++) { result[i] = cotangent.Span[i] * derivative(primal.Span[i]); }
-        return result.ToArray();
+    static Fin<ReadOnlyMemory<float>> Pointwise(TapeStep step, ReadOnlyMemory<float> direction, Func<float, float> derivative) {
+        if (step.Primal.Length != direction.Length) { return TensorFault.Fail<ReadOnlyMemory<float>>("adjoint-length", step.Op.Key, $"{step.Primal.Length}!={direction.Length}"); }
+        float[] result = new float[direction.Length];
+        for (int i = 0; i < result.Length; i++) { result[i] = direction.Span[i] * derivative(step.Primal.Span[i]); }
+        return Fin.Succ<ReadOnlyMemory<float>>(result);
+    }
+
+    static Fin<ReadOnlyMemory<float>> Paired(TapeStep step, ReadOnlyMemory<float> direction, Func<float, float, float> derivative) {
+        if (step.Payload.Length != step.Primal.Length) { return TensorFault.Fail<ReadOnlyMemory<float>>("adjoint-payload", step.Op.Key, $"{step.Payload.Length}!={step.Primal.Length}"); }
+        if (step.Primal.Length != direction.Length) { return TensorFault.Fail<ReadOnlyMemory<float>>("adjoint-length", step.Op.Key, $"{step.Primal.Length}!={direction.Length}"); }
+        float[] result = new float[direction.Length];
+        for (int i = 0; i < result.Length; i++) { result[i] = direction.Span[i] * derivative(step.Primal.Span[i], step.Payload.Span[i]); }
+        return Fin.Succ<ReadOnlyMemory<float>>(result);
     }
 }
 
 public static class SensitivityLaw {
-    public static Fin<ReadOnlyMemory<float>> Adjoint(TensorOpFamily op, AdjointMode mode, ReadOnlyMemory<float> primal, ReadOnlyMemory<float> seed) =>
-        DifferentiableOp.Rows.TryGetValue(op, out var differentiable)
-            ? (mode == AdjointMode.Reverse ? differentiable.Vjp : differentiable.Jvp)(primal, seed)
-            : TensorFault.Fail<ReadOnlyMemory<float>>("no-adjoint-row", op.Key);
+    // Every sweep is two-argument — tape and direction. The tape's MatMul row lowers a GEMM against the
+    // `ShardDispatch` its own geometry carries, and a DEC operator applies its own held sparse factor, so neither
+    // sweep names a transport and the `TapeStep` and `GeometryTape` legs share one arity.
+    public static Fin<ReadOnlyMemory<float>> Adjoint(TapeStep step, AdjointMode mode, ReadOnlyMemory<float> seed) =>
+        DifferentiableOp.Rows.TryGetValue(step.Op, out var differentiable)
+            ? (mode == AdjointMode.Reverse ? differentiable.Vjp : differentiable.Jvp)(step, seed)
+            : TensorFault.Fail<ReadOnlyMemory<float>>("no-adjoint-row", step.Op.Key);
 
-    public static Fin<ReadOnlyMemory<float>> Chain(Seq<(TensorOpFamily Op, ReadOnlyMemory<float> Primal)> tape, ReadOnlyMemory<float> upstream) =>
-        tape.Rev().Fold(Fin.Succ(upstream), (grad, step) => grad.Bind(g => Adjoint(step.Op, AdjointMode.Reverse, step.Primal, g)));
+    public static Fin<ReadOnlyMemory<float>> Chain(Seq<TapeStep> tape, ReadOnlyMemory<float> upstream) =>
+        tape.Rev().Fold(Fin.Succ(upstream), static (grad, step) => grad.Bind(g => Adjoint(step, AdjointMode.Reverse, g)));
 
     public static Fin<ReadOnlyMemory<float>> Chain(Seq<GeometryTape> tape, ReadOnlyMemory<float> upstream) =>
         tape.Rev().Fold(Fin.Succ(upstream), static (grad, step) => grad.Bind(g => Sensitivity.Operator(step, g, AdjointMode.Reverse)));
 
-    // Forward-mode pushforward through the (op, primal) tape: the dual of the reverse Chain, threading a
+    // Forward-mode pushforward through the `TapeStep` tape: the dual of the reverse Chain, threading a
     // forward tangent inputs-to-outputs so a tall-Jacobian problem (few inputs, many outputs) costs one
     // forward sweep.
-    public static Fin<ReadOnlyMemory<float>> Pushforward(Seq<(TensorOpFamily Op, ReadOnlyMemory<float> Primal)> tape, ReadOnlyMemory<float> tangent) =>
-        tape.Fold(Fin.Succ(tangent), (dot, step) => dot.Bind(t => Adjoint(step.Op, AdjointMode.Forward, step.Primal, t)));
+    public static Fin<ReadOnlyMemory<float>> Pushforward(Seq<TapeStep> tape, ReadOnlyMemory<float> tangent) =>
+        tape.Fold(Fin.Succ(tangent), static (dot, step) => dot.Bind(t => Adjoint(step, AdjointMode.Forward, t)));
 
     // Forward geometry sweep, the dual of the reverse Chain(Seq<GeometryTape>): each step applies its own DEC
     // operator's pushforward (the operator is its own forward map) against THAT step's recorded mesh snapshot,
@@ -925,10 +995,10 @@ public static class SensitivityLaw {
     // then the reverse Chain to get Jᵀ·(J·v) — reverse-over-forward of the ONE first-order tape, no dense
     // matrix materialized. This is the SPD curvature operator Newton-CG / trust-region / Levenberg-Marquardt
     // consume (SPD by construction, so CG never breaks on an indefinite step). It is NOT the exact Hessian:
-    // Curvature Σ x̄ₖ·f''(primalₖ)·ẋₖ is absent because the first-order (op, primal) tape carries neither the
+    // Curvature Σ x̄ₖ·f''(xₖ)·ẋₖ is absent because the first-order `TapeStep` tape carries neither the
     // flowing activations nor a second-derivative column — the true Hessian-vector product is a separate
     // second-order capability (an f'' row on DifferentiableOp plus a forward-over-reverse sweep), not this fold.
-    public static Fin<ReadOnlyMemory<float>> GaussNewton(Seq<(TensorOpFamily Op, ReadOnlyMemory<float> Primal)> tape, ReadOnlyMemory<float> vector) =>
+    public static Fin<ReadOnlyMemory<float>> GaussNewton(Seq<TapeStep> tape, ReadOnlyMemory<float> vector) =>
         Pushforward(tape, vector).Bind(forwardDot => Chain(tape, forwardDot));
 
     // Hyper-dual scalars form the third `Sensitivity` leg beside geometry and symbolic tapes; a smooth scalar
@@ -997,31 +1067,56 @@ public sealed record JacobianColoring(int Rows, int Columns, Seq<(int Row, int C
     // Pushforward (or the reverse Chain); each color's directional derivative scatters its pattern entries as
     // COO triplets accumulated in color order, then handed ONCE to the `Tensor/factor#SPARSE_SOLVE`-owned
     // `SparseOps.Ingest(Coo)` CSR conversion — never a raw `CoordinateStorage` RowIndices/Values surgery the
-    // sparse owner forbids, and never a second ingestion path beside the one factor.md owns.
+    // sparse owner forbids, and never a second ingestion path beside the one factor.md owns. A probe shorter than
+    // the row count means the tape produced a derivative of another shape, so it refuses: zero-filling the missing
+    // rows publishes structural zeros the pattern declared nonzero, and the solve that reads them cannot tell.
     public Fin<SparseCompressedRowMatrixStorage<double>> Assemble(Func<int, Fin<ReadOnlyMemory<float>>> probeColor) =>
         toSeq(Enumerable.Range(0, ColorCount))
             .Fold(Fin.Succ(Seq<(int Row, int Column, double Value)>()), (acc, seedColor) =>
-                acc.Bind(triplets => probeColor(seedColor).Map(directional =>
-                    triplets + Pattern
-                        .Filter(entry => Colors[entry.Column] == seedColor)
-                        .Map(entry => (entry.Row, entry.Column, entry.Row < directional.Length ? (double)directional.Span[entry.Row] : 0.0)))))
+                acc.Bind(triplets => probeColor(seedColor).Bind(directional =>
+                    directional.Length < Rows
+                        ? TensorFault.Fail<Seq<(int Row, int Column, double Value)>>("jacobian-probe-short", $"color={seedColor}:{directional.Length}<{Rows}")
+                        : Fin.Succ(triplets + Pattern
+                            .Filter(entry => Colors[entry.Column] == seedColor)
+                            .Map(entry => (entry.Row, entry.Column, (double)directional.Span[entry.Row]))))))
             .Bind(triplets => SparseOps.Ingest(SparseFormat.Coo, Rows, Columns,
                 [.. triplets.Map(static t => t.Row)], [.. triplets.Map(static t => t.Column)], [.. triplets.Map(static t => t.Value)]));
 }
 
+// The run's draw seed rides the kernel signature beside the probed operands, so an oracle minting its own
+// fixture keys that mint off the policy rather than off a lane-local constant no caller can move.
+public delegate ProofEvidence GapKernel(TensorOpFamily row, long seed, ReadOnlySpan<double> a, ReadOnlySpan<double> b);
+
 public static class EquivalenceLaw {
-    // Proves the span-kernel lane against its scalar-path reference over sampled inputs — OP-AGNOSTIC, needing
-    // no per-op reference: an elementwise row runs the candidate VECTOR body against the SAME kernel applied
-    // element-by-element (the length-1 scalar/tail path the SIMD body must match per the compute length-class
-    // law), a span-coupled row (`SoftMax`/`LogSoftMax`) runs the shift-invariance identity f(x+c) == f(x)
-    // because its length-1 slice is a constant, a reduction row runs the candidate against the SAME reduction
-    // over the reversed input (the reassociation-stability the `AccumulationScaled` bound certifies). The deviation is the ABSOLUTE max abs
-    // gap and the verdict is the `ToleranceClass.Bound(length, mass)` envelope under the cancellation gate — a
-    // stored relative scalar is the de-sync the vocabulary owner forecloses. Diffing two unrelated random fills
-    // without ever running the kernel is the deleted hollow form. The matrix family has no scalar-tail kernel,
-    // so it routes to the `Tensor/factor#KERNEL_LOWERING` GEMM-vs-naive-reference proof (`KernelLowering.ProveGemm`,
-    // which OWNS MatMul/Conv admission); the geometry family has no data fixture here, so the data-only `Prove`
-    // yields `Unprovable` and the geometry gate is `ProveOperator` over a `MeshAdjointSnapshot`.
+    // `TensorOpKind` is the proof-family selector — the reader the vocabulary owner declares its `Kind` column
+    // for — so the gap kernel comes from the row's KIND, never from probing which arity table happens to hold it:
+    // a pointwise kind runs the candidate VECTOR body against the SAME kernel applied element-by-element (the
+    // length-1 scalar/tail path the SIMD body must match per the compute length-class law), a reducing kind runs
+    // the candidate against the SAME reduction over the reversed operands (the reassociation-stability the
+    // `AccumulationScaled` bound certifies), the matrix kind routes to the `Tensor/factor#KERNEL_LOWERING`
+    // GEMM-vs-naive proof (`KernelLowering.ProveGemm`, which OWNS MatMul/Conv admission), and the fixture kinds
+    // (structural, geometry) carry no data oracle here so the data-only `Prove` reports `Unprovable` and their gate
+    // is `ProveOperator` over a `MeshAdjointSnapshot`. Diffing two unrelated random fills without ever running the
+    // kernel is the deleted hollow form.
+    static readonly FrozenDictionary<TensorOpKind, GapKernel> ByKind = new Dictionary<TensorOpKind, GapKernel> {
+        [TensorOpKind.Elementwise] = ScalarTail, [TensorOpKind.Rounding] = ScalarTail, [TensorOpKind.Transcendental] = ScalarTail,
+        [TensorOpKind.Bitwise] = ScalarTail, [TensorOpKind.Population] = ScalarTail,
+        [TensorOpKind.Predicate] = ScalarTail, [TensorOpKind.Conversion] = ScalarTail,
+        [TensorOpKind.Reduction] = Reassociated, [TensorOpKind.Statistics] = Reassociated, [TensorOpKind.Similarity] = Reassociated,
+        [TensorOpKind.Matrix] = Lowered,
+        [TensorOpKind.Structural] = Fixtured, [TensorOpKind.Geometry] = Fixtured,
+    }.ToFrozenDictionary();
+
+    // Right-operand fill is a PER-FAMILY law: a divisor, a modulus, or a power base drawn from the plain uniform
+    // [0, 1) reaches zero, where the kernel's own gap explodes and the run grades the sample rather than the
+    // kernel. These rows shift that draw to [0.5, 1.5) — bounded away from zero on both the value and the
+    // derivative — so the measured deviation is the vectorization gap the envelope is calibrated against.
+    static readonly FrozenSet<TensorOpFamily> BoundedAwayFromZero = new[] {
+        TensorOpFamily.Divide, TensorOpFamily.Pow, TensorOpFamily.Remainder, TensorOpFamily.Ieee754Remainder,
+    }.ToFrozenSet();
+
+    internal static bool Routes(TensorOpKind kind) => ByKind.ContainsKey(kind);
+
     public static Fin<EquivalenceProof> Prove(IClock clock, TimeProvider time, CorrelationId correlation, EquivalencePolicy policy) =>
         policy.SampleCount <= 0
             ? TensorFault.Fail<EquivalenceProof>("equivalence-sample-count", policy.Family.Key, policy.SampleCount.ToString())
@@ -1035,16 +1130,38 @@ public static class EquivalenceLaw {
                   using MemoryOwner<double> bOwner = MemoryOwner<double>.Allocate(policy.SampleCount, AllocationMode.Clear);
                   lhs.FlattenTo(aOwner.Span);
                   rhs.FlattenTo(bOwner.Span);
+                  if (BoundedAwayFromZero.Contains(policy.Family)) { TensorPrimitives.Add<double>(bOwner.Span, 0.5, bOwner.Span); }
                   ReadOnlySpan<double> a = aOwner.Span, b = bOwner.Span;
+                  // An unbounded envelope certifies nothing, so an estimate row never runs a gap at all — it
+                  // reports `Unprovable`, which `ToleranceClass.Verdict` reads as `unprovable-estimate`.
                   ProofEvidence evidence =
-                      Coupled.Contains(policy.Family) && TensorKernels<double>.Unary.GetValueOrDefault(policy.Family) is { } whole ? SpanEvidence(CoupledGap(whole, a), a, policy.SampleCount)
-                      : TensorKernels<double>.Unary.GetValueOrDefault(policy.Family) is { } unary ? SpanEvidence(UnaryGap(unary, a), a, policy.SampleCount)
-                      : TensorKernels<double>.Binary.GetValueOrDefault(policy.Family) is { } binary ? SpanEvidence(BinaryGap(binary, a, b), a, policy.SampleCount)
-                      : TensorKernels<double>.Fold.GetValueOrDefault(policy.Family) is { } fold ? SpanEvidence(FoldGap(fold, a), a, policy.SampleCount)
-                      : KernelLowering.IsMatrix(policy.Family) ? KernelLowering.ProveGemm(policy.SampleCount)
+                      !policy.Family.Tolerance.Certifiable ? ProofEvidence.Unprovable
+                      : ByKind.GetValueOrDefault(policy.Family.Kind) is { } gap ? gap(policy.Family, policy.Seed, a, b)
                       : ProofEvidence.Unprovable;
                   return EquivalenceProof.Of(policy.Family, evidence, policy.SampleCount, time.GetElapsedTime(mark), clock.GetCurrentInstant(), correlation);
               }).Run().MapFail(error => TensorFault.Symbol("equivalence-threw", policy.Family.Key, error.Message));
+
+    // A kind resolves the FAMILY of oracle; the row still resolves its own arity inside that family, and a row
+    // whose element domain this double-typed run cannot instantiate (the integer and complex lanes) reports
+    // `Unprovable` rather than a gap it never measured.
+    static ProofEvidence ScalarTail(TensorOpFamily row, long seed, ReadOnlySpan<double> a, ReadOnlySpan<double> b) =>
+        Coupled.Contains(row) && TensorKernels<double>.Unary.GetValueOrDefault(row) is { } whole ? SpanEvidence(CoupledGap(whole, a), a)
+        : TensorKernels<double>.Unary.GetValueOrDefault(row) is { } unary ? SpanEvidence(UnaryGap(unary, a), a)
+        : TensorKernels<double>.Binary.GetValueOrDefault(row) is { } binary ? SpanEvidence(BinaryGap(binary, a, b), a)
+        : ProofEvidence.Unprovable;
+
+    static ProofEvidence Reassociated(TensorOpFamily row, long seed, ReadOnlySpan<double> a, ReadOnlySpan<double> b) =>
+        TensorKernels<double>.Fold.GetValueOrDefault(row) is { } fold ? SpanEvidence(FoldGap(fold, a), a)
+        : TensorKernels<double>.PairFold.GetValueOrDefault(row) is { } pair ? SpanEvidence(PairFoldGap(pair, a, b), a)
+        : ProofEvidence.Unprovable;
+
+    // The matrix arm is the one oracle whose fixture it MINTS rather than probes: the sampled spans size the
+    // square operand pair and the policy seed keys their draw, so re-proving one row at a second sample count
+    // re-draws the same stream at a new order instead of silently comparing two different problems.
+    static ProofEvidence Lowered(TensorOpFamily row, long seed, ReadOnlySpan<double> a, ReadOnlySpan<double> b) =>
+        KernelLowering.ProveGemm(a.Length, seed);
+
+    static ProofEvidence Fixtured(TensorOpFamily row, long seed, ReadOnlySpan<double> a, ReadOnlySpan<double> b) => ProofEvidence.Unprovable;
 
     // Geometry rows unreachable by data-only `Prove` certify through the
     // adjoint-identity ⟨A·x, y⟩ == ⟨x, Aᵀ·y⟩ over a `MeshAdjointSnapshot` fixture, composing the page-owned
@@ -1059,10 +1176,11 @@ public static class EquivalenceLaw {
     }
 
     // Span deviation is absolute (N·ε·Σ|x|), so evidence carries operand mass Σ|xᵢ| and cancellation ratio.
-    static ProofEvidence SpanEvidence(double deviation, ReadOnlySpan<double> input, int length) {
+    // The accumulation length is the probed operand's own extent, never a separately passed count that drifts.
+    static ProofEvidence SpanEvidence(double deviation, ReadOnlySpan<double> input) {
         double mass = double.Abs(TensorPrimitives.SumOfMagnitudes<double>(input));
         double ratio = mass > 0.0 ? double.Abs(TensorPrimitives.Sum<double>(input)) / mass : 1.0;
-        return new ProofEvidence(deviation, length, mass, ratio);
+        return new ProofEvidence(deviation, input.Length, mass, ratio);
     }
 
     // Span-coupled rows carry no scalar-tail identity — softmax over a length-1 slice is the constant 1 — so
@@ -1108,6 +1226,19 @@ public static class EquivalenceLaw {
         return double.Abs(kernel(input) - kernel(reversed));
     }
 
+    // A pair reduction reassociates identically, so its reference reverses BOTH operands together — reversing one
+    // alone compares a different mathematical quantity and grades the misalignment as a vectorization gap.
+    static double PairFoldGap(PairFoldKernel<double> kernel, ReadOnlySpan<double> a, ReadOnlySpan<double> b) {
+        using MemoryOwner<double> leftOwner = MemoryOwner<double>.Allocate(a.Length, AllocationMode.Clear);
+        using MemoryOwner<double> rightOwner = MemoryOwner<double>.Allocate(b.Length, AllocationMode.Clear);
+        Span<double> left = leftOwner.Span, right = rightOwner.Span;
+        a.CopyTo(left);
+        b.CopyTo(right);
+        left.Reverse();
+        right.Reverse();
+        return double.Abs(kernel(a, b) - kernel(left, right));
+    }
+
     // Absolute max gap compares the vector body with its element-by-element scalar tail; operand mass
     // and the envelope bound live with the `ProofEvidence` the caller folds, never a relative pre-division here.
     static double SpanGap(Span<double> vectorized, ReadOnlySpan<double> scalar) {
@@ -1122,8 +1253,8 @@ public static class EquivalenceLaw {
 
 - Owner: `DeviceKernels` owns WGSL source rows, per-device typed compilation, and cache retirement; `DeviceKernel` carries compiled module/pipeline/layout handles; `DeviceStep` carries binding slots and launch geometry; `DevicePlan` carries ordered steps; `WgpuDevice` owns native construction, submission, readback, and compute-handle release over AppUi's shared device; `DeviceDispatch` owns admission and receipts.
 - Cases: the grounded `DeviceKernels.Wgsl` device op rows — `MatMul` (tiled GEMM over `WgslSource.TiledGemm`), `Conv2D` (`WgslSource.Im2Col` gather then the TiledGemm pipeline, the two-dispatch convolution mirroring the CPU im2col-then-GEMM), `MaxPool`/`AvgPool` (strided-window reduce) — each a real WGSL compute pipeline compiled and cached on the registry; `Conv1D`/`Conv3D` and the `Tensor/factor#SPARSE_ALGEBRA` `Spmv`/`Spmm` rows stay CPU-lowered through factor.md until their device shaders ground (the device path is never a phantom mapping), the elementwise `TensorKernels<T>` rows stay CPU `TensorPrimitives`, and a device elementwise map is a future row, not a fork of the dispatch surface.
-- Entry: `Compile(WgpuDevice, TensorOpFamily)` compiles once per `(device identity, op family)` through a thread-safe `Lazy<Fin<DeviceKernel>>`; `Release(WgpuDevice)` retires every cached module, pipeline, and layout for that device. `Dispatch(WgpuDevice, DevicePlan, ReadOnlySpan<DeviceBuffer>, OrtResidency, CorrelationId)` admits every roster index, device-resident buffer, positive workgroup component, and receipt-width conversion before recording all steps on one encoder and retiring one submission.
-- Auto: the CPU/device split lives at the `Runtime/admission#SUBSTRATE_AXIS` spine, never inside `KernelLowering.Lower` — `Lower` stays the CPU `Matrix<double>` terminal with no device consult, and a matmul/conv/pool intent routes to `DeviceDispatch.Dispatch` ONLY when the selected substrate row is `Substrate.DeviceWgpu` AND the `OrtResidency.DeviceResident` gate holds AND a winning `BenchmarkRow` names the device route in its `Route` column — so the split rides substrate selection, residency, and a benchmark claim, never a fork of the `Map`/`Lower` dispatch contract; `Conv2D` composes `DevicePlan.Of(gatherStep, gemmStep)` from the registry's `Conv2D` (Im2Col) and `MatMul` (TiledGemm) kernels — the two-dispatch convolution over one submission; a device GEMM output feeding the render lane crosses the existing `Rasm.AppUi/Render` `ResidencyManifest.Mint` seam (the same physical `Buffer`, no host copy) rather than a new device-to-render path, and the one shared device descriptor that this row resolves also gates the ONNX Runtime Mac execution-provider residency so a model-lane device tensor and a tensor-lane device kernel resolve the same allocator on the same physical device.
+- Entry: `Compile(WgpuDevice, TensorOpFamily)` compiles once per `(device identity, op family)` through a thread-safe `Lazy<Fin<DeviceKernel>>`; `Release(WgpuDevice)` retires every cached module, pipeline, and layout for that device, forcing an in-flight compile so its handles release instead of leaking behind the removed entry. `Conv2D(WgpuDevice, ConvLaunch, gather, gemm)` builds the two-step convolution plan from the registry's own kernels and their declared tiles. `Dispatch(WgpuDevice, DevicePlan, ReadOnlySpan<DeviceBuffer>, TensorDtype, OrtResidency, CorrelationId)` admits every roster index, device-resident buffer, positive workgroup component, and the run's dtype row against the terminal shader's declared element before recording all steps on one encoder and retiring one submission.
+- Auto: the CPU/device split lives at the `Runtime/admission#SUBSTRATE_AXIS` spine, never inside `KernelLowering.Lower` — `Lower` stays the CPU `Matrix<double>` terminal with no device consult, and a matmul/conv/pool intent routes to `DeviceDispatch.Dispatch` ONLY when the selected substrate row is `Substrate.DeviceWgpu` AND the `OrtResidency.DeviceResident` gate holds AND a winning `BenchmarkRow` names the device route in its `Route` column — so the split rides substrate selection, residency, and a benchmark claim, never a fork of the `Map`/`Lower` dispatch contract; `Conv2D` composes `DeviceKernels.Conv2D` from the registry's `Conv2D` (Im2Col) and `MatMul` (TiledGemm) kernels, each step's workgroup count derived from that shader's own tile constant — the two-dispatch convolution over one submission; a device GEMM output feeding the render lane crosses the existing `Rasm.AppUi/Render` `ResidencyManifest.Mint` seam (the same physical `Buffer`, no host copy) rather than a new device-to-render path, and the one shared device descriptor that this row resolves also gates the ONNX Runtime Mac execution-provider residency so a model-lane device tensor and a tensor-lane device kernel resolve the same allocator on the same physical device.
 - Receipt: a device dispatch emits the `TensorRun` `ComputeReceipt` carrying the op family, the resolved per-pass GPU nanosecond duration from the `QuerySet` timestamp (never a busy-wait fence), the `device-wgpu` SIMD-width tag and the workgroup count as the partition count, the `DeterminismTag` extended with the device identity, and the `Tensor/memory#ALLOCATION_AXIS` `AllocationClass.DeviceWgpu`; the device GEMM is a new `LinearProvider.DeterminismTag` because a device result is bit-divergent from the managed/native CPU GEMM, so the `SolveDedupKey` folds the device identity exactly as it folds the managed/native provider or a cross-substrate cache hit returns bit-divergent numbers.
 - Packages: Silk.NET.WebGPU, Silk.NET.WebGPU.Extensions.WGPU (the `Wgpu` table for `DevicePoll`/`QueueSubmitForIndex` device-tick readback), Microsoft.ML.OnnxRuntime, System.Numerics.Tensors, CommunityToolkit.HighPerformance, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
 - Growth: a new device operation is one WGSL row; a launch shape is one `DeviceStep.Workgroups` value; a multi-kernel chain is one `DevicePlan` value with roster-indexed intermediates and one submission. Device residency remains `OrtResidency.DeviceResident`, never a parallel tensor type.
@@ -1133,6 +1264,13 @@ public static class EquivalenceLaw {
 // --- [CONSTANTS] ---------------------------------------------------------------------------
 // WGSL rows compile one pipeline per grounded op: tiled GEMM, im2col projection, and strided-window pooling.
 public static class WgslSource {
+    // Tile constants MIRROR each row's own `@workgroup_size`, so a launch derives from the shader it launches: a
+    // workgroup count computed against a different tile under-dispatches silently, leaving the output tail at
+    // whatever the device buffer already held.
+    public const uint GemmTile = 16;
+    public const uint GatherTile = 8;
+    public const uint WindowLane = 64;
+
     public const string TiledGemm = """
         @group(0) @binding(0) var<storage, read> a : array<f32>;
         @group(0) @binding(1) var<storage, read> b : array<f32>;
@@ -1265,13 +1403,18 @@ public static class WgslSource {
 // zero-copy claim the two surfaces cannot honour.
 public readonly record struct DeviceBuffer(nuint Handle, long ByteLength, OrtResidency Residency);
 
-public sealed record DeviceKernel(TensorOpFamily Op, nuint Pipeline, nuint BindGroupLayout, nuint ShaderModule);
+// `Element` is the shader's OWN declared storage element, carried out of the WGSL row so admission compares the
+// run's dtype against what the pipeline actually indexes rather than trusting a caller's word.
+public sealed record DeviceKernel(TensorOpFamily Op, TensorDtype Element, nuint Pipeline, nuint BindGroupLayout, nuint ShaderModule);
 
 public readonly record struct DeviceStep(DeviceKernel Kernel, ImmutableArray<int> Bindings, (uint X, uint Y, uint Z) Workgroups);
 
+// Launch geometry of the two-dispatch convolution: `Positions` is the output pixel count (out_h·out_w) the Im2Col
+// kernel walks on x with `Channels` on y, and the patch matrix it writes is [Positions × PatchWidth] against a
+// [PatchWidth × Filters] filter block, so the GEMM walks filters on x and positions on y at its own tile.
+public readonly record struct ConvLaunch(uint Positions, uint Channels, uint PatchWidth, uint Filters);
+
 // One command submission carries roster-indexed steps, device-resident intermediates, timestamps, and one readback.
-// Conv2D is the canonical multi-step plan: Of(gatherStep, gemmStep) chains the Im2Col kernel into the TiledGemm
-// kernel over a roster-indexed device-resident intermediate, one encoder, one submission.
 public sealed record DevicePlan(Seq<DeviceStep> Steps) {
     public static DevicePlan Of(DeviceKernel kernel, ImmutableArray<int> bindings, (uint X, uint Y, uint Z) workgroups) =>
         new(Seq(new DeviceStep(kernel, bindings, workgroups)));
@@ -1306,7 +1449,7 @@ public sealed unsafe class WgpuDevice(WebGPU api, Wgpu ext, Device* device, Queu
 
     public string Identity => identity;
 
-    internal Fin<DeviceKernel> Build(TensorOpFamily op, string wgsl) {
+    internal Fin<DeviceKernel> Build(TensorOpFamily op, TensorDtype element, string wgsl) {
         nint code = 0;
         nint entry = 0;
         ShaderModule* module = null;
@@ -1326,7 +1469,7 @@ public sealed unsafe class WgpuDevice(WebGPU api, Wgpu ext, Device* device, Queu
             layout = api.ComputePipelineGetBindGroupLayout(pipeline, 0);
             if (layout == null) { return TensorFault.Fail<DeviceKernel>("device-layout", op.Key); }
             transferred = true;
-            return Fin.Succ(new DeviceKernel(op, (nuint)pipeline, (nuint)layout, (nuint)module));
+            return Fin.Succ(new DeviceKernel(op, element, (nuint)pipeline, (nuint)layout, (nuint)module));
         }
         catch (Exception ex) { return TensorFault.Fail<DeviceKernel>("device-compile", op.Key, ex.Message); }
         finally {
@@ -1439,24 +1582,47 @@ public sealed unsafe class WgpuDevice(WebGPU api, Wgpu ext, Device* device, Queu
 
 // --- [OPERATIONS] --------------------------------------------------------------------------
 public static class DeviceKernels {
-    // Device rows cache one grounded WGSL pipeline per `(device identity, op)`; CPU tables stay closed.
-    static readonly FrozenDictionary<TensorOpFamily, string> Wgsl = new Dictionary<TensorOpFamily, string> {
-        [TensorOpFamily.MatMul] = WgslSource.TiledGemm,
-        [TensorOpFamily.Conv2D] = WgslSource.Im2Col,
-        [TensorOpFamily.MaxPool] = WgslSource.StridedWindowMax, [TensorOpFamily.AvgPool] = WgslSource.StridedWindowAvg,
+    // Device rows cache one grounded WGSL pipeline per `(device identity, op)`; CPU tables stay closed. Every
+    // grounded row declares `array<f32>` storage, so the element column carries that fact into admission instead
+    // of a dtype literal at the receipt, and a widened shader is one row edit here.
+    static readonly FrozenDictionary<TensorOpFamily, (string Source, TensorDtype Element)> Wgsl = new Dictionary<TensorOpFamily, (string, TensorDtype)> {
+        [TensorOpFamily.MatMul] = (WgslSource.TiledGemm, TensorDtype.Float32),
+        [TensorOpFamily.Conv2D] = (WgslSource.Im2Col, TensorDtype.Float32),
+        [TensorOpFamily.MaxPool] = (WgslSource.StridedWindowMax, TensorDtype.Float32),
+        [TensorOpFamily.AvgPool] = (WgslSource.StridedWindowAvg, TensorDtype.Float32),
     }.ToFrozenDictionary();
 
     static readonly ConcurrentDictionary<(string Device, TensorOpFamily Op), Lazy<Fin<DeviceKernel>>> Compiled = new();
 
     public static Fin<DeviceKernel> Compile(WgpuDevice device, TensorOpFamily row) =>
-        Wgsl.TryGetValue(row, out string? source)
+        Wgsl.TryGetValue(row, out (string Source, TensorDtype Element) wgsl)
             ? Compiled.GetOrAdd((device.Identity, row), key => new Lazy<Fin<DeviceKernel>>(
-                () => device.Build(key.Op, source!), LazyThreadSafetyMode.ExecutionAndPublication)).Value
-            : Fin.Fail<DeviceKernel>(ComputeFault.Create($"<device-kernel-miss:{row.Key}>"));
+                () => device.Build(key.Op, wgsl.Element, wgsl.Source), LazyThreadSafetyMode.ExecutionAndPublication)).Value
+            : TensorFault.Fail<DeviceKernel>("device-kernel-miss", row.Key);
 
+    // Conv2D is the canonical multi-step plan and it homes with the registry, because building it resolves two
+    // compiled rows: the Im2Col kernel gathers the patch matrix into a roster-indexed device-resident intermediate
+    // and the TiledGemm kernel multiplies it by the filter block — one encoder, one submission, no host round trip
+    // between the steps. The intermediate is a roster index like any other binding, so the caller allocates it once
+    // beside the operands and both steps address it by index. Each launch derives from its OWN shader's tile.
+    public static Fin<DevicePlan> Conv2D(WgpuDevice device, ConvLaunch launch, ImmutableArray<int> gather, ImmutableArray<int> gemm) =>
+        launch.Positions == 0 || launch.Channels == 0 || launch.PatchWidth == 0 || launch.Filters == 0
+            ? TensorFault.Fail<DevicePlan>("device-conv-launch", $"{launch.Positions}x{launch.Channels}x{launch.PatchWidth}x{launch.Filters}")
+            : Compile(device, TensorOpFamily.Conv2D).Bind(im2col =>
+              Compile(device, TensorOpFamily.MatMul).Map(tiledGemm =>
+                  DevicePlan.Of(
+                      new DeviceStep(im2col, gather, (Tiles(launch.Positions, WgslSource.GatherTile), Tiles(launch.Channels, WgslSource.GatherTile), 1)),
+                      new DeviceStep(tiledGemm, gemm, (Tiles(launch.Filters, WgslSource.GemmTile), Tiles(launch.Positions, WgslSource.GemmTile), 1)))));
+
+    static uint Tiles(uint extent, uint tile) => (extent + tile - 1) / tile;
+
+    // Retirement FORCES each removed entry rather than skipping an uncreated one: a `Lazy` removed while its
+    // compile is in flight still publishes a module, pipeline, and layout to the thread that forced it, and once
+    // the entry has left the cache nothing else holds a handle to release — the drain blocks on the compile,
+    // then releases exactly what it produced.
     public static void Release(WgpuDevice device) {
         foreach (var pair in Compiled.Where(pair => pair.Key.Device == device.Identity).ToArray()) {
-            if (Compiled.TryRemove(pair.Key, out Lazy<Fin<DeviceKernel>>? compiled) && compiled.IsValueCreated && compiled.Value.Case is DeviceKernel kernel) {
+            if (Compiled.TryRemove(pair.Key, out Lazy<Fin<DeviceKernel>>? compiled) && compiled.Value.Case is DeviceKernel kernel) {
                 device.Release(kernel);
             }
         }
@@ -1466,7 +1632,7 @@ public static class DeviceKernels {
 public static class DeviceDispatch {
     // Span operands cross no receipt lambda, so element and workgroup facts precompute; singular dispatch is a
     // one-step plan through DevicePlan.Of — one entrypoint owns both modalities.
-    public static Fin<ComputeReceipt.TensorRun> Dispatch(WgpuDevice device, DevicePlan plan, ReadOnlySpan<DeviceBuffer> roster, OrtResidency residency, CorrelationId correlation) {
+    public static Fin<ComputeReceipt.TensorRun> Dispatch(WgpuDevice device, DevicePlan plan, ReadOnlySpan<DeviceBuffer> roster, TensorDtype row, OrtResidency residency, CorrelationId correlation) {
         if (plan.Steps.IsEmpty) { return TensorFault.Fail<ComputeReceipt.TensorRun>("empty-plan", "device"); }
         if (!residency.Device) { return TensorFault.Fail<ComputeReceipt.TensorRun>("device-residency-required", plan.Steps[0].Kernel.Op.Key); }
         long workgroups = 0;
@@ -1487,17 +1653,22 @@ public static class DeviceDispatch {
         if (workgroups > int.MaxValue) { return TensorFault.Fail<ComputeReceipt.TensorRun>("device-workgroup-overflow", plan.Steps[0].Kernel.Op.Key); }
         DeviceStep terminalStep = plan.Steps[plan.Steps.Count - 1];
         TensorOpFamily terminal = terminalStep.Kernel.Op;
+        // Element width comes from the RUN's dtype row and must equal the shader's own declared element: a
+        // pipeline indexing `array<f32>` reads a float64 buffer as twice as many wrong values, and a receipt
+        // naming a dtype the pipeline never indexed is worse evidence than the refusal.
+        if (row != terminalStep.Kernel.Element) { return TensorFault.Fail<ComputeReceipt.TensorRun>("device-dtype", terminal.Key, $"{row.Key}!={terminalStep.Kernel.Element.Key}"); }
+        if (row.Width.Case is not int width || width <= 0) { return TensorFault.Fail<ComputeReceipt.TensorRun>("device-dtype-width", row.Key); }
         long outputBytes = roster[terminalStep.Bindings[^1]].ByteLength;
-        if (outputBytes % sizeof(float) != 0) { return TensorFault.Fail<ComputeReceipt.TensorRun>("device-output-alignment", terminal.Key, outputBytes.ToString()); }
-        long elements = outputBytes / sizeof(float);
+        if (outputBytes % width != 0) { return TensorFault.Fail<ComputeReceipt.TensorRun>("device-output-alignment", terminal.Key, $"{outputBytes}%{width}"); }
+        long elements = outputBytes / width;
         int partitions = (int)workgroups;
         Fin<Duration> run;
         try { run = device.RecordAndSubmit(plan, roster); }
         catch (Exception ex) { return TensorFault.Fail<ComputeReceipt.TensorRun>("device-submit", terminal.Key, ex.Message); }
         return run
-            .Map(elapsed => new ComputeReceipt.TensorRun(terminal, "float32", elements, SimdWidth: "device-wgpu", Partitions: partitions) {
+            .Map(elapsed => new ComputeReceipt.TensorRun(terminal, row.Key, elements, SimdWidth: Substrate.DeviceWgpu.Key, Partitions: partitions) {
                 Scope = new ReceiptScope.Execution(correlation, WorkLane.Background, Substrate.DeviceWgpu, AllocationClass.DeviceWgpu, elapsed),
-                DeterminismTag = $"device-wgpu:{device.Identity}",
+                DeterminismTag = $"{Substrate.DeviceWgpu.Key}:{device.Identity}",
             });
     }
 

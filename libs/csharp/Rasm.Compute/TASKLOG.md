@@ -20,110 +20,7 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic included; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Tasks state landing-grain work decomposing an idea.
 -->
 
-[STAGE_PARTITION_EVIDENCE]-[QUEUED]: Publish the graph-partition count as measured evidence off the pinned chrome-trace schema.
-- Capability: the partition count a stage result carries reads from a real trace parse rather than a key spelling assumed at authoring time, closing the last unmeasured column on the photo-to-PBR execution wire.
-- Shape: the trace-reading warm pulse the app root injects into `Model/sessions#SESSION_CAPSULE` `Warmup`, filling `WarmEvidence.Partitions` for the bucket it ran.
-- Unlocks: `StageResult.PartitionCount` publishes a measured value on every provider, so the specifying end's partition-bound refusal grades against observation instead of refusing every non-floor run for want of evidence.
-- Anchors: the measured node-event schema now stands as fence law on `RunOps.Profile` (bare JSON array, `cat:"Node"`, `<node>_kernel_time`, string `node_index`, full-EP-class-name `provider` — the partition count is the distinct `provider` set over node events, fused nodes one partition each); `RunOps.Profile` already mints the `ChromeTrace` artifact from `EndProfiling`; `WarmEvidence` already carries the column as `Option<int>` and the stage fold already refuses an unmeasured bucket; `libs/csharp/.api/api-system-text-json.md` `JsonDocument.Parse`/`TryGetProperty`/`EnumerateArray` rows.
-- Ripple: mirrors `Rasm.Materials` `Appearance/neural` `StageResult.Admit` partition-bound guard.
-
-[PARITY_CADENCE]-[QUEUED]: A durable parity verdict declares its own freshness horizon, so re-measurement is a stated policy rather than a hand-deleted artifact.
-- Capability: the residual a stage publishes carries the age of the measurement behind it, so a verdict minted under machine conditions the decision key cannot see is re-graded on a declared horizon instead of being read for the life of the store.
-- Shape: a minting instant and horizon column on the parity verdict carried across the process memo and the durable row alike, with the staleness read beside the memo hit in `libs/csharp/Rasm.Compute/.planning/Model/inference.md` `[04]-[STAGE_EXECUTION]`.
-- Unlocks: an accelerated multi-stage plan keeps paying one measurement per decision while the parity obligation stays honest across a machine's lifetime, and a durable row stops being immortal by construction.
-- Anchors: `ParityVerdict` carries delta and ceiling alone while `ParityPort` reads and writes it under `ParityKey` — card checksum, the provider `ResultKey` folding runtime version, precision, and the behavior-option fingerprint, and the `HostFingerprint` print; `BenchmarkClaim.Stale(HostFingerprint)` on `libs/csharp/Rasm.Compute/.planning/Runtime/receipts.md` is the landed staleness precedent over that same host identity; `StageResult.ParityFresh` already separates an observation from a memo hit at the owner and on the frozen wire row.
-- Tension: the host print is an OS, arch, processor-count, and stamp tuple, so a same-print machine whose driver or firmware moved reads a verdict nothing on it graded — the horizon covers that gap where widening the key would re-measure every stage on a stamp change that alters no arithmetic.
-- Ripple: mirrors `Rasm.Materials` `Appearance/neural` stage-result admission, which owns the residual ceiling.
-
-[SELECTION_FOLD]-[QUEUED]: Land the model-selection fold on the estimator lane — information criteria, hyper-parameter paths, and the ranked candidate verdict.
-- Capability: information criteria over fitted likelihoods, candidate `EstimatorPolicy` path evaluation (penalty strength, kernel width, cluster count), and a chooser folding `Validate` scores into one ranked verdict with per-candidate evidence.
-- Shape: a selection member on `EstimatorFold` beside `Fit`/`Predict`/`Validate` in `libs/csharp/Rasm.Compute/.planning/Stats/estimator.md`; candidates are policy rows.
-- Unlocks: `[STATS_MODEL_SELECTION]` realized; the C# graduation binding carries the selection discipline.
-- Anchors: `EstimatorFold.Validate` k-fold and forward-chain scoring (landed), `EstimatorPolicy` admitted ranges, `ValidationReport` carrier.
-
-[SELECTION_EXACT_ACCUMULATION]-[QUEUED]: Accumulate large-n log-likelihood sums for information criteria in extended precision.
-- Capability: criterion sums over building-scale sample counts accumulate through the `PeterO.Numbers` `EFloat`/`EContext` carrier so double cancellation never flips a candidate ranking.
-- Shape: an accumulation detail inside the selection fold in `libs/csharp/Rasm.Compute/.planning/Stats/estimator.md`.
-- Unlocks: defensible criterion deltas at screening scale; the admitted `EFloat` surface gains its first consumer.
-- Anchors: folder `.api` `api-petero-numbers.md` `EFloat`/`EContext`/`ERounding` rows.
-- Atomic: one accumulation detail on the selection fold.
-
-[QUANTILE_SEAM_AWARENESS]-[QUEUED]: Monitor and kernel quantile owners name each other's charter across the seam.
-- Capability: the operational P² owner and the kernel's batch quantile owner each state the split, so neither page reads as the other's gap.
-- Shape: one seam clause on `libs/csharp/Rasm.Compute/.planning/Stats/monitor.md` `[02]` citing the kernel exact small-sample `Distribution.Of` as the distinct batch owner.
-- Unlocks: the branch three-formed quantile refusal holds with zero mutually-unaware prose.
-- Anchors: `libs/csharp/.planning/RULINGS.md` streaming-quantile row; `libs/csharp/Rasm/.planning/Domain/stats.md` policy-row line.
-- Ripple: mirrors `Rasm` `[QUANTILE_SEAM_AWARENESS]`.
-- Atomic: one clause.
-
-[SHARD_PARTITION_FOLD]-[QUEUED]: Partition one solve into per-node sub-blocks over the remote-grpc farm through the job graph.
-- Capability: a shard-partition fold deriving per-node jobs from the factorization block structure, scheduling each shard through `JobGraph` dependency dispatch onto `remote-grpc` hops, and merging shard results under the existing deadline budget.
-- Shape: a partition fold on `libs/csharp/Rasm.Compute/.planning/Runtime/scheduling.md` job-graph dispatch; `NodeSelection` ranks shard placement.
-- Unlocks: `[SOLVER_FARM_SHARDS]` execution half; modal and buckling solves exceeding one node.
-- Anchors: `JobGraph` content-digest node keys, `NodeSelection.Select` rotation/load/warm tiers, `Runtime/admission#SUBSTRATE_AXIS` warm-affinity routing.
-
-[SHARD_EVIDENCE_ROWS]-[QUEUED]: Stamp shard count, node placement, and merge evidence onto the solve receipt rail.
-- Capability: shard evidence as `Solve`/`Factorization` receipt fields and one shard instrument row the projection fan folds.
-- Shape: receipt field additions and one `InstrumentSpec` row in `libs/csharp/Rasm.Compute/.planning/Runtime/receipts.md`.
-- Unlocks: shard-grain observability for farm capacity planning.
-- Anchors: `ComputeInstrumentFan.Project` compile-broken switch, curated-aggregate boundary law.
-- Atomic: receipt fields and one instrument row.
-
-[RULE_POPULATION_DERIVATION]-[QUEUED]: Derive `RuleGrounding` populations from the concrete `ElementGraph` node classes.
-- Capability: a node-class selector instantiating `ComplianceRule` templates over every matching graph member, verdict/witness/unsat-core keyed per element.
-- Shape: a grounding derivation on `libs/csharp/Rasm.Compute/.planning/Solver/satisfy.md` consuming the graph the assessment spine routes; caller-supplied rows stay the manual lane.
-- Unlocks: `[SOLVER_ELEMENT_QUANTIFIED_RULES]` derivation half; whole-building code audits naming exact failing elements.
-- Anchors: `ComplianceRule`/`RuleGrounding` name@element tracking literals (landed), assessment-spine per-node fact routing.
-
-[RULE_COVERAGE_PROOF]-[QUEUED]: Prove grounding exhaustiveness — every matching node-class member instantiated or the audit refuses.
-- Capability: a population fold comparing derived groundings against the node-class census and landing a typed coverage fact.
-- Shape: a coverage proof beside the derivation in `libs/csharp/Rasm.Compute/.planning/Solver/satisfy.md`.
-- Unlocks: audit verdicts carry a completeness guarantee, not a best-effort sample.
-- Anchors: `ElementGraph` node-class census, typed unknown-verdict precedent on the satisfy owner.
-- Atomic: one coverage fold and fact.
-
-[ROUTING_ROW_SHAPE]-[QUEUED]: Land the routing row — typed problem shape, solve, and status mapping.
-- Capability: `RoutingModel`/`RoutingIndexManager` behind one `OptimizerKind` row over typed nodes, arcs, capacity/time-window `RoutingDimension` columns, and vehicles; `RoutingSearchStatus.Types.Value` maps onto the fault rail; `Optimization` receipt evidence.
-- Shape: one exact-lane row in `libs/csharp/Rasm.Compute/.planning/Solver/optimizer.md` under the disposal law the circulation natives set.
-- Unlocks: `[OPTIMIZER_ROUTING_LANE]` core.
-- Anchors: folder `.api` `api-ortools#ENTRYPOINTS` routing rail, `OptimizerKind` row law, `MaxFlow`/`MinCostFlow` disposal precedent.
-
-[ROUTING_SEARCH_POLICY]-[QUEUED]: Pin the routing search-policy rows.
-- Capability: `RoutingSearchParameters` first-solution and metaheuristic choices as policy rows with time-limit columns, never call-site knobs.
-- Shape: policy rows beside the routing row in `libs/csharp/Rasm.Compute/.planning/Solver/optimizer.md`.
-- Unlocks: reproducible routing solves; policy participates in receipt evidence.
-- Anchors: `FirstSolutionStrategy.Types.Value` catalog row, policy-row precedent across the optimizer lane.
-- Atomic: policy rows on one owner.
-
-[BASIS_VERDICT_COSIGN]-[QUEUED]: Co-sign the `DesignBasis` re-cut of the design-check verdict vocabulary the structural consumer reads.
-- Capability: the Materials basis axis renames the `SectionCapacity` case family; the `(DesignCode, LimitState)` capacity table and the `MemberCheck` carriers re-read the re-cut vocabulary in the same pass, so consumer and owner never hold two spellings.
-- Shape: verdict-vocabulary alignment rows on `Analysis/structural#DESIGN_CHECK`; the re-cut itself lands Materials-side.
-- Unlocks: EC3/EN 1994/EN 1996 basis rows flow through the standing capacity table without a parallel verdict family.
-- Anchors: `DesignCode`/`LimitState` SmartEnum rows, `SectionCapacity`/`MemberCheck` carriers, the Materials capacity rail.
-- Ripple: `Rasm.Materials` `[DESIGN_BASIS_AXIS]`.
-- Atomic: verdict-vocabulary alignment on one section.
-
-[ENERGY_RESULTS_WIRE]-[QUEUED]: Mint the typed energy-results receipt wire — zone and space result rows keyed by the `EnergyArtifact` content key.
-- Capability: the `SqlFile` result read emits a typed receipt — annual and peak loads, comfort hours, EUI per zone and space — keyed by the `EnergyArtifact` content key, the record the Bim results-admission fold consumes; `SqlFile` decode stays Compute's per the standing simulation ruling.
-- Shape: one receipt record and emit row on `Analysis/energy#SIMULATION_RUN` beside `ReadResults`.
-- Unlocks: results survive the run directory — Bim annotates zones and re-exports Psets from the receipt.
-- Anchors: `EnergySimulation.Run` fact stream, the `SqlFile` readers, `AssessmentSink` content-keyed landing.
-- Ripple: `Rasm.Bim` `[ENERGY_RESULTS_ANNOTATION]`.
-
-[PROTO_PACKAGE_SPELLING]-[QUEUED]: Spell the proto package declaration at the wire owner so cross-runtime ends project the fully-qualified service names.
-- Capability: the one wire-contract owner carries the complete service identity — package segment and service names — so a peer runtime projects the fully-qualified name from the mint instead of hard-coding it.
-- Shape: the proto `package` line on `libs/csharp/Rasm.Compute/.planning/Runtime/wire.md` `[02]-[PROTO_VOCABULARY]` beside the service roster.
-- Unlocks: the python geometry serve end projects its service-name rows from the C# mint under the single-writer law.
-- Anchors: the `[PROTO_VOCABULARY]` service roster; the estate single-writer measure-authority row.
-- Atomic: one declaration line.
-
-[GRADUATION_EVIDENCE_OWNER]-[QUEUED]: Land the reverse graduation-evidence envelope the python companion already decodes.
-- Capability: the C# half of the graduation crossing gains a real owner — the evidence envelope carrying owner descriptors and their leaf field shapes — so the seam is a two-ended contract rather than one branch-architecture sentence.
-- Shape: a `GraduationEvidence` cluster on a `libs/csharp/Rasm.Compute/.planning/Model/` page beside the landed `GraduationEnvelope`, spelling the descriptor and leaf-field roster the companion's stub projector reads.
-- Unlocks: the branch seam ledger's `[GRADUATION]` edge gains its C# endpoint, and the companion's decode target stops naming an owner no page holds.
-- Anchors: the seam sentence at `libs/csharp/.planning/ARCHITECTURE.md` `[03]-[SEAMS]`; the landed `GraduationEnvelope` on `libs/csharp/Rasm.Compute/.planning/Model/identity.md`.
-- Tension: the field roster is the companion's assumption until this owner fixes it, so landing it may contradict a shape the peer already transcribed.
-- Ripple: mirrors `python:compute` `[GRADUATION_EVIDENCE_COUNTERPART]`.
+(none)
 
 ## [02]-[CLOSED]
 
@@ -131,9 +28,28 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 [ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
+[RC_SHEAR_LINK_FILL]-[DROPPED]: the card's producing-half premise re-proved false on disk — `Rasm.Materials` `Component/capacity#SECTION_CAPACITY` publishes no `f_ywd` and no `V_Rd,max` column (`RcElastic` carries `ShearLinkAreaMm2` alone) and no capacity scalar reaches the graph, so the fill has nothing to read; the carrying-surface decision is settled and retained — the seam-published receipt triple, because a realization-bag read re-derives all three inputs (the engine's own 2·A_link aggregate, a grade→fy twin of `RebarGradeRow`, a second `V_Rd,max` spelling against the owner `Analysis/structural.md` binds as its sole computer) — and the one-line `Project` fill (a `let` read beside `directional`, threaded as the `StructuralMember` `ShearLink` tail argument) lands WITH the producing columns and their seam carrier in one change at the pass that publishes them — WHICH LANDED: `RcElastic` carries `FywdMpa` (grade-row f_yk over the basis γs) with `VrdMaxKn` derived, `ShearLinkRows` publishes the whole-or-nothing SI triple under the Element `StructuralRows` names onto a derived Realization bag the projector's fourth bag term mints, and `StructuralReads.ShearLinkOf` reads it into the `Project` fill, so the en1992 truss cells are live.
+
+[OBSERVATION_PRODUCER_CONSUMER]-[COMPLETE]: both ends of the measured-evidence seam landed at Compute — `Runtime/transport#OBSERVATION_LANE` accumulates the decoded broker stream per binding and flushes it through `Open`/`Encode`/`From`+`Fold`/`Append` into content-keyed chunks and one `GraphDelta` (`Node.Observation` + occurrence `Assign`), fanned off the same delivery by `CaptureAdmission.Absorb`; `Analysis/assessment#COMMISSIONING` gates the metered-against-predicted comparison (quantity triple, coverage floor, band-propagating residual) and writes the verdict back under a derived commissioning `AnalysisRoute` whose `DependsOn` names both upstreams, with `Rows`/`Supersede` re-keyed onto the seam `AnalysisRoute` so the one-usable-node law reaches it; Ripple: Rasm.Element [OBSERVATION_PRODUCER_SEAM].
+[ENERGY_RESULTS_WIRE_COUNTERPART]-[COMPLETE]: `Analysis/energy#SIMULATION_RUN` transcribes the Bim `ResultFuel` × `ResultEndUse` × `ResultMeasure` vocabulary with `ResultScope` and `EnergyResult.Of(ArtifactKey)`; seam rows landed at both ARCHITECTURE ends and the transcription-custody ruling minted at `RULINGS.md` `[02]`.
+[STAGE_PARTITION_EVIDENCE]-[COMPLETE]: `RunOps.WarmPulse` parses the pinned chrome-trace schema (distinct `provider` set over node events, fused-node law) filling `WarmEvidence.Partitions` under the profile-stripped `ResidentKey.Warm` key law, so the pulse's profiling lease publishes evidence the production resident reads.
+[PARITY_CADENCE]-[COMPLETE]: `ParityVerdict` carries `MeasuredAt`, `ParityPort.Horizon` (canonical 30 days) re-grades stale verdicts, and the residual ceiling rides the lease per call so a raised card ceiling re-grades without re-measurement; the host-print driver gap is exactly what the horizon covers.
+[SELECTION_FOLD]-[COMPLETE]: `EstimatorFold.Select` landed with `SelectionPolicy`/`SelectionReport`/`CandidateEvidence` and the aic/bic `InformationCriterion` rows over `FittedModel.LogLikelihood`, fused with `Validate` scores into one ranked verdict.
+[SELECTION_EXACT_ACCUMULATION]-[COMPLETE]: criterion, deviance, and dispersion sums accumulate through `EFloat` with one terminal `EContext.Binary64` rounding; the folder catalog gained the accumulation entrypoint scope.
+[QUANTILE_SEAM_AWARENESS]-[COMPLETE]: `Stats/monitor` `[02]` cites the kernel `Distribution.Of` as the distinct exact small-sample batch owner under the branch three-form law.
+[SHARD_PARTITION_FOLD]-[COMPLETE]: `Runtime/scheduling#JOB_GRAPH` derives per-node sub-block jobs from the factorization block structure onto remote-grpc hops under `NodeSelection` ranking and the deadline-sealed merge node.
+[SHARD_EVIDENCE_ROWS]-[COMPLETE]: `Solve`/`Factorization` gained `Shards`/`ShardNode`/`Merged`, one `rasm.compute.solve.shards` instrument row, and the fan arm; `Tensor/factor` fills the columns at `Materialize` and the merge fold.
+[RULE_POPULATION_DERIVATION]-[COMPLETE]: `RuleSatisfaction.Ground` instantiates `ComplianceRule` templates over every matching `ElementGraph` member through `NodeClassSelector` with Element-declared property rows; caller-supplied groundings stay the manual lane.
+[RULE_COVERAGE_PROOF]-[COMPLETE]: `Coverage` returns `CoverageFact(Population, Grounded, Missing)` and `Check` gates on it under `SatisfyPolicy.RequireCoverage`, so an audit verdict carries a completeness guarantee.
+[ROUTING_ROW_SHAPE]-[COMPLETE]: the routing row landed with the decompile-verified member set — `DefaultRoutingSearchParameters`, the dimension-level `SetCumulVarRange`, the `Start`/`IsEnd`/`NextVar` walk through `Assignment.Value`, `GetStatus()` — realized whole in the `Harvest` fence.
+[ROUTING_SEARCH_POLICY]-[COMPLETE]: `RoutingPolicy` rows (first-solution, metaheuristic, wall and solution limits; canonical PathCheapestArc + GuidedLocalSearch) build the `RoutingSearchParameters` at the lowering and ride receipt evidence.
+[BASIS_VERDICT_COSIGN]-[COMPLETE]: both ends landed same-pass — the Materials 13-row `DesignBasis` axis re-cut the `SectionCapacity` case family (code names off, basis on) and this end co-signed with `en1994`/`en1996` `DesignCode` rows, the `EnMasonryPhi` kernel, and the `MemberCapacity` rename clearing the wire-union name collision.
+[ENERGY_RESULTS_WIRE]-[COMPLETE]: the `SqlFile` fold emits typed `EnergyResult` rows keyed by `ArtifactKey` — per-(fuel, end-use) cells, per-fuel peak demand off the decompile-proven monthly accessor, per-zone comfort tallies, and EUI intensity — the record the Bim admission fold consumes.
+[PROTO_PACKAGE_SPELLING]-[COMPLETE]: `Runtime/wire` `[02]` carries the `syntax`/`package rasm.compute.v1`/`csharp_namespace` header law as the single-writer mint peers project from; the `Tessellate` rpc row joined the roster.
+[GRADUATION_EVIDENCE_OWNER]-[COMPLETE]: `Model/identity#GRADUATION_EVIDENCE` lands the reverse envelope (`FieldScalar`/`FieldNode`/`OwnerDescriptor`/`GraduationEvidence` with locked kind literals and the Kahn cycle proof) mirroring the python `EvidenceBundle` grain; the seam edge re-homed to `Model` `[GRADUATION]` and the wire-context registration landed.
 [STRUCTURAL_ROW_STATICS]-[COMPLETE]: `Analysis/structural#FRAME_MODEL` keys every structural edge read through a `Rasm.Element` `StructuralRows` static — no folder `PropertyName.Create` survives and `Vec` takes the axis FAMILY map, so no call site rebuilds a `{stem}X` spelling — and both collapsed shapes the Element declarer rules landed with the retarget: `DofRestraint` (`Free`/`Rigid`/`Spring`) reads ONE row per degree of freedom off the `PropertyValue` case, retiring the `<dof>Stiffness` probes, the `TranslationK`/`RotationK` columns, and a finiteness guard two consumers re-spelled; `Option<SupportFrame>` reads the ONE positional `Frame` list of six `Number` ratios, retiring the `RestraintAxis*` family. `PlanarForce`/`Start`/`End` and `Gradients`-keyed `DeltaT` promoted to that roster in the same pass, so one owner declares the whole applied-load wire.
 [PAYLOAD_CARRIER_DRAIN]-[COMPLETE]: every attribute read in `Runtime/payload#RESIDENCY` now resolves BY DESCRIPTOR through the kernel `EncodedGeometry` arena — one shared `Lane`/`Has` reader in the encode owner, `EncodingChannel` rows naming every stride, and the leaf-shape gate reduced to the cross-shape census the arena cannot prove itself; the encoder gains a lane the roster grows with no edit, and the per-column carrier the seam collapse deleted has no reader left in the package.
-[WEBGPU_PROVIDER_ROW]-[COMPLETE]: the pinned 1.27.1 `osx-arm64` runtime SHIPS the WebGPU EP (Dawn/Metal statically linked, `GetAvailableProviders()` = CoreML, WebGpu, CPU) — the `ExecutionProvider.WebGpu` row landed at `Model/providers#EP_AXIS` with `wireKey: "webGpu"`, macOS gate, GPU affinity, the generic string append (no dedicated managed method or C export exists), an empty default option table (`EpOptions` empty on every published device), and the `dawnBackendType` process-abort hazard structurally unspellable; `FromWire("webGpu")` resolves to a real row on macOS-arm64 and degrades to `Cpu` on every other RID, and the research rows here and at `Rasm.Materials` `Appearance/neural` retired answered.
+[WEBGPU_PROVIDER_ROW]-[COMPLETE]: the pinned `osx-arm64` runtime SHIPS the WebGPU EP (Dawn/Metal statically linked, `GetAvailableProviders()` = CoreML, WebGpu, CPU) — the `ExecutionProvider.WebGpu` row landed at `Model/providers#EP_AXIS` with `wireKey: "webGpu"`, macOS gate, GPU affinity, the generic string append (no dedicated managed method or C export exists), an empty default option table (`EpOptions` empty on every published device), and the `dawnBackendType` process-abort hazard structurally unspellable; `FromWire("webGpu")` resolves to a real row on macOS-arm64 and degrades to `Cpu` on every other RID, and the research rows here and at `Rasm.Materials` `Appearance/neural` retired answered.
 [PARALLEL_BUDGET_BINDINGS]-[COMPLETE]: `TplPopulation(int minSize, int maxSize, IChromosome adamChromosome)` is public and takes the `Population` constructor whole, so `Solver/optimizer#OPTIMIZER_LANE` `GeneticEngine.Evolve` carries it beside the budget-sealed `ParallelTaskExecutor` and `TplOperatorsStrategy`; the recorded blocker was false — the ctor existed at the admitted pin all along.
 [BROKER_CARRIER_PARENT]-[COMPLETE]: `[BROKER_TRACE_CONTEXT]` was false — `TraceCarrier.Parent` owns the branch's one `ActivityContext.TryParse` and `SpanEdge.Under(carrier, kind = Consumer)` its ingress bracket over the collapsed `(Kind, Parent, Links)` carriage, so the ingest leg hands the carrier outward with no kernel edit owed and every 3-arg `Traced` call site stays byte-identical under `default(SpanEdge)`.
 [MQTT_INGEST_LAND]-[COMPLETE]: `Runtime/transport#BROKER_INGEST` gained the MQTT subscribe pump — a bounded channel bridging `ApplicationMessageReceivedAsync` onto the same `IAsyncEnumerable<Fin<SensorEnvelope<T>>>` the NATS pump yields, `AutoAcknowledge` false with the ack riding the successful enqueue so a shed QoS 1/2 delivery redelivers, and the W3C pair extracted from `MqttApplicationMessage.UserProperties` through `ReadValueAsString` rather than the `[Obsolete]` `Value`.

@@ -6,11 +6,14 @@
 
 `ArchiveValue` carries every payload; `SettingKind` rows are the only site naming a host `TryGet*`/`Set*` member, and each kind adds one complete row whose delegate and type columns drive every boundary projection. `Shape` is the carrier payload type `For` matches, while `HostType` is the host runtime type `Accepts` matches — the two diverge exactly where the detached form differs from the host form (`TextList`, `TextMap`, `OptionalColor`). Rows without a default column refuse with a typed unsupported fault; the enum row rides the shared `EnumMint` reflection seam.
 
-Rename tolerance is an EXPLICIT-READ capability only: every `TryGet*` carries a third `IEnumerable<string> legacyKeyList` parameter, so the `probe` column takes the roster and the whole row vocabulary widens with it. `TryGetDefault` publishes no such overload and `TryGetEnumValue<T>` hard-passes `null` to the same resolver, so `probePreset` stays two-argument and an enum read is legacy-blind by host construction — the asymmetry is the host's, and a roster threaded into either would be an unread argument.
+Rename tolerance is an EXPLICIT-READ capability only: every `TryGet*` carries a third `IEnumerable<string> legacyKeyList` parameter, so the `probe` column takes the roster and the whole row vocabulary widens with it. `TryGetDefault` publishes no such overload and `TryGetEnumValue<T>` hard-passes `null` to the same resolver, so `probePreset` stays two-argument and the enum row discards the roster its `Read` column receives — the asymmetry is the host's, and a roster threaded into either would be an unread argument.
+
+The enum row reads through its own `Read` column like every other row: it resolves the concrete type from the host's seated `RuntimeType` and mints one closed reader per enum type behind the shared reflection seam. No second operation case, no caller-supplied type argument, and no parallel static spell the same read.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using System.Drawing;
+using System.Reflection;
 using Rasm.Domain;
 using Rhino;
 using Rhino.Geometry;
@@ -174,8 +177,7 @@ public sealed partial class SettingKind {
         defaults: SettingDefaultMode.None,
         shape: typeof(System.Enum),
         hostType: typeof(System.Enum),
-        read: static (node, key, legacy, op) => Fin.Fail<Option<ArchiveValue>>(error: op.Unsupported(
-            geometryType: typeof(System.Enum), outputType: typeof(PersistentSettings))),
+        read: static (node, key, _, op) => ReadEnum(node, key, op),
         write: static (node, key, value, op) => value.EnumEntry
             .ToFin(Fail: op.InvalidInput())
             .Bind(entry => ArchiveValue.EnumMint(node, nameof(PersistentSettings.SetEnumValue), key.Value, entry, op)),
@@ -237,17 +239,43 @@ public sealed partial class SettingKind {
         .OrderBy(static row => row.Key, StringComparer.Ordinal)
         .ToArray();
 
-    internal static Fin<Option<ArchiveValue>> ReadEnum(PersistentSettings source, SettingKey key, Type enumType, Op op) =>
-        from _shape in guard(enumType.IsEnum, op.InvalidInput()).ToFin()
-        from method in op.Catch(() => Optional(typeof(SettingKind).GetMethod(
-                nameof(ReadEnumTyped),
-                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static))
-            .ToFin(Fail: op.MissingContext())
-            .Map(open => open.MakeGenericMethod(enumType)))
-        from result in op.Catch(() => method.Invoke(null, [source, key.Value, op]) is Fin<Option<ArchiveValue>> typed
-            ? typed
-            : Fin.Fail<Option<ArchiveValue>>(error: op.InvalidResult()))
-        select result;
+    // ONE enum read exists, and it is this row's own `Read` column. The concrete enum type is the SEATED type the host
+    // already records — `TryGetSettingType` answers `SettingValue.RuntimeType`, which `SetEnumValue<T>` writes as
+    // `typeof(T)` — so no caller carries a parallel type argument and no second operation case spells the same read. An
+    // unseated key answers absent, exactly as every other row's `TryGet*` miss does.
+    private static Fin<Option<ArchiveValue>> ReadEnum(PersistentSettings source, SettingKey key, Op op) =>
+        op.Catch(() => Fin.Succ(value: source.TryGetSettingType(key.Value, out Type seated)
+                ? Optional(seated)
+                : Option<Type>.None))
+            .Bind(seated => seated.Match(
+                Some: type => type.IsEnum
+                    ? EnumReader(type, op).Bind(read => op.Catch(() => read(source, key.Value, op)))
+                    : Fin.Fail<Option<ArchiveValue>>(error: op.Unsupported(
+                        geometryType: type, outputType: typeof(System.Enum))),
+                None: static () => Fin.Succ(value: Option<ArchiveValue>.None)));
+
+    // The open handle resolves once at type init and each enum type's closed reader is minted once and held: the
+    // per-call `GetMethod` plus `MakeGenericMethod` walk was repeat reflection on the hottest read on the page. A lost
+    // mint race keeps the seated reader, so every caller of one enum type shares one delegate.
+    private static readonly Option<MethodInfo> EnumReaderTemplate = Optional(typeof(SettingKind).GetMethod(
+        nameof(ReadEnumTyped),
+        BindingFlags.NonPublic | BindingFlags.Static));
+
+    private static readonly Atom<HashMap<Type, Func<PersistentSettings, string, Op, Fin<Option<ArchiveValue>>>>> EnumReaders =
+        Atom(HashMap<Type, Func<PersistentSettings, string, Op, Fin<Option<ArchiveValue>>>>());
+
+    private static Fin<Func<PersistentSettings, string, Op, Fin<Option<ArchiveValue>>>> EnumReader(Type enumType, Op op) =>
+        EnumReaders.Value.Find(enumType).Match(
+            Some: static held => Fin.Succ(value: held),
+            None: () => EnumReaderTemplate
+                .ToFin(Fail: op.MissingContext())
+                .Bind(open => op.Catch(() => Fin.Succ(value: open
+                    .MakeGenericMethod(enumType)
+                    .CreateDelegate<Func<PersistentSettings, string, Op, Fin<Option<ArchiveValue>>>>())))
+                .Map(minted => EnumReaders
+                    .Swap(held => held.ContainsKey(enumType) ? held : held.Add(enumType, minted))
+                    .Find(enumType)
+                    .IfNone(minted)));
 
     private static Fin<Option<ArchiveValue>> ReadEnumTyped<T>(PersistentSettings source, string key, Op op)
         where T : struct, IConvertible =>
@@ -349,7 +377,6 @@ public abstract partial record SettingOperation {
     // `Legacy` is an ORDERED rename-precedence roster the host walks only when the current key is absent; the first
     // roster key it resolves is REMOVED and its value re-seated under the current key, so a legacy read migrates.
     public sealed record ReadCase(SettingPath Path, SettingKey Key, SettingKind Kind, Seq<SettingKey> Legacy) : SettingOperation;
-    public sealed record ReadEnumCase(SettingPath Path, SettingKey Key, Type EnumType) : SettingOperation;
     public sealed record PutCase(SettingPath Path, SettingKey Key, ArchiveValue Value) : SettingOperation;
     public sealed record DeleteCase(SettingPath Path, SettingKey Key) : SettingOperation;
     public sealed record ReadDefaultCase(SettingPath Path, SettingKey Key, SettingKind Kind) : SettingOperation;
@@ -393,6 +420,13 @@ public sealed record SettingsTree(
     bool HiddenFromUserInterface,
     bool ContainsChangedValues);
 
+// Host truth, decompile-proven: `RegisterSettingsValidator<T>` is one assignment onto a private per-node map
+// (`m_settings_validators[key] = validator`), and `PersistentSettings` publishes no unregister, no clear, and no
+// null-accepting overload — `GetValidator<T>` is the only other door to that map. A seated guard therefore holds for
+// the node's process lifetime exactly as `SnapshotParticipant.Registered` does, so the answer publishes the seat
+// instead of a silent void and a caller can hold what it can never hand back.
+public sealed record SettingGuardSeat(SettingPath Path, SettingKey Key, SettingKind Kind);
+
 public sealed record SettingNodeReceipt(
     SettingPath Path,
     Option<SettingKey> Child,
@@ -417,7 +451,7 @@ public abstract partial record SettingAnswer {
     public sealed record MutationCase(SettingMutationReceipt Receipt) : SettingAnswer;
     public sealed record MetadataCase(SettingMetadata Metadata) : SettingAnswer;
     public sealed record ChangedCase(bool Changed) : SettingAnswer;
-    public sealed record GuardCase(SettingKind Kind) : SettingAnswer;
+    public sealed record GuardCase(SettingGuardSeat Seat) : SettingAnswer;
     public sealed record NodeCase(SettingNodeReceipt Receipt) : SettingAnswer;
     public sealed record TreeCase(SettingsTree Tree) : SettingAnswer;
 }
@@ -431,6 +465,7 @@ public abstract partial record SettingAnswer {
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+using System.Reflection;
 using Rasm.Domain;
 using Rasm.Rhino.Document;
 using Rhino;
@@ -441,7 +476,7 @@ namespace Rasm.Rhino.Persistence;
 public static class Settings {
     public static Fin<SettingAnswer> Commit(SettingOperation operation, Op? key = null) {
         Op op = key.OrDefault();
-        return from request in Optional(operation).ToFin(Fail: op.InvalidInput())
+        return from request in op.Need(operation)
                from active in Admit(request, op)
                let route = Route(active)
                from node in Resolve(route.Path, route.Creates, op)
@@ -457,9 +492,9 @@ public static class Settings {
         Op? key = null) {
         Op op = key.OrDefault();
         return from owner in Optional(plugIn).ToFin(Fail: op.MissingContext())
-               from root in Optional(source).ToFin(Fail: op.InvalidInput()).Bind(value => Admit(value, op))
+               from root in op.Need(source).Bind(value => Admit(value, op))
                from location in Admit(path, op)
-               from receiver in Optional(sink).ToFin(Fail: op.InvalidInput())
+               from receiver in op.Need(sink)
                let handler = new EventHandler<PersistentSettingsSavedEventArgs>((_, args) => _ = op.Catch(() => {
                    PersistentSettings node = root.Switch<PersistentSettingsSavedEventArgs, PersistentSettings>(
                        state: args,
@@ -477,7 +512,10 @@ public static class Settings {
 
     private static Fin<SettingOperation> Admit(SettingOperation operation, Op op) => operation.Switch<Op, Fin<SettingOperation>>(
         state: op,
-        readCase: static (op, read) => Optional(read.Kind).ToFin(Fail: op.InvalidInput())
+        readCase: static (op, read) => op.Need(read.Kind)
+            // The enum row is legacy-blind by host construction, so a roster carried on an enum read would ride into a
+            // walk the host never makes and publish an `Adopted` rename that never happened.
+            .Bind(kind => guard(kind != SettingKind.Enum || read.Legacy.IsEmpty, op.InvalidInput()).ToFin().Map(_ => kind))
             .Bind(kind => Admit(read.Legacy, read.Key, op).Map(legacy => (Kind: kind, Legacy: legacy)))
             .Bind(state => At(
                 read.Path,
@@ -485,15 +523,7 @@ public static class Settings {
                 state,
                 static (path, key, admitted) => new SettingOperation.ReadCase(path, key, admitted.Kind, admitted.Legacy),
                 op)),
-        readEnumCase: static (op, read) => Optional(read.EnumType).ToFin(Fail: op.InvalidInput())
-            .Bind(type => guard(type.IsEnum, op.InvalidInput()).ToFin().Map(_ => type))
-            .Bind(type => At(
-                read.Path,
-                read.Key,
-                type,
-                static (path, key, admitted) => new SettingOperation.ReadEnumCase(path, key, admitted),
-                op)),
-        putCase: static (op, put) => Optional(put.Value).ToFin(Fail: op.InvalidInput())
+        putCase: static (op, put) => op.Need(put.Value)
             .Bind(value => At(
                 put.Path,
                 put.Key,
@@ -506,14 +536,14 @@ public static class Settings {
             unit,
             static (path, key, _) => new SettingOperation.DeleteCase(path, key),
             op),
-        readDefaultCase: static (op, read) => Optional(read.Kind).ToFin(Fail: op.InvalidInput())
+        readDefaultCase: static (op, read) => op.Need(read.Kind)
             .Bind(kind => At(
                 read.Path,
                 read.Key,
                 kind,
                 static (path, key, admitted) => new SettingOperation.ReadDefaultCase(path, key, admitted),
                 op)),
-        putDefaultCase: static (op, put) => Optional(put.Value).ToFin(Fail: op.InvalidInput())
+        putDefaultCase: static (op, put) => op.Need(put.Value)
             .Bind(value => At(
                 put.Path,
                 put.Key,
@@ -558,7 +588,7 @@ public static class Settings {
             unit,
             static (path, child, _) => new SettingOperation.DeleteChildCase(path, child),
             op),
-        nodeVisibilityCase: static (op, visibility) => Optional(visibility.Visibility).ToFin(Fail: op.InvalidInput())
+        nodeVisibilityCase: static (op, visibility) => op.Need(visibility.Visibility)
             .Bind(admitted => At(
                 visibility.Path,
                 admitted,
@@ -571,8 +601,8 @@ public static class Settings {
             op));
 
     private static Fin<SettingPath> Admit(SettingPath path, Op op) =>
-        from source in Optional(path).ToFin(Fail: op.InvalidInput())
-        from root in Optional(source.Root).ToFin(Fail: op.InvalidInput())
+        from source in op.Need(path)
+        from root in op.Need(source.Root)
             .Bind(value => value.Switch<Op, Fin<SettingsRoot>>(
                 state: op,
                 applicationCase: static (_, _) => Fin.Succ<SettingsRoot>(new SettingsRoot.ApplicationCase()),
@@ -590,6 +620,7 @@ public static class Settings {
         from rows in legacy
             .Map(row => op.AcceptValidated<SettingKey>(row.Value))
             .Traverse(static value => value)
+            .As()
         from _distinct in guard(rows.Distinct().Count() == rows.Count, op.InvalidInput()).ToFin()
         from _self in guard(!rows.Exists(row => row == key), op.InvalidInput()).ToFin()
         select rows;
@@ -601,9 +632,9 @@ public static class Settings {
             .Map<SavedSettingsRoot>(static name => new SavedSettingsRoot.CommandCase(name)));
 
     private static Fin<ISettingGuard> Admit(ISettingGuard? source, Op op) =>
-        Optional(source).ToFin(Fail: op.InvalidInput()).Bind(value => op.Catch(() =>
-            from kind in Optional(value.Kind).ToFin(Fail: op.InvalidInput())
-            from hostType in Optional(value.HostType).ToFin(Fail: op.InvalidInput())
+        op.Need(source).Bind(value => op.Catch(() =>
+            from kind in op.Need(value.Kind)
+            from hostType in op.Need(value.HostType)
             from _shape in guard(kind.Accepts(hostType), op.InvalidInput()).ToFin()
             select value));
 
@@ -629,8 +660,6 @@ public static class Settings {
             readCase: static (s, read) => from adopted in Adopted(s.Node, read.Key, read.Legacy, s.Op)
                                           from value in read.Kind.Read(s.Node, read.Key, read.Legacy, s.Op)
                                           select (SettingAnswer)new SettingAnswer.ValueCase(value, adopted),
-            readEnumCase: static (s, read) => SettingKind.ReadEnum(s.Node, read.Key, read.EnumType, s.Op)
-                .Map<SettingAnswer>(static value => new SettingAnswer.ValueCase(value, None)),
             putCase: static (s, put) => AdmitTarget(s.Node, put.Key, put.Value, s.Op).Bind(kind => Mutate(
                 put.Path,
                 put.Key,
@@ -678,7 +707,6 @@ public static class Settings {
     private static (SettingPath Path, bool Creates) Route(SettingOperation operation) => operation.Switch<
         (SettingPath Path, bool Creates)>(
         readCase: static value => (value.Path, false),
-        readEnumCase: static value => (value.Path, false),
         putCase: static value => (value.Path, true),
         deleteCase: static value => (value.Path, false),
         readDefaultCase: static value => (value.Path, false),
@@ -767,9 +795,8 @@ public static class Settings {
             ? Some(found)
             : Option<Type>.None))
         from prior in type.Match(
-            Some: found => found.IsEnum
-                ? SettingKind.ReadEnum(node, request.Key, found, op)
-                : SettingKind.For(found, op).Bind(kind => kind.Read(node, request.Key, Seq<SettingKey>.Empty, op)),
+            Some: found => SettingKind.For(found, op)
+                .Bind(kind => kind.Read(node, request.Key, Seq<SettingKey>.Empty, op)),
             None: () => Fin.Succ(value: Option<ArchiveValue>.None))
         from _ in op.Catch(() => node.DeleteItem(request.Key.Value))
         from _absent in op.Catch(() => guard(
@@ -821,16 +848,33 @@ public static class Settings {
             node.GetSettingIsReadOnly(key.Value),
             node.GetSettingIsHiddenFromUserInterface(key.Value))));
 
+    // The open handle resolves once at type init and each host type's closed writer is minted once and held; the typed
+    // delegate also retires the `is Fin<Unit>` unbox the reflective invoke forced on every registration.
+    private static readonly Option<MethodInfo> ValidatorTemplate = Optional(typeof(Settings).GetMethod(
+        nameof(RegisterTyped),
+        BindingFlags.NonPublic | BindingFlags.Static));
+
+    private static readonly Atom<HashMap<Type, Func<PersistentSettings, string, ISettingGuard, Op, Fin<Unit>>>> ValidatorWriters =
+        Atom(HashMap<Type, Func<PersistentSettings, string, ISettingGuard, Op, Fin<Unit>>>());
+
+    private static Fin<Func<PersistentSettings, string, ISettingGuard, Op, Fin<Unit>>> ValidatorWriter(Type hostType, Op op) =>
+        ValidatorWriters.Value.Find(hostType).Match(
+            Some: static held => Fin.Succ(value: held),
+            None: () => ValidatorTemplate
+                .ToFin(Fail: op.MissingContext())
+                .Bind(open => op.Catch(() => Fin.Succ(value: open
+                    .MakeGenericMethod(hostType)
+                    .CreateDelegate<Func<PersistentSettings, string, ISettingGuard, Op, Fin<Unit>>>())))
+                .Map(minted => ValidatorWriters
+                    .Swap(held => held.ContainsKey(hostType) ? held : held.Add(hostType, minted))
+                    .Find(hostType)
+                    .IfNone(minted)));
+
     private static Fin<SettingAnswer> Register(PersistentSettings node, SettingOperation.GuardCase request, Op op) =>
-        from method in op.Catch(() => Optional(typeof(Settings).GetMethod(
-                nameof(RegisterTyped),
-                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static))
-            .ToFin(Fail: op.MissingContext())
-            .Map(open => open.MakeGenericMethod(request.Guard.HostType)))
-        from _wired in op.Catch(() => method.Invoke(null, [node, request.Key.Value, request.Guard, op]) is Fin<Unit> wired
-            ? wired
-            : Fin.Fail<Unit>(error: op.InvalidResult(detail: "Settings validator registration returned no receipt.")))
-        select (SettingAnswer)new SettingAnswer.GuardCase(request.Guard.Kind);
+        from write in ValidatorWriter(request.Guard.HostType, op)
+        from _wired in write(node, request.Key.Value, request.Guard, op)
+        select (SettingAnswer)new SettingAnswer.GuardCase(
+            new SettingGuardSeat(request.Path, request.Key, request.Guard.Kind));
 
     private static Fin<Unit> RegisterTyped<T>(PersistentSettings node, string key, ISettingGuard guard, Op op) =>
         op.Catch(() => {
@@ -895,6 +939,7 @@ public static class Settings {
         from valueKeys in node.Keys
             .Map(key => op.AcceptValidated<SettingKey>(key))
             .Traverse(static value => value)
+            .As()
             .Map(static keys => toSeq(keys.OrderBy(static key => key.Value, StringComparer.Ordinal)))
         from values in valueKeys
             .Map(key => Metadata(node, key, op))
@@ -921,7 +966,9 @@ public static class Settings {
 
 `Settings.Commit` follows operation admission → root resolution → child resolution → typed host action → detached answer. `Route` alone derives missing-child creation; every operation outside that policy fails on a missing path with `MissingContext`.
 
-Explicit reads use `TryGet*` and never call mutating defaulted getters. `AdmitTarget` compares each payload row with the existing host type, including exact enum identity, before explicit or default writes. One mutation fold owns observable and write-only receipts; failed post-write reads land as `FaultedCase` evidence, and deletion emits absence only after a host re-probe.
+Explicit reads use `TryGet*` and never call mutating defaulted getters, and every read — enum included — enters through the owning `SettingKind` row's `Read` column. `AdmitTarget` compares each payload row with the existing host type, including exact enum identity, before explicit or default writes. One mutation fold owns observable and write-only receipts; failed post-write reads land as `FaultedCase` evidence, and deletion emits absence only after a host re-probe. A registered guard answers a `SettingGuardSeat` because the host publishes no unregister: the seat is held for the node's process lifetime and never handed back.
+
+Both reflection seams — the per-enum-type reader and the per-host-type validator writer — resolve their open handle once at type init and hold each closed delegate in an `Atom`-guarded map, so a lost mint race settles on the seated delegate rather than a second one.
 
 `ArchiveValue` (dictionary.md) is the one payload carrier across this boundary — `SettingKind` rows lift host values through `ArchiveValue.Of`, lower through `Project<T>`, and mint enum payloads through the shared `EnumMint` seam. `SettingsTree` admits and orders value and child keys before recursive projection. `PlugIn.SettingsSaved` observation encloses root projection and sink delivery in one catch frame under the Document subscription owner; this page owns no parallel event lifecycle.
 

@@ -2,18 +2,19 @@
 
 Pre-numeric dimensional proof for the symbolic CAS arm. Every parsed `SymbolicExpr` folds onto a `DimensionMonomial` — one `Seq<ERational>` of seven SI base-dimension exponents, never seven scalar fields — and `DimensionProof` accumulates every compound mismatch on a `Validation<Error,DimensionMonomial>` rail before a single numeric value reaches the optimizer or the cost catalog. Exponents ride the `PeterO.Numbers` `ERational` the engine's `Entity.Number.Rational` leaves carry, never `int`, so a `sqrt` lowering to `Powf(arg, 1/2)` makes a half-power root of an area exactly a length and a float-rounded exponent never decides consistency.
 
-That rational vector is the ℚ⁷ symbolic generalization of the ℤ⁷ integer-exponent `Dimension` the seam `Rasm.Element/Properties/quantity#DIMENSION` carries for measured quantities — both project from the one `UnitsNet` `BaseDimensions` 7-vector and align solely there, never coupled and never re-minted. Onward resolution is not shared: the symbolic side alone resolves a proven monomial to the Compute-internal `QuantityFamily` row, while the lower-stratum seam `Dimension` resolves its quantity through the `UnitsNet` registry directly and never names `QuantityFamily`. Every dimensional failure — a heterogeneous sum, a dimensioned transcendental argument, a non-literal power exponent, an undeclared free symbol, a result monomial naming no admitted `QuantityFamily` — folds onto one `ComputeFault.DimensionMismatch` arm (code 2216 on the `SymbolicFault` family), never a parallel `DimensionError`. Spine: `AngouriMath` (the `Entity` node records and `Vars` census), `PeterO.Numbers` (`ERational`), `UnitsNet` (`BaseDimensions`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
+That rational vector is the ℚ⁷ symbolic generalization of the ℤ⁷ integer-exponent `Dimension` the seam `Rasm.Element/Properties/quantity#DIMENSION` carries for measured quantities — both project from the one `UnitsNet` `BaseDimensions` 7-vector and align solely there, never coupled and never re-minted. Onward resolution is not shared: the symbolic side alone resolves a proven monomial to the Compute-internal `QuantityFamily` row, while the lower-stratum seam `Dimension` resolves its quantity through the `UnitsNet` registry directly and never names `QuantityFamily`. Every dimensional failure — a heterogeneous sum, a dimensioned transcendental argument, a non-literal power exponent, an undeclared free symbol, an unresolvable declared family key — folds onto one `ComputeFault.DimensionMismatch` arm (code 2216 on the `SymbolicFault` family), never a parallel `DimensionError`; a sound monomial the admitted roster names no row for is a verdict, not a failure. Spine: `AngouriMath` (the `Entity` node records and `Vars` census), `PeterO.Numbers` (`ERational`), `UnitsNet` (`BaseDimensions`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 
 ## [01]-[INDEX]
 
 - [02]-[DIMENSION_MONOMIAL]: `DimensionMonomial` carries seven SI base-dimension exponents under a generic-math rational group.
 - [03]-[DIMENSION_PROOF]: `DimensionProof` folds every `Entity` node onto one accumulating `Validation` rail.
-- [04]-[UNITS_BRIDGE]: `QuantityFamily` projects `BaseDimensions` into the `DimensionVerdict` candidate set the pre-numeric admission gate reads.
+- [04]-[UNITS_BRIDGE]: `QuantityFamily` projects `BaseDimensions` into the named-or-unnamed `DimensionVerdict` the pre-numeric admission gate reads, over the intent-declared symbol bindings.
 
 ## [02]-[DIMENSION_MONOMIAL]
 
 - Owner: `DimensionMonomial` `[ValueObject]` over a seven-element `ERational` exponent vector (SI base order — length, mass, time, current, temperature, amount, luminous-intensity — as UnitsNet `BaseDimensions` exposes), implementing the `System.Numerics` generic-math group (`IMultiplyOperators`/`IDivisionOperators`/`IMultiplicativeIdentity`) so product, quotient, and scalar-power are the type's own operators; `SiAxis` the axis-index and glyph constant table; `DimensionContext` (in `UNITS_BRIDGE`) the parse-supplied free-symbol binding.
 - Cases: one value carries all seven exponents as `ERational`, so a half-power root and a reciprocal both stay exact; `Dimensionless` is the zero vector and the group's multiplicative identity; `Base(index)` mints a unit exponent on one axis.
+- Law: the monomial is CANONICAL BY CONSTRUCTION. `ERational` equality is numerator/denominator-exact and its arithmetic never reduces, so `*`, `/`, and `Pow` alone leave `2/4` and `1/2` as distinct keys for one dimension; the factory hook reduces every exponent to lowest terms at the single mint, so equality, hashing, and the `FrozenDictionary` family lookup all read one representative per physical dimension and no operator needs a reduction of its own.
 - Entry: `From(BaseDimensions)` totalizes a UnitsNet vector through `ERational.FromInt32` (each integer axis lifts through the verified factory, never a cast); `Of(params (int Axis, ERational Exponent)[])` sparse-constructs over the zero seed; equality, hashing, and `==` are the generated `[ValueObject]` members over the seven exact exponents, so the monomial is a dictionary key with no hand-written comparer.
 - Packages: Thinktecture.Runtime.Extensions (`[ValueObject]` generator, structural equality, `ValidateFactoryArguments` hook), PeterO.Numbers (`ERational` `Zero`/`One`/`IsZero`/`FromInt32`/`FromEDecimal` and its `+`/`-`/`*` operators), UnitsNet (`BaseDimensions` axis order and its `.Length`/`.Mass`/`.Time`/`.Current`/`.Temperature`/`.Amount`/`.LuminousIntensity` `int` accessors), LanguageExt.Core (`Seq<ERational>`, the indexed instance `Map((value, index) => …)`, `Zip`/`ForAll`/`Filter`/`Find`, `toSeq`).
 - Growth: a new SI axis is impossible (the seven are closed); a new compound relation is one row on `Symbolic/units#DIMENSIONAL_LAW`, never a `DimensionMonomial` change; the exponent type stays `ERational`, so no precision-widening edit is ever needed; a richer diagnostic is one `Format` change.
@@ -32,7 +33,9 @@ internal static class SiAxis {
     public const int Rank = 7;
 
     // Dimension glyphs (L M T I Θ N J) indexed by axis; a fault renders "M L^2 T^-2", not a raw exponent array.
-    public static readonly string[] Symbol = ["L", "M", "T", "I", "Θ", "N", "J"];
+    // Immutable by carrier, not by convention — a `string[]` publishes every element as a writable slot, and one
+    // stray write there re-labels every fault message in the process.
+    public static readonly ImmutableArray<string> Symbol = ["L", "M", "T", "I", "Θ", "N", "J"];
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -48,10 +51,18 @@ public readonly partial struct DimensionMonomial :
     // Group identity of the monomial product — the value the domain reads as `Dimensionless`.
     public static DimensionMonomial MultiplicativeIdentity => Dimensionless;
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Seq<ERational> exponents) =>
-        validationError = exponents.Count == SiAxis.Rank
-            ? null
-            : new ValidationError($"dimension-monomial: rank {exponents.Count} not {SiAxis.Rank}");
+    // Rank gate then CANONICALIZATION, both at the one mint. `ERational.Equals` is numerator/denominator-exact —
+    // 1/2 and 2/4 are distinct values — and no arithmetic operator reduces, so two monomials reached by different
+    // operation orders would key two dictionary slots for one physical dimension. Lowest terms here makes the
+    // canonical form a construction property every operator, `Of`, and `From` inherits for free.
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Seq<ERational> exponents) {
+        if (exponents.Count != SiAxis.Rank) {
+            validationError = new ValidationError($"dimension-monomial: rank {exponents.Count} not {SiAxis.Rank}");
+            return;
+        }
+
+        exponents = exponents.Map(static e => e.ToLowestTerms());
+    }
 
     // Range guards make every sparse term write through a valid axis slot; invalid programmer-constant axes
     // throw instead of silently minting `Dimensionless`.
@@ -170,7 +181,7 @@ public static class DimensionProof {
                 Predicate(predicate, context).Bind(_ => Descend(expression, context)),
             Entity.Piecewise piecewise when !toSeq(piecewise.Cases).IsEmpty =>
                 toSeq(piecewise.Cases).Traverse(c => Predicate(c.Predicate, context)).Bind(_ =>
-                    Homogeneous(toSeq(piecewise.Cases).Map(static c => c.Expression), context)),
+                    Homogeneous(toSeq(piecewise.Cases).Map(static c => c.Expression), context)).As(),
             Entity.Piecewise =>
                 Fail<Error, DimensionMonomial>(new ComputeFault.DimensionMismatch("dimension: empty piecewise has no result dimension")),
             Entity.Statement or Entity.Set or Entity.Boolean =>
@@ -205,14 +216,14 @@ public static class DimensionProof {
             dims.ForAll(static d => d.IsDimensionless)
                 ? Success<Error, DimensionMonomial>(DimensionMonomial.Dimensionless)
                 : Fail<Error, DimensionMonomial>(new ComputeFault.DimensionMismatch(
-                    $"dimension: {name} requires dimensionless arguments, got {string.Join(", ", dims.Map(static d => d.Format()))}")));
+                    $"dimension: {name} requires dimensionless arguments, got {string.Join(", ", dims.Map(static d => d.Format()))}"))).As();
 
     static Validation<Error, DimensionMonomial> Homogeneous(Seq<Entity> addends, DimensionContext context) =>
         addends.Traverse(addend => Descend(addend, context)).Bind(static dims =>
-            dims.Distinct().ToSeq() is { Count: <= 1 } distinct
+            dims.Distinct() is { Count: <= 1 } distinct
                 ? Success<Error, DimensionMonomial>(distinct.Head.IfNone(DimensionMonomial.Dimensionless))
                 : Fail<Error, DimensionMonomial>(new ComputeFault.DimensionMismatch(
-                    $"dimension: heterogeneous sum over {string.Join(" vs ", distinct.Map(static d => d.Format()))}")));
+                    $"dimension: heterogeneous sum over {string.Join(" vs ", distinct.Map(static d => d.Format()))}"))).As();
 
     static Validation<Error, ERational> Literal(Entity exponent) =>
         exponent switch {
@@ -232,30 +243,33 @@ public static class DimensionProof {
 
 ## [04]-[UNITS_BRIDGE]
 
-- Owner: `DimensionContext` the parse-context binding the fold resolves free symbols through; `DimensionVerdict` the typed receipt carrying the proven monomial and its candidate `QuantityFamily` set; `DimensionAdmission` the static projection that censuses, proves, and matches against the `Symbolic/units#DIMENSIONAL_LAW` SI baseline.
-- Cases: a proven monomial resolves to the set of `QuantityFamily` rows whose `Info.BaseDimensions` equal it — usually one, but `Energy` and `Torque` share `M·L²·T⁻²` and `Ratio` and `Angle` share the zero vector, so the verdict carries every candidate and `Unique` is `Some` only at exactly one match; a monomial matching no admitted row faults as `DimensionMismatch`, so a formula whose result dimension has no admitted quantity is rejected before numeric admission; bound free symbols arrive from the `UnitProject` parse context, each carrying its declared `QuantityFamily`.
-- Entry: `Admit(SymbolicExpr, DimensionContext)` — `Validation<Error,DimensionVerdict>` composing the `FreeSymbols` census, `DimensionProof.Prove`, and the row match; the census fails fast on any undeclared symbol, the proof then accumulates every structural mismatch, and the match names the candidate families; no `IQuantity` is ever constructed, admission running before any value materializes.
-- Packages: UnitsNet (the frozen `QuantityFamily.Info.BaseDimensions` rows, never re-minted), LanguageExt.Core (`Validation`, `Map`, `Seq`, `Option`, the census filter), Thinktecture.Runtime.Extensions (`QuantityFamily.Items`, the `DimensionMonomial` dictionary key), AngouriMath (`SymbolicExpr` input, the `FreeSymbols` set driving the census), BCL inbox (`FrozenDictionary`).
-- Growth: a new admitted result dimension is one `QuantityFamily` row on `Symbolic/units#QUANTITY_TABLE` — the match table groups `Items` by `DimensionMonomial` at static construction, so a row added there extends admission (or joins an existing dimensionally-equal candidate set) with zero edit here; a richer verdict is one `DimensionVerdict` field; zero new surface.
-- Boundary: symbolic admission consumes the declared SI `QuantityFamily` vocabulary without constructing `IQuantity`. `FrozenDictionary<DimensionMonomial, Seq<QuantityFamily>>` preserves non-injective matches such as `Energy`/`Torque` and `Ratio`/`Angle`; full-roster UnitsNet discovery and first-match scans are rejected. Symbol census fails before the accumulating proof, and numeric admission runs only after a clean verdict.
+- Owner: `DimensionContext` the parse-context binding the fold resolves free symbols through; `DimensionVerdict` the `[Union]` receipt carrying the proven monomial and, where the roster names it, its candidate `QuantityFamily` set; `DimensionAdmission` the static projection that censuses, proves, and matches against the `Symbolic/units#DIMENSIONAL_LAW` SI baseline.
+- Cases: `DimensionVerdict` cases `Named(Dimension, Families)` — the roster carries one or more rows at that dimension — and `Unnamed(Dimension)` — the formula is dimensionally sound and the admitted roster names nothing at that dimension; bound free symbols arrive from the `Runtime/admission#DISPATCH_SPINE` `ComputeIntent.SymbolicProject.Dimensions` map, each carrying its declared `QuantityFamily` KEY.
+- Law: dimensional soundness and quantity NAMING are two questions, and only the first is the proof's. Curvature reciprocal-length and per-length stiffness are sound intermediates the admitted roster carries no row for, so the verdict reports `Unnamed` with its proven monomial and downstream admission decides whether an unnamed result is admissible for its own consumer; faulting there rejected formulas whose algebra was never in doubt.
+- Law: the dimension-to-family map is NOT injective, and the `GroupBy` table detects EVERY collision at static construction — a monomial with two or more rows arrives as one candidate `Seq`, and `Unique` is `Some` only at exactly one. Enumerating the colliding pairs in prose goes stale the moment a `QuantityFamily` row lands beside an existing dimension, so the table is the roster of collisions and the prose states only that they are preserved.
+- Entry: `DimensionContext.Of(Map<string, DimensionMonomial>)` builds the binding from the intent's symbol-to-family-key map through `QuantityFamily.TryGet`, faulting `<symbolic-family-unknown:{symbol}={key}>` on every unresolvable key at once; `Admit(SymbolicExpr, DimensionContext)` — `Validation<Error,DimensionVerdict>` composing the `FreeSymbols` census, `DimensionProof.Prove`, and the row match; the census fails fast on any undeclared symbol, the proof then accumulates every structural mismatch, and the match names the candidate families or reports the dimension unnamed; no `IQuantity` is ever constructed, admission running before any value materializes.
+- Packages: UnitsNet (the frozen `QuantityFamily.Info.BaseDimensions` rows, never re-minted), LanguageExt.Core (`Validation`, `Traverse`, `Map`, `Seq`, `Option`, the census filter), Thinktecture.Runtime.Extensions (`QuantityFamily.Items`/`TryGet`, the `DimensionMonomial` dictionary key), AngouriMath (`SymbolicExpr` input, the `FreeSymbols` set driving the census), BCL inbox (`FrozenDictionary`).
+- Growth: a new admitted result dimension is one `QuantityFamily` row on `Symbolic/units#QUANTITY_TABLE` — the match table groups `Items` by `DimensionMonomial` at static construction, so a row added there turns an `Unnamed` verdict into a `Named` one (or joins an existing candidate set) with zero edit here; a richer verdict is one field on the owning case; zero new surface.
+- Boundary: symbolic admission consumes the declared SI `QuantityFamily` vocabulary without constructing `IQuantity`. Declarations arrive on the intent's `Map<string, string>`, so symbol uniqueness is a property of that carrier rather than a duplicate-detection fold, and a family key the roster does not carry is the ONE resolution fault — the context never falls back to a dimensionless default for an unresolvable symbol. `FrozenDictionary<DimensionMonomial, Seq<QuantityFamily>>` preserves the non-injective match whole; full-roster UnitsNet discovery and first-match scans are rejected. Symbol census fails before the accumulating proof, and numeric admission runs only after a clean verdict.
 
 ```csharp signature
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record DimensionContext(Map<string, DimensionMonomial> Bindings) {
-    public static Validation<Error, DimensionContext> Of(Seq<(string Symbol, QuantityFamily Family)> declarations) {
-        Seq<IGrouping<string, (string Symbol, QuantityFamily Family)>> groups = declarations.GroupBy(static declaration => declaration.Symbol).ToSeq();
-        Seq<string> invalid = groups
-            .Filter(static group => string.IsNullOrWhiteSpace(group.Key)
-                || group.Any(static declaration => declaration.Family is null)
-                || group.Select(static declaration => declaration.Family).Distinct().Count() != 1)
-            .Map(static group => group.Key);
-        return invalid.IsEmpty
-            ? Success<Error, DimensionContext>(new DimensionContext(groups.Fold(
+    // Declarations arrive as the intent's symbol-to-family-KEY map: the carrier already enforces one declaration
+    // per symbol, so the fold owes only key resolution, and the accumulating `Traverse` names every unresolvable
+    // family at once rather than one per round trip.
+    public static Validation<Error, DimensionContext> Of(Map<string, string> declarations) =>
+        toSeq(declarations.AsIterable())
+            .Traverse(static pair =>
+                string.IsNullOrWhiteSpace(pair.Key) || !QuantityFamily.TryGet(pair.Value, out QuantityFamily? family)
+                    ? Fail<Error, (string Symbol, DimensionMonomial Dimension)>(
+                        new ComputeFault.DimensionMismatch($"<symbolic-family-unknown:{pair.Key}={pair.Value}>"))
+                    : Success<Error, (string Symbol, DimensionMonomial Dimension)>(
+                        (pair.Key, DimensionMonomial.From(family.Info.BaseDimensions))))
+            .Map(static rows => new DimensionContext(rows.Fold(
                 Map<string, DimensionMonomial>(),
-                static (bindings, group) => bindings.Add(group.Key, DimensionMonomial.From(group.First().Family.Info.BaseDimensions)))))
-            : Fail<Error, DimensionContext>(new ComputeFault.DimensionMismatch(
-                $"dimension: conflicting declarations [{string.Join(", ", invalid)}]"));
-    }
+                static (bindings, row) => bindings.Add(row.Symbol, row.Dimension))))
+            .As();
 
     public Validation<Error, DimensionMonomial> Resolve(string symbol) =>
         string.IsNullOrWhiteSpace(symbol)
@@ -266,20 +280,38 @@ public sealed record DimensionContext(Map<string, DimensionMonomial> Bindings) {
                 new ComputeFault.DimensionMismatch($"dimension: free symbol '{symbol}' has no declared quantity")));
 }
 
-// Dimension → quantity is NOT injective (Energy/Torque both M·L²·T⁻²; Ratio/Angle both zero), so the verdict
-// carries every candidate; a consumer needing one resolves through Unique, never a first-match scan.
-public sealed record DimensionVerdict(DimensionMonomial Dimension, Seq<QuantityFamily> Families) {
-    public bool IsAmbiguous => Families.Count > 1;
+// Soundness and naming are separate verdicts: the algebra proves either way, and only the roster decides whether
+// its proven dimension has a name. `Monomial` names the base projection because a base member sharing a case
+// positional parameter's name suppresses that case's property synthesis outright.
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record DimensionVerdict {
+    private DimensionVerdict() { }
 
-    public Option<QuantityFamily> Unique => Families.Count == 1 ? Families.Head : Option<QuantityFamily>.None;
+    public sealed record Named(DimensionMonomial Dimension, Seq<QuantityFamily> Families) : DimensionVerdict;
+
+    public sealed record Unnamed(DimensionMonomial Dimension) : DimensionVerdict;
+
+    public DimensionMonomial Monomial => Switch(
+        named: static verdict => verdict.Dimension,
+        unnamed: static verdict => verdict.Dimension);
+
+    public bool IsAmbiguous => Switch(
+        named: static verdict => verdict.Families.Count > 1,
+        unnamed: static _ => false);
+
+    public Option<QuantityFamily> Unique => Switch(
+        named: static verdict => verdict.Families.Count == 1 ? verdict.Families.Head : Option<QuantityFamily>.None,
+        unnamed: static _ => Option<QuantityFamily>.None);
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class DimensionAdmission {
+    // Grouping IS the collision census: every dimension shared by two or more rows arrives as one candidate
+    // sequence at static construction, so no enumerated pair roster exists to fall behind the table.
     static readonly FrozenDictionary<DimensionMonomial, Seq<QuantityFamily>> Table =
-        QuantityFamily.Items.ToSeq()
+        QuantityFamily.Items
             .GroupBy(static row => DimensionMonomial.From(row.Info.BaseDimensions))
-            .ToFrozenDictionary(static g => g.Key, static g => g.ToSeq());
+            .ToFrozenDictionary(static g => g.Key, static g => toSeq(g));
 
     public static Validation<Error, DimensionVerdict> Admit(SymbolicExpr expr, DimensionContext context) =>
         expr.Entity is not null && context is not null
@@ -292,11 +324,12 @@ public static class DimensionAdmission {
                 $"dimension: free symbols [{string.Join(", ", undeclared)}] undeclared in context"))
             : Success<Error, Unit>(unit);
 
+    // Proven monomials the roster names nothing for are SOUND and unnamed, never failures: the algebra held and
+    // only the vocabulary is silent, so the consumer that needs a name is the one entitled to refuse.
     static Validation<Error, DimensionVerdict> Match(DimensionMonomial monomial) =>
-        Table.TryGetValue(monomial, out Seq<QuantityFamily> families)
-            ? Success<Error, DimensionVerdict>(new DimensionVerdict(monomial, families))
-            : Fail<Error, DimensionVerdict>(new ComputeFault.DimensionMismatch(
-                $"dimension: result {monomial.Format()} names no admitted QuantityFamily"));
+        Success<Error, DimensionVerdict>(Table.TryGetValue(monomial, out Seq<QuantityFamily> families)
+            ? new DimensionVerdict.Named(monomial, families)
+            : new DimensionVerdict.Unnamed(monomial));
 }
 ```
 
@@ -306,4 +339,4 @@ public static class DimensionAdmission {
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
 -->
 
-- [DIMENSION_CONTEXT_SOURCE]-[OPEN]: which `Symbolic/units` `UnitProject` intent field carries the free-symbol-to-`QuantityFamily` declarations the fold reads; widen the existing `UnitProject` parse surface with an additive symbolic-formula case, not a new parse owner.
+(none)

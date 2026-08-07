@@ -13,7 +13,7 @@
 
 - Owner: `ObservationSeries` the sensor-bound measured-evidence descriptor the `Node.Observation` case wraps; `SensorId` the `[ValueObject<string>]` DEPLOYMENT identity (a re-mounted instrument takes a new id, so one series never spans two mounting positions); `SamplingKind` the `[SmartEnum<string>]` temporal-aggregation vocabulary carrying the `Interval` window-versus-instant column, the `Monotone` register column, and the duration-weighted `Combine` merge column its own `Downsample` fold drives; `ObservationGrade` the `[SmartEnum<string>]` per-sample quality vocabulary with its `Consumable` column (the grade the chunk bytes encode per sample and the `[03]` census counts by); `ObservationChunk` the interval-anchored by-reference sample block (window + content key + sample count) owning the one blob codec every runtime reads; `SensorProvenance` the instrument audit (make/model/serial, calibration date, and the zero-centred `Properties/quantity#MEASURE_VALUE` `MeasureBand` tolerance every lifted sample shifts onto its own magnitude).
 - Cases: `SamplingKind` closes at six rows spanning the metering space a BMS, meter, or structural-health stream reports — `Instantaneous` (a point reading; a resample PICKS, never sums), `Averaged` (the cadence-window mean; merges duration-weighted), `Total` (the cadence-window sum; merges additively), `Cumulative` (a monotone register whose value is an odometer, not a rate; merges last-wins and refuses a decreasing run), `Minimum` and `Maximum` (the cadence-window extremes; merge by extremum) — one case per algebra, never a `kind` string a consumer re-interprets.
-- Entry: `ObservationSeries.Open(sensor, aspect, observed, signature, unit, sampling, cadence, start, provenance, key)` opens an empty series at its deployment instant, `Fin<T>` railing `Projection/fault#FAULT_BAND` `ElementFault.ValueRejected` on a blank canonical unit or a non-positive cadence; `Append(chunk, statistics, key)` is the ONE growth transition — the chunk's window opens at or after the current `Window.End`, closes after it opens, and carries at least one sample, and the recomputed `[03]` summary rides with it under a census total matching the grown run, so `Window.End` advances while the node id holds; `Rehydrate(...)` is the CROSS-ASSEMBLY decoder gate re-validating the whole stored run against the same invariants (bounded window, strictly advancing non-overlapping chunks, a window spanning AND bracketing the run, a coherent census equal to the run it summarizes) so a tampered store cannot mint an overlapping, unbounded, self-contradicting, or emptily-summarized series — the `Assessment/assessment#ASSESSMENT_NODE` `Rehydrate` distrust posture; `ChunkAt(instant)` and `ChunksIn(window, key)` are the metadata-selected fetch reads (the `Geospatial/coverage#COVERAGE_NODE` `SliceAt`/`SliceWindow` shape — a consumer resolves WHICH blobs answer a question before a byte moves), the windowed read railing an unbounded query rather than selecting nothing; `Expected(window)` derives the sample count a regular cadence owes over a window (`None` for an event-driven series or an unbounded window, both denominators unanswerable by construction); `Value(si, key)` lifts one decoded SI scalar into a typed `MeasureValue` under the series' own quantity triple with the instrument tolerance shifted onto that magnitude; `SamplingKind.Downsample(samples)` folds a decoded run of `(Si, Span)` pairs into one value under the row's own algebra; `ObservationChunk.Encode(samples, key)` mints the block and its bytes together off one projection, railing a sampleless run and any adjacent pair that fails to strictly advance, and the instance `Decode(blob, key)` inverts it against its own `SeriesKey`, railing a key mismatch, an unrepresentable declared count, a truncated run, and an unminted grade token.
+- Entry: `ObservationSeries.Open(sensor, aspect, observed, signature, unit, sampling, cadence, start, provenance, key)` opens an empty series at its deployment instant, `Fin<T>` railing `Projection/fault#FAULT_BAND` `ElementFault.ValueRejected` on a blank canonical unit or a non-positive cadence; `Append(chunk, statistics, key)` is the ONE growth transition — the chunk's window opens at or after the current `Window.End`, closes after it opens, and carries at least one sample, and the recomputed `[03]` summary rides with it under a census total matching the grown run, so `Window.End` advances while the node id holds; `Rehydrate(...)` is the CROSS-ASSEMBLY decoder gate re-validating the whole stored run against the same invariants `Append` maintains, the single-sample degenerate-window exemption included (bounded window, strictly advancing non-overlapping chunks each at least one sample wide, a window spanning AND bracketing the run, a coherent census equal to the run it summarizes) so a tampered store cannot mint an overlapping, unbounded, self-contradicting, or emptily-summarized series — the `Assessment/assessment#ASSESSMENT_NODE` `Rehydrate` distrust posture; `ChunkAt(instant)` and `ChunksIn(window, key)` are the metadata-selected fetch reads (the `Geospatial/coverage#COVERAGE_NODE` `SliceAt`/`SliceWindow` shape — a consumer resolves WHICH blobs answer a question before a byte moves), the windowed read railing an unbounded query rather than selecting nothing; `Expected(window)` derives the sample count a regular cadence owes over a window (`None` for an event-driven series or an unbounded window, both denominators unanswerable by construction); `Value(si, key)` lifts one decoded SI scalar into a typed `MeasureValue` under the series' own quantity triple with the instrument tolerance shifted onto that magnitude; `SamplingKind.Downsample(samples)` folds a decoded run of `(Si, Span)` pairs into one value under the row's own algebra; `ObservationChunk.Encode(samples, key)` mints the block and its bytes together off one projection, railing a sampleless run and any adjacent pair that fails to strictly advance, and the instance `Decode(blob, key)` inverts it against its own `SeriesKey`, railing a key mismatch, an unrepresentable declared count, a truncated run, and an unminted grade token.
 - Auto: the series identity is the STREAM, never its contents — `CanonicalBytes` writes the sensor, the aspect, the observed `QuantityType`, the seven `Dimension` exponents, the canonical unit, the sampling key, the presence-delimited cadence, and `Window.Start` ALONE, so an append that extends `Window.End` and adds a chunk mutates the SAME content-keyed node in place exactly as an `Assessment/assessment#ASSESSMENT_NODE` `Advance` flip does, while a re-deployment opening at a fresh instant mints a fresh node; the chunk run, the advancing `Window.End`, the derived `[03]` statistics, and the `SensorProvenance` audit are EXCLUDED from that projection (the `Provenance`-exclusion discipline the assessment payload holds), so a re-calibration and a recomputed summary are both content-key-inert; `Open` seeds the degenerate `Interval(start, start)` and every later `Window.End` derives from the last appended chunk, so the extent is never hand-set; `Append` and `Rehydrate` both prove the run strictly advancing through the `Zip`-adjacent law the coverage pyramid and timeline hold, so `ChunkAt` resolves at most one block and `ChunksIn`'s half-open overlap clip is total over stored order once its query window admits; `Expected` divides the window duration by the cadence under the `SamplingKind.Interval` column — an interval row owes one sample per closed window while an instant row owes one per boundary, the off-by-one a flat division swallows; the blob layout is FIXED at `Encode` and never inferred — a count prefix then one `(I64 Unix-tick instant, IEEE-754 `Double` magnitude, `ObservationGrade` key)` triple per sample in stored order, written through the same `CanonicalWriter` canon the node identity uses, so the bytes and the `SeriesKey` that addresses them derive from one projection and a peer runtime decodes byte-identically off the one seed; instants stay ABSOLUTE because `Cadence` is `Option` and a delta encoding strands exactly the event-driven streams whose completeness is already unanswerable, and the writer opens at zero tolerance so a model's geometric quantization never rounds a reading; `Value` re-mints through `MeasureValue.OfAdmitted(Type, Dimension, si, CanonicalUnit)` and shifts the zero-centred instrument band onto the sample through `MeasureBand.Admit` before `WithUncertainty`, so the band contains its own nominal by construction and the `Properties/quantity#MEASURE_VALUE` propagation algebra carries instrument error through every downstream fold with no call-site arithmetic.
 - Receipt: the `ObservationSeries` is the measured evidence a `Bake`-derived `Element` carries flat in `element.Observations` — `element.Observations.Filter(series => series.Observed == QuantityType.Create("HeatTransferCoefficient"))` reads every metered transmittance stream, `series.Statistics.Completeness(series.Expected(window))` screens a gappy stream before it decides anything, `series.Statistics.Representative(series.Sampling, key)` reads the ONE comparable figure the sampling row designates, and `series.ChunksIn(window, key)` resolves the blob set a windowed fetch reads by content key; the commissioning comparison is then one subtraction in `Rasm.Compute` between that figure and the matching `element.Assessments` `ResultMeasure(name)` — the seam delivering both evidence kinds off one baked element, the verdict staying with the discipline that owns it.
 - Packages: Thinktecture.Runtime.Extensions (`[SmartEnum<string>]` with `[UseDelegateFromConstructor]` the `Combine` merge column, `[ValueObject<string>]`, `[ValidationError<ElementFault>]`), Generator.Equals (`[Equatable]` the payload's member-level diff + `[OrderedEquality]` the interval-ordered chunk run, so the `Graph/element#NODE_MODEL` drill descends to `Nodes[id].Series.Chunks[i]` and `Nodes[id].Series.Statistics`), LanguageExt.Core (`Seq`/`Map`/`Option`/`Fin` + the `Validation<Error,_>` carrier), `Projection/fault#ADMISSION_SLOTS` (the `Gate` slot and `Accumulate` fold every series transition and the chunk codec admit through), NodaTime (`Instant` the sample anchor, `Duration` the cadence and span, `Interval` the observation extent, `LocalDate` the calibration stamp), `Projection/address#CANONICAL_WRITER` (`CanonicalWriter` the `CanonicalBytes` projection and the chunk blob both write through), `Rasm` (the kernel `Op` op-key + the `Domain.ContentHash` seed-zero content-key entry the chunk `SeriesKey` shares with `Projection/address#CONTENT_ADDRESS`), BCL inbox (`BinaryPrimitives`/`BitConverter`/`Encoding.UTF8` the decode cursor inverts the writer's primitives through).
@@ -130,13 +130,12 @@ public readonly partial record struct ObservationChunk(Interval Window, UInt128 
  // ONE strict-adjacency gate carries the whole ordering law: every later instant exceeds its predecessor, so a
  // duplicate stamp refuses beside a backward one and a run of two or more spans a real window by construction —
  // a first-versus-last window comparison beside it re-proves what adjacency already proved and rejects the honest
- // SINGLE-sample block Written mints at one tick's width.
+ // SINGLE-sample block, whose window is legitimately degenerate.
  public static Fin<(ObservationChunk Chunk, ReadOnlyMemory<byte> Bytes)> Encode(
   Seq<(Instant At, double Si, ObservationGrade Grade)> samples, Op key) =>
   Accumulate(Seq(
     Gate(!samples.IsEmpty, key, "<observation-chunk-sampleless>"),
     Gate(!samples.Zip(samples.Tail).Exists(static pair => pair.Item2.At <= pair.Item1.At), key, "<observation-samples-not-advancing>")))
-   .As()
    .Map(_ => Written(samples))
    .ToFin();
 
@@ -170,17 +169,17 @@ public readonly partial record struct ObservationChunk(Interval Window, UInt128 
 
  // Layout runs Ordinal(count) then one (I64 tick, Double si, String grade-key) triple per sample in stored order.
  // Tolerance plays no part in a sample run, so the writer opens at zero — quantizing a measurement to the model's
- // geometric tolerance would silently round every reading a millimetre-scale model happens to declare. A SINGLE
- // sample collapses first and last onto one instant, so the window closes one tick past it: a zero-width extent is
- // exactly what Append's own positivity gate refuses, and a lone reading is a legitimate block.
+ // geometric tolerance would silently round every reading a millimetre-scale model happens to declare.
  private static (ObservationChunk, ReadOnlyMemory<byte>) Written(Seq<(Instant At, double Si, ObservationGrade Grade)> samples) {
   CanonicalWriter w = new(0d);
   w.Ordinal(samples.Count);
   foreach ((Instant at, double si, ObservationGrade grade) in samples) { w.I64(at.ToUnixTimeTicks()).Double(si).String(grade.Key); }
   ReadOnlyMemory<byte> bytes = w.ToBytes();
-  Instant last = samples[samples.Count - 1].At;
+  // The window is the run's OWN extent, degenerate for a single sample — a synthetic tick of width is fabricated
+  // evidence, so every window-positivity gate downstream (Append's and Rehydrate's alike) carries the
+  // single-sample exemption instead and a one-reading block reports the instant it actually holds.
   return (new ObservationChunk(
-   new Interval(samples[0].At, last == samples[0].At ? last.PlusTicks(1) : last),
+   new Interval(samples[0].At, samples[samples.Count - 1].At),
    ContentHash.Of(bytes.Span), samples.Count), bytes);
  }
 
@@ -275,7 +274,6 @@ public sealed partial record ObservationSeries {
   Accumulate(Seq(
     Gate(!string.IsNullOrWhiteSpace(canonicalUnit), key, "<observation-unit-blank>"),
     Gate(cadence.ForAll(static span => span > Duration.Zero), key, "<observation-cadence-non-positive>")))
-   .As()
    .Map(_ => new ObservationSeries(
     sensor, aspect, observed, signature, canonicalUnit.Trim(), sampling, cadence,
     new Interval(start, start), Seq<ObservationChunk>(), SeriesStatistics.Empty, provenance))
@@ -292,12 +290,14 @@ public sealed partial record ObservationSeries {
  public Fin<ObservationSeries> Append(ObservationChunk chunk, SeriesStatistics statistics, Op key) =>
   Accumulate(Seq(
     Gate(chunk.IsBounded, key, "<observation-chunk-unbounded>"),
-    Gate(!chunk.IsBounded || chunk.Window.End > chunk.Window.Start, key, "<observation-chunk-window-empty>"),
+    // A SINGLE-sample block's window is degenerate by construction (its extent IS one instant), so the positivity
+    // law is "at least one sample wide", never "at least one tick wide" — the exemption lives at every window gate
+    // (here and at Rehydrate) rather than in a fabricated tick at Encode, which writes an end no reading occurred at.
+    Gate(!chunk.IsBounded || chunk.Window.End > chunk.Window.Start || chunk.SampleCount == 1, key, "<observation-chunk-window-empty>"),
     Gate(!chunk.IsBounded || chunk.Window.Start >= Window.End, key, $"<observation-chunk-overlaps:{Sensor.Value}>"),
     Gate(chunk.SampleCount > 0, key, "<observation-chunk-sampleless>"),
     Gate(statistics.IsCoherent, key, "<observation-statistics-incoherent>"),
     Gate(statistics.Observed == SampleCount + chunk.SampleCount, key, "<observation-census-not-run-total>")))
-   .As()
    .Map(_ => new ObservationSeries(
     Sensor, Aspect, Observed, Signature, CanonicalUnit, Sampling, Cadence,
     new Interval(Window.Start, chunk.Window.End), Chunks.Add(chunk), statistics, Provenance))
@@ -318,14 +318,17 @@ public sealed partial record ObservationSeries {
     Gate(!string.IsNullOrWhiteSpace(canonicalUnit), key, "<observation-unit-blank>"),
     Gate(cadence.ForAll(static span => span > Duration.Zero), key, "<observation-cadence-non-positive>"),
     Gate(window.HasStart && window.HasEnd && window.End >= window.Start, key, "<observation-window-unbounded>"),
-    Gate(chunks.ForAll(static chunk => chunk.IsBounded && chunk.Window.End > chunk.Window.Start && chunk.SampleCount > 0), key, "<observation-chunk-degenerate>"),
+    // The chunk gate carries the SAME single-sample exemption Append and Encode admit: a one-reading block's window
+    // is legitimately degenerate (its extent IS one instant), so the positivity law reads "at least one sample wide".
+    // A gate without the disjunct refuses a run this page's own growth transition grew, and the series then cannot
+    // rehydrate from the store it was legally written into.
+    Gate(chunks.ForAll(static chunk => chunk.IsBounded && (chunk.Window.End > chunk.Window.Start || chunk.SampleCount == 1) && chunk.SampleCount > 0), key, "<observation-chunk-degenerate>"),
     Gate(!chunks.Zip(chunks.Tail).Exists(static pair => pair.Item1.IsBounded && pair.Item2.IsBounded && pair.Item2.Window.Start < pair.Item1.Window.End), key, "<observation-chunks-not-advancing>"),
     Gate(Spans(window, chunks), key, "<observation-window-does-not-span-chunks>"),
     Gate(Brackets(window, chunks), key, "<observation-window-does-not-bracket-run>"),
     Gate(statistics.IsCoherent, key, "<observation-statistics-incoherent>"),
     Gate(statistics.Observed == chunks.Fold(0, static (total, chunk) => total + chunk.SampleCount), key, "<observation-census-not-run-total>"),
     Gate(!chunks.IsEmpty || statistics == SeriesStatistics.Empty, key, "<observation-empty-series-summarized>")))
-   .As()
    .Map(_ => new ObservationSeries(
     sensor, aspect, observed, signature, canonicalUnit.Trim(), sampling, cadence,
     window, chunks, statistics, provenance))
@@ -411,9 +414,9 @@ public sealed partial record ObservationSeries {
 
 - Owner: `SeriesStatistics` the DERIVED per-series summary the node carries so a completeness screen, a range bound, and the comparison figure read flat off the graph — the graded `Census`, the covered `Span`, and the `Minimum`/`Maximum`/`Mean`/`Total` aggregates as typed `Properties/quantity#MEASURE_VALUE` `MeasureValue`s.
 - Entry: `SeriesStatistics.From(run, sampling, type, signature, unit, key)` derives the whole summary off one decoded sample run — the ONE owner of the register-span rule and of the monotone-run refusal that rule presupposes; `SeriesStatistics.Of(census, span, minimum, maximum, mean, total)` takes an already-computed column set; `Fold(left, right, key)` merges two ADJACENT summaries — the ONE merge every rollup composes; `Observed` sums the census and `Consumable` folds it over the `ObservationGrade.Consumable` column; `Completeness(expected)` reads the consumable share against a cadence-derived denominator (`None` where the denominator is unanswerable); `Representative(sampling, key)` reads the ONE comparable figure the sampling row designates — the mean for an averaged or instantaneous stream, the total for a totalled or cumulative one, the extremum for a min or max one; `IsCoherent` is the shape law `Append` and `Rehydrate` re-impose.
-- Auto: the census is a `Map<ObservationGrade, int>` keyed by the closed grade vocabulary, so a new grade row lands with zero census-shape edit and the consumable fold derives from the row's own column rather than a hand-maintained allowed set; `Fold` is COLUMN-driven, not sampling-driven — the mean column always merges duration-weighted and the total column always adds, each reusing the `SamplingKind.Averaged` and `SamplingKind.Total` `Combine` rows so the weighted-mean and additive arithmetic are owned once at the vocabulary, the extremes merge by extremum, the census sums key-wise, and the spans add; `Completeness` divides the consumable count by the expected count, so a stream reporting on cadence yet graded three-quarters `Suspect` reads as the gap it is rather than as full coverage; `IsCoherent` holds when every census count is non-negative, the span is non-negative, every populated column shares one quantity identity (type, dimension signature, canonical unit), and the extremes bracket the mean wherever all three are present — the same invariant `From` and `Fold` guarantee by construction, restated as data so a summary reaching `Of` or the record constructor re-proves against itself the way the `Assessment/assessment#ASSESSMENT_NODE` `Coherent` column re-proves a persisted lifecycle.
+- Auto: `From`'s four column legs are INDEPENDENT, so each is one concrete `Validation<Error,_>` slot the tuple `Apply` unions and one `.ToFin()` collapses at the return, a run failing two columns reporting both; the census is a `Map<ObservationGrade, int>` keyed by the closed grade vocabulary, so a new grade row lands with zero census-shape edit and the consumable fold derives from the row's own column rather than a hand-maintained allowed set; `Fold` is COLUMN-driven, not sampling-driven — the mean column always merges duration-weighted and the total column always adds, each reusing the `SamplingKind.Averaged` and `SamplingKind.Total` `Combine` rows so the weighted-mean and additive arithmetic are owned once at the vocabulary, the extremes merge by extremum, the census sums key-wise, and the spans add; `Completeness` divides the consumable count by the expected count, so a stream reporting on cadence yet graded three-quarters `Suspect` reads as the gap it is rather than as full coverage; `IsCoherent` holds when every census count is non-negative, the span is non-negative, every populated column shares one quantity identity (type, dimension signature, canonical unit), and the extremes bracket the mean wherever all three are present — the same invariant `From` and `Fold` guarantee by construction, restated as data so a summary reaching `Of` or the record constructor re-proves against itself the way the `Assessment/assessment#ASSESSMENT_NODE` `Coherent` column re-proves a persisted lifecycle.
 - Receipt: `series.Statistics` is the pre-decode screen every consumer reads first — `Completeness` gates whether a verdict may be drawn at all, `Minimum`/`Maximum` bound a plausibility check, and `Representative` is the single figure a `Rasm.Compute` commissioning route subtracts against the matching `Assessment/assessment#ASSESSMENT_NODE` `ResultMeasure`, so the declared-versus-metered comparison reads two flat values off one baked element and the verdict writes back as an `Assessment` node whose `DependsOn` names the series.
-- Packages: Thinktecture.Runtime.Extensions (the `ObservationGrade`/`SamplingKind` generated `Key`/`Items`/`Switch` surfaces the census and the representative dispatch read), LanguageExt.Core (`Map`/`Option`/`Fin`/`Seq` + the `Fold` reductions and the applicative tuple `Apply` the derivation accumulates through), NodaTime (`Duration` the covered span and its integer division), `Properties/quantity#MEASURE_VALUE` (`MeasureValue` the typed aggregates, `MeasureValue.OfSi` the derivation and merge re-mint).
+- Packages: Thinktecture.Runtime.Extensions (the `ObservationGrade`/`SamplingKind` generated `Key`/`Items`/`Switch` surfaces the census and the representative dispatch read), LanguageExt.Core (`Map`/`Option`/`Fin`/`Seq` + the `Fold` reductions and the concrete `Validation<Error,_>` column slots the tuple `Apply` accumulates through before one `.ToFin()` collapse), NodaTime (`Duration` the covered span and its integer division), `Properties/quantity#MEASURE_VALUE` (`MeasureValue` the typed aggregates, `MeasureValue.OfAdmitted` the trusted re-mint the derivation and the merge both stamp their columns through under the series' own quantity triple).
 - Growth: a new summary column is one `SeriesStatistics` field with its `From` derivation, its `Fold` arm, and its `IsCoherent` clause; a new grade is one `ObservationGrade` row the census absorbs with no shape edit; a new representative rule is one `SamplingKind` row the total `Switch` already forces to answer; never a per-quantity statistics type and never a second summary beside this one.
 - Boundary: `SeriesStatistics` carries ZERO authority (`libs/.planning/RULINGS.md` truth-plane law) — the `ObservationChunk` bytes are the truth plane, this summary is an accelerator that DROPS at warm-up cost and rebuilds by re-reading the referenced blobs, and its retention floor is exactly the chunk retention; it is canon-EXCLUDED from `ObservationSeries.CanonicalBytes`, so a recomputed summary never forks the node id and a summary disagreeing with its blobs repairs by rebuild rather than by trusting the stored figure; a consumer reading `Mean` where the raw distribution decides — a percentile, a duty-cycle histogram, a spectral fold — reads the chunk bytes instead, because the mean is the accelerator and the samples are the record; `Representative` is a SEAM projection of the sampling semantics the seam owns, never a verdict — the comparison, the tolerance band, and the pass rule are `Rasm.Compute`'s; `From` owns the register-span rule so no producer re-derives it — a `Cumulative` run's `Total` is its last reading less its first, the consumption across the window rather than the odometer, and every other algebra folds through `SamplingKind.Total`; `Of` survives for a producer that already holds the columns, and the run stays the caller's to supply because this page addresses bytes and never fetches them.
 
@@ -455,33 +458,51 @@ public readonly record struct SeriesStatistics(
   Seq<(double Si, Duration Span)> weighted = Weighted(run, span);
   Map<ObservationGrade, int> census = run.Fold(Map<ObservationGrade, int>(),
    static (map, sample) => map.AddOrUpdate(sample.Grade, static count => count + 1, 1));
-  double total = sampling.Monotone
-   ? run[run.Count - 1].Si - run[0].Si
-   : SamplingKind.Total.Downsample(weighted).IfNone(run[0].Si);
+  // The four columns are INDEPENDENT of one another, so they ACCUMULATE (VALIDATION_MONOID): each leg is one
+  // concrete Validation<Error,_> slot, the tuple .Apply unions every ValueRejected through Error.Combine/ManyErrors,
+  // and .ToFin() collapses ONCE at the return — a run whose extremum and whose fold both refuse reports both, the
+  // grammar every sibling admission on this branch rides. Downsample answers None only over an EMPTY weighted run,
+  // which the empty-run return above already excluded, so the absent arm RAILS rather than substituting a
+  // first-sample default that would report one reading as the whole run's total.
   return (Value(type, signature, run.Fold(run[0].Si, static (low, s) => Math.Min(low, s.Si)), unit),
     Value(type, signature, run.Fold(run[0].Si, static (high, s) => Math.Max(high, s.Si)), unit),
-    Value(type, signature, SamplingKind.Averaged.Downsample(weighted).IfNone(run[0].Si), unit),
-    Value(type, signature, total, unit))
-   .Apply((low, high, mean, sum) => new SeriesStatistics(census, span, low, high, mean, sum)).As();
+    Folded(SamplingKind.Averaged, weighted, type, signature, unit, key),
+    sampling.Monotone
+     ? Value(type, signature, run[run.Count - 1].Si - run[0].Si, unit)
+     : Folded(SamplingKind.Total, weighted, type, signature, unit, key))
+   .Apply((low, high, mean, sum) => new SeriesStatistics(census, span, low, high, mean, sum)).As().ToFin();
  }
+
+ // One accumulating downsample leg: the row's own algebra folds the weighted run, and an unfoldable run refuses on
+ // the concrete Validation carrier the derivation joins, the bare-fault ternary lift the admission grammar rides.
+ private static Validation<Error, Option<MeasureValue>> Folded(
+  SamplingKind algebra, Seq<(double Si, Duration Span)> weighted,
+  QuantityType type, Dimension signature, string unit, Op key) =>
+  algebra.Downsample(weighted).Case is double si
+   ? Value(type, signature, si, unit)
+   : ElementFault.ValueRejected(key, $"<observation-summary-unfoldable:{algebra.Key}>");
 
  // Each weight is the gap to the next reading; the final sample takes the run's own average gap, so a single-sample
  // run weighs one positive second rather than zero and a weighted mean never divides by nothing.
  private static Seq<(double Si, Duration Span)> Weighted(
   Seq<(Instant At, double Si, ObservationGrade Grade)> run, Duration span) {
   Duration tail = run.Count > 1 ? span / (run.Count - 1) : Duration.FromSeconds(1);
-  return run.Map((index, sample) =>
+  return run.Map((sample, index) =>
    (sample.Si, index + 1 < run.Count ? run[index + 1].At - sample.At : tail));
  }
 
- private static Fin<Option<MeasureValue>> Value(QuantityType type, Dimension signature, double si, string unit) =>
-  MeasureValue.OfAdmitted(type, signature, si, unit).Map(static measure => Some(measure));
+ // The trusted RE-MINT of one derived column under the series' own stamped triple, lifted onto the accumulating
+ // carrier through .ToValidation() — the ONE conversion shape a Fin column takes into this derivation.
+ private static Validation<Error, Option<MeasureValue>> Value(QuantityType type, Dimension signature, double si, string unit) =>
+  MeasureValue.OfAdmitted(type, signature, si, unit).ToValidation().Map(static measure => Some(measure)).As();
 
  // Every sample the census accounts for — the Append coherence anchor and the completeness numerator's partner.
- public int Observed => Census.Fold(0, static (sum, pair) => sum + pair.Value);
+ // Both reads take the map's own KEY-BEARING three-argument fold: the carrier-generic fold carries the VALUE alone,
+ // so a pair-shaped lambda binds the count to the element slot and fails at the first member read.
+ public int Observed => Census.Fold(0, static (sum, _, count) => sum + count);
 
  // Consumable folds the grade row's own column, so a Suspect-heavy stream reads as the gap it is, never full coverage.
- public int Consumable => Census.Fold(0, static (sum, pair) => sum + (pair.Key.Consumable ? pair.Value : 0));
+ public int Consumable => Census.Fold(0, static (sum, grade, count) => sum + (grade.Consumable ? count : 0));
 
  // Consumable coverage against the cadence-derived denominator; None where the series is event-driven (Expected
  // returns None) or the window owes nothing — a fabricated 1.0 over a zero denominator is the deleted form.
@@ -502,11 +523,13 @@ public readonly record struct SeriesStatistics(
  // one quantity identity across every populated column, and extremes bracketing the mean wherever all three are
  // present.
  public bool IsCoherent =>
-  Census.ForAll(static pair => pair.Value >= 0)
+  Census.ForAll(static (_, count) => count >= 0)
   && Span >= Duration.Zero
+  // CanonicalUnit is Option<string> at its owner, so the agreement reads the carrier's own equality — Some/None and
+  // the ordinal string comparison in one test, where a bare string.Equals cannot take the optional at all.
   && Columns.Head.Map(first => Columns.ForAll(column =>
     column.Type == first.Type && column.Dimension == first.Dimension
-    && string.Equals(column.CanonicalUnit, first.CanonicalUnit, StringComparison.Ordinal))).IfNone(true)
+    && column.CanonicalUnit == first.CanonicalUnit)).IfNone(true)
   && (Minimum.Case, Maximum.Case, Mean.Case) switch {
    (MeasureValue low, MeasureValue high, MeasureValue centre) => low.Si <= centre.Si && centre.Si <= high.Si,
    _ => true,
@@ -521,7 +544,7 @@ public readonly record struct SeriesStatistics(
   Merged(left.Mean, right.Mean, left.Span, right.Span, SamplingKind.Averaged, key).Bind(mean =>
    Merged(left.Total, right.Total, left.Span, right.Span, SamplingKind.Total, key).Map(total =>
     new SeriesStatistics(
-     right.Census.Fold(left.Census, static (census, pair) => census.AddOrUpdate(pair.Key, existing => existing + pair.Value, pair.Value)),
+     right.Census.Fold(left.Census, static (census, grade, count) => census.AddOrUpdate(grade, existing => existing + count, count)),
      left.Span + right.Span,
      Extremum(left.Minimum, right.Minimum, static (a, b) => a.Si <= b.Si),
      Extremum(left.Maximum, right.Maximum, static (a, b) => a.Si >= b.Si),

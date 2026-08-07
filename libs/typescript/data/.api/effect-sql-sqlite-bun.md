@@ -21,8 +21,8 @@
 | :-----: | :----------------------------------------------------------------- | :-------------- | :----------------------------------------------- |
 |  [01]   | `SqliteClient.SqliteClient` (Tag) / `interface SqliteClient`       | service Tag     | `lane/sqlite` journal/projection rows            |
 |  [02]   | `SqliteClient.export: Effect<Uint8Array, SqlError>`                | serialize       | `journal/retain` whole-db backup; snapshot bytes |
-|  [03]   | `SqliteClient.loadExtension(path: string): Effect<void, SqlError>` | extension       | `retrieve` `sqlite-vec`/FTS; `lane/capability`    |
-|  [04]   | `SqliteClient.updateValues: never`                                 | degradation     | the driver's own missing-member proof behind `lane/sqlite`'s `_degrades` verdicts    |
+|  [03]   | `SqliteClient.loadExtension(path: string): Effect<void, SqlError>` | extension       | `retrieve` `sqlite-vec`/FTS; `lane/capability`   |
+|  [04]   | `SqliteClient.updateValues: never`                                 | degradation     | `lane/sqlite` `_degrades` verdict proof          |
 |  [05]   | `SqliteClient.config: SqliteClientConfig`                          | resolved config | `filename`/WAL introspection                     |
 
 [PUBLIC_TYPE_SCOPE]: configuration
@@ -44,7 +44,7 @@
 | [INDEX] | [SURFACE]                                                           | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                               |
 | :-----: | :------------------------------------------------------------------ | :------------- | :------------------------------------------------ |
 |  [01]   | `SqliteClient.layer(config: SqliteClientConfig)`                    | lane layer     | `lane/sqlite` app-root row (fixed `filename`)     |
-|  [02]   | `SqliteClient.layerConfig(config: Config.Wrap<SqliteClientConfig>)` | lane layer     | the composition root's `Config` file/mode resolution; standing row  |
+|  [02]   | `SqliteClient.layerConfig(config: Config.Wrap<SqliteClientConfig>)` | lane layer     | composition-root `Config` file/mode resolution    |
 |  [03]   | `SqliteClient.make(config)`                                         | scoped make    | scoped construction inside a larger acquire graph |
 |  [04]   | `client.export` → `Uint8Array`                                      | snapshot       | `journal/retain` ship/restore; `":memory:"` dump  |
 |  [05]   | `client.loadExtension(vecPath)`                                     | extension      | `retrieve/index` `vec0` virtual table             |

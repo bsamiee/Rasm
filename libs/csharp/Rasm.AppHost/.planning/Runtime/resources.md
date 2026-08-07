@@ -1,30 +1,33 @@
 # [APPHOST_RESOURCE_LANES]
 
-Bounded runtime resource lanes for the Rasm.AppHost spine: the HybridCache read-through port with per-lane keyed L2 topology and lane-keyed tag invalidation, delegate-row object pools that rent and recycle, and drainable queue rows that complete under the lifecycle conductor. The page owns the CacheLane axis, the PoolPolicy row shape with its concrete pool rows, and the DrainSpec/DrainQueue family; DeadlineClass and DrainBand bind lifetimes and rank as settled vocabulary, each lane's keyed L2 store and the serializer factory arrive as the single Persistence contribution, and lane counts leave as telemetry consequence.
+Bounded runtime resource lanes for the Rasm.AppHost spine: the HybridCache read-through port with per-lane keyed L2 topology and lane-keyed tag invalidation, delegate-row object pools that rent and recycle, drainable queue rows that complete under the lifecycle conductor, and the TTL-bounded seen-key window every at-least-once consumer folds its duplicates through. The page owns the CacheLane axis, the PoolPolicy row shape with its concrete pool rows, the DrainSpec/DrainQueue family, and the DedupeWindow primitive; DeadlineClass and DrainBand bind lifetimes and rank as settled vocabulary, each lane's keyed L2 store and the serializer factory arrive as the single Persistence contribution, and lane counts leave as telemetry consequence.
 
 ## [01]-[INDEX]
 
 - [02]-[CACHE_PORT]: One read-through entry; lane rows bind tags, lifetimes, options, and keyed L2.
 - [03]-[OBJECT_POOLS]: Delegate-row pool policy, concrete text pool, and rent/reset/leak tracking.
 - [04]-[DRAIN_QUEUES]: `DrainSpec` frozen rows, `DrainKind` topology, and fan-out/join/coalesce blocks.
+- [05]-[DEDUPE_WINDOW]: The one TTL-bounded, capacity-bounded seen-key window every dedupe consumer composes.
 
 ## [02]-[CACHE_PORT]
 
-- Owner: `CacheLane` `[SmartEnum<string>]` under the `ComparerAccessors.StringOrdinal` accessor; `CacheSurface` attaches the dispatch to `HybridCache` as one extension block and resolves each lane's keyed cache by its `Store` column.
+- Owner: `CacheLane` `[SmartEnum<string>]` under the `ComparerAccessors.StringOrdinal` accessor; `CacheRuntime` the composed posture carrying the graph and the topology both resolution and entry policy read; `CacheSurface` attaches the dispatch to that posture as one extension block.
 - Cases: `ModelResult`, `Projection`, `ArtifactBlob`.
 - Law: `CacheLane.Store` names the distributed-cache service key its `AddKeyedHybridCache(lane.Key)` registration binds through `DistributedCacheServiceKey`, so `ModelResult` and `Projection` share the `durable-l2` store while `ArtifactBlob` carries no `Store` and resolves the default cache; `Cache(lane)` resolves the keyed `HybridCache` by lane key for a stored lane and the default service otherwise — one cache contract, distinct L2 backings, never a second cache owner; that one column is the only growth axis for L2 topology.
-- Law: a consumer obtains the lane's cache as `provider.Cache(lane)` and reads through it as `provider.Cache(lane).Read(lane, key, …)`, so a stored lane's read hits its keyed L2 and never the default cache; `Read`, `Write`, `Invalidate`, and `Remove` ride the same `Cache(lane)`-resolved receiver as the registration — `Write` is the store-outside-read-through entry taking owner keys exactly as `Read` does, so no direct store hand-frames a tag — so the keyed-store routing is one resolution per consumer, never a default-cache read against a `Store`-keyed lane.
+- Law: a consumer holds one `CacheRuntime` and spells the lane ONCE per operation — `runtime.Read(lane, key, …)` resolves the lane's cache and frames its entry policy inside the call, so a stored lane's read hits its keyed L2 and never the default cache; `Read`, `Write`, `Invalidate`, and `Remove` all resolve through that one seat — `Write` is the store-outside-read-through entry taking owner keys exactly as `Read` does, so no direct store hand-frames a tag — and a receiver resolved at one seat then re-spelled with the lane at the next is the drift shape this posture forecloses.
+- Law: the capsule gate is ONE decision read at two seats — an `InHost` topology opens no keyed builder and frames every entry through `CacheLane.Capsuled`, so a plugin-ALC process writes no L2 row a collectible load context would have to decode after unload; `Cache` therefore resolves the default service for every lane under that topology and a keyed lookup against a builder the capsule never opened is unreachable rather than guarded.
 - Law: `RemoveByTagAsync` records a timestamp cut; pre-cut entries read as misses in both tiers and persist until natural expiry — logical, never physical; `RemoveAsync` is the physical sibling deleting the key from both tiers.
 - Law: tags MINT at `CacheLane.Tag`, never at a call site — a read names owner keys and the lane frames each into its own tag space, so a free-string tag has no spelling and no caller reaches another lane's tags; every write also carries the bare lane key, so ONE `Invalidate(lane, owners)` entry cuts the whole lane through `RemoveByTagAsync(lane.Key)` on an empty owner set and exactly those owners otherwise — a lane-scoped cut is the widest invalidation the closed tag vocabulary admits, and a global reset rides provider disposal at host unload, never a write-time pattern tag.
 - Law: peer-process L1 staleness is TTL-bounded with no backplane; convergence rides natural expiry or the next tag cut.
 - Law: the cache implementation service-locates the DI `TimeProvider` with system fallback, so creation stamps and tag cuts ride the injected clock; absolute L1 expiry is delegated to the memory-cache entry's `AbsoluteExpirationRelativeToNow` under the memory cache's own clock — read-time revalidation checks only tag cuts against the injected clock, so advancing `FakeTimeProvider` never expires an L1 entry by TTL and specs assert via tag cut or `RemoveAsync`.
-- Law: `MaximumPayloadBytes` is the lane's `MaxPayloadBytes` column — 1 MiB for `ModelResult`/`Projection` at the package default and 64 MiB for the `ArtifactBlob` lane whose blobs exceed the default — and `MaximumKeyLength` stays the 1024 default; the package clamps `LocalCacheExpiration` to `Expiration` when the L1 row exceeds the L2 row; `ReportTagMetrics` is enabled because the lane tag vocabulary is closed and low-cardinality.
+- Law: `MaximumPayloadBytes` is the lane's `MaxPayloadBytes` column — 1 MiB for `ModelResult`/`Projection` at the package default and 64 MiB for the `ArtifactBlob` lane whose blobs exceed the default — and every lane's column reaches a registration: a `Store`-bearing lane through its own keyed builder, and the `Store`-less set through the ONE default `AddHybridCache` whose ceiling is the widest such lane's, because that default cache is one service every storeless lane resolves; `MaximumKeyLength` stays the 1024 default; the package clamps `LocalCacheExpiration` to `Expiration` when the L1 row exceeds the L2 row; `ReportTagMetrics` is enabled because the lane tag vocabulary is closed and low-cardinality.
+- Law: the package ceiling is a SILENT guard — an over-quota payload logs and returns uncached — so a lane refuses over its own ceiling on the rail first, at the one write shape whose size is known before the serializer runs; a `T`-shaped payload's ceiling proves at the contributed serializer, where the encoded bytes exist.
 - Law: no fake cache type exists or gets hand-rolled; `SetAsync` preloads spec state through the real implementation.
-- Entry: `ValueTask<T> Read<T, TState>(CacheLane lane, string key, TState state, Func<TState, CancellationToken, ValueTask<T>> factory, Seq<string> owners = default, CancellationToken token = default)`.
-- Auto: `GetOrCreateAsync` owns stampede single-flight; local and distributed hit, miss, and write counts, stampede joins, and tag invalidations ride the package `Microsoft-Extensions-HybridCache` event source as polling counters with zero call-site metric code; `Cache` resolves the lane's keyed `HybridCache` from the provider by the lane key so each lane reads its own L2 topology.
+- Entry: `ValueTask<T> Read<T, TState>(CacheLane lane, string key, TState state, Func<TState, CancellationToken, ValueTask<T>> factory, Seq<string> owners = default, CancellationToken token = default)`; `IO<Unit> Write(CacheLane lane, string key, ReadOnlyMemory<byte> payload, Seq<string> owners = default)` — the byte-shaped write, admitted against the lane's ceiling before the store runs.
+- Auto: `GetOrCreateAsync` owns stampede single-flight; local and distributed hit, miss, and write counts, stampede joins, and tag invalidations ride the package `Microsoft-Extensions-HybridCache` event source as polling counters with zero call-site metric code; `CacheRuntime.Cache` resolves the lane's keyed `HybridCache` by the lane key so each lane reads its own L2 topology, and `CacheRuntime.Entry` frames the matching entry policy off the same posture so resolution and flags can never disagree about which tier a lane is allowed to reach.
 - Packages: Microsoft.Extensions.Caching.Hybrid; NodaTime; Thinktecture.Runtime.Extensions; LanguageExt.Core.
-- Growth: one lane row on `CacheLane`; a lifetime or flag change is one policy value; a new L2 topology is one `Store` value on the lane row; a payload-guard retune is one `MaxPayloadBytes` value; zero new surface.
-- Boundary: the L2 `IDistributedCache` registered under the lane's `Store` key and the `IHybridCacheSerializerFactory` arrive as the single Persistence contribution — `Register` admits that one factory through `AddSerializerFactory` on every keyed builder, never a per-type `AddSerializer<T>` scatter; `Register` composes one `AddKeyedHybridCache(lane.Key)` per lane row whose `Store` is set, binding `DistributedCacheServiceKey` to that store key and `MaximumPayloadBytes` from the lane's `MaxPayloadBytes` so each such lane reads its own keyed L2 under its own payload guard, while a lane with no `Store` resolves the default `AddHybridCache` service — one cache owner across both paths, never a second; registration composes after the DI `TimeProvider` registration so the test row's `FakeTimeProvider` drives creation stamps and tag cuts; this port deletes hand-rolled double-checked caches, `ICacheService` wrappers, and every second cache owner in the suite.
+- Growth: one lane row on `CacheLane`; a lifetime or flag change is one policy value; a new L2 topology is one `Store` value on the lane row; a payload-guard retune is one `MaxPayloadBytes` value; a new deployment posture that must narrow the tiers is one arm on `CacheRuntime`, never a per-call flag; zero new surface.
+- Boundary: the L2 `IDistributedCache` registered under the lane's `Store` key and the `IHybridCacheSerializerFactory` arrive as the single Persistence contribution — `Register` admits that one factory through `AddSerializerFactory` on every builder it opens, keyed and default alike, never a per-type `AddSerializer<T>` scatter; `Register` composes one `AddKeyedHybridCache(lane.Key)` per lane row whose `Store` is set, binding `DistributedCacheServiceKey` to that store key and `MaximumPayloadBytes` from the lane's own column, and ONE `AddHybridCache` for the whole `Store`-less set under the widest ceiling in it — a fold that registered only the keyed half left every storeless lane resolving an unregistered service under the package's own 1 MiB default, so a 64 MiB artifact declared a guard nothing bound and every over-size blob missed uncached with nothing raised, which is the deleted form; one cache owner across both paths, never a second; the `InHost` capsule takes the default path for EVERY lane and binds no `DistributedCacheServiceKey` at all, so the plugin-ALC gate is a registration fact rather than a runtime branch, and `CacheLane.Capsuled` is its per-entry half — a cache row surviving a collectible load context is the defect both halves of that one decision close; registration composes after the DI `TimeProvider` registration so the test row's `FakeTimeProvider` drives creation stamps and tag cuts; the ceiling refusal is the lane's own and rides the byte-shaped write, so an over-size artifact is a typed fact and never a key that reads cold forever; this port deletes hand-rolled double-checked caches, `ICacheService` wrappers, and every second cache owner in the suite.
 
 ```csharp signature
 
@@ -48,6 +51,17 @@ public sealed partial class CacheLane {
 
     public HybridCacheEntryOptions Entry => new() { Expiration = Ttl.Allotted.ToTimeSpan(), LocalCacheExpiration = L1Ttl.Allotted.ToTimeSpan(), Flags = Flags };
 
+    // The capsule arm. An `InHost` topology runs inside a collectible plugin ALC, where an L2 entry is written
+    // by a serializer the unload disposes and read back by whichever context loads next, so the whole
+    // distributed leg gates OFF for every lane rather than per row — the same load-context law the durable OTLP
+    // queue holds to, and the reason `Register` opens no keyed builder under that topology. Both legs gate
+    // together because `DisableDistributedCacheWrite` alone leaves every miss probing a permanently empty L2.
+    public HybridCacheEntryOptions Capsuled => new() {
+        Expiration = Ttl.Allotted.ToTimeSpan(),
+        LocalCacheExpiration = L1Ttl.Allotted.ToTimeSpan(),
+        Flags = Flags | HybridCacheEntryFlags.DisableDistributedCache,
+    };
+
     // Tenant-partitioned by construction: every lane key folds the ambient tenant, so equal caller keys under
     // distinct tenants never collide at L1 or L2 — the Persistence `Query/cache#L2_CONTRIBUTION` `CachePartition`
     // digest reads this SAME `(lane, tenant, key)` identity, and a lane-plus-key-only derivation is the deleted
@@ -62,47 +76,91 @@ public sealed partial class CacheLane {
 ```
 
 ```csharp signature
+// The composed cache posture, minted once at the composition root: the graph the lanes registered into and the
+// topology whose capsule arm gates the distributed leg. Resolution and entry policy BOTH read the one
+// discriminant here, so no call site threads a flag, no lane resolves a keyed service the capsule never opened,
+// and the lane is spelled once per operation rather than once to resolve and again to frame.
+public sealed record CacheRuntime(IServiceProvider Services, DeploymentTopology Topology) {
+    public bool Capsule => Topology == DeploymentTopology.InHost;
+
+    public HybridCache Cache(CacheLane lane) =>
+        lane.Store.IsSome && !Capsule
+            ? Services.GetRequiredKeyedService<HybridCache>(lane.Key)
+            : Services.GetRequiredService<HybridCache>();
+
+    public HybridCacheEntryOptions Entry(CacheLane lane) => Capsule ? lane.Capsuled : lane.Entry;
+}
+
 public static class CacheSurface {
-    extension(HybridCache cache) {
+    extension(CacheRuntime runtime) {
         // Owner keys cross, never tags: the lane frames each one, so no caller spelling reaches the tag space and
         // the bare lane key rides every write beside them.
         public ValueTask<T> Read<T, TState>(CacheLane lane, string key, TState state, Func<TState, CancellationToken, ValueTask<T>> factory, Seq<string> owners = default, CancellationToken token = default) =>
-            cache.GetOrCreateAsync(lane.Scoped(key), state, factory, lane.Entry, owners.Map(lane.Tag).Add(lane.Key), token);
+            runtime.Cache(lane).GetOrCreateAsync(lane.Scoped(key), state, factory, runtime.Entry(lane), owners.Map(lane.Tag).Add(lane.Key), token);
 
         // Writes take OWNER keys exactly as reads do, so no consumer spells a tag and a stored entry is cuttable
         // by the same `Invalidate` the lane already publishes — a store outside the read-through path otherwise
         // hand-frames its tags against the :18 mint law.
         public ValueTask Write<T>(CacheLane lane, string key, T value, Seq<string> owners = default, Option<HybridCacheEntryOptions> entry = default, CancellationToken token = default) =>
-            cache.SetAsync(lane.Scoped(key), value, entry.IfNone(lane.Entry), owners.Map(lane.Tag).Add(lane.Key), token);
+            runtime.Cache(lane).SetAsync(lane.Scoped(key), value, entry.IfNone(runtime.Entry(lane)), owners.Map(lane.Tag).Add(lane.Key), token);
+
+        // Byte-bearing payloads take the same name and discriminate on their own shape, because they are the
+        // one write whose size is known BEFORE the serializer runs. The package ceiling logs and returns
+        // uncached, so an over-quota artifact is indistinguishable from a permanently cold key; this entry
+        // refuses on the rail instead and the lane's own column is the bound it refuses against.
+        public IO<Unit> Write(CacheLane lane, string key, ReadOnlyMemory<byte> payload, Seq<string> owners = default) =>
+            payload.Length <= lane.MaxPayloadBytes
+                ? IO.liftAsync(async env => {
+                    await runtime.Cache(lane).SetAsync(lane.Scoped(key), payload, runtime.Entry(lane), owners.Map(lane.Tag).Add(lane.Key), env.Token);
+                    return unit;
+                })
+                : IO.fail<Unit>(new Fault.InvalidValue(
+                    Label: $"{lane.Key}:{payload.Length}",
+                    Requirement: $"a payload at or under the lane's {lane.MaxPayloadBytes} bytes"));
 
         // ONE cut entry over the whole vocabulary: an empty owner set cuts the lane whole through its bare key and
         // a non-empty one cuts exactly those owner tags, so lane-wide and owner-scoped invalidation cannot drift
         // apart and neither arm can name a tag the lane never minted.
         public ValueTask Invalidate(CacheLane lane, Seq<string> owners = default, CancellationToken token = default) =>
             owners.IsEmpty
-                ? cache.RemoveByTagAsync(lane.Key, token)
-                : cache.RemoveByTagAsync(owners.Map(lane.Tag), token);
+                ? runtime.Cache(lane).RemoveByTagAsync(lane.Key, token)
+                : runtime.Cache(lane).RemoveByTagAsync(owners.Map(lane.Tag), token);
 
         public ValueTask Remove(CacheLane lane, string key, CancellationToken token = default) =>
-            cache.RemoveAsync(lane.Scoped(key), token);
+            runtime.Cache(lane).RemoveAsync(lane.Scoped(key), token);
     }
 
-    extension(IServiceProvider provider) {
-        public HybridCache Cache(CacheLane lane) =>
-            lane.Store.IsSome
-                ? provider.GetRequiredKeyedService<HybridCache>(lane.Key)
-                : provider.GetRequiredService<HybridCache>();
-    }
+    // BOTH paths register, and the capsule takes neither keyed one. A stored lane opens its own keyed builder
+    // under its own ceiling; the `Store`-less set shares the ONE default service, so its ceiling folds to the
+    // widest column in the set — a per-lane callback there would leave the last registration governing lanes
+    // that never chose its bound. Under an `InHost` capsule every lane collapses onto that default service and
+    // no `DistributedCacheServiceKey` binds at all, so the load-context gate is structural and the `Capsuled`
+    // entry flags are the per-entry half of one decision rather than a second switch.
+    public static IServiceCollection Register(IServiceCollection services, IHybridCacheSerializerFactory contributed, DeploymentTopology topology) =>
+        Defaulted(
+            topology == DeploymentTopology.InHost
+                ? services
+                : toSeq(CacheLane.Items)
+                    .Filter(static lane => lane.Store.IsSome)
+                    .Fold(services, (current, lane) => Keyed(current, lane, contributed)),
+            topology == DeploymentTopology.InHost
+                ? toSeq(CacheLane.Items)
+                : toSeq(CacheLane.Items).Filter(static lane => lane.Store.IsNone),
+            contributed);
 
-    public static IServiceCollection Register(IServiceCollection services, IHybridCacheSerializerFactory contributed) =>
-        CacheLane.Items.Fold(services, (current, lane) =>
-            lane.Store.Case is string store
-                ? (current.AddKeyedHybridCache(lane.Key, options => {
-                        options.DefaultEntryOptions = lane.Entry;
-                        options.MaximumPayloadBytes = lane.MaxPayloadBytes;
-                        options.DistributedCacheServiceKey = store;
-                    }).AddSerializerFactory(contributed), current).Item2
-                : current);
+    static IServiceCollection Keyed(IServiceCollection services, CacheLane lane, IHybridCacheSerializerFactory contributed) =>
+        (services.AddKeyedHybridCache(lane.Key, options => {
+            options.DefaultEntryOptions = lane.Entry;
+            options.MaximumPayloadBytes = lane.MaxPayloadBytes;
+            options.DistributedCacheServiceKey = lane.Store.IfNone(string.Empty);
+        }).AddSerializerFactory(contributed), services).Item2;
+
+    static IServiceCollection Defaulted(IServiceCollection services, Seq<CacheLane> local, IHybridCacheSerializerFactory contributed) =>
+        local.IsEmpty
+            ? services
+            : (services.AddHybridCache(options =>
+                options.MaximumPayloadBytes = local.Fold(0L, static (widest, lane) => long.Max(widest, lane.MaxPayloadBytes)))
+                .AddSerializerFactory(contributed), services).Item2;
 }
 ```
 
@@ -203,6 +261,10 @@ public sealed record DrainSpec(
     public static readonly DrainSpec WatchdogJoin = new(nameof(WatchdogJoin), DrainKind.CorrelatedJoin, Capacity: 256, MaxDegree: 1, Ordered: true, FullMode: BoundedChannelFullMode.Wait, Band: DrainBand.Telemetry, Deadline: DeadlineClass.DrainCooperative, Greedy: false, MaxGroups: -1);
 
     public static readonly DrainSpec SupportCoalesce = new(nameof(SupportCoalesce), DrainKind.DualCoalesce, Capacity: 512, MaxDegree: 1, Ordered: true, FullMode: BoundedChannelFullMode.Wait, Band: DrainBand.Telemetry, Deadline: DeadlineClass.DrainCooperative, Batch: 32, Greedy: true, MaxGroups: -1);
+
+    // The live-wire subscribe lane: DropOldest is the ONLY full-mode an unbounded external producer admits, so
+    // this row's Open demands the onDrop receipt delegate and an unreceipted-loss lane refuses on the Fin rail.
+    public static readonly DrainSpec WireInbound = new(nameof(WireInbound), DrainKind.Pipe, Capacity: 1024, MaxDegree: 1, Ordered: true, FullMode: BoundedChannelFullMode.DropOldest, Band: DrainBand.Interaction, Deadline: DeadlineClass.DrainCooperative);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -309,7 +371,54 @@ public static class DrainSurface {
 }
 ```
 
-## [05]-[RESEARCH]
+## [05]-[DEDUPE_WINDOW]
+
+- Owner: `DedupeWindow` — the one TTL-bounded, capacity-bounded seen-key window the whole suite's at-least-once consumers admit through.
+- Entry: `Of(Duration ttl, int cap)` returns `DedupeWindow` — the two bounds are the whole construction, so a window is a value a composition hands its consumer rather than a class each consumer configures; `Admit(string key, Instant now)` returns `bool` — TRUE is the first admission inside the window and a key still holding an unexpired deadline refuses.
+- Auto: expiry is INTERIOR — the admission prunes every elapsed row before it decides, so no consumer sweeps, no timer runs, and a window that goes quiet holds nothing; the verdict rides the same compare-and-swap that records the key, so two threads racing one key admit exactly one of them and no read-then-write pair can interleave; the clock arrives as the caller's own `Instant`, so the window reads whatever `ClockPolicy` the composition threaded and a spec advancing a fake clock expires rows deterministically; capacity is the second bound — past `cap` the nearest-to-expiry rows leave, so a burst degrades to a shorter effective window instead of unbounded memory.
+- Receipt: the window mints none — a refusal is the consumer's own duplicate fact, recorded at the consumer's receipt where the message identity lives.
+- Packages: NodaTime, LanguageExt.Core, BCL inbox
+- Growth: a new dedupe consumer is one `DedupeWindow` value at its composition, never a second window type; a different retention or ceiling is one construction argument; zero new surface.
+- Boundary: this is the suite's only duplicate-suppression primitive — the `Wire/outbound#DELIVERY_FANOUT` fan and the `Wire/topics#SUBSCRIPTION_FABRIC` consumer each hold one window value and neither declares a map of its own, so a per-consumer `Dictionary<string, DateTime>` with its own expiry rule and no ceiling is the deleted form that grew until the process did; the key is the consumer's own message identity and this owner never derives one, so a window never decides what "the same message" means; both bounds are mandatory because either alone fails — a TTL with no ceiling is unbounded under a burst and a ceiling with no TTL never forgets a key the wire will never resend; the window is process-local by construction and makes no cross-process claim, so a delivery deduplicated here and re-delivered to a peer is the at-least-once contract holding, never a defect of this owner — cross-process suppression is the durable store's fenced-write concern.
+
+```csharp signature
+// The one at-least-once dedupe primitive, bounded on BOTH axes. Consumers compose the value; nobody re-derives
+// the expiry rule, the ceiling, or the race.
+public sealed class DedupeWindow {
+    readonly Duration ttl;
+    readonly int cap;
+    readonly Atom<Window> cell = Atom(Window.Empty);
+
+    DedupeWindow(Duration ttl, int cap) => (this.ttl, this.cap) = (ttl, cap);
+
+    public static DedupeWindow Of(Duration ttl, int cap) => new(ttl, cap);
+
+    public bool Admit(string key, Instant now) =>
+        cell.Swap(held => Advanced(held.Seen.Filter(deadline => deadline > now), key, now + ttl)).Admitted;
+
+    // The verdict rides the TRANSITION rather than a read-then-write pair, so the decision and the record land
+    // in one compare-and-swap; the swap re-runs under contention, which is safe because the step is a pure
+    // function of the live map and the incoming key.
+    Window Advanced(HashMap<string, Instant> live, string key, Instant deadline) =>
+        live.ContainsKey(key)
+            ? new Window(live, Admitted: false)
+            : new Window(Bounded(live.Add(key, deadline)), Admitted: true);
+
+    // The TTL prune already ran, so anything evicted here is live and the eviction is a real capacity decision:
+    // the nearest-to-expiry rows leave first, which is the ordering that keeps the freshest keys suppressible.
+    HashMap<string, Instant> Bounded(HashMap<string, Instant> live) =>
+        live.Count <= cap
+            ? live
+            : toSeq(live.AsIterable().OrderBy(static row => row.Value).Take(live.Count - cap))
+                .Fold(live, static (held, row) => held.Remove(row.Key));
+
+    readonly record struct Window(HashMap<string, Instant> Seen, bool Admitted) {
+        public static readonly Window Empty = new(HashMap<string, Instant>(), Admitted: false);
+    }
+}
+```
+
+## [06]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.

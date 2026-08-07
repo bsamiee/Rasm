@@ -162,12 +162,13 @@ public abstract partial class MaterialUsage {
   private ProfileSet(Option<CardinalPoint> cardinalPoint, Option<MeasureValue> referenceExtent) =>
    (CardinalPoint, ReferenceExtent) = (cardinalPoint, referenceExtent);
 
+  // The absent second length spells `Option<MeasureValue>.None`: the sibling `MaterialUsage.None` case TYPE is in
+  // scope inside this owner and outranks the `Prelude.None` import, so the bare spelling binds a type where the
+  // signature wants a value.
   public static Fin<MaterialUsage> Of(Option<int> cardinalPoint, Option<MeasureValue> referenceExtent, Op key) =>
    from point in cardinalPoint.Match(Some: reference => CardinalPoint.Of(reference, key).Map(static value => Some(value)), None: static () => Fin.Succ(Option<CardinalPoint>.None))
-   from _ in Lengths(referenceExtent, None, key)
+   from _ in Lengths(referenceExtent, Option<MeasureValue>.None, key)
    select (MaterialUsage)new ProfileSet(point, referenceExtent);
-
-  internal static ProfileSet Seed(Option<CardinalPoint> cardinalPoint, Option<MeasureValue> referenceExtent) => new(cardinalPoint, referenceExtent);
  }
 
  // The canonical projection co-located on the usage owner (the PropertyValue/MaterialComposition shape): case
@@ -200,7 +201,13 @@ public readonly record struct RelationshipParticipant(NodeId Node, string Role, 
 [Union]
 [Equatable]
 public abstract partial class Relationship {
- private Relationship() { }
+ // The Members memo is seeded HERE because an edge is immutable and every incidence build, DropNode cascade, and
+ // Touches probe reads that set — a Generic edge's recursive attribute walk re-derived per probe is exactly the cost
+ // the frozen graph's built-once index exists to avoid. [IgnoreEquality] keeps a derived cache out of the structural
+ // diff the Persistence 3-way merge drills.
+ private Relationship() => members = new(MembersOf);
+
+ [IgnoreEquality] private readonly Lazy<Seq<NodeId>> members;
 
  public sealed partial class Compose(NodeId whole, NodeId part, ComposeKind subKind, Option<int> ordinal = default) : Relationship { public NodeId Whole { get; } = whole; public NodeId Part { get; } = part; public ComposeKind SubKind { get; } = subKind; public Option<int> Ordinal { get; } = ordinal; }
  public sealed partial class Assign(NodeId subject, NodeId definition, AssignKind subKind) : Relationship { public NodeId Subject { get; } = subject; public NodeId Definition { get; } = definition; public AssignKind SubKind { get; } = subKind; }
@@ -245,9 +252,11 @@ public abstract partial class Relationship {
  // id BURIED in a Generic edge's PropertyValue attributes (the recursive Properties/property#PROPERTY_VALUE
  // PropertyValue.References dual of Remap) — the cascade/orphan reachability set the incidence index, the DropNode
  // cascade, and the Apply replay guard read, so a buried attribute Reference is live for renumber AND cascade in lockstep
- // (Remap rewrites it, Members sweeps it) — never the asymmetry that stranded a dangling Reference on a surviving Generic
- // edge. DirectedPairs stays endpoints-plus-realizing (an attribute reference is not a directed adjacency leg).
- public Seq<NodeId> Members =>
+ // (Remap rewrites it, Members sweeps it) and a surviving Generic edge can never carry a dangling Reference.
+ // DirectedPairs stays endpoints-plus-realizing (an attribute reference is not a directed adjacency leg).
+ public Seq<NodeId> Members => members.Value;
+
+ Seq<NodeId> MembersOf() =>
   (Ends switch { var (relating, related, realizing) => Seq(relating, related) + realizing.ToSeq() })
   + (this is Generic g ? g.Participants.Map(static participant => participant.Node) + g.Attributes.Values.ToSeq().Bind(static v => v.References()) : Seq<NodeId>());
 
@@ -275,13 +284,15 @@ public abstract partial class Relationship {
 
  // The canonical projection through the Projection/address#CONTENT_ADDRESS writer: case ordinal,
  // neutral sub-kind, endpoints, and the typed payload — the edge contributes to the graph content key.
+ // Every optional ordinal writes through a LAMBDA, never the `w.Ordinal` method group: the writer's primitives all
+ // return the writer for chaining, and a non-void method group has no conversion to the `Action<int>` IfSome takes.
  public void CanonicalBytes(CanonicalWriter w) => Switch(
- compose: r => { w.Ordinal(0).String(r.Whole.Value).String(r.Part.Value).String(r.SubKind.Key).Bool(r.Ordinal.IsSome); r.Ordinal.IfSome(w.Ordinal); return w; },
+ compose: r => { w.Ordinal(0).String(r.Whole.Value).String(r.Part.Value).String(r.SubKind.Key).Bool(r.Ordinal.IsSome); r.Ordinal.IfSome(ordinal => w.Ordinal(ordinal)); return w; },
  assign: r => w.Ordinal(1).String(r.Subject.Value).String(r.Definition.Value).String(r.SubKind.Key),
  associate: r => { w.Ordinal(2).String(r.Subject.Value).String(r.Resource.Value); r.Usage.CanonicalBytes(w); return w; },
  connect: r => { w.Ordinal(3).String(r.From.Value).String(r.To.Value).String(r.SubKind.Key).Bool(r.Realizing.IsSome); r.Realizing.IfSome(n => w.String(n.Value)); w.Bool(r.Interface.IsSome); r.Interface.IfSome(k => w.U128(k)); return w; },
  @void: r => w.Ordinal(4).String(r.Host.Value).String(r.Feature.Value).String(r.SubKind.Key),
- generic: r => { w.Ordinal(5).String(r.WireName).String(r.Source.Value).String(r.Target.Value).Ordinal(r.Attributes.Count); foreach (KeyValuePair<PropertyName, PropertyValue> attribute in r.Attributes.OrderBy(static p => p.Key.Value, StringComparer.Ordinal)) { w.String(attribute.Key.Value); attribute.Value.CanonicalBytes(w); } w.Ordinal(r.Participants.Count); foreach (RelationshipParticipant participant in r.Participants) { w.String(participant.Node.Value).String(participant.Role).Bool(participant.Ordinal.IsSome); participant.Ordinal.IfSome(w.Ordinal); } return w; });
+ generic: r => { w.Ordinal(5).String(r.WireName).String(r.Source.Value).String(r.Target.Value).Ordinal(r.Attributes.Count); foreach (KeyValuePair<PropertyName, PropertyValue> attribute in r.Attributes.OrderBy(static p => p.Key.Value, StringComparer.Ordinal)) { w.String(attribute.Key.Value); attribute.Value.CanonicalBytes(w); } w.Ordinal(r.Participants.Count); foreach (RelationshipParticipant participant in r.Participants) { w.String(participant.Node.Value).String(participant.Role).Bool(participant.Ordinal.IsSome); participant.Ordinal.IfSome(ordinal => w.Ordinal(ordinal)); } return w; });
 
  // Re-maps EVERY NodeId the edge carries (an unmapped id passes through unchanged): endpoints, a Connect's realizing
  // intermediary, AND every kernel reference buried in a Generic attribute — the Generic arm composes the ONE recursive
@@ -300,7 +311,7 @@ public abstract partial class Relationship {
 
 ## [03]-[IMPLEMENTATION_LAW]
 
-- [NEUTRAL_EDGE_ALGEBRA]: the seam rejects the seventeen-typed-`IfcRel*`-case relationship union because it re-opens the IFC-schema strata leak the `Classification` collapse fixed — the seam carries a neutral five-kind algebra (`Compose`/`Assign`/`Associate`/`Connect`/`Void`) plus a `Generic` passthrough, and the `Rasm.Bim` `SemanticProjector` maps every `IfcRel*` onto a neutral case (with its typed payload) or rides `Generic(wireName, relating, related, attrs)` so nothing is dropped; the eight previously-stranded families (`ConnectsStructuralMember`/`Activity`, `ConnectsPortToElement`, `SpaceBoundary` 1st/2nd, `Covers*`, `ConnectsPathElements` wall-join priorities, `Declares`, `AssignsToControl`/`Process`/`Product`/`Actor`, `InterferesElements`) all ride the neutral payload or `Generic`, the IFC directionality and inverse semantics living wholly in the projector; the `Connect` medium vocabulary is three-row — `Element` the medium-less concrete `IfcRelConnectsElements` base (and its direct `IfcRelConnectsWithRealizingElements` subtype, whose realizing head rides `Connect.Realizing`, never a sub-kind row), `Path` the path-element join, `Port` the port join — so a bare element adjacency never force-stamps `path` and a realizing edge never mints a parallel medium — verified against the GeometryGym `IfcRelationship` subtype surface before the projector mapping is final; the optional `Connect.Interface` content key carries the `IfcConnectionGeometry`/space-boundary interface surface by reference — the Bim projector hashes the interface geometry into the blob store and stamps the key, a `SpaceBoundary` 2nd-level crossing thereby delivers the energy-model surface set typed instead of stranding it in a `Generic` attribute, and an interface-less `Connect` stays plain topology.
+- [NEUTRAL_EDGE_ALGEBRA]: the seam rejects the seventeen-typed-`IfcRel*`-case relationship union because it re-opens the IFC-schema strata leak the `Classification` collapse fixed — the seam carries a neutral five-kind algebra (`Compose`/`Assign`/`Associate`/`Connect`/`Void`) plus a `Generic` passthrough, and the `Rasm.Bim` `SemanticProjector` maps every `IfcRel*` onto a neutral case (with its typed payload) or rides `Generic(wireName, relating, related, attrs)` so nothing is dropped; the eight previously-stranded families (`ConnectsStructuralMember`/`Activity`, `ConnectsPortToElement`, `SpaceBoundary` 1st/2nd, `Covers*`, `ConnectsPathElements` wall-join priorities, `Declares`, `AssignsToControl`/`Process`/`Product`/`Actor`, `InterferesElements`) all ride the neutral payload or `Generic`, the IFC directionality and inverse semantics living wholly in the projector; the `Connect` medium vocabulary is three-row — `Element` the medium-less concrete `IfcRelConnectsElements` base (and its direct `IfcRelConnectsWithRealizingElements` subtype, whose realizing head rides `Connect.Realizing`, never a sub-kind row), `Path` the path-element join, `Port` the port join — so a bare element adjacency never force-stamps `path` and a realizing edge never mints a parallel medium; the optional `Connect.Interface` content key carries the `IfcConnectionGeometry`/space-boundary interface surface by reference — the Bim projector hashes the interface geometry into the blob store and stamps the key, a `SpaceBoundary` 2nd-level crossing thereby delivers the energy-model surface set typed instead of stranding it in a `Generic` attribute, and an interface-less `Connect` stays plain topology.
 - [OCCURRENCE_USAGE]: `Associate.Usage` carries the per-occurrence layer/profile placement distinct from the shared material composition. Direction and sense are keyed rows; offset and extent are optional length-typed `MeasureValue`s; cardinal placement is `Option<CardinalPoint>`. The wire mirrors those shapes directly, so absence never occupies `0` or `NaN`, and every supplied scalar re-crosses the quantity invariant.
 - [UNIFORM_ACCESSOR_SURFACE]: the union carries a uniform consumer surface so a `Rasm.Persistence` `Query` topology pass and a `Version` 3-way `StructuralMerge` read an edge WITHOUT a union switch — `Kind` (the neutral `RelationshipKind` case token persisted as a flat edge column and grouped on in merge, projected through the generated `Map` because every arm is a precomputed constant row), `Relating`/`Related`/`Endpoints`/`DirectedPairs` (the endpoint and adjacency projections a topology view reads, ALL derived from the one private `Ends` case walk — the primary relating/related/realizing correspondence declared once, so the accessor family cannot drift case-by-case) and `Members` (that `Ends`-derived reachability set UNIONED with a `Generic` edge's `Participants` roster and its `PropertyValue.References` attribute-buried ids the orphan/cascade sweep and the incidence index read), `IsContainment` (the spatial-structure predicate), and `ToCanonicalBytes(tolerance)` (the standalone edge content key a content-3-way merge diffs on under the model tolerance, the SAME projection `CanonicalBytes(writer)` composes into the graph address — the `Generic` arm's measure attributes quantizing to `Header.Tolerance`); the two-level discrimination keeps `Kind` (case) on the base and `SubKind` (flavor) on each case, so the consumer's `RelationshipKind`/`.Kind`/`.IsContainment` shape resolves to the seam's actual union rather than re-deriving a parallel discriminant.
 

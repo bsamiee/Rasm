@@ -131,8 +131,9 @@ const _aligned = (
 
 [HOST_MIRROR]:
 - Owner: `Probe.host` — the local fingerprint mirroring the wire's `HostFingerprint` fields: `print` is the app's own identity host value handed in as a parameter — the probe never mints identity; `cores` reads `navigator.hardwareConcurrency`; `runtime` reads the user-agent brand; `machine`/`arch` read the WebGPU adapter info (`vendor`/`architecture` — the adapter probe already ran at `scene`'s backend selection, so the info arrives as an `Option` parameter from the renderer row, never a second `requestAdapter`); absent WebGPU, `Option.none` folds to the declared `"<unavailable>"` literal rather than fabricated values.
-- Packages: `@rasm/ts/core` (`Claim` — `Claim.Host` IS `HostFingerprint`); `effect` (`Option`, `pipe`); `@webgpu/types` (ambient adapter-info shape).
+- Packages: `@rasm/ts/core` (`Claim` — `Claim.Host` IS `HostFingerprint`; `SupportExport` — the decoded AppHost support-bundle export); `effect` (`Option`, `pipe`); `@webgpu/types` (ambient adapter-info shape).
 - Law: the local fingerprint NEVER gates — the identity gate lives at the codec (`Claim.admit` against `AppIdentity`); this probe exists to display divergence context (different GPU, fewer cores) beside metric deltas.
+- Law: the support-evidence roster is the same display-never-gate class — `SupportExport` (the codec's decode of the AppHost `SupportCaptureWire` bundle export) renders trigger, capture window, and the per-entry name/classification/bytes/redactions rows with the optional `fault` beside the claim board, so an operator reads what the host captured next to the identity that captured it; the decode stays the codec's landing and this viewer binds the landed class whole, re-deriving and re-hashing nothing — distinct from the `observe` tap's inbound `SupportCapture` fact, which is the report ARRIVING at the gateway, never this export.
 - Law: fingerprint capture is once-per-session — the value is stable for the process lifetime and its atom pins through `Atom.keepAlive`, so the registry's idle TTL never re-runs the capture.
 
 ```typescript

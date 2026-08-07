@@ -6,7 +6,7 @@
 
 - [02]-[PLAN]: `PagePlan`, `PageSeat`, and the identity owners close page kind, content, chrome, selection, and callback policy.
 - [03]-[SIGNAL]: `PageSignal` carries lifecycle, script, parent, and detached selection evidence through one answering rail.
-- [04]-[REALIZATION]: `HostPage` and the internal leaves realize the host base and expose kind-safe post-realization operations.
+- [04]-[REALIZATION]: `HostPage`, the internal leaves, and the `PageOwner`/`PageCustody` gate realize the host base and expose kind-safe post-realization operations.
 - [05]-[NAVIGATION]: `PageNav` folds stacked activation, reveal, removal, dirty state, title, child adoption, and navigation style.
 - [06]-[MOUNT]: `PageBasket` and `PageMount.Land` register realized pages against the matching host collection.
 
@@ -158,8 +158,8 @@ public abstract partial record PagePlan {
     internal Fin<PagePlan> Admit(Op op) => Switch(
         op,
         stacked: static (held, page) =>
-            from seat in Optional(page.Seat).ToFin(Fail: held.InvalidInput())
-            from candidate in Optional(page.Identity).ToFin(Fail: held.InvalidInput())
+            from seat in held.Need(page.Seat)
+            from candidate in held.Need(page.Identity)
             from identity in StackedIdentity.TryCreate(
                 caption: candidate.Caption,
                 image: candidate.Image,
@@ -167,11 +167,11 @@ public abstract partial record PagePlan {
                 out StackedIdentity? admitted) && admitted is { } value
                     ? Fin.Succ(value: value)
                     : Fin.Fail<StackedIdentity>(error: held.InvalidInput())
-            from content in Optional(page.Content).ToFin(Fail: held.InvalidInput())
-            from answer in Optional(page.Answer).ToFin(Fail: held.InvalidInput())
+            from content in held.Need(page.Content)
+            from answer in held.Need(page.Answer)
             select (PagePlan)new Stacked(Seat: seat, Identity: identity, Content: content, Answer: answer),
         properties: static (held, page) =>
-            from candidateIdentity in Optional(page.Identity).ToFin(Fail: held.InvalidInput())
+            from candidateIdentity in held.Need(page.Identity)
             from identity in ObjectIdentity.TryCreate(
                 caption: candidateIdentity.Caption,
                 iconResource: candidateIdentity.IconResource,
@@ -180,16 +180,16 @@ public abstract partial record PagePlan {
                 out ObjectIdentity? admittedIdentity) && admittedIdentity is { } identity
                     ? Fin.Succ(value: identity)
                     : Fin.Fail<ObjectIdentity>(error: held.InvalidInput())
-            from candidateScope in Optional(page.Scope).ToFin(Fail: held.InvalidInput())
+            from candidateScope in held.Need(page.Scope)
             from scope in ObjectScope.TryCreate(
                 kinds: candidateScope.Kinds,
                 policy: candidateScope.Policy,
                 out ObjectScope? admittedScope) && admittedScope is { } value
                     ? Fin.Succ(value: value)
                     : Fin.Fail<ObjectScope>(error: held.InvalidInput())
-            from content in Optional(page.Content).ToFin(Fail: held.InvalidInput())
-            from display in Optional(page.Display).ToFin(Fail: held.InvalidInput())
-            from answer in Optional(page.Answer).ToFin(Fail: held.InvalidInput())
+            from content in held.Need(page.Content)
+            from display in held.Need(page.Display)
+            from answer in held.Need(page.Answer)
             select (PagePlan)new Properties(
                 Identity: identity,
                 Scope: scope,
@@ -245,7 +245,8 @@ public sealed record SelectionEvidence(
 - Owner: `HostPage.Realize` is the sole page mint and runs only inside an existing command-thread frame.
 - Owner: `PageLeaf` closes the internal host-base alternatives; no host base enters a consumer signature.
 - Entry: `Navigate`, `Reveal`, `Selection`, and `Modify` expose the distinct result regimes of the realized handle.
-- Receipt: `HostPage` retains its `ElementReceipt`; one open-closing-released custody gate excludes operations from teardown, distinguishes parent, mount-receipt, and host-collection owners, and releases every control tree once.
+- Receipt: `HostPage` retains its `ElementReceipt`; one live-released custody gate over an open-or-closing phase excludes operations from teardown, distinguishes parent, mount-receipt, and host-collection owners, and releases every control tree once.
+- Law: `PageOwner` and `PageCustody` are `[Union]` owners and every custody transition — enter, leave, claim, unclaim, transfer, adopt, close — is a generated exhaustive `Switch` on `PageCustody` returning the next state beside the tree it hands back; `HostPage` holds the lock and seats that state, never a hand-rolled type test.
 - Law: each host override calls the plan's `Answer` once and collapses `Fin<Unit>` only at the required host return type.
 - Law: visibility combines `IncludesObjectsType`, the plan predicate, and the `SelectionShown` answer; refresh emits only `SelectionUpdated`.
 - Boundary: `Modify` captures the callback result and rejects a host call that returns without invoking the callback.
@@ -259,27 +260,96 @@ internal abstract partial record PageLeaf {
     internal sealed record Properties(ObjectPropertiesPage Value) : PageLeaf;
 }
 
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+internal abstract partial record PageOwner {
+    private PageOwner() { }
+    internal sealed record Parent(HostPage Value) : PageOwner;
+    internal sealed record Mount(Guid Token) : PageOwner;
+    internal sealed record Host : PageOwner;
+
+    internal bool Owns(HostPage page) => Switch(
+        page,
+        parent: static (held, row) => ReferenceEquals(held, row.Value),
+        mount: static (_, _) => false,
+        host: static (_, _) => false);
+}
+
+[SmartEnum<bool>]
+internal sealed partial class PagePhase {
+    public static readonly PagePhase Open = new(false);
+    public static readonly PagePhase Closing = new(true);
+}
+
+// `PageCustody` owns every transition; `HostPage` holds the lock and seats the returned state, so the gate has one
+// exhaustive shape instead of a type test per call site. A `Some` release payload is the tree the caller must free.
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+internal abstract partial record PageCustody {
+    private PageCustody() { }
+    internal sealed record Live(Option<PageOwner> Owner, int Active, Seq<HostPage> Children, PagePhase Phase) : PageCustody;
+    internal sealed record Released : PageCustody;
+
+    internal Option<PageCustody> Entered() => Switch(
+        live: static row => row.Phase == PagePhase.Open
+            ? Some<PageCustody>(row with { Active = row.Active + 1 })
+            : Option<PageCustody>.None,
+        released: static _ => Option<PageCustody>.None);
+
+    internal (PageCustody Next, Option<Seq<HostPage>> Release) Left() => Switch(
+        live: static row => row.Active is 1 && row.Phase == PagePhase.Closing
+            ? ((PageCustody)new Released(), Some(row.Children))
+            : ((PageCustody)(row with { Active = row.Active - 1 }), Option<Seq<HostPage>>.None),
+        released: static row => ((PageCustody)row, Option<Seq<HostPage>>.None));
+
+    internal (PageCustody Next, Option<Seq<HostPage>> Release) Closed(Option<PageOwner> owner) => Switch(
+        owner,
+        live: static (held, row) => row.Phase != PagePhase.Open || row.Owner != held
+            ? ((PageCustody)row, Option<Seq<HostPage>>.None)
+            : row.Active > 0
+                ? ((PageCustody)(row with { Phase = PagePhase.Closing }), Option<Seq<HostPage>>.None)
+                : ((PageCustody)new Released(), Some(row.Children)),
+        released: static (_, row) => ((PageCustody)row, Option<Seq<HostPage>>.None));
+
+    internal Option<PageCustody> Claimed(PageOwner owner, HostPage page) => Switch(
+        (Owner: owner, Page: page),
+        live: static (held, row) => row.Phase == PagePhase.Open
+            && row.Owner.IsNone
+            && row.Active is 0
+            && !held.Owner.Owns(held.Page)
+                ? Some<PageCustody>(row with { Owner = Some(held.Owner) })
+                : Option<PageCustody>.None,
+        released: static (_, _) => Option<PageCustody>.None);
+
+    internal PageCustody Unclaimed(PageOwner owner) => Switch(
+        owner,
+        live: static (held, row) => row.Phase == PagePhase.Open && row.Owner == Some(held)
+            ? (PageCustody)(row with { Owner = None })
+            : row,
+        released: static (_, row) => row);
+
+    internal PageCustody Transferred(PageOwner from, PageOwner to) => Switch(
+        (From: from, To: to),
+        live: static (held, row) => row.Phase == PagePhase.Open && row.Owner == Some(held.From)
+            ? (PageCustody)(row with { Owner = Some(held.To) })
+            : row,
+        released: static (_, row) => row);
+
+    internal PageCustody Adopted(HostPage child) => Switch(
+        child,
+        live: static (held, row) => (PageCustody)(row with { Children = row.Children.Add(held) }),
+        released: static (_, row) => row);
+}
+
 // --- [SERVICES] -----------------------------------------------------------------------------
 public sealed class HostPage : IDisposable {
-    private abstract record PageOwner {
-        private PageOwner() { }
-        internal sealed record Parent(HostPage Value) : PageOwner;
-        internal sealed record Mount(Guid Token) : PageOwner;
-        internal sealed record Host : PageOwner;
-    }
-
-    private abstract record PageCustody {
-        private PageCustody() { }
-        internal sealed record Open(PageOwner? Owner, int Active, Seq<HostPage> Children) : PageCustody;
-        internal sealed record Closing(PageOwner? Owner, int Active, Seq<HostPage> Children) : PageCustody;
-        internal sealed record Released : PageCustody;
-    }
-
     private readonly PagePlan plan;
     private readonly PageLeaf leaf;
     private readonly ElementReceipt content;
     private readonly object sync = new();
-    private PageCustody custody = new PageCustody.Open(Owner: null, Active: 0, Children: Seq<HostPage>());
+    private PageCustody custody = new PageCustody.Live(
+        Owner: None,
+        Active: 0,
+        Children: Seq<HostPage>(),
+        Phase: PagePhase.Open);
 
     private HostPage(PagePlan plan, PageLeaf leaf, ElementReceipt content) {
         this.plan = plan;
@@ -325,7 +395,7 @@ public sealed class HostPage : IDisposable {
             key: op);
     }
 
-    public void Dispose() => Release(owner: null);
+    public void Dispose() => Release(owner: None);
 
     public Fin<Unit> Navigate(PageNav nav, Op? key = null) {
         ArgumentNullException.ThrowIfNull(nav);
@@ -415,39 +485,20 @@ public sealed class HostPage : IDisposable {
     }, op: op);
 
     private Unit Track(HostPage child) {
-        lock (sync) {
-            custody = custody switch {
-                PageCustody.Open open => open with { Children = open.Children.Add(child) },
-                PageCustody.Closing closing => closing with { Children = closing.Children.Add(child) },
-                _ => custody,
-            };
-        }
+        lock (sync) custody = custody.Adopted(child);
         return unit;
     }
 
     private Fin<T> Within<T>(Func<Fin<T>> body, Op op) {
         lock (sync) {
-            if (custody is not PageCustody.Open open)
-                return Fin.Fail<T>(error: op.MissingContext());
-            custody = open with { Active = open.Active + 1 };
+            if (custody.Entered().Case is not PageCustody entered) return Fin.Fail<T>(error: op.MissingContext());
+            custody = entered;
         }
         try { return op.Catch(body); }
         finally {
-            Seq<HostPage> children = Seq<HostPage>();
-            bool release = false;
-            lock (sync) {
-                custody = custody switch {
-                    PageCustody.Open open => open with { Active = open.Active - 1 },
-                    PageCustody.Closing closing => closing with { Active = closing.Active - 1 },
-                    _ => custody,
-                };
-                if (custody is PageCustody.Closing { Active: 0 } closing) {
-                    children = closing.Children;
-                    custody = new PageCustody.Released();
-                    release = true;
-                }
-            }
-            if (release) ReleaseTree(children);
+            Option<Seq<HostPage>> release;
+            lock (sync) { (custody, release) = custody.Left(); }
+            _ = release.Iter(ReleaseTree);
         }
     }
 
@@ -458,50 +509,35 @@ public sealed class HostPage : IDisposable {
         Unclaim(owner: new PageOwner.Mount(Token: token));
 
     internal void TransferMount(Guid token) {
-        lock (sync) {
-            if (custody is PageCustody.Open open && Equals(open.Owner, new PageOwner.Mount(Token: token)))
-                custody = open with { Owner = new PageOwner.Host() };
-        }
+        lock (sync) custody = custody.Transferred(
+            from: new PageOwner.Mount(Token: token),
+            to: new PageOwner.Host());
     }
 
     internal void ReleaseMount(Guid token) =>
-        Release(owner: new PageOwner.Mount(Token: token));
+        Release(owner: Some<PageOwner>(new PageOwner.Mount(Token: token)));
 
     private Fin<Unit> Claim(PageOwner owner, Op op) {
         lock (sync) {
-            if (owner is PageOwner.Parent { Value: var parent } && ReferenceEquals(this, parent)
-                || custody is not PageCustody.Open { Owner: null, Active: 0 } open)
+            if (custody.Claimed(owner: owner, page: this).Case is not PageCustody claimed)
                 return Fin.Fail<Unit>(error: op.MissingContext());
-            custody = open with { Owner = owner };
+            custody = claimed;
             return Fin.Succ(value: unit);
         }
     }
 
     private void Unclaim(PageOwner owner) {
-        lock (sync) {
-            if (custody is PageCustody.Open open && Equals(open.Owner, owner))
-                custody = open with { Owner = null };
-        }
+        lock (sync) custody = custody.Unclaimed(owner);
     }
 
-    private void Release(PageOwner? owner) {
-        Seq<HostPage> children = Seq<HostPage>();
-        bool release = false;
-        lock (sync) {
-            if (custody is not PageCustody.Open open || !Equals(open.Owner, owner)) return;
-            if (open.Active > 0) {
-                custody = new PageCustody.Closing(Owner: open.Owner, Active: open.Active, Children: open.Children);
-            } else {
-                children = open.Children;
-                custody = new PageCustody.Released();
-                release = true;
-            }
-        }
-        if (release) ReleaseTree(children);
+    private void Release(Option<PageOwner> owner) {
+        Option<Seq<HostPage>> release;
+        lock (sync) { (custody, release) = custody.Closed(owner); }
+        _ = release.Iter(ReleaseTree);
     }
 
     private void ReleaseTree(Seq<HostPage> children) {
-        PageOwner owner = new PageOwner.Parent(Value: this);
+        Option<PageOwner> owner = Some<PageOwner>(new PageOwner.Parent(Value: this));
         _ = children.Rev().Iter(child => Op.Side(() => child.Release(owner: owner)));
         content.Dispose();
     }
@@ -660,7 +696,7 @@ public abstract partial record PageNav {
             retitle: static (held, nav) => held.Op.AcceptText(value: nav.Title.English)
                 .Map(title => Op.Side(() => held.Page.SetEnglishPageTitle(title))),
             adopt: static (held, nav) =>
-                from child in Optional(nav.Child).ToFin(Fail: held.Op.InvalidInput())
+                from child in held.Op.Need(nav.Child)
                 from _ in child.StackedPlan
                     .Filter(static child => child.Seat == PageSeat.Child)
                     .ToFin(Fail: held.Op.InvalidInput())
@@ -687,8 +723,9 @@ public abstract partial record PageNav {
 ## [06]-[MOUNT]
 
 - Owner: `PageBasket` closes the host registration collection shapes.
-- Entry: `PageMount.Land` applicatively pre-admits the complete batch, claims every page before mutation, and returns a completed or partial applied-prefix receipt.
+- Entry: `PageMount.Land` applicatively pre-admits the complete batch, claims every page before mutation, and returns one receipt carrying the applied prefix with any fault beside it; the batch arrives as a span for call-site ergonomics or as a `Seq` beside the operation key, because a `params` tail cannot carry the optional key every entry on this page threads.
 - Law: stacked children land only through `PageNav.Adopt`; root stacked and object-properties pages must agree with the basket case.
+- Law: `PageMountReceipt` is a CLASS, never a record — it holds a live `PageMountLease`, and two receipts naming one applied count are not one registration, so the completed and partial regimes are the fault slot's `None` and `Some` on one carrier rather than structurally equal cases over live custody.
 - Boundary: `PageMountReceipt` owns removable options registrations and releases their page trees; object-properties registration exposes no public removal member, so custody transfers to the host collection and its applied prefix remains explicit.
 - Boundary: options rollback accepts only a true `ICollection.Remove` result; false removal remains a live receipt-owned registration and joins the partial fault.
 
@@ -701,30 +738,24 @@ public abstract partial record PageBasket {
     public sealed record Properties(ObjectPropertiesPageCollection Pages) : PageBasket;
 }
 
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record PageMountReceipt : IDisposable {
+// A mount receipt holds live registration custody, so it is a CLASS: two receipts naming one applied count are not
+// one registration, and a structural-equality carrier over a live lease is a value lying about its own identity.
+public sealed class PageMountReceipt : IDisposable {
     private readonly PageMountLease lease;
 
-    private protected PageMountReceipt(PageMountLease lease) => this.lease = lease;
+    internal PageMountReceipt(int applied, Option<Error> fault, PageMountLease lease) {
+        this.lease = lease;
+        Applied = applied;
+        Fault = fault;
+    }
+
+    public int Applied { get; }
+
+    public Option<Error> Fault { get; }
 
     public Fin<Unit> Release(Op? key = null) => lease.Release(key.OrDefault());
 
     public void Dispose() => ignore(Release());
-
-    public sealed record Completed : PageMountReceipt {
-        internal Completed(int landed, PageMountLease lease) : base(lease) => Landed = landed;
-        public int Landed { get; }
-    }
-
-    public sealed record Partial : PageMountReceipt {
-        internal Partial(int applied, Error fault, PageMountLease lease) : base(lease) {
-            Applied = applied;
-            Fault = fault;
-        }
-
-        public int Applied { get; }
-        public Error Fault { get; }
-    }
 }
 
 internal sealed record PageLanding(HostPage Page, Action Add, Option<Func<Fin<Unit>>> Remove);
@@ -796,12 +827,14 @@ internal sealed class PageMountLease {
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
 public static class PageMount {
-    public static Fin<PageMountReceipt> Land(PageBasket basket, params ReadOnlySpan<HostPage> pages) {
+    public static Fin<PageMountReceipt> Land(PageBasket basket, params ReadOnlySpan<HostPage> pages) =>
+        Land(basket: basket, pages: toSeq(pages.ToArray()).Strict(), key: null);
+
+    public static Fin<PageMountReceipt> Land(PageBasket basket, Seq<HostPage> pages, Op? key = null) {
         ArgumentNullException.ThrowIfNull(basket);
-        Op op = Op.Of(name: nameof(PageMount));
-        Seq<HostPage> batch = toSeq(pages.ToArray()).Strict();
+        Op op = key.OrDefault();
         return HostThread.Run(
-            work: new HostWork<PageMountReceipt>.Required(Body: () => batch
+            work: new HostWork<PageMountReceipt>.Required(Body: () => pages
                 .Traverse(page => Prepared(page: page, basket: basket, op: op).ToValidation())
                 .As()
                 .ToFin()
@@ -815,10 +848,10 @@ public static class PageMount {
     }
 
     private static Fin<PageLanding> Prepared(HostPage page, PageBasket basket, Op op) =>
-        Optional(page).ToFin(Fail: op.InvalidInput()).Bind(admitted => basket.Switch(
+        op.Need(page).Bind(admitted => basket.Switch(
             (Page: admitted, Op: op),
             options: static (held, target) =>
-                from pages in Optional(target.Pages).ToFin(Fail: held.Op.InvalidInput())
+                from pages in held.Op.Need(target.Pages)
                 from plan in held.Page.StackedPlan.ToFin(Fail: held.Op.InvalidInput())
                 from _ in guard(flag: plan.Seat == PageSeat.Options, False: held.Op.InvalidInput()).ToFin()
                 from leaf in held.Page.StackedLeaf.ToFin(Fail: held.Op.InvalidResult())
@@ -829,7 +862,7 @@ public static class PageMount {
                         ? Fin.Succ(value: unit)
                         : Fin.Fail<Unit>(error: held.Op.InvalidResult(detail: nameof(ICollection<OptionsDialogPage>.Remove)))))),
             properties: static (held, target) =>
-                from pages in Optional(target.Pages).ToFin(Fail: held.Op.InvalidInput())
+                from pages in held.Op.Need(target.Pages)
                 from leaf in held.Page.PropertiesLeaf.ToFin(Fail: held.Op.InvalidInput())
                 select new PageLanding(
                     Page: held.Page,
@@ -880,18 +913,15 @@ public static class PageMount {
         return state.Fault.Match(
             Some: primary => {
                 _ = state.Remaining.Iter(landing => Op.Side(() => landing.Page.UnclaimMount(token)));
-                return lease.Rollback(op).Match<Fin<PageMountReceipt>>(
-                    Succ: _ => Fin.Succ<PageMountReceipt>(value: new PageMountReceipt.Partial(
-                        applied: state.Applied - state.Registrations.Count + lease.LiveCount,
-                        fault: primary,
-                        lease: lease)),
-                    Fail: rollback => Fin.Succ<PageMountReceipt>(value: new PageMountReceipt.Partial(
-                        applied: state.Applied - state.Registrations.Count + lease.LiveCount,
-                        fault: primary + rollback,
-                        lease: lease)));
+                Error fault = lease.Rollback(op).Match(Succ: _ => primary, Fail: rollback => primary + rollback);
+                return Fin.Succ(value: new PageMountReceipt(
+                    applied: state.Applied - state.Registrations.Count + lease.LiveCount,
+                    fault: Some(fault),
+                    lease: lease));
             },
-            None: () => Fin.Succ<PageMountReceipt>(value: new PageMountReceipt.Completed(
-                landed: state.Applied,
+            None: () => Fin.Succ(value: new PageMountReceipt(
+                applied: state.Applied,
+                fault: None,
                 lease: lease)));
     }
 }

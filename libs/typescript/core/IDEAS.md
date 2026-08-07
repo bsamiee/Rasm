@@ -30,7 +30,7 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 - Capability: field-level content-key parity becomes a reachable proof rather than a minted surface, so a landing whose key columns disagree with its own bytes refuses with the field-mask coordinate naming which column moved.
 - Shape: a first `Parity.cells` composition at a byte-key-bearing landing in `libs/typescript/core/.planning/interchange/codec.md` `[07]-[KEYED_REGISTRY]`, beside the `verifiedSnapshot` and `admittedGraph` entry compositions the registry already carries.
 - Unlocks: the `paths` output and the accumulated `drift` coordinate stop being dead outputs, and a peer that renames a key column surfaces as an addressed refusal instead of a silent mismatch.
-- Anchors: `Parity.cells` with its accumulating `Array.partitionMap` roster walk and `_addressed` field-mask spelling; the byte-key columns the landings already carry through `Digest.FromBytes` (`ElementGraph`/`Node`/`Relation`, `BimModel`/`BimDiff`, `RenderReceipt`, `SnapshotHeader`); `@bufbuild/protobuf`'s reflect surface.
+- Anchors: `Parity.cells` with its accumulating `Array.partitionMap` roster walk and `_addressed` field-mask spelling; the byte-key columns the landings already carry through `Digest.FromBytes` (`BimModel`/`BimDiff`, `RenderReceipt`, `SnapshotHeader` — the element triple lands X32 text ids and sits outside the walk); `@bufbuild/protobuf`'s reflect surface.
 - Tension: the walk reads proto `bytes` cells alone, so a landing whose identity columns are hex strings is outside its reach and the first consumer must be a genuinely byte-carried family rather than the widest roster.
 
 ## [02]-[CLOSED]

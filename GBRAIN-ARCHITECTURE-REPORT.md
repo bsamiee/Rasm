@@ -8,7 +8,7 @@ Complete system rather than taking the README at face value: current default-bra
 
 Snapshot: [`master` at `1f319e6d5aff7674d8f48f289768ff75911a9ea8`](https://github.com/garrytan/gbrain/tree/1f319e6d5aff7674d8f48f289768ff75911a9ea8), package version `0.42.65.0`. The repository is moving quickly, so all implementation references below are pinned to that commit.
 
-## Bottom line
+## [01]-[BOTTOM_LINE]
 
 gbrain is a programmable knowledge-system runtime for humans and AI agents.
 
@@ -31,9 +31,16 @@ It is therefore neither “a folder of Markdown” nor “a vector database with
 
 The package definition reflects that breadth: Bun runtime and compiled binary, PGLite, pgvector, MCP, AWS S3, multiple AI providers, Tree-sitter parsers, tokenizers, image decoders, Express, and PostgreSQL clients all live in the runtime dependency graph. See [`package.json`](https://github.com/garrytan/gbrain/blob/1f319e6d5aff7674d8f48f289768ff75911a9ea8/package.json).
 
-## System architecture
+## [02]-[SYSTEM_ARCHITECTURE]
 
 ```mermaid
+---
+config:
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+---
 flowchart TB
     subgraph Interfaces["Interaction and control plane"]
         CLI["gbrain CLI"]
@@ -119,7 +126,7 @@ The architecture is divided into four practical planes:
 3. Persistence: PGLite/PostgreSQL, Markdown/Git, optional object storage.
 4. Background intelligence: database queue, workers, extraction, consolidation, maintenance.
 
-## Core concepts
+## [03]-[CORE_CONCEPTS]
 
 The most important hierarchy is:
 
@@ -143,7 +150,7 @@ installation
         └── model/provider configuration
 ```
 
-### Brain
+### [03.1]-[BRAIN]
 
 A brain is a database boundary. It can be:
 
@@ -154,7 +161,7 @@ A brain is a database boundary. It can be:
 
 `GBRAIN_HOME`, CLI flags, environment variables, project markers, and mounted paths participate in brain selection. The topology documentation explicitly distinguishes local, remote, and split-engine arrangements in [`docs/architecture/topologies.md`](https://github.com/garrytan/gbrain/blob/1f319e6d5aff7674d8f48f289768ff75911a9ea8/docs/architecture/topologies.md).
 
-### Source
+### [03.2]-[SOURCE]
 
 A source is the namespace and security boundary inside a brain. Slugs are unique per source rather than globally. Nearly every knowledge query must carry or resolve a `source_id`.
 
@@ -167,7 +174,7 @@ That enables:
 
 Cross-brain federation does not become a giant SQL query. It happens at the agent/client layer. The distinction is described in [`docs/architecture/brains-and-sources.md`](https://github.com/garrytan/gbrain/blob/1f319e6d5aff7674d8f48f289768ff75911a9ea8/docs/architecture/brains-and-sources.md).
 
-### Page
+### [03.3]-[PAGE]
 
 A page is the durable knowledge object. Markdown frontmatter supplies structural metadata, but the importer compiles that page into:
 
@@ -182,7 +189,7 @@ A page is the durable knowledge object. Markdown frontmatter supplies structural
 - Schema-derived projections.
 - Later facts, atoms, concepts, and takes.
 
-### Schema pack
+### [03.4]-[SCHEMA_PACK]
 
 A schema pack is the active vocabulary and policy for a source or brain. It defines page types, link types, aliases, extraction behavior, synthesis behavior, and ontology constraints.
 
@@ -198,7 +205,7 @@ Configuration resolution follows a precedence stack:
 
 Packs can inherit or borrow from other packs, with bounded recursion and cached invalidation. The canonical implementation is [`src/core/schema-pack/index.ts`](https://github.com/garrytan/gbrain/blob/1f319e6d5aff7674d8f48f289768ff75911a9ea8/src/core/schema-pack/index.ts).
 
-## Runtime entry and dispatch
+## [04]-[RUNTIME_ENTRY_AND_DISPATCH]
 
 [`src/cli.ts`](https://github.com/garrytan/gbrain/blob/1f319e6d5aff7674d8f48f289768ff75911a9ea8/src/cli.ts#L213-L501) is the executable entry point. It performs five jobs:
 
@@ -227,7 +234,7 @@ load configuration
 
 Remote thin-client mode skips local database ownership and sends supported operations to the remote MCP server. Commands that intrinsically require a local filesystem or local database remain CLI-only and are refused in thin-client mode.
 
-### One operation registry
+### [04.1]-[ONE_OPERATION_REGISTRY]
 
 The architectural center is not the CLI switch statement. It is [`src/core/operations.ts`](https://github.com/garrytan/gbrain/blob/1f319e6d5aff7674d8f48f289768ff75911a9ea8/src/core/operations.ts#L5537-L5622).
 
@@ -267,7 +274,7 @@ The operation families include:
 
 This is one of the strongest choices in the project: public behavior is defined once and projected into multiple transports.
 
-## Storage engines
+## [05]-[STORAGE_ENGINES]
 
 [`BrainEngine`](https://github.com/garrytan/gbrain/blob/1f319e6d5aff7674d8f48f289768ff75911a9ea8/src/core/engine.ts#L659-L900) is the large internal persistence contract.
 
@@ -280,7 +287,7 @@ The selection is made by [`src/core/engine-factory.ts`](https://github.com/garry
 
 Important: local mode is not SQLite. PGLite lets the same PostgreSQL-oriented schema and most query behavior run in-process.
 
-### PGLite consequences
+### [05.1]-[PGLITE_CONSEQUENCES]
 
 PGLite is convenient for a personal brain but has operational constraints:
 
@@ -290,7 +297,7 @@ PGLite is convenient for a personal brain but has operational constraints:
 - Worker parallelism is deliberately lower than PostgreSQL.
 - The OpenClaw retrieval reflex prefers a host-provided resolver or server IPC rather than casually opening another PGLite instance.
 
-### PostgreSQL consequences
+### [05.2]-[POSTGRESQL_CONSEQUENCES]
 
 PostgreSQL supports:
 
@@ -304,13 +311,13 @@ PostgreSQL supports:
 - OAuth server deployments.
 - Cross-source SQL retrieval within one brain.
 
-## Database schema
+## [06]-[DATABASE_SCHEMA]
 
 [`src/schema.sql`](https://github.com/garrytan/gbrain/blob/1f319e6d5aff7674d8f48f289768ff75911a9ea8/src/schema.sql) defines the initial system. [`src/core/migrate.ts`](https://github.com/garrytan/gbrain/blob/1f319e6d5aff7674d8f48f289768ff75911a9ea8/src/core/migrate.ts) carries the accumulated evolution, currently through more than one hundred migrations.
 
 The schema includes several categories.
 
-### Knowledge records
+### [06.1]-[KNOWLEDGE_RECORDS]
 
 - `sources`
 - `pages`
@@ -322,7 +329,7 @@ The schema includes several categories.
 - `page_versions`
 - `ingest_log`
 
-### Code intelligence
+### [06.2]-[CODE_INTELLIGENCE]
 
 - Code-symbol chunks.
 - Symbol definitions and references.
@@ -330,7 +337,7 @@ The schema includes several categories.
 - Resolution state.
 - Traversal caches.
 
-### Derived intelligence
+### [06.3]-[DERIVED_INTELLIGENCE]
 
 - Facts and fact aliases.
 - Extraction queues and rollups.
@@ -341,7 +348,7 @@ The schema includes several categories.
 - Synthesis records.
 - Query and traversal caches.
 
-### Operations
+### [06.4]-[OPERATIONS]
 
 - Job queue.
 - Parent-child job state.
@@ -354,7 +361,7 @@ The schema includes several categories.
 - Failure ledgers.
 - Telemetry.
 
-### Remote access
+### [06.5]-[REMOTE_ACCESS]
 
 - Access tokens.
 - OAuth clients, grants, codes, and refresh state.
@@ -372,13 +379,20 @@ Search-oriented indexes include:
 
 The schema contains RLS-related hardening, but the system’s tenant boundary should primarily be understood as OAuth scopes plus application-enforced `source_id` scoping. It is not safe to reduce the architecture to “PostgreSQL RLS automatically isolates everything.”
 
-## Ingestion and compilation
+## [07]-[INGESTION_AND_COMPILATION]
 
 The main Markdown compiler is [`src/core/import-file.ts`](https://github.com/garrytan/gbrain/blob/1f319e6d5aff7674d8f48f289768ff75911a9ea8/src/core/import-file.ts#L231-L942).
 
 A content import follows this flow:
 
 ```mermaid
+---
+config:
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+---
 flowchart LR
     Input["Markdown, text, code, image, or event"]
     Validate["Validate size, path, slug, trust, and content"]
@@ -410,7 +424,7 @@ Notable details:
 - Images support several formats and can flow through OCR or multimodal interpretation.
 - Alias projections are updated with the page.
 
-### Generic ingestion daemon
+### [07.1]-[GENERIC_INGESTION_DAEMON]
 
 The repository also has a source-adapter framework under [`src/core/ingestion`](https://github.com/garrytan/gbrain/tree/1f319e6d5aff7674d8f48f289768ff75911a9ea8/src/core/ingestion).
 
@@ -436,11 +450,11 @@ Built-in adapters include:
 
 External skill packs can register in-process ingestion modules through `GBRAIN_PLUGIN_PATH`. That extension surface is currently trust-on-first-use: requested permissions are informational, and the plugin executes inside the daemon process. The loader enforces absolute local paths, plugin-root containment, API compatibility, first-wins kind collision handling, and manifest validation in [`src/core/ingestion/skillpack-load.ts`](https://github.com/garrytan/gbrain/blob/1f319e6d5aff7674d8f48f289768ff75911a9ea8/src/core/ingestion/skillpack-load.ts).
 
-## Git synchronization
+## [08]-[GIT_SYNCHRONIZATION]
 
 [`src/commands/sync.ts`](https://github.com/garrytan/gbrain/blob/1f319e6d5aff7674d8f48f289768ff75911a9ea8/src/commands/sync.ts) is not a trivial “scan files and upsert them” command. It is a resumable repository reconciler.
 
-### Incremental path
+### [08.1]-[INCREMENTAL_PATH]
 
 ```text
 acquire per-source lock
@@ -465,7 +479,7 @@ Specific behavior includes:
 - Repeated poison files can be skipped after a failure threshold without losing the ledger.
 - The source bookmark advances only after the failure gate permits it.
 
-### Full reconciliation
+### [08.2]-[FULL_RECONCILIATION]
 
 A full sync compares the authoritative file set with database pages and applies deletion only after several guards:
 
@@ -477,7 +491,7 @@ A full sync compares the authoritative file set with database pages and applies 
 
 That last behavior matters because it exposes the project’s actual system-of-record semantics.
 
-## The system-of-record tension
+## [09]-[THE_SYSTEM_OF_RECORD_TENSION]
 
 The documentation says Markdown/Git is the sole durable system of record. See [`docs/architecture/system-of-record.md`](https://github.com/garrytan/gbrain/blob/1f319e6d5aff7674d8f48f289768ff75911a9ea8/docs/architecture/system-of-record.md).
 
@@ -508,13 +522,20 @@ Write-through still contains substantial protection:
 - Temporary file plus atomic rename.
 - Optional Git hardening.
 
-## Retrieval
+## [10]-[RETRIEVAL]
 
 The retrieval engine lives primarily in [`src/core/search/hybrid.ts`](https://github.com/garrytan/gbrain/blob/1f319e6d5aff7674d8f48f289768ff75911a9ea8/src/core/search/hybrid.ts#L826-L1922).
 
 It is a multi-arm retrieval and ranking pipeline, not plain nearest-neighbor search.
 
 ```mermaid
+---
+config:
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+---
 flowchart TB
     Q["Query"]
     Intent["Intent and modality classification"]
@@ -552,7 +573,7 @@ flowchart TB
     Fusion --> Rescore --> Dedupe --> Rerank --> Cut --> Results
 ```
 
-### Retrieval branches
+### [10.1]-[RETRIEVAL_BRANCHES]
 
 The engine conditionally follows several paths:
 
@@ -567,7 +588,7 @@ The engine conditionally follows several paths:
 
 Fusion uses weighted reciprocal-rank fusion, then adds post-fusion signals such as backlinks, salience, recency, title phrases, graph relationships, and cosine similarity.
 
-### `search`, `query`, and `think`
+### [10.2]-[SEARCH_QUERY_AND_THINK]
 
 These are distinct levels:
 
@@ -575,7 +596,7 @@ These are distinct levels:
 - `query`: full retrieval control, filtering, multimodal behavior, evidence metadata, and advanced ranking.
 - `think`: retrieval plus AI synthesis.
 
-## Think and synthesis
+## [11]-[THINK_AND_SYNTHESIS]
 
 [`src/core/think/gather.ts`](https://github.com/garrytan/gbrain/blob/1f319e6d5aff7674d8f48f289768ff75911a9ea8/src/core/think/gather.ts) gathers evidence through four fail-soft streams:
 
@@ -601,7 +622,7 @@ Synthesis can degrade gracefully when no model is configured.
 
 One material limitation: the public shape allows multiple rounds, but the current implementation does not perform genuinely gap-driven iterative retrieval. It warns and terminates after the first effective round. Multi-round reasoning is represented in the interface ahead of full behavior.
 
-## AI gateway
+## [12]-[AI_GATEWAY]
 
 [`src/core/ai/gateway.ts`](https://github.com/garrytan/gbrain/blob/1f319e6d5aff7674d8f48f289768ff75911a9ea8/src/core/ai/gateway.ts) is the provider-neutral model boundary.
 
@@ -648,7 +669,7 @@ The gateway handles:
 - Budget reservation and spend accounting.
 - Observe-only restrictions.
 
-### Tool-loop durability
+### [12.1]-[TOOL_LOOP_DURABILITY]
 
 The agent tool loop uses persistence callbacks around side effects:
 
@@ -669,7 +690,7 @@ This supports crash replay using gbrain-owned execution IDs:
 
 A few gateway facade methods remain explicitly unimplemented and throw `NotMigratedYet`, including some chunking/transcription/enrichment surfaces. Those methods should not be mistaken for completed capability simply because they exist on the class.
 
-## Code intelligence
+## [13]-[CODE_INTELLIGENCE]
 
 Code files enter a separate semantic path inside the importer:
 
@@ -687,9 +708,9 @@ Retrieval recognizes code-shaped intent and performs bounded structural expansio
 
 It is useful code intelligence, but it is not a complete compiler-semantic model. Tree-sitter supplies syntax structure; cross-file resolution remains a derived best-effort graph.
 
-## MCP and remote serving
+## [14]-[MCP_AND_REMOTE_SERVING]
 
-### MCP over stdio
+### [14.1]-[MCP_OVER_STDIO]
 
 [`src/mcp/server.ts`](https://github.com/garrytan/gbrain/blob/1f319e6d5aff7674d8f48f289768ff75911a9ea8/src/mcp/server.ts) exposes the operation registry as MCP tools.
 
@@ -703,7 +724,7 @@ The server assumes an untrusted/remote caller posture:
 - Tool metadata can include hot-memory hints.
 - PGLite retrieval can use the local server socket rather than opening the embedded database twice.
 
-### HTTP MCP server
+### [14.2]-[HTTP_MCP_SERVER]
 
 The production HTTP path is [`src/commands/serve-http.ts`](https://github.com/garrytan/gbrain/blob/1f319e6d5aff7674d8f48f289768ff75911a9ea8/src/commands/serve-http.ts). The older bearer transport remains in the tree but is superseded.
 
@@ -725,7 +746,7 @@ The full server contains:
 
 Dynamic client registration is disabled by default because enabling it changes the security posture.
 
-### HTTP ingestion
+### [14.3]-[HTTP_INGESTION]
 
 `POST /ingest`:
 
@@ -744,13 +765,13 @@ The GitHub webhook endpoint:
 - Resolves the target source.
 - Enqueues a high-priority synchronization job.
 
-## Minions: the background job system
+## [15]-[MINIONS_THE_BACKGROUND_JOB_SYSTEM]
 
 gbrain does not depend on Redis/BullMQ. It implements a BullMQ-like queue in PostgreSQL under [`src/core/minions`](https://github.com/garrytan/gbrain/tree/1f319e6d5aff7674d8f48f289768ff75911a9ea8/src/core/minions).
 
 [`queue.ts`](https://github.com/garrytan/gbrain/blob/1f319e6d5aff7674d8f48f289768ff75911a9ea8/src/core/minions/queue.ts) owns submission and claiming. [`worker.ts`](https://github.com/garrytan/gbrain/blob/1f319e6d5aff7674d8f48f289768ff75911a9ea8/src/core/minions/worker.ts) owns execution.
 
-### Submission
+### [15.1]-[SUBMISSION]
 
 Job insertion includes:
 
@@ -766,7 +787,7 @@ Job insertion includes:
 - Backpressure under an advisory lock.
 - Optional rate and budget constraints.
 
-### Claim
+### [15.2]-[CLAIM]
 
 Workers claim through an atomic pattern equivalent to:
 
@@ -785,7 +806,7 @@ RETURNING ...
 
 A claim token fences later completion, failure, and heartbeat operations. This prevents a stale worker from finalizing a job after ownership has transferred.
 
-### Execution
+### [15.3]-[EXECUTION]
 
 Workers provide:
 
@@ -804,7 +825,7 @@ Workers provide:
 - S3 attachment support.
 - Audited shell/tool execution.
 
-### Parent-child behavior
+### [15.4]-[PARENT_CHILD_BEHAVIOR]
 
 Parent jobs can wait for children. Child completion updates the parent dependency state and sends an inbox notification. Failure policy can:
 
@@ -815,7 +836,7 @@ Parent jobs can wait for children. Child completion updates the parent dependenc
 
 Retries consume attempts only for actual job failures. Infrastructure outcomes such as exhausted rate leases can requeue without burning an attempt. Lock-loss recovery intentionally leaves reclamation to the stall detector.
 
-## Autopilot and dream cycles
+## [16]-[AUTOPILOT_AND_DREAM_CYCLES]
 
 [`src/core/cycle.ts`](https://github.com/garrytan/gbrain/blob/1f319e6d5aff7674d8f48f289768ff75911a9ea8/src/core/cycle.ts) is the continuous knowledge-maintenance orchestrator.
 
@@ -848,7 +869,7 @@ Per-source scheduling uses:
 
 `autopilot` fans this work through Minions. `dream` invokes the same cycle machinery directly from the CLI. A bounded drain option can process accumulated atom work without turning the command into an unbounded daemon.
 
-## OpenClaw context engine
+## [17]-[OPENCLAW_CONTEXT_ENGINE]
 
 [`src/core/context-engine.ts`](https://github.com/garrytan/gbrain/blob/1f319e6d5aff7674d8f48f289768ff75911a9ea8/src/core/context-engine.ts#L635-L713) is a separate integration from general MCP memory access.
 
@@ -876,7 +897,7 @@ It then runs a Retrieval Reflex:
 
 The context engine does not own message persistence or compaction. It passes messages through and delegates compaction to the host runtime. Its `ingest()` is intentionally a no-op.
 
-## Admin application
+## [18]-[ADMIN_APPLICATION]
 
 The repository embeds a React/Vite operator application served from the HTTP process.
 
@@ -899,7 +920,7 @@ The HTTP server provides:
 
 This is an operations console, not the primary knowledge-authoring interface.
 
-## Skills, recipes, and integrations
+## [19]-[SKILLS_RECIPES_AND_INTEGRATIONS]
 
 The repository contains dozens of skills plus integration recipes. These need to be interpreted correctly:
 
@@ -911,7 +932,7 @@ The repository contains dozens of skills plus integration recipes. These need to
 
 This keeps the core relatively generic, but it also means the README’s apparent breadth combines shipped runtime capability with agent instruction packs and deployment guidance.
 
-## Git branch architecture
+## [20]-[GIT_BRANCH_ARCHITECTURE]
 
 I exhaustively enumerated the live remote refs and classified their deltas.
 
@@ -925,21 +946,21 @@ At the snapshot there were:
 
 This sounds like 506 product variants, but it is not. The branches are overwhelmingly development workflow state.
 
-| Family | Meaning in practice |
-|---|---|
-| `garrytan/*` | Original feature/fix development branches and larger working lines |
-| `fix/*` | Focused correction branches |
-| `feat/*` | Feature branches |
-| `reland/*` | Rebased or reconstructed changes intended for another landing attempt |
-| `rp/*`, `rp2/*` | Replacement/republication waves |
-| `takeover/*`, `*-takeover` | Ownership transfer or rebuilt landing branches |
-| `pile/*` | Stacked dependent changes |
-| `codex/*`, `emdash/*`, `wintermute/*` | Agent- or workflow-originated work lanes |
-| `fix-wave/*`, `time-attack/*` | Batch repair campaigns |
+| [INDEX] | [FAMILY]                              | [MEANING_IN_PRACTICE]                                                 |
+| :-----: | :------------------------------------ | :-------------------------------------------------------------------- |
+|  [01]   | `garrytan/*`                          | Original feature/fix development branches and larger working lines    |
+|  [02]   | `fix/*`                               | Focused correction branches                                           |
+|  [03]   | `feat/*`                              | Feature branches                                                      |
+|  [04]   | `reland/*`                            | Rebased or reconstructed changes intended for another landing attempt |
+|  [05]   | `rp/*`, `rp2/*`                       | Replacement/republication waves                                       |
+|  [06]   | `takeover/*`, `*-takeover`            | Ownership transfer or rebuilt landing branches                        |
+|  [07]   | `pile/*`                              | Stacked dependent changes                                             |
+|  [08]   | `codex/*`, `emdash/*`, `wintermute/*` | Agent- or workflow-originated work lanes                              |
+|  [09]   | `fix-wave/*`, `time-attack/*`         | Batch repair campaigns                                                |
 
 The branch set changes even during a short inspection because reland/takeover refs are force-updated. It is best understood as a large PR staging and repair queue.
 
-### Current branch-only direction
+### [20.1]-[CURRENT_BRANCH_ONLY_DIRECTION]
 
 The live current-based branch deltas were mostly narrow next-release work:
 
@@ -958,29 +979,29 @@ Some of those branches bump toward `0.42.66`, but none introduces a competing sy
 
 The practical concern is branch hygiene rather than runtime branching: many overlapping reland and takeover branches make it difficult to determine which historical implementation is intended to survive without comparing each tip to current master.
 
-## What is particularly strong
+## [21]-[WHAT_IS_PARTICULARLY_STRONG]
 
-### One contract across transports
+### [21.1]-[ONE_CONTRACT_ACROSS_TRANSPORTS]
 
 The operation registry prevents CLI and MCP from evolving into separate products.
 
-### PostgreSQL parity
+### [21.2]-[POSTGRESQL_PARITY]
 
 Using PGLite locally and PostgreSQL remotely avoids maintaining unrelated SQLite and PostgreSQL data models.
 
-### Retrieval depth
+### [21.3]-[RETRIEVAL_DEPTH]
 
 Keyword, vector, title, graph, code, image, alias, temporal, salience, and reranking signals are composed in one pipeline with graceful degradation.
 
-### Source scoping
+### [21.4]-[SOURCE_SCOPING]
 
 Source identity is carried through schema, operations, sync, remote authorization, jobs, retrieval, and webhooks rather than being attached only at the HTTP layer.
 
-### Real job durability
+### [21.5]-[REAL_JOB_DURABILITY]
 
 The Minion system accounts for atomic claim, stale ownership, lock renewal, parent-child jobs, idempotency, retry policy, rate limits, budgets, and crash recovery.
 
-### Operational safeguards
+### [21.6]-[OPERATIONAL_SAFEGUARDS]
 
 The code contains concrete protections against:
 
@@ -995,19 +1016,19 @@ The code contains concrete protections against:
 - Unsafe dynamic client registration.
 - Cross-source operation mistakes.
 
-### Tests encode architecture
+### [21.7]-[TESTS_ENCODE_ARCHITECTURE]
 
 The corpus has roughly 172,000 lines under `src` and 205,000 lines under `test`. Tests and static gates cover source scoping, system-of-record behavior, privacy, lock renewal, worker isolation, gateway routing, embedded WASM, JSONB access patterns, admin drift, and other architectural invariants.
 
 That does not prove every invariant holds at runtime, but it demonstrates that the project treats architecture as enforceable behavior rather than documentation only.
 
-## Important limitations and architectural debt
+## [22]-[IMPORTANT_LIMITATIONS_AND_ARCHITECTURAL_DEBT]
 
-### Git authority is aspirationally cleaner than the write path
+### [22.1]-[GIT_AUTHORITY_IS_ASPIRATIONALLY_CLEANER_THAN_THE_WRITE_PATH]
 
 The documentation presents Git/Markdown as sole system of record, while online writes are database-first with best-effort filesystem reconciliation. Recovery exists, but the semantic distinction should be made explicit.
 
-### Large owners concentrate complexity
+### [22.2]-[LARGE_OWNERS_CONCENTRATE_COMPLEXITY]
 
 Several files are exceptionally large:
 
@@ -1022,63 +1043,63 @@ Several files are exceptionally large:
 
 The system is cohesive, but understanding or changing one behavior often requires reading a very large owner with many operational edge cases.
 
-### Migration accumulation is substantial
+### [22.3]-[MIGRATION_ACCUMULATION_IS_SUBSTANTIAL]
 
 The schema has grown through a long sequence of migrations covering extraction, facts, caches, telemetry, conversations, agents, budgets, and maintenance state. A fresh installation is straightforward; long-lived upgrade behavior is a significant part of the product.
 
-### PGLite is not a miniature shared server
+### [22.4]-[PGLITE_IS_NOT_A_MINIATURE_SHARED_SERVER]
 
 Embedded mode is excellent for local use but has real single-owner constraints. Running CLI, MCP, workers, and OpenClaw as independent processes requires coordination or routing through the owning server.
 
-### Multi-round think is not fully implemented
+### [22.5]-[MULTI_ROUND_THINK_IS_NOT_FULLY_IMPLEMENTED]
 
 The interface implies iterative reasoning, but present behavior effectively performs one retrieval/synthesis round.
 
-### Gateway surface is ahead of implementation
+### [22.6]-[GATEWAY_SURFACE_IS_AHEAD_OF_IMPLEMENTATION]
 
 Some methods exist as contract placeholders and throw explicit migration errors.
 
-### Plugin ingestion is trusted in-process execution
+### [22.7]-[PLUGIN_INGESTION_IS_TRUSTED_IN_PROCESS_EXECUTION]
 
 Skillpack permissions describe requested capabilities but do not sandbox them in the current version.
 
-### Security is layered, not magically guaranteed by RLS
+### [22.8]-[SECURITY_IS_LAYERED_NOT_MAGICALLY_GUARANTEED_BY_RLS]
 
 Remote safety depends on OAuth scopes, source resolution, operation metadata, handler discipline, SQL scoping, and audit behavior. The schema includes database hardening, but there is no single universal enforcement layer that makes source leakage impossible by construction.
 
-### Documentation contains some drift
+### [22.9]-[DOCUMENTATION_CONTAINS_SOME_DRIFT]
 
 A few architectural documents describe smaller historical interfaces or table counts than the present code. The source, schema, and migration ledger are the authoritative representation of current complexity.
 
-### Branch proliferation obscures product state
+### [22.10]-[BRANCH_PROLIFERATION_OBSCURES_PRODUCT_STATE]
 
 The canonical code is understandable; the delivery graph is noisy. Reland, replacement, takeover, and stacked branches repeatedly carry closely related versions of the same change.
 
-## Best source map
+## [23]-[BEST_SOURCE_MAP]
 
-| Concern | Canonical owner |
-|---|---|
-| Executable lifecycle | [`src/cli.ts`](https://github.com/garrytan/gbrain/blob/1f319e6d5aff7674d8f48f289768ff75911a9ea8/src/cli.ts) |
-| Public operations | [`src/core/operations.ts`](https://github.com/garrytan/gbrain/blob/1f319e6d5aff7674d8f48f289768ff75911a9ea8/src/core/operations.ts) |
-| Persistence contract | [`src/core/engine.ts`](https://github.com/garrytan/gbrain/blob/1f319e6d5aff7674d8f48f289768ff75911a9ea8/src/core/engine.ts) |
-| Engine selection | [`src/core/engine-factory.ts`](https://github.com/garrytan/gbrain/blob/1f319e6d5aff7674d8f48f289768ff75911a9ea8/src/core/engine-factory.ts) |
-| Initial schema | [`src/schema.sql`](https://github.com/garrytan/gbrain/blob/1f319e6d5aff7674d8f48f289768ff75911a9ea8/src/schema.sql) |
-| Schema evolution | [`src/core/migrate.ts`](https://github.com/garrytan/gbrain/blob/1f319e6d5aff7674d8f48f289768ff75911a9ea8/src/core/migrate.ts) |
-| Markdown/code compilation | [`src/core/import-file.ts`](https://github.com/garrytan/gbrain/blob/1f319e6d5aff7674d8f48f289768ff75911a9ea8/src/core/import-file.ts) |
-| Filesystem projection | [`src/core/write-through.ts`](https://github.com/garrytan/gbrain/blob/1f319e6d5aff7674d8f48f289768ff75911a9ea8/src/core/write-through.ts) |
-| Git reconciliation | [`src/commands/sync.ts`](https://github.com/garrytan/gbrain/blob/1f319e6d5aff7674d8f48f289768ff75911a9ea8/src/commands/sync.ts) |
-| Retrieval | [`src/core/search/hybrid.ts`](https://github.com/garrytan/gbrain/blob/1f319e6d5aff7674d8f48f289768ff75911a9ea8/src/core/search/hybrid.ts) |
-| Synthesis | [`src/core/think`](https://github.com/garrytan/gbrain/tree/1f319e6d5aff7674d8f48f289768ff75911a9ea8/src/core/think) |
-| Model providers | [`src/core/ai`](https://github.com/garrytan/gbrain/tree/1f319e6d5aff7674d8f48f289768ff75911a9ea8/src/core/ai) |
-| Job system | [`src/core/minions`](https://github.com/garrytan/gbrain/tree/1f319e6d5aff7674d8f48f289768ff75911a9ea8/src/core/minions) |
-| Maintenance cycle | [`src/core/cycle.ts`](https://github.com/garrytan/gbrain/blob/1f319e6d5aff7674d8f48f289768ff75911a9ea8/src/core/cycle.ts) |
-| MCP stdio | [`src/mcp/server.ts`](https://github.com/garrytan/gbrain/blob/1f319e6d5aff7674d8f48f289768ff75911a9ea8/src/mcp/server.ts) |
-| OAuth HTTP server | [`src/commands/serve-http.ts`](https://github.com/garrytan/gbrain/blob/1f319e6d5aff7674d8f48f289768ff75911a9ea8/src/commands/serve-http.ts) |
-| Context injection | [`src/core/context-engine.ts`](https://github.com/garrytan/gbrain/blob/1f319e6d5aff7674d8f48f289768ff75911a9ea8/src/core/context-engine.ts) |
-| Generic ingestion | [`src/core/ingestion`](https://github.com/garrytan/gbrain/tree/1f319e6d5aff7674d8f48f289768ff75911a9ea8/src/core/ingestion) |
-| Ontology/schema packs | [`src/core/schema-pack`](https://github.com/garrytan/gbrain/tree/1f319e6d5aff7674d8f48f289768ff75911a9ea8/src/core/schema-pack) |
-| Deployment topology | [`docs/architecture/topologies.md`](https://github.com/garrytan/gbrain/blob/1f319e6d5aff7674d8f48f289768ff75911a9ea8/docs/architecture/topologies.md) |
-| Retrieval design | [`docs/architecture/RETRIEVAL.md`](https://github.com/garrytan/gbrain/blob/1f319e6d5aff7674d8f48f289768ff75911a9ea8/docs/architecture/RETRIEVAL.md) |
+| [INDEX] | [CONCERN]                 | [CANONICAL_OWNER]                                                                                                                                     |
+| :-----: | :------------------------ | :---------------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | Executable lifecycle      | [`src/cli.ts`](https://github.com/garrytan/gbrain/blob/1f319e6d5aff7674d8f48f289768ff75911a9ea8/src/cli.ts)                                           |
+|  [02]   | Public operations         | [`src/core/operations.ts`](https://github.com/garrytan/gbrain/blob/1f319e6d5aff7674d8f48f289768ff75911a9ea8/src/core/operations.ts)                   |
+|  [03]   | Persistence contract      | [`src/core/engine.ts`](https://github.com/garrytan/gbrain/blob/1f319e6d5aff7674d8f48f289768ff75911a9ea8/src/core/engine.ts)                           |
+|  [04]   | Engine selection          | [`src/core/engine-factory.ts`](https://github.com/garrytan/gbrain/blob/1f319e6d5aff7674d8f48f289768ff75911a9ea8/src/core/engine-factory.ts)           |
+|  [05]   | Initial schema            | [`src/schema.sql`](https://github.com/garrytan/gbrain/blob/1f319e6d5aff7674d8f48f289768ff75911a9ea8/src/schema.sql)                                   |
+|  [06]   | Schema evolution          | [`src/core/migrate.ts`](https://github.com/garrytan/gbrain/blob/1f319e6d5aff7674d8f48f289768ff75911a9ea8/src/core/migrate.ts)                         |
+|  [07]   | Markdown/code compilation | [`src/core/import-file.ts`](https://github.com/garrytan/gbrain/blob/1f319e6d5aff7674d8f48f289768ff75911a9ea8/src/core/import-file.ts)                 |
+|  [08]   | Filesystem projection     | [`src/core/write-through.ts`](https://github.com/garrytan/gbrain/blob/1f319e6d5aff7674d8f48f289768ff75911a9ea8/src/core/write-through.ts)             |
+|  [09]   | Git reconciliation        | [`src/commands/sync.ts`](https://github.com/garrytan/gbrain/blob/1f319e6d5aff7674d8f48f289768ff75911a9ea8/src/commands/sync.ts)                       |
+|  [10]   | Retrieval                 | [`src/core/search/hybrid.ts`](https://github.com/garrytan/gbrain/blob/1f319e6d5aff7674d8f48f289768ff75911a9ea8/src/core/search/hybrid.ts)             |
+|  [11]   | Synthesis                 | [`src/core/think`](https://github.com/garrytan/gbrain/tree/1f319e6d5aff7674d8f48f289768ff75911a9ea8/src/core/think)                                   |
+|  [12]   | Model providers           | [`src/core/ai`](https://github.com/garrytan/gbrain/tree/1f319e6d5aff7674d8f48f289768ff75911a9ea8/src/core/ai)                                         |
+|  [13]   | Job system                | [`src/core/minions`](https://github.com/garrytan/gbrain/tree/1f319e6d5aff7674d8f48f289768ff75911a9ea8/src/core/minions)                               |
+|  [14]   | Maintenance cycle         | [`src/core/cycle.ts`](https://github.com/garrytan/gbrain/blob/1f319e6d5aff7674d8f48f289768ff75911a9ea8/src/core/cycle.ts)                             |
+|  [15]   | MCP stdio                 | [`src/mcp/server.ts`](https://github.com/garrytan/gbrain/blob/1f319e6d5aff7674d8f48f289768ff75911a9ea8/src/mcp/server.ts)                             |
+|  [16]   | OAuth HTTP server         | [`src/commands/serve-http.ts`](https://github.com/garrytan/gbrain/blob/1f319e6d5aff7674d8f48f289768ff75911a9ea8/src/commands/serve-http.ts)           |
+|  [17]   | Context injection         | [`src/core/context-engine.ts`](https://github.com/garrytan/gbrain/blob/1f319e6d5aff7674d8f48f289768ff75911a9ea8/src/core/context-engine.ts)           |
+|  [18]   | Generic ingestion         | [`src/core/ingestion`](https://github.com/garrytan/gbrain/tree/1f319e6d5aff7674d8f48f289768ff75911a9ea8/src/core/ingestion)                           |
+|  [19]   | Ontology/schema packs     | [`src/core/schema-pack`](https://github.com/garrytan/gbrain/tree/1f319e6d5aff7674d8f48f289768ff75911a9ea8/src/core/schema-pack)                       |
+|  [20]   | Deployment topology       | [`docs/architecture/topologies.md`](https://github.com/garrytan/gbrain/blob/1f319e6d5aff7674d8f48f289768ff75911a9ea8/docs/architecture/topologies.md) |
+|  [21]   | Retrieval design          | [`docs/architecture/RETRIEVAL.md`](https://github.com/garrytan/gbrain/blob/1f319e6d5aff7674d8f48f289768ff75911a9ea8/docs/architecture/RETRIEVAL.md)   |
 
 The shortest accurate characterization is:
 

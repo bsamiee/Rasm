@@ -62,11 +62,14 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 - `VividOrange.Sections.SectionProperties` — polygon section solver over every `ComponentFamily`.
 - `VividOrange.Sections` — concrete-section and rebar-layout engines the `RcSection` assembler composes.
 - `VividOrange.InteractionDiagram` — biaxial N-M-M capacity surface over strain sweep and fibre integration.
-- `Triangle` — engine-internal mesher reached transitively through `VividOrange.InteractionDiagram`; catalogued for its encapsulation contract, never called, and carrying no central manifest row because this folder holds no direct reference.
+- `VividOrange.ForceMomentInteraction` — welded capacity-hull engine the interaction diagram builds and caches; transitive floor, no manifest row.
+- `VividOrange.IForceMomentInteraction` — hull interface the capacity ray-cast reads instead of the concrete mesh; transitive floor, no manifest row.
+- `Triangle` — engine-internal mesher reached through `VividOrange.InteractionDiagram`; catalogued for encapsulation, never called, no manifest row.
 
 [MATERIAL_STANDARDS]:
 - `VividOrange.Materials` — EN/Eurocode grade-to-property factories and the constitutive-model family.
-- `VividOrange.Standards` — cited Eurocode standard rows over inline literals.
+- `VividOrange.Standards` — cited Eurocode standard rows over inline literals; the typed governing-code column every capacity verdict names.
+- `VividOrange.Serialization` — taxonomy round-trip behind the capacity-hull artifact, producer-to-consumer only; transitive floor, no manifest row.
 
 [PROPERTY_UNCERTAINTY]:
 - `VividOrange.Uncertainties` — scalar uncertainty arithmetic riding the published measurement rows.
@@ -78,6 +81,7 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 - `MessagePackAnalyzer` — build-only proof of `[Key]` coverage on every wire record.
 
 [RASTER_IMAGING]:
+- `Magick.NET-Q16-HDRI-AnyCPU` — ingest-only breadth tier: AVIF, HEIF, JXL, DPX, and Cineon decode where no managed engine reaches; never an egress.
 - `SixLabors.ImageSharp` — managed PNG, TIFF, WebP, QOI, and JPEG containers across the `L8`-to-`RgbaVector` depth ladder, carrying ICC.
 - `TinyEXR.NET` — owns OpenEXR past flat-scanline reach: block-level part, level, and deep access beside the spectral and colour folds.
 - `TextureCompressor` — pure-managed GPU texture payloads over a format-keyed coder registry spanning BCn, ASTC, ETC, and Basis.
@@ -96,20 +100,20 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 - `JetBrains.Annotations`
 
 [TIME_IDENTITY]:
-- `NodaTime` — `Duration` fact columns and the `LocalDate` evidence expiry.
+- `NodaTime` — `Duration` fact columns, `Instant`/`Interval` receipt stamps, and the `LocalDate` evidence expiry.
 
 [NUMERIC_SUBSTRATE]:
 - `UnitsNet`
-- `MathNet.Numerics` — overdetermined least-squares rail for the measured-BRDF GGX fit.
-- `CommunityToolkit.HighPerformance` — dense appearance planes read as spans, never offsets.
+- `MathNet.Numerics` — distributions, Gauss-Legendre integration, monotone splines, sparse solves, decompositions, and measured-BRDF least squares.
+- `CommunityToolkit.HighPerformance` — appearance planes as spans, the `ParallelHelper` partition fan-out, and `MemoryOwner`/`SpanOwner` pooling.
 
 [GPU_DEVICE]:
 - `Silk.NET.WebGPU` — surfaceless bake device, WGSL compute dispatch, and texture-to-buffer readback.
-- `Silk.NET.WebGPU.Extensions.WGPU` — `DevicePoll`, the only map advance a device with no surface has.
-- `Silk.NET.WebGPU.Native.WGPU` — `wgpu_native` binaries the binding P/Invokes.
+- `Silk.NET.WebGPU.Extensions.WGPU` — `Wgpu` extension view: instance extras, `DevicePoll` map advance, submit-index waits, native log callback.
+- `Silk.NET.WebGPU.Native.WGPU` — `wgpu_native` runtime binaries the binding P/Invokes; binaries only, no managed surface to catalogue.
 
 [GRAPH_ALGORITHM]:
-- `QuikGraph` — appearance-DAG topological sort.
+- `QuikGraph` — appearance-DAG topological sort and the Edmonds-Karp max-flow cut behind the tileability synthesizer.
 
 [COLOR_SCIENCE]:
 - `Wacton.Unicolour` — color-space conversion and perceptual difference for the appearance engine.

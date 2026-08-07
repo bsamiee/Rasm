@@ -20,46 +20,7 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic included; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Tasks state landing-grain work decomposing an idea.
 -->
 
-[HYBRID_CACHE_ROOT]-[QUEUED]: GH plugin-root `HybridCache` registration discharges the session-cache app-root obligations.
-- Capability: one composition-root cache profile for the GH plugin — raster-byte `IHybridCacheSerializer` admission, `MaximumPayloadBytes` sized to the largest admitted canvas raster, `ReportTagMetrics` enabled with `gh-doc:{documentId:N}` as the per-document hit/miss dimension.
-- Shape: one `AddHybridCache`/`IHybridCacheBuilder` registration block at the plugin root composing the app-root obligations the `libs/csharp/.api/api-hybrid-cache.md` Grasshopper row carries.
-- Unlocks: L1-only residency, sized raster caching, and per-document cache observability for every `SessionCache` consumer with zero folder edits.
-- Anchors: `Shell/session.md` `SlotPolicy` rows; the branch `libs/csharp/.api/api-hybrid-cache.md` registration surface.
-- Tension: the APP stratum owning the GH plugin root carries no landed planning folder; this card holds the obligation until that stratum lands.
-- Atomic: one registration block.
-
-[SHELL_LOG_CLASSIFY]-[QUEUED]: Classify the log partial roster — sensitivity tags land on every boundary-produced payload parameter.
-- Capability: each `[LoggerMessage]` partial's payload parameters carry their `DataClassification` values, and the sweep proves no partial emits an untagged sensitive parameter.
-- Shape: classification attributes across the `PaintLog`/`UiEventsLog`/`RuntimeLog`/`NativeLog`/`CaptureLog` partials and the taxonomy clause on `libs/csharp/Rasm.Grasshopper/.planning/Shell/telemetry.md`.
-- Unlocks: IDEAS.md `[LOG_CLASSIFICATION_SWEEP]` — the redactor's fail-closed guarantee becomes real for GH egress.
-- Anchors: `libs/csharp/.planning/RULINGS.md` boundary-classification row; the landed log partials; the Rhino `LogProperties` seam as the sibling discipline.
-- Ripple: mirrors `Rasm.Rhino` `HostSensitivity` classification law.
-
-[PLUGIN_IDENTITY_ADMISSION]-[QUEUED]: Telemetry's plugin discriminator admits through the typed plugin key.
-- Capability: one typed plugin identity feeds every per-plugin surface — hook namespaces and the telemetry resource discriminator share one key space by construction.
-- Shape: `libs/csharp/Rasm.Grasshopper/.planning/Platform/composition.md` `[07]` — `PlatformTelemetry.Open`'s raw `string plugin` parameter re-types to `HookScope` admission, projecting its value into the `TelemetryDomain.Host.Measure("plugin")` resource attribute.
-- Unlocks: `RULINGS.md` single-typed plugin-identity row holds with zero raw-string surfaces.
-- Anchors: `Shell/hooks.md` `HookScope` `[ValueObject<string>]`; the Rhino `PluginKey` sibling discipline.
-- Atomic: one parameter re-type.
-
-[EXPLICIT_SET_TWINS]-[QUEUED]: Every selection-scoped document verb also serves an explicit object set through payload-shape discrimination.
-- Capability: one gate case per verb family carries both the selection modality and the explicit `IDocumentObject[]` modality, so a caller holding a computed set never round-trips it through host selection state.
-- Shape: payload widening on the owning `DocumentMutation`/`GraphMutation` cases in `libs/csharp/Rasm.Grasshopper/.planning/Document/document.md` and `Document/graph.md` — `DeleteCase` already proves the shape; the host twin roster is catalogued at `libs/csharp/Rasm.Grasshopper/.api/api-gh2-document.md` `[03]` explicit-set twins.
-- Unlocks: scripted and headless drives mutate computed sets directly; selection mutation stops being the only spelling.
-- Anchors: `DocumentMethods` `*Objects` twins (`GroupObjects`, `ChainObjects`, `ClusterObjects`, `DeleteObjectData`); the landed `DeleteCase` payload-shape discrimination.
-
-[WRAP_PREFLIGHT_GATE]-[QUEUED]: Chain and cluster wraps preflight through the host's own feasibility verdict before firing.
-- Capability: a refused wrap surfaces the host's `whyNot` text as a typed refusal instead of settling a successful receipt over a null product.
-- Shape: `libs/csharp/Rasm.Grasshopper/.planning/Document/document.md` `ChainCase`/`ClusterCase` — the gate carries the selection roster so `CanCreateChain`/`CanCreateCluster(IEnumerable<IDocumentObject>, out string whyNot)` runs inside the same marshal window as the wrap.
-- Unlocks: wrap refusals become addressable evidence; the null-product settle class dies.
-- Anchors: `DocumentMethods.CanCreateChain`/`CanCreateCluster` (decompile-verified); the one-marshal-window law the document gate already holds.
-
-[DATA_CLEAR_AXIS]-[QUEUED]: Data-clearing joins the delete family as a second depth axis over the scope discriminant.
-- Capability: clearing persisted data and deleting objects read as one 2x2 — scope (selection or explicit set) by depth (object or its data) — on one owning case family.
-- Shape: `libs/csharp/Rasm.Grasshopper/.planning/Document/document.md` `DeleteCase` — `DocumentMethods.DeleteSelectionData`/`DeleteObjectData -> int` fold in; `DeleteObjectData` takes no wire span, so the fold decides whether depth rides the case payload or a sibling case.
-- Unlocks: the two unreached host verbs gain producers, and the delete receipt reports what was cleared versus removed.
-- Anchors: `DocumentMethods.DeleteSelectionData`/`DeleteObjectData` (decompile-verified); the `GateOutcome` receipt spine.
-- Tension: depth-as-payload keeps one case but overloads the receipt; depth-as-case doubles the family — the fold owns the call.
+(none)
 
 ## [02]-[CLOSED]
 
@@ -67,6 +28,12 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 [ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
+[HYBRID_CACHE_ROOT]-[COMPLETE]: `Shell/session.md` `[05]-[ROOT]` landed `PlatformCache.Compose` — the plugin-root registration block (raster `ImmutableArray<byte>` codec admitted ahead of the substrate seed, `MaximumPayloadBytes` from the raster ceiling, `ReportTagMetrics` armed) discharging the `libs/csharp/.api/api-hybrid-cache.md` Grasshopper obligations at a landed composition point; `CacheSlot` gained the 64-column key ceiling that keeps every composed key below the silent-bypass floor.
+[SHELL_LOG_CLASSIFY]-[COMPLETE]: classification attributes landed on all ten `[LoggerMessage]` methods across the five partials (`PaintLog`/`UiEventsLog`/`RuntimeLog`/`NativeLog`/`CaptureLog`) with the taxonomy clause, the two-rule coverage law, and the five-owner roster on `Shell/telemetry.md`; realizes IDEAS `[LOG_CLASSIFICATION_SWEEP]`.
+[PLUGIN_IDENTITY_ADMISSION]-[COMPLETE]: `PlatformTelemetry.Open`, `GhTelemetry.Of`, and `GhInstruments.Of` re-typed `string plugin` to `Shell/hooks.md` `HookScope`; the inline trim/nonblank re-derivations are deleted, the default-struct hole gates at every scope-taking entry, and the `RULINGS.md` single-typed row holds with zero raw-string plugin surfaces.
+[EXPLICIT_SET_TWINS]-[COMPLETE]: every selection-scoped `GraphTransact` case carries a `Seq<IDocumentObject>` payload whose emptiness selects the selection verb and whose contents ride the host `*Objects` twin (`GroupCase`/`ChainCase`/`ClusterCase`/`PostureCase` via the six twinned `SelectionPosture` rows/`DressCase`/`DeleteCase`), the four twin-less pin-side rows refuse an explicit payload typed, and `NudgeCase` closed the `MoveSelection` gap — the full twin grid live-verified on the shipped assembly.
+[WRAP_PREFLIGHT_GATE]-[COMPLETE]: chain and cluster arms preflight `CanCreateChain`/`CanCreateCluster` on the same roster the mint consumes inside one marshal window (empty payload preflights `ObjectList.SelectedObjects`), a refusal settles the new `GateOutcome.RefusedCase(whyNot)` with no seal — bind-and-invoke proven live ("Chain may not be empty." / "A cluster requires at least one object.").
+[DATA_CLEAR_AXIS]-[COMPLETE]: `DeleteDepth` landed as the second delete axis — `Graph`/`Data` rows pairing selection verb, explicit twin, and typed outcome (`CountCase` removed vs the new `ClearedCase` cleared), a `Data`+wires payload refusing at admission because `DeleteObjectData` takes no wire span by host design.
 [HOST_CATALOG_TRIAD]-[COMPLETE]: Rhino-side host catalogs landed — `api-rhino-common.md`, `api-rhino-ui.md`, `api-gh2-io.md` at admitted-seam depth, every member decompile-verified via `tools.assay`; `System.Drawing.Common` ruled a compile-time GH1 carrier and folded into `api-gh2-standard-components.md`, never a stub catalog.
 [TELEMETRY_ROSTER_TABLE]-[COMPLETE]: `Shell/telemetry.md` [03]-[ROSTER] landed the fifteen-row field-to-instrument kind table with UCUM units and `gh.doc`/`gh.plugin` tag sets.
 [METER_CUSTODY]-[COMPLETE]: `Shell/telemetry.md` [02]-[CUSTODY] landed per-ALC `IMeterFactory` custody and unload flush; the app root mints the string-scoped kernel `TelemetryContributorPort` over the roster and admits the meter by name — no app-root adapter member.

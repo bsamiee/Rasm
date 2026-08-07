@@ -1,6 +1,6 @@
 # [RASM_RHINO_OBJECTS_HISTORY]
 
-`HistoryScript` writes one generated slot family into a leased `HistoryRecord`; the same `SlotValue` cases recover the host-readable subset and reject write-only cases. `Regrown` owns the replay update family, `ReplayProgram` compiles preparation plus regrowth into `CommandPolicy.Replay`, and `Chronicle` owns undo-recorded linkage, dependency topology, and scoped `HistorySettings` conduct.
+`HistoryScript` writes one generated slot family into a leased `HistoryRecord`; the same `SlotValue` cases recover the host-readable subset and reject write-only cases. `Regrown` owns the replay update family, `ReplayProgram` compiles preparation plus regrowth into the `ReplayHook` value `CommandPolicy.Replay` carries, and `Chronicle` owns undo-recorded linkage, dependency topology, and scoped `HistorySettings` conduct.
 
 ## [01]-[INDEX]
 
@@ -174,27 +174,36 @@ public abstract partial record SlotValue {
                        ? Fin.Succ<SlotValue>(new Id(value)) : Fin.Fail<SlotValue>(context.Op.MissingContext()),
                    text: static (context, _) => context.Data.TryGetString(context.Id, out string value)
                        ? Fin.Succ<SlotValue>(new Text(value)) : Fin.Fail<SlotValue>(context.Op.MissingContext()),
-                   curveSlot: static (context, _) => Fin.Fail<SlotValue>(context.Op.InvalidInput()),
-                   surfaceSlot: static (context, _) => Fin.Fail<SlotValue>(context.Op.InvalidInput()),
-                   brepSlot: static (context, _) => Fin.Fail<SlotValue>(context.Op.InvalidInput()),
-                   meshSlot: static (context, _) => Fin.Fail<SlotValue>(context.Op.InvalidInput()),
+                   curveSlot: static (context, _) => Fin.Fail<SlotValue>(context.Op.Unsupported(
+                       valueType: typeof(ReplayHistoryData), outputType: typeof(CurveSlot))),
+                   surfaceSlot: static (context, _) => Fin.Fail<SlotValue>(context.Op.Unsupported(
+                       valueType: typeof(ReplayHistoryData), outputType: typeof(SurfaceSlot))),
+                   brepSlot: static (context, _) => Fin.Fail<SlotValue>(context.Op.Unsupported(
+                       valueType: typeof(ReplayHistoryData), outputType: typeof(BrepSlot))),
+                   meshSlot: static (context, _) => Fin.Fail<SlotValue>(context.Op.Unsupported(
+                       valueType: typeof(ReplayHistoryData), outputType: typeof(MeshSlot))),
                    source: static (context, _) => RecoverSource(context.Data, context.Id, context.Op)
                        .Map(value => (SlotValue)new Source(value)),
                    pointOnSource: static (context, _) => context.Data.TryGetPoint3dOnObject(context.Id, out Point3d value)
                        ? RecoverSource(context.Data, context.Id, context.Op)
                            .Map(source => (SlotValue)new PointOnSource(source, value))
                        : Fin.Fail<SlotValue>(context.Op.MissingContext()),
-                   toggles: static (context, _) => Fin.Fail<SlotValue>(context.Op.InvalidInput()),
+                   toggles: static (context, _) => Fin.Fail<SlotValue>(context.Op.Unsupported(
+                       valueType: typeof(ReplayHistoryData), outputType: typeof(Toggles))),
                    counts: static (context, _) => context.Data.TryGetInts(context.Id, out int[] values)
                        ? Fin.Succ<SlotValue>(new Counts(toSeq(values))) : Fin.Fail<SlotValue>(context.Op.MissingContext()),
                    scalars: static (context, _) => context.Data.TryGetDoubles(context.Id, out double[] values)
                        ? Fin.Succ<SlotValue>(new Scalars(toSeq(values))) : Fin.Fail<SlotValue>(context.Op.MissingContext()),
-                   points: static (context, _) => Fin.Fail<SlotValue>(context.Op.InvalidInput()),
-                   directions: static (context, _) => Fin.Fail<SlotValue>(context.Op.InvalidInput()),
-                   paints: static (context, _) => Fin.Fail<SlotValue>(context.Op.InvalidInput()),
+                   points: static (context, _) => Fin.Fail<SlotValue>(context.Op.Unsupported(
+                       valueType: typeof(ReplayHistoryData), outputType: typeof(Points))),
+                   directions: static (context, _) => Fin.Fail<SlotValue>(context.Op.Unsupported(
+                       valueType: typeof(ReplayHistoryData), outputType: typeof(Directions))),
+                   paints: static (context, _) => Fin.Fail<SlotValue>(context.Op.Unsupported(
+                       valueType: typeof(ReplayHistoryData), outputType: typeof(Paints))),
                    ids: static (context, _) => context.Data.TryGetGuids(context.Id, out Guid[] values)
                        ? Fin.Succ<SlotValue>(new Ids(toSeq(values))) : Fin.Fail<SlotValue>(context.Op.MissingContext()),
-                   texts: static (context, _) => Fin.Fail<SlotValue>(context.Op.InvalidInput())))
+                   texts: static (context, _) => Fin.Fail<SlotValue>(context.Op.Unsupported(
+                       valueType: typeof(ReplayHistoryData), outputType: typeof(Texts)))))
                from admitted in value.Admit(op)
                select admitted;
     }
@@ -209,11 +218,12 @@ public abstract partial record SlotValue {
 
 ## [03]-[SCRIPT]
 
-- Owner: `HistorySource` is detached object-plus-component identity; `HistoryScript` is the whole authoring intent as one value: version, replace-survival grant, and the keyed slot sequence.
-- Law: each mint is single-use — `Mint` constructs one native record against the owning `Command`, writes every slot, stamps `CopyOnReplaceObject`, and answers an owned lease. A mid-write refusal disposes the half-written record. One lease threads into `TableOp.Add`, `TableOp.Cloud`, block placement, or `BondOp.Attach`, then disposes after the host copies it.
+- Owner: `HistorySource` is detached object-plus-component identity; `HistoryScript` is the whole authoring intent as one value: version, the `HistoryOwner` seat, replace-survival grant, and the keyed slot sequence.
+- Law: the owning command crosses as `Commands`' `HistoryOwner`, never a live `Rhino.Commands.Command` — the native record keys on `Command.Id` alone, so identity is the whole payload, the seat mints the record at the lower stratum, and no signature on this page names the host command type.
+- Law: each mint is single-use — `Mint` builds one native record through the seat, writes every slot, stamps `CopyOnReplaceObject`, and answers an owned lease. A mid-write refusal disposes the half-written record. One lease threads into `TableOp.Add`, `TableOp.Cloud`, block placement, or `BondOp.Attach`, then disposes after the host copies it.
 - Law: source slots reconstruct `ObjRef` from `HistorySource` only while `Mint` writes into the document-bound record; authoring intent carries no live selection handle.
 - Law: the version is the compatibility key — `ReplayProgram` folds a mismatched `HistoryVersion` to graceful non-replay, so bumping the script version retires stale records without faulting old documents.
-- Boundary: the record constructor keys on `Command.Id`, so scripts mint inside the command that will replay them; the command page's adapter is the only `ReplayHistory` override site.
+- Boundary: the record keys on the seat's identity, so a script replays only under the command that authored it; the command page's adapter is the only `ReplayHistory` override site and the only producer of a `HistoryOwner`.
 
 ```csharp signature
 // --- [MODELS] -----------------------------------------------------------------------------
@@ -244,35 +254,39 @@ public sealed partial class HistorySource : IDetachedDocumentResult {
 }
 
 public sealed class HistoryScript {
-    private HistoryScript(int version, ObjectSignal copyOnReplace, Seq<(SlotKey Key, SlotValue Value)> slots) {
+    private HistoryScript(
+        int version, HistoryOwner owner, ObjectSignal copyOnReplace, Seq<(SlotKey Key, SlotValue Value)> slots) {
         Version = version;
+        Owner = owner;
         CopyOnReplace = copyOnReplace;
         Slots = slots;
     }
 
     public int Version { get; }
+    public HistoryOwner Owner { get; }
     public ObjectSignal CopyOnReplace { get; }
     public Seq<(SlotKey Key, SlotValue Value)> Slots { get; }
 
     public static Fin<HistoryScript> Of(
         int version,
+        HistoryOwner owner,
         ObjectSignal copyOnReplace,
         params ReadOnlySpan<(SlotKey Key, SlotValue Value)> slots) {
         Op op = Op.Of(name: nameof(HistoryScript));
         return from _ in guard(version > 0, op.InvalidInput()).ToFin()
+               from seat in op.Need(owner)
                from survival in op.Need(copyOnReplace)
                from rows in toSeq(slots.ToArray()).TraverseM(slot => op.Need(slot.Value)
                    .Bind(value => value.Admit(op: op))
                    .Map(value => (slot.Key, value))).As()
                from __ in guard(!rows.IsEmpty && rows.Map(static slot => slot.Key).Distinct().Count == rows.Count, op.InvalidInput()).ToFin()
-               select new HistoryScript(version: version, copyOnReplace: survival, slots: rows);
+               select new HistoryScript(version: version, owner: seat, copyOnReplace: survival, slots: rows);
     }
 
-    public Fin<Lease<HistoryRecord>> Mint(RhinoDoc document, Command owner, Op? key = null) {
+    public Fin<Lease<HistoryRecord>> Mint(RhinoDoc document, Op? key = null) {
         Op op = key.OrDefault();
         return from host in op.Need(document)
-               from command in op.Need(owner)
-               from record in op.Catch(() => Optional(new HistoryRecord(command: command, version: Version)).ToFin(Fail: op.InvalidResult()))
+               from record in Owner.Mint(version: Version, key: op)
                from lease in Slots
                    .TraverseM(slot => slot.Value.Write(document: host, record: record, key: slot.Key, op: op)).As()
                    .Bind(_ => op.Catch(() => {
@@ -291,7 +305,7 @@ public sealed class HistoryScript {
 ## [04]-[REPLAY_READS]
 
 - Owner: `SlotValue.Recover` dispatches from the same generated case that wrote the slot; no parallel type roster can drift from the setter family.
-- Law: host-readable cases call their matching `TryGet*` member, while geometry and unsupported plural cases return typed unreadable failure; a false host result remains missing-or-mistyped evidence.
+- Law: host-readable cases call their matching `TryGet*` member; the nine write-only cases refuse through `Unsupported(ReplayHistoryData -> <case>)`, which is the capability answer their arms owe — an invalid-input refusal blamed the caller for a payload kind the host never publishes a reader for. A false host result remains missing-or-mistyped evidence.
 - Law: source recovery projects `GetRhinoObjRef` into `HistorySource` and disposes the live handle inside the callback; source geometry re-enters only through `ReplayFrame.Use`.
 
 ## [05]-[REGROWN]
@@ -558,7 +572,14 @@ public sealed class ReplayProgram {
                select new ReplayProgram(version: version, roster: plan, regrow: body);
     }
 
-    public Func<ReplayHistoryData, bool> Delegate => data => {
+    // The egress is `Commands`' own `ReplayHook`, not a bare delegate: `Objects` is S2 and `Commands` is S1, so
+    // the seam TYPE seats at the lower stratum and this owner composes it upward into `CommandPolicy.Replay`.
+    public Fin<ReplayHook> Hook =>
+        ReplayHook.Validate(Delegate, out ReplayHook? admitted) is null && admitted is not null
+            ? Fin.Succ(value: admitted)
+            : Fin.Fail<ReplayHook>(error: Op.Of(name: nameof(ReplayProgram)).InvalidInput());
+
+    internal Func<ReplayHistoryData, bool> Delegate => data => {
         Op op = Op.Of(name: nameof(ReplayProgram));
         return op.Catch(() => Drive(data: data, op: op)).Match(
             Succ: static replayed => replayed,
@@ -598,10 +619,10 @@ public sealed class ReplayProgram {
 ## [07]-[CHRONICLE]
 
 - Owner: `BondOp` `[Union]` closes attach, detach, and replace-survival linkage; `WebAsk` separates document census from a targeted `HistoryWeb` row under a `WebBudget`; `HistoryWeb` owns adjacency, order, cycles, transitive closure/reduction, and condensation projections; `HistoryConduct` `[SmartEnum<int>]` owns process switches behind one process gate.
-- Law: targeted topology expands the reachable parent/child graph once. Edges orient parent to dependent; Blocks' `GraphFold` and `GraphProjection` own the order, cycle, closure, reduction, and condensation projections, and Chronicle composes them without re-deriving a fold.
-- Law: conduct is process state, not document state — the rows drive `Rhino.ApplicationSettings.HistorySettings` statics (`RecordingEnabled`, `RecordNextCommand`, `UpdateEnabled`, `ObjectLockingEnabled`, `BrokenRecordWarningEnabled`), demand no session, and answer the post-write value; `RecordNextCommand` arms one command only, and `ObjectLockingEnabled` makes history-bearing outputs edit only through their inputs.
-- Law: process state takes a process gate — `HistoryConduct` owns one recursive lock spanning the whole read, write, body, and restore window, so two concurrent scopes cannot interleave and an inner scope's restore cannot clobber an outer's prior; a nested `Under` reads the outer's written value as its own prior, which is how priors stack rather than race.
-- Law: the topology walk is BUDGETED like its sibling closure — `WebBudget` bounds nodes and edges, `Woven` folds one frontier value under that bound, and an exhausted bound is a typed refusal; an unbounded transitive expansion over a cyclic or worksession-wide history web is the deleted form.
+- Law: targeted topology expands the reachable parent/child graph once. Edges orient parent to dependent; Blocks' `GraphFold` and `GraphProjection<TVertex>` own the order, cycle, closure, reduction, and condensation projections over this rail's own `Guid` vertex, and Chronicle composes them without re-deriving a fold.
+- Law: conduct is process state, not document state — the rows drive `Rhino.ApplicationSettings.HistorySettings` statics (`RecordingEnabled`, `RecordNextCommand`, `UpdateEnabled`, `ObjectLockingEnabled`, `BrokenRecordWarningEnabled`), demand no session, and answer the post-write value as `ObjectSignal`, the folder's own two-state vocabulary, so no host boolean crosses `Conduct` or `Under`; `RecordNextCommand` arms one command only, and `ObjectLockingEnabled` makes history-bearing outputs edit only through their inputs. The accessors carry NO managed thread affinity — each is a bare `UnsafeNativeMethods.CRhinoHistoryManager_GetBool`/`SetBool` P/Invoke over a process-global manager — so the process-wide recursive `Lock` `HistoryConduct` owns IS the whole exclusion the managed surface admits, and no marshal crossing is owed.
+- Law: process state takes a process gate and the gate never spans a foreign body — `HistoryConduct` owns one recursive lock over the read, the write, and the restore, so two scopes cannot interleave their priors and a nested `Under` reads the outer's written value as its own; the caller's body runs OUTSIDE the lock, because a body holding a process-global monitor while it opens a document grant, marshals to the command thread, or takes any second lock deadlocks against the sibling holding those and waiting here.
+- Law: every topology answer is BUDGETED, one-hop and transitive alike — `WebBudget` bounds nodes and edges, the adjacency arms refuse a roster or an edge total over the ceiling, `Woven` drives one frontier value to its own fixpoint under the same bound, and an exhausted bound is a typed refusal naming the ceiling it spent; a budget an arm accepts and ignores is a bound no caller can rely on.
 - Law: linkage mutates on the shared spine. `Bind` rides `ObjectSpine.Commit` with redraw `None`, resolves once, applies every bond, and returns affected ids plus the sealed undo serial as `ObjectReceipt<Guid>`.
 
 ```csharp signature
@@ -609,24 +630,21 @@ public sealed class ReplayProgram {
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record BondOp {
     private BondOp() { }
-    public sealed record Attach(Command Owner, HistoryScript Script) : BondOp;
+    public sealed record Attach(HistoryScript Script) : BondOp;
     public sealed record Detach : BondOp;
     public sealed record Survival(ObjectSignal Signal) : BondOp;
 
     internal Fin<BondOp> Admit(Op op) =>
         Switch(
             op,
-            attach: static (key, bond) =>
-                from _ in key.Need(bond.Owner)
-                from __ in key.Need(bond.Script)
-                select (BondOp)bond,
+            attach: static (key, bond) => key.Need(bond.Script).Map(_ => (BondOp)bond),
             detach: static (_, bond) => Fin.Succ<BondOp>(bond),
             survival: static (key, bond) => key.Need(bond.Signal).Map(_ => (BondOp)bond));
 
     internal Fin<Unit> Apply(RhinoDoc document, RhinoObject native, Op op) =>
         Switch(
             (Document: document, Native: native, Op: op),
-            attach: static (context, bond) => bond.Script.Mint(document: context.Document, owner: bond.Owner, key: context.Op)
+            attach: static (context, bond) => bond.Script.Mint(document: context.Document, key: context.Op)
                 .Bind(lease => lease.Use(record => context.Op.Confirm(success: context.Native.SetHistory(history: record)))),
             detach: static (context, _) => context.Op.Confirm(success: context.Native.DeleteHistoryRecord()),
             survival: static (context, bond) => context.Op.Catch(() => context.Native.SetCopyHistoryOnReplace(bCopy: bond.Signal.On)));
@@ -727,29 +745,30 @@ public sealed partial class HistoryConduct {
     // outer's written value as its own prior and restores exactly that, so priors stack instead of racing.
     private static readonly Lock Gate = new();
 
-    internal Fin<bool> Read(Op op) => op.Catch(() => {
-        lock (Gate) { return Fin.Succ(value: ReadRaw()); }
+    internal Fin<ObjectSignal> Read(Op op) => op.Catch(() => {
+        lock (Gate) { return Fin.Succ(value: ObjectSignal.Of(on: ReadRaw())); }
     });
 
-    internal Fin<Unit> Write(bool value, Op op) => op.Catch(() => {
-        lock (Gate) { return Fin.Succ(value: WriteRaw(value)); }
+    internal Fin<Unit> Write(ObjectSignal value, Op op) => op.Catch(() => {
+        lock (Gate) { return Fin.Succ(value: WriteRaw(value.On)); }
     });
 
-    // Exemption: the gate spans the whole read-write-body-restore window, the one critical section a
-    // process-global switch admits; a lock taken per accessor leaves the window itself interleavable.
-    internal Fin<T> Within<T>(ObjectSignal signal, Func<Fin<T>> body, Op op) {
-        lock (Gate) {
-            return Read(op).Bind(prior => Write(value: signal.On, op: op).Bind(_ => {
-                Fin<T> primary = op.Catch(body);
-                Fin<Unit> cleanup = Write(value: prior, op: op);
-                return cleanup.Match(
-                    Succ: _ => primary,
-                    Fail: restore => primary.Match(
-                        Succ: _ => Fin.Fail<T>(error: restore),
-                        Fail: fault => Fin.Fail<T>(error: fault + restore)));
-            }));
-        }
-    }
+    // Exemption: the gate spans the read, the write, and the restore — the one critical section a process-global
+    // switch admits — and the FOREIGN BODY runs outside it. A body under the lock re-enters caller code holding a
+    // process-global monitor, so a body that opens a document grant, marshals to the command thread, or takes any
+    // second lock deadlocks against the sibling that already holds them and wants this gate. The window that
+    // matters is the prior's custody, not the body's duration: the prior is captured under the lock, the body runs
+    // free, and the restore re-takes the lock and writes back exactly the value this scope displaced.
+    internal Fin<T> Within<T>(ObjectSignal signal, Func<Fin<T>> body, Op op) =>
+        Read(op).Bind(prior => Write(value: signal, op: op).Bind(_ => {
+            Fin<T> primary = op.Catch(body);
+            Fin<Unit> cleanup = Write(value: prior, op: op);
+            return cleanup.Match(
+                Succ: _ => primary,
+                Fail: restore => primary.Match(
+                    Succ: _ => Fin.Fail<T>(error: restore),
+                    Fail: fault => Fin.Fail<T>(error: fault + restore)));
+        }));
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
@@ -787,10 +806,10 @@ public static class Chronicle {
                select answer;
     }
 
-    public static Fin<bool> Conduct(HistoryConduct row, Option<ObjectSignal> set = default) {
+    public static Fin<ObjectSignal> Conduct(HistoryConduct row, Option<ObjectSignal> set = default) {
         Op op = Op.Of();
         return from active in op.Need(row)
-               from _ in set.Traverse(signal => active.Write(value: signal.On, op: op)).As()
+               from _ in set.Traverse(signal => active.Write(value: signal, op: op)).As()
                from value in active.Read(op)
                select value;
     }
@@ -805,10 +824,12 @@ public static class Chronicle {
     }
 
     internal static Fin<WebAnswer> Parents(RhinoDoc document, TableTarget target, WebBudget budget, Op op) =>
-        Adjacent(document: document, target: target, op: op, linked: static native => native.HistoryParents());
+        Adjacent(document: document, target: target, budget: budget, op: op,
+            linked: static native => native.HistoryParents());
 
     internal static Fin<WebAnswer> Children(RhinoDoc document, TableTarget target, WebBudget budget, Op op) =>
-        Adjacent(document: document, target: target, op: op, linked: static native => native.HistoryChildren());
+        Adjacent(document: document, target: target, budget: budget, op: op,
+            linked: static native => native.HistoryChildren());
 
     internal static Fin<WebAnswer> Order(RhinoDoc document, TableTarget target, WebBudget budget, Op op) =>
         Projected(document, target, budget, op, static (graph, key) => GraphFold.Ordered(graph: graph, op: key)
@@ -819,7 +840,8 @@ public static class Chronicle {
             Fin.Succ(value: (WebAnswer)new WebAnswer.Groups(Cyclic: GraphFold.Cycles(graph: graph)))));
 
     internal static Fin<WebAnswer> Closure(RhinoDoc document, TableTarget target, WebBudget budget, Op op) =>
-        Projected(document, target, budget, op, static (graph, key) => GraphProjection.Closure.Project(graph, key).Map(Edges));
+        Projected(document, target, budget, op, static (graph, key) =>
+            GraphProjection<Guid>.Closure.Project(graph: graph, op: key).Map(Edges));
 
     internal static Fin<WebAnswer> Reduction(RhinoDoc document, TableTarget target, WebBudget budget, Op op) =>
         Projected(document, target, budget, op, static (graph, key) => GraphFold.Reduced(graph: graph, op: key).Map(Edges));
@@ -830,10 +852,18 @@ public static class Chronicle {
             return Fin.Succ(value: (WebAnswer)new WebAnswer.Condensed(Components: components, Edges: edges));
         }));
 
-    private static Fin<WebAnswer> Adjacent(RhinoDoc document, TableTarget target, Op op, Func<RhinoObject, Guid[]> linked) =>
+    // The one-hop reads are budgeted on the SAME ceilings the transitive walk spends: a `Parents` ask over a
+    // worksession-wide selection reads as many rows and as many edges as a shallow closure does, so a budget
+    // honoured by one arm and ignored by the other is a bound the caller cannot rely on.
+    private static Fin<WebAnswer> Adjacent(
+        RhinoDoc document, TableTarget target, WebBudget budget, Op op, Func<RhinoObject, Guid[]> linked) =>
         from natives in Objects.Resolve(document: document, target: target, key: op)
+        from _ in guard(natives.Count <= budget.MaxNodes, op.InvalidResult(detail: nameof(WebBudget.MaxNodes))).ToFin()
         from rows in natives.TraverseM(native => op.Catch(() =>
             Fin.Succ(value: (native.Id, toSeq(linked(native)))))).As()
+        from __ in guard(
+            rows.Fold(0L, static (count, row) => checked(count + row.Item2.Count)) <= budget.MaxEdges,
+            op.InvalidResult(detail: nameof(WebBudget.MaxEdges))).ToFin()
         select (WebAnswer)new WebAnswer.Edges(Rows: rows);
 
     private static Fin<WebAnswer> Projected(
@@ -869,17 +899,19 @@ public static class Chronicle {
         internal WebWalk Refused(Error error) => this with { Refusal = Some(error) };
     }
 
-    // The walk is a budget-bounded fixpoint: enqueue-side deduplication makes every frontier entry a fresh node,
-    // so `MaxNodes + 1` ticks strictly cover it and a settled walk re-emits itself, keeping the fold total.
+    // Exemption: `BidirectionalGraph` publishes no immutable builder, so the graph is the one mutable accumulator
+    // this kernel threads and the drive rides the same boundary. The walk advances to its OWN fixpoint, so the
+    // tick count is the web's actual node count — a two-node web costs two ticks, not `MaxNodes` empty ones over a
+    // pre-sized range. Termination is the budget's: every tick either refuses or pops one frontier entry and
+    // increments `Nodes`, and `Nodes >= MaxNodes` refuses, so `MaxNodes` bounds the drive without pacing it.
     private static Fin<Web> Woven(RhinoDoc document, Seq<RhinoObject> natives, WebBudget budget, Op op) =>
         op.Catch(() => {
             Web graph = new(allowParallelEdges: false);
-            WebWalk settled = toSeq(Enumerable.Range(start: 0, count: checked(budget.MaxNodes + 1))).Fold(
-                WebWalk.Of(seeds: natives.Map(static native => native.Id)),
-                (walk, _) => walk.Running
-                    ? Advanced(walk: walk, graph: graph, document: document, budget: budget, op: op)
-                    : walk);
-            return settled.Refusal.Match(
+            WebWalk walk = WebWalk.Of(seeds: natives.Map(static native => native.Id));
+            while (walk.Running) {
+                walk = Advanced(walk: walk, graph: graph, document: document, budget: budget, op: op);
+            }
+            return walk.Refusal.Match(
                 Some: Fin.Fail<Web>,
                 None: () => Fin.Succ(value: graph));
         });
@@ -897,8 +929,6 @@ public static class Chronicle {
                     budget: budget,
                     op: op));
 
-    // Exemption: `BidirectionalGraph` publishes no immutable builder, so the graph is the one mutable accumulator
-    // this kernel threads; the frontier, the seen set, the edge set, and the refusal all fold purely beside it.
     private static WebWalk Incident(WebWalk walk, Guid id, Web graph, RhinoDoc document, WebBudget budget, Op op) {
         _ = graph.AddVertex(id);
         return Optional(document.Objects.FindId(id)).Match(
@@ -937,17 +967,17 @@ public static class Chronicle {
 
 ## [08]-[SURFACE_LEDGER]
 
-| [INDEX] | [CONCERN]           | [OWNER]          | [FORM]                                | [ENTRY]           |
-| :-----: | :------------------ | :--------------- | :------------------------------------ | :---------------- |
-|  [01]   | slot payloads       | `SlotValue`      | closed union with total native write  | `HistoryScript`   |
-|  [02]   | record authoring    | `HistoryScript`  | leased mint from detached sources     | `Mint`            |
-|  [03]   | slot recovery       | `SlotValue`      | generated write/read correspondence   | `Recover`         |
-|  [04]   | geometry regrowth   | `Regrown`        | admitted generated update dispatch    | `Apply`           |
-|  [05]   | replay body         | `ReplayProgram`  | strict-`bool` telemetry delegate      | `Delegate`        |
-|  [06]   | linkage mutation    | `BondOp`         | shared-spine linkage union            | `Chronicle.Bind`  |
-|  [07]   | dependency topology | `HistoryWeb`     | delegate-column web projection        | `Chronicle.Ask`   |
-|  [08]   | process governance  | `HistoryConduct` | gated settings rows with restoration  | `Under`           |
-|  [09]   | traversal bound     | `WebBudget`      | node and edge ceilings on the walk    | `WebAsk.Targeted` |
+| [INDEX] | [CONCERN]           | [OWNER]          | [FORM]                               | [ENTRY]           |
+| :-----: | :------------------ | :--------------- | :----------------------------------- | :---------------- |
+|  [01]   | slot payloads       | `SlotValue`      | closed union with total native write | `HistoryScript`   |
+|  [02]   | record authoring    | `HistoryScript`  | leased mint on a `HistoryOwner` seat | `Mint`            |
+|  [03]   | slot recovery       | `SlotValue`      | generated write/read correspondence  | `Recover`         |
+|  [04]   | geometry regrowth   | `Regrown`        | admitted generated update dispatch   | `Apply`           |
+|  [05]   | replay body         | `ReplayProgram`  | strict-`bool` telemetry delegate     | `Delegate`        |
+|  [06]   | linkage mutation    | `BondOp`         | shared-spine linkage union           | `Chronicle.Bind`  |
+|  [07]   | dependency topology | `HistoryWeb`     | delegate-column web projection       | `Chronicle.Ask`   |
+|  [08]   | process governance  | `HistoryConduct` | gated settings rows with restoration | `Under`           |
+|  [09]   | traversal bound     | `WebBudget`      | node and edge ceilings on every arm  | `WebAsk.Targeted` |
 
 ## [09]-[RESEARCH]
 
@@ -956,7 +986,4 @@ public static class Chronicle {
 [SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
-`Rhino.ApplicationSettings.HistorySettings` accessors carry NO managed thread affinity — each is a bare
-`UnsafeNativeMethods.CRhinoHistoryManager_GetBool(int)`/`SetBool(int, bool)` P/Invoke over a process-global manager
-with no managed thread check — so the process-wide recursive `Lock` the `HistoryConduct` owns IS the exclusion the
-managed surface admits, and no marshal crossing is owed.
+(none)

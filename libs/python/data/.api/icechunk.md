@@ -113,21 +113,27 @@ Storage factories return an opaque `Storage`; cloud backends share the keyword-o
 
 Every config type is a keyword constructor whose every parameter defaults `None`, so a partial config overrides only the axes it names and inherits the rest. `RepositoryConfig` reaches `Repository.create`/`open`/`open_or_create` through `config=`; an unpassed config runs the built-in defaults, not the caller's storage policy.
 
-| [INDEX] | [SURFACE]                                                                                                                                  | [CAPABILITY]                          |
-| :-----: | :----------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------ |
-|  [01]   | `RepositoryConfig(inline_chunk_threshold_bytes, get_partial_values_concurrency, compression, max_concurrent_requests, caching, storage, virtual_chunk_containers, manifest, repo_update_retries, num_updates_per_repo_info_file)` | root config                           |
-|  [02]   | `StorageSettings(concurrency, retries, unsafe_use_conditional_create, unsafe_use_conditional_update, unsafe_use_metadata, storage_class, metadata_storage_class, chunks_storage_class, minimum_size_for_multipart_upload, timeouts)` | per-backend storage policy            |
-|  [03]   | `StorageRetriesSettings(max_tries, initial_backoff_ms, max_backoff_ms)`                                                                    | store retry envelope                  |
-|  [04]   | `StorageConcurrencySettings(max_concurrent_requests_for_object, ideal_concurrent_request_size)`                                            | per-object request fan-out            |
-|  [05]   | `StorageTimeoutSettings(connect_timeout_ms, read_timeout_ms, operation_timeout_ms, operation_attempt_timeout_ms)`                          | four independent timeout phases       |
-|  [06]   | `CachingConfig(num_snapshot_nodes, num_chunk_refs, num_transaction_changes, num_bytes_attributes, num_bytes_chunks)`                       | cache budgets by counted kind         |
-|  [07]   | `CompressionConfig(algorithm, level)`                                                                                                      | snapshot compression                  |
-|  [08]   | `ManifestConfig(preload, splitting, virtual_chunk_location_compression)`                                                                   | manifest behavior root                |
-|  [09]   | `ManifestSplittingConfig(split_sizes)`                                                                                                     | manifest sharding rows                |
-|  [10]   | `ManifestPreloadConfig(max_total_refs, preload_if, max_arrays_to_scan)`                                                                    | preload budget and predicate          |
-|  [11]   | `ManifestSplitCondition.AnyArray()` / `.PathMatches(...)` / `.NameMatches(...)` / `.And`/`.Or`                                             | node predicate for one split row      |
-|  [12]   | `ManifestSplitDimCondition.Any()` / `.Axis(...)` / `.DimensionName(...)`                                                                   | dimension predicate for one shard size |
-|  [13]   | `ManifestPreloadCondition.num_refs(lo, hi)` / `.name_matches` / `.path_matches` / `.true`/`.false`/`.and_conditions`/`.or_conditions`      | preload predicate algebra             |
+| [INDEX] | [SURFACE]                                                                                       | [CAPABILITY]                           |
+| :-----: | :---------------------------------------------------------------------------------------------- | :------------------------------------- |
+|  [01]   | `RepositoryConfig(...)`                                                                         | root config                            |
+|  [02]   | `StorageSettings(...)`                                                                          | per-backend storage policy             |
+|  [03]   | `StorageRetriesSettings(max_tries, initial_backoff_ms, max_backoff_ms)`                         | store retry envelope                   |
+|  [04]   | `StorageConcurrencySettings(max_concurrent_requests_for_object, ideal_concurrent_request_size)` | per-object request fan-out             |
+|  [05]   | `StorageTimeoutSettings(...)`                                                                   | four independent timeout phases        |
+|  [06]   | `CachingConfig(...)`                                                                            | cache budgets by counted kind          |
+|  [07]   | `CompressionConfig(algorithm, level)`                                                           | snapshot compression                   |
+|  [08]   | `ManifestConfig(preload, splitting, virtual_chunk_location_compression)`                        | manifest behavior root                 |
+|  [09]   | `ManifestSplittingConfig(split_sizes)`                                                          | manifest sharding rows                 |
+|  [10]   | `ManifestPreloadConfig(max_total_refs, preload_if, max_arrays_to_scan)`                         | preload budget and predicate           |
+|  [11]   | `ManifestSplitCondition.AnyArray()` / `.PathMatches(...)` / `.NameMatches(...)` / `.And`/`.Or`  | node predicate for one split row       |
+|  [12]   | `ManifestSplitDimCondition.Any()` / `.Axis(...)` / `.DimensionName(...)`                        | dimension predicate for one shard size |
+|  [13]   | `ManifestPreloadCondition.num_refs(lo, hi)` / `.name_matches` / `.path_matches`                 | preload predicate algebra              |
+
+- `RepositoryConfig`: inline_chunk_threshold_bytes, get_partial_values_concurrency, compression, max_concurrent_requests, caching, storage, virtual_chunk_containers, manifest, repo_update_retries, num_updates_per_repo_info_file.
+- `StorageSettings`: concurrency, retries, unsafe_use_conditional_create, unsafe_use_conditional_update, unsafe_use_metadata, storage_class, metadata_storage_class, chunks_storage_class, minimum_size_for_multipart_upload, timeouts.
+- `StorageTimeoutSettings`: connect_timeout_ms, read_timeout_ms, operation_timeout_ms, operation_attempt_timeout_ms.
+- `CachingConfig`: num_snapshot_nodes, num_chunk_refs, num_transaction_changes, num_bytes_attributes, num_bytes_chunks.
+- `ManifestPreloadCondition`: `.true`/`.false` close the predicate set, `.and_conditions`/`.or_conditions` combine rows.
 
 [ENTRYPOINT_SCOPE]: repository lifecycle, branches, and sessions (`Repository`)
 

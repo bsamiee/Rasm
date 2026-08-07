@@ -226,7 +226,7 @@ public static class KeyedLane {
             };
 
     public static IServiceCollection Register(IServiceCollection services, ILoggerFactory telemetry, Func<DeadlineClass, TimeSpan> allotted, Func<HopPolicy, Func<FallbackActionArguments<HopOutcome>, ValueTask<Outcome<HopOutcome>>>> redial, Action<OnRateLimiterRejectedArguments> onRejected, params ReadOnlySpan<HopPolicy> rows) =>
-        rows.ToArray().ToSeq().Fold(services, (graph, row) =>
+        Iterable<HopPolicy>.FromSpan(rows).ToSeq().Fold(services, (graph, row) =>
             graph.AddResiliencePipeline<HopOutcome>(row.PipelineKey, builder => builder
                 .ConfigureTelemetry(telemetry)
                 .AddRateLimiter(Limiter(row, onRejected))
@@ -257,11 +257,11 @@ Every keyed-pipeline literal is a named frozen `const` or `static readonly` on `
 
 - Owner: `OutboundSurface` — admission, dispatch, conflict evidence, and enforcement over one runtime record; `OutboundRuntime` capability record; `HopOutcome` `[Union]`; `HopReceipt` receipt struct.
 - Cases: Delivered, Refused, Faulted — Refused carries pre-flight admission faults, Faulted carries in-flight pipeline rejection.
-- Entry: `Carry<T>(OutboundRuntime runtime, OutboundHop hop, Func<CancellationToken, Task<(HopOutcome, T)>> send)` is the ONE hop run — `IO<T>` railing the body's produced value on a delivered outcome and the outcome's own `Error` otherwise; `Run(...)` is its outcome-only instantiation returning `IO<HopReceipt>`, the shape a write-only hop takes. Every exit is a receipt, never a throw.
+- Entry: `Carry<T>(OutboundRuntime runtime, OutboundHop hop, Func<CancellationToken, Task<(HopOutcome, T)>> send, Option<ILatencyContext> latency = default)` is the ONE hop run — `IO<T>` railing the body's produced value on a delivered outcome and the outcome's own `Error` otherwise; `Run(...)` is its outcome-only instantiation returning `IO<HopReceipt>`, the shape a write-only hop takes. Both take the composition root's `ILatencyContext` and both dispatch through the one `Execute` seat that marks the hop phase. Every exit is a receipt, never a throw.
 - Receipt: `HopReceipt` — pipeline key, attempts, outcome, elapsed `Duration`, consumed deadline class, breaker state; every hop exit fans one `HopReceiptWire` envelope under `InstrumentFan.HopKind` through the one `Fan` projection both entries compose, so hop attempts and durations project off the receipt fan with zero call-site metering.
 - Packages: Polly.Core, LanguageExt.Core, NodaTime, BCL inbox
 - Growth: one outcome case per new terminal kind; zero new surface.
-- Boundary: a hop body that produces a value carries it out through `Carry<T>` on the run that timed it, so the reported value and the receipt describe ONE transport call — a hop run for its outcome followed by a second raw call for its value is the deleted form, since that second frame rides no pipeline, no retry, and no breaker while the receipt attributes its timing to the first; exactly one retry owner per hop held at the composition root — domain rails retry through `Schedule`, transport hops retry through the keyed or HTTP pipeline, never both on one seam; the `RetryOwners` claim cell is the structural proof and `Guarded` is the schedule-side guard that degrades to a single pass and emits the conflict receipt instead of stacking a loop; `Execute` runs the hop through `ExecuteOutcomeAsync` over a pooled `ResilienceContext` leased from `ResilienceContextPool.Shared` and returned in `finally`, so a pipeline rejection surfaces as a captured `Outcome<HopOutcome>.Exception` folded to `Faulted` with no exception-as-control-flow round-trip, and `RouteKey`, a `readonly struct ResiliencePropertyKey<string>` (single `string key` ctor, `string Key` accessor), carries the pipeline key into the meter through `context.Properties`, never ambient state; `Enforce` sweeps the keyed manual breakers from the effective degradation level — the kill-switch consequence; `BreakerState` reads the receipt's breaker field from the native `CircuitBreakerStateProvider` keyed per hop on `KeyedLane`, deleting the hand-held state delegate so the runtime record carries no parallel breaker-state function; the runtime record is constructed once at the composition root.
+- Boundary: a hop body that produces a value carries it out through `Carry<T>` on the run that timed it, so the reported value and the receipt describe ONE transport call — a hop run for its outcome followed by a second raw call for its value is the deleted form, since that second frame rides no pipeline, no retry, and no breaker while the receipt attributes its timing to the first; exactly one retry owner per hop held at the composition root — domain rails retry through `Schedule`, transport hops retry through the keyed or HTTP pipeline, never both on one seam; the `RetryOwners` claim cell is the structural proof and `Guarded` is the schedule-side guard that degrades to a single pass and emits the conflict receipt instead of stacking a loop; `Execute` runs the hop through `ExecuteOutcomeAsync` over a pooled `ResilienceContext` leased from `ResilienceContextPool.Shared` and returned in `finally`, so a pipeline rejection surfaces as a captured `Outcome<HopOutcome>.Exception` folded to `Faulted` with no exception-as-control-flow round-trip, and `RouteKey`, a `readonly struct ResiliencePropertyKey<string>` (single `string key` ctor, `string Key` accessor), carries the pipeline key into the meter through `context.Properties`, never ambient state; `Enforce` sweeps the keyed manual breakers from the effective degradation level — the kill-switch consequence; `BreakerState` reads the receipt's breaker field from the native `CircuitBreakerStateProvider` keyed per hop on `KeyedLane`, deleting the hand-held state delegate so the runtime record carries no parallel breaker-state function; the hop's latency checkpoint records through `LatencySpine.Mark(ILatencyContext, CheckpointToken)` in the same `finally` that returns the pooled context, so a faulted or rejected hop is measured exactly like a delivered one and the `Duration` on the receipt is never the recorder's only source; the runtime record and its issued `CheckpointToken` are constructed once at the composition root.
 
 ```csharp signature
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -308,8 +308,12 @@ public sealed record OutboundRuntime(
     ClockPolicy Clocks,
     Func<DegradationLevel> Level,
     Atom<HashMap<string, string>> RetryOwners,
+    CheckpointToken Checkpoint,
     ReceiptSinkPort Sink,
     JsonSerializerOptions Wire) {
+    // The hop phase's token, issued ONCE at composition through ILatencyContextTokenIssuer.GetCheckpointToken
+    // against the folded LatencyCheckpoint roster — a name resolved per call against an unfolded roster
+    // answers a positionless token whose writes drop with nothing raised.
     public CircuitState BreakerState(string pipelineKey) => KeyedLane.StateOf(pipelineKey).CircuitState;
 }
 
@@ -336,14 +340,14 @@ public static class OutboundSurface {
     // a second raw call for its value — two frames on the wire, the reported value taken from the untimed,
     // unretried, unbroken-circuit one. The body states its own HopOutcome because a protocol-level refusal (a
     // 404, a false confirmed-request ack) is a hop fact the rail cannot infer from a non-throwing return.
-    public static IO<T> Carry<T>(OutboundRuntime runtime, OutboundHop hop, Func<CancellationToken, Task<(HopOutcome Outcome, T Value)>> send) {
+    public static IO<T> Carry<T>(OutboundRuntime runtime, OutboundHop hop, Func<CancellationToken, Task<(HopOutcome Outcome, T Value)>> send, Option<ILatencyContext> latency = default) {
         Atom<Option<T>> carried = Atom(Option<T>.None);
         return Admit(runtime, hop).Match(
                 Succ: row => Execute(runtime, row, async ct => {
                     (HopOutcome outcome, T value) = await send(ct).ConfigureAwait(false);
                     ignore(carried.Swap(_ => Some(value)));
                     return outcome;
-                }),
+                }, latency),
                 Fail: error => IO.pure(Conflicted(runtime, hop.Policy, error)))
             .Bind(receipt => Fan(runtime, receipt))
             .Bind(receipt => (receipt.Outcome, carried.Value) switch {
@@ -354,9 +358,13 @@ public static class OutboundSurface {
             });
     }
 
-    public static IO<HopReceipt> Run(OutboundRuntime runtime, OutboundHop hop, Func<CancellationToken, Task<HopOutcome>> send) =>
+    // The latency context is the P14 threading half: the composition root's factory hands it in and the hop
+    // boundary records ONE checkpoint through LatencySpine.Mark, deleting the per-fold Stopwatch. A caller
+    // with no telemetry composition passes none and the hop runs unrecorded rather than minting a second
+    // recorder — the same honesty the untraced-band arm takes.
+    public static IO<HopReceipt> Run(OutboundRuntime runtime, OutboundHop hop, Func<CancellationToken, Task<HopOutcome>> send, Option<ILatencyContext> latency = default) =>
         Admit(runtime, hop).Match(
-            Succ: row => Execute(runtime, row, send),
+            Succ: row => Execute(runtime, row, send, latency),
             Fail: error => IO.pure(Conflicted(runtime, hop.Policy, error)))
         .Bind(receipt => Fan(runtime, receipt));
 
@@ -370,7 +378,7 @@ public static class OutboundSurface {
             Fail: conflict => IO.lift(fun(() => evidence(Conflicted(runtime, row, conflict)))).Bind(_ => work));
 
     public static IO<Unit> Enforce(DegradationLevel effective, params ReadOnlySpan<HopPolicy> rows) =>
-        rows.ToArray().ToSeq()
+        Iterable<HopPolicy>.FromSpan(rows).ToSeq()
             .TraverseM(row => IO.liftAsync(async () => {
                 await (effective.Permits(row.Needs)
                     ? KeyedLane.BreakerOf(row.PipelineKey).CloseAsync()
@@ -382,7 +390,9 @@ public static class OutboundSurface {
 
     static readonly ResiliencePropertyKey<string> RouteKey = new("rasm.outbound.route");
 
-    static IO<HopReceipt> Execute(OutboundRuntime runtime, HopPolicy row, Func<CancellationToken, Task<HopOutcome>> send) =>
+    // ONE recording seat for both entries: Carry and Run funnel here, so the hop phase is marked once per hop
+    // whatever shape the caller took, and a mark placed at each entry would double-count a carried hop.
+    static IO<HopReceipt> Execute(OutboundRuntime runtime, HopPolicy row, Func<CancellationToken, Task<HopOutcome>> send, Option<ILatencyContext> latency) =>
         IO.liftAsync(async envIO => {
             var mark = runtime.Clocks.Mark();
             var attempts = 0;
@@ -396,7 +406,10 @@ public static class OutboundSurface {
                     ? Receipt(runtime, row, attempts, new HopOutcome.Faulted(Error.New(rejected)), mark)
                     : Receipt(runtime, row, attempts, captured.Result ?? new HopOutcome.Faulted(Error.New(captured.Exception!)), mark);
             }
-            finally { ResilienceContextPool.Shared.Return(context); }
+            finally {
+                ResilienceContextPool.Shared.Return(context);
+                latency.Iter(ctx => ignore(LatencySpine.Mark(ctx, runtime.Checkpoint)));
+            }
         });
 
     static HopReceipt Receipt(OutboundRuntime runtime, HopPolicy row, int attempts, HopOutcome outcome, long mark) =>
@@ -495,12 +508,12 @@ public static class Discovery {
             .Bind(child => manifestOf(child.Id).Map(manifest =>
                 new CompanionChild(child, manifest, cancel => drainFan(manifest, cancel))));
 
-    public static Func<DiscoveryManifest, CancellationToken, IO<Unit>> FanOf(OutboundRuntime runtime) =>
-        (peer, token) => DrainFan(peer, runtime, token);
+    public static Func<DiscoveryManifest, CancellationToken, IO<Unit>> FanOf(OutboundRuntime runtime, ILatencyContext latency) =>
+        (peer, token) => DrainFan(peer, runtime, latency, token);
 
-    public static IO<Unit> DrainFan(DiscoveryManifest peer, OutboundRuntime runtime, CancellationToken token) =>
+    public static IO<Unit> DrainFan(DiscoveryManifest peer, OutboundRuntime runtime, ILatencyContext latency, CancellationToken token) =>
         OutboundSurface.Run(runtime, new OutboundHop.LocalIpc(peer), inner =>
-            Drain(Connect(peer, GrpcChannelPolicy.Canonical), CancellationTokenSource.CreateLinkedTokenSource(token, inner).Token))
+            Drain(Connect(peer, GrpcChannelPolicy.Canonical), CancellationTokenSource.CreateLinkedTokenSource(token, inner).Token), latency)
             .Map(static _ => unit);
 
     static async Task<HopOutcome> Drain(GrpcChannel channel, CancellationToken token) {
@@ -523,11 +536,11 @@ public static class Discovery {
 - Owner: `DeliveryTarget` `[Union]` the channel-target carrier (endpoint `Uri` versus discovered peer manifest); `DeliveryChannel` `[SmartEnum<string>]` the outbound notification-channel axis under the hop key policy; `DeliveryMessage` the channel-agnostic notification payload; `DeliveryReceipt` the per-channel delivery evidence; `DeliveryFanout` the static multi-channel fan surface with the dedupe cell.
 - Cases: 2 target cases — `Endpoint(Uri)` for the network-borne channels, `Peer(DiscoveryManifest)` for the in-app companion channel; 4 channel rows — push, webhook, email, in-app — each binding the `OutboundHop` its bytes ride through a target-discriminating `Hop(DeliveryTarget)` returning `Fin<OutboundHop>`: push and webhook on `WebhookPost` over an `Endpoint`, email on `HttpApi` over an `Endpoint` (the transactional-mail API), in-app on `LocalIpc` over a `Peer` manifest; a channel fed the wrong target shape returns `HopFault.Excluded` so the in-app channel can never forge a null manifest and a network channel can never dial a peer; delivery dispositions ride `HopOutcome`.
 - Entry: `Fan(DeliveryRuntime runtime, DeliveryMessage message, params ReadOnlySpan<DeliveryChannel> channels)` returns `IO<Seq<DeliveryReceipt>>` — deduplicates the message by its idempotency key, then fans it to each channel through the channel's `OutboundHop` so one notification reaches every configured channel under one dedupe guard.
-- Auto: every channel rides its `OutboundHop` so delivery inherits the hop's retry, breaker, rate-limit, and deadline — a flapping webhook endpoint breaks on the existing circuit breaker and a rate-capped push channel admits through the existing sliding-window limiter, never a per-channel retry loop; the dedupe fold is read-modify-write INSIDE `Swap(current => ...)` — the prune and the add fold over the LIVE cell value and the verdict derives from the swap itself (first sight within the window delivers, a re-fanned identical message folds every channel to a `DeliveryReceipt` carrying the deduped flag), so concurrent fans never lose each other's records — a stale-read `.Value` snapshot beside the swap is the deleted form; each channel's delivery mints one `DeliveryReceipt` carrying the channel, the `HopReceipt`, and the delivery disposition so a partial fan (push delivered, email faulted) records every channel's outcome independently; the fan SCHEDULES every channel leg through `IO.Fork` before it awaits any of them, so the channels genuinely overlap and one slow channel never holds the others, while the evidence leg stays sequential after the join because the receipt stream is the one ordered record of what the fan did; a bare traverse over the deliveries is the deleted form that would leave the partial-fan claim as prose over a serial loop; the evidence leg fires the `Observability/hooks#HOOK_RAIL` `Delivery` row through the rail's own `Settled` member, so a per-channel subscriber reads the typed receipt while the envelope keeps carrying the instrument projection.
+- Auto: every channel rides its `OutboundHop` so delivery inherits the hop's retry, breaker, rate-limit, and deadline — a flapping webhook endpoint breaks on the existing circuit breaker and a rate-capped push channel admits through the existing sliding-window limiter, never a per-channel retry loop; the dedupe verdict is one `DedupeWindow.Admit(key, now)` call against the `Runtime/resources#DEDUPE_WINDOW` bounded seen-key window — a `true` is the first admission and a `false` is a key still holding an unexpired deadline, folding every channel to a `DeliveryReceipt` carrying the deduped flag — so the expiry prune, the capacity ceiling, and the admit-record race are the primitive's while the instant stays this composition's own `ClockPolicy` read, and this page carries no cell and no window column; each channel's delivery mints one `DeliveryReceipt` carrying the channel, the `HopReceipt`, and the delivery disposition so a partial fan (push delivered, email faulted) records every channel's outcome independently; the fan SCHEDULES every channel leg through `IO.Fork` before it awaits any of them, so the channels genuinely overlap and one slow channel never holds the others, while the evidence leg stays sequential after the join because the receipt stream is the one ordered record of what the fan did; a bare traverse over the deliveries is the deleted form that would leave the partial-fan claim as prose over a serial loop; the evidence leg fires the `Observability/hooks#HOOK_RAIL` `Delivery` row through the rail's own `Settled` member, so a per-channel subscriber reads the typed receipt while the envelope keeps carrying the instrument projection.
 - Receipt: `DeliveryReceipt` — channel key, idempotency key, `HopOutcome`, deduped flag, attempt count, elapsed `Duration`, the advanced watermark (`Some` only on a fenced outbox-relay advance — the fan-out legs answer `None`), correlation id; every fanned receipt sends one `DeliveryReceiptWire` envelope under `InstrumentFan.DeliveryKind` through the runtime `Sink`, so per-channel outcomes project off the receipt fan.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
 - Growth: one channel row absorbs a new delivery medium — a new SMS or chat channel is one `DeliveryChannel` row binding its `OutboundHop` over the matching `DeliveryTarget` case, never a parallel sender; a new target shape is one `DeliveryTarget` case breaking every channel's `Hop` switch; a new delivery disposition rides the existing `HopOutcome`; zero new surface.
-- Boundary: the delivery fan-out is the only multi-channel notification owner — a per-channel sender, a notification service wrapper, and a parallel delivery queue are the deleted forms, so all channels ride one fan and one dedupe; delivery never owns its own resilience — each channel composes its `OutboundHop` so the retry-owner, breaker, and rate-limit are the existing hop policy, and the delivery fan is purely the fan-and-dedupe layer above the hops; the dedupe is bounded — the idempotency-key cell evicts past its window so a long-lived process does not accumulate unbounded dedup state, mirroring the cache tag-cut bound; the fan is the scheduled-delivery consumer — a `ScheduleEntry` row fires the fan on its cadence so scheduled multi-channel delivery is one schedule row plus one fan call, never a second scheduler; the in-app channel rides the `LocalIpc` hop over a `DeliveryTarget.Peer` carrying the attached companion's `DiscoveryManifest` so an in-app notification reaches the companion over the control hop with a real peer manifest, never a `default!` placeholder and never a separate transport — the `Hop(DeliveryTarget)` switch is total and a target/channel shape mismatch is a typed `HopFault.Excluded`, never an unsound construction.
+- Boundary: the delivery fan-out is the only multi-channel notification owner — a per-channel sender, a notification service wrapper, and a parallel delivery queue are the deleted forms, so all channels ride one fan and one dedupe; delivery never owns its own resilience — each channel composes its `OutboundHop` so the retry-owner, breaker, and rate-limit are the existing hop policy, and the delivery fan is purely the fan-and-dedupe layer above the hops; the dedupe is bounded and NOT owned here — `DedupeWindow` at `Runtime/resources#DEDUPE_WINDOW` is the one TTL-and-capacity seen-key window, composed by this fan and by `Wire/topics#SUBSCRIPTION_FABRIC` alike, so a long-lived process accumulates no unbounded dedup state under either bound and a local idempotency-key map beside it is the twin that primitive deleted; the fan is the scheduled-delivery consumer — a `ScheduleEntry` row fires the fan on its cadence so scheduled multi-channel delivery is one schedule row plus one fan call, never a second scheduler; the in-app channel rides the `LocalIpc` hop over a `DeliveryTarget.Peer` carrying the attached companion's `DiscoveryManifest` so an in-app notification reaches the companion over the control hop with a real peer manifest, never a `default!` placeholder and never a separate transport — the `Hop(DeliveryTarget)` switch is total and a target/channel shape mismatch is a typed `HopFault.Excluded`, never an unsound construction.
 
 ```csharp signature
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -574,7 +587,7 @@ public readonly record struct DeliveryReceipt(
     Option<ulong> Watermark,
     CorrelationId Correlation);
 
-public sealed record DeliveryReceiptWire(string Channel, string Outcome, bool Deduped, int Attempts, double ElapsedSeconds, ulong? Watermark) {
+public sealed record DeliveryReceiptWire(string Channel, string Outcome, bool Deduped, int Attempts, double ElapsedSeconds, ulong? Watermark = null) {
     public static DeliveryReceiptWire From(DeliveryReceipt receipt) =>
         new(receipt.Channel, receipt.Outcome.OutcomeKey, receipt.Deduped, receipt.Attempts, receipt.Elapsed.TotalSeconds,
             receipt.Watermark.Match(Some: static cursor => (ulong?)cursor, None: static () => null));
@@ -583,8 +596,8 @@ public sealed record DeliveryReceiptWire(string Channel, string Outcome, bool De
 public sealed record DeliveryRuntime(
     OutboundRuntime Outbound,
     Func<OutboundHop, DeliveryMessage, Func<CancellationToken, Task<HopOutcome>>> Send,
-    Atom<HashMap<string, Instant>> Dedupe,
-    Duration DedupeWindow,
+    DedupeWindow Dedupe,
+    ILatencyContext Latency,
     ClockPolicy Clocks,
     ReceiptSinkPort Sink,
     HookRail Rail,
@@ -592,22 +605,19 @@ public sealed record DeliveryRuntime(
 
 public static class DeliveryFanout {
     public static IO<Seq<DeliveryReceipt>> Fan(DeliveryRuntime runtime, DeliveryMessage message, params ReadOnlySpan<DeliveryChannel> channels) =>
-        IO.lift(() => runtime.Clocks.Now).Bind(now => {
-            var correlation = Correlation.Mint();
-            // Read-modify-write INSIDE the swap: prune and add fold over the LIVE cell value and the
-            // dedupe verdict derives from the swap result — a Swap closing over a stale .Value read
-            // loses concurrent fans' records and is the deleted form.
-            var deduped = false;
-            ignore(runtime.Dedupe.Swap(current => {
-                var pruned = current.Filter(stamp => now - stamp < runtime.DedupeWindow);
-                deduped = pruned.ContainsKey(message.IdempotencyKey);
-                return pruned.AddOrUpdate(message.IdempotencyKey, now, now);
-            }));
+        IO.lift(() => (Now: runtime.Clocks.Now, Correlation: Correlation.Mint())).Bind(frame => {
+            var correlation = frame.Correlation;
+            // One admission against the shared bounded window: TRUE is first sight, FALSE is a replay still
+            // holding an unexpired deadline, so the false branch is the suppress arm. The prune, the ceiling,
+            // and the admit-record race are the primitive's; the instant is the composition's own ClockPolicy
+            // read, which is what lets a spec expire rows against a fake clock. This fan carries no cell and
+            // no window column — a second seen-key map here is the twin that primitive exists to delete.
+            var deduped = !runtime.Dedupe.Admit(message.IdempotencyKey, frame.Now);
             // Fork-before-await fan-out: every channel's leg SCHEDULES before any await, so a slow webhook never
             // holds the push leg and each channel settles its own outcome — a bare traverse over the deliveries
             // sequences them and makes the partial-fan claim prose over a serial loop. Evidence stays sequential
             // after the join, because the receipt stream is the one ordered record of what the fan did.
-            return channels.ToArray().ToSeq()
+            return toSeq(channels.ToArray())
                 .TraverseM(channel => (deduped
                     ? IO.pure(new DeliveryReceipt(channel.Key, message.IdempotencyKey, new HopOutcome.Delivered(), Deduped: true, 0, Duration.Zero, None, correlation))
                     : Deliver(runtime, channel, message, correlation)).Fork())
@@ -628,7 +638,7 @@ public static class DeliveryFanout {
         (from target in message.Targets.Find(channel).ToFin(new HopFault.Text($"no-target:{channel.Key}"))
          from hop in channel.Hop(target)
          select (Target: target, Hop: hop)).Match(
-            Succ: bound => OutboundSurface.Run(runtime.Outbound, bound.Hop, runtime.Send(bound.Hop, message))
+            Succ: bound => OutboundSurface.Run(runtime.Outbound, bound.Hop, runtime.Send(bound.Hop, message), runtime.Latency)
                 .Map(receipt => new DeliveryReceipt(channel.Key, message.IdempotencyKey, receipt.Outcome, Deduped: false, receipt.Attempts, receipt.Elapsed, None, correlation)),
             Fail: error => IO.pure(new DeliveryReceipt(channel.Key, message.IdempotencyKey, new HopOutcome.Refused(error), Deduped: false, 0, Duration.Zero, None, correlation)));
 }
@@ -658,7 +668,7 @@ interface DeliveryReceiptWire {
   readonly deduped: boolean;
   readonly attempts: number;
   readonly elapsedSeconds: number;
-  readonly watermark: number | null;
+  readonly watermark?: number;
 }
 ```
 

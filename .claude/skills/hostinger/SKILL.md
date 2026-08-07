@@ -16,7 +16,7 @@ Hostinger's estate is one API surface with three entry transports, and the work'
 
 | [INDEX] | [TRANSPORT]     | [SURFACE]                                                     | [WHEN]                                          |
 | :-----: | :-------------- | :------------------------------------------------------------ | :---------------------------------------------- |
-|  [01]   | `hostinger` MCP | `domains` `DNS` `VPS` `hosting` `ecommerce` `reach` `billing` | Interactive agent operations — the default     |
+|  [01]   | `hostinger` MCP | `domains` `DNS` `VPS` `hosting` `ecommerce` `reach` `billing` | Interactive agent operations — the default      |
 |  [02]   | REST API        | `https://developers.hostinger.com` with `HOSTINGER_API_TOKEN` | Scripts, CI, bulk loops, SDK-driven automation  |
 |  [03]   | SSH             | Universal key in `~/.ssh/config`                              | On-box work: deploys, logs, compose, migrations |
 

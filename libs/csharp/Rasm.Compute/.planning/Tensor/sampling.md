@@ -1,8 +1,8 @@
 # [COMPUTE_SAMPLING]
 
-Rasm.Compute owned-build numeric lane for quasi-Monte-Carlo sampling and scattered reconstruction: kernels with no library surface, built and gated in-house, every estimate leaving as a replicate family carrying its spread. `MathNet` exposes no Sobol/Halton (only `SystemRandomSource`) and no scattered radial-basis solver, so the seed-explicit state-serializable `LowDiscrepancy` carrier, the `JoeKuo` direction-number recurrence, the rank-stratified Latin-hypercube design, and the `Scatter` radial-basis-plus-polynomial reconstruction are composed from the rails rather than imported. Every DRAW underneath them is the kernel's: `Deterministic` owns the mixer, the lane fold, the bit reversal, and the base-parameterized radical inverse, and this lane owns only the sequence constructions and randomization policies stacked on them.
+Rasm.Compute owned-build numeric lane for quasi-Monte-Carlo sampling and scattered reconstruction: kernels with no library surface, built and gated in-house, every estimate leaving as a replicate family carrying its spread. `MathNet` exposes no Sobol/Halton (only `SystemRandomSource`) and no scattered radial-basis solver, so the seed-explicit state-serializable `LowDiscrepancy` carrier, the `JoeKuo` direction-number recurrence, the `HaltonBases` demand-sieved prime table, the rank-stratified Latin-hypercube design, and the `Scatter` radial-basis-plus-polynomial reconstruction are composed from the rails rather than imported; the kernel's landed natural-neighbour interpolant is a SIBLING scattered scheme this lane routes to rather than absorbs, on the host-type, response-arity, and payload-timing discriminants `[03]-[SCATTER_RECONSTRUCTION]` states. Every DRAW underneath them is the kernel's: `Deterministic` owns the mixer, the lane fold, the bit reversal, and the base-parameterized radical inverse, and this lane owns only the sequence constructions and randomization policies stacked on them.
 
-`LowDiscrepancy` folds `SequenceFamily` as a type axis because variance law, error bars, and convergence rate fork on the family and the state shapes do not unify: the stateless `Sobol` and `Halton` markers each ARE their generation law (`Sobol` the gray-code XOR over `JoeKuo.Directions`, `Halton` the radical inverse over the per-dimension `JoeKuo.Primes[d]`) and `Independent(Stream)` the counter-stream pseudo-random leg; construction is factory-only, so an incoherent family/state pairing is unmintable. `Scatter` reconstructs a matrix-valued field through one held rank-revealing SVD into the `Tensor/blas#DENSE_ALGEBRA` route, interpolant capability lifted to a compile-time type parameter so an unsupported differentiate/integrate call is unrepresentable. Host-local, crossing no wire; the direction-number recurrence, gray-code Sobol draw, scrambled digit walk, Warnock discrepancy kernels, monomial enumeration, rank stratification, and `OnlineStat` Welford increment are its sanctioned statement-form numeric kernels.
+`LowDiscrepancy` folds `SequenceFamily` as a type axis because variance law, error bars, and convergence rate fork on the family and the state shapes do not unify: the stateless `Sobol` and `Halton` markers each ARE their generation law (`Sobol` the gray-code XOR over `JoeKuo.Directions`, `Halton` the radical inverse over the per-dimension `HaltonBases` prime) and `Independent(Stream)` the counter-stream pseudo-random leg; construction is factory-only, so an incoherent family/state pairing is unmintable. `Scatter` reconstructs a matrix-valued field through one held rank-revealing SVD into the `Tensor/blas#DENSE_ALGEBRA` route, interpolant capability lifted to a compile-time type parameter so an unsupported differentiate/integrate call is unrepresentable. Host-local, crossing no wire; the direction-number recurrence, gray-code Sobol draw, scrambled digit walk, Warnock discrepancy kernels, monomial enumeration, rank stratification, and `OnlineStat` Welford increment are its sanctioned statement-form numeric kernels.
 
 ## [01]-[INDEX]
 
@@ -11,20 +11,20 @@ Rasm.Compute owned-build numeric lane for quasi-Monte-Carlo sampling and scatter
 
 ## [02]-[OWNED_BUILDS]
 
-- Owner: `LowDiscrepancy` the seed-explicit state-serializable carrier folding `SequenceFamily` over a per-construction `JoeKuo.Directions` table, a per-draw counter, and a per-dimension `ShiftSeed` key vector; `Scramble` the `[SmartEnum<string>]` randomization policy carrying paired binary and digit delegates; `SequenceFamily` the `[Union]` family discriminant; `ReplicatePolicy` the replicate-count, confidence, and net-quality gate; `ReplicateFamily` the RQMC estimate carrier; `JoeKuo` the direction-number recurrence, embedded primitive-polynomial owner, and sieved Halton prime table.
+- Owner: `LowDiscrepancy` the seed-explicit state-serializable carrier folding `SequenceFamily` over its per-construction table (a `JoeKuo.Directions` matrix on the Sobol leg, a `HaltonBases` prime vector on the Halton leg), a per-draw counter, and a per-dimension `ShiftSeed` key vector; `Scramble` the `[SmartEnum<string>]` randomization policy carrying paired binary and digit delegates; `SequenceFamily` the `[Union]` family discriminant; `ReplicatePolicy` the replicate-count, confidence, net-quality, and discrepancy-sample gate; `ReplicateFamily` the RQMC estimate carrier; `JoeKuo` the direction-number recurrence and embedded primitive-polynomial owner; `HaltonBases` the demand-sieved prime owner.
 - Cases: `SequenceFamily` cases `Sobol`, `Halton` (stateless markers — each case is its generation law, no radix field exists to hold an incoherent value) and `Independent(ulong Stream)`; `Scramble` rows none, digital-shift, owen.
 - Auto: `Draw` folds the `SequenceFamily` case through the generated total `Switch`; `LatinHypercube` draws one joint Sobol net and rank-stratifies each dimension into one point per stratum; `Replicates` draws exactly `2^BlockExponent` points per replicate, rejects non-finite estimator output, folds the estimator through `OnlineStat`, and admits the Student bound and the Warnock figures through `ReplicatePolicy`.
 - Receipt: `ReplicateFamily(Mean, CrossReplicateVariance, StudentBound, StarDiscrepancy, WorstProjection)` because a single equidistributed estimate carries no recoverable spread, and the net-quality fields make a gate reject on discrepancy rather than slow convergence.
 - Packages: MathNet.Numerics, Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm (project, `Deterministic` the ONE draw owner), BCL inbox
 - Growth: a new family is one `SequenceFamily` case with one `Fill*` kernel; a new scramble is one `Scramble` row; a new net-quality figure is one `ReplicateFamily` field with one kernel; zero new surface — a `SobolGenerator`/`HaltonGenerator`/`LatinHypercubeSampler` sibling family collapses onto the one `LowDiscrepancy` carrier.
 - Boundary — the Sobol leg owns the Joe-Kuo recurrence over the embedded primitive-polynomial set: an all-zero direction table collapses every point to the origin, and the unscaled-`m` recurrence omitting the per-term bit-scaling yields wrong direction numbers and a plausible-looking broken net; both are rejected.
-- Boundary — Halton reads its base per dimension from `JoeKuo.Primes[d]` (dimension 0 → 2) because a single shared base collapses every coordinate onto one radical-inverse sequence; the family discriminant is the stateless case itself, and the deleted `Equidistributed(int Base)` numeric marker — which admitted arbitrary bases and silently routed every non-2 value to Halton — is the named incoherent-admission form, closed by the private constructor under `Sobol`/`Halton`/`Pseudo` factory-only minting.
+- Boundary — Halton reads its base per dimension from the `HaltonBases` prime table THIS generator holds (dimension 0 → 2) because a single shared base collapses every coordinate onto one radical-inverse sequence; that owner is separate from `JoeKuo` and its sieve is sized to the requested dimension count, so a Halton draw never forces the Sobol type initializer to load an embedded polynomial resource and sieve the Sobol dimension cap for a leg that touches no direction number; the family discriminant is the stateless case itself, and the deleted `Equidistributed(int Base)` numeric marker — which admitted arbitrary bases and silently routed every non-2 value to Halton — is the named incoherent-admission form, closed by the private constructor under `Sobol`/`Halton`/`Pseudo` factory-only minting.
 - Boundary — `Scramble` applies uniformly across both legs so `Scramble.None` genuinely disables the binary XOR and the base-`b` digit shift, never the hardcoded `(digit + shift) % radix` that shifts even under `None`; `owen` and its base-`b` linear-digit analog are the higher-quality randomization the `Growth` axis names, added as `Scramble` rows, never parallel samplers.
-- Boundary — every DRAW on this lane routes through the kernel `Domain/identity#CONTENT_KEY` `Deterministic` owner: the `Independent` stream reads `Unit(lanes: [stream, drawn, dimension], seed: shift)`, the per-dimension shift key reads `Stream(lanes: [d], seed)`, the Owen ladder brackets `ReverseBits`, the digit permutation keys on `Stream(lanes: [key, position])`, and an unscrambled Halton coordinate reads `RadicalInverse(index, radix)` — so no `SplitMix64` finalizer, bit-reversal, or shifted-XOR lane pack survives here. The pack is not merely a duplicate mixer: `((ulong)key << 32) ^ position` collides `(key: 0, position: 5)` with `(key: 5, position: 0)`'s neighbours, which is the exact defect the lane fold exists to remove, so two positions of one Owen scramble could share a permutation. The independent-versus-equidistributed split stays the `SequenceFamily` case axis, never a bool, because the per-coordinate constructions do not unify.
+- Boundary — every DRAW on this lane routes through the kernel `Domain/identity#CONTENT_KEY` `Deterministic` owner: the `Independent` stream reads `Unit(lanes: [stream, drawn, dimension], seed: shift)`, the per-dimension shift key reads `Stream(lanes: [d], seed)`, the Owen ladder brackets `ReverseBits`, the digit permutation keys on `Stream(lanes: [key, position])`, and an unscrambled Halton coordinate reads `RadicalInverse(index, radix)` — so no `SplitMix64` finalizer, bit-reversal, or shifted-XOR lane pack survives here. A shifted-XOR pack is worse than a duplicate mixer: `((ulong)key << 32) ^ position` collides `(key: 0, position: 5)` with `(key: 5, position: 0)`'s neighbours, the exact defect the lane fold exists to remove, so two positions of one Owen scramble share a permutation. `SequenceFamily` keeps the independent-versus-equidistributed split as its case axis, never a bool, because the per-coordinate constructions do not unify.
 - Boundary — the block exponent is accepted at the draw entrypoint because equidistribution holds only at power-of-base counts and non-power prefixes degrade discrepancy with no diagnostic; the generator is seed-explicit and state-serializable for checkpoint-resume, since thread-entropy and parallel block fill are non-deterministic regardless of seeding — the MathNet `IContinuousDistribution.Samples()` stateful stream and the `torch.manual_seed`/`torch.randn` device RNG are both named rejected draw sources on this lane for the same reason: neither serializes its state, so neither can resume a checkpointed campaign mid-stream.
 - Boundary — net-quality figures are the Warnock L2 star-discrepancy and worst-2D-projection discrepancy; full-dimensional uniformity does not exclude a degenerate 2-D projection.
 - Boundary — `Replicates` rejects `Scramble.None` over the Sobol/Halton legs: `Reseed` reaches those draws only through the scramble key, so an unscrambled equidistributed generator repeats one block per replicate and the cross-replicate variance certifies a false zero spread; the `Independent` leg replicates honestly under `None` because its counter key folds `ShiftSeed` regardless of scramble.
-- Boundary — Latin-hypercube rank-stratifies a JOINT low-discrepancy draw into one point per stratum per dimension; a per-axis 1-D sequence Cartesian-producted inflates the point count and destroys the joint low-discrepancy the variance reduction depends on, and is rejected; the embedded polynomial resource and prime table load once at `JoeKuo` type initialization, a missing resource a fatal construction fault.
+- Boundary — Latin-hypercube rank-stratifies a JOINT low-discrepancy draw into one point per stratum per dimension; a per-axis 1-D sequence Cartesian-producted inflates the point count and destroys the joint low-discrepancy the variance reduction depends on, and is rejected; the embedded polynomial resource loads once behind the `JoeKuo` deferred cell at the first Sobol construction, a missing resource a fatal construction fault, and the Halton prime sieve grows once per high-water dimension count in its own owner.
 
 ```csharp signature
 [SmartEnum<string>]
@@ -85,43 +85,69 @@ public abstract partial record SequenceFamily {
     public sealed record Sobol : SequenceFamily;
     public sealed record Halton : SequenceFamily;
     public sealed record Independent(ulong Stream) : SequenceFamily;
+
+    // Family axis spelling for the receipt column; the Independent stream is per-generator STATE, not family
+    // identity, so two streams of one family group as one family in the evidence.
+    public string Key => Switch(
+        sobol: static _ => "sobol",
+        halton: static _ => "halton",
+        independent: static _ => "independent");
 }
 
-public sealed record ReplicateFamily(double Mean, double CrossReplicateVariance, double StudentBound, double StarDiscrepancy, double WorstProjection);
-
-public sealed record ReplicatePolicy(int BlockExponent, int Replicates, double Confidence, double MaxStarDiscrepancy, double MaxProjection) {
-    public static readonly ReplicatePolicy Default = new(BlockExponent: 12, Replicates: 16, Confidence: 0.95, MaxStarDiscrepancy: 0.05, MaxProjection: 0.1);
+public sealed record ReplicateFamily(double Mean, double CrossReplicateVariance, double StudentBound, double StarDiscrepancy, double WorstProjection) {
+    public ComputeReceipt.Sampling Receipt(LowDiscrepancy generator, ReplicatePolicy policy, WorkLane lane, CorrelationId correlation, Duration elapsed) =>
+        new(Family: generator.Family.Key, Dimensions: generator.Dimensions,
+            Points: (long)policy.Replicates << policy.BlockExponent, Replicates: policy.Replicates,
+            StarDiscrepancy: StarDiscrepancy, WorstProjection: WorstProjection) {
+            Scope = new ReceiptScope.Execution(correlation, lane, Substrate.CpuTensor, AllocationClass.PooledMemory, elapsed),
+        };
 }
 
-// Factory-only construction makes family/direction-table mismatch unmintable: Sobol owns a Joe-Kuo table,
-// while Halton and Independent own none.
+// DiscrepancySample bounds the two O(N²·d) net-quality kernels: both figures are ESTIMATED over a subsample of
+// this many points, and a block at or below it is measured whole.
+public sealed record ReplicatePolicy(int BlockExponent, int Replicates, double Confidence, double MaxStarDiscrepancy, double MaxProjection, int DiscrepancySample) {
+    public static readonly ReplicatePolicy Default = new(
+        BlockExponent: 12, Replicates: 16, Confidence: 0.95, MaxStarDiscrepancy: 0.05, MaxProjection: 0.1, DiscrepancySample: 512);
+}
+
+// One partial case on the Runtime/receipts-owned union carries both measured legs of this page: an RQMC campaign
+// and a fitted scattered field are the same fact — a point set of a stated family at a stated dimension — and
+// every column a leg does not measure reports absence rather than a zero it never computed.
+public abstract partial record ComputeReceipt {
+    public sealed record Sampling(string Family, int Dimensions, long Points, int? Replicates, double? StarDiscrepancy, double? WorstProjection) : ComputeReceipt;
+}
+
+// Factory-only construction makes a family/table mismatch unmintable: Sobol owns a Joe-Kuo direction table and
+// no bases, Halton owns its own prime bases and no directions, Independent owns neither. Each leg's table rides
+// the generator, so a draw never reaches an ambient roster the other leg's type initializer would build.
 public sealed record LowDiscrepancy {
     public SequenceFamily Family { get; private init; }
     public Scramble Scramble { get; private init; }
     public int Dimensions { get; private init; }
     public int Seed { get; private init; }
     public uint[,] DirectionNumbers { get; private init; }
+    public int[] Bases { get; private init; }
     public uint[] ShiftSeed { get; private init; }
     public long Drawn { get; private init; }
 
-    private LowDiscrepancy(SequenceFamily family, Scramble scramble, int dimensions, int seed, uint[,] directions, uint[] shift, long drawn) =>
-        (Family, Scramble, Dimensions, Seed, DirectionNumbers, ShiftSeed, Drawn) = (family, scramble, dimensions, seed, directions, shift, drawn);
+    private LowDiscrepancy(SequenceFamily family, Scramble scramble, int dimensions, int seed, uint[,] directions, int[] bases, uint[] shift, long drawn) =>
+        (Family, Scramble, Dimensions, Seed, DirectionNumbers, Bases, ShiftSeed, Drawn) = (family, scramble, dimensions, seed, directions, bases, shift, drawn);
 
     public static Fin<LowDiscrepancy> Sobol(int dimensions, int seed, Scramble scramble) =>
         scramble is not null && dimensions >= 1 && dimensions <= JoeKuo.MaxDimensions
-            ? Fin.Succ(new LowDiscrepancy(new SequenceFamily.Sobol(), scramble, dimensions, seed, JoeKuo.Directions(dimensions), ShiftFor(dimensions, seed), 0L))
+            ? Fin.Succ(new LowDiscrepancy(new SequenceFamily.Sobol(), scramble, dimensions, seed, JoeKuo.Directions(dimensions), EmptyBases, ShiftFor(dimensions, seed), 0L))
             : Fin.Fail<LowDiscrepancy>(new ComputeFault.ModelRejected($"<sobol-dimension-bound:{dimensions}>"));
 
-    // Per-dimension radix is always JoeKuo.Primes[d] (dimension 0 -> 2); the case is a marker, never a
-    // shared per-coordinate base.
+    // Per-dimension radix is the `d`-th prime this generator holds (dimension 0 -> 2); the case is a marker,
+    // never a shared per-coordinate base, and the base table is sieved to THIS generator's dimension count.
     public static Fin<LowDiscrepancy> Halton(int dimensions, int seed, Scramble scramble) =>
-        scramble is not null && dimensions >= 1 && dimensions <= JoeKuo.Primes.Length
-            ? Fin.Succ(new LowDiscrepancy(new SequenceFamily.Halton(), scramble, dimensions, seed, EmptyDirections, ShiftFor(dimensions, seed), 0L))
+        scramble is not null && dimensions >= 1 && dimensions <= HaltonBases.MaxDimensions
+            ? Fin.Succ(new LowDiscrepancy(new SequenceFamily.Halton(), scramble, dimensions, seed, EmptyDirections, HaltonBases.Primes(dimensions), ShiftFor(dimensions, seed), 0L))
             : Fin.Fail<LowDiscrepancy>(new ComputeFault.ModelRejected($"<halton-dimension-bound:{dimensions}>"));
 
     public static Fin<LowDiscrepancy> Pseudo(int dimensions, int seed, ulong stream, Scramble scramble) =>
         scramble is not null && dimensions >= 1
-            ? Fin.Succ(new LowDiscrepancy(new SequenceFamily.Independent(stream), scramble, dimensions, seed, EmptyDirections, ShiftFor(dimensions, seed), 0L))
+            ? Fin.Succ(new LowDiscrepancy(new SequenceFamily.Independent(stream), scramble, dimensions, seed, EmptyDirections, EmptyBases, ShiftFor(dimensions, seed), 0L))
             : Fin.Fail<LowDiscrepancy>(new ComputeFault.ModelRejected($"<pseudo-dimension-bound:{dimensions}>"));
 
     // Generated total `Switch` folds the family axis without a radix test: Sobol is gray-code XOR, Halton is
@@ -156,7 +182,8 @@ public sealed record LowDiscrepancy {
             && policy.BlockExponent is >= 1 and <= 24 && policy.Replicates >= 2
             && double.IsFinite(policy.Confidence) && policy.Confidence is > 0.0 and < 1.0
             && double.IsFinite(policy.MaxStarDiscrepancy) && policy.MaxStarDiscrepancy >= 0.0
-            && double.IsFinite(policy.MaxProjection) && policy.MaxProjection >= 0.0;
+            && double.IsFinite(policy.MaxProjection) && policy.MaxProjection >= 0.0
+            && policy.DiscrepancySample >= 2;
         if (!valid) {
             return Fin.Fail<ReplicateFamily>(new ComputeFault.ModelRejected("<replicate-policy-invalid>"));
         }
@@ -170,20 +197,20 @@ public sealed record LowDiscrepancy {
         return Try.lift<Fin<ReplicateFamily>>(() => {
                 int count = 1 << policy.BlockExponent;
                 return toSeq(Enumerable.Range(0, policy.Replicates))
-                    .Map(r => Block(generator.Reseed(r), count, estimator))
+                    .Map(r => Block(generator.Reseed(r), count, policy.DiscrepancySample, estimator))
                     .Traverse(identity)
                     .Bind(blocks => {
                         OnlineStat stat = blocks.Fold(OnlineStat.Empty, static (acc, block) => acc.Push(block.Mean));
                         double variance = stat.Variance(MomentNormalizer.Sample);
                         double bound = StudentT.InvCDF(0.0, 1.0, policy.Replicates - 1, 0.5 + policy.Confidence / 2.0) * Math.Sqrt(variance / policy.Replicates);
-                        double star = blocks.Map(static block => block.Star).Max();
-                        double projection = blocks.Map(static block => block.Projection).Max();
+                        double star = blocks.Map(static block => block.Star).Max(0.0);
+                        double projection = blocks.Map(static block => block.Projection).Max(0.0);
                         return double.IsFinite(stat.Mean) && double.IsFinite(variance) && double.IsFinite(bound)
                             && double.IsFinite(star) && double.IsFinite(projection)
                             && star <= policy.MaxStarDiscrepancy && projection <= policy.MaxProjection
                                 ? Fin.Succ(new ReplicateFamily(stat.Mean, variance, bound, star, projection))
                                 : Fin.Fail<ReplicateFamily>(new ComputeFault.ModelRejected($"<replicate-evidence:variance={variance:e3}:bound={bound:e3}:star={star:e3}:projection={projection:e3}>"));
-                    });
+                    }).As();
             })
             .Run()
             .MapFail(static error => (Error)new ComputeFault.ModelRejected($"<replicate-kernel:{error.Message}>"))
@@ -209,7 +236,7 @@ public sealed record LowDiscrepancy {
         double[] point = new double[Dimensions];
         ulong index = unchecked((ulong)Drawn) + 1UL;
         for (int d = 0; d < Dimensions; d++) {
-            point[d] = RadicalInverse(index, JoeKuo.Primes[d], ShiftSeed[d], Scramble);
+            point[d] = RadicalInverse(index, Bases[d], ShiftSeed[d], Scramble);
         }
 
         return point;
@@ -230,22 +257,43 @@ public sealed record LowDiscrepancy {
     LowDiscrepancy Reseed(int replicate) =>
         this with { ShiftSeed = ShiftFor(Dimensions, unchecked(Seed + replicate)), Drawn = 0L };
 
-    static Fin<(double Mean, double Star, double Projection)> Block(LowDiscrepancy generator, int count, Func<ReadOnlyMemory<double>, double> estimator) {
+    // The ESTIMATOR reads every drawn point — that mean is the campaign's whole purpose — while the two O(N²·d)
+    // net-quality kernels read the discrepancy subsample alone.
+    static Fin<(double Mean, double Star, double Projection)> Block(LowDiscrepancy generator, int count, int sample, Func<ReadOnlyMemory<double>, double> estimator) {
         double[][] net = generator.Net(count);
         Seq<double> values = toSeq(net).Map(point => estimator(point));
-        return values.Exists(static value => !double.IsFinite(value))
-            ? Fin.Fail<(double Mean, double Star, double Projection)>(new ComputeFault.ModelRejected("<replicate-estimator-nonfinite>"))
-            : Fin.Succ((
-                Mean: values.Fold(OnlineStat.Empty, static (acc, value) => acc.Push(value)).Mean,
-                Star: StarDiscrepancyL2(net),
-                Projection: WorstProjection(net)));
+        if (values.Exists(static value => !double.IsFinite(value))) {
+            return Fin.Fail<(double Mean, double Star, double Projection)>(new ComputeFault.ModelRejected("<replicate-estimator-nonfinite>"));
+        }
+
+        double[][] gauged = Subsample(net, sample, generator.Seed);
+        return Fin.Succ((
+            Mean: values.Fold(OnlineStat.Empty, static (acc, value) => acc.Push(value)).Mean,
+            Star: StarDiscrepancyL2(gauged),
+            Projection: WorstProjection(gauged)));
+    }
+
+    // Partial Fisher-Yates prefix keyed on the SAME `Deterministic` lane every draw here crosses, so the estimate
+    // replays exactly; the block size rides the lane vector beside the slot, keeping this stream distinct from the
+    // one-lane per-dimension shift key. The selection is a permutation prefix rather than a leading slice, because
+    // a slice reads the sequence's own initialization transient as net quality. A block at or below the bound
+    // returns whole, and its figures are exact rather than estimated.
+    static double[][] Subsample(double[][] net, int sample, int seed) {
+        if (net.Length <= sample) { return net; }
+        int[] order = [.. Enumerable.Range(0, net.Length)];
+        for (int slot = 0; slot < sample; slot++) {
+            int pick = slot + (int)(Deterministic.Stream(lanes: [slot, net.Length], seed: seed) % (ulong)(net.Length - slot));
+            (order[slot], order[pick]) = (order[pick], order[slot]);
+        }
+
+        return [.. order.Take(sample).Select(index => net[index])];
     }
 
     // Unscrambled inversion is the KERNEL's — `Deterministic.RadicalInverse(index, radix)` is the base-parameterized
     // member the equidistribution law names, so the plain Halton coordinate has one owner estate-wide. The digit
     // ladder below survives only where a `Scramble` row genuinely transforms each position: that transformation IS
-    // the randomization, not a second inversion, and folding it into the owner would push a scramble policy below
-    // the stratum that declares it.
+    // randomization, not a second inversion, and folding it into the owner pushes a scramble policy below the
+    // stratum declaring it.
     static double RadicalInverse(ulong index, int radix, uint key, Scramble scramble) {
         if (scramble == Scramble.None) { return Deterministic.RadicalInverse((uint)index, radix); }
         double inverse = 0.0;
@@ -327,24 +375,55 @@ public sealed record LowDiscrepancy {
             .ToArray();
 
     static readonly uint[,] EmptyDirections = new uint[0, 0];
+    static readonly int[] EmptyBases = [];
 }
 
-// Owned Joe-Kuo recurrence reads embedded primitive-polynomial degrees, coefficients, and seeds; Halton bases
-// come from a bounded prime sieve, and both constructions run once per generator.
+// Halton bases are their OWN owner: reading a prime must never force the Sobol type initializer, which loads an
+// embedded polynomial resource for a leg that touches no direction number. The sieve grows to the REQUESTED
+// dimension count and caches at its high-water mark, so a three-dimension Halton pays three primes where the
+// shared table paid the Sobol dimension cap; the CAS cell keeps the grow pure and re-runnable on a losing swap.
+public static class HaltonBases {
+    public const int MaxDimensions = 21_201;
+
+    static readonly Atom<int[]> Cached = Atom(Array.Empty<int>());
+
+    public static int[] Primes(int dimensions) =>
+        Cached.Swap(held => held.Length >= dimensions ? held : Sieve(dimensions));
+
+    // Halton dimension `d` uses the `d`-th prime (dimension 0 -> 2); `p_n ≈ n(ln n + ln ln n)` bounds the ceiling.
+    static int[] Sieve(int wanted) {
+        int ceiling = wanted < 6 ? 15 : (int)(wanted * (Math.Log(wanted) + Math.Log(Math.Log(wanted)))) + 16;
+        bool[] composite = new bool[ceiling + 1];
+        List<int> primes = new(wanted);
+        for (int n = 2; n <= ceiling && primes.Count < wanted; n++) {
+            if (composite[n]) { continue; }
+            primes.Add(n);
+            for (long multiple = (long)n * n; multiple <= ceiling; multiple += n) { composite[multiple] = true; }
+        }
+
+        return primes.ToArray();
+    }
+}
+
+// Owned Joe-Kuo recurrence reads embedded primitive-polynomial degrees, coefficients, and seeds, and runs once
+// per Sobol generator.
 public static class JoeKuo {
     public const int MaxDimensions = 21_201;
     public const int Bits = 32;
 
-    public static readonly int[] Primes = Sieve(MaxDimensions);
-    static readonly (int Degree, uint Coefficients, uint[] Seeds)[] Polynomials = LoadPolynomials();
+    // Deferred behind `Lazy`, because the embedded resource is the SOBOL leg's cost alone and a bare static
+    // field pays it at the first touch of any member on this type.
+    static readonly Lazy<(int Degree, uint Coefficients, uint[] Seeds)[]> Polynomials =
+        new(LoadPolynomials, LazyThreadSafetyMode.ExecutionAndPublication);
 
     // Canonical recurrence operates on scaled 32-bit directions: `v[k]=2^(31−k)` for dimension zero and the
     // primitive-polynomial XOR recurrence for higher dimensions; unscaled seeds yield a plausible broken net.
     public static uint[,] Directions(int dimensions) {
+        (int Degree, uint Coefficients, uint[] Seeds)[] table = Polynomials.Value;
         uint[,] v = new uint[dimensions, Bits];
         for (int k = 0; k < Bits; k++) { v[0, k] = 1u << (Bits - 1 - k); }
         for (int d = 1; d < dimensions; d++) {
-            (int degree, uint coefficients, uint[] seeds) = Polynomials[d - 1];
+            (int degree, uint coefficients, uint[] seeds) = table[d - 1];
             for (int i = 0; i < degree && i < Bits; i++) { v[d, i] = seeds[i] << (Bits - 1 - i); }
             for (int j = degree; j < Bits; j++) {
                 uint value = v[d, j - degree] ^ (v[d, j - degree] >> degree);
@@ -374,34 +453,19 @@ public static class JoeKuo {
             })
             .ToArray();
     }
-
-    // First MaxDimensions primes come from a bounded sieve — Halton dimension d uses the
-    // d-th prime, dimension 0 -> 2). p_n ≈ n(ln n + ln ln n) bounds the sieve ceiling.
-    static int[] Sieve(int wanted) {
-        int ceiling = wanted < 6 ? 15 : (int)(wanted * (Math.Log(wanted) + Math.Log(Math.Log(wanted)))) + 16;
-        bool[] composite = new bool[ceiling + 1];
-        List<int> primes = new(wanted);
-        for (int n = 2; n <= ceiling && primes.Count < wanted; n++) {
-            if (composite[n]) { continue; }
-            primes.Add(n);
-            for (long multiple = (long)n * n; multiple <= ceiling; multiple += n) { composite[multiple] = true; }
-        }
-
-        return primes.ToArray();
-    }
 }
 ```
 
 ## [03]-[SCATTER_RECONSTRUCTION]
 
-- Owner: the owned-build reconstruction lane with no library surface — `Interpolant<TCap>` the 1-D interpolant capsule lifting the `IInterpolation` runtime support flags to a compile-time capability type parameter; the `IInterpolantCapability` marker family and the `Interpolant` static factory with its capability-gated extension blocks; `RbfDesign`/`RbfFit` the design and fitted-field carriers; `Scatter` the augmented-design constructor, the held rank-revealing reconstruction, and the field fit. The radial VOCABULARY is the kernel `Numerics/calculus#WEIGHT_PROFILES` `KernelKind`, composed whole — its rows carry value, first and second derivatives, a `DerivativeSupremum` slope bound, and the `PolynomialOrder` reproduction tier this lane reads.
-- Cases: `IInterpolantCapability` markers `Smooth` (differentiable + integrable: cubic/Akima/monotone/linear/step) · `Sampled` (neither: barycentric/Floater-Hormann) (2); the radial rows are the kernel's — gaussian · inverse-multiquadric · wendland (strictly positive-definite, `PolynomialOrder` 0) · multiquadric (constant tier 1) · polyharmonic-cubic · thin-plate-spline (linear tier 2, conditionally positive-definite) beside the compact-support weight rows the reconstruction never selects.
-- Entry: `public static Fin<Interpolant<Smooth>> CubicSpline(double[] nodes, double[] values)` and its `Hermite` (derivative-constrained, `Interpolate.CubicSplineWithDerivatives`)/`Akima`/`Monotone`/`Linear`/`Step` siblings admit finite, aligned, strictly ordered samples before minting the differentiable-integrable tier; `Rational`/`Polynomial` mint the sample-only tier through the same rail; `public Option<double> At(double x)` is the absence-carried evaluation present on every tier, `Slope`/`Curvature` are reachable only where `TCap : IDifferentiable` and `Area` only where `TCap : IIntegrable`; `public static Fin<RbfDesign> Design(Matrix<double> centres, Matrix<double> samples, KernelKind kernel, double radius)` builds the augmented radial-basis-plus-polynomial design; `public static Fin<Matrix<double>> Reconstruct(Matrix<double> design, Matrix<double> response, TolerancePolicy tol)` solves a matrix-valued response through one held SVD into the `RankRevealing` route; `public static Fin<RbfFit> Fit(Matrix<double> centres, Matrix<double> samples, Matrix<double> response, KernelKind kernel, double radius, TolerancePolicy tol)` composes design and solve into a fitted field, `RbfFit.Evaluate` projecting a query batch.
-- Auto: `Interpolant.Build` performs the common sample admission and captures every throwing `Interpolate.*` factory through `Try.lift`; `Interpolant.Read` captures evaluation, derivative, and integral calls in an `Option` absence carrier so a throw or non-finite result reads as `None`, and the capability tier (`Smooth` for the cubic/linear/step schemes whose `SupportsDifferentiation`/`SupportsIntegration` are both true, `Sampled` for the barycentric/rational schemes where both are false) makes an unsupported derivative call fail compilation; `Design` builds the `Φ` block `Φ_ij = kernel.Weight(‖xᵢ − cⱼ‖, radius)` and, for a conditionally-positive-definite kernel (`PolynomialOrder ≥ 1`), augments to the saddle system `[Φ P; Pᵀ 0]` over the monomial reproduction basis up to total degree `PolynomialOrder − 1`; every `Scatter` MathNet boundary is captured and finite-gated; `Reconstruct` decomposes the design once through `Tensor/blas#DENSE_ALGEBRA` `DenseOps.Decompose(design, FactorizationKind.Svd)`, solves every response column through the held `ISolver<double>.Solve(Matrix<double>)`, and witnesses the Frobenius residual against the original design; `Fit` pads the response with polynomial side-constraint zero rows and splits the one solution into RBF weights and polynomial coefficients.
-- Receipt: reconstruction rides the `Tensor/blas#DENSE_ALGEBRA` `Factorization` `ComputeReceipt` evidence the held SVD stamps; the `RbfFit` carries the centres, kernel, shape, weights, and polynomial coefficients so the fitted field is reproducible and content-keyable.
+- Owner: the owned-build reconstruction lane over the host-free numeric arena — `Interpolant<TCap>` the 1-D interpolant capsule lifting the `IInterpolation` runtime support flags to a compile-time capability type parameter; the `IInterpolantCapability` marker family and the `Interpolant` static factory with its capability-gated extension blocks; `RbfDesign`/`RbfFit` the design and fitted-field carriers; `Scatter` the augmented-design constructor, the held rank-revealing reconstruction, and the field fit. `Numerics/calculus#WEIGHT_PROFILES` `KernelKind` IS the radial vocabulary, composed whole — its rows carry value, first and second derivatives, a `DerivativeSupremum` slope bound, and the `PolynomialOrder` reproduction tier this lane reads.
+- Cases: `IInterpolantCapability` markers `Smooth` (differentiable + integrable: cubic/Hermite/Akima/monotone/linear/step) · `Differentiable` (derivative only: Neville polynomial) · `Sampled` (neither: barycentric/Floater-Hormann) (3); the radial rows are the kernel's — gaussian · inverse-multiquadric · wendland (strictly positive-definite, `PolynomialOrder` 0) · multiquadric (constant tier 1) · polyharmonic-cubic · thin-plate-spline (linear tier 2, conditionally positive-definite) beside the compact-support weight rows the reconstruction never selects.
+- Entry: `public static Fin<Interpolant<Smooth>> CubicSpline(double[] nodes, double[] values)` and its `Hermite` (derivative-constrained, `Interpolate.CubicSplineWithDerivatives`)/`Akima`/`Monotone`/`Linear`/`Step` siblings admit finite, aligned, strictly ordered samples before minting the differentiable-integrable tier; `Rational` mints the sample-only tier and `Polynomial` the derivative-only tier through the same rail; `public Option<double> At(double x)` is the absence-carried evaluation present on every tier, `Slope`/`Curvature` are reachable only where `TCap : IDifferentiable` and `Area` only where `TCap : IIntegrable`; `public static Fin<RbfDesign> Design(Matrix<double> centres, Matrix<double> samples, KernelKind kernel, double radius)` builds the augmented radial-basis-plus-polynomial design; `public static Fin<Matrix<double>> Reconstruct(Matrix<double> design, Matrix<double> response, TolerancePolicy tol)` solves a matrix-valued response through one held SVD into the `RankRevealing` route; `public static Fin<RbfFit> Fit(Matrix<double> centres, Matrix<double> samples, Matrix<double> response, KernelKind kernel, double radius, TolerancePolicy tol)` composes design and solve into a fitted field, `RbfFit.Evaluate` projecting a query batch.
+- Auto: `Interpolant.Build` performs the common sample admission and captures every throwing `Interpolate.*` factory through `Try.lift`; `Interpolant.Read` captures evaluation, derivative, and integral calls in an `Option` absence carrier so a throw or non-finite result reads as `None`, and the capability tier — `Smooth` where `SupportsDifferentiation` and `SupportsIntegration` are both true (the cubic/linear/step schemes), `Differentiable` where only the first is (Neville), `Sampled` where neither is (the barycentric/rational schemes) — makes an unsupported derivative or quadrature call fail compilation; `Design` builds the `Φ` block `Φ_ij = kernel.Weight(‖xᵢ − cⱼ‖, radius)` and, for a conditionally-positive-definite kernel (`PolynomialOrder ≥ 1`), augments to the saddle system `[Φ P; Pᵀ 0]` over the monomial reproduction basis up to total degree `PolynomialOrder − 1`; every `Scatter` MathNet boundary is captured and finite-gated; `Reconstruct` decomposes the design once through `Tensor/blas#DENSE_ALGEBRA` `DenseOps.Decompose(design, FactorizationKind.Svd)`, solves every response column through the held `ISolver<double>.Solve(Matrix<double>)`, and witnesses the Frobenius residual against the original design; `Fit` pads the response with polynomial side-constraint zero rows and splits the one solution into RBF weights and polynomial coefficients.
+- Receipt: the numeric decomposition rides the `Tensor/blas#DENSE_ALGEBRA` `Factorization` `ComputeReceipt` evidence the held SVD stamps, while the FIT itself projects `RbfFit.Receipt` onto the `ComputeReceipt.Sampling` case `[02]-[OWNED_BUILDS]` declares — the centres are its point set, the radial row its stated family, and every RQMC column reports absence; the `RbfFit` carries the centres, kernel, shape, weights, and polynomial coefficients so the fitted field is reproducible and content-keyable.
 - Packages: MathNet.Numerics, Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm (project, `KernelKind` the one radial-profile vocabulary), BCL inbox
 - Growth: a new interpolation scheme is one `Interpolant` factory returning its capability tier; a new capability is one marker interface with one extension block; a new radial kernel is one `KernelKind` row at the kernel owner, reaching this lane with zero edit here; zero new surface — a per-scheme interpolant class family is collapsed onto the one `Interpolant<TCap>` capsule and a per-kernel design function family onto the one `Scatter.Design`.
-- Boundary: interpolant capability is lifted to the `TCap` type parameter so an unsupported differentiate/integrate call is unrepresentable, never a runtime `SupportsDifferentiation` bool that throws on an unsupported call — the phantom that gates nothing (a `TCap` declared but read by no constraint) is the deleted form; one `Build` rail rejects null, misaligned, non-finite, or unordered samples and captures the native factory exception, so a public constructor-shaped factory never throws before returning its promised `Fin`; interpolant evaluation wraps in an absence carrier because the step interpolant returns `NaN` at sample points and the rational interpolant returns `NaN` below ULP, poisoning a gradient accumulator silently; scattered reconstruction is the owned radial-basis-plus-polynomial design because no library surface exists, and the polynomial tail is genuine (`KernelKind.PolynomialOrder` drives the `[Φ P; Pᵀ 0]` saddle augmentation the conditionally-positive-definite kernels require for a unique interpolant) — a bare `Φ` block claiming the polynomial reproduction the prose advertises is the deleted form; the radial VOCABULARY is the kernel's alone, since a package-local `RbfKernel` spelling `Wendland` beside the kernel's own row is a same-named twin between strata peers and forks the profile the moment either end tunes a shape parameter — the kernel row additionally carries first and second derivatives and a slope bound this lane's Hessian-aware consumers reach without a second family; the reconstruction decomposes the design ONCE into a held SVD and solves the matrix-valued response through the one handle per the `Tensor/blas#DENSE_ALGEBRA` held-handle law — a fresh `DenseRoute.Solve` per response column paying a cubic SVD each time is the deleted form; a `Func<double, double>` riding beside the design is the rejected form because both the profile and its reproduction tier are row data the kernel vocabulary owns; the reconstruction witnesses the Frobenius residual against the original design through the `TolerancePolicy.Admits` gate because the SVD pseudo-inverse certifies only the least-squares minimum, not a usable interpolant, and a rank-deficient design under a loose shape parameter passes the solve while failing the field; the lane is host-local and the radial design composes `MathNet` `Matrix<double>` directly — a package-local matrix wrapper is the deleted form mirroring the blas-lane no-`RasmMatrix` law.
+- Boundary: interpolant capability is lifted to the `TCap` type parameter so an unsupported differentiate/integrate call is unrepresentable, never a runtime `SupportsDifferentiation` bool that throws on an unsupported call — the phantom that gates nothing (a `TCap` declared but read by no constraint) is the deleted form; the tier lattice mirrors the two library flags as an ORTHOGONAL pair rather than a two-value ladder, because a scheme supporting derivatives and refusing quadrature is a real row and folding it onto either end publishes a capability claim the algorithm contradicts; one `Build` rail rejects null, misaligned, non-finite, or unordered samples and captures the native factory exception, so a public constructor-shaped factory never throws before returning its promised `Fin`; interpolant evaluation wraps in an absence carrier because the step interpolant returns `NaN` at sample points and the rational interpolant returns `NaN` below ULP, poisoning a gradient accumulator silently; scattered reconstruction is the owned radial-basis-plus-polynomial design, and the polynomial tail is genuine (`KernelKind.PolynomialOrder` drives the `[Φ P; Pᵀ 0]` saddle augmentation the conditionally-positive-definite kernels require for a unique interpolant) — a bare `Φ` block claiming the polynomial reproduction the prose advertises is the deleted form; the OWNERSHIP holds on three discriminants against the kernel sibling, never on library absence alone, because the kernel `Meshing/reconstruct#RECONSTRUCTION` `ReconstructionPolicy.Sibson` natural-neighbour interpolant IS a landed scattered interpolant — it is `Point3d`-typed host geometry the `ARCHITECTURE.md` `[06]` boundary bars from an interior `Tensor` signature, it is scalar-valued over three coordinates where this design is matrix-valued over `centres.ColumnCount`, and it is EVALUATED per query off two Voronoi duals where this design is FITTED into content-keyable coefficients its one consumer (`Solver/optimizer#OPTIMIZER_LANE` `RbfModel`) predicts through in a search inner loop; the routing is therefore total and needs no row here — a three-dimensional scalar field over host geometry is the kernel's, reached at the geometry consumer's own seam, and a d-dimensional matrix-valued fitted field is this lane's — while `MathNet` remains the surface that exposes neither, its `Interpolation` namespace one-dimensional whole; the radial VOCABULARY is the kernel's alone, since a package-local `RbfKernel` spelling `Wendland` beside the kernel's own row is a same-named twin between strata peers and forks the profile the moment either end tunes a shape parameter — the kernel row carries first and second derivatives beside a slope bound this lane's Hessian-aware consumers reach without a second family; the reconstruction decomposes the design ONCE into a held SVD and solves the matrix-valued response through the one handle per the `Tensor/blas#DENSE_ALGEBRA` held-handle law — a fresh `DenseRoute.Solve` per response column paying a cubic SVD each time is the deleted form; a `Func<double, double>` riding beside the design is the rejected form because both the profile and its reproduction tier are row data the kernel vocabulary owns; the reconstruction witnesses the Frobenius residual against the original design through the `TolerancePolicy.Admits` gate because the SVD pseudo-inverse certifies only the least-squares minimum, not a usable interpolant, and a rank-deficient design under a loose shape parameter passes the solve while failing the field; the lane is host-local and the radial design composes `MathNet` `Matrix<double>` directly — a package-local matrix wrapper is the deleted form mirroring the blas-lane no-`RasmMatrix` law.
 
 ```csharp signature
 // Generic bounds lift MathNet interpolation capability flags into compile-time constraints; unsupported
@@ -411,6 +475,11 @@ public interface IDifferentiable : IInterpolantCapability { }
 public interface IIntegrable : IInterpolantCapability { }
 
 public readonly struct Smooth : IDifferentiable, IIntegrable { }
+// Neville's algorithm reports `SupportsDifferentiation` true and `SupportsIntegration` false, so the lattice
+// carries the one-sided tier its flags actually spell: `Slope`/`Curvature` compile against it and `Area` does not.
+// Collapsing it onto `Sampled` published a false absence — a differentiable interpolant no consumer could
+// differentiate — and collapsing it onto `Smooth` published a quadrature the algorithm refuses at runtime.
+public readonly struct Differentiable : IDifferentiable { }
 public readonly struct Sampled : IInterpolantCapability { }
 
 public sealed class Interpolant<TCap> where TCap : IInterpolantCapability {
@@ -446,8 +515,8 @@ public static class Interpolant {
     public static Fin<Interpolant<Sampled>> Rational(double[] nodes, double[] values) =>
         Build<Sampled>(nodes, values, null, () => Interpolate.Common(nodes, values));
 
-    public static Fin<Interpolant<Sampled>> Polynomial(double[] nodes, double[] values) =>
-        Build<Sampled>(nodes, values, null, () => Interpolate.Polynomial(nodes, values));
+    public static Fin<Interpolant<Differentiable>> Polynomial(double[] nodes, double[] values) =>
+        Build<Differentiable>(nodes, values, null, () => Interpolate.Polynomial(nodes, values));
 
     static Fin<Interpolant<TCap>> Build<TCap>(double[] nodes, double[] values, double[]? slopes, Func<IInterpolation> build)
         where TCap : IInterpolantCapability {
@@ -484,6 +553,15 @@ public static class Interpolant {
 public sealed record RbfDesign(Matrix<double> Matrix, int PolynomialTerms, int Centres);
 
 public sealed record RbfFit(Matrix<double> Centres, KernelKind Kernel, double Radius, int PolynomialOrder, Matrix<double> Weights, Matrix<double> PolynomialCoefficients) {
+    // The fitted field's point set is its CENTRES, and its stated family is the radial row that shaped them, so
+    // the same partial case carries both legs of this page. A fit runs no replicates and gauges no net, so all
+    // three RQMC columns report absence rather than a zero the leg never measured.
+    public ComputeReceipt.Sampling Receipt(WorkLane lane, CorrelationId correlation, Duration elapsed) =>
+        new(Family: Kernel.Key, Dimensions: Centres.ColumnCount, Points: Centres.RowCount,
+            Replicates: null, StarDiscrepancy: null, WorstProjection: null) {
+            Scope = new ReceiptScope.Execution(correlation, lane, Substrate.CpuTensor, AllocationClass.PooledMemory, elapsed),
+        };
+
     // Evaluate the fitted field at query rows: Σ_j w_j·φ(‖q − c_j‖) + Σ_t p_t·monomial_t(q). The response
     // columns reconstruct jointly so a vector-valued field (gradient + flux) evaluates in one pass.
     public Fin<Matrix<double>> Evaluate(Matrix<double> queries) {
@@ -584,12 +662,29 @@ public static class Scatter {
     public static double Evaluate(Vector<double> point, int[] exponents) =>
         toSeq(Enumerable.Range(0, exponents.Length)).Fold(1.0, (acc, k) => acc * Math.Pow(point[k], exponents[k]));
 
-    static IEnumerable<int[]> Compositions(int slots, int maxTotal) =>
-        slots == 0
-            ? new[] { Array.Empty<int>() }
-            : from head in Enumerable.Range(0, maxTotal + 1)
-              from tail in Compositions(slots - 1, maxTotal - head)
-              select tail.Prepend(head).ToArray();
+    // Bounded ODOMETER over exponent vectors under a running total ≤ the order cap: one mutable cursor advanced
+    // in place, each admitted vector copied out, carry rippling right-to-left so the enumeration order matches
+    // the lexicographic basis the design and evaluation blocks both index. The recursive comprehension it
+    // replaces nested one generator per dimension — a stack frame per axis and a full re-enumeration of every
+    // tail at each head — for a walk whose length is exactly the emitted term count.
+    static IEnumerable<int[]> Compositions(int slots, int maxTotal) {
+        if (slots <= 0) { yield return []; yield break; }
+        int[] cursor = new int[slots];
+        int total = 0;
+        while (true) {
+            yield return [.. cursor];
+            int axis = slots - 1;
+            while (axis >= 0 && total >= maxTotal) {
+                total -= cursor[axis];
+                cursor[axis] = 0;
+                axis--;
+            }
+
+            if (axis < 0) { yield break; }
+            cursor[axis]++;
+            total++;
+        }
+    }
 }
 ```
 

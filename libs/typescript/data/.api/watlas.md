@@ -17,16 +17,16 @@ Its one consumer seam on this branch is injection: `@gltf-transform/functions` `
 
 [PUBLIC_TYPE_SCOPE]: declaration records and result views
 
-| [INDEX] | [SYMBOL]       | [TYPE_FAMILY]      | [CAPABILITY]                                                        |
-| :-----: | :------------- | :----------------- | :------------------------------------------------------------------ |
-|  [01]   | `MeshDecl`     | input record       | positions + optional normals/uvs/indices/material ids per mesh      |
-|  [02]   | `UvMeshDecl`   | input record       | uv-only ingest for repack of an already-parameterized mesh          |
-|  [03]   | `ChartOptions` | policy record      | segmentation weights, cost/iteration bounds, `useInputMeshUvs`      |
-|  [04]   | `PackOptions`  | policy record      | `resolution`, `padding`, `texelsPerUnit`, `bruteForce`, rotation    |
-|  [05]   | `Mesh`         | result view        | `getVertex(i) -> Vertex`, `getIndexArray`, `getChart`, counts       |
-|  [06]   | `Vertex`       | result record      | `atlasIndex`, `chartIndex`, `uv: [number, number]`, `xref`          |
-|  [07]   | `Chart`        | result view        | `getFaceArray`, `faceCount`, `atlasIndex`, `type`, `material`       |
-|  [08]   | `ChartType`    | numeric vocabulary | `Planar \| Ortho \| LSCM \| Piecewise \| Invalid`                   |
+| [INDEX] | [SYMBOL]       | [TYPE_FAMILY]      | [CAPABILITY]                                                     |
+| :-----: | :------------- | :----------------- | :--------------------------------------------------------------- |
+|  [01]   | `MeshDecl`     | input record       | positions + optional normals/uvs/indices/material ids per mesh   |
+|  [02]   | `UvMeshDecl`   | input record       | uv-only ingest for repack of an already-parameterized mesh       |
+|  [03]   | `ChartOptions` | policy record      | segmentation weights, cost/iteration bounds, `useInputMeshUvs`   |
+|  [04]   | `PackOptions`  | policy record      | `resolution`, `padding`, `texelsPerUnit`, `bruteForce`, rotation |
+|  [05]   | `Mesh`         | result view        | `getVertex(i) -> Vertex`, `getIndexArray`, `getChart`, counts    |
+|  [06]   | `Vertex`       | result record      | `atlasIndex`, `chartIndex`, `uv: [number, number]`, `xref`       |
+|  [07]   | `Chart`        | result view        | `getFaceArray`, `faceCount`, `atlasIndex`, `type`, `material`    |
+|  [08]   | `ChartType`    | numeric vocabulary | `Planar \| Ortho \| LSCM \| Piecewise \| Invalid`                |
 
 - `Vertex.xref` indexes the ORIGINAL vertex stream — atlasing splits vertices along chart seams, so the output vertex count exceeds the input's and every output attribute rebuilds by `xref` gather, never by positional copy.
 - `MeshDecl` strides are BYTE strides (`vertexPositionStride` for a tight `Float32Array` position stream is 12), and `indexData` admits `Uint32Array | Uint16Array`.
@@ -37,15 +37,15 @@ Its one consumer seam on this branch is injection: `@gltf-transform/functions` `
 
 [ENTRYPOINT_SCOPE]: one readiness gate, one atlas class
 
-| [INDEX] | [SURFACE]                                        | [SHAPE]      | [CAPABILITY]                                       |
-| :-----: | :----------------------------------------------- | :----------- | :------------------------------------------------- |
-|  [01]   | `Initialize() -> Promise<void>`                  | module gate  | wasm instantiation; every other call is sync after |
-|  [02]   | `new Atlas()` / `atlas.delete()`                 | wasm handle  | explicit lifetime — emscripten heap, no GC         |
-|  [03]   | `atlas.addMesh(decl)` / `addUvMesh(decl)`        | ingest       | stage one mesh per call before compute             |
-|  [04]   | `atlas.generate(chartOptions?, packOptions?)`    | one-shot     | `computeCharts` + `packCharts` fused               |
-|  [05]   | `atlas.computeCharts(o)` / `atlas.packCharts(o)` | staged pair  | re-pack without re-segmenting                      |
-|  [06]   | `atlas.getMesh(index)` / `atlas.getUtilization`  | result reads | per-input-mesh results; per-page fill ratios       |
-|  [07]   | `atlas.width`/`height`/`atlasCount`/`texelsPerUnit` | getters   | packed page extent, page count, resolved density   |
+| [INDEX] | [SURFACE]                                           | [SHAPE]      | [CAPABILITY]                                       |
+| :-----: | :-------------------------------------------------- | :----------- | :------------------------------------------------- |
+|  [01]   | `Initialize() -> Promise<void>`                     | module gate  | wasm instantiation; every other call is sync after |
+|  [02]   | `new Atlas()` / `atlas.delete()`                    | wasm handle  | explicit lifetime — emscripten heap, no GC         |
+|  [03]   | `atlas.addMesh(decl)` / `addUvMesh(decl)`           | ingest       | stage one mesh per call before compute             |
+|  [04]   | `atlas.generate(chartOptions?, packOptions?)`       | one-shot     | `computeCharts` + `packCharts` fused               |
+|  [05]   | `atlas.computeCharts(o)` / `atlas.packCharts(o)`    | staged pair  | re-pack without re-segmenting                      |
+|  [06]   | `atlas.getMesh(index)` / `atlas.getUtilization`     | result reads | per-input-mesh results; per-page fill ratios       |
+|  [07]   | `atlas.width`/`height`/`atlasCount`/`texelsPerUnit` | getters      | packed page extent, page count, resolved density   |
 
 - `Initialize()` must resolve before ANY `Atlas` construction — the constructor reaches into the uninstantiated wasm table otherwise; the readiness gate is the same `ready`-style proof `_CODECS` already runs for the meshopt instances.
 - `atlas.delete()` is mandatory: the handle owns emscripten-heap allocations no GC reclaims, so construction brackets `Effect.acquireRelease`.

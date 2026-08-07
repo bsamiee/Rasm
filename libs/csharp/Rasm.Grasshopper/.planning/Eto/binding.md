@@ -61,11 +61,11 @@ public abstract partial record ModelLens<TValue> {
     public sealed record ChildCase(ModelLens<object> Parent, ModelLens<TValue> Member) : ModelLens<TValue>;
     public IndirectBinding<TValue> ToBinding() => Switch(
         namedCase: static c => (IndirectBinding<TValue>)new PropertyBinding<TValue>(c.Property),
-        delegateCase: static c => c.Notify.MatchUnsafe(
+        delegateCase: static c => c.Notify.Match<IndirectBinding<TValue>>(
             Some: notify => new DelegateBinding<object, TValue>(
-                getValue: c.Get, setValue: c.Put.MatchUnsafe(Some: static put => put, None: static () => null), notifyProperty: notify),
+                getValue: c.Get, setValue: c.Put.Match<Action<object, TValue>?>(Some: static put => put, None: static () => null), notifyProperty: notify),
             None: () => new DelegateBinding<object, TValue>(
-                getValue: c.Get, setValue: c.Put.MatchUnsafe(Some: static put => put, None: static () => null))),
+                getValue: c.Get, setValue: c.Put.Match<Action<object, TValue>?>(Some: static put => put, None: static () => null))),
         childCase: static c => c.Parent.ToBinding().Child(binding: c.Member.ToBinding()));
     public static ModelLens<TValue> Named(string property) => new NamedCase(Property: property);
 }

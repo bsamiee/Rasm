@@ -66,21 +66,24 @@ Beyond the audit, `IdsLib.IfcSchema` embeds the offline IFC2x3/IFC4/IFC4x3 schem
 
 [PUBLIC_TYPE_SCOPE]: IdsLib.IfcSchema — properties, measures, units
 
-| [INDEX] | [SYMBOL]                       | [TYPE_FAMILY] | [CAPABILITY]                                                                      |
-| :-----: | :----------------------------- | :------------ | :-------------------------------------------------------------------------------- |
-|  [01]   | `PropertySetInfo`              | class         | `Name`, `Properties`, `ApplicableClasses`, `PropertyNames`, `GetProperty(name)`   |
-|  [02]   | `IPropertyTypeInfo`            | interface     | a property definition inside a Pset (name + value type)                           |
-|  [03]   | `NamedPropertyType`            | class         | `IPropertyTypeInfo` impl: a named property value type                             |
-|  [04]   | `IfcMeasureInformation`        | record        | `IUnitInformation`; measure → SI metadata; fields below                           |
-|  [05]   | `IUnitInformation`             | interface     | the unit-metadata contract                                                        |
-|  [06]   | `IfcConversionUnitInformation` | record        | `IUnitInformation`; the standard conversion-unit rows                             |
-|  [07]   | `IfcDataTypeInformation`       | class         | a defined IFC data type; `TryParseIfcDataType` target                             |
-|  [08]   | `DimensionalExponents`         | class         | the 7-vector SI exponents; `GetUnit`/`GetExponent(DimensionType)`, `IsPureNumber` |
-|  [09]   | `DimensionType`                | enum          | the 7 SI base dimensions (below)                                                  |
-|  [10]   | `SchemaInfo.ClassRelationInfo` | struct        | class-to-class relation: `ClassName` + `Connection` (`ClassAttributeMode`)        |
+| [INDEX] | [SYMBOL]                       | [TYPE_FAMILY] | [CAPABILITY]                                                                    |
+| :-----: | :----------------------------- | :------------ | :------------------------------------------------------------------------------ |
+|  [01]   | `PropertySetInfo`              | class         | `Name`, `Properties`, `ApplicableClasses`, `PropertyNames`, `GetProperty(name)` |
+|  [02]   | `IPropertyTypeInfo`            | interface     | a property definition inside a Pset (name + value type)                         |
+|  [03]   | `NamedPropertyType`            | class         | `IPropertyTypeInfo` impl: `Name` + `Definition`; ctor `(string name)`           |
+|  [04]   | `SingleValuePropertyType`      | class         | `NamedPropertyType` + `DataType`; the declared-datatype row `Get` yields        |
+|  [05]   | `IfcMeasureInformation`        | record        | `IUnitInformation`; measure → SI metadata; fields below                         |
+|  [06]   | `IUnitInformation`             | interface     | the unit-metadata contract                                                      |
+|  [07]   | `IfcConversionUnitInformation` | record        | `IUnitInformation`; the standard conversion-unit rows                           |
+|  [08]   | `IfcDataTypeInformation`       | class         | a defined IFC data type; `TryParseIfcDataType` target                           |
+|  [09]   | `DimensionalExponents`         | class         | the 7-vector SI exponents; per-dimension properties below plus `GetUnit`        |
+|  [10]   | `DimensionType`                | enum          | the 7 SI base dimensions (below)                                                |
+|  [11]   | `SchemaInfo.ClassRelationInfo` | struct        | class-to-class relation: `ClassName` + `Connection` (`ClassAttributeMode`)      |
 
 [`IfcMeasureInformation`]: `Id` `IfcMeasure` `Unit` `UnitSymbol` `DefaultDisplay` `Description` `SiUnitNameEnums` `UnitTypeEnum` `Exponents`(`DimensionalExponents`) `IsBasicUnit` `IsPureNumber` `IsDirectSIUnit`
+[`DimensionalExponents`]: `Length` `Mass` `Time` `ElectricCurrent` `Temperature` `AmountOfSubstance` `LuminousIntensity` — settable `int` properties, each also reachable through `GetExponent(DimensionType)`; `Units` `UnitMeasures` static symbol rows; `IsBasicUnit` `IsPureNumber`
 [`DimensionType`]: `Length` `Mass` `Time` `ElectricCurrent` `Temperature` `AmountOfSubstance` `LuminousIntensity`
+[`SingleValuePropertyType`]: `DataType` the IFC datatype string; ctor `(string name, string dataType)`; a `PropertySetInfo.Get` result that is NOT this type carries no declared datatype
 
 ## [03]-[ENTRYPOINTS]
 
@@ -96,18 +99,19 @@ Beyond the audit, `IdsLib.IfcSchema` embeds the offline IFC2x3/IFC4/IFC4x3 schem
 
 [ENTRYPOINT_SCOPE]: IdsLib.IfcSchema — `SchemaInfo` graph queries (bare rows are `SchemaInfo` members)
 
-| [INDEX] | [SURFACE]                                                                  | [SHAPE]  | [CAPABILITY]                             |
-| :-----: | :------------------------------------------------------------------------- | :------- | :--------------------------------------- |
-|  [01]   | `SchemaInfo.SchemaIfc{2x3,4,4x3} -> SchemaInfo`                            | property | ready-built schema graph per IFC version |
-|  [02]   | `SchemaInfo[string] -> ClassInfo?`                                         | property | resolve a class by name                  |
-|  [03]   | `ClassInfo.Is(string) -> bool`                                             | instance | subtype test up the parent chain         |
-|  [04]   | `GetConcreteClassesFrom(string, IfcSchemaVersions) -> IEnumerable<string>` | static   | abstract supertype → concrete leaves     |
-|  [05]   | `TrySimplifyTopClasses(IEnumerable<string>, IfcSchemaVersions, out)`       | static   | concrete set → minimal supertype strings |
-|  [06]   | `GetClassesByType(IIfcTypeConstraint) -> IEnumerable<ClassInfo>`           | instance | filter classes by a type constraint      |
-|  [07]   | `GetAttributesByType(IIfcTypeConstraint) -> IEnumerable<AttributeInfo>`    | instance | filter attributes by a type constraint   |
-|  [08]   | `GetAttributeClasses(string, bool) -> string[]`                            | instance | attribute → classes                      |
-|  [09]   | `GetAttributeRelations(string) -> IEnumerable<ClassRelationInfo>`          | instance | attribute → relations                    |
-|  [10]   | `GetAttributeNames() -> IEnumerable<string>`                               | instance | every attribute name                     |
+| [INDEX] | [SURFACE]                                                                  | [SHAPE]  | [CAPABILITY]                                    |
+| :-----: | :------------------------------------------------------------------------- | :------- | :---------------------------------------------- |
+|  [01]   | `SchemaInfo.SchemaIfc{2x3,4,4x3} -> SchemaInfo`                            | property | ready-built schema graph per IFC version        |
+|  [02]   | `SchemaInfo[string] -> ClassInfo?`                                         | property | resolve a class by name                         |
+|  [03]   | `GetSchemas(IfcSchemaVersions) -> IEnumerable<SchemaInfo>`                 | static   | one graph per set flag; `Version` reads it back |
+|  [04]   | `ClassInfo.Is(string) -> bool`                                             | instance | subtype test up the parent chain                |
+|  [05]   | `GetConcreteClassesFrom(string, IfcSchemaVersions) -> IEnumerable<string>` | static   | abstract supertype → concrete leaves            |
+|  [06]   | `TrySimplifyTopClasses(IEnumerable<string>, IfcSchemaVersions, out)`       | static   | concrete set → minimal supertype strings        |
+|  [07]   | `GetClassesByType(IIfcTypeConstraint) -> IEnumerable<ClassInfo>`           | instance | filter classes by a type constraint             |
+|  [08]   | `GetAttributesByType(IIfcTypeConstraint) -> IEnumerable<AttributeInfo>`    | instance | filter attributes by a type constraint          |
+|  [09]   | `GetAttributeClasses(string, bool) -> string[]`                            | instance | attribute → classes                             |
+|  [10]   | `GetAttributeRelations(string) -> IEnumerable<ClassRelationInfo>`          | instance | attribute → relations                           |
+|  [11]   | `GetAttributeNames() -> IEnumerable<string>`                               | instance | every attribute name                            |
 
 [ENTRYPOINT_SCOPE]: IdsLib.IfcSchema — property and measure resolution (bare rows are `SchemaInfo` members)
 

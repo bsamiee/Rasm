@@ -19,7 +19,8 @@
 - Entry: `Compose.Mutate(Action body, bool animated, Op? key = null)` → `Fin<Unit>` is the public mutation fence. `CATransaction.Commit` always closes the begun transaction, and disabling actions is the default posture for sampled motion and teardown.
 - Law: every scope refusal rides the rail with its own cause — a graph payload aliasing the anchor root is `InvalidInput`, a host backing-layer mint answering null is `InvalidResult` naming the member, a transfer with no captured backing is `MissingContext`, and `[03]`'s second bind against a live callback target is `InvalidContext`. A raw `throw` inside the enclosing `Op.Catch` converts, but flattens all four to one untyped result token exactly where the custody argument needs the cause addressable, so it is the deleted form; the native writes stay downstream of admission, which is what keeps a refused lease from moving any layer state before it refuses.
 - Owner: `LayerPaint` is the one style mint — `Plain` builds a `LayerStyle` and `Stroked` a `StrokeStyle`, every colour crossing `[06]`'s `WideColor.ToLayer` and every path crossing `Eto.Mac.CGConversions.ToCG(this IGraphicsPath)` into an owned `Lease<CGPath>`. Its ingress is admitted domain material — kernel `PerceptualColor` and an already-built Eto `IGraphicsPath` the caller's own geometry owner supplies — so no canvas type crosses down into this stratum and no style field enters a graph unminted. Minting is prefix-safe: a refused colour or path releases every lease already taken in the same call and appends the release fault to the refusal.
-- Boundary: graph ordinals are stable only for one mount lease. Every layer `Lookup` or `Find` hands back is borrowed and remains live only while that lease remains live. `Mount` retains only the leases `LayerPaint` produced and converts nothing itself.
+- Boundary: graph ordinals are stable only for one mount lease. Every layer `Lookup` or `Find` hands back is borrowed and remains live only while that lease remains live. `Mount` retains only the leases `LayerPaint` produced and converts nothing itself. `Reframe(int, CGRect, Op?)` is the mount's own resize path — anchor bounds snapshot at `MacAnchor.Of`, so a resized canvas re-frames mounted ordinals through the fenced mutation, never a raw `Frame` write off a borrowed handle.
+- Law: compositing is live-proven host behavior — the canvas view's backing `CALayer` is live even where `WantsLayer` reads false (the layer-backed window hierarchy backs every view), a mounted sublayer survives the host's own `Drawable` paint, and a compositor-run animation advances its presentation layer with ZERO canvas paint events across the whole run, so mounted decoration costs no paint pass by measurement, not assertion. The canvas backing layer's `ContentsFormat` is 8-bit RGBA, so wide colour rides the mounted overlay layer's own contents and colour values, never the host layer's format.
 - Packages: Microsoft.macOS (`NSView`, `CALayer`, `CAShapeLayer`, `CATransaction`, `CGPath`, `CGColor`, `CGRect`), Eto.Drawing (`IGraphicsPath`), Eto.macOS (`CGConversions.ToCG`), `Rasm.Numerics` (`PerceptualColor`), `Rasm.Domain` (`Op`, `Lease<T>`), `Platform/native.md` (`MacGate`, `MacAnchor`), `Eto/runtime.md` (`EtoDispatch`).
 - Growth: a new layer family is one `LayerNode` case whose native payload enters through the same scope; graph lookup, transaction fencing, failure cleanup, and teardown do not widen.
 
@@ -37,12 +38,12 @@
 
 ## [04]-[GLIDES]
 
-- Owner: `GlidePlan` pairs an explicitly owned or borrowed `CAAnimation` with the managed `string` key required by `CALayer.AddAnimation`. `Glides.Animate` consumes the animation lease inside one transaction; CoreAnimation copies the attached animation, so an owned plan releases immediately after the call while a borrowed plan remains caller-held. `Glides.Halt` admits the same managed key for `CALayer.RemoveAnimation`; `NSString` remains confined to `CAMediaTimingFunction.FromName`, whose catalog member requires it.
+- Owner: `GlidePlan` `[Union]` — `TimedCase` pairs an explicitly owned or borrowed `CAAnimation` with the managed `string` key `CALayer.AddAnimation` requires, and `SprungCase` carries the kernel `SpringShape` with its key path and endpoints, projected onto `CASpringAnimation` at the attach (unit mass, `k = ω²`, `c = 2ζω`, duration from the kernel `Settle` projection). `Glides.Animate` consumes a timed plan's lease inside one transaction and REFUSES a hand-authored `CASpringAnimation` there — the spring door is `SprungCase`, so locally-authored spring constants cannot fork motion feel past the kernel mint. CoreAnimation copies the attached animation, so an owned plan releases immediately after the call while a borrowed plan remains caller-held. `Glides.Halt` admits the same managed key for `CALayer.RemoveAnimation`; `NSString` remains confined to `CAMediaTimingFunction.FromName`, whose catalog member requires it.
 - Owner: `TimingCurve` `[SmartEnum<int>]` closes the standard CoreAnimation names: `Default`, `EaseIn`, `EaseOut`, `EaseInEaseOut`, and `Linear`. `Curves.Named(TimingCurve, Op?)` mints an owned `CAMediaTimingFunction`; no raw timing-name string crosses the public surface.
 - Entry: `Glides.Animate(CALayer layer, GlidePlan plan, Op? key = null)` and `Glides.Halt(CALayer layer, string glideKey, Op? key = null)` → `Fin<Unit>`; `Curves.Named` → `Fin<Lease<CAMediaTimingFunction>>`.
 - Law: sampled drives and host glides remain distinct by state ownership. Each sampled drive exposes kernel state and retained completion through `MotionAttachment`; a glide delegates interpolation to CoreAnimation and owns only attachment and removal. Deferred completion requires a retained callback owner and therefore stays on `MotionAttachment`.
 - Packages: Microsoft.macOS (`CAAnimation`, `CAMediaTimingFunction`, `CALayer`, `NSString`), `Rasm.Domain` (`Op`, `Lease<T>`), `Platform/native.md` (`MacGate`).
-- Growth: a new standard timing name is one `TimingCurve` row; a new host animation remains data inside `GlidePlan` and does not create a second attachment lifecycle.
+- Growth: a new standard timing name is one `TimingCurve` row; a new host animation is one `GlidePlan` case on the one attachment lifecycle, and a new physical modality composes its kernel shape exactly as `SprungCase` does.
 
 ## [05]-[EFFECTS]
 
@@ -55,19 +56,20 @@
 
 ## [06]-[WIDE_COLOR]
 
-- Owner: `WideColor.Project(PerceptualColor colour, Op? key = null)` → `Fin<Lease<NSColor>>` composes `PerceptualColor.ToRgb(RgbProfile.DisplayP3)` and passes the returned unit channels directly to `NSColor.FromDisplayP3`. This host boundary neither constructs `Unicolour` nor reads its default `.Rgb` accessor, because that accessor is sRGB and cannot be relabelled as Display-P3.
+- Owner: `WideColor.Project(PerceptualColor colour, GamutPolicy? gamut = null, Op? key = null)` → `Fin<Lease<NSColor>>` composes `PerceptualColor.ToRgb(profile: RgbProfile.DisplayP3, gamut:)` and passes the returned unit channels directly to `NSColor.FromDisplayP3`. This host boundary neither constructs `Unicolour` nor reads its default `.Rgb` accessor, because that accessor is sRGB and cannot be relabelled as Display-P3.
 - Owner: `WideColor.ToLayer(PerceptualColor colour, Op? key = null)` → `Fin<Lease<CGColor>>` is the layer-graph crossing `[02]`'s `LayerPaint` calls for every one of the four `Option<Lease<CGColor>>` style fields: it mints the `CGColor` DIRECTLY on the `CGColorSpaceNames.DisplayP3` space from the same admitted unit channels `Project` passes to AppKit, so the two faces of one projection share an admission gate and neither derives its custody from the other.
 - Owner: `WideColor.OfSystem(NSColor native, Op? key = null)` → `Fin<PerceptualColor>` is the INBOUND arm — `MacConversions.ToEtoWithAppearance` resolves a dynamic or catalog `NSColor` against the CURRENT appearance and the resulting sRGB channels enter `PerceptualColor.OfRgb`, so a chrome swatch read from `SystemColors` or an `NSAppearance`-dynamic colour crosses live rather than archived; the three arms make the crossing bidirectional on one owner.
-- Law: `RgbProfile` `[SmartEnum<int>]` owns `Srgb` and `DisplayP3` configuration rows. `PerceptualColor.ToRgb(RgbProfile profile)` performs configured conversion with perceptual gamut mapping and returns the normalized `(double Red, double Green, double Blue, double Alpha)` tuple. Parameterless `ToRgb()` remains the mapped sRGB byte egress; profile conversion remains one `PerceptualColor` owner rather than a host-local colour pipeline.
+- Law: `RgbProfile` carries the kernel's working-space roster and the corpus' one `Configuration` mint, `DisplayP3` the row this boundary names. Its two `ToRgb` overloads split by RESULT, never by policy — `ToRgb(RgbProfile profile, GamutPolicy? gamut = null, RgbTransfer? transfer = null)` returns the profile's `(double Red, double Green, double Blue, double Alpha)` under whichever transfer the trailing row names, and `ToRgb(GamutPolicy? gamut = null)` returns the sRGB byte quadruple — with the reproducibility domain an argument on both, defaulting to the kernel's own perceptual row. This page passes no transfer, taking the `RgbTransfer.Encoded` default: `NSColor.FromDisplayP3` and the `CGColorSpaceNames.DisplayP3` mint both consume COMPANDED Display-P3 components, so a `RgbTransfer.Linear` read here would hand scene-linear light to an encoded-channel constructor and darken every swatch. Profile conversion and gamut bounding stay `PerceptualColor`'s, never a host-local colour pipeline.
 - Law: the `NSColor` round trip is REFUSED as the layer crossing — `CGConversions.ToCG(this NSColor)` returns the source-space colour on its primary arm but re-spaces to sRGB and then floors at opaque black without signalling, and its result borrows the receiver's lifetime, so routing the layer face through it both clamps the gamut silently and entangles two custodies on one lease; the direct `CGColorSpaceNames.DisplayP3` mint has one lifetime and no clamp arm.
 - Boundary: `NSColor` and its projected `CGColor` are the only native colour objects minted here, each returned as owned custody. All profile selection, chromatic adaptation, transfer encoding, and gamut mapping remain kernel operations.
-- Packages: Microsoft.macOS (`NSColor`, `CGColor`, `CGColorSpace`, `CGColorSpaceNames`), Eto.macOS (`MacConversions.ToEtoWithAppearance`), `Rasm.Numerics` (`PerceptualColor`, `RgbProfile`), `Rasm.Domain` (`Op`, `Lease<T>`), `Platform/native.md` (`MacGate`).
-- Growth: a new display profile is one kernel `RgbProfile` row; the AppKit and CoreAnimation projections remain unchanged while the selected row varies.
+- Packages: Microsoft.macOS (`NSColor`, `CGColor`, `CGColorSpace`, `CGColorSpaceNames`), Eto.macOS (`MacConversions.ToEtoWithAppearance`), `Rasm.Numerics` (`PerceptualColor`, `RgbProfile`, `GamutPolicy`), `Rasm.Domain` (`Op`, `Lease<T>`), `Platform/native.md` (`MacGate`).
+- Growth: a new display profile is one kernel `RgbProfile` row and a new reproducibility domain one kernel `GamutPolicy` row; the AppKit and CoreAnimation projections remain unchanged while the selected rows vary.
 
 ## [07]-[TELEMETRY_ROOT]
 
 - Owner: `PlatformTelemetry` — the GH2 plugin app-root composition seam over the AppHost `PluginTelemetryHost`; one capsule per plugin `AssemblyLoadContext`, opened once at plugin load, never per canvas or component.
-- Entry: `PlatformTelemetry.Open(Assembly pluginRoot, string plugin, Op? key = null)` → `Fin<PluginTelemetryHost>`.
+- Entry: `PlatformTelemetry.Open(Assembly pluginRoot, HookScope plugin, Op? key = null)` → `Fin<PluginTelemetryHost>`.
+- Law: the plugin discriminator admits through the typed `Shell/hooks.md` `HookScope` — the same key space the hook registry and the `gh.plugin` meter tag share — so the telemetry resource attribute and every other per-plugin surface spell one identity by construction, and the raw-string parameter this seam once carried is the deleted fork.
 - Law: the app root alone references `Rasm.AppHost` beside `Rasm.Grasshopper` — no package source names an AppHost or OpenTelemetry type.
 - Law: `ProfileSurface.Resolve` gates the `HostRows.Gh2` row before the capsule opens.
 - Law: `ProfileIdentity.ResourceAttributes` owns resource identity; this root supplies the resolved record and its discriminator alone.
@@ -85,12 +87,13 @@
 // App-root composition: the GH2 plugin root assembly references Rasm.AppHost beside Rasm.Grasshopper
 // and owns this seam; no Rasm.Grasshopper package source composes AppHost or OpenTelemetry types.
 public static class PlatformTelemetry {
-    public static Fin<PluginTelemetryHost> Open(Assembly pluginRoot, string plugin, Op? key = null) {
-        ArgumentNullException.ThrowIfNull(pluginRoot);
+    public static Fin<PluginTelemetryHost> Open(Assembly pluginRoot, HookScope plugin, Op? key = null) {
         Op op = key.OrDefault();
-        return from name in op.AcceptText(value: plugin)
-               from alc in Optional(AssemblyLoadContext.GetLoadContext(pluginRoot)).ToFin(op.MissingContext())
-               from version in Optional(pluginRoot.GetName().Version).ToFin(op.MissingContext())
+        // HookScope IS the admission — a default-constructed struct throws on its key read and lands the rail here.
+        return from root in op.Need(pluginRoot)
+               from name in op.Catch(body: () => Fin.Succ((string)plugin))
+               from alc in Optional(AssemblyLoadContext.GetLoadContext(root)).ToFin(op.MissingContext())
+               from version in Optional(root.GetName().Version).ToFin(op.MissingContext())
                // Rhino owns the canvas process and the plugin binds no provider port, so this row
                // samples whole and projects its logs locally. Resolve gates the axis values BEFORE the
                // capsule opens, so an unservable row refuses while no provider exists to dispose.
@@ -98,13 +101,13 @@ public static class PlatformTelemetry {
                    profile: new ConsumptionProfile(
                        Tenancy: Tenancy.None,
                        Topology: DeploymentTopology.InHost,
-                       Host: Some(HostRows.Gh2),
                        Lifecycle: LifecycleOwner.CallerOwned,
                        Isolation: Isolation.InProc,
-                       Providers: []),
+                       Providers: [],
+                       Host: Some(HostRows.Gh2)),
                    applicationName: TelemetryDomain.Grasshopper.Key,
                    environmentName: Environments.Production,
-                   contentRoot: ContentRoot(pluginRoot),
+                   contentRoot: ContentRoot(root),
                    serviceVersion: version.ToString(),
                    clock: SystemClock.Instance)
                from capsule in op.Catch(body: () => Fin.Succ(value: PluginTelemetryHost.Open(
@@ -169,6 +172,11 @@ public abstract partial record DriveSpec {
     public sealed record BlendCase(
         BlendPath Path, PerceptualColor From, PerceptualColor To, Easing Curve, TimeSpan Period, CyclePlan Cycle,
         Action<PerceptualColor> Write) : DriveSpec;
+    // Inertial release rides the kernel DecayShape — a fling or pan release projects position under decaying
+    // velocity from the one owner; a host-local velocity-decay expression is the deleted form the branch
+    // spring-parity ruling names.
+    public sealed record DecayCase(
+        DecayShape Shape, double Origin, double Velocity, double Epsilon, Action<double> Write) : DriveSpec;
 }
 
 [SmartEnum<string>]
@@ -222,7 +230,16 @@ public readonly record struct SpringSettlement(double Position, double Velocity)
         ValidityClaim.Positive(value: Velocity));
 }
 
-public sealed record GlidePlan(Lease<CAAnimation> Animation, string Key);
+// Spring motion has ONE source — the kernel SpringShape mint — so a compositor-run spring is the SprungCase
+// projection of that shape onto CASpringAnimation, and TimedCase refuses a hand-authored CASpringAnimation at
+// admission: locally-authored mass/stiffness/damping constants are the silent motion-feel fork the branch
+// spring-parity ruling forecloses.
+[Union]
+public abstract partial record GlidePlan {
+    private GlidePlan() { }
+    public sealed record TimedCase(Lease<CAAnimation> Animation, string Key) : GlidePlan;
+    public sealed record SprungCase(SpringShape Shape, string KeyPath, double From, double To, string Key) : GlidePlan;
+}
 
 public sealed record VibrancyPane(
     NSVisualEffectMaterial Material, NSVisualEffectBlendingMode Blending) : IValidityEvidence {
@@ -274,6 +291,16 @@ public sealed class LayerMount : IDisposable {
         return Lookup.TryGetValue(key: ordinal, value: out CALayer? layer) && layer is not null
             ? Fin.Succ(layer)
             : Fin.Fail<CALayer>(op.InvalidInput());
+    }
+
+    // The mount's own re-frame path: anchor bounds are a snapshot, so a resized canvas re-frames mounted
+    // ordinals through the same fenced mutation every other layer write rides — a caller-owned raw Frame
+    // write off a Find handle is the deleted form this member exists to absorb.
+    public Fin<Unit> Reframe(int ordinal, CGRect frame, Op? key = null) {
+        Op op = key.OrDefault();
+        return from layer in Find(ordinal: ordinal, key: op)
+               from settled in Compose.Mutate(body: () => layer.Frame = frame, animated: false, key: op)
+               select settled;
     }
 
     public void Dispose() => ignore(Release(key: Op.Of(name: nameof(Dispose))));
@@ -338,6 +365,9 @@ public sealed class MotionAttachment : IDisposable {
         Op op = key.OrDefault();
         return from _ in MacGate.Demand(key: op)
                from activeAnchor in op.Need(anchor)
+               // NSView.GetDisplayLink carries a macos14.0 availability floor the platform gate cannot see,
+               // so the attachment names its own version gate and refuses below it instead of throwing native.
+               from _floor in guard(OperatingSystem.IsMacOSVersionAtLeast(major: 14), (Error)op.InvalidContext()).ToFin()
                let view = activeAnchor.View
                from validDrive in MotionDrive.Admit(spec: drive, key: op)
                from admitted in guard(window.IsValid, op.InvalidInput()).ToFin().Map(_ => window)
@@ -680,7 +710,24 @@ public static class MotionDrive {
                                    Apply: () => row.Write(obj: row.From.Mix(
                                        other: row.To,
                                        amount: amount,
-                                       path: row.Path))))))
+                                       path: row.Path))))),
+                   decayCase: static (state, row) => state.Posture.Holds(axis: AccessibilityAxis.ReduceMotion)
+                       ? row.Shape.Project(velocity: row.Velocity, key: state.Key)
+                           .Map(rest => new DriveFrame(
+                               Continues: false,
+                               Apply: () => row.Write(obj: row.Origin + rest)))
+                       : from position in row.Shape.Advance(
+                             origin: row.Origin,
+                             velocity: row.Velocity,
+                             elapsed: state.Beat.Elapsed.TotalSeconds,
+                             key: state.Key)
+                         from horizon in row.Shape.Settle(
+                             velocity: row.Velocity,
+                             epsilon: row.Epsilon,
+                             key: state.Key)
+                         select new DriveFrame(
+                             Continues: state.Beat.Elapsed.TotalSeconds < horizon,
+                             Apply: () => row.Write(obj: position)))
                select frame;
     }
 
@@ -707,6 +754,13 @@ public static class MotionDrive {
             from _write in op.Need(row.Write)
             from _period in op.Positive(value: row.Period.TotalSeconds)
             from _cycle in guard(Valid(plan: row.Cycle), op.InvalidInput()).ToFin()
+            select (DriveSpec)row,
+        decayCase: static (op, row) =>
+            from _shape in guard(row.Shape.IsValid, op.InvalidInput()).ToFin()
+            from _origin in op.Finite(value: row.Origin)
+            from _velocity in op.Finite(value: row.Velocity)
+            from _epsilon in op.Positive(value: row.Epsilon)
+            from _write in op.Need(row.Write)
             select (DriveSpec)row));
 
     private static bool Valid(CyclePlan plan) => plan.Count.Match(
@@ -942,16 +996,54 @@ public static class Glides {
         return from _ in MacGate.Demand(key: op)
                from target in op.Need(layer)
                from valid in op.Need(plan)
-               from animation in op.Need(valid.Animation)
-               from name in op.Need(valid.Key)
-               from admitted in guard(!string.IsNullOrWhiteSpace(value: name), op.InvalidInput()).ToFin().Map(_ => name)
-               from settled in EtoDispatch.Run(body: () => animation.Use(native => Compose.Fence(
-                   body: () => target.AddAnimation(animation: native, key: admitted),
-                   animated: true,
-                   completed: Option<Action>.None,
-                   key: op)), key: op)
+               from settled in valid.Switch(
+                   state: (Target: target, Key: op),
+                   timedCase: static (frame, row) =>
+                       from animation in frame.Key.Need(row.Animation)
+                       from name in Named(raw: row.Key, op: frame.Key)
+                       from settled in EtoDispatch.Run(body: () => animation.Use(native =>
+                           native is CASpringAnimation
+                               // a hand-authored spring bypasses the kernel algebra; the SprungCase is the one spring door
+                               ? Fin.Fail<Unit>(frame.Key.InvalidInput())
+                               : Compose.Fence(
+                                   body: () => frame.Target.AddAnimation(animation: native, key: name),
+                                   animated: true,
+                                   completed: Option<Action>.None,
+                                   key: frame.Key)), key: frame.Key)
+                       select settled,
+                   sprungCase: static (frame, row) =>
+                       from shape in guard(row.Shape.IsValid, frame.Key.InvalidInput()).ToFin().Map(_ => row.Shape)
+                       from path in Named(raw: row.KeyPath, op: frame.Key)
+                       from name in Named(raw: row.Key, op: frame.Key)
+                       from horizon in shape.Settle(
+                           origin: new SpringState(Position: row.From, Velocity: 0.0),
+                           target: row.To, epsilon: SettleEpsilon, key: frame.Key)
+                       from settled in EtoDispatch.Run(body: () => frame.Key.Catch(body: () => {
+                           // ω and ζ project onto the unit-mass CASpringAnimation columns: k = ω², c = 2ζω —
+                           // the kernel shape stays the one spring algebra and the host carries only values.
+                           using CASpringAnimation native = CASpringAnimation.FromKeyPath(path: path);
+                           native.Mass = 1f;
+                           native.Stiffness = (float)(shape.AngularFrequency * shape.AngularFrequency);
+                           native.Damping = (float)(2.0 * shape.DampingRatio * shape.AngularFrequency);
+                           native.From = NSNumber.FromDouble(row.From);
+                           native.To = NSNumber.FromDouble(row.To);
+                           native.Duration = horizon;
+                           return Compose.Fence(
+                               body: () => frame.Target.AddAnimation(animation: native, key: name),
+                               animated: true,
+                               completed: Option<Action>.None,
+                               key: frame.Key);
+                       }), key: frame.Key)
+                       select settled)
                select settled;
     }
+
+    // Settling epsilon for a compositor-run spring: the projection is conservative by kernel law, and the
+    // declared value keeps the duration a policy fact rather than a per-call literal.
+    private const double SettleEpsilon = 0.001;
+
+    private static Fin<string> Named(string raw, Op op) =>
+        guard(!string.IsNullOrWhiteSpace(value: raw), (Error)op.InvalidInput()).ToFin().Map(_ => raw);
 
     public static Fin<Unit> Halt(CALayer layer, string glideKey, Op? key = null) {
         Op op = key.OrDefault();
@@ -1035,11 +1127,14 @@ public static class Effects {
 
 [BoundaryAdapter]
 public static class WideColor {
-    public static Fin<Lease<NSColor>> Project(PerceptualColor colour, Op? key = null) {
+    // Both crossings carry the reproducibility domain because the wide-colour path is exactly where it changes the
+    // answer: a chroma the Display-P3 volume holds and sRGB does not renders differently under a clipping row than
+    // under a chroma-reducing one, and a boundary that fixed either would spend the headroom the profile bought.
+    public static Fin<Lease<NSColor>> Project(PerceptualColor colour, GamutPolicy? gamut = null, Op? key = null) {
         Op op = key.OrDefault();
         return from _ in MacGate.Demand(key: op)
                from admitted in op.Need(colour)
-               from channels in op.Catch(body: () => Fin.Succ(admitted.ToRgb(profile: RgbProfile.DisplayP3)))
+               from channels in op.Catch(body: () => Fin.Succ(admitted.ToRgb(profile: RgbProfile.DisplayP3, gamut: gamut)))
                from _channels in guard(
                    Channel(value: channels.Red) && Channel(value: channels.Green) &&
                    Channel(value: channels.Blue) && Channel(value: channels.Alpha),
@@ -1052,11 +1147,11 @@ public static class WideColor {
                select lease;
     }
 
-    public static Fin<Lease<CGColor>> ToLayer(PerceptualColor colour, Op? key = null) {
+    public static Fin<Lease<CGColor>> ToLayer(PerceptualColor colour, GamutPolicy? gamut = null, Op? key = null) {
         Op op = key.OrDefault();
         return from _ in MacGate.Demand(key: op)
                from admitted in op.Need(colour)
-               from channels in op.Catch(body: () => Fin.Succ(admitted.ToRgb(profile: RgbProfile.DisplayP3)))
+               from channels in op.Catch(body: () => Fin.Succ(admitted.ToRgb(profile: RgbProfile.DisplayP3, gamut: gamut)))
                from _channels in guard(
                    Channel(value: channels.Red) && Channel(value: channels.Green) &&
                    Channel(value: channels.Blue) && Channel(value: channels.Alpha),

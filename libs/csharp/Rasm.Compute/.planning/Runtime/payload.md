@@ -10,14 +10,14 @@ Payload bytes address through the suite `Runtime/codecs#CONTENT_ADDRESSING` `XxH
 
 ## [02]-[RESIDENCY]
 
-- Owner: `ResidencyKind` `[SmartEnum<string>]` the one closed payload axis, each row's `ConeCullable`/`SplatBorne` columns telling the AppUi marshal which cull and shader to pick, so a new encoding is one row, never a per-kind payload type; `ResidencyStream`, `StreamMode`, `StreamFilter` the closed buffer-role, meshopt decode-mode, and attribute-filter axes whose keys ARE the `EXT_meshopt_compression` wire modes the manifest emits; `ResidencySource` `[Union]` the polymorphic encode input (`Leaf` for octree-leaf arms, `Splat` for a companion scan), so one entry discriminates on shape, never an `Encode`/`EncodeSplat` pair; `ResidencyMeshlet` the per-cluster cone-and-sphere descriptor carrying the cluster-LOD chain columns `Level`/`Parent`/`Error`/`ParentError` and the `Shell` connected-component column the parent link searches within; `FaceAdjacency` the shared-vertex-count-tagged triangle-adjacency edge the cut-minimizing build partitions over; `ResidencyPolicy` the encode-posture record; `ResidencyPayload` the content-keyed buffer carrier (blob, per-stream `StreamSpan` layout, clusters, bounding sphere, content key), not a manifest; `ResidencyRuns` the decoded per-vertex attribute-run carrier a host consumer indexes per primitive; `Residency` the static `Encode` fold with the `StreamSegment` `Receipt` projection and the paired `Runs` decode.
+- Owner: `ResidencyKind` `[SmartEnum<string>]` the one closed payload axis, each row's `ConeCullable`/`SplatBorne` columns telling the AppUi marshal which cull and shader to pick, so a new encoding is one row, never a per-kind payload type; `ResidencyStream`, `StreamMode`, `StreamFilter` the closed buffer-role, meshopt decode-mode, and attribute-filter axes whose keys ARE the `EXT_meshopt_compression` wire modes the manifest emits; `ResidencySource` `[Union]` the polymorphic encode input (`Leaf` for octree-leaf arms, `Splat` for a companion scan), so one entry discriminates on shape, never an `Encode`/`EncodeSplat` pair; `ResidencyMeshlet` the per-cluster cone-and-sphere descriptor carrying the cluster-LOD chain columns `Level`/`Parent`/`Error`/`ParentError`, the `Shell` connected-component column the parent link searches within, the `Curvature` normal-variation bound measured off the cluster's own triangles, and the `Cut` realized shared-boundary-vertex count every build row fills; `FaceAdjacency` the shared-vertex-count-tagged triangle-adjacency edge the cut-minimizing build partitions over; `ResidencyPolicy` the encode-posture record; `ResidencyPayload` the content-keyed buffer carrier (blob, per-stream `StreamSpan` layout, clusters, bounding sphere, content key), not a manifest; `ResidencyRuns` the decoded per-vertex attribute-run carrier a host consumer indexes per primitive; `Residency` the static `Encode` fold with the `StreamSegment` `Receipt` projection and the paired `Runs` decode.
 - Cases: `ResidencyKind` rows `meshlet-cluster` (cone-cullable cluster-LOD chain — global vertex stream, `EncodeIndexSequence` meshlet-vertex table, raw local triangle bytes, per-cluster descriptors across the `Meshopt.Simplify` levels `SimplifyTarget` drives) · `quantized-vertex` (exponent-filtered, level-compressed single tile) · `point-splat` (`SimplifyPoints`-decimated, exponent-filtered positions) · `gaussian-splat` (companion-decoded `SplatScan` — positions/scales/harmonics exponent-filter, rotation quaternions quaternion-filter, sigmoid-activated alphas raw).
-- Entry: `public static Fin<ResidencyPayload> Encode(ResidencySource source, ResidencyPolicy policy)` projects a leaf (or companion scan) onto the kind's arm; `public static Fin<ResidencyRuns> Runs(ResidencyPayload payload)` is the ONE host-side attribute decode — meshlet-cluster only, each stream under its own `Layout` row, the `csharp:Rasm.AppUi/Render/meshlets#CLUSTER_CONSUMPTION` and `Render/pathtrace#BSDF_SHADING` `SurfaceAttribution` data source; `public static ComputeReceipt.StreamSegment Receipt(ResidencyPayload payload, CorrelationId correlation, WorkLane lane, Duration elapsed)` projects onto the settled slot; `Fin<T>` aborts onto `ComputeFault.PayloadOverBounds` for an empty meshlet build, an out-of-range quantization budget, an out-of-range simplify target, or a stream a decode rejects, and onto `ComputeFault.ModelRejected` for a leaf routed at a splat-borne kind or a non-cluster payload handed to `Runs`.
-- Auto: `Encode` admits every policy and source extent before dispatching the `ResidencySource` union; the `Leaf` arm reads the kind's row-owned `LeafArm` `[UseDelegateFromConstructor]` column, so the joint source-kind decision has one dispatch level. Meshlet encoding clusters through the `ClusterBuild` row (`cone` = `BuildMeshlets`, `flex` = `BuildMeshletsFlex`, `spatial` = `BuildMeshletsSpatial`, `bisect` = the managed Kernighan-Lin recursion), reads the shell partition once off the union-find forest so every level's parent link stays inside one connected component and the ladder terminates at one meshlet PER SHELL, cache-optimizes the index buffer, and encodes the global vertices and the local-to-global meshlet indices while retaining raw local triangle bytes. Quantized, point, and splat arms filter their admitted attributes, and every stream carries its exact codec version through `StreamSpan.CodecVersion` before the whole blob keys through `InterchangeIdentity.Key`.
-- Receipt: the `Runtime/receipts#RECEIPT_UNION` `StreamSegment(string ArtifactId, int Segments, long Bytes)` slot carries the payload `ArtifactKey`, the cluster count (meshlet) or stream count (other kinds), and the blob length — a re-encode of identical geometry at identical policy stamps the same content key, so emission is auditable through the existing slot, never a new case; the blob dedups on the Persistence blob lane through `ArtifactIndexRow.Admit` and a hit stamps a `Cache` receipt.
+- Entry: `public static Fin<ResidencyPayload> Encode(ResidencySource source, ResidencyPolicy policy)` projects a leaf (or companion scan) onto the kind's arm; `public static Fin<ResidencyRuns> Runs(ResidencyPayload payload)` is the ONE host-side attribute decode — meshlet-cluster only, each stream under its own `Layout` row, the `csharp:Rasm.AppUi/Render/meshlets#CLUSTER_CONSUMPTION` and `Render/pathtrace#BSDF_SHADING` `SurfaceAttribution` data source; `public static ComputeReceipt.StreamSegment Receipt(ResidencyPayload payload, CorrelationId correlation, WorkLane lane, Substrate substrate, Duration elapsed)` projects onto the settled slot under the substrate that actually ran; `Fin<T>` aborts onto `ComputeFault.PayloadOverBounds` for an empty meshlet build, an out-of-range quantization budget, an out-of-range simplify target, or a stream a decode rejects, and onto `ComputeFault.ModelRejected` for a leaf routed at a splat-borne kind or a non-cluster payload handed to `Runs`.
+- Auto: `Encode` admits every policy and source extent before dispatching the `ResidencySource` union; the `Leaf` arm reads the kind's row-owned `LeafArm` `[UseDelegateFromConstructor]` column, so the joint source-kind decision has one dispatch level. Meshlet encoding clusters through the `ClusterBuild` row (`cone` = `BuildMeshlets`, `flex` = `BuildMeshletsFlex`, `spatial` = `BuildMeshletsSpatial`, `bisect` = the managed Kernighan-Lin recursion), reads the shell partition once off the union-find forest so every level's parent link stays inside one connected component and the ladder terminates at one meshlet PER SHELL, measures each cluster's curvature bound and its realized `Cut` at the one `Cluster` projection off the local triangles the bounds kernel already reads and the level's own cluster-incidence census — every build row, every ladder level, which is what makes the greedy native scans and the cut-minimizing bisection comparable on the figure that decides stream cost — cache-optimizes the index buffer, and encodes the global vertices and the local-to-global meshlet indices while retaining raw local triangle bytes. Quantized, point, and splat arms filter their admitted attributes, and every stream carries its exact codec version through `StreamSpan.CodecVersion` before the whole blob keys through `InterchangeIdentity.Key`.
+- Receipt: the `Runtime/receipts#RECEIPT_UNION` `StreamSegment(string ArtifactId, int Segments, long Bytes)` slot carries the payload `ArtifactKey`, the cluster count (meshlet) or stream count (other kinds), and the blob length under the ROUTED substrate the caller threads, and the per-level cut aggregate rides `ResidencyPayload.LevelCuts` beside that cluster count under the same `ArtifactKey` — a re-encode of identical geometry at identical policy stamps the same content key, so emission is auditable through the existing slot, never a new case; the blob dedups on the Persistence blob lane through `ArtifactIndexRow.Admit` and a hit stamps a `Cache` receipt.
 - Packages: Alimer.Bindings.MeshOptimizer, QuikGraph (`ForestDisjointSet<uint>` the shared-vertex shell partition, `KernighanLinAlgorithm` over `UndirectedGraph<int, FaceAdjacency>` the cut-minimizing cluster build), Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm.Element (project — the seam `ImportedGeometry` leaf carrier), Rasm (project — the kernel `EncodedGeometry` arena with `Channel`/`Descriptors`, the `EncodingChannel` lane roster, and `ChannelDtype.Unpack`), BCL inbox
-- Growth: a new encoding is one `ResidencyKind` row carrying its `LeafArm` delegate column; a new meshlet-build strategy is one `ClusterBuild` row whose `Native` column routes it to the pinned native kernel or the managed partition build, never a fork of `BuildClusters`; a new attribute is one `ResidencyStream` row with its filtered-stream line; a new filter or decode mode is one `StreamFilter`/`StreamMode` row on the `StreamSpan`; a new posture is one `ResidencyPolicy` column; a new source modality is one `ResidencySource` case; zero new surface — a `MeshletResidencyEncoder`/`SplatPayloadCodec`/`QuantizedVertexEncoder` sibling collapses onto the one `Encode` fold, and parallel `EncodedVertices`/`EncodedIndices`/`EncodedMeshlets` byte fields collapse onto the one `StreamSpan` layout.
-- Boundary: every attribute read addresses the seam carrier by descriptor through one `Lane` reader, so a per-lane branch, a named column, or a literal component stride is the deleted form and a lane the roster grows reaches the encoder with no edit here. This lane owns the content-keyed payload blob and `StreamSpan`; `csharp:Rasm.AppUi/Render/pipeline#TS_PROJECTION` projects every byte window, codec mode, inverse filter, codec version, cluster, bound, and content key without re-derivation. Host-side attribute reads cross through `Runs` alone — AppUi indexes the decoded runs and grows no second stream decoder. `InterchangeIdentity.Key` covers the whole assembled blob and its byte-changing policy. Process-global index encoding pins through `EncodeIndexVersion`, vertex encoding carries `ResidencyPolicy.CodecVersion`, and raw meshlet triangles carry version `0`. Count-bearing native calls receive explicit semantic counts through pinned pointer kernels. Gaussian splat fitting and SPZ/SOG decoding remain companion-owned; point-cloud file readers remain the distinct `Runtime/codecs#FIELD_RESULT_CODEC` concern.
+- Growth: a new encoding is one `ResidencyKind` row carrying its `LeafArm` delegate column; a new meshlet-build strategy is one `ClusterBuild` row whose `Native` column routes it to the pinned native kernel or the managed partition build, never a fork of `BuildClusters`; a new attribute is one `ResidencyStream` row with its filtered-stream line; a new measured per-cluster evidence column is one `ResidencyMeshlet` column filled at the one `Cluster` projection, so every build row and every ladder level carries it with no per-arm edit — `Curvature` and `Cut` are the two standing instances, and a per-level roll-up is one fold beside `LevelCuts`; a new filter or decode mode is one `StreamFilter`/`StreamMode` row on the `StreamSpan`; a new posture is one `ResidencyPolicy` column; a new source modality is one `ResidencySource` case; zero new surface — a `MeshletResidencyEncoder`/`SplatPayloadCodec`/`QuantizedVertexEncoder` sibling collapses onto the one `Encode` fold, and parallel `EncodedVertices`/`EncodedIndices`/`EncodedMeshlets` byte fields collapse onto the one `StreamSpan` layout.
+- Boundary: every attribute read addresses the seam carrier by descriptor through one `Lane` reader, so a per-lane branch, a named column, or a literal component stride is the deleted form and a lane the roster grows reaches the encoder with no edit here. This lane owns the content-keyed payload blob and `StreamSpan`; `csharp:Rasm.AppUi/Render/pipeline#TS_PROJECTION` projects every byte window, codec mode, inverse filter, codec version, cluster, bound, and content key without re-derivation. Host-side attribute reads cross through `Runs` alone — AppUi indexes the decoded runs and grows no second stream decoder — while per-cluster measured evidence (bounds, cone, shell, error chain, curvature, cut) travels on `ResidencyPayload.Clusters`, so a footprint consumer widens by the producer's `Curvature` column and re-derives no curvature off the decoded runs, and a build-strategy comparison reads the producer's own `Cut` rather than re-counting duplicated vertices from a decoded stream that no longer knows which cluster each came from. `InterchangeIdentity.Key` covers the whole assembled blob and its byte-changing policy. Process-global index encoding pins through `EncodeIndexVersion`, vertex encoding carries `ResidencyPolicy.CodecVersion`, and raw meshlet triangles carry version `0`. Count-bearing native calls receive explicit semantic counts through pinned pointer kernels. Gaussian splat fitting and SPZ/SOG decoding remain companion-owned, and SOG v2 settles that ownership rather than qualifying it: the container is per-plane lossless-WebP images under a `meta.json` codebook indirection, not a packed-block offset model, so it decodes on the companion's own arm and reaches this fold only as the admitted `SplatScan` — `meta.count` seats `SplatCount` and `shN.bands` IS `HarmonicDegree` with no unit conversion, and the DC-head harmonic composition and sigmoid alpha column stand exactly as the SPZ arm left them. The C#-side byte-mirror against that companion holds DECODE-SIDE only: a WebP re-encode is nondeterministic, so a fixture asserting encoded bytes tests the image encoder rather than this contract, and the mirror fixes the decoded `SplatScan` columns alone.
 
 ```csharp signature
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -145,6 +145,13 @@ public sealed record ResidencyPolicy(
 // Shell names the connected-component representative of the cluster's own triangles under the shared-vertex
 // relation, and a parent link searches WITHIN one shell — so a fine cluster never binds a coarse parent from a
 // disjoint piece of geometry whose sphere merely contains it, a cut that then draws two unrelated shells at once.
+// Curvature is the cluster's own MEASURED normal-variation bound in radians per object-space unit — the 1/R a
+// ray-cone footprint doubles into its spread — appended past the frozen columns so every mirror of this
+// descriptor widens by one row rather than re-ordering the four same-typed offset and count slots.
+// Cut is the REALIZED shared-boundary-vertex count: how many of this cluster's own vertices a sibling cluster in
+// the same level also holds, so the stream pays for them twice. It fills for every ClusterBuild row — that IS the
+// point, since the greedy native scans and the cut-minimizing bisection only become comparable on the one figure
+// that decides stream cost, and a build chosen on taste rather than this number is the choice this column ends.
 public readonly record struct ResidencyMeshlet(
     int VertexOffset,
     int TriangleOffset,
@@ -159,7 +166,9 @@ public readonly record struct ResidencyMeshlet(
     int Parent,
     int Shell,
     float Error,
-    float ParentError);
+    float ParentError,
+    float Curvature,
+    int Cut);
 
 // per-stream EXT_meshopt_compression bufferView: byte window, Count/ByteStride, decode Mode (attribute/triangle/
 // index codec, or Raw for un-encoded meshlet triangle bytes), inverse Filter — the set the AppUi manifest emits
@@ -194,6 +203,14 @@ public sealed record ResidencyPayload(
     public string ArtifactKey => $"{ContentKey:x32}:{Kind.Key}";
 
     public long EncodedBytes => Blob.Length;
+
+    // Per-LOD-level cut aggregate, indexed by level: the duplicated-vertex mass one level of the ladder pays,
+    // folded off the clusters that already measured it rather than stored as a column a re-encode could contradict.
+    // A consumer reads it beside the cluster count the `StreamSegment` receipt carries for the same `ArtifactKey`,
+    // so a build-strategy comparison runs on producer evidence with no re-derivation off the decoded runs.
+    public Seq<int> LevelCuts =>
+        toSeq(Clusters.GroupBy(static cluster => cluster.Level).OrderBy(static level => level.Key))
+            .Map(static level => level.Sum(static cluster => cluster.Cut));
 }
 
 // The decoded per-vertex attribute runs a host consumer indexes per primitive — the data source behind the AppUi
@@ -212,13 +229,28 @@ public sealed record ResidencyRuns(
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class Residency {
-    const int PositionStride = 3 * sizeof(float);
-    const int UvStride = 2 * sizeof(float);
+    // Every component count and stride resolves off the channel descriptor's OWN arity: a literal here silently
+    // freezes a lane's width against a roster that grows, which is the per-column read the descriptor law deleted.
+    // These are the page's one spelling of each, so no arm carries a second.
+    static readonly int PositionArity = EncodingChannel.Position.Arity;
+    static readonly int NormalArity = EncodingChannel.Normal.Arity;
+    static readonly int UvArity = EncodingChannel.Uv.Arity;
+    static readonly int PositionStride = PositionArity * sizeof(float);
+    static readonly int UvStride = UvArity * sizeof(float);
     const int OctBits = 8;
     const int IndexCodecVersion = 1;
     // KL refinement passes per bisection: the algorithm seeds an arbitrary halving, so a single pass leaves
     // obvious swaps unmade while the gain sequence flattens well before the part size the budget admits.
     const int BisectionPasses = 4;
+    // The meshopt meshlet ABI ceilings — a local vertex slot is one byte and the triangle budget is a
+    // quarter-aligned span the builders address as a triple. Admission clamps every policy against them AND the
+    // per-cluster curvature scratch sizes off them, so the cap is declared once and no second literal drifts.
+    const int VertexCeiling = 255;
+    const int TriangleCeiling = 512;
+    // A triangle whose twice-area falls under this fraction of its own squared extent carries a normal direction
+    // assembled from coordinate rounding alone; 2^-24 IS the single-precision significand, so the gate is
+    // scale-free and no model tunes it.
+    const float SliverFloor = 1f / (1 << 24);
 
     // EncodeIndexBuffer/EncodeIndexSequence carry NO per-call version arg (unlike EncodeVertexBufferLevel), so the
     // meshlet vertex-table + triangle-index streams follow the process-global EncodeIndexVersion — pinned here at
@@ -237,9 +269,11 @@ public static class Residency {
             leaf: static (p, l) => l.Kind.LeafArm(l.Geometry, p),
             splat: static (p, s) => SplatEncode(s.Scan, p)));
 
-    public static ComputeReceipt.StreamSegment Receipt(ResidencyPayload payload, CorrelationId correlation, WorkLane lane, Duration elapsed) =>
+    // The ROUTED substrate arrives from the caller that ran the encode, never a constant: an encode routed onto a
+    // device stamps the device, so a receipt naming a substrate that never ran cannot be minted here at all.
+    public static ComputeReceipt.StreamSegment Receipt(ResidencyPayload payload, CorrelationId correlation, WorkLane lane, Substrate substrate, Duration elapsed) =>
         new(payload.ArtifactKey, payload.Clusters.IsEmpty ? payload.Layout.Count : payload.Clusters.Count, payload.EncodedBytes) {
-            Scope = new ReceiptScope.Execution(correlation, lane, Substrate.CpuTensor, AllocationClass.PooledMemory, elapsed),
+            Scope = new ReceiptScope.Execution(correlation, lane, substrate, AllocationClass.PooledMemory, elapsed),
         };
 
     // The decode projection PAIRED with the meshlet encode — the one host-side attribute reader, so AppUi never
@@ -290,10 +324,10 @@ public static class Residency {
     // lifts the three component lanes to unit floats — the fourth lane is the filter's reconstruction slot,
     // never data.
     static float[] UnpackSnorm(ReadOnlySpan<uint> packed) {
-        float[] wide = new float[packed.Length * 3];
+        float[] wide = new float[packed.Length * NormalArity];
         ReadOnlySpan<sbyte> lanes = MemoryMarshal.Cast<uint, sbyte>(packed);
         for (int v = 0; v < packed.Length; v++) {
-            (wide[v * 3], wide[(v * 3) + 1], wide[(v * 3) + 2]) =
+            (wide[v * NormalArity], wide[(v * NormalArity) + 1], wide[(v * NormalArity) + 2]) =
                 (lanes[v * 4] / 127f, lanes[(v * 4) + 1] / 127f, lanes[(v * 4) + 2] / 127f);
         }
         return wide;
@@ -301,8 +335,8 @@ public static class Residency {
 
     static Fin<(ResidencySource Source, ResidencyPolicy Policy)> Admit(ResidencySource source, ResidencyPolicy policy) {
         Seq<(bool Invalid, string Fact)> checks = Seq(
-            (policy.MaxVertices is < 3 or > 255, $"max-vertices:{policy.MaxVertices}"),
-            (policy.MaxTriangles is < 4 or > 512 || policy.MaxTriangles % 4 != 0, $"max-triangles:{policy.MaxTriangles}"),
+            (policy.MaxVertices is < 3 or > VertexCeiling, $"max-vertices:{policy.MaxVertices}"),
+            (policy.MaxTriangles is < 4 or > TriangleCeiling || policy.MaxTriangles % 4 != 0, $"max-triangles:{policy.MaxTriangles}"),
             (policy.MinTriangles is < 1 || policy.MinTriangles > policy.MaxTriangles, $"min-triangles:{policy.MinTriangles}"),
             (policy.ConeWeight is < 0f or > 1f, $"cone-weight:{policy.ConeWeight:R}"),
             (policy.SplitFactor < 1f, $"split-factor:{policy.SplitFactor:R}"),
@@ -330,7 +364,7 @@ public static class Residency {
         bool attributes = geometry.VertexCount > 0 && geometry.Lanes.Count == geometry.VertexCount;
         if (!attributes || leaf.Kind == ResidencyKind.PointSplat || leaf.Kind.SplatBorne) { return attributes; }
         if (geometry.Indices.Length < 3 || geometry.Indices.Length % 3 != 0) { return false; }
-        foreach (long index in geometry.Indices.Span) {
+        foreach (long index in geometry.Indices.AsSpan()) {
             if (index < 0 || index >= geometry.VertexCount || index > uint.MaxValue) { return false; }
         }
         return true;
@@ -354,7 +388,7 @@ public static class Residency {
     internal static Fin<ResidencyPayload> MeshletEncode(ImportedGeometry leaf, ResidencyPolicy policy) {
         float[] positions = Lane(leaf.Lanes, EncodingChannel.Position);
         uint[] optimized = new uint[leaf.Indices.Length];
-        Meshopt.OptimizeVertexCache(optimized, ToUInt(leaf.Indices.Span), (nuint)leaf.VertexCount);
+        Meshopt.OptimizeVertexCache(optimized, ToUInt(leaf.Indices.AsSpan()), (nuint)leaf.VertexCount);
         nuint maxMeshlets = Meshopt.BuildMeshletsBound((nuint)optimized.Length, (nuint)policy.MaxVertices, (nuint)policy.MaxTriangles);
         Meshlet[] meshlets = new Meshlet[(int)maxMeshlets];
         uint[] meshletVertices = new uint[(int)maxMeshlets * policy.MaxVertices];
@@ -362,13 +396,16 @@ public static class Residency {
         (Func<uint, int> Of, int Count) shells = Shells(optimized);
         int count = BuildClusters(optimized, positions, leaf.VertexCount, policy, meshlets, meshletVertices, meshletTriangles);
         if (count == 0) { return Fin.Fail<ResidencyPayload>(new ComputeFault.PayloadOverBounds($"<residency-meshlet-empty:{leaf.FormatKey}>")); }
+        // The census runs over the WHOLE level before any cluster projects, because a cut is a relation between
+        // clusters and no single cluster can measure it from its own table.
+        Dictionary<uint, int> incidence = Incidence(meshlets, count, meshletVertices);
         List<ResidencyMeshlet> clusters = new(count);
         for (int m = 0; m < count; m++) {
             ref readonly Meshlet meshlet = ref meshlets[m];
             Span<uint> localVertices = meshletVertices.AsSpan((int)meshlet.vertex_offset, (int)meshlet.vertex_count);
             Span<byte> localTriangles = meshletTriangles.AsSpan((int)meshlet.triangle_offset, (int)meshlet.triangle_count * 3);
             Meshopt.OptimizeMeshlet(localVertices, localTriangles, meshlet.triangle_count, meshlet.vertex_count);
-            clusters.Add(Cluster(meshlet, ClusterBounds(localVertices, localTriangles, (int)meshlet.triangle_count, positions, leaf.VertexCount), level: 0, error: 0f, shell: shells.Of(localVertices[0])));
+            clusters.Add(Cluster(meshlet, localVertices, localTriangles, positions, leaf.VertexCount, level: 0, error: 0f, shell: shells.Of(localVertices[0]), incidence));
         }
         ref readonly Meshlet tail = ref meshlets[count - 1];
         int usedVertices = (int)(tail.vertex_offset + tail.vertex_count);
@@ -419,7 +456,7 @@ public static class Residency {
             Link(all, firstOfLevel, countOfLevel, coarseFirst, coarse);
             firstOfLevel = coarseFirst; countOfLevel = coarse; current = simplified;
         }
-        return (all.ToSeq(), vertices.ToArray(), triangles.ToArray());
+        return (toSeq(all), vertices.ToArray(), triangles.ToArray());
     }
 
     // Each fine cluster binds the nearest-center coarse cluster whose sphere CONTAINS it (d + fineRadius <=
@@ -447,9 +484,10 @@ public static class Residency {
 
     internal static Fin<ResidencyPayload> QuantizedEncode(ImportedGeometry leaf, ResidencyPolicy policy) {
         if (policy.QuantizationBits is < 1 or > 24) { return Fin.Fail<ResidencyPayload>(new ComputeFault.PayloadOverBounds($"<residency-quant-bits:{policy.QuantizationBits}>")); }
+        float[] positions = Lane(leaf.Lanes, EncodingChannel.Position);
         Seq<(ResidencyStream Stream, StreamMode Mode, StreamFilter Filter, int Count, int ByteStride, int CodecVersion, ReadOnlyMemory<byte> Bytes)> streams = Seq(
             (ResidencyStream.Positions, StreamMode.Attributes, StreamFilter.Exponential, leaf.VertexCount, PositionStride, policy.CodecVersion, EncodeExp(positions, leaf.VertexCount, policy)),
-            (ResidencyStream.Indices, StreamMode.Triangles, StreamFilter.None, leaf.Indices.Length, sizeof(uint), IndexCodecVersion, EncodeTriangles(ToUInt(leaf.Indices.Span), leaf.VertexCount)));
+            (ResidencyStream.Indices, StreamMode.Triangles, StreamFilter.None, leaf.Indices.Length, sizeof(uint), IndexCodecVersion, EncodeTriangles(ToUInt(leaf.Indices.AsSpan()), leaf.VertexCount)));
         if (HasNormals(leaf)) { streams = streams.Add((ResidencyStream.Normals, StreamMode.Attributes, StreamFilter.Octahedral, leaf.VertexCount, sizeof(uint), policy.CodecVersion, EncodeNormals(Lane(leaf.Lanes, EncodingChannel.Normal), leaf.VertexCount, policy))); }
         if (HasUvs(leaf)) { streams = streams.Add((ResidencyStream.Uvs, StreamMode.Attributes, StreamFilter.None, leaf.VertexCount, UvStride, policy.CodecVersion, EncodeUvs(Lane(leaf.Lanes, EncodingChannel.Uv), leaf.VertexCount, policy))); }
         return Fin.Succ(Assemble(ResidencyKind.QuantizedVertex, leaf.FormatKey, streams, Seq<ResidencyMeshlet>(), leaf.VertexCount, SphereBounds(positions, leaf.VertexCount), 0, policy));
@@ -457,13 +495,15 @@ public static class Residency {
 
     internal static Fin<ResidencyPayload> PointEncode(ImportedGeometry leaf, ResidencyPolicy policy) {
         if (policy.SimplifyTarget is <= 0 or > 1) { return Fin.Fail<ResidencyPayload>(new ComputeFault.PayloadOverBounds($"<residency-simplify-target:{policy.SimplifyTarget:R}>")); }
+        float[] positions = Lane(leaf.Lanes, EncodingChannel.Position);
         int target = Math.Max(1, (int)(leaf.VertexCount * policy.SimplifyTarget));
         uint[] remap = new uint[target];
         int kept = DecimatePoints(remap, positions, leaf.VertexCount,
             Has(leaf, EncodingChannel.Normal) ? Lane(leaf.Lanes, EncodingChannel.Normal) : [], policy.AttributeWeight, target);
-        float[] gathered = new float[kept * 3];
-        float[] source = positions;
-        for (int v = 0; v < kept; v++) { source.Slice((int)remap[v] * 3, 3).CopyTo(gathered.AsSpan(v * 3)); }
+        // The decimator returns a REMAP over the source vertices, so the gather is a span copy per kept point —
+        // `float[]` carries no slice of its own and the array API would allocate one buffer per point.
+        float[] gathered = new float[kept * PositionArity];
+        for (int v = 0; v < kept; v++) { positions.AsSpan((int)remap[v] * PositionArity, PositionArity).CopyTo(gathered.AsSpan(v * PositionArity)); }
         Seq<(ResidencyStream Stream, StreamMode Mode, StreamFilter Filter, int Count, int ByteStride, int CodecVersion, ReadOnlyMemory<byte> Bytes)> streams = Seq((ResidencyStream.Positions, StreamMode.Attributes, StreamFilter.Exponential, kept, PositionStride, policy.CodecVersion, EncodeExp(gathered, kept, policy)));
         return Fin.Succ(Assemble(ResidencyKind.PointSplat, leaf.FormatKey, streams, Seq<ResidencyMeshlet>(), kept, SphereBounds(gathered, kept), 0, policy));
     }
@@ -503,20 +543,23 @@ public static class Residency {
     }
 
     static ReadOnlyMemory<byte> EncodeVertices(ReadOnlySpan<float> positions, int count, ResidencyPolicy policy) =>
-        EncodeStream(MemoryMarshal.Cast<float, Vector3>(positions[..(count * 3)]), policy.CodecLevel, policy.CodecVersion);
+        EncodeStream(MemoryMarshal.Cast<float, Vector3>(positions[..(count * PositionArity)]), policy.CodecLevel, policy.CodecVersion);
 
     static ReadOnlyMemory<byte> EncodeUvs(ReadOnlySpan<float> uvs, int count, ResidencyPolicy policy) =>
-        EncodeStream(MemoryMarshal.Cast<float, Vector2>(uvs[..(count * 2)]), policy.CodecLevel, policy.CodecVersion);
+        EncodeStream(MemoryMarshal.Cast<float, Vector2>(uvs[..(count * UvArity)]), policy.CodecLevel, policy.CodecVersion);
 
+    // The 3 is `Packed12`'s OWN slot count, not a channel width: the exponent filter's shared-component mode packs
+    // exactly three lanes per element, so every channel this arm serves is a three-component one by construction.
     static ReadOnlyMemory<byte> EncodeExp(ReadOnlySpan<float> floats, int count, ResidencyPolicy policy) {
         Packed12[] packed = new Packed12[count];
         Meshopt.EncodeFilterExp<Packed12>(packed, policy.QuantizationBits, floats[..(count * 3)], EncodeExpMode.EncodeExpSharedComponent);
         return EncodeStream<Packed12>(packed, policy.CodecLevel, policy.CodecVersion);
     }
 
+    // The quad width is the octahedral filter's own element shape — three data lanes plus its reconstruction slot.
     static ReadOnlyMemory<byte> EncodeNormals(ReadOnlySpan<float> normals, int count, ResidencyPolicy policy) {
         float[] quad = new float[count * 4];
-        for (int v = 0; v < count; v++) { normals.Slice(v * 3, 3).CopyTo(quad.AsSpan(v * 4)); }
+        for (int v = 0; v < count; v++) { normals.Slice(v * NormalArity, NormalArity).CopyTo(quad.AsSpan(v * 4)); }
         uint[] packed = new uint[count];
         Meshopt.EncodeFilterOct<uint>(packed, OctBits, quad);
         return EncodeStream<uint>(packed, policy.CodecLevel, policy.CodecVersion);
@@ -560,13 +603,102 @@ public static class Residency {
 
     static bool HasUvs(ImportedGeometry leaf) => Has(leaf, EncodingChannel.Uv);
 
-    static ResidencyMeshlet Cluster(in Meshlet meshlet, Bounds bounds, int level, float error, int shell) {
+    // The ONE per-cluster descriptor projection every build row and every ladder level lands through: the native
+    // bounds kernel and the managed curvature measure read the same local vertex table, local triangle bytes, and
+    // global position stream, so a further measured column is one line here rather than a per-arm fill.
+    static ResidencyMeshlet Cluster(in Meshlet meshlet, ReadOnlySpan<uint> localVertices, ReadOnlySpan<byte> localTriangles,
+        ReadOnlySpan<float> positions, int vertexCount, int level, float error, int shell, Dictionary<uint, int> incidence) {
+        Bounds bounds = ClusterBounds(localVertices, localTriangles, (int)meshlet.triangle_count, positions, vertexCount);
         ReadOnlySpan<float> f = MemoryMarshal.CreateReadOnlySpan(ref Unsafe.As<Bounds, float>(ref bounds), 11);
         return new ResidencyMeshlet(
             (int)meshlet.vertex_offset, (int)meshlet.triangle_offset, (int)meshlet.vertex_count, (int)meshlet.triangle_count,
             new Vector3(f[0], f[1], f[2]), f[3], new Vector3(f[4], f[5], f[6]), new Vector3(f[7], f[8], f[9]), f[10],
-            Level: level, Parent: -1, Shell: shell, Error: error, ParentError: float.PositiveInfinity);
+            Level: level, Parent: -1, Shell: shell, Error: error, ParentError: float.PositiveInfinity,
+            Curvature: Curvature(localVertices, localTriangles, (int)meshlet.triangle_count, positions),
+            Cut: Cut(localVertices, incidence));
     }
+
+    // Cluster-incidence census over ONE level: each build row emits a local-to-global vertex table in which a
+    // global corner appears at most once, so counting corners across the level's clusters counts CLUSTERS, and a
+    // corner seen more than once is a vertex the stream duplicates. The walk reads the per-cluster spans rather
+    // than the raw table because the managed bisection strides its cursor by the policy cap and leaves the slots
+    // between clusters unwritten — a span over the whole table would count that gap as geometry.
+    static Dictionary<uint, int> Incidence(Meshlet[] meshlets, int count, uint[] meshletVertices) {
+        Dictionary<uint, int> seen = new();
+        for (int m = 0; m < count; m++) {
+            ref readonly Meshlet meshlet = ref meshlets[m];
+            foreach (uint global in meshletVertices.AsSpan((int)meshlet.vertex_offset, (int)meshlet.vertex_count)) {
+                seen[global] = seen.TryGetValue(global, out int held) ? held + 1 : 1;
+            }
+        }
+
+        return seen;
+    }
+
+    // This cluster's share of that census: the vertices it holds that a sibling in the same level also holds. A
+    // level of one cluster measures zero by construction, which is the honest floor — nothing is duplicated when
+    // nothing borders.
+    static int Cut(ReadOnlySpan<uint> localVertices, Dictionary<uint, int> incidence) {
+        int shared = 0;
+        foreach (uint global in localVertices) {
+            if (incidence.TryGetValue(global, out int seen) && seen > 1) { shared++; }
+        }
+
+        return shared;
+    }
+
+    // The cluster's own normal-variation BOUND: the largest turn between the face normals of two triangles that
+    // SHARE A VERTEX — this page's one triangle-adjacency relation, the same shared-vertex relation `FaceAdjacency`
+    // weights and `Shells` partitions on — over the distance their centroids span. The quotient is radians per
+    // object-space unit, so a cylinder facet pair reads 1/R and a ray-cone consumer doubles the column into its
+    // spread; `Atan2` against the cross length holds the near-planar precision `Acos` loses exactly where the
+    // measure decides between flat and barely curved. Edge-only adjacency is the rejected relation: a bowtie pair
+    // meeting at one corner turns the surface as hard as any crease and an edge walk publishes it as flat. A
+    // cluster whose triangles share no vertex admits no path from one facet to another, so every path across it is
+    // planar and zero is the MEASURED bound, never an unfilled slot; the same holds level by level, because each
+    // coarser level measures its own simplified triangles rather than inheriting a finer level's turn.
+    static float Curvature(ReadOnlySpan<uint> localVertices, ReadOnlySpan<byte> localTriangles, int triangleCount, ReadOnlySpan<float> positions) {
+        ReadOnlySpan<Vector3> points = MemoryMarshal.Cast<float, Vector3>(positions);
+        Span<Vector3> normals = stackalloc Vector3[TriangleCeiling];
+        Span<Vector3> centroids = stackalloc Vector3[TriangleCeiling];
+        Span<int> incident = stackalloc int[VertexCeiling];
+        Span<int> chain = stackalloc int[TriangleCeiling * 3];
+        incident.Fill(-1);
+        float bound = 0f;
+        for (int t = 0; t < triangleCount; t++) {
+            (Vector3 a, Vector3 b, Vector3 c) = (
+                points[(int)localVertices[localTriangles[t * 3]]],
+                points[(int)localVertices[localTriangles[(t * 3) + 1]]],
+                points[(int)localVertices[localTriangles[(t * 3) + 2]]]);
+            Vector3 cross = Vector3.Cross(b - a, c - a);
+            float extent = (b - a).LengthSquared() + (c - a).LengthSquared();
+            // Vector3.Zero is unspellable as a unit normal, so it IS the sliver sentinel the pair fold skips.
+            normals[t] = cross.LengthSquared() > SliverFloor * SliverFloor * extent * extent ? Vector3.Normalize(cross) : Vector3.Zero;
+            centroids[t] = (a + b + c) / 3f;
+            // Corner-keyed incidence chain: each corner visits the triangles already holding that local slot, then
+            // joins it — one linear walk over the cluster's corners reaches every vertex-adjacent pair, where a
+            // pairwise scan pays the square of the admitted triangle budget and a shared-EDGE map misses a corner.
+            for (int corner = 0; corner < 3; corner++) {
+                int slot = localTriangles[(t * 3) + corner];
+                for (int entry = incident[slot]; entry >= 0; entry = chain[entry]) {
+                    bound = Math.Max(bound, Rate(normals[t], centroids[t], normals[entry / 3], centroids[entry / 3]));
+                }
+
+                chain[(t * 3) + corner] = incident[slot];
+                incident[slot] = (t * 3) + corner;
+            }
+        }
+
+        return bound;
+    }
+
+    // One adjacent pair's turn rate. A pair with no direction on either side, or with no travelled distance
+    // between its centroids, measures no rate and drops to the fold's identity rather than dividing through a
+    // degeneracy — an infinity here would swallow the whole cluster's bound.
+    static float Rate(Vector3 first, Vector3 firstCentroid, Vector3 second, Vector3 secondCentroid) =>
+        Vector3.Distance(firstCentroid, secondCentroid) is var distance && distance > 0f && first != Vector3.Zero && second != Vector3.Zero
+            ? float.Atan2(Vector3.Cross(first, second).Length(), Vector3.Dot(first, second)) / distance
+            : 0f;
 
     // Shared-vertex connectivity over the index buffer through the admitted union-find forest: each triangle
     // unions its three corners, so `FindSet` answers the component representative for any vertex and the cluster's
@@ -609,11 +741,12 @@ public static class Residency {
         int vertexBase = payloadVertices.Count;
         int triangleBase = payloadTriangles.Count;
         int count = BuildClusters(simplified, positions, vertexCount, policy, meshlets, vertices, triangles);
+        Dictionary<uint, int> incidence = Incidence(meshlets, count, vertices);
         for (int m = 0; m < count; m++) {
             ref readonly Meshlet meshlet = ref meshlets[m];
             Span<uint> localVertices = vertices.AsSpan((int)meshlet.vertex_offset, (int)meshlet.vertex_count);
             Span<byte> localTriangles = triangles.AsSpan((int)meshlet.triangle_offset, (int)meshlet.triangle_count * 3);
-            ResidencyMeshlet cluster = Cluster(meshlet, ClusterBounds(localVertices, localTriangles, (int)meshlet.triangle_count, positions, vertexCount), level, objectError, shell(localVertices[0]));
+            ResidencyMeshlet cluster = Cluster(meshlet, localVertices, localTriangles, positions, vertexCount, level, objectError, shell(localVertices[0]), incidence);
             all.Add(cluster with { VertexOffset = vertexBase + cluster.VertexOffset, TriangleOffset = triangleBase + cluster.TriangleOffset });
         }
         if (count > 0) {
@@ -645,7 +778,7 @@ public static class Residency {
     // part is a leaf. `nbIterations` is the KL pass count — a single pass leaves obvious swaps unmade on a part
     // whose initial halves the algorithm chose arbitrarily.
     static Seq<Seq<int>> Bisected(Seq<int> faces, uint[] corners, ResidencyPolicy policy) {
-        if (faces.Count <= policy.MaxTriangles) { return Seq1(faces); }
+        if (faces.Count <= policy.MaxTriangles) { return Seq(faces); }
         UndirectedGraph<int, FaceAdjacency> adjacency = new(allowParallelEdges: false);
         adjacency.AddVertexRange(faces);
         adjacency.AddEdgeRange(Adjacencies(faces, corners));
@@ -667,8 +800,8 @@ public static class Residency {
             .Bind(face => Seq(corners[face * 3], corners[(face * 3) + 1], corners[(face * 3) + 2]).Map(corner => (Corner: corner, Face: face)))
             .GroupBy(static entry => entry.Corner)
             .Bind(static shared => Pairs(toSeq(shared).Map(static entry => entry.Face)))
-            .GroupBy(static pair => pair)
-            .Map(static group => new FaceAdjacency(group.Key.Low, group.Key.High, group.Count())));
+            .GroupBy(static pair => pair))
+            .Map(static group => new FaceAdjacency(group.Key.Low, group.Key.High, group.Count()));
 
     static Seq<(int Low, int High)> Pairs(Seq<int> faces) =>
         faces.Head.Match(
@@ -766,4 +899,4 @@ public static class Residency {
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
 -->
 
-- [SPLAT_COMPANION_WIRE]-[BLOCKED]: the companion decode owner is landed WHOLE for SPZ — `python:geometry/scan/ingestion#SCAN` (`ScanOp.splat` over raw container bytes, the `_container` preamble-and-TOC reader, the channel fold composing the DC triple onto the harmonic head and the sigmoid alpha column, the shape gate re-implementing `SplatShapeValid`'s law at the producing end, content-keyed `ArtifactFrame` bytes on the `ArtifactSync` seam). The remaining question narrows to SOG v2 alone — the companion's `[SOG_V2_LAYOUT]` research row: per-plane image codecs versus this fold's packed-block offset model; the byte-mirror against `SplatScan`/`GaussianSplatScan` verifies once that row resolves.
+(none)

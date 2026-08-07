@@ -154,7 +154,6 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 - `Melanchall.DryWetMidi`
 
 [EXCHANGE_COLLAB]:
-- `ACadSharp` — DWG/DXF drafting WRITE; the Bim mesh-read and Fabrication profile-read legs live at their folders.
 - `DocumentFormat.OpenXml`
 - `lcmsNET`
 - `PDFsharp`
@@ -188,20 +187,21 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 [NUMERIC_SUBSTRATE]:
 - `MathNet.Numerics` — exact order statistics over a materialized sorted sample behind every bench distribution column.
 - `UnitsNet`
+- `CommunityToolkit.HighPerformance` — word-level bit reads and writes inside the cross-filter dimension index.
 
 [GPU_DEVICE]:
 - `Silk.NET.WebGPU` — presented-viewport device this folder mints and every peer plane binds.
 - `Silk.NET.WebGPU.Extensions.WGPU` — per-frame `DevicePoll`, native log routing, multi-draw, and LUID adapter match.
 - `Silk.NET.WebGPU.Native.WGPU` — `wgpu_native` binaries the binding P/Invokes.
 
+[GEOMETRY_INTERCHANGE]:
+- `ACadSharp` — DWG/DXF/SVG drafting-WRITE leg over one authored `CadDocument`; Bim holds the mesh read, Fabrication the profile read.
+
 [GRAPH_ALGORITHM]:
 - `QuikGraph` — proves acyclicity and orders topologically behind every dependency closure this folder admits.
 
-[GEOMETRY_SUBSTRATE]:
+[PLANAR_GEOMETRY]:
 - `NetTopologySuite` — indexes point-in-area location behind spatial cross-filter brushing; the planar algebra stays the geometry rail's.
-
-[MEMORY_SUBSTRATE]:
-- `CommunityToolkit.HighPerformance` — word-level bit reads and writes inside the cross-filter dimension index.
 
 [COLOR_SCIENCE]:
 - `Wacton.Unicolour` — selector vocabulary alone; the kernel `PerceptualColor` owner is the perceptual model every token, ramp, and proof reads.

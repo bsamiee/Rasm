@@ -629,7 +629,11 @@ public abstract partial record SpatialIndex : IValidityEvidence {
     // Derivation: Y and Z centroid extents vanish, so BestSah elects axis 0 by elimination; bucket 2 costs 2.411 against runner-up 4.98 under a
     // surface-area BoundingBox.Area and 2.199 against 4.866 under a volume reading, so the tree survives that ambiguity; StablePartition yields mid = 4.
     // Node 1 packs tail - count = 0 as -((0 << 21) | 4) - 1; node 2 packs tail - count = 4 as -((4 << 21) | 4) - 1; both counts clear PackedCountMax.
-    // Hex stays UNMINTED: each float32 passes Down/Up outward rounding at the Arena.Write seam, which only a host run resolves.
+    // Golden stream, 160 bytes little-endian, Bounds THEN Nodes. Down/Up are BitDecrement/BitIncrement — pure BCL bit
+    // arithmetic over a frozen input — so every float32 resolves at authoring and the scenario ASSERTS this hex:
+    //   bounds 010000800100008001000080010058410100803F0100803F010000800100008001000080010060400100803F0100803FFFFF1F410100008001000080010058410100803F0100803F
+    //   nodes  0200200000000000FBFFFFFFFFFFFFFFFBFF7FFFFFFFFFFF00000000000000000100000000000000020000000000000003000000000000000400000000000000050000000000000006000000000000000700000000000000
+    // The bound words decode Down(0) = 0x80000001, Up(1) = 0x3F800001, Up(3.5) = 0x40600001, Up(13.5) = 0x41580001, Down(10) = 0x411FFFFF.
     // Regenerate when the node-link layout, BuildPolicy.Canonical, or the pinned 8-box input changes.
     internal static Fin<(float[] Bounds, long[] Nodes)> NodeLinkProjection(NodeStore store, Op key) {
         for (int node = 0; node < store.Count; node++)
@@ -812,4 +816,4 @@ public static class Spatial {
 [SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
-- [NODE_LINK_GOLDEN]-[BLOCKED]: what hex does the `[WIRE]` 160-byte stream carry once `Down`/`Up` rounding resolves each `float32`; mint it from a `[RhinoScenario("spatial")]` scenario at `tests/csharp/libs/Rasm/Spatial/Scenarios/` (no `Requires` capability — the path touches `BoundingBox` and `Point3d` alone), `Certify` the hex under `uv run python -m tools.assay bridge verify --evidence author spatial`; blocked because nothing executes the build yet.
+(none)

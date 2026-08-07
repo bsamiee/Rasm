@@ -32,7 +32,7 @@
 
 [PUBLIC_TYPE_SCOPE]: `.Utility` static kernels (single-property, carrier-free)
 
-Each kernel integrates one property directly from an `IProfile` or `IConcreteSection`; the carrier's lazy getters delegate to them, and `.Utility.Parts` (`TrapezoidalPart`, `EllipseQuarterPart`, `IPart`) is the closed-form part algebra the integral folds over.
+Each kernel integrates one property directly from an `IProfile` or `IConcreteSection`; the carrier's lazy getters delegate to them, and `.Utility.Parts` (`TrapezoidalPart`, `EllipseQuarterPart`, `IPart`, and the `ProfileParts` assembler) is the `internal` closed-form part algebra the integral folds over — reachable only through the carrier's own getters.
 
 | [INDEX] | [SYMBOL]            | [TYPE_FAMILY] | [CAPABILITY]              |
 | :-----: | :------------------ | :------------ | :------------------------ |

@@ -138,13 +138,13 @@
 Untyped surfaces trail `(… , IReadOnlyList<ValueKind> parameterKinds, IReadOnlyList<ValueKind> resultKinds)`, and
 `UntypedCallbackDelegate` is `void (Caller, ReadOnlySpan<ValueBox> arguments, Span<ValueBox> results)`.
 
-| [INDEX] | [SURFACE]                                                            | [SHAPE]  | [CAPABILITY]                       |
-| :-----: | :------------------------------------------------------------------- | :------- | :--------------------------------- |
-|  [01]   | `Function.UntypedCallbackDelegate`                                   | delegate | the untyped host-callback shape    |
-|  [02]   | `Linker.DefineFunction(module, name, UntypedCallbackDelegate, …)`    | instance | one untyped import, dynamic arity  |
-|  [03]   | `Linker.DefineFunction<…>(module, name, Action/Func/CallerFunc<…>)`  | instance | typed family, up to 12 parameters  |
-|  [04]   | `Function.FromCallback(Store, UntypedCallbackDelegate, …)`           | factory  | mints a `Function` for `Define`    |
-|  [05]   | `Function.Null`                                                      | property | the null function reference        |
+| [INDEX] | [SURFACE]                                                           | [SHAPE]  | [CAPABILITY]                      |
+| :-----: | :------------------------------------------------------------------ | :------- | :-------------------------------- |
+|  [01]   | `Function.UntypedCallbackDelegate`                                  | delegate | the untyped host-callback shape   |
+|  [02]   | `Linker.DefineFunction(module, name, UntypedCallbackDelegate, …)`   | instance | one untyped import, dynamic arity |
+|  [03]   | `Linker.DefineFunction<…>(module, name, Action/Func/CallerFunc<…>)` | instance | typed family, up to 12 parameters |
+|  [04]   | `Function.FromCallback(Store, UntypedCallbackDelegate, …)`          | factory  | mints a `Function` for `Define`   |
+|  [05]   | `Function.Null`                                                     | property | the null function reference       |
 
 - `DefineFunction` is the seat a capability-scoped import table folds onto: one call per granted descriptor, so the linkage IS the grant set and an ungranted capability is structurally absent rather than refused at runtime.
 - The untyped overload is the row a dynamic grant set needs — parameter and result kinds arrive as data, so a new granted capability adds a row rather than a generic arity.
@@ -152,21 +152,21 @@ Untyped surfaces trail `(… , IReadOnlyList<ValueKind> parameterKinds, IReadOnl
 
 [ENTRYPOINT_SCOPE]: call-frame reads — host callbacks reach guest state through `Caller` only
 
-| [INDEX] | [SURFACE]                                                          | [SHAPE]  | [CAPABILITY]                                |
-| :-----: | :----------------------------------------------------------------- | :------- | :------------------------------------------ |
-|  [01]   | `Caller.Store`                                                     | property | the store owning this frame                 |
-|  [02]   | `Caller.Fuel`                                                      | property | remaining fuel, readable and settable       |
-|  [03]   | `Caller.GetMemory(string name)`                                    | instance | named memory export (`Memory?`)             |
-|  [04]   | `Caller.GetFunction(string name)`                                  | instance | named function export (`Function?`)         |
-|  [05]   | `Caller.TryGetMemorySpan<T>(name, address, length, out Span<T>)`   | instance | one-call bounded window, `T : unmanaged`    |
-|  [06]   | `Caller.GetData()` / `SetData(object?)`                            | instance | store host-data access from the frame       |
-|  [07]   | `Memory.GetSpan(long address, int length)`                         | instance | bounded `Span<byte>` window                 |
-|  [08]   | `Memory.GetSpan<T>(long address, int length)`                      | instance | bounded typed window, `T : unmanaged`       |
-|  [09]   | `Memory.Read<T>(long)` / `Write<T>(long, T)`                       | instance | single unmanaged value at an address        |
-|  [10]   | `Memory.ReadString(address, length, Encoding?)`                    | instance | decoded string over a bounded window        |
-|  [11]   | `Memory.ReadNullTerminatedString(long address)`                    | instance | decoded NUL-terminated guest string         |
-|  [12]   | `Memory.WriteString(address, string, Encoding?)`                   | instance | encodes into guest memory, returns bytes    |
-|  [13]   | `Memory.GetLength()` / `GetSize()` / `PageSize`                    | instance | byte length, page count, `65536` page size  |
+| [INDEX] | [SURFACE]                                                        | [SHAPE]  | [CAPABILITY]                               |
+| :-----: | :--------------------------------------------------------------- | :------- | :----------------------------------------- |
+|  [01]   | `Caller.Store`                                                   | property | the store owning this frame                |
+|  [02]   | `Caller.Fuel`                                                    | property | remaining fuel, readable and settable      |
+|  [03]   | `Caller.GetMemory(string name)`                                  | instance | named memory export (`Memory?`)            |
+|  [04]   | `Caller.GetFunction(string name)`                                | instance | named function export (`Function?`)        |
+|  [05]   | `Caller.TryGetMemorySpan<T>(name, address, length, out Span<T>)` | instance | one-call bounded window, `T : unmanaged`   |
+|  [06]   | `Caller.GetData()` / `SetData(object?)`                          | instance | store host-data access from the frame      |
+|  [07]   | `Memory.GetSpan(long address, int length)`                       | instance | bounded `Span<byte>` window                |
+|  [08]   | `Memory.GetSpan<T>(long address, int length)`                    | instance | bounded typed window, `T : unmanaged`      |
+|  [09]   | `Memory.Read<T>(long)` / `Write<T>(long, T)`                     | instance | single unmanaged value at an address       |
+|  [10]   | `Memory.ReadString(address, length, Encoding?)`                  | instance | decoded string over a bounded window       |
+|  [11]   | `Memory.ReadNullTerminatedString(long address)`                  | instance | decoded NUL-terminated guest string        |
+|  [12]   | `Memory.WriteString(address, string, Encoding?)`                 | instance | encodes into guest memory, returns bytes   |
+|  [13]   | `Memory.GetLength()` / `GetSize()` / `PageSize`                  | instance | byte length, page count, `65536` page size |
 
 - `Caller` is a `readonly ref struct`: it cannot outlive the frame, which is exactly why a `Store` captured in a callback closure is the deleted form — the closure survives the call and the store's context does not.
 - `TryGetMemorySpan<T>` collapses the `GetMemory` + `GetSpan` pair into one bounded, null-safe read and is the preferred form when the export name is known.

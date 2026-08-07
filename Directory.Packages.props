@@ -103,6 +103,10 @@
         <PackageVersion Include="Microsoft.ML.OnnxRuntime.Extensions"                     Version="0.14.0" />
         <PackageVersion Include="Microsoft.ML.OnnxRuntimeGenAI"                           Version="0.15.1" />
         <PackageVersion Include="Microsoft.Z3"                                            Version="4.12.2" />
+        <!-- PureHDF accelerated filters (Blosc2/Bitshuffle/Deflate.ISA-L) publish no osx RID; the managed Lzf/BZip2 pair is the complete filter set here. -->
+        <PackageVersion Include="PureHDF"                                                 Version="2.1.4" />
+        <PackageVersion Include="PureHDF.Filters.BZip2.SharpZipLib"                       Version="2.1.4" />
+        <PackageVersion Include="PureHDF.Filters.Lzf"                                     Version="2.1.4" />
         <PackageVersion Include="TorchSharp"                                              Version="0.107.0" />
     </ItemGroup>
 
@@ -160,6 +164,8 @@
     </ItemGroup>
 
     <ItemGroup Label="Materials">
+        <!-- Magick.NET is the ingest-only breadth tier behind the Materials RasterEngine.Breadth row: decode reach for AVIF/HEIF/JXL/DPX/Cineon; every authored product egresses a managed, EXR, or KTX2 leg. -->
+        <PackageVersion Include="Magick.NET-Q16-HDRI-AnyCPU"                              Version="14.16.0" />
         <!-- ImageSharp held below 4.0: that major adds a build-time license task with no open-source opt-out, so every build fails without a vendor-issued key or `sixlabors.lic`. Its EXR leg is unneeded — TinyEXR.NET owns OpenEXR whole. -->
         <PackageVersion Include="SixLabors.ImageSharp"                                    Version="3.1.12" />
         <!-- TextureCompressor holds at the catalogued surface: a pre-1.0 single-maintainer API behind the Materials KtxGate seam, with the provisioned ktx CLI as the encode floor; a bump re-verifies the seam before it lands. -->

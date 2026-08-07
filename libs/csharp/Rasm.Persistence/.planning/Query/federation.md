@@ -180,7 +180,7 @@ public sealed class FederationPlan {
                         builder.Sql(s.Text);
                         ArrayBufferWriter<byte> identity = new();
                         Frame(identity, s.Text);
-                        s.Tables.OrderBy(static table => (string)table.Table).Iter(table => {
+                        toSeq(s.Tables.OrderBy(static table => (string)table.Table)).Iter(table => {
                             Frame(identity, (string)table.Table);
                             Frame(identity, table.Schema.ToString() ?? "");
                         });

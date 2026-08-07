@@ -11,13 +11,18 @@ Narrow-phase triangle and closest-distance work rides `System.Numerics.Vector3` 
 ## [02]-[CLASH_AND_TWIN]
 
 - Owner: `AccelerationKind` `[SmartEnum<string>]` carries BVH/octree child arity; `AccelerationStructure` carries one decoded `(Bounds, Nodes, BuildParameter)` wire; `ClashKind` classifies hard · clearance · duplicate; `ClashScale` owns admission, traversal, intersection, and clearance; `DigitalTwin` owns residual-window scoring composed over the Stats detector and the `Update` FE-updating fold with its `ModelUpdatePolicy`/`UpdateVerdict` carriers; `TwinLoop` owns typed `SensorEnvelope<TwinSignal>` admission, revisioned atomic held-window scoring, anomaly control through the injected `Runtime/receipts#HOOK_POINTS` veto fold, and edge-consuming recalibration cadence.
-- Cases: `AccelerationKind` bvh · octree; `ClashKind` hard · clearance · duplicate; `ClashPair.Separation` is `0` for a confirmed triangle-surface intersection and positive for clearance because the decoded surface wire carries no volumetric penetration domain.
-- Entry: `AdmittedScene.Of(AccelerationStructure index, ReadOnlyMemory<float> triangles, ClashPolicy policy)` runs the complete `Admit` traversal ONCE and mints the private-ctor scene evidence every query reads — `Fin<T>` aborts on a malformed wire (mis-aligned bounds/triangle buffer, out-of-range child/leaf range, out-of-range leaf primitive id), and a per-query re-validation is the deleted quadratic form; `Detect(scene)` returns the confirmed pairs, `Clearance(scene, Vector3 point)` and `SweptClearance(scene, path)` descend the same tree for the point-to-scene nearest-surface distance and the CAM/motion swept-volume minimum clearance — each path leg also ray-tests the surface, so a crossing between samples reports zero clearance instead of the two positive endpoint distances — and `Occluded(scene, origin, direction, maxDistance)` answers the ray test. Detection is a pure geometry fold, so the `CorrelationId`/`IClock` receipt tail enters only at `Receipt`, never as a dead entry param. Incremental edits are the kernel `SpatialOp.Refit` seam — a moved element re-bounds there and re-projects through `SpatialOp.Wire` unchanged, so a Compute-local `Insert`/`Remove` index rebuild is the rejected double-owner form. `TwinLoop.Of(baseline, detector, policy, suggested, clock)` is the validated mint — an invalid `TwinLoopPolicy` fails before any held state constructs — and `TwinLoop.Ingest(SensorEnvelope<TwinSignal> envelope)` is the typed telemetry entry; a caller enqueues each decoded envelope onto `WorkLane.CaptureIngest`, and the lane dispatch routes admitted signals here. `TwinLoop.ClaimRecalibration()` consumes each scoring-cadence edge once before composition drives `Update` with `Stats/signal` `Transform.Modal` measured modes.
+- Cases: `AccelerationKind` bvh · octree; `ClashKind` hard · clearance · duplicate; `ClashPair` carries a NON-NEGATIVE `Clearance` beside an `Intersecting` discriminant — a confirmed triangle-surface intersection is `Intersecting` at zero clearance and a clearance band is a positive distance, because the decoded surface wire carries no volumetric penetration domain and a signed scalar standing in for both reads a deeper overlap as a wider gap.
+- Entry: `AdmittedScene.Of(AccelerationStructure index, ReadOnlyMemory<float> triangles, ClashPolicy policy)` runs the complete `Admit` traversal ONCE and mints the private-ctor scene evidence every query reads — `Fin<T>` aborts on a malformed wire (mis-aligned bounds/triangle buffer, out-of-range child/leaf range, out-of-range leaf primitive id, a node two parents claim), and a per-query re-validation is the deleted quadratic form; `Detect(scene)` returns the `ClashSurvey` of confirmed pairs beside its candidate count and truncation flag, `Clearance(scene, Vector3 point)` and `SweptClearance(scene, path)` descend the same tree for the point-to-scene nearest-surface distance and the CAM/motion swept-volume minimum clearance — each path leg also ray-tests the surface, so a crossing between samples reports zero clearance AT THE CROSSING POINT rather than at an endpoint the tool merely passed through — and `Occluded(scene, origin, direction, maxDistance)` answers the ray test over the same first-hit descent. Detection is a pure geometry fold, so the `CorrelationId`/`IClock` receipt tail enters only at `Receipt`, never as a dead entry param. Incremental edits are the kernel `SpatialOp.Refit` seam — a moved element re-bounds there and re-projects through `SpatialOp.Wire` unchanged, so a Compute-local `Insert`/`Remove` index rebuild is the rejected double-owner form. `TwinLoop.Of(baseline, detector, policy, suggested, clock)` is the validated mint — an invalid `TwinLoopPolicy` fails before any held state constructs — and `TwinLoop.Ingest(SensorEnvelope<TwinSignal> envelope)` is the typed telemetry entry; a caller enqueues each decoded envelope onto `WorkLane.CaptureIngest`, and the lane dispatch routes admitted signals here. `TwinLoop.ClaimRecalibration()` consumes each scoring-cadence edge once before composition drives `Update` with `Stats/signal` `Transform.Modal` measured modes.
 - Auto: `Detect` walks the contiguous `[FirstChild, FirstChild+ChildCount)` child range as one hierarchical descent — a BVH node and an octree cell traverse identically, so the prior parallel `BvhPairs`/`OctreePairs` bodies collapse to one `NodeLinkPairs` fold and the Morton-cell decode that mis-read the node-link array as a per-element cell map is the deleted form; each overlapping leaf-pair runs the complete two-direction Möller–Trumbore test and the Ericson closest distance and bands by `ClashPolicy`. `DigitalTwin` pushes the `Surrogate` residual onto the bounded `TwinWindow` and reads the injected `Stats/estimator#ESTIMATOR_LANE` detector's last-row score and change flag into a verdict and a control suggestion — one anomaly owner, twin-local control only.
-- Receipt: the `Clash` `ComputeReceipt` case carries the index kind, candidate-pair count, confirmed hard-clash and clearance-violation counts, and total pairs; the `Twin` case carries the signal id, predicted-versus-measured residual, detector anomaly flag, and suggested control delta, so a twin loop is auditable and a machine-control suggestion is receipted before it leaves the boundary.
+- Receipt: the `Clash` `ComputeReceipt` case carries the index kind, candidate-pair count, confirmed hard-clash and clearance-violation counts, and total pairs, projected from the `ClashSurvey` so the counts and the candidate total come from ONE traversal; the survey's truncation flag rides the carrier beside them, the same way the optimizer's exact evidence rides its own result rather than claiming a slot the receipt owner does not declare. The `Twin` case carries the signal id, predicted-versus-measured residual, detector anomaly flag, and suggested control delta, so a twin loop is auditable and a machine-control suggestion is receipted before it leaves the boundary.
 - Packages: System.Numerics (`Vector3`), System.Runtime.InteropServices (`MemoryMarshal`), CommunityToolkit.HighPerformance (`ArrayPoolBufferWriter`), System.Numerics.Tensors (`TensorPrimitives.Dot`/`SumOfSquares` in the MAC), MathNet.Numerics (`Vector<double>`/`Matrix<double>` the LM contract carries), Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm (project, kernel signal capsule), BCL inbox.
-- Growth: a new clash kind is one `ClashKind` row; a new twin scoring channel is one field on `TwinSignal`/`TwinVerdict`; a new updating residual term (mode-shape components, static deflections) is one weighted row pair on the `Update` stacked residual with its `ModelUpdatePolicy` weight column; a new broad-phase kernel that still emits the node-link wire reuses `NodeLinkPairs` untouched; zero new surface — a `BvhTree`/`OctreeIndex`/`SdfField` sibling family collapses onto the one decoded `AccelerationStructure` wire and the one `NodeLinkPairs` traversal, and a standalone `ModelUpdater` service collapses onto `DigitalTwin.Update`.
-- Boundary: `AccelerationStructure` is the decoded read-only node-link wire, and `AccelerationKind` validates only the builder-specific child arity. `Admit` verifies finite ordered boxes, finite nondegenerate triangles, leaf primitive ranges, child ranges, root reachability, and acyclicity before traversal. `NodeLinkPairs` canonicalizes and deduplicates node pairs; equal internal nodes expand upper-triangular child pairs. `Separation` reports surface intersection as `0` and clearance as positive; volumetric penetration depth requires a solid-domain carrier absent from this wire. `AccelerationStructure` carries the C#-only clash branch golden `tests/csharp/README.md` `[09]-[SNAPSHOTS]` registers, its bytes frozen at the `Rasm/Spatial/index#SPATIAL_INDEX` producer — this decoder asserts the `Decode` and leaf-tail round-trip over that producer's pinned descriptors and never re-freezes a second vector; clash pairs stay OUT of golden scope, since `NodeLinkPairs` classifies triangles under a `ClashPolicy` and the golden pins neither a triangle wire nor a policy row. `DigitalTwin.Score` faults malformed signals, windows, policies, surrogate outputs, and non-Anomaly detector carriers; changepoint state, thresholds, and anomaly classification live on the injected Stats detector, and corrective control opposes the raw residual only on a flagged change. `TwinLoop.Ingest` snapshots state, runs detector scoring outside the atom, and commits only against the sampled revision; a competing commit spends one policy-owned rescore attempt, exhaustion returns typed contention, and the control callback runs only after the winning commit, so no foreign callback executes under state custody. `Update` composes the settled ends — measured modes from `Stats/signal` `Transform.Modal`, computed modes from the caller's modal oracle over `Solver/contract` `SolveLane`, the fit from `Tensor/blas` `LevenbergMarquardt.Minimize` — pairing one-to-one greedy by complex MAC (magnitude AND phase) under the MAC floor so a spurious FDD peak never calibrates a parameter and no computed mode pairs twice; the modal oracle crosses the full FE solve, outside hyper-dual reach, so the central-difference Jacobian authored here is the black-box arm's legitimate ingress, and the updated verdict rides the existing `ComputeReceipt.Fit` case (`Family` `model-update`, `Quality` the paired-MAC mean), never a new receipt surface.
+- Growth: a new clash kind is one `ClashKind` row; a new twin scoring channel is one field on `TwinSignal`/`TwinVerdict`; a new updating residual term (mode-shape components, static deflections) is one weighted row pair on the `Update` stacked residual with its `ModelUpdatePolicy` weight column; a new narrow-phase band edge or coplanarity threshold is one `ClashPolicy` column; a new broad-phase kernel that still emits the node-link wire reuses `NodeLinkPairs` untouched; zero new surface — a `BvhTree`/`OctreeIndex`/`SdfField` sibling family collapses onto the one decoded `AccelerationStructure` wire and the one `NodeLinkPairs` traversal, and a standalone `ModelUpdater` service collapses onto `DigitalTwin.Update`.
+- Boundary: `AccelerationStructure` is the decoded read-only node-link wire, and `AccelerationKind` validates only the builder-specific child arity. `Admit` verifies finite ordered boxes, finite nondegenerate triangles, leaf primitive ranges, child ranges, root reachability, acyclicity, and SINGLE PARENTAGE before traversal — the last proves the wire is a tree, which is exactly what makes each unordered node pair reachable by one descent path and lets `NodeLinkPairs` drop the visited set it otherwise pays per query; an acyclic wire whose child ranges overlap is a DAG that would re-expand a shared subtree, so admission refuses it by name rather than a traversal absorbing it silently.
+- Boundary: `NodeLinkPairs` canonicalizes node pairs and expands equal internal nodes upper-triangular; the pair sink stops at `ClashPolicy.MaxPairs` and the survey publishes the truncation, because an unbounded sink over a degenerate scene is the memory failure a clash run must degrade around rather than die on. `Clearance` is non-negative and `Intersecting` is its own column; volumetric penetration depth requires a solid-domain carrier absent from this wire.
+- Boundary: `RayFirstHit` and `NearestTriangle` run per path sample and per query point, so their descent stacks are process-static `[ThreadStatic]` scratch grown once per thread and the slab test indexes the `Vector3` components directly — a per-call `Stack<int>` and a per-axis span rebuild are the allocation the hot loop exists without. One ray descent serves both the occlusion predicate and the sweep witness, so a bool-returning twin walking the same tree for less evidence has nowhere to reappear.
+- Boundary: `AccelerationStructure` carries the C#-only clash branch golden `tests/csharp/README.md` `[09]-[SNAPSHOTS]` registers, its bytes frozen at the `Rasm/Spatial/index#SPATIAL_INDEX` producer — this decoder asserts the `Decode` and leaf-tail round-trip over that producer's pinned descriptors and never re-freezes a second vector; clash pairs stay OUT of golden scope, since `NodeLinkPairs` classifies triangles under a `ClashPolicy` and the golden pins neither a triangle wire nor a policy row.
+- Boundary: `DigitalTwin.Score` faults malformed signals, windows, policies, surrogate outputs, and non-Anomaly detector carriers; changepoint state, thresholds, and anomaly classification live on the injected Stats detector, and corrective control opposes the raw residual only on a flagged change. `TwinLoop.Ingest` snapshots state, runs detector scoring outside the atom, and commits only against the sampled revision; a competing commit spends one policy-owned rescore attempt, exhaustion returns typed contention, and the control callback runs only after the winning commit, so no foreign callback executes under state custody. Recalibration cadence is an EDGE over the scored counter (`Scored − Recalibrated >= RecalibrateEvery`), never a modulo against it — a modulo silently skips every boundary a burst of ingests jumps over and fires twice where a claim and a commit interleave on the same count.
+- Boundary: `Update` composes the settled ends — measured modes from `Stats/signal` `Transform.Modal`, computed modes from the caller's modal oracle over `Solver/contract` `SolveLane`, the fit from `Tensor/blas` `LevenbergMarquardt.Minimize` — pairing one-to-one greedy by complex MAC (magnitude AND phase) under the MAC floor so a spurious FDD peak never calibrates a parameter and no computed mode pairs twice; pairs join on INDEX at every consumer, because a float frequency is a lookup key only until two modes agree to the last bit. The modal oracle crosses the full FE solve, outside hyper-dual reach, so the central-difference Jacobian authored here is the black-box arm's legitimate ingress; the oracle call budget is a `ModelUpdatePolicy` column and its exhaustion returns the PARTIAL verdict marked unconverged rather than an open-ended descent over a solve that costs minutes per probe. The updated verdict rides the existing `ComputeReceipt.Fit` case (`Family` `model-update`, `Quality` the paired-MAC mean), never a new receipt surface.
 
 ```csharp signature
 // --- [TYPES] -----------------------------------------------------------------------------------------------
@@ -46,11 +51,27 @@ public sealed partial class ClashKind {
 
 public sealed record AccelerationStructure(AccelerationKind Kind, ReadOnlyMemory<float> Bounds, ReadOnlyMemory<long> Nodes, int BuildParameter);
 
-public sealed record ClashPolicy(double ClearanceThreshold, double DuplicateTolerance, bool HardOnly) {
-    public static readonly ClashPolicy Canonical = new(ClearanceThreshold: 0.025, DuplicateTolerance: 1e-4, HardOnly: false);
+// Every narrow-phase threshold is a COLUMN: the clearance band, the duplicate tolerance, the coplanarity cosine a
+// duplicate pair must clear, and the pair ceiling a degenerate scene stops at. A literal inside the classifier is a
+// policy no caller can retune and no receipt can report.
+public sealed record ClashPolicy(double ClearanceThreshold, double DuplicateTolerance, double CoplanarCosine, bool HardOnly, int MaxPairs) {
+    public static readonly ClashPolicy Canonical = new(ClearanceThreshold: 0.025, DuplicateTolerance: 1e-4, CoplanarCosine: 0.999, HardOnly: false, MaxPairs: 1 << 20);
+
+    public bool Invalid =>
+        !double.IsFinite(ClearanceThreshold) || ClearanceThreshold < 0.0
+        || !double.IsFinite(DuplicateTolerance) || DuplicateTolerance < 0.0 || DuplicateTolerance > ClearanceThreshold
+        || !double.IsFinite(CoplanarCosine) || CoplanarCosine is <= 0.0 or > 1.0
+        || MaxPairs < 1;
 }
 
-public readonly record struct ClashPair(long Left, long Right, ClashKind Kind, double Separation, Vector3 Witness);
+// `Clearance` is the NON-NEGATIVE surface gap and `Intersecting` its own discriminant, so a confirmed overlap and a
+// zero-gap touch stay distinguishable and no consumer reads a negative distance as a penetration depth this wire
+// cannot measure.
+public readonly record struct ClashPair(long Left, long Right, ClashKind Kind, double Clearance, bool Intersecting, Vector3 Witness);
+
+// One traversal answers the pairs, what it examined, and whether the ceiling cut it short — so the receipt reads
+// three facts off one fold instead of a caller re-counting candidates it never saw.
+public readonly record struct ClashSurvey(Seq<ClashPair> Pairs, int Candidates, bool Truncated);
 
 public sealed record TwinSignal(string SignalId, ImmutableArray<double> OperatingPoint, double Measured, Instant At) {
     public bool Invalid => string.IsNullOrWhiteSpace(SignalId) || OperatingPoint.IsDefaultOrEmpty || !OperatingPoint.All(double.IsFinite) || !double.IsFinite(Measured);
@@ -77,16 +98,26 @@ public sealed record TwinWindow(Seq<double> Residuals, int Capacity) {
 
 public sealed record TwinVerdict(string SignalId, double Predicted, double Measured, double Residual, double Score, bool Anomaly, double ControlDelta, Instant At);
 
-// FE-updating policy: parameter box, measured-vs-computed weighting, and the MAC floor below which a measured
-// mode refuses to pair — an unpaired mode is a residual fact, never a silently dropped row.
-public sealed record ModelUpdatePolicy(ImmutableArray<(double Lower, double Upper)> Bounds, double FrequencyWeight, double MacWeight, double MacFloor, LmPolicy Descent) {
-    public static readonly ModelUpdatePolicy Canonical = new([], FrequencyWeight: 1.0, MacWeight: 0.5, MacFloor: 0.6, LmPolicy.Canonical);
+// FE-updating policy: parameter box, measured-vs-computed weighting, the MAC floor below which a measured mode
+// refuses to pair — an unpaired mode is a residual fact, never a silently dropped row — and the oracle call budget.
+// Each modal probe crosses a full FE solve, so the budget is the difference between a bounded calibration and a
+// descent that spends an afternoon; exhaustion returns the partial verdict rather than a fault with no parameters.
+public sealed record ModelUpdatePolicy(ImmutableArray<(double Lower, double Upper)> Bounds, double FrequencyWeight, double MacWeight, double MacFloor, int MaxOracleCalls, LmPolicy Descent) {
+    public static readonly ModelUpdatePolicy Canonical = new([], FrequencyWeight: 1.0, MacWeight: 0.5, MacFloor: 0.6, MaxOracleCalls: 512, LmPolicy.Canonical);
 
     public bool Invalid => !double.IsFinite(FrequencyWeight) || FrequencyWeight <= 0.0 || !double.IsFinite(MacWeight) || MacWeight < 0.0
-        || !double.IsFinite(MacFloor) || MacFloor is < 0.0 or > 1.0 || Bounds.Any(static b => !double.IsFinite(b.Lower) || !double.IsFinite(b.Upper) || b.Lower >= b.Upper);
+        || !double.IsFinite(MacFloor) || MacFloor is < 0.0 or > 1.0 || MaxOracleCalls < 1
+        || Bounds.Any(static b => !double.IsFinite(b.Lower) || !double.IsFinite(b.Upper) || b.Lower >= b.Upper);
 }
 
-public sealed record UpdateVerdict(ImmutableArray<double> Parameters, double Residual, int Iterations, bool Converged, Seq<(double MeasuredHz, double ComputedHz, double Mac)> Pairs, Seq<double> Unpaired, Instant At);
+// Pairs join on INDEX everywhere the fold consumes them and carry their frequencies as EVIDENCE the verdict retains:
+// the computed mode set is transient, so a reader needs both frequencies here, while every join upstream keys the
+// index — a float frequency is a stable key only until two modes agree to the last bit.
+public readonly record struct ModePair(int MeasuredIndex, int ComputedIndex, double MeasuredHz, double ComputedHz, double Mac);
+
+// `Exhausted` marks the PARTIAL verdict a spent oracle budget returns: the parameters are the last projected iterate
+// and `Converged` is false, so a reader tells a converged fit from a truncated one without re-deriving the call count.
+public sealed record UpdateVerdict(ImmutableArray<double> Parameters, double Residual, int Iterations, bool Converged, bool Exhausted, int OracleCalls, Seq<ModePair> Pairs, Seq<double> Unpaired, Instant At);
 
 // --- [OPERATIONS] ------------------------------------------------------------------------------------------
 
@@ -107,7 +138,7 @@ public sealed class AdmittedScene {
 }
 
 public static class ClashScale {
-    public static Seq<ClashPair> Detect(AdmittedScene scene) =>
+    public static ClashSurvey Detect(AdmittedScene scene) =>
         NodeLinkPairs(scene.Index.Bounds, scene.Index.Nodes, scene.Triangles, scene.Policy);
 
     public static Fin<double> Clearance(AdmittedScene scene, Vector3 point) =>
@@ -134,7 +165,11 @@ public static class ClashScale {
             // Crossings between samples carry a zero-clearance fact the vertex distances miss: two positive endpoints straddling a wall
             Vector3 leg = samples[i + 1] - samples[i];
             float span = leg.Length();
-            if (span > 1e-9f && RayHit(bounds, nodes, verts, samples[i], leg / span, span)) { return (0.0, samples[i]); }
+            if (span <= 1e-9f) { continue; }
+            // The WITNESS is the crossing itself, not the sample that preceded it: a tool centre that clears at both
+            // endpoints and buries mid-leg is reported where it buried, so an operator reads the offending station.
+            Option<Vector3> crossing = RayFirstHit(bounds, nodes, verts, samples[i], leg / span, span);
+            if (crossing.Case is Vector3 hit) { return (0.0, hit); }
         }
         return (best, at);
     }
@@ -142,40 +177,52 @@ public static class ClashScale {
     public static Fin<bool> Occluded(AdmittedScene scene, Vector3 origin, Vector3 direction, float maxDistance) =>
         !Finite(origin) || !Finite(direction) || !float.IsFinite(maxDistance) || maxDistance <= 0f || direction.LengthSquared() < 1e-24f
             ? Fin.Fail<bool>(new ComputeFault.ModelRejected($"<clash-ray-degenerate:{direction.LengthSquared()}>"))
-            : Fin.Succ(RayHit(scene.Index.Bounds.Span, scene.Index.Nodes.Span, MemoryMarshal.Cast<float, Vector3>(scene.Triangles.Span), origin, Vector3.Normalize(direction), maxDistance));
+            : Fin.Succ(RayFirstHit(scene.Index.Bounds.Span, scene.Index.Nodes.Span, MemoryMarshal.Cast<float, Vector3>(scene.Triangles.Span), origin, Vector3.Normalize(direction), maxDistance).IsSome);
 
-    static bool RayHit(ReadOnlySpan<float> bounds, ReadOnlySpan<long> nodes, ReadOnlySpan<Vector3> verts, Vector3 origin, Vector3 direction, float maxDistance) {
-        int nodeCount = bounds.Length / 6;
+    // ONE ray descent answers both the occlusion predicate and the swept-clearance witness: the hit POSITION is what
+    // the sweep needs, and a bool-returning twin beside it would walk the same tree for strictly less evidence.
+    static Option<Vector3> RayFirstHit(ReadOnlySpan<float> bounds, ReadOnlySpan<long> nodes, ReadOnlySpan<Vector3> verts, Vector3 origin, Vector3 direction, float maxDistance) {
+        int nodeCount = bounds.Length / 6, top = 0;
         Vector3 far = origin + direction * maxDistance;
-        Stack<int> stack = new();
-        stack.Push(0);
-        while (stack.Count > 0) {
-            int node = stack.Pop();
+        int[] stack = Descent(nodeCount);
+        stack[top++] = 0;
+        while (top > 0) {
+            int node = stack[--top];
             if (!RaySlab(bounds.Slice(node * 6, 6), origin, direction, maxDistance)) { continue; }
             (bool leaf, int first, int count) = Decode(nodes[node]);
             if (leaf) {
                 for (int s = 0; s < count; s++) {
                     int tri = (int)nodes[nodeCount + first + s];
-                    if (SegmentTriangle(origin, far, verts[3 * tri], verts[3 * tri + 1], verts[3 * tri + 2]).IsSome) { return true; }
+                    Option<Vector3> hit = SegmentTriangle(origin, far, verts[3 * tri], verts[3 * tri + 1], verts[3 * tri + 2]);
+                    if (hit.IsSome) { return hit; }
                 }
             } else {
-                for (int c = 0; c < count; c++) { stack.Push(first + c); }
+                for (int c = 0; c < count; c++) { stack[top++] = first + c; }
             }
         }
-        return false;
+        return Option<Vector3>.None;
     }
 
+    // Descent scratch: the ray and nearest-point queries run per path sample and per probe point, so the stack is
+    // per-thread process-static and grows to the tree's node count once. An admitted wire is a TREE, so a descent
+    // never holds more frames than it has nodes and the buffer needs no per-push bound check.
+    [ThreadStatic] private static int[]? descent;
+
+    static int[] Descent(int nodeCount) =>
+        descent is { } held && held.Length >= nodeCount ? held : descent = new int[Math.Max(64, nodeCount)];
+
+    // Component reads index the vectors directly — a per-call `Span<float>` rebuild of the origin and direction was
+    // three stores and a bounds check per axis on the hottest loop in the page.
     static bool RaySlab(ReadOnlySpan<float> box, Vector3 origin, Vector3 direction, float maxDistance) {
-        Span<float> o = [origin.X, origin.Y, origin.Z];
-        Span<float> d = [direction.X, direction.Y, direction.Z];
         float tNear = 0f, tFar = maxDistance;
         for (int axis = 0; axis < 3; axis++) {
-            if (MathF.Abs(d[axis]) < 1e-12f) {
-                if (o[axis] < box[axis] || o[axis] > box[3 + axis]) { return false; }
+            float o = Component(origin, axis), d = Component(direction, axis);
+            if (MathF.Abs(d) < 1e-12f) {
+                if (o < box[axis] || o > box[3 + axis]) { return false; }
                 continue;
             }
-            float inv = 1f / d[axis];
-            float t1 = (box[axis] - o[axis]) * inv, t2 = (box[3 + axis] - o[axis]) * inv;
+            float inv = 1f / d;
+            float t1 = (box[axis] - o) * inv, t2 = (box[3 + axis] - o) * inv;
             if (t1 > t2) { (t1, t2) = (t2, t1); }
             tNear = MathF.Max(tNear, t1);
             tFar = MathF.Min(tFar, t2);
@@ -184,8 +231,13 @@ public static class ClashScale {
         return true;
     }
 
-    public static ComputeReceipt.Clash Receipt(AccelerationStructure index, Seq<ClashPair> pairs, int candidates, CorrelationId correlation, Duration elapsed) =>
-        new(index.Kind.Key, candidates, pairs.Count(static pair => pair.Kind == ClashKind.Hard), pairs.Count(static pair => pair.Kind == ClashKind.Clearance), pairs.Count) {
+    static float Component(Vector3 value, int axis) => axis switch { 0 => value.X, 1 => value.Y, _ => value.Z };
+
+    public static ComputeReceipt.Clash Receipt(AccelerationStructure index, ClashSurvey survey, CorrelationId correlation, Duration elapsed) =>
+        new(index.Kind.Key, survey.Candidates,
+            survey.Pairs.Count(static pair => pair.Kind == ClashKind.Hard),
+            survey.Pairs.Count(static pair => pair.Kind == ClashKind.Clearance),
+            survey.Pairs.Count) {
             Scope = new ReceiptScope.Execution(correlation, WorkLane.Interactive, Substrate.CpuTensor, AllocationClass.PooledMemory, elapsed),
         };
 
@@ -195,7 +247,7 @@ public static class ClashScale {
     internal static Fin<Unit> Admit(AccelerationStructure index, ReadOnlyMemory<float> triangles, ClashPolicy policy) {
         ReadOnlyMemory<float> boundsMem = index.Bounds;
         ReadOnlyMemory<long> nodesMem = index.Nodes;
-        if (!double.IsFinite(policy.ClearanceThreshold) || policy.ClearanceThreshold < 0.0 || !double.IsFinite(policy.DuplicateTolerance) || policy.DuplicateTolerance < 0.0 || policy.DuplicateTolerance > policy.ClearanceThreshold)
+        if (policy.Invalid)
             return Fin.Fail<Unit>(ComputeFault.Create("<clash-policy-invalid>"));
         if (index.BuildParameter <= 0)
             return Fin.Fail<Unit>(ComputeFault.Create("<clash-build-parameter-invalid>"));
@@ -219,11 +271,21 @@ public static class ClashScale {
             if (!Finite(a) || !Finite(b) || !Finite(c) || Vector3.Cross(b - a, c - a).LengthSquared() <= 1e-24f)
                 return Fin.Fail<Unit>(ComputeFault.Create($"<clash-triangle-invalid:{triangle}>"));
         }
+        // SINGLE PARENTAGE is what makes the wire a TREE rather than merely an acyclic graph, and the tree is what
+        // makes each unordered node pair reachable by exactly ONE descent path — so `NodeLinkPairs` needs no visited
+        // set and a shared subtree can never re-expand its pairs. Proving it here costs one pass; absorbing it in the
+        // traversal costs a hash set per query.
+        byte[] claimed = new byte[nodeCount];
         for (int node = 0; node < nodeCount; node++) {
             (bool leaf, int first, int count) = Decode(nodes[node]);
             if (!leaf) {
                 if (count < index.Kind.MinimumChildren || count > index.Kind.MaximumChildren || first < 0 || first + count > nodeCount || (first <= node && node < first + count))
                     return Fin.Fail<Unit>(new ComputeFault.ModelRejected($"<clash-child-range-oob:{first}+{count}/{nodeCount}>"));
+                for (int child = 0; child < count; child++) {
+                    if (first + child == 0 || claimed[first + child] != 0)
+                        return Fin.Fail<Unit>(new ComputeFault.ModelRejected($"<clash-node-multiply-claimed:{first + child}>"));
+                    claimed[first + child] = 1;
+                }
                 continue;
             }
             if (count <= 0 || first < 0 || nodeCount + first + count > nodes.Length)
@@ -259,33 +321,40 @@ public static class ClashScale {
 
     static bool Finite(Vector3 value) => float.IsFinite(value.X) && float.IsFinite(value.Y) && float.IsFinite(value.Z);
 
-    static Seq<ClashPair> NodeLinkPairs(ReadOnlyMemory<float> boundsMem, ReadOnlyMemory<long> nodesMem, ReadOnlyMemory<float> trianglesMem, ClashPolicy policy) {
+    // No visited set: `Admit` proves single parentage, so every unordered node pair is generated by exactly one
+    // descent path and the deduplicating hash the traversal used to carry was insurance against a wire admission
+    // now refuses outright. `Candidates` counts the triangle pairs the narrow phase actually classified, so the
+    // receipt's candidate slot is measured rather than estimated from the leaf arity.
+    static ClashSurvey NodeLinkPairs(ReadOnlyMemory<float> boundsMem, ReadOnlyMemory<long> nodesMem, ReadOnlyMemory<float> trianglesMem, ClashPolicy policy) {
         ReadOnlySpan<float> bounds = boundsMem.Span;
         ReadOnlySpan<long> nodes = nodesMem.Span;
         ReadOnlySpan<Vector3> verts = MemoryMarshal.Cast<float, Vector3>(trianglesMem.Span);
-        int nodeCount = bounds.Length / 6;
+        int nodeCount = bounds.Length / 6, candidates = 0, written = 0;
+        bool truncated = false;
         using ArrayPoolBufferWriter<ClashPair> sink = new();
         Stack<(int L, int R)> stack = new();
-        HashSet<(int L, int R)> visited = [];
         stack.Push((0, 0));
-        while (stack.Count > 0) {
+        while (stack.Count > 0 && !truncated) {
             (int l, int r) = stack.Pop();
             if (l > r) { (l, r) = (r, l); }
-            if (!visited.Add((l, r))) { continue; }
             if (!BoxOverlap(bounds.Slice(l * 6, 6), bounds.Slice(r * 6, 6), policy.ClearanceThreshold)) { continue; }
             (bool lLeaf, int lFirst, int lCount) = Decode(nodes[l]);
             (bool rLeaf, int rFirst, int rCount) = Decode(nodes[r]);
             if (lLeaf && rLeaf) {
-                for (int a = 0; a < lCount; a++) {
+                for (int a = 0; a < lCount && !truncated; a++) {
                     int left = (int)nodes[nodeCount + lFirst + a];
                     (Vector3, Vector3, Vector3) triLeft = (verts[3 * left], verts[3 * left + 1], verts[3 * left + 2]);
                     for (int b = 0; b < rCount; b++) {
                         int right = (int)nodes[nodeCount + rFirst + b];
                         if (l == r && right <= left) { continue; }
+                        candidates++;
                         (Vector3, Vector3, Vector3) triRight = (verts[3 * right], verts[3 * right + 1], verts[3 * right + 2]);
                         if (Classify(left, right, triLeft, triRight, policy) is { IsSome: true, Case: ClashPair pair }) {
                             sink.GetSpan(1)[0] = pair;
                             sink.Advance(1);
+                            // The ceiling stops the SINK, never the classification already paid for: a degenerate
+                            // scene degrades to a bounded, flagged answer instead of exhausting the pool.
+                            if (++written >= policy.MaxPairs) { truncated = true; break; }
                         }
                     }
                 }
@@ -299,28 +368,31 @@ public static class ClashScale {
                 for (int c = 0; c < rCount; c++) { stack.Push((l, rFirst + c)); }
             }
         }
-        return toSeq(sink.WrittenSpan.ToArray());
+        return new ClashSurvey(toSeq(sink.WrittenSpan.ToArray()), candidates, truncated);
     }
 
+    // Intersection is the DISCRIMINANT, clearance the magnitude: a confirmed overlap bands hard at zero clearance, a
+    // coplanar touching pair inside the duplicate tolerance bands duplicate, and a positive gap inside the clearance
+    // threshold bands clearance. Reading a single signed scalar for both collapsed "deeper overlap" onto "wider gap".
     static Option<ClashPair> Classify(long left, long right, (Vector3 A, Vector3 B, Vector3 C) a, (Vector3 A, Vector3 B, Vector3 C) b, ClashPolicy policy) {
-        (double signed, Vector3 witness) = Separation(a, b);
-        return !policy.HardOnly && signed <= policy.DuplicateTolerance && Coincident(a, b, policy.DuplicateTolerance)
-            ? Some(new ClashPair(left, right, ClashKind.Duplicate, signed, witness))
-            : signed <= 0.0
-                ? Some(new ClashPair(left, right, ClashKind.Hard, signed, witness))
-                : policy.HardOnly || signed > policy.ClearanceThreshold
+        (double clearance, bool intersecting, Vector3 witness) = Separation(a, b);
+        return !policy.HardOnly && clearance <= policy.DuplicateTolerance && Coincident(a, b, policy)
+            ? Some(new ClashPair(left, right, ClashKind.Duplicate, clearance, intersecting, witness))
+            : intersecting
+                ? Some(new ClashPair(left, right, ClashKind.Hard, 0.0, true, witness))
+                : policy.HardOnly || clearance > policy.ClearanceThreshold
                     ? Option<ClashPair>.None
-                    : Some(new ClashPair(left, right, ClashKind.Clearance, signed, witness));
+                    : Some(new ClashPair(left, right, ClashKind.Clearance, clearance, false, witness));
     }
 
-    static (double Signed, Vector3 Witness) Separation((Vector3 A, Vector3 B, Vector3 C) a, (Vector3 A, Vector3 B, Vector3 C) b) {
+    static (double Clearance, bool Intersecting, Vector3 Witness) Separation((Vector3 A, Vector3 B, Vector3 C) a, (Vector3 A, Vector3 B, Vector3 C) b) {
         Span<Vector3> va = [a.A, a.B, a.C, a.A];
         Span<Vector3> vb = [b.A, b.B, b.C, b.A];
         for (int e = 0; e < 3; e++) {
             Option<Vector3> hitA = SegmentTriangle(va[e], va[e + 1], b.A, b.B, b.C);
-            if (hitA.IsSome) { return (0.0, hitA.IfNone(Vector3.Zero)); }
+            if (hitA.IsSome) { return (0.0, true, hitA.IfNone(Vector3.Zero)); }
             Option<Vector3> hitB = SegmentTriangle(vb[e], vb[e + 1], a.A, a.B, a.C);
-            if (hitB.IsSome) { return (0.0, hitB.IfNone(Vector3.Zero)); }
+            if (hitB.IsSome) { return (0.0, true, hitB.IfNone(Vector3.Zero)); }
         }
         (float Distance, Vector3 Witness) best = (float.MaxValue, default);
         for (int i = 0; i < 3; i++)
@@ -332,17 +404,19 @@ public static class ClashScale {
         best = Closer(best, PointTriangle(b.A, a.A, a.B, a.C));
         best = Closer(best, PointTriangle(b.B, a.A, a.B, a.C));
         best = Closer(best, PointTriangle(b.C, a.A, a.B, a.C));
-        return (best.Distance, best.Witness);
+        return (best.Distance, false, best.Witness);
     }
 
     static (float Distance, Vector3 Witness) Closer((float Distance, Vector3 Witness) x, (float Distance, Vector3 Witness) y) =>
         y.Distance < x.Distance ? y : x;
 
-    static bool Coincident((Vector3 A, Vector3 B, Vector3 C) a, (Vector3 A, Vector3 B, Vector3 C) b, double tolerance) {
+    static bool Coincident((Vector3 A, Vector3 B, Vector3 C) a, (Vector3 A, Vector3 B, Vector3 C) b, ClashPolicy policy) {
         Vector3 na = Vector3.Cross(a.B - a.A, a.C - a.A), nb = Vector3.Cross(b.B - b.A, b.C - b.A);
         float la = na.Length(), lb = nb.Length();
-        if (la < 1e-12f || lb < 1e-12f || MathF.Abs(Vector3.Dot(na, nb) / (la * lb)) < 0.999f) { return false; }
-        float limit = (float)tolerance;
+        // Coplanarity is a POLICY cosine: a model authored at coarse tessellation needs a looser parallel test than a
+        // machined assembly, and a literal here made that a rebuild rather than a column.
+        if (la < 1e-12f || lb < 1e-12f || MathF.Abs(Vector3.Dot(na, nb) / (la * lb)) < (float)policy.CoplanarCosine) { return false; }
+        float limit = (float)policy.DuplicateTolerance;
         return PointTriangle(a.A, b.A, b.B, b.C).Distance <= limit
             && PointTriangle(a.B, b.A, b.B, b.C).Distance <= limit
             && PointTriangle(a.C, b.A, b.B, b.C).Distance <= limit
@@ -408,13 +482,15 @@ public static class ClashScale {
         return (Vector3.Distance(c1, c2), (c1 + c2) * 0.5f);
     }
 
+    // Shares the ray descent's per-thread scratch: the two queries run sequentially inside `Sweep`, never nested, so
+    // one buffer per thread serves both and no query allocates.
     static double NearestTriangle(ReadOnlySpan<float> bounds, ReadOnlySpan<long> nodes, ReadOnlySpan<Vector3> verts, Vector3 point) {
-        int nodeCount = bounds.Length / 6;
+        int nodeCount = bounds.Length / 6, top = 0;
         double best = double.MaxValue;
-        Stack<int> stack = new();
-        stack.Push(0);
-        while (stack.Count > 0) {
-            int node = stack.Pop();
+        int[] stack = Descent(nodeCount);
+        stack[top++] = 0;
+        while (top > 0) {
+            int node = stack[--top];
             if (BoxDistance(bounds.Slice(node * 6, 6), point) >= best) { continue; }
             (bool leaf, int first, int count) = Decode(nodes[node]);
             if (leaf) {
@@ -424,7 +500,7 @@ public static class ClashScale {
                     if (distance < best) { best = distance; }
                 }
             } else {
-                for (int c = 0; c < count; c++) { stack.Push(first + c); }
+                for (int c = 0; c < count; c++) { stack[top++] = first + c; }
             }
         }
         return best;
@@ -507,23 +583,44 @@ public static class DigitalTwin {
         // oracle, and the fitted verdict carries the projected parameters — an out-of-box iterate is
         // structurally unreachable while empty Bounds remain the honest unbounded case.
         Func<Vector<double>, Vector<double>> boxed = parameters => Boxed(parameters, policy.Bounds);
-        Func<Vector<double>, Fin<Vector<double>>> residual = parameters =>
-            modalOracle([.. boxed(parameters)]).Bind(computed => Stacked(measured, computed, policy));
-        // Probe faults cannot rail through the black-box callbacks, so the first fault captures and the whole
-        // update invalidates — LM never consumes a fabricated zero column or a MaxValue cost as evidence.
+        int rows = 2 * measured.Count, calls = 0;
         Error? probeFault = null;
-        return residual(Vector<double>.Build.DenseOfArray([.. seed])).Bind(_ =>
+        Vector<double> lastResidual = Vector<double>.Build.Dense(rows);
+        Matrix<double> lastJacobian = Matrix<double>.Build.Dense(rows, seed.Length);
+        // The oracle budget and the probe fault are the SAME latch: once either trips, every further callback
+        // replays the last ADMITTED residual and Jacobian, so LM sees no improvement, terminates on its own
+        // stall rule, and consumes neither a fabricated zero column nor a MaxValue cost as evidence — and the
+        // outer Bind reads the latch before any verdict projects.
+        bool Spent => probeFault is not null || calls >= policy.MaxOracleCalls;
+        Fin<Vector<double>> Residual(Vector<double> parameters) {
+            if (Spent) { return Fin.Succ(lastResidual); }
+            calls++;
+            return modalOracle([.. boxed(parameters)])
+                .Bind(computed => Stacked(measured, computed, policy))
+                .Map(stacked => lastResidual = stacked);
+        }
+        return Residual(Vector<double>.Build.DenseOfArray([.. seed])).Bind(_ =>
             LevenbergMarquardt.Minimize(
-                p => residual(p).Match(Succ: r => r, Fail: e => { probeFault ??= e; return Vector<double>.Build.Dense(2 * measured.Count, double.MaxValue); }),
-                p => Jacobian(residual, p, 2 * measured.Count).Match(Succ: j => j, Fail: e => { probeFault ??= e; return Matrix<double>.Build.Dense(2 * measured.Count, p.Count); }),
+                p => Residual(p).Match(Succ: r => r, Fail: e => { probeFault ??= e; return lastResidual; }),
+                p => Jacobian(Residual, p, rows).Match(Succ: j => lastJacobian = j, Fail: e => { probeFault ??= e; return lastJacobian; }),
                 Vector<double>.Build.DenseOfArray([.. seed]),
                 policy.Descent)
             .Bind(fit => probeFault is { } fault
                 ? Fin.Fail<UpdateVerdict>(fault)
+                // The final pairing reads the fitted parameters through ONE more oracle call, which the budget
+                // admits ahead of the descent rather than counting against it — a verdict with no pairing evidence
+                // is not a partial answer, it is no answer.
                 : modalOracle([.. boxed(fit.Parameters)]).Bind(computed =>
-                    Pairs(measured, computed, policy).Map(pairs => {
-                        Seq<double> unpaired = measured.Filter(mode => !pairs.Exists(pair => pair.MeasuredHz == mode.FrequencyHz)).Map(static mode => mode.FrequencyHz);
-                        return new UpdateVerdict([.. boxed(fit.Parameters)], fit.Residual, fit.Iterations, fit.Converged, pairs, unpaired, clock.GetCurrentInstant());
+                    Pairs(measured, computed, policy).Map(indexed => {
+                        Seq<ModePair> pairs = indexed.Map(pair =>
+                            new ModePair(pair.MeasuredIndex, pair.ComputedIndex, measured[pair.MeasuredIndex].FrequencyHz, computed[pair.ComputedIndex].FrequencyHz, pair.Mac));
+                        Seq<double> unpaired = measured
+                            .Map(static (mode, index) => (Index: index, mode.FrequencyHz))
+                            .Filter(row => !pairs.Exists(pair => pair.MeasuredIndex == row.Index))
+                            .Map(static row => row.FrequencyHz);
+                        return new UpdateVerdict([.. boxed(fit.Parameters)], fit.Residual, fit.Iterations,
+                            fit.Converged && calls < policy.MaxOracleCalls, calls >= policy.MaxOracleCalls, calls,
+                            pairs, unpaired, clock.GetCurrentInstant());
                     }))));
     }
 
@@ -534,17 +631,22 @@ public static class DigitalTwin {
 
     public static ComputeReceipt.Fit Receipt(UpdateVerdict verdict, CorrelationId correlation, Duration elapsed) =>
         new("model-update", "levenberg-marquardt", verdict.Parameters.Length, verdict.Iterations, verdict.Residual, verdict.Converged,
-            verdict.Pairs.IsEmpty ? 0.0 : verdict.Pairs.Map(static pair => pair.Mac).Sum() / verdict.Pairs.Count, "mac-mean", verdict.Pairs.Count) {
+            verdict.Pairs.IsEmpty ? 0.0 : verdict.Pairs.Sum(static pair => pair.Mac) / verdict.Pairs.Count, "mac-mean", verdict.Pairs.Count) {
             Scope = new ReceiptScope.Execution(correlation, WorkLane.Background, Substrate.CpuTensor, AllocationClass.PooledMemory, elapsed),
         };
 
     static Fin<Vector<double>> Stacked(Seq<MeasuredMode> measured, Seq<(double FrequencyHz, ReadOnlyMemory<double> Shape)> computed, ModelUpdatePolicy policy) =>
         Pairs(measured, computed, policy).Map(pairs => {
             double[] stacked = new double[2 * measured.Count];
-            for (int index = 0; index < measured.Count; index++) {              // residual assembly kernel: an unpaired mode contributes the full unit deficit on both rows
-                MeasuredMode mode = measured[index];
-                Option<(double MeasuredHz, double ComputedHz, double Mac)> pair = pairs.Find(row => row.MeasuredHz == mode.FrequencyHz);
-                stacked[2 * index] = policy.FrequencyWeight * pair.Match(Some: row => (row.ComputedHz - row.MeasuredHz) / Math.Max(1e-9, row.MeasuredHz), None: () => 1.0);
+            // Residual assembly keys the MEASURED INDEX the pairing returned — a float-frequency lookup silently
+            // mis-assigned every mode of a symmetric structure, where two measured peaks share a frequency to the
+            // last bit and the first row claimed both.
+            for (int index = 0; index < measured.Count; index++) {              // an unpaired mode contributes the full unit deficit on both rows
+                Option<(int MeasuredIndex, int ComputedIndex, double Mac)> pair = pairs.Find(row => row.MeasuredIndex == index);
+                double measuredHz = measured[index].FrequencyHz;
+                stacked[2 * index] = policy.FrequencyWeight * pair.Match(
+                    Some: row => (computed[row.ComputedIndex].FrequencyHz - measuredHz) / Math.Max(1e-9, measuredHz),
+                    None: () => 1.0);
                 stacked[2 * index + 1] = policy.MacWeight * pair.Match(Some: static row => 1.0 - row.Mac, None: () => 1.0);
             }
             return Vector<double>.Build.DenseOfArray(stacked);
@@ -555,9 +657,9 @@ public static class DigitalTwin {
     // mode pairs twice; a channel-width mismatch is a typed rejection, never a truncation, and both unmatched
     // sides survive as explicit evidence (unpaired measured rows carry the unit deficit; extra computed modes
     // stay unclaimed).
-    static Fin<Seq<(double MeasuredHz, double ComputedHz, double Mac)>> Pairs(Seq<MeasuredMode> measured, Seq<(double FrequencyHz, ReadOnlyMemory<double> Shape)> computed, ModelUpdatePolicy policy) {
+    static Fin<Seq<(int MeasuredIndex, int ComputedIndex, double Mac)>> Pairs(Seq<MeasuredMode> measured, Seq<(double FrequencyHz, ReadOnlyMemory<double> Shape)> computed, ModelUpdatePolicy policy) {
         if (measured.Exists(mode => computed.Exists(candidate => candidate.Shape.Length != mode.ShapeMagnitude.Length))) {
-            return Fin.Fail<Seq<(double, double, double)>>(ComputeFault.Create("<twin-update-shape-width>"));
+            return Fin.Fail<Seq<(int, int, double)>>(ComputeFault.Create("<twin-update-shape-width>"));
         }
         Seq<(int MeasuredIndex, int ComputedIndex, double Mac)> ranked = toSeq(
             from m in Enumerable.Range(0, measured.Count)
@@ -566,13 +668,15 @@ public static class DigitalTwin {
             where mac >= policy.MacFloor
             orderby mac descending
             select (m, c, mac));
-        var takenMeasured = new System.Collections.Generic.HashSet<int>();
-        var takenComputed = new System.Collections.Generic.HashSet<int>();
-        Seq<(double, double, double)> pairs = Seq<(double, double, double)>();
+        HashSet<int> takenMeasured = [];
+        HashSet<int> takenComputed = [];
+        // The correspondence IS the index pair — every downstream join reads it, so the frequencies never become a
+        // key and two modes agreeing to the last bit stay two modes.
+        Seq<(int, int, double)> pairs = Seq<(int, int, double)>();
         foreach ((int m, int c, double mac) in ranked) {
             if (takenMeasured.Contains(m) || takenComputed.Contains(c)) { continue; }
             takenMeasured.Add(m); takenComputed.Add(c);
-            pairs = pairs.Add((measured[m].FrequencyHz, computed[c].FrequencyHz, mac));
+            pairs = pairs.Add((m, c, mac));
         }
         return Fin.Succ(pairs);
     }
@@ -643,11 +747,13 @@ public sealed class TwinLoop {
             ? Fin.Fail<TwinLoop>(ComputeFault.Create("<twin-loop-policy>"))
             : Fin.Succ(new TwinLoop(baseline, detector, policy, suggested, clock));
 
-    // Edge-consuming cadence: the first claimant at a scored boundary advances Recalibrated; later probes at the
-    // same boundary return false, so one modal update cannot replay from a level-triggered property.
+    // Edge-consuming cadence over the ELAPSED count, never a modulo against it: a modulo fires only on the exact
+    // multiple, so a burst that carries the counter past a boundary skips that recalibration outright, and the same
+    // count re-probed by a second claimant reads due twice. The distance predicate consumes each interval once and
+    // survives any ingest burst — the first claimant past the interval advances the mark to the current count.
     public bool ClaimRecalibration() {
         TwinState next = held.Swap(state => {
-            bool due = state.Scored > state.Recalibrated && state.Scored % policy.RecalibrateEvery == 0L;
+            bool due = state.Scored - state.Recalibrated >= policy.RecalibrateEvery;
             return state with { Recalibrated = due ? state.Scored : state.Recalibrated, Claimed = due };
         });
         return next.Claimed;

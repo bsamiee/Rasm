@@ -17,18 +17,18 @@ Wire vocabulary is `transport/shapes#VOCABULARY`'s, the transcode machinery `tra
 
 Entry: the method roster:
 
-| [INDEX] | [METHOD]                                                                     | [CONTRACT]                                               |
-| :-----: | :--------------------------------------------------------------------------- | :-------------------------------------------------------- |
-|  [01]   | `register(routes) -> RuntimeRail[int]`                                       | roster fold; codec pair resolved, mounted per service    |
-|  [02]   | `inbound(ctx) -> RuntimeRail[RuntimeContext]`                                | admission read; causal decode + `time_remaining()`       |
-|  [03]   | `_invoke(codec_pair, request, context, handler) -> RuntimeRail[Block[bytes]]` | decode → railed `handler` → `_framed` encode tail        |
-|  [04]   | `settle(servicer_context, context, descriptor, wired) -> T`                  | rail-terminating fold; `FaultDetail` trailer then abort  |
-|  [05]   | `serve() -> RuntimeRail[None]`                                               | bind UDS, start, flip `SERVING`, await termination       |
-|  [06]   | `drain() -> None`                                                            | `NOT_SERVING` first, then `stop(grace)`                  |
-|  [07]   | `status(service, serving) -> None`                                           | supervisor flip; one bool onto the two serving states    |
-|  [08]   | `CredentialPolicy.server_credentials() -> RuntimeRail[ServerCredentials]`    | loopback → `local_server_credentials(UDS)`               |
-|  [09]   | `CredentialPolicy.channel_credentials() -> RuntimeRail[ChannelCredentials]`  | four outbound rows; loopback refuses as an inbound seat  |
-|  [10]   | `_served(servicer_context, descriptor) -> AsyncIterator[RuntimeContext]`     | shared prologue; refusal settles, contextvars bound      |
+| [INDEX] | [METHOD]                                                                      | [CONTRACT]                                              |
+| :-----: | :---------------------------------------------------------------------------- | :------------------------------------------------------ |
+|  [01]   | `register(routes) -> RuntimeRail[int]`                                        | roster fold; codec pair resolved, mounted per service   |
+|  [02]   | `inbound(ctx) -> RuntimeRail[RuntimeContext]`                                 | admission read; causal decode + `time_remaining()`      |
+|  [03]   | `_invoke(codec_pair, request, context, handler) -> RuntimeRail[Block[bytes]]` | decode → railed `handler` → `_framed` encode tail       |
+|  [04]   | `settle(servicer_context, context, descriptor, wired) -> T`                   | rail-terminating fold; `FaultDetail` trailer then abort |
+|  [05]   | `serve() -> RuntimeRail[None]`                                                | bind UDS, start, flip `SERVING`, await termination      |
+|  [06]   | `drain() -> None`                                                             | `NOT_SERVING` first, then `stop(grace)`                 |
+|  [07]   | `status(service, serving) -> None`                                            | supervisor flip; one bool onto the two serving states   |
+|  [08]   | `CredentialPolicy.server_credentials() -> RuntimeRail[ServerCredentials]`     | loopback → `local_server_credentials(UDS)`              |
+|  [09]   | `CredentialPolicy.channel_credentials() -> RuntimeRail[ChannelCredentials]`   | four outbound rows; loopback refuses as an inbound seat |
+|  [10]   | `_served(servicer_context, descriptor) -> AsyncIterator[RuntimeContext]`      | shared prologue; refusal settles, contextvars bound     |
 
  `serve()` refuses an empty roster with a typed `config` fault — never a silent empty bind — signals readiness through its `ready` hook once the health flips land, and awaits termination directly; supervision is the `[04]-[ENTRY]` composition root's. `inbound` lifts `ServicerContext.time_remaining()` into the admitted `Deadline`, feeding the caller-dialed budget to the deadline rail — never an unbounded handler. `_member` mints the `observability/metrics#METRIC` `Metrics.timed(descriptor)` duration aspect once per route over the one `_invoke`, so every method's duration and rail outcome land on the request histogram with no per-handler timing and no per-arity weave; a `BIDI` row rides that same application at per-frame grain, each inbound frame driving the railed handler once and its `Block` return framing onto the response stream, a fault aborting mid-stream through the same `settle` trailer egress. `status` is the one worker-facing flip the `execution/workers#SUPERVISION` actuator drives, so pool liveness advertises through the same servicer a calling host polls and no second health surface exists.
 

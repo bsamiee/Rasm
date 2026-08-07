@@ -711,7 +711,9 @@ internal static class SampleKernel {
                     ? Fin.Succ(rebuilt with { StepHalvings = state.StepHalvings + halvings, RebuildCount = state.RebuildCount + halvings + 2, NewtonIterations = state.NewtonIterations })
                     : AscentSearch(currentSites: currentSites, state: state, direction: direction, slope: slope, baseObjective: baseObjective, alpha: alpha * policy.Search.Backtrack.Value, halvings: halvings + 1));
         }
-        // d_ij re-derives from live dual weights inside the diagram build, never stale facets.
+        // The facet owns the SIGNED dual measure — a negative Length flags a site about to become hidden and is
+        // CARRIED into the Hessian, never dropped, or the weight-Newton step silently loses the hiding signal;
+        // l_ij reads the live site pair the diagram was just built from, so facet and distance share one epoch.
         private Fin<List<(int Row, int Col, double Value)>> HessianTriplets(Seq<Point3d> currentSites, RestrictedPowerDiagram diagram) {
             List<(int Row, int Col, double Value)> triplets = [];
             double[] diagonal = new double[siteCount];
@@ -719,9 +721,9 @@ internal static class SampleKernel {
             foreach (PowerFacet facet in diagram.Facets.AsIterable()) {
                 if (facet.SiteI < 0 || facet.SiteI >= siteCount || facet.SiteJ < 0 || facet.SiteJ >= siteCount || facet.SiteI == facet.SiteJ) continue;
                 double siteDistance = currentSites[index: facet.SiteI].DistanceTo(other: currentSites[index: facet.SiteJ]);
-                if (!(double.IsFinite(siteDistance) && siteDistance > floor && double.IsFinite(facet.Length) && facet.Length >= 0.0)) continue;
+                if (!(double.IsFinite(siteDistance) && siteDistance > floor && double.IsFinite(facet.Length))) continue;
                 double weight = facet.Length / (2.0 * siteDistance);
-                if (!(double.IsFinite(weight) && weight >= 0.0)) continue;
+                if (!double.IsFinite(weight)) continue;
                 triplets.Add(item: (facet.SiteI, facet.SiteJ, -weight));
                 triplets.Add(item: (facet.SiteJ, facet.SiteI, -weight));
                 diagonal[facet.SiteI] += weight;
@@ -767,7 +769,7 @@ internal static class SampleKernel {
                 ? (0.0, 0.0, 0.0)
                 : (terminal.Weights.AsIterable().Fold(initialState: double.PositiveInfinity, f: Math.Min),
                    terminal.Weights.AsIterable().Fold(initialState: double.NegativeInfinity, f: Math.Max),
-                   terminal.Weights.AsIterable().Sum() / terminal.Weights.Count);
+                   terminal.Weights.AsIterable().Fold(initialState: 0.0, f: static (acc, weight) => acc + weight) / terminal.Weights.Count);
             PowerCcvtReceipt receipt = new(
                 SiteCount: siteCount, TargetMass: targetMass, ActualMassMin: fragments.MassMin, ActualMassMax: fragments.MassMax,
                 CapacityResidualInf: terminal.Residual.Inf, CapacityResidualL1: terminal.Residual.L1, CapacityResidualL2: terminal.Residual.L2, CapacityResidualNormalized: terminal.Residual.Normalized,

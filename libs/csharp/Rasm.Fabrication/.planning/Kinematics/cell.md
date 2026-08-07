@@ -2,7 +2,7 @@
 
 `RobotCell` owns serial-chain robot motion from admitted cell identity and canonical `Move` evidence through `Robots.Program` planning to the frozen `FabricationResult.Motion` wire. `CellTargetPlan` generates the waypoint space from one policy case or admits exact per-waypoint rows, so Cartesian and joint goals, posture, process interpolation, work frames, tools, commands, external mechanisms, custom external values, initialization groups, file partitions, and post overrides remain data under one `RobotProgram.Run` seam. Generated rows read their tool axis from the same `ToolAxisDemand` the machine inverse consumes, so a cell and a machine tool resolve one orientation law rather than two.
 
-`RobotBoundary` is the only crossing between kernel RhinoCommon geometry and the Rhino3dm geometry `Robots` consumes, and the only projection of provider evidence onto the atoms floor: `RobotBoundary.Ingress` turns a loaded cell's mechanical groups into the provider-free `MachineIngress.Robot` rows `Process/family` admits. `CellPlacementAxis` generates a six-axis base-pose lattice over one loaded `RobotSystem`, and `CellPlacementMetric` scores each batch solve on feasibility, excursion, and continuity evidence. `CellClock` samples the planned duration, so the animation lane resolves the pose between waypoints and hands `Verify/simulate.md` a provider-free census. `CellLibrary.Run` and `CellDrive.Run` bracket their effects, and no provider type reaches `FabricationInput` or `FabricationResult`.
+`RobotBoundary` is the only crossing between kernel RhinoCommon geometry and the Rhino3dm geometry `Robots` consumes, and the only projection of provider evidence onto the atoms floor: `RobotBoundary.Ingress` turns a loaded cell's mechanical groups into the provider-free `MachineIngress.Robot` rows `Process/family` admits. `CellPlacementAxis` generates a six-axis base-pose lattice over one loaded `RobotSystem`, and `CellPlacementMetric` scores each batch solve on feasibility, excursion, and continuity evidence. `CellClock` samples the planned duration, so the animation lane resolves the pose between waypoints and hands `Verify/simulate.md` a provider-free census. `CellMotion.Timing` publishes the compiled program's own station elapsed and cycle as `CellTiming`, the one timing crossing `Joining/sequence.md` keys into its weld census. `CellLibrary.Run` and `CellDrive.Run` bracket their effects, and no provider type reaches `FabricationInput` or `FabricationResult`.
 
 ## [01]-[INDEX]
 
@@ -16,14 +16,17 @@
 - Auto: aggregate admission accumulates independent `Move.Admit` failures, validates exact waypoint cardinality, enforces joint-vector and external-axis finiteness, and validates program partition indices before any provider constructor runs. One `Plan` fold loads, resolves, and compiles for every modality that needs a program, so the motion and animation lanes share one compilation and the placement lane keeps its own lattice load because it rebases `RobotSystem.BasePlane` per candidate rather than compiling per candidate. `Program` owns look-ahead timing and manufacturer emission; the animation lane gates on `Program.HasSimulation` before reading `CurrentSimulationPose`, which throws where the planner produced no simulation. Unclassified `KinematicSolution.Errors` remain provider diagnostics and never fabricate a `JointFault` witness, and an absent controller channel fails typed rather than dereferencing a null remote.
 - Receipt: `CellProgramReceipt.Motion` carries the frozen `FabricationResult.Motion` move, joint, duration, and cell-code wire beside the `CellMotion` evidence that produced it, so per-station flange poses, realized configurations per `MechanicalGroup`, segment durations, and warnings reach the consumer instead of dying at the projection. `CellProgramReceipt.Placement` retains the selected cell with every ranked candidate and its keyed metrics, ranked by the same normalized lower-is-better burden `Score` polarity `MachineMatch` carries. `CellProgramReceipt.Animation` retains `Program.Duration` as the cycle and one `CellPosedStation` per sampled instant carrying the provider's clock reading, the per-group flange planes, the elapsed and travel measured against the prior posed station, the posed-mesh occupancy box, and that station's solver diagnostics. `CellLibraryReceipt` and `CellDriveReceipt` retain boundary facts without widening the motion wire; the upload arm preserves the posting-owned artifact key beside the exact `Robots.Program` handed to the controller, so `Posting/dialect` binds post-to-machine custody by digest equality with no second identity mint.
 - Packages: `Robots` owns cell loading, Cartesian and joint targets, `RobotSystem.Kinematics`, `RobotSystem.BasePlane`, `PlaneToNumbers`/`NumbersToPlane`, `IndustrialSystem.MechanicalGroups` with its per-link `Joint.Range`/`MaxSpeed` travel, program planning, posts, remotes, and online libraries; `Rhino3dm` stays behind `extern alias R3`; `MathNet.Numerics` owns lattice spacing and placement excursion; NodaTime owns `Duration`; RhinoCommon owns frames, intervals, and transforms; UnitsNet owns feed and angular-rate conversion at the provider boundary; `Thinktecture.Runtime.Extensions` owns generated admission and dispatch; `LanguageExt.Core` owns traversal, typed faults, immutable rows, `IO`, and bracketed lifetime; `Process/owner.md`, `Process/faults.md`, and `Kinematics/machine.md` supply frozen atoms.
-- Growth: a robot motion posture is one `CellInterpolation` row, a target modality is one `CellGoal` case, a target-series policy is one `CellTargetPlan` case, an orientation modality is one `ToolAxisDemand` case on the machine owner, a base-search dimension is one `CellPlacementAxis` row, a placement objective is one `CellPlacementMetric` row with its `CellPlacementPolicy` weight and normalization reference, a sampling clock is one `CellTimebase` row, a solve modality is one `CellProgramRequest` case with its `CellProgramReceipt` twin, a controller verb is one `CellDrive` case, and an online-library verb is one `CellLibrary` case. Multi-mechanism programs remain one aligned target stream per `MechanicalGroup`, and external-axis values stay on each waypoint.
-- Boundary: `RobotProgram` owns robot-cell kinematics, provider compilation, and the animated pose census `Verify/simulate.md` consumes, so no sibling page imports `Robots`; `MachineTool` owns non-robot topology and motion dynamics; swept cutter and holder collision stay on `Toolpath/guard.md`; CNC AST lowering stays on `Posting/program.md`. `CellWaypoint.Project`, `RobotProgram.PlaceCell`, `RobotProgram.Rebase`, and `RobotProgram.Pose` are provider-boundary statement exemptions because provider target construction, RhinoCommon plane mutation, the `ref`-returning `BasePlane` assignment, and the animate-then-read simulation cursor are imperative seams. Provider strings never select a typed fault, provider geometry never crosses the alias boundary — posed meshes leave as one kernel occupancy box and a mesh count — and no verb family grows beside `RobotProgram.Run`. `RobotBoundary.Ingress` is the one provider-to-atoms projection: `MechanicalGroup`, `Joint`, and `Manufacturers` stay inside it and `MachineIngress.Robot` rows leave, so the vendor correspondence and the joint-travel units are settled once, here.
+- Law: the alias crossing is HAND-WRITTEN by construction. The mapping generator emits fully-qualified names only and carries no extern-alias machinery, so it cannot address a type behind `extern alias R3` at all — `RobotBoundary.ToR3`/`FromR3` are the deleted form of nothing, and a generated mapper there is unreachable rather than merely unidiomatic.
+- Law: the vendor correspondence is a ROW SET carrying the provider ordinals each row answers for, so admission is a containment read that refuses an ordinal a provider release adds. A discard arm folding every unknown vendor onto `Unspecified` registered a real arm under a filter token.
+- Growth: a robot motion posture is one `CellInterpolation` row, a target modality is one `CellGoal` case, a target-series policy is one `CellTargetPlan` case, an orientation modality is one `ToolAxisDemand` case on the machine owner, a base-search dimension is one `CellPlacementAxis` row, a placement objective is one `CellPlacementMetric` row with its `CellPlacementPolicy` weight and normalization reference, a sampling clock is one `CellTimebase` row, a solve modality is one `CellProgramRequest` case with its `CellProgramReceipt` twin, a controller verb is one `CellDrive` case, an online-library verb is one `CellLibrary` case, and a supported vendor is one `CellVendor` row carrying its provider ordinal. Multi-mechanism programs remain one aligned target stream per `MechanicalGroup`, and external-axis values stay on each waypoint.
+- Boundary: `RobotProgram` owns robot-cell kinematics, provider compilation, and the animated pose census `Verify/simulate.md` consumes, so no sibling page imports `Robots`; `MachineTool` owns non-robot topology and motion dynamics; swept cutter and holder collision stay on `Toolpath/guard.md`; CNC AST lowering stays on `Posting/program.md`. `CellWaypoint.Project`, `RobotProgram.PlaceCell`, `RobotProgram.Rebase`, and `RobotProgram.Pose` are provider-boundary statement exemptions because provider target construction, RhinoCommon plane mutation, the `ref`-returning `BasePlane` assignment, and the animate-then-read simulation cursor are imperative seams. Provider strings never select a typed fault, provider geometry never crosses the alias boundary — posed meshes leave as one kernel occupancy box and a mesh count — and no verb family grows beside `RobotProgram.Run`. `RobotBoundary.Ingress` is the one provider-to-atoms projection: `MechanicalGroup`, `Joint`, and `Manufacturers` stay inside it — the last of them behind the `CellVendor` row set — and `MachineIngress.Robot` rows leave, so the vendor correspondence and the joint-travel units are settled once, here.
 
 ```csharp signature
 extern alias R3;
 
 using LanguageExt;
 using LanguageExt.Common;
+using LanguageExt.UnsafeValueAccess;
 using Rasm.Domain;
 using MathNet.Numerics;
 using NodaTime;
@@ -112,7 +115,7 @@ public sealed partial class CellPlacementMetric {
         measure: static solutions => solutions.Sum(static solution => solution.Errors.Count));
     public static readonly CellPlacementMetric Travel = new(
         "travel",
-        measure: static solutions => Steps(solutions).Sum());
+        measure: static solutions => Steps(solutions).Fold(0.0, static (sum, step) => sum + step));
     public static readonly CellPlacementMetric Posture = new(
         "posture",
         measure: static solutions => solutions.Zip(solutions.Skip(1))
@@ -282,6 +285,7 @@ public abstract partial record CellDrive {
 
 // --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
 [ComplexValueObject]
+[ValidationError<FabricationFault>]
 public sealed partial class RobotCell {
     public CellSource Source { get; }
     public Plane BaseFrame { get; }
@@ -289,7 +293,7 @@ public sealed partial class RobotCell {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref ValidationError? validationError,
+        ref FabricationFault? validationError,
         ref CellSource source,
         ref Plane baseFrame,
         ref Plane toolFrame) {
@@ -297,11 +301,11 @@ public sealed partial class RobotCell {
             library: static row => row.Meshes is not null && !string.IsNullOrWhiteSpace(row.Name),
             embedded: static row => !string.IsNullOrWhiteSpace(row.Xml));
         if (!sourceValid || !baseFrame.IsValid || !toolFrame.IsValid)
-            validationError = new ValidationError("robot cell source and frames must be valid");
+            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "robot-cell:source");
     }
 
     internal Fin<RobotSystem> Load(Option<IPostProcessor> post) => Source.Switch(
-        state: (Base: RobotBoundary.ToR3(BaseFrame), Post: post.IfNoneUnsafe((IPostProcessor?)null)),
+        state: (Base: RobotBoundary.ToR3(BaseFrame), Post: post.ValueUnsafe()),
         library: static (state, row) => Capture(() => FileIO.LoadRobotSystem(row.Name, state.Base, row.Meshes.Load, state.Post)),
         embedded: static (state, row) => Capture(() => FileIO.ParseRobotSystem(row.Xml, state.Base, state.Post)));
 
@@ -310,6 +314,7 @@ public sealed partial class RobotCell {
 }
 
 [ComplexValueObject]
+[ValidationError<FabricationFault>]
 public sealed partial class CellWaypoint {
     public CellGoal Goal { get; }
     public Option<Frame> Frame { get; }
@@ -339,7 +344,7 @@ public sealed partial class CellWaypoint {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref ValidationError? validationError,
+        ref FabricationFault? validationError,
         ref CellGoal goal,
         ref Option<Frame> frame,
         ref Option<Tool> tool,
@@ -360,7 +365,7 @@ public sealed partial class CellWaypoint {
             && command.ForAll(static value => value is not null);
         if (!goalValid || !optionPayloads || external.Exists(static value => !double.IsFinite(value))
             || externalCustom.Exists(string.IsNullOrWhiteSpace))
-            validationError = new ValidationError("robot cell waypoint must carry a valid goal, provider properties, and external axes");
+            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "robot-cell:waypoint");
     }
 
     internal Target Project(RobotCell cell, Move move, MotionDynamics dynamics) {
@@ -398,6 +403,7 @@ public sealed partial class CellWaypoint {
 }
 
 [ComplexValueObject]
+[ValidationError<FabricationFault>]
 public sealed partial class CellPolicy {
     public MotionDynamics Dynamics { get; }
     public InversePolicy Inverse { get; }
@@ -421,7 +427,7 @@ public sealed partial class CellPolicy {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref ValidationError? validationError,
+        ref FabricationFault? validationError,
         ref MotionDynamics dynamics,
         ref InversePolicy inverse,
         ref CellTargetPlan targets,
@@ -432,15 +438,16 @@ public sealed partial class CellPolicy {
         programName = programName?.Trim() ?? string.Empty;
         bool partitions = multiFileIndices.IsEmpty || multiFileIndices[0] == 0
             && multiFileIndices.ForAll(static index => index >= 0)
-            && multiFileIndices.Zip(multiFileIndices.Skip(1)).ForAll(static pair => pair.Item1 < pair.Item2);
+            && toSeq(multiFileIndices).Zip(toSeq(multiFileIndices).Skip(1)).ForAll(static pair => pair.Item1 < pair.Item2);
         bool optionPayloads = init.ForAll(static group => group is not null) && post.ForAll(static processor => processor is not null);
         if (dynamics is null || inverse is null || targets is null || !targets.IsValid
             || !Program.IsValidIdentifier(programName, out _) || !partitions || !optionPayloads)
-            validationError = new ValidationError("robot cell policy must carry valid dynamics, targets, program identity, and partitions");
+            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "robot-cell:policy");
     }
 }
 
 [ComplexValueObject]
+[ValidationError<FabricationFault>]
 public sealed partial class CellSampling {
     public Rhino.Geometry.Interval Domain { get; }
     public int Count { get; }
@@ -451,15 +458,16 @@ public sealed partial class CellSampling {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref ValidationError? validationError,
+        ref FabricationFault? validationError,
         ref Rhino.Geometry.Interval domain,
         ref int count) {
         if (!domain.IsValid || count <= 0)
-            validationError = new ValidationError("cell sampling requires a valid domain and a positive count");
+            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "robot-cell:sampling");
     }
 }
 
 [ComplexValueObject]
+[ValidationError<FabricationFault>]
 public sealed partial class CellClock {
     public CellTimebase Timebase { get; }
     public int Stations { get; }
@@ -476,15 +484,16 @@ public sealed partial class CellClock {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref ValidationError? validationError,
+        ref FabricationFault? validationError,
         ref CellTimebase timebase,
         ref int stations) {
         if (timebase is null || stations <= 0)
-            validationError = new ValidationError("cell clock requires one timebase and a positive station count");
+            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "robot-cell:clock");
     }
 }
 
 [ComplexValueObject]
+[ValidationError<FabricationFault>]
 public sealed partial class CellPlacementPolicy {
     public HashMap<CellPlacementAxis, CellSampling> Space { get; }
     public Option<Arr<double>> SeedJoints { get; }
@@ -503,7 +512,7 @@ public sealed partial class CellPlacementPolicy {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref ValidationError? validationError,
+        ref FabricationFault? validationError,
         ref HashMap<CellPlacementAxis, CellSampling> space,
         ref Option<Arr<double>> seedJoints,
         ref HashMap<CellPlacementMetric, double> weights,
@@ -524,7 +533,7 @@ public sealed partial class CellPlacementPolicy {
             .IsSome;
         if (!axes || !metrics || !scaled || !seed || !bounded
             || CellPlacementMetric.Items.Sum(metric => weights.Find(metric).IfNone(0.0)) <= 0.0)
-            validationError = new ValidationError("cell placement requires every pose axis, every metric weight and positive normalization reference, an optional finite continuity seed, and a bounded candidate lattice");
+            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "robot-cell:placement");
     }
 }
 
@@ -539,12 +548,20 @@ public sealed record CellStation(
     Seq<RobotConfigurations> Configurations,
     Duration Duration);
 
+// The provider-free timing crossing this cell publishes. Station elapsed and cycle read the look-ahead planner's OWN
+// clock — per-target `DeltaTime` and `Program.Duration` — never a `MotionDynamics` re-derivation, which has no answer
+// for a serial chain. Rows key on the compiled station ordinal alone, so a consumer folds them under its own domain
+// key and no upper-plane vocabulary reaches this page.
+public sealed record CellSpanTiming(int Station, Duration Elapsed);
+
+public sealed record CellTiming(Seq<CellSpanTiming> Spans, Duration Cycle, Seq<RunWarning> Warnings);
+
 public sealed record CellMotion(
     Seq<Move> Moves,
     Seq<CellStation> Stations,
     Duration Cycle,
     Seq<string> CellCode,
-    Seq<string> Warnings) {
+    Seq<RunWarning> Warnings) {
     public Fin<FabricationResult.Motion> ToResult() => MotionEvidence
         .Admit(
             Stations.Map(static station => station.Joints),
@@ -553,6 +570,11 @@ public sealed record CellMotion(
             CellCode,
             Warnings)
         .Map(evidence => new FabricationResult.Motion(Moves, Seq<MotionDirective>(), evidence, Seq<ContentKey>()));
+
+    public CellTiming Timing => new(
+        Stations.Map(static station => new CellSpanTiming(station.Index, station.Duration)),
+        Cycle,
+        Warnings);
 }
 
 // `CellPosedStation` reports the cell resolved BETWEEN waypoints: flange plane per mechanical group, occupancy swept
@@ -569,7 +591,7 @@ public sealed record CellPosedStation(
     int PosedMeshes,
     Seq<string> Errors);
 
-public sealed record CellAnimation(Duration Cycle, Seq<CellPosedStation> Stations, Seq<string> Warnings);
+public sealed record CellAnimation(Duration Cycle, Seq<CellPosedStation> Stations, Seq<RunWarning> Warnings);
 
 // `Score` is the normalized weighted burden `CellPlacementPolicy.Burden` folds: lower is better, the one polarity
 // `MachineMatch.Score` and `RouteScore.Total` carry.
@@ -649,7 +671,12 @@ public static class RobotProgram {
         select (CellProgramReceipt)new CellProgramReceipt.Animation(new CellAnimation(
             Cycle: Duration.FromSeconds(planned.Program.Duration),
             Stations: folded.Rows,
-            Warnings: toSeq(planned.Program.Warnings)));
+            Warnings: Warned(planned.Program)));
+
+    // Provider warning TEXT becomes typed evidence at the one boundary that reads it, so cell diagnostics partition on
+    // `rasm.fabrication.run.warnings` by raising plane like every other plane's warnings.
+    private static Seq<RunWarning> Warned(Program program) =>
+        toSeq(program.Warnings).Map(static text => new RunWarning(FabConcern.Kinematics, "robot-cell:program", text));
 
     // Elapsed and travel read the PRIOR posed station rather than the requested instant, so both columns measure the
     // pose the provider resolved; a station whose groups report solver errors carries them as diagnostics, never as a
@@ -707,7 +734,7 @@ public static class RobotProgram {
                 name: policy.ProgramName,
                 robotSystem: system,
                 toolpaths: targets.Map(static target => (IToolpath)target).ToArray(),
-                initCommands: policy.Init.IfNoneUnsafe((Group?)null),
+                initCommands: policy.Init.ValueUnsafe(),
                 multiFileIndices: policy.MultiFileIndices.IsEmpty ? null : policy.MultiFileIndices.ToArray(),
                 stepSize: policy.Dynamics.ChordTolerance))
             .Run()
@@ -715,7 +742,7 @@ public static class RobotProgram {
         select program;
 
     private static Fin<Seq<RobotCell>> Samples(RobotCell cell, CellPlacementPolicy policy) =>
-        from poses in toSeq(CellPlacementAxis.Items).OrderBy(static axis => axis.Order).Fold(
+        from poses in toSeq(CellPlacementAxis.Items.OrderBy(static axis => axis.Order)).Fold(
             Fin.Succ(Seq(HashMap<CellPlacementAxis, double>.Empty)),
             (generated, axis) =>
                 from rows in generated
@@ -726,8 +753,7 @@ public static class RobotProgram {
         select cells;
 
     private static Fin<RobotCell> PlaceCell(RobotCell cell, HashMap<CellPlacementAxis, double> pose) =>
-        from transforms in toSeq(CellPlacementAxis.Items)
-            .OrderBy(static axis => axis.Order)
+        from transforms in toSeq(CellPlacementAxis.Items.OrderBy(static axis => axis.Order))
             .TraverseM(axis => pose.Find(axis)
                 .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, $"robot-cell:placement-axis:{axis.Key}"))
                 .Map(value => axis.Project(cell.BaseFrame, value)))
@@ -751,7 +777,7 @@ public static class RobotProgram {
         from normalized in Rebase(system, candidate.BaseFrame)
         from solutions in Try.lift(() => system.Kinematics(
                 targets.ToArray(),
-                placement.SeedJoints.Map(static seed => (IReadOnlyList<double[]?>)new double[]?[] { seed.ToArray() }).IfNoneUnsafe(null)))
+                placement.SeedJoints.Map(static seed => (IReadOnlyList<double[]?>)new double[]?[] { seed.ToArray() }).ValueUnsafe()))
             .Run()
             .Map(static rows => toSeq(rows))
             .MapFail(static error => new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, $"robot-cell:placement:{error.Message}"))
@@ -795,7 +821,7 @@ public static class RobotProgram {
                 CellCode: program.Code is null
                     ? Seq<string>()
                     : toSeq(program.Code).Bind(static group => toSeq(group).Bind(static file => toSeq(file))),
-                Warnings: toSeq(program.Warnings)))
+                Warnings: Warned(program)))
             : Diagnose(program, errors);
     }
 
@@ -860,25 +886,60 @@ internal static class RobotBoundary {
         UnitsNet.Length reach,
         Set<CoolantDelivery> coolant,
         Seq<MachineCapacity> capacities) => system is IndustrialSystem industrial
-        ? Fin.Succ(toSeq(industrial.MechanicalGroups).Map((group, ordinal) => new MachineIngress.Robot(
-            industrial.MechanicalGroups.Count == 1 ? key : $"{key}:{ordinal}",
-            ManufacturerOf(group.Robot.Manufacturer),
-            UnitsNet.Mass.FromKilograms(group.Robot.Payload),
-            reach,
-            // `MechanicalGroup.Joints` flattens the arm and every external mechanism while `Joint.Index` is
-            // per-mechanism — an arm's J1 and a track's first axis both read 0 — so the arm chain seats the leading
-            // block and every external mechanism (track, positioner) seats on the trailing rows at the published
-            // `Machine.RobotArmSeats` offset, so a cell carrying a track registers its full axis roster.
+        ? toSeq(industrial.MechanicalGroups)
+            .Map(static (group, ordinal) => (Group: group, Ordinal: ordinal))
+            .Traverse(row => (
+                    CellVendor.Of(row.Group.Robot.Manufacturer).ToValidation(),
+                    Seated(key, row.Group).ToValidation())
+                .Apply((vendor, seats) => Row(industrial, key, row.Group, row.Ordinal, vendor, seats,
+                    reach, processes, holding, coolant, capacities))
+                .As())
+            .As()
+            .ToFin()
+        : Fin.Fail<Seq<MachineIngress.Robot>>(
+            new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "robot-cell:mechanical-groups"));
+
+    // `MechanicalGroup.Joints` flattens the arm and every external mechanism while `Joint.Index` is per-mechanism —
+    // an arm's J1 and a track's first axis both read 0 — so the arm chain seats the leading block and every external
+    // mechanism (track, positioner) seats on the trailing rows at the published `Machine.RobotArmSeats` offset, so a
+    // cell carrying a track registers its full axis roster. A chain whose seats overrun that roster has no axis to
+    // register against and refuses HERE, naming the link and the seat it could not fill, rather than reaching the
+    // atoms floor as an ordinal that page then rejects without knowing which cell produced it.
+    private static Fin<Arr<(int Ordinal, AxisTravel Travel)>> Seated(string key, MechanicalGroup group) {
+        Seq<(int Ordinal, AxisTravel Travel)> seats =
             toSeq(group.Robot.Joints).Map(static (joint, seat) => (Ordinal: seat, Travel: TravelOf(joint)))
                 .Concat(toSeq(group.Externals).Bind(static mechanism => toSeq(mechanism.Joints))
-                    .Map(static (joint, ordinal) => (Ordinal: Machine.RobotArmSeats + ordinal, Travel: TravelOf(joint))))
-                .ToArr(),
+                    .Map(static (joint, ordinal) => (Ordinal: Machine.RobotArmSeats + ordinal, Travel: TravelOf(joint))));
+        return seats
+            .Find(seat => seat.Ordinal < 0 || seat.Ordinal >= Machine.RobotAxes.Count)
+            .Match(
+                Some: seat => Fin.Fail<Arr<(int, AxisTravel)>>(new FabricationFault.KinematicChainInadmissible(
+                    key, seat.Ordinal, nameof(Machine.RobotAxes))),
+                None: () => Fin.Succ(seats.ToArr()));
+    }
+
+    private static MachineIngress.Robot Row(
+        IndustrialSystem industrial,
+        string key,
+        MechanicalGroup group,
+        int ordinal,
+        RobotManufacturer vendor,
+        Arr<(int Ordinal, AxisTravel Travel)> seats,
+        UnitsNet.Length reach,
+        Set<ProcessKind> processes,
+        HoldingClass holding,
+        Set<CoolantDelivery> coolant,
+        Seq<MachineCapacity> capacities) =>
+        new(
+            industrial.MechanicalGroups.Count == 1 ? key : $"{key}:{ordinal}",
+            vendor,
+            UnitsNet.Mass.FromKilograms(group.Robot.Payload),
+            reach,
+            seats,
             processes,
             holding,
             coolant,
-            capacities)))
-        : Fin.Fail<Seq<MachineIngress.Robot>>(
-            new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "robot-cell:mechanical-groups"));
+            capacities);
 
     // `Mechanism.InitJoints` converts a revolute link's range and speed to radians and radians per second off the
     // cell XML while a prismatic link keeps millimetres, so each joint kind reads its own already-admitted unit.
@@ -892,20 +953,34 @@ internal static class RobotBoundary {
             UnitsNet.Length.FromMillimeters(joint.Range.T1),
             UnitsNet.Speed.FromMillimetersPerSecond(joint.MaxSpeed));
 
-    // The vendor correspondence lives at the crossing, never on the atoms floor: `Manufacturers` stays inside this
-    // page, and the provider's `All` wildcard is a filter token rather than a vendor, so it lands unspecified.
-    private static RobotManufacturer ManufacturerOf(Manufacturers manufacturer) => manufacturer switch {
-        Manufacturers.ABB => RobotManufacturer.Abb,
-        Manufacturers.KUKA => RobotManufacturer.Kuka,
-        Manufacturers.UR => RobotManufacturer.Ur,
-        Manufacturers.Staubli => RobotManufacturer.Staubli,
-        Manufacturers.FrankaEmika => RobotManufacturer.FrankaEmika,
-        Manufacturers.Doosan => RobotManufacturer.Doosan,
-        Manufacturers.Fanuc => RobotManufacturer.Fanuc,
-        Manufacturers.Igus => RobotManufacturer.Igus,
-        Manufacturers.Jaka => RobotManufacturer.Jaka,
-        _ => RobotManufacturer.Unspecified,
-    };
+}
+
+// The vendor correspondence lives at the crossing, never on the atoms floor: each row carries the HOST ordinals it
+// answers for, so `Manufacturers` stays inside this page and admission is a containment read. The provider's `All`
+// wildcard is a FILTER token rather than a vendor, so it seats on `Unspecified` as a declared row — a discard arm
+// would have swallowed a vendor a provider release adds under the same answer.
+[SmartEnum<string>]
+public sealed partial class CellVendor {
+    public static readonly CellVendor Abb = new("abb", RobotManufacturer.Abb, Set(Manufacturers.ABB));
+    public static readonly CellVendor Kuka = new("kuka", RobotManufacturer.Kuka, Set(Manufacturers.KUKA));
+    public static readonly CellVendor Ur = new("ur", RobotManufacturer.Ur, Set(Manufacturers.UR));
+    public static readonly CellVendor Staubli = new("staubli", RobotManufacturer.Staubli, Set(Manufacturers.Staubli));
+    public static readonly CellVendor FrankaEmika = new("franka-emika", RobotManufacturer.FrankaEmika, Set(Manufacturers.FrankaEmika));
+    public static readonly CellVendor Doosan = new("doosan", RobotManufacturer.Doosan, Set(Manufacturers.Doosan));
+    public static readonly CellVendor Fanuc = new("fanuc", RobotManufacturer.Fanuc, Set(Manufacturers.Fanuc));
+    public static readonly CellVendor Igus = new("igus", RobotManufacturer.Igus, Set(Manufacturers.Igus));
+    public static readonly CellVendor Jaka = new("jaka", RobotManufacturer.Jaka, Set(Manufacturers.Jaka));
+    public static readonly CellVendor Unspecified = new("unspecified", RobotManufacturer.Unspecified, Set(Manufacturers.All));
+
+    public RobotManufacturer Row { get; }
+    internal Set<Manufacturers> Native { get; }
+
+    // The rows PARTITION the provider roster, so an ordinal a release adds resolves to `None` and refuses at the
+    // crossing rather than reading silently as an unspecified vendor the fleet then registers.
+    internal static Fin<RobotManufacturer> Of(Manufacturers manufacturer) =>
+        toSeq(Items).Find(row => row.Native.Contains(manufacturer))
+            .Map(static row => row.Row)
+            .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "robot-cell:manufacturer"));
 }
 ```
 

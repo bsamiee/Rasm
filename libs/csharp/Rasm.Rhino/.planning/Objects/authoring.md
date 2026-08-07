@@ -12,20 +12,21 @@ Custom-object and grip authoring belongs to `Rasm.Rhino.Objects`. Host subclassi
 
 ## [02]-[OBJECT_PROGRAM]
 
-- Owner: `ObjectProgram` carries every verified draw, duplicate, transform, morph, document, pick, selection, viewport, bounding-box, tight-bounds, and render-mesh hook; `RenderMeshProgram` folds the five-virtual mesh-cache family into one program slot; `ObjectsTelemetry` is the folder's one structured-log egress — every host-callback fault publishes under its `FaultSite` row through the keyed-sink fan, and a new fault seam is one `FaultSite` row with one `Publish` call; `HostTap` seats the host's process-wide exception and cloud-log streams onto that same egress; `HostSensitivity` is the classification taxonomy; `RhinoInstrumentPartition` declares the receipt-to-instrument projection as kind-keyed data; `HostForward` centralizes lifting, the `Fallback`/`Probe` inherited-value recovery pair, and pick capture.
+- Owner: `ObjectProgram` carries every verified draw, duplicate, transform, morph, document, pick, selection, viewport, bounding-box, tight-bounds, and render-mesh hook; `RenderMeshProgram` folds the five-virtual mesh-cache family into one program slot; `ObjectsTelemetry` is the folder's one structured-log egress — every host-callback fault publishes under its `FaultSite` row through the keyed-sink fan, and a new fault seam is one `FaultSite` row with one `Publish` call; `HostTap` seats the host's process-wide exception and cloud-log streams onto that same egress; `HostSensitivity` is the classification taxonomy and the `Values` roster the contributor port carries upward; `RhinoInstrumentPartition` declares the receipt-to-instrument projection as kind-keyed data; `HostForward` centralizes lifting, the `Fallback`/`Probe` inherited-value recovery pair, and pick capture.
 - Law: `ObjectProgram` exposes only callbacks backed by a `RhinoObject` virtual, and each adapter forwards the same algebra; unsupported geometry kinds cannot mint phantom hooks.
-- Law: cloud-log severity is data — `Streamed` takes `LogLevel` as a parameter projected once from `HostUtils.LogMessageType` at the tap seam, so one generated event carries every host severity; the host exception rides `Reported`'s typed `Exception` channel, never a stringified hole.
+- Law: cloud-log severity is data and the host roster is CLOSED at five values — `Streamed` takes `LogLevel` as a parameter projected once from `HostUtils.LogMessageType` at the tap seam, the four carrying a severity map, and `unknown` (with any out-of-roster wire value) REFUSES through `Unsupported` onto `FaultSite.HostLog` rather than publishing a fabricated level under a real event; the host exception rides `Reported`'s typed `Exception` channel, never a stringified hole.
 - Law: sinks key on plugin identity — `ObjectsTelemetry.Configure` admits one `(PluginKey, ILogger)` row per plugin, `Publish` fans every event over the live rows with a per-sink guard so one faulted sink never starves siblings, an empty roster is the `NullLogger` no-op composition, and teardown removes only the caller's row; a later plugin can never shadow an earlier plugin's sink, and the `rasm.rhino.objects.fault`, `rasm.rhino.host.exception`, and `rasm.rhino.host.log` hook points bind onto this fan as telemetry-as-tap.
-- Law: classification rows mint the suite taxonomy pair — `new DataClassification(nameof(DataClassification), "<row>")` on `Microsoft.Extensions.Compliance.Abstractions`, the contract assembly owning `DataClassification` and `DataClassificationAttribute` — and reuse the app-root values `user-content`, `host-path`, `host-identity`, and `personal`, so every row resolves at the fail-closed redactor map without a second taxonomy; redactor binding stays app-root policy outside the adapters. Each row carries its OWN value: only the producer knows whether a payload embeds user content or a host path, so two rows resolving to one value erase at the redactor exactly the bit the boundary exists to supply.
+- Law: classification rows mint the suite taxonomy pair — `new DataClassification(nameof(DataClassification), "<row>")` on `Microsoft.Extensions.Compliance.Abstractions`, the contract assembly owning `DataClassification` and `DataClassificationAttribute` — and reuse the app-root values `user-content`, `host-path`, `host-identity`, and `personal`, so every row resolves at the fail-closed redactor map without a second taxonomy; redactor binding stays app-root policy outside the adapters. Each row carries its OWN value: only the producer knows whether a payload embeds user content or a host path, so two rows resolving to one value erase at the redactor exactly the bit the boundary exists to supply. `HostSensitivity.Values` publishes those four texts as kernel `ClassifiedValue` pairs on the boundary's existing contributor port, so the app root proves this roster against the taxonomy owner's rows while it composes the map — a value present here and absent there refuses at composition instead of erasing at egress, and the federation gains that proof without either side naming the other's type.
 - Law: the classification sweep is total over the egress — `Error` and host log messages classify `UserContent` (they embed document names and user text), file and directory payloads classify `HostPath`, process, machine, and version evidence classifies `MachineIdentity`, license and lease facts classify `AccountIdentity`; `FaultSite` keys, host source tokens, and event codes stay unclassified public evidence; exception message and stack admission ride the app-root `LoggerEnrichmentOptions` knobs, never a boundary re-scrub.
 - Law: enrichment splits by cost class — `HostStaticEnricher` captures process constants once and `ObjectsTelemetry` composes that classified fact into every generated event; no publish rereads host statics, and each `MachineIdentity` row reaches the app-root redactor through `LogProperties` before egress.
 - Law: `HostTap.Mount` is seat arbitration — the first plugin attaches both host delegates and holds the seat, later plugins ride the seat as keyed rows, a rider's disposal removes only its row, and the owner's disposal hands the seat to the senior rider with the delegates still attached or detaches both and returns the seat vacant; delegate identity stays exact, disposal is idempotent, and every plugin mounts beside its own `ObjectsTelemetry.Configure`.
-- Law: instrument projection is declared, never executed, in-boundary — `RhinoInstrumentPartition.Rows` maps each receipt kind to `rasm.rhino.<domain>.<measure>` instruments with UCUM units, the source receipt field, and attribution tags, the app root transcribes the kinds into its contributed arm table and merges them into the branch instrument fan, and a row names only a field its receipt already carries — the partition is projection truth, never a second measurement. Every in-scope source spells its field through `nameof` against the receipt type, so a renamed or absent field breaks the build instead of stranding a row, and one row projects one field: a tag naming a dimension its source does not carry is a second row over the field that does. tenant attribution is app-root baggage promotion, never a boundary field; marshal-seam latency rides the `MarshalLatency` checkpoints on `HostUi/shell.md`, whose `DurationInstrument` constant mirrors the `rasm.rhino.hostui.marshal.duration` label this partition projects.
+- Law: instrument projection is declared, never executed, in-boundary — `RhinoInstrumentPartition.Rows` maps each receipt kind to `rasm.rhino.<domain>.<measure>` instruments with UCUM units, the source receipt field, and attribution tags, the app root transcribes the kinds into its contributed arm table and merges them into the branch instrument fan, and a row names only a field its receipt already carries — the partition is projection truth, never a second measurement. One row projects one field: a tag naming a dimension its source does not carry is a second row over the field that does, and both egress fault streams carry rows, so a reported host exception reaches an instrument rather than dying annotated.
+- Law: a source spells itself through `nameof` exactly when its type is composable from this stratum — local egress events, the Document spine, Render, and Modeling — so a rename breaks the build instead of stranding a row; the three rows over Display and the same-stratum HostUi peer carry TEXT, because a `nameof` reaching them is the forbidden upward edge wearing a safety measure, and the app root proves those against its own contributed arm table. Local event names live as one const feeding both the generated `EventName` and the row. tenant attribution is app-root baggage promotion, never a boundary field; marshal-seam latency rides the `MarshalLatency` checkpoints on `HostUi/shell.md`, whose `DurationInstrument` constant mirrors the `rasm.rhino.hostui.marshal.duration` label this partition projects.
 - Law: `ObjectsHooks.Mount` registers this page's six registry points through `MountRegistry.MountAll` — the three veto points admit only a program already carrying the veto hook (`ObjectProgram.Viewable`, `ObjectProgram.Pick`, `GripProgram` regrow) and grant that program back for adapter composition, the fault point binds a caller `ILogger` onto `ObjectsTelemetry.Configure`, and both host-tap points bind the caller's `PluginKey` onto the one `HostTap.Mount` seat — so every point resolves through `MountRegistry.Bind`, and a later refusal releases every earlier seat.
 - Law: the render-mesh surface is the five-virtual cache family — `IsMeshable`, `MeshCount`, `CreateMeshes`, `GetMeshes`, and `DestroyMeshes` refine base-first through one `RenderMeshProgram`; no `OnGetRenderMeshes` virtual exists to forward, the non-virtual RDK accessor trio (`HasCustomRenderMeshes`, `CustomRenderMeshesBoundingBox`, the `RenderMeshes` delegator) stays the Display and Render owners' viewport-and-pipeline context, and the `Rhino.Render.CustomRenderMeshes.RenderMeshProvider` registration adapter belongs to that seam, never an object hook.
 - Law: replacement cache meshes are kernel-built — a `Cached` or `Built` hook supplying geometry composes `Meshes.Build` over the `MeshOp` and `MeshEdit` algebra, never a hand-assembled native `Mesh` or a `Mesh.CreateFromSurface` grid; roster meshes handed back become host-owned at the return, and the live `MeshingParameters` each virtual receives crosses to hooks encoded as `MeshPolicy`, never as the native carrier.
 - Law: a hook fault never escapes and never degrades to transcript text — every `Fin` refusal publishes the `ObjectCallbackFaulted` event with its `FaultSite` and typed `Error` before the host fallback returns; `NullLogger` is the logger-less composition, and provider policy remains outside the adapters.
-- Law: the egress reports its OWN faults — `Publish` answers a `TelemetryFan` carrying the delivered-sink count beside every per-sink failure, and those failures park on the boundary's evidence cell that `DrainFaults` empties, because the callers are host callbacks with no rail to carry them outward; erasing a sink fault to `unit` makes the one surface whose job is reporting faults the one surface that cannot report its own.
+- Law: the egress reports its OWN faults and the report has a reader — `Publish` answers a `TelemetryFan` carrying the delivered-sink count beside every per-sink failure, those failures park on the boundary's evidence cell because the callers are host callbacks with no rail to carry them outward, and `Drain` is the cell's one reader named as the `rasm.rhino.objects.egress.faults` source so the app root's collection empties it; erasing a sink fault to `unit` makes the one surface whose job is reporting faults the one surface that cannot report its own, and parking one no declared row reads is the same failure with an extra allocation.
 - Law: the grip enabler returns its seat — `GripRig.Register` answers `Fin<IDisposable>` whose disposal re-registers an inert enabler under the same `[Guid]`, matching the three sibling registrations; the host publishes no unregister and re-registration is its only removal, so the asymmetry lives in the seat's implementation rather than in every caller's head.
 - Law: picked objects cross as captures — `PickCandidate` couples a callback-local slot with `PickCapture`; `Pick` returns admitted slots and `OnPicked` stricts the host's picked sequence once before the base call, so a one-shot enumerable feeds base and program alike and neither `ObjRef` nor `PickContext` enters program state.
 - Law: base runs first — every forwarding override invokes the host base before its hook, so standard drawing, transform application, and pick behavior survive an inert program, and a program augments rather than re-implements; suppression of base behavior is a genuinely new adapter, never a program flag.
@@ -36,10 +37,12 @@ Custom-object and grip authoring belongs to `Rasm.Rhino.Objects`. Host subclassi
 using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.Linq;
+using LanguageExt;
 using Microsoft.Extensions.Compliance.Classification;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Rasm.Domain;
+using static LanguageExt.Prelude;
 using Rasm.Rhino.Commands;
 using Rasm.Rhino.Document;
 using Rhino;
@@ -70,17 +73,35 @@ public sealed partial class FaultSite {
     public static readonly FaultSite Replay = new(key: 10);
     public static readonly FaultSite Conduit = new(key: 11);
     public static readonly FaultSite HostException = new(key: 12);
+    public static readonly FaultSite HostLog = new(key: 13);
 }
 
 public static class HostSensitivity {
-    public static readonly DataClassification UserContent =
-        new(taxonomyName: nameof(DataClassification), value: "user-content");
-    public static readonly DataClassification HostPath =
-        new(taxonomyName: nameof(DataClassification), value: "host-path");
-    public static readonly DataClassification MachineIdentity =
-        new(taxonomyName: nameof(DataClassification), value: "host-identity");
-    public static readonly DataClassification AccountIdentity =
-        new(taxonomyName: nameof(DataClassification), value: "personal");
+    // One taxonomy spelling and one const per value feed BOTH columns below, so a re-spelling cannot land on
+    // the framework row and miss the contributed pair — the drift that makes a federated value unrostered.
+    const string Taxonomy = nameof(DataClassification);
+    const string UserContentValue = "user-content";
+    const string HostPathValue = "host-path";
+    const string MachineIdentityValue = "host-identity";
+    const string AccountIdentityValue = "personal";
+
+    public static readonly DataClassification UserContent = new(taxonomyName: Taxonomy, value: UserContentValue);
+    public static readonly DataClassification HostPath = new(taxonomyName: Taxonomy, value: HostPathValue);
+    public static readonly DataClassification MachineIdentity = new(taxonomyName: Taxonomy, value: MachineIdentityValue);
+    public static readonly DataClassification AccountIdentity = new(taxonomyName: Taxonomy, value: AccountIdentityValue);
+
+    // The CONTRIBUTED half of the federation: the same four `(taxonomy, value)` texts as kernel
+    // `ClassifiedValue` pairs, carried on `Document/events#…` `RhinoInstruments.Telemetry`'s `Classifications`
+    // column so the app root ENUMERATES this boundary's values while it composes the redactor map. Without the
+    // roster the federation closes only by coincidence: a value no owner declared resolves no redactor row,
+    // falls to the fail-closed erasing redactor, and deletes the dimension the boundary annotated it to
+    // preserve — a compliance-shaped availability failure invisible until a reader misses the field. The
+    // crossing stays text, so no compliance type reaches the kernel port and no boundary names the owner.
+    public static readonly Seq<ClassifiedValue> Values = Seq(
+        new ClassifiedValue(Taxonomy, UserContentValue),
+        new ClassifiedValue(Taxonomy, HostPathValue),
+        new ClassifiedValue(Taxonomy, MachineIdentityValue),
+        new ClassifiedValue(Taxonomy, AccountIdentityValue));
 }
 
 public sealed class UserContentAttribute() : DataClassificationAttribute(HostSensitivity.UserContent);
@@ -133,6 +154,12 @@ public sealed record ObjectProgram(
 
 // --- [SERVICES] ---------------------------------------------------------------------------
 public static partial class ObjectsTelemetry {
+    // The event name is the partition's source column AND the generated attribute's `EventName`; one const feeds
+    // both, so a re-spelling cannot land on the log event and miss the instrument row that projects it.
+    internal const string CallbackFaultedEvent = "ObjectCallbackFaulted";
+    internal const string HostExceptionEvent = "HostExceptionReported";
+    internal const string HostCloudLogEvent = "HostCloudLog";
+
     private const int Band = 6400;
     private static readonly Atom<HashMap<PluginKey, ILogger>> Sinks = Atom(HashMap<PluginKey, ILogger>());
     private static readonly Atom<Seq<Error>> EgressFaults = Atom(Seq<Error>());
@@ -140,7 +167,7 @@ public static partial class ObjectsTelemetry {
     public static Fin<IDisposable> Configure(PluginKey plugin, ILogger sink, Op? key = null) {
         Op op = key.OrDefault();
         return from _ in plugin.Admit(op)
-               from row in Optional(sink).ToFin(Fail: op.InvalidInput())
+               from row in op.Need(sink)
                from seat in Sinks.Swap(held => held.ContainsKey(plugin) ? held : held.Add(plugin, row)).Find(plugin)
                    .Filter(live => ReferenceEquals(live, row))
                    .ToFin(Fail: op.InvalidContext())
@@ -152,7 +179,7 @@ public static partial class ObjectsTelemetry {
 
     [LoggerMessage(
         EventId = Band + 1,
-        EventName = "ObjectCallbackFaulted",
+        EventName = CallbackFaultedEvent,
         Level = LogLevel.Error,
         Message = "object callback faulted at {Site}")]
     private static partial void Faulted(
@@ -163,7 +190,7 @@ public static partial class ObjectsTelemetry {
 
     [LoggerMessage(
         EventId = Band + 2,
-        EventName = "HostExceptionReported",
+        EventName = HostExceptionEvent,
         Level = LogLevel.Error,
         Message = "host exception at {Site} from {Source}")]
     private static partial void Reported(
@@ -175,7 +202,7 @@ public static partial class ObjectsTelemetry {
 
     [LoggerMessage(
         EventId = Band + 3,
-        EventName = "HostCloudLog",
+        EventName = HostCloudLogEvent,
         Message = "host cloud log")]
     private static partial void Streamed(
         ILogger logger,
@@ -185,8 +212,11 @@ public static partial class ObjectsTelemetry {
 
     // The egress cannot carry a sink fault outward — every caller is a host callback returning `void` — so the
     // fan PARKS it on the boundary's own evidence cell and reports the delivery split; `IfFail`-to-`unit` would
-    // make a broken sink undetectable at the one surface whose whole job is reporting faults.
-    public static Seq<Error> DrainFaults() => EgressFaults.Swap(static _ => Seq<Error>());
+    // make a broken sink undetectable at the one surface whose whole job is reporting faults. `Drain` is that
+    // cell's ONE reader and it is not decorative: `RhinoInstrumentPartition` names it as the source of the
+    // egress-fault instrument, so the app root's meter callback empties it on every collection and a parked fault
+    // becomes a counted one. A cell no declared row reads is a leak wearing a receipt.
+    public static Seq<Error> Drain() => EgressFaults.Swap(static _ => Seq<Error>());
 
     internal static TelemetryFan Publish(FaultSite site, Error error) =>
         Fan(sink => Faulted(
@@ -250,19 +280,46 @@ public static class RhinoInstrumentPartition {
 
     public static readonly FrozenDictionary<string, Seq<InstrumentSlice>> Rows = new Dictionary<string, Seq<InstrumentSlice>> {
         [FaultKind] = Seq(
-            new InstrumentSlice("rasm.rhino.objects.callback.faults", "{fault}", "ObjectCallbackFaulted", Seq("site", "code"))),
+            new InstrumentSlice(
+                "rasm.rhino.objects.callback.faults",
+                "{fault}",
+                ObjectsTelemetry.CallbackFaultedEvent,
+                Seq("site", "code")),
+            // The host-exception tap is the egress's second fault stream and it carried no row at all, so every
+            // reported host exception left the boundary annotated and reached no instrument.
+            new InstrumentSlice(
+                "rasm.rhino.host.exceptions",
+                "{fault}",
+                ObjectsTelemetry.HostExceptionEvent,
+                Seq("site", "source")),
+            new InstrumentSlice(
+                "rasm.rhino.objects.egress.faults",
+                "{fault}",
+                nameof(ObjectsTelemetry.Drain),
+                Seq("code"))),
         [HostLogKind] = Seq(
-            new InstrumentSlice("rasm.rhino.host.cloud.logs", "{record}", "HostCloudLog", Seq("level", "class"))),
+            new InstrumentSlice(
+                "rasm.rhino.host.cloud.logs",
+                "{record}",
+                ObjectsTelemetry.HostCloudLogEvent,
+                Seq("level", "class"))),
         [StreamLossKind] = Seq(
-            new InstrumentSlice("rasm.rhino.document.stream.loss", "{fact}", nameof(StreamReceipt.PacedLoss), Seq("watch", "lane", "loss"))),
+            new InstrumentSlice(
+                "rasm.rhino.document.stream.loss",
+                "{fact}",
+                nameof(StreamReceipt.PacedLoss),
+                Seq("watch", "lane", "loss"))),
+        // Display is S4, HostUi is a same-stratum peer: neither type is composable from S2, so these three rows
+        // carry TEXT and the app root proves them against its own contributed arm table. A `nameof` here would be
+        // the forbidden upward edge dressed as a safety measure.
         [PointerKind] = Seq(
             new InstrumentSlice("rasm.rhino.display.pointer.submitted", "{fact}", "PointerReceipt.Retired.Submitted", Seq<string>()),
             new InstrumentSlice("rasm.rhino.display.pointer.rejected", "{fact}", "PointerReceipt.Retired.Rejected", Seq<string>())),
         [PanelKind] = Seq(
-            new InstrumentSlice("rasm.rhino.hostui.panel.facts", "{fact}", "PanelFact.Ordinal", Seq("panel", "change", "document"))),
+            new InstrumentSlice("rasm.rhino.hostui.panel.facts", "{fact}", "PanelFact.Ordinal", Seq("plugin", "panel", "change", "document"))),
         [ContentKind] = Seq(
-            new InstrumentSlice("rasm.rhino.render.content.facts", "{fact}", "ContentFact", Seq("pulse", "document")),
-            new InstrumentSlice("rasm.rhino.render.content.failures", "{fault}", "ContentStreamFailure", Seq("pulse"))),
+            new InstrumentSlice("rasm.rhino.render.content.facts", "{fact}", nameof(ContentFact), Seq("pulse", "document")),
+            new InstrumentSlice("rasm.rhino.render.content.failures", "{fault}", nameof(ContentStreamFailure), Seq("pulse"))),
         [MarshalKind] = Seq(
             new InstrumentSlice("rasm.rhino.hostui.marshal.duration", "s", "MarshalLatency", Seq("work", "outcome"))),
         [CensusKind] = Seq(
@@ -292,8 +349,16 @@ public static class RhinoInstrumentPartition {
                 $"{nameof(DocumentCensus)}.{nameof(DocumentCensus.Archive)}",
                 Seq("document"))),
         [BenchKind] = Seq(
-            new InstrumentSlice("rasm.rhino.bench.duration", "s", "BenchEvidence.Duration", Seq("operation", "scale")),
-            new InstrumentSlice("rasm.rhino.bench.allocated", "By", "BenchEvidence.AllocatedBytes", Seq("operation", "scale"))),
+            new InstrumentSlice(
+                "rasm.rhino.bench.duration",
+                "s",
+                $"{nameof(BenchEvidence)}.{nameof(BenchEvidence.Duration)}",
+                Seq("operation", "scale")),
+            new InstrumentSlice(
+                "rasm.rhino.bench.allocated",
+                "By",
+                $"{nameof(BenchEvidence)}.{nameof(BenchEvidence.AllocatedBytes)}",
+                Seq("operation", "scale"))),
     }.ToFrozenDictionary(StringComparer.Ordinal);
 }
 
@@ -332,16 +397,22 @@ public sealed class HostTap : IDisposable {
                 source: source ?? nameof(HostUtils),
                 cause: ex));
             HostUtils.SendLogMessageToCloudDelegate streamed = static (kind, sClass, sDesc, sMessage) =>
-                ignore(ObjectsTelemetry.Publish(
-                    fact: new HostLogFact(Class: sClass, Description: sDesc, Message: sMessage),
-                    level: Severity(kind: kind)));
+                ignore(Severity(kind: kind).Match(
+                    Some: level => ObjectsTelemetry.Publish(
+                        fact: new HostLogFact(Class: sClass, Description: sDesc, Message: sMessage),
+                        level: level),
+                    None: () => ObjectsTelemetry.Publish(
+                        site: FaultSite.HostLog,
+                        error: Op.Of(name: nameof(HostTap)).Unsupported(
+                            valueType: typeof(HostUtils.LogMessageType), outputType: typeof(LogLevel)))));
             HostUtils.OnExceptionReport += reported;
             HostUtils.OnSendLogMessageToCloud += streamed;
             Seq<Action> detachers = Seq<Action>(
                 () => HostUtils.OnExceptionReport -= reported,
                 () => HostUtils.OnSendLogMessageToCloud -= streamed);
             SeatState committed = Seat.Swap(current => current switch {
-                SeatState.Vacant => new SeatState.Held(Owner: plugin, Riders: Seq<PluginKey>(), Detachers: detachers),
+                SeatState.Vacant or SeatState.Retiring =>
+                    new SeatState.Held(Owner: plugin, Riders: Seq<PluginKey>(), Detachers: detachers),
                 SeatState.Held held => held with { Riders = held.Riders.Filter(row => row != plugin).Add(plugin) },
                 var other => other,
             });
@@ -351,29 +422,37 @@ public sealed class HostTap : IDisposable {
             return Fin.Succ<IDisposable>(new HostTap(plugin: plugin));
         });
 
-    // Severity `_` floor covers `unknown` and every future host value; the host enum is open foreign wire.
-    private static LogLevel Severity(HostUtils.LogMessageType kind) => kind switch {
-        HostUtils.LogMessageType.information => LogLevel.Information,
-        HostUtils.LogMessageType.warning => LogLevel.Warning,
-        HostUtils.LogMessageType.error => LogLevel.Error,
-        HostUtils.LogMessageType.assert => LogLevel.Critical,
-        _ => LogLevel.Warning,
+    // The host roster is CLOSED at five values and `unknown` is one of them, so there is no severity to guess:
+    // folding it — and any out-of-roster wire value — onto `Warning` published a fabricated level under a real
+    // event, which is worse than no event at all. The refusal routes to the egress's own fault seam instead.
+    private static Option<LogLevel> Severity(HostUtils.LogMessageType kind) => kind switch {
+        HostUtils.LogMessageType.information => Some(LogLevel.Information),
+        HostUtils.LogMessageType.warning => Some(LogLevel.Warning),
+        HostUtils.LogMessageType.error => Some(LogLevel.Error),
+        HostUtils.LogMessageType.assert => Some(LogLevel.Critical),
+        _ => Option<LogLevel>.None,
     };
 
+    // `Atom.Swap` retries its body under contention, so writing the prior into an outer local publishes a LOSING
+    // attempt's read as if it had won — the departing holder then detaches delegates a rider still needs, or skips
+    // a detach nobody else will make. The body stays pure and the swap's own COMMITTED value carries the work:
+    // the last holder's departure commits `Retiring`, whose detach list is exactly what this caller must run, and
+    // the follow-up swap retires it only while it is still that transient, so a claim landing in the window keeps
+    // the seat it just won with its own freshly attached pair.
     public void Dispose() {
         if (Interlocked.CompareExchange(ref released, 1, 0) != 0) { return; }
-        SeatState prior = new SeatState.Vacant();
-        _ = Seat.Swap(current => (prior = current, Departed(current)).Item2);
-        _ = prior is SeatState.Held held && held.Owner == plugin && held.Riders.IsEmpty
-            ? ignore(held.Detachers.Iter(static detach => detach()))
+        _ = Seat.Swap(Departed) is SeatState.Retiring retiring
+            ? ignore((
+                retiring.Detachers.Iter(static detach => detach()),
+                Seat.Swap(static current => current is SeatState.Retiring ? new SeatState.Vacant() : current)))
             : unit;
     }
 
-    // Owner departure hands the seat to the senior rider with the delegates still attached; the last holder detaches.
+    // Owner departure hands the seat to the senior rider with the delegates still attached; the last holder retires it.
     private SeatState Departed(SeatState current) => current switch {
         SeatState.Held held when held.Owner == plugin => held.Riders.Head.Match<SeatState>(
             Some: next => held with { Owner = next, Riders = held.Riders.Tail },
-            None: () => new SeatState.Vacant()),
+            None: () => new SeatState.Retiring(Detachers: held.Detachers)),
         SeatState.Held held => held with { Riders = held.Riders.Filter(row => row != plugin) },
         var other => other,
     };
@@ -383,6 +462,7 @@ public sealed class HostTap : IDisposable {
         private SeatState() { }
         internal sealed record Vacant : SeatState;
         internal sealed record Held(PluginKey Owner, Seq<PluginKey> Riders, Seq<Action> Detachers) : SeatState;
+        internal sealed record Retiring(Seq<Action> Detachers) : SeatState;
     }
 }
 
@@ -401,7 +481,7 @@ public static class ObjectsHooks {
                         Plugin: plugin,
                         Ask: typeof(GripProgram),
                         Grant: typeof(GripProgram),
-                        Bind: ask => Optional(ask as GripProgram).ToFin(Fail: op.InvalidInput()).Map(static program => (object)program)),
+                        Bind: ask => op.Need(ask as GripProgram).Map(static program => (object)program)),
                     key: op)),
                 (Func<Fin<IDisposable>>)(() => MountRegistry.Mount(
                     mount: new HookMount(
@@ -472,9 +552,27 @@ internal static class HostForward {
                 Fail: error => (ignore(ObjectsTelemetry.Publish(site: site, error: error)), inherited()).Item2),
             None: inherited);
 
+    // Every refining wire is the same three moves — read ONE program field, run it under a fresh key, fall back to
+    // the host's own answer on absence or fault — so the moves are declared once and each wire names its field,
+    // its site, and its body. The ten bespoke bodies restated the fold ten times, which is where a missing
+    // `Reported` or a mismatched `FaultSite` hides.
+    private static T Refined<TValue, T>(
+        Option<TValue> slot, FaultSite site, T inherited, Func<TValue, Func<Op, Fin<T>>> body) =>
+        Fallback(attempted: slot.Map(value => Attempt(body(value))), site: site, inherited: inherited);
+
+    private static Unit Ran<TValue>(Option<TValue> slot, FaultSite site, Func<TValue, Func<Op, Fin<Unit>>> body) =>
+        slot.Map(value => Attempt(body(value)).Reported(site: site)).IfNone(noneValue: unit);
+
+    private static Option<TValue> MeshSlot<TValue>(
+        this ObjectProgram program, Func<RenderMeshProgram, Option<TValue>> pick) =>
+        program.RenderMeshes.Bind(pick);
+
     internal static Seq<ObjRef> Sift(this ObjectProgram program, Seq<ObjRef> candidates) =>
-        Fallback(
-            attempted: program.Pick.Map(filter => Attempt(op => candidates
+        Refined(
+            slot: program.Pick,
+            site: FaultSite.Pick,
+            inherited: candidates,
+            body: filter => op => candidates
                 .Map((candidate, slot) => Picks.Capture(reference: candidate, key: op)
                     .Map(capture => new PickCandidate(Slot: slot, Capture: capture)))
                 .TraverseM(identity).As()
@@ -485,78 +583,82 @@ internal static class HostForward {
                 .Map(slots => candidates
                     .Map((candidate, slot) => (Candidate: candidate, Slot: slot))
                     .Filter(row => slots.Exists(chosen => chosen == row.Slot))
-                    .Map(static row => row.Candidate)))),
-            site: FaultSite.Pick,
-            inherited: candidates);
+                    .Map(static row => row.Candidate)));
 
     internal static bool Active(this ObjectProgram program, RhinoViewport viewport, bool inherited) =>
-        Fallback(
-            attempted: program.Viewable.Map(judge => Attempt(_ => judge(viewport, inherited))),
+        Refined(
+            slot: program.Viewable,
             site: FaultSite.View,
-            inherited: inherited);
+            inherited: inherited,
+            body: judge => _ => judge(viewport, inherited));
 
     internal static BoundingBox Box(this ObjectProgram program, RhinoViewport viewport, BoundingBox inherited) =>
-        Fallback(
-            attempted: program.Bounds.Map(grow => Attempt(op => grow(viewport, inherited)
-                .Bind(answer => guard(answer.IsValid, op.InvalidResult()).ToFin().Map(_ => answer)))),
+        Refined(
+            slot: program.Bounds,
             site: FaultSite.Bounds,
-            inherited: inherited);
+            inherited: inherited,
+            body: grow => op => grow(viewport, inherited)
+                .Bind(answer => guard(answer.IsValid, op.InvalidResult()).ToFin().Map(_ => answer)));
 
     internal static bool Tight(this ObjectProgram program, ref BoundingBox box, bool grow, Transform motion, bool inherited) {
         BoundingBox current = box;
-        (bool Answered, BoundingBox Bounds) refined = Fallback(
-            attempted: program.TightBounds.Map(refine => Attempt(op =>
-                refine(new TightExtent(Current: current, Grow: grow, Motion: motion, BaseAnswered: inherited))
-                    .Bind(answer => guard(answer.IsValid, op.InvalidResult()).ToFin().Map(_ => (true, answer))))),
+        (bool Answered, BoundingBox Bounds) refined = Refined(
+            slot: program.TightBounds,
             site: FaultSite.Bounds,
-            inherited: (inherited, current));
+            inherited: (inherited, current),
+            body: refine => op =>
+                refine(new TightExtent(Current: current, Grow: grow, Motion: motion, BaseAnswered: inherited))
+                    .Bind(answer => guard(answer.IsValid, op.InvalidResult()).ToFin().Map(_ => (true, answer))));
         box = refined.Bounds;
         return refined.Answered;
     }
 
     internal static Unit Captured(this ObjectProgram program, Seq<ObjRef> picked) =>
-        program.Picked.Map(consume => Attempt(op => picked
+        Ran(
+            slot: program.Picked,
+            site: FaultSite.Pick,
+            body: consume => op => picked
                 .TraverseM(reference => Picks.Capture(reference: reference, key: op)).As()
-                .Bind(consume))
-            .Reported(site: FaultSite.Pick)).IfNone(noneValue: unit);
+                .Bind(consume));
 
     internal static bool Meshable(this ObjectProgram program, MeshType kind, bool inherited) =>
-        Fallback(
-            attempted: program.RenderMeshes.Bind(static meshes => meshes.Meshable)
-                .Map(judge => Attempt(_ => judge(kind, inherited))),
+        Refined(
+            slot: program.MeshSlot(static meshes => meshes.Meshable),
             site: FaultSite.RenderMesh,
-            inherited: inherited);
+            inherited: inherited,
+            body: judge => _ => judge(kind, inherited));
 
     internal static int Counted(this ObjectProgram program, MeshType kind, MeshingParameters parameters, int inherited) =>
-        Fallback(
-            attempted: program.RenderMeshes.Bind(static meshes => meshes.Tally)
-                .Map(refine => Attempt(op => Policy(parameters: parameters, op: op)
-                    .Bind(policy => refine(kind, policy, inherited))
-                    .Bind(answer => guard(answer >= 0, op.InvalidResult()).ToFin().Map(_ => answer)))),
+        Refined(
+            slot: program.MeshSlot(static meshes => meshes.Tally),
             site: FaultSite.RenderMesh,
-            inherited: inherited);
+            inherited: inherited,
+            body: refine => op => Policy(parameters: parameters, op: op)
+                .Bind(policy => refine(kind, policy, inherited))
+                .Bind(answer => guard(answer >= 0, op.InvalidResult()).ToFin().Map(_ => answer)));
 
     internal static int Constructed(this ObjectProgram program, MeshType kind, MeshingParameters parameters, bool ignore, int inherited) =>
-        Fallback(
-            attempted: program.RenderMeshes.Bind(static meshes => meshes.Built)
-                .Map(refine => Attempt(op => Policy(parameters: parameters, op: op)
-                    .Bind(policy => refine(new RenderMeshBuild(
-                        Kind: kind, Policy: policy, IgnoreCustom: ignore, Inherited: inherited)))
-                    .Bind(answer => guard(answer >= 0, op.InvalidResult()).ToFin().Map(_ => answer)))),
+        Refined(
+            slot: program.MeshSlot(static meshes => meshes.Built),
             site: FaultSite.RenderMesh,
-            inherited: inherited);
+            inherited: inherited,
+            body: refine => op => Policy(parameters: parameters, op: op)
+                .Bind(policy => refine(new RenderMeshBuild(
+                    Kind: kind, Policy: policy, IgnoreCustom: ignore, Inherited: inherited)))
+                .Bind(answer => guard(answer >= 0, op.InvalidResult()).ToFin().Map(_ => answer)));
 
     internal static Mesh[] Roster(this ObjectProgram program, MeshType kind, Mesh[] inherited) =>
-        Fallback(
-            attempted: program.RenderMeshes.Bind(static meshes => meshes.Cached)
-                .Map(refine => Attempt(_ => refine(kind, toSeq(inherited ?? [])).Map(static refined => refined.ToArray()))),
+        Refined(
+            slot: program.MeshSlot(static meshes => meshes.Cached),
             site: FaultSite.RenderMesh,
-            inherited: inherited);
+            inherited: inherited,
+            body: refine => _ => refine(kind, toSeq(inherited ?? [])).Map(static refined => refined.ToArray()));
 
     internal static Unit Dismantled(this ObjectProgram program, MeshType kind) =>
-        program.RenderMeshes.Bind(static meshes => meshes.Dropped)
-            .Map(run => Op.Of(name: nameof(RenderMeshProgram)).Catch(() => run(kind)).Reported(site: FaultSite.RenderMesh))
-            .IfNone(noneValue: unit);
+        Ran(
+            slot: program.MeshSlot(static meshes => meshes.Dropped),
+            site: FaultSite.RenderMesh,
+            body: run => run(kind));
 
     private static Fin<Option<MeshPolicy>> Policy(MeshingParameters parameters, Op op) =>
         Optional(parameters)
@@ -1024,7 +1126,7 @@ public static class Grips {
                                from _ in guard(!chosen.IsEmpty, ctx.Op.MissingContext()).ToFin()
                                from __ in chosen.TraverseM(grip => edit.Motion.Apply(grip: grip, op: ctx.Op)).As()
                                select ctx.Native.Id)).As()
-                       select new ObjectReceipt<Guid>(Facts: ids, UndoSerials: Seq<uint>()),
+                       select new ObjectReceipt<Guid>(Facts: ids, UndoSerials: Seq<UndoSerial>()),
                    key: op,
                    needs: [SessionNeed.Mutate])
                select receipt;

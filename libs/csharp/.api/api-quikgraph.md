@@ -54,6 +54,26 @@
 |  [15]   | `DelegateVertexAndEdgeListGraph<TVertex, TEdge>`      | lazy class    | vertex sequence plus a `TryFunc` adjacency     |
 |  [16]   | `DelegateBidirectionalIncidenceGraph<TVertex, TEdge>` | lazy class    | paired out- and in-edge accessors              |
 
+[PUBLIC_TYPE_SCOPE]: `QuikGraph.Predicates` — the filtered-view ladder over a base container and the `Test`-shaped predicates that feed it
+
+| [INDEX] | [SYMBOL]                                                 | [TYPE_FAMILY] | [CAPABILITY]                                      |
+| :-----: | :------------------------------------------------------- | :------------ | :------------------------------------------------ |
+|  [01]   | `FilteredGraph<TVertex, TEdge, TGraph>`                  | view class    | the ladder root, `BaseGraph` plus both predicates |
+|  [02]   | `FilteredImplicitGraph<TVertex, TEdge, TGraph>`          | view class    | filtered out-edge access                          |
+|  [03]   | `FilteredIncidenceGraph<TVertex, TEdge, TGraph>`         | view class    | filtered incidence and edge lookup                |
+|  [04]   | `FilteredImplicitVertexSet<TVertex, TEdge, TGraph>`      | view class    | filtered vertex membership                        |
+|  [05]   | `FilteredVertexListGraph<TVertex, TEdge, TGraph>`        | view class    | filtered vertex enumeration                       |
+|  [06]   | `FilteredEdgeListGraph<TVertex, TEdge, TGraph>`          | view class    | filtered edge enumeration                         |
+|  [07]   | `FilteredVertexAndEdgeListGraph<TVertex, TEdge, TGraph>` | view class    | filtered vertex and edge sets together            |
+|  [08]   | `FilteredUndirectedGraph<TVertex, TEdge, TGraph>`        | view class    | filtered symmetric adjacency                      |
+|  [09]   | `ResidualEdgePredicate<TVertex, TEdge>`                  | class         | `Test` on positive residual capacity              |
+|  [10]   | `ReversedResidualEdgePredicate<TVertex, TEdge>`          | class         | `Test` on the reverse arc's residual              |
+|  [11]   | `InDictionaryVertexPredicate<TVertex, TValue>`           | class         | `Test` on membership in a vertex map              |
+|  [12]   | `IsolatedVertexPredicate<TVertex, TEdge>`                | class         | `Test` on zero in- and out-degree                 |
+|  [13]   | `SinkVertexPredicate<TVertex, TEdge>`                    | class         | `Test` on zero out-degree                         |
+
+- Every filtered view takes `(TGraph baseGraph, VertexPredicate<TVertex>, EdgePredicate<TVertex, TEdge>)` and holds the base by reference, so the scope is a live read and a later mutation of the base shows through. `FilteredBidirectionalGraph<TVertex, TEdge, TGraph>` is the predecessor-bearing member of the same ladder. The `Test`-shaped predicates in rows [09]-[13] are METHODS, not `VertexPredicate`/`EdgePredicate` values — a view binds them as a method group.
+
 [PUBLIC_TYPE_SCOPE]: delegates, observers, and the algorithm service surface
 
 | [INDEX] | [SYMBOL]                                                | [TYPE_FAMILY] | [CAPABILITY]                                  |
@@ -66,14 +86,25 @@
 |  [06]   | `VertexFactory<TVertex>`                                | delegate      | synthetic vertex mint for augmentation        |
 |  [07]   | `EdgeFactory<TVertex, TEdge>`                           | delegate      | synthetic edge mint for augmentation          |
 |  [08]   | `EdgeEqualityComparer<TVertex>`                         | delegate      | undirected or sorted vertex-pair equality     |
-|  [09]   | `VertexPredecessorRecorderObserver<TVertex, TEdge>`     | observer      | `VerticesPredecessors` plus `TryGetPath`      |
+|  [09]   | `VertexPredecessorRecorderObserver<TVertex, TEdge>`     | observer      | `VerticesPredecessors` with `TryGetPath`      |
 |  [10]   | `VertexPredecessorPathRecorderObserver<TVertex, TEdge>` | observer      | `AllPaths` and `EndPathVertices`              |
 |  [11]   | `VertexDistanceRecorderObserver<TVertex, TEdge>`        | observer      | `Distances` under a chosen relaxer            |
 |  [12]   | `EdgeRecorderObserver<TVertex, TEdge>`                  | observer      | `Edges` in visit order                        |
 |  [13]   | `EdgePredecessorRecorderObserver<TVertex, TEdge>`       | observer      | `AllPaths`, `MergedPath`, `EndPathEdges`      |
 |  [14]   | `VertexTimeStamperObserver<TVertex>`                    | observer      | `DiscoverTimes` and `FinishTimes`             |
 |  [15]   | `IDistanceRelaxer`                                      | interface     | `InitialDistance` plus `Combine` accumulation |
-|  [16]   | `ICancelManager`                                        | interface     | `Cancel`, `IsCancelling`, `CancelRequested`   |
+|  [16]   | `DistanceRelaxers`                                      | static class  | one relaxer static per accumulation rule      |
+|  [17]   | `IEdgeChain<TVertex, TEdge>`                            | interface     | successor selection for one walk step         |
+|  [18]   | `IMarkovEdgeChain<TVertex, TEdge>`                      | interface     | `IEdgeChain` plus the walk's `Rand` seat      |
+|  [19]   | `MarkovEdgeChainBase<TVertex, TEdge>`                   | abstract      | `Rand` seat defaulting to a `CryptoRandom`    |
+|  [20]   | `NormalizedMarkovEdgeChain<TVertex, TEdge>`             | class         | uniform draw over the out-edges               |
+|  [21]   | `WeightedMarkovEdgeChain<TVertex, TEdge>`               | class         | weight-proportional draw over a weight map    |
+|  [22]   | `VanishingWeightedMarkovEdgeChain<TVertex, TEdge>`      | class         | weighted draw decaying the taken edge         |
+|  [23]   | `RoundRobinEdgeChain<TVertex, TEdge>`                   | class         | per-vertex cyclic index, no `Rand`            |
+|  [24]   | `ICancelManager`                                        | interface     | `Cancel`, `IsCancelling`, `CancelRequested`   |
+
+- Rows [17]-[23] are the walk policy `RandomWalkAlgorithm` and `CyclePoppingRandomTreeAlgorithm` take: the Markov chains draw through the `Rand` a `CryptoRandom` seeds by default, so a reproducible walk assigns its own seeded `Random` before `Compute()`, while `RoundRobinEdgeChain` carries no randomness at all and is the deterministic frontier for a coverage walk. `VanishingWeightedMarkovEdgeChain` multiplies the taken edge's weight by `Factor` (default `0.2`) and renormalizes its siblings, so revisits fall away across one traversal and the supplied `IDictionary<TEdge, double>` is MUTATED in place.
+- Every observer subscribes through its own `Attach` seam, and the seam names the capability it needs, never a concrete algorithm: the predecessor and distance recorders take `ITreeBuilderAlgorithm<TVertex, TEdge>`, the path recorder `IVertexPredecessorRecorderAlgorithm<TVertex, TEdge>`, the edge-predecessor recorder `IEdgePredecessorRecorderAlgorithm<TVertex, TEdge>`, and the time stamper `IVertexTimeStamperAlgorithm<TVertex>`, so one recorder serves every traversal implementing its interface.
 
 [PUBLIC_TYPE_SCOPE]: algorithm objects — the stateful traversal, path, flow, matching, and coloring surface
 
@@ -81,43 +112,55 @@
 | :-----: | :---------------------------------------------------------- | :------------- | :---------------------------------------------- |
 |  [01]   | `AlgorithmBase<TGraph>`                                     | abstract class | `Compute`, `Abort`, `State`, `Services`         |
 |  [02]   | `BreadthFirstSearchAlgorithm<TVertex, TEdge>`               | class          | traversal events over a chosen `IQueue`         |
-|  [03]   | `DepthFirstSearchAlgorithm<TVertex, TEdge>`                 | class          | `MaxDepth` and `ProcessAllComponents` DFS       |
-|  [04]   | `EdgeDepthFirstSearchAlgorithm<TVertex, TEdge>`             | class          | edge-centric DFS for predecessor recording      |
-|  [05]   | `DijkstraShortestPathAlgorithm<TVertex, TEdge>`             | class          | distance state plus relaxation events           |
-|  [06]   | `AStarShortestPathAlgorithm<TVertex, TEdge>`                | class          | heuristic-guided distance state                 |
-|  [07]   | `BellmanFordShortestPathAlgorithm<TVertex, TEdge>`          | class          | signed weights with cycle detection             |
-|  [08]   | `FloydWarshallAllShortestPathAlgorithm<TVertex, TEdge>`     | class          | all-pairs `TryGetDistance` and `TryGetPath`     |
-|  [09]   | `YenShortestPathsAlgorithm<TVertex>`                        | class          | k loopless paths as `SortedPath` values         |
-|  [10]   | `HoffmanPavleyRankedShortestPathAlgorithm<TVertex, TEdge>`  | class          | ranked deviation paths to a target              |
-|  [11]   | `StronglyConnectedComponentsAlgorithm<TVertex, TEdge>`      | class          | `Components`, `Roots`, `Graphs`, `Steps`        |
-|  [12]   | `IncrementalConnectedComponentsAlgorithm<TVertex, TEdge>`   | class          | live component count across mutation            |
-|  [13]   | `EdmondsKarpMaximumFlowAlgorithm<TVertex, TEdge>`           | class          | augmenting max-flow over residual capacity      |
-|  [14]   | `ReversedEdgeAugmentorAlgorithm<TVertex, TEdge>`            | class          | reversed-edge add and removal lifecycle         |
-|  [15]   | `MaximumBipartiteMatchingAlgorithm<TVertex, TEdge>`         | class          | `MatchedEdges` over two vertex partitions       |
-|  [16]   | `EulerianTrailAlgorithm<TVertex, TEdge>`                    | class          | `Circuit` and `Trails` with temporary edges     |
-|  [17]   | `RandomWalkAlgorithm<TVertex, TEdge>`                       | class          | `IEdgeChain`-driven walk under `EndPredicate`   |
-|  [18]   | `TarjanOfflineLeastCommonAncestorAlgorithm<TVertex, TEdge>` | class          | `Ancestors` over a rooted vertex-pair set       |
-|  [19]   | `CondensationGraphAlgorithm<TVertex, TEdge, TGraph>`        | class          | `CondensedGraph` over component subgraphs       |
-|  [20]   | `VertexColoringAlgorithm<TVertex, TEdge>`                   | class          | greedy `Colors` map with a colored event        |
-|  [21]   | `KernighanLinAlgorithm<TVertex, TEdge>`                     | class          | balanced two-way `Partition` by cut cost        |
-|  [22]   | `MinimumVertexCoverApproximationAlgorithm<TVertex, TEdge>`  | class          | randomized `CoverSet`                           |
-|  [23]   | `PageRankAlgorithm<TVertex, TEdge>`                         | class          | `Ranks` under `Damping` and `Tolerance`         |
-|  [24]   | `TSP<TVertex, TEdge, TGraph>`                               | class          | `BestCost` and `ResultPath` by branch-and-bound |
-|  [25]   | `HungarianAlgorithm`                                        | class          | `AgentsTasks` assignment over a cost matrix     |
-|  [26]   | `IsEulerianGraphAlgorithm<TVertex, TEdge>`                  | class          | `IsEulerian` predicate                          |
-|  [27]   | `IsHamiltonianGraphAlgorithm<TVertex, TEdge>`               | class          | `IsHamiltonian` predicate                       |
+|  [03]   | `UndirectedBreadthFirstSearchAlgorithm<TVertex, TEdge>`     | class          | level traversal over symmetric adjacency        |
+|  [04]   | `DepthFirstSearchAlgorithm<TVertex, TEdge>`                 | class          | `MaxDepth` and `ProcessAllComponents` DFS       |
+|  [05]   | `UndirectedDepthFirstSearchAlgorithm<TVertex, TEdge>`       | class          | DFS over an undirected container                |
+|  [06]   | `BidirectionalDepthFirstSearchAlgorithm<TVertex, TEdge>`    | class          | DFS over out- and in-edges together             |
+|  [07]   | `EdgeDepthFirstSearchAlgorithm<TVertex, TEdge>`             | class          | edge-centric DFS for predecessor recording      |
+|  [08]   | `ImplicitDepthFirstSearchAlgorithm<TVertex, TEdge>`         | class          | DFS over a delegate-adjacent graph              |
+|  [09]   | `ImplicitEdgeDepthFirstSearchAlgorithm<TVertex, TEdge>`     | class          | edge-centric DFS with no vertex set             |
+|  [10]   | `BestFirstFrontierSearchAlgorithm<TVertex, TEdge>`          | class          | relaxer-ordered frontier to a seated target     |
+|  [11]   | `DijkstraShortestPathAlgorithm<TVertex, TEdge>`             | class          | distance state plus relaxation events           |
+|  [12]   | `UndirectedDijkstraShortestPathAlgorithm<TVertex, TEdge>`   | class          | distance state over symmetric adjacency         |
+|  [13]   | `AStarShortestPathAlgorithm<TVertex, TEdge>`                | class          | heuristic-guided distance state                 |
+|  [14]   | `BellmanFordShortestPathAlgorithm<TVertex, TEdge>`          | class          | signed weights with cycle detection             |
+|  [15]   | `DagShortestPathAlgorithm<TVertex, TEdge>`                  | class          | one topological pass under a relaxer            |
+|  [16]   | `FloydWarshallAllShortestPathAlgorithm<TVertex, TEdge>`     | class          | all-pairs `TryGetDistance` and `TryGetPath`     |
+|  [17]   | `YenShortestPathsAlgorithm<TVertex>`                        | class          | k loopless paths as `SortedPath` values         |
+|  [18]   | `HoffmanPavleyRankedShortestPathAlgorithm<TVertex, TEdge>`  | class          | ranked deviation paths to a target              |
+|  [19]   | `StronglyConnectedComponentsAlgorithm<TVertex, TEdge>`      | class          | `Components`, `Roots`, `Graphs`, `Steps`        |
+|  [20]   | `IncrementalConnectedComponentsAlgorithm<TVertex, TEdge>`   | class          | live component count across mutation            |
+|  [21]   | `EdmondsKarpMaximumFlowAlgorithm<TVertex, TEdge>`           | class          | augmenting max-flow over residual capacity      |
+|  [22]   | `ReversedEdgeAugmentorAlgorithm<TVertex, TEdge>`            | class          | reversed-edge add and removal lifecycle         |
+|  [23]   | `MaximumBipartiteMatchingAlgorithm<TVertex, TEdge>`         | class          | `MatchedEdges` over two vertex partitions       |
+|  [24]   | `EulerianTrailAlgorithm<TVertex, TEdge>`                    | class          | `Circuit` and `Trails` with temporary edges     |
+|  [25]   | `RandomWalkAlgorithm<TVertex, TEdge>`                       | class          | `IEdgeChain`-driven walk under `EndPredicate`   |
+|  [26]   | `CyclePoppingRandomTreeAlgorithm<TVertex, TEdge>`           | class          | `Successors` tree by loop erasure               |
+|  [27]   | `TarjanOfflineLeastCommonAncestorAlgorithm<TVertex, TEdge>` | class          | `Ancestors` over a rooted vertex-pair set       |
+|  [28]   | `CondensationGraphAlgorithm<TVertex, TEdge, TGraph>`        | class          | `CondensedGraph` over component subgraphs       |
+|  [29]   | `VertexColoringAlgorithm<TVertex, TEdge>`                   | class          | greedy `Colors` map with a colored event        |
+|  [30]   | `KernighanLinAlgorithm<TVertex, TEdge>`                     | class          | balanced two-way `Partition` by cut cost        |
+|  [31]   | `MinimumVertexCoverApproximationAlgorithm<TVertex, TEdge>`  | class          | randomized `CoverSet`                           |
+|  [32]   | `PageRankAlgorithm<TVertex, TEdge>`                         | class          | `Ranks` under `Damping` and `Tolerance`         |
+|  [33]   | `TSP<TVertex, TEdge, TGraph>`                               | class          | `BestCost` and `ResultPath` by branch-and-bound |
+|  [34]   | `HungarianAlgorithm`                                        | class          | `AgentsTasks` assignment over a cost matrix     |
+|  [35]   | `MaximumCliqueAlgorithmBase<TVertex, TEdge>`                | abstract class | the whole `Cliques` namespace, unimplemented    |
+|  [36]   | `IsEulerianGraphAlgorithm<TVertex, TEdge>`                  | class          | `IsEulerian` predicate                          |
+|  [37]   | `IsHamiltonianGraphAlgorithm<TVertex, TEdge>`               | class          | `IsHamiltonian` predicate                       |
+
+- Row [35] is the ONLY type in `QuikGraph.Algorithms.Cliques` and it ships no concrete subclass, so a maximum-clique need has no member to bind here and lands as a domain fold or a different package outright.
 
 [PUBLIC_TYPE_SCOPE]: frontier structures and disjoint sets
 
-| [INDEX] | [SYMBOL]                             | [TYPE_FAMILY] | [CAPABILITY]                                     |
-| :-----: | :----------------------------------- | :------------ | :----------------------------------------------- |
-|  [01]   | `IQueue<T>`                          | interface     | frontier contract every search constructor takes |
-|  [02]   | `IPriorityQueue<T>`                  | interface     | `IQueue<T>` plus `Update` on a changed key       |
-|  [03]   | `BinaryQueue<TVertex, TDistance>`    | class         | binary-heap priority frontier                    |
-|  [04]   | `FibonacciQueue<TVertex, TDistance>` | class         | Fibonacci-heap frontier, cheap decrease-key      |
-|  [05]   | `SoftHeap<TKey, TValue>`             | class         | bounded-corruption heap under `ErrorRate`        |
-|  [06]   | `IDisjointSet<T>`                    | interface     | `MakeSet`, `Union`, `FindSet`, `AreInSameSet`    |
-|  [07]   | `ForestDisjointSet<T>`               | class         | union-find with `SetCount` and `ElementCount`    |
+| [INDEX] | [SYMBOL]                             | [TYPE_FAMILY] | [CAPABILITY]                                  |
+| :-----: | :----------------------------------- | :------------ | :-------------------------------------------- |
+|  [01]   | `IQueue<T>`                          | interface     | the frontier slot `BreadthFirstSearch` takes  |
+|  [02]   | `IPriorityQueue<T>`                  | interface     | `IQueue<T>` plus `Update` on a changed key    |
+|  [03]   | `BinaryQueue<TVertex, TDistance>`    | class         | binary-heap priority frontier                 |
+|  [04]   | `FibonacciQueue<TVertex, TDistance>` | class         | Fibonacci-heap frontier, cheap decrease-key   |
+|  [05]   | `SoftHeap<TKey, TValue>`             | class         | bounded-corruption heap under `ErrorRate`     |
+|  [06]   | `IDisjointSet<T>`                    | interface     | `MakeSet`, `Union`, `FindSet`, `AreInSameSet` |
+|  [07]   | `ForestDisjointSet<T>`               | class         | union-find with `SetCount` and `ElementCount` |
 
 [FAULTS]: `NonAcyclicGraphException` `NegativeCycleGraphException` `NegativeWeightException` `NegativeCapacityException` `NoPathFoundException` `NonStronglyConnectedGraphException` `ParallelEdgeNotAllowedException` `VertexNotFoundException` `QuikGraphException`
 
@@ -189,6 +232,29 @@ Every graph interface named in a signature is `<TVertex, TEdge>`-parameterized a
 - `AlgorithmExtensions.OfflineLeastCommonAncestor`: returns `TryFunc<SEquatableEdge<TVertex>, TVertex>` keyed on the pairs supplied up front.
 - `AlgorithmExtensions.MaximumFlow`: closes on `out TryFunc<TVertex, TEdge>`, `EdgeFactory<TVertex, TEdge>`, and a constructed `ReversedEdgeAugmentorAlgorithm<TVertex, TEdge>`; it returns the max flow as `double` over a capacity fold, requires that augmentor to have run `AddReversedEdges()`, and leaves the auxiliary edges until `RemoveReversedEdges()`. It constructs the algorithm object internally and surfaces only the flow value and the predecessor accessor, so a caller needing the CUT binds the object below.
 
+[ENTRYPOINT_SCOPE]: rooted traversal — the `RootedAlgorithmBase` run surface every root-seeded algorithm inherits, and the `BreadthFirstSearchAlgorithm` event fan a visitor subscribes instead of re-walking the frontier
+
+| [INDEX] | [SURFACE]                                           | [SHAPE]  | [CAPABILITY]                             |
+| :-----: | :-------------------------------------------------- | :------- | :--------------------------------------- |
+|  [01]   | `RootedAlgorithmBase.Compute(TVertex root)`         | virtual  | set the root then run                    |
+|  [02]   | `RootedAlgorithmBase.SetRootVertex(TVertex)`        | instance | seat the root, fire the change event     |
+|  [03]   | `RootedAlgorithmBase.TryGetRootVertex(out TVertex)` | instance | read the seated root, `false` when unset |
+|  [04]   | `RootedAlgorithmBase.RootVertexChanged`             | event    | `EventHandler` on a re-seated root       |
+|  [05]   | `BreadthFirstSearchAlgorithm.InitializeVertex`      | event    | once per vertex before the walk          |
+|  [06]   | `BreadthFirstSearchAlgorithm.StartVertex`           | event    | the root the walk opens on               |
+|  [07]   | `BreadthFirstSearchAlgorithm.ExamineVertex`         | event    | vertex dequeued from the frontier        |
+|  [08]   | `BreadthFirstSearchAlgorithm.DiscoverVertex`        | event    | vertex first reached, entering the queue |
+|  [09]   | `BreadthFirstSearchAlgorithm.FinishVertex`          | event    | every out-edge of the vertex examined    |
+|  [10]   | `BreadthFirstSearchAlgorithm.ExamineEdge`           | event    | edge visited from an examined vertex     |
+|  [11]   | `BreadthFirstSearchAlgorithm.TreeEdge`              | event    | edge that discovered a white target      |
+|  [12]   | `BreadthFirstSearchAlgorithm.NonTreeEdge`           | event    | edge onto an already-discovered target   |
+|  [13]   | `BreadthFirstSearchAlgorithm.GrayTarget`            | event    | non-tree edge onto a queued target       |
+|  [14]   | `BreadthFirstSearchAlgorithm.BlackTarget`           | event    | non-tree edge onto a finished target     |
+
+- `Compute(root)` is `SetRootVertex(root)` then the parameterless `Compute()`, so seating a root and running are one call; the parameterless form on an unrooted instance has no root to walk from.
+- Subscribers share ONE walk through the event fan: a distance recorder, a predecessor recorder, and a level partition all attach to the same run rather than each re-running it. `DiscoverVertex` fires once per vertex on first reach, `ExamineVertex` once per dequeue, and `FinishVertex` after its out-edges — a depth or level fold keys on `TreeEdge` and `DiscoverVertex`, never on `ExamineEdge`, which fires for every incident arc.
+- `GrayTarget` and `BlackTarget` partition `NonTreeEdge` by the target's colour, so a cross-edge-versus-back-edge classification reads a case rather than probing `VerticesColors` mid-walk.
+
 [ENTRYPOINT_SCOPE]: maximum-flow objects — the augmentation lifecycle and the residual state a minimum cut reads; the solver constructor closes on `EdgeFactory<TVertex, TEdge>` and a constructed `ReversedEdgeAugmentorAlgorithm<TVertex, TEdge>` after its capacity fold
 
 | [INDEX] | [SURFACE]                                                                     | [SHAPE]  | [CAPABILITY]              |
@@ -210,6 +276,50 @@ Every graph interface named in a signature is `<TVertex, TEdge>`-parameterized a
 - `ResidualCapacities` derives the MINIMUM CUT from published state: a breadth-first walk from the source over out-edges holding positive residual capacity yields the source side, while `VerticesColors` reports only the last traversal's own colouring.
 - `ReversedEdgeAugmentorAlgorithm` mints one reverse per edge, so a graph whose domain already carries both directions constructs with `allowParallelEdges: true`; `false` silently drops half the residual capacity and the solve cuts the wrong edges.
 - `Edge<TVertex>` declares `Source`, `Target`, and `ToString` alone, so its identity is its INSTANCE — a capacity or weight map keyed by it under `ReferenceEqualityComparer` distinguishes an augmentor-minted reverse from the arc it duplicates. `SEdge<TVertex>` and `EquatableEdge<TVertex>` carry value identity, so the same map collapses those two onto one entry and hands the solver twice the residual capacity the arc carries.
+
+[ENTRYPOINT_SCOPE]: path, matching, tour, and trail objects — the constructor knobs and published products the `AlgorithmExtensions` rail does not surface
+
+| [INDEX] | [SURFACE]                                                                        | [SHAPE]  | [CAPABILITY]                              |
+| :-----: | :------------------------------------------------------------------------------- | :------- | :---------------------------------------- |
+|  [01]   | `DagShortestPathAlgorithm(IVertexListGraph, Func<TEdge, double>)`                | ctor     | defaults to `ShortestDistance`            |
+|  [02]   | `DagShortestPathAlgorithm(…, IDistanceRelaxer)`                                  | ctor     | relaxer-chosen accumulation               |
+|  [03]   | `DagShortestPathAlgorithm(IAlgorithmComponent?, …)`                              | ctor     | hosted form sharing caller services       |
+|  [04]   | `ShortestPathAlgorithmBase.Distances -> IDictionary<TVertex, double>`            | instance | distance state after `Compute(root)`      |
+|  [05]   | `ShortestPathAlgorithmBase.TryGetDistance(TVertex, out double)`                  | instance | guarded distance read                     |
+|  [06]   | `ShortestPathAlgorithmBase.GetDistances()`                                       | instance | every vertex-distance pair                |
+|  [07]   | `BestFirstFrontierSearchAlgorithm(IBidirectionalIncidenceGraph, …)`              | ctor     | relaxer as the sole frontier knob         |
+|  [08]   | `RootedSearchAlgorithmBase.Compute(TVertex root, TVertex target)`                | instance | run root to a seated target               |
+|  [09]   | `RootedSearchAlgorithmBase.SetTargetVertex(TVertex)` / `.ClearTargetVertex()`    | instance | seat and clear the target                 |
+|  [10]   | `RootedSearchAlgorithmBase.TargetReached` / `.TargetVertexChanged`               | event    | target-hit and re-seat signals            |
+|  [11]   | `MaximumBipartiteMatchingAlgorithm(IMutableVertexAndEdgeListGraph, …)`           | ctor     | both partitions plus the two factories    |
+|  [12]   | `MaximumBipartiteMatchingAlgorithm.MatchedEdges -> TEdge[]`                      | instance | the matching after `Compute()`            |
+|  [13]   | `MaximumBipartiteMatchingAlgorithm.SourceToVertices` / `.VerticesToSink`         | instance | the partitions as constructed             |
+|  [14]   | `TSP(TGraph, Func<TEdge, double>)`                                               | ctor     | branch-and-bound tour over one graph      |
+|  [15]   | `TSP.ResultPath -> BidirectionalGraph<TVertex, TEdge>`                           | instance | the tour AS A GRAPH, not a sequence       |
+|  [16]   | `TSP.BestCost -> double`                                                         | instance | `PositiveInfinity` until a tour closes    |
+|  [17]   | `EulerianTrailAlgorithm(IMutableVertexAndEdgeListGraph)`                         | ctor     | trail solver over a MUTABLE container     |
+|  [18]   | `EulerianTrailAlgorithm.Circuit -> TEdge[]`                                      | instance | the single closed circuit                 |
+|  [19]   | `EulerianTrailAlgorithm.Trails()` / `.Trails(TVertex)`                           | instance | `ICollection<TEdge>` per trail            |
+|  [20]   | `EulerianTrailAlgorithm.AddTemporaryEdges(EdgeFactory) -> TEdge[]`               | instance | odd-degree repair, returns what it minted |
+|  [21]   | `EulerianTrailAlgorithm.RemoveTemporaryEdges()`                                  | instance | retire the repair edges                   |
+|  [22]   | `EulerianTrailAlgorithm.ComputeEulerianPathCount(IVertexAndEdgeListGraph)`       | static   | trail count from the odd-degree census    |
+|  [23]   | `HoffmanPavleyRankedShortestPathAlgorithm(IBidirectionalGraph, …)`               | ctor     | optional relaxer, optional host           |
+|  [24]   | `HoffmanPavleyRankedShortestPathAlgorithm.Compute(TVertex, TVertex)`             | instance | run one root-target pair                  |
+|  [25]   | `RankedShortestPathAlgorithmBase.ShortestPathCount`                              | property | k, default `3`, must exceed `1`           |
+|  [26]   | `RankedShortestPathAlgorithmBase.ComputedShortestPaths`                          | instance | ranked `IEnumerable<TEdge>` sequence      |
+|  [27]   | `RankedShortestPathAlgorithmBase.ComputedShortestPathCount`                      | instance | how many k the run actually found         |
+|  [28]   | `YenShortestPathsAlgorithm(AdjacencyGraph, TVertex, TVertex, int, Func?, Func?)` | ctor     | source, target, k, weights, path filter   |
+|  [29]   | `YenShortestPathsAlgorithm.Execute() -> IEnumerable<SortedPath>`                 | instance | the k loopless paths                      |
+|  [30]   | `YenShortestPathsAlgorithm.SortedPath` — `Count`, `IEquatable<SortedPath>`       | struct   | value-equal path over tagged edges        |
+|  [31]   | `IncrementalConnectedComponentsAlgorithm(IMutableVertexAndEdgeSet)`              | ctor     | subscribes to the container's events      |
+|  [32]   | `IncrementalConnectedComponentsAlgorithm.ComponentCount -> int`                  | instance | live count, valid only after `Compute()`  |
+|  [33]   | `IncrementalConnectedComponentsAlgorithm.GetComponents()`                        | instance | `KeyValuePair<int, IDictionary<…, int>>`  |
+|  [34]   | `IncrementalConnectedComponentsAlgorithm.Dispose()`                              | instance | unsubscribe from the mutation events      |
+
+- `DagShortestPathAlgorithm` takes `IVertexListGraph` and runs ONE `TopologicalSort` pass, so it throws `NonAcyclicGraphException` on a cyclic container rather than relaxing. Under `DistanceRelaxers.CriticalDistance` — `InitialDistance` of `double.MinValue` and an inverted `Compare` — the same pass yields the LONGEST path, so a critical-path fold reads `Distances` directly instead of negating weights into a shortest-path run.
+- `MaximumBipartiteMatchingAlgorithm` MUTATES the supplied container during `Compute()`: it mints a super-source, a super-sink, and a reverse per edge through the two factories, then rolls both augmentations back in a `finally`. The graph must therefore be the caller's own working copy, `VertexFactory` must mint vertices no partition already holds, and `MatchedEdges` is a fresh array per read.
+- `EulerianTrailAlgorithm` also mutates: `AddTemporaryEdges` pairs the `OddVertices` before `Compute()` and `RemoveTemporaryEdges` retires them, so a trail over a graph with more than two odd vertices brackets the solve between the two calls.
+- `YenShortestPathsAlgorithm` is the one path algorithm that fixes its own containers: `AdjacencyGraph<TVertex, EquatableTaggedEdge<TVertex, double>>` with the weight in the edge `Tag`, source, target, and k at CONSTRUCTION, and `Execute()` rather than `Compute()`. Its `filter` argument post-processes each candidate round.
 
 [ENTRYPOINT_SCOPE]: combinatorial objects — assignment, balanced partition, coloring, condensation, union-find; each `AlgorithmBase` object runs via `Compute()` and publishes its product as a property
 
@@ -235,6 +345,21 @@ Every graph interface named in a signature is `<TVertex, TEdge>`-parameterized a
 - `KernighanLinAlgorithm<TVertex, TEdge>` lives at `QuikGraph.Algorithms.GraphPartition` and constrains `TEdge : IUndirectedEdge<TVertex>, ITagged<double>` — the cut weight IS the edge `Tag`, so a weightless bisection tags every edge `1.0`; `Partition<TVertex>` sorts both halves, so `TVertex` is `IComparable` in practice.
 - `VertexColoringAlgorithm<TVertex, TEdge>` lives at `QuikGraph.Algorithms.VertexColoring`; `Colors` values are dense from `0`, so `Colors.Values.Max() + 1` is the batch count and one color class is one non-conflicting concurrent batch.
 - `CondensationGraphAlgorithm<TVertex, TEdge, TGraph>` lives at `QuikGraph.Algorithms.Condensation`; `HungarianAlgorithm` at `QuikGraph.Algorithms.Assignment` binds no graph container — its whole input is the rectangular `int[,]` cost matrix; `ForestDisjointSet<T>` at `QuikGraph.Collections` — `Union` returns `true` only when it merged two distinct sets.
+
+[ENTRYPOINT_SCOPE]: `ClusteredAdjacencyGraph` cluster hierarchy — the nesting surface on top of the `AdjacencyGraph` write API every container shares
+
+| [INDEX] | [SURFACE]                                                          | [SHAPE]  | [CAPABILITY]                             |
+| :-----: | :----------------------------------------------------------------- | :------- | :--------------------------------------- |
+|  [01]   | `ClusteredAdjacencyGraph(AdjacencyGraph<TVertex, TEdge>)`          | ctor     | root cluster over a wrapped graph        |
+|  [02]   | `ClusteredAdjacencyGraph(ClusteredAdjacencyGraph<TVertex, TEdge>)` | ctor     | child cluster under a parent             |
+|  [03]   | `ClusteredAdjacencyGraph.AddCluster() -> ClusteredAdjacencyGraph`  | instance | mint and register a child                |
+|  [04]   | `ClusteredAdjacencyGraph.RemoveCluster(IClusteredGraph)`           | instance | drop a child by reference                |
+|  [05]   | `ClusteredAdjacencyGraph.Clusters -> IEnumerable`                  | property | the children, UNTYPED `IEnumerable`      |
+|  [06]   | `ClusteredAdjacencyGraph.ClustersCount -> int`                     | property | direct-child census                      |
+|  [07]   | `ClusteredAdjacencyGraph.Parent`                                   | property | owning cluster, `null` at the root       |
+|  [08]   | `ClusteredAdjacencyGraph.Collapsed -> bool`                        | property | mutable render/fold flag, no read effect |
+
+- A vertex or edge added to a child propagates UP to every ancestor, so the root's wrapped graph always carries the union and a cluster is a scoped write handle rather than a second container. Removal propagates BOTH ways — down through every descendant holding it and up through every ancestor — so `RemoveVertex` on a leaf cluster evicts it from the whole hierarchy, and a scoped retraction removes from the wrapped graph directly. `Clusters` is the non-generic `IEnumerable` off `IClusteredGraph`, so a typed walk casts each element itself.
 
 [ENTRYPOINT_SCOPE]: `GraphExtensions` container projection — every conversion mints a new container over the source's vertices and edges
 
@@ -297,7 +422,7 @@ Every graph interface named in a signature is `<TVertex, TEdge>`-parameterized a
 - `GraphExtensions` owns every container conversion, so a domain index reaches an algorithm through one `To*` projection.
 - `OfflineLeastCommonAncestor` binds rooted trees; a multi-parent DAG resolves its merge base through BFS closure intersection in the domain fold.
 - `MaximumBipartiteMatchingAlgorithm` rolls its super-terminal and reversed-edge augmentation back inside `Compute()`, and `MatchedEdges` reads after it returns; the type lives at `QuikGraph.Algorithms` (decompile-verified), never `QuikGraph.Algorithms.MaximumFlow` where the namespace roster suggests it.
-- `IQueue<TVertex>` selects the frontier only on `BreadthFirstSearchAlgorithm` and `BestFirstFrontierSearchAlgorithm`: `BinaryQueue`, `FibonacciQueue` where decrease-key dominates, `SoftHeap` where bounded corruption buys the bound. `AStarShortestPathAlgorithm` and `DijkstraShortestPathAlgorithm` construct `FibonacciQueue<TVertex, double>` internally in `Initialize()` and expose no frontier slot — their one composition knob is the `IDistanceRelaxer` ctor overload.
+- `IQueue<TVertex>` selects the frontier ONLY on `BreadthFirstSearchAlgorithm`: `BinaryQueue`, `FibonacciQueue` where decrease-key dominates, `SoftHeap` where bounded corruption buys the bound. Every other search seats its own frontier — `AStarShortestPathAlgorithm` and `DijkstraShortestPathAlgorithm` construct `FibonacciQueue<TVertex, double>` in `Initialize()`, and `BestFirstFrontierSearchAlgorithm` takes only `(IBidirectionalIncidenceGraph, Func<TEdge, double>, IDistanceRelaxer)` with an optional host, running an INTERNAL `BinaryHeap` — so `IDistanceRelaxer` is the one composition knob on all three.
 
 [RAIL_LAW]:
 - Package: `QuikGraph`

@@ -26,9 +26,9 @@
 [`EnConcreteMaterial`]: `Grade` `Standard` `Type` `ExposureClasses` `CementClass` `MaximumAggregateSize` `CrackWidthLimit` `MinimumCover` `PartialFactor` `AccidentalPartialFactor` `LongTermCompressionFactor` `LongTermTensionFactor`
 [`EnSteelMaterial`]: `Grade` `Standard` `Type` `Specification` `PartialFactor` `MemberInstabilityPartialFactor` `TensionFracturePartialFactor`
 [`EnRebarMaterial`]: `Grade` `Standard` `Type` `PartialFactor` `AccidentalPartialFactor`
-[`EnSteelSpecification`]: `DeliveryCondition` `FormingTemperature` `CorrosionResistance` `ExecutionClass` `QualityClass` `HollowSection`
+[`EnSteelSpecification`]: `DeliveryCondition` `FormingTemperature` `CorrosionResistance` `ExecutionClassForStaticOrLowSeismicLoading` `ExecutionClassForFatigueOrHighSeismicLoading` `ImpactTemperatureProperty` `QualityClass` `HollowSection`
 
-- `EnSteelSpecification.Validate(EnSteelGrade)` enforces the EN 10025-5 corrosion-class rules and throws `InvalidSteelSpecificationException`; the `.ctor` is `internal`, so a spec is reached through `EnSteelMaterial.Specification` or `TryCreateFromDesignition`.
+- `EnSteelSpecification`'s whole mutation and validation surface is `internal` — `Validate(EnSteelGrade)` (which enforces the EN 10025-5 corrosion-class rules and throws `InvalidSteelSpecificationException`), `GetShortDesignation`, `GetCodeDesignation`, and the `.ctor` alike — so a consumer reads a spec through `EnSteelMaterial.Specification` or `TryCreateFromDesignition` and never calls the gate itself.
 - `EnRebarMaterial` is the `IMaterial` the admitted `VividOrange.Sections` `Rebar`/`ConcreteSection` bind.
 
 [PUBLIC_TYPE_SCOPE]: constitutive analysis materials — the σ(ε) law a fibre integration or section solver reads; each implements `IAnalysisMaterial`, `IMaterial`, `ITaxonomySerializable`, and its own interface. A factory lowers a grade record to one; each is also directly constructible for a non-standard material.

@@ -1,6 +1,6 @@
 # [RASM_RHINO_PERSISTENCE_DICTIONARY]
 
-`ArchiveValue` is the folder's ONE typed boxed-host-value carrier: every payload a KV boundary moves — archive scalars, sequences, drawing values, geometry, carriers, enums, and the settings-only shapes — admits through one frozen slot registry whose rows carry the host-type keys, the defensive-copy law, and the native write column. `ArchiveMap` admits one native dictionary, preserves schema identity, tracks content independently of the host change serial, and mints one fresh native dictionary for each egress. String owners admit through the kernel `Op.AcceptValidated` string row — the one factory bridge onto the rail; a folder-local bridge beside it is the deleted form.
+`ArchiveValue` is the folder's ONE typed boxed-host-value carrier: every payload a KV boundary moves — archive scalars, sequences, drawing values, geometry, carriers, enums, and the settings-only shapes — admits through one frozen slot registry whose rows carry the host-type keys, the defensive-copy law, and the native write column. `ArchiveMap` admits one native dictionary, preserves schema identity, decides equality on content alone, and mints one fresh native dictionary for each egress. String owners admit through the kernel `Op.AcceptValidated` string row — the one factory bridge onto the rail; a folder-local bridge beside it is the deleted form.
 
 ## [01]-[OWNERS]
 
@@ -11,6 +11,7 @@ One slot row per host payload type replaces enumerated case arms: capture, host 
 using System.Collections.Frozen;
 using System.Drawing;
 using System.Globalization;
+using System.Reflection;
 using Rasm.Domain;
 using Rhino.Collections;
 using Rhino.DocObjects;
@@ -70,12 +71,36 @@ public sealed record ArchiveValue {
         .ToFin(Fail: op.InvalidInput())
         .Bind(value => value is System.Enum ? Capture(value, op) : Fin.Fail<ArchiveValue>(error: op.InvalidInput()));
 
+    // Host truth: `ArchivableDictionary.SetEnumValue<T>(string, T)` answers `bool` while
+    // `PersistentSettings.SetEnumValue<T>(string, T)` answers `void`, so the verdict is "not an explicit false" — a bool
+    // member reports its own refusal, a void one refuses by throwing onto the `Op.Catch` funnel, and a void invoke boxes
+    // to null. Testing the boxed result FOR `true` reads every settings write as a refusal.
     internal static Fin<Unit> EnumMint(object target, string method, string key, (Type EnumType, string Name) entry, Op op) =>
-        op.Catch(() => op.Confirm(success: target.GetType()
-            .GetMethods()
-            .Single(candidate => candidate.Name == method && candidate.IsGenericMethodDefinition && candidate.GetParameters().Length == 2)
-            .MakeGenericMethod(entry.EnumType)
-            .Invoke(target, [key, System.Enum.Parse(enumType: entry.EnumType, value: entry.Name, ignoreCase: true)]) is true));
+        Minter(new MintKey(target.GetType(), method, entry.EnumType), op)
+            .Bind(closed => op.Catch(() => op.Confirm(success: closed.Invoke(
+                target,
+                [key, System.Enum.Parse(enumType: entry.EnumType, value: entry.Name, ignoreCase: true)]) is not false)));
+
+    private readonly record struct MintKey(Type Host, string Method, Type EnumType);
+
+    // The closed generic handle is minted once per host/method/enum triple; the `GetMethods` scan plus
+    // `MakeGenericMethod` otherwise ran on every enum write against both host targets. A lost mint race keeps the seated
+    // handle, so one triple resolves to one method for the process.
+    private static readonly Atom<HashMap<MintKey, MethodInfo>> Minters = Atom(HashMap<MintKey, MethodInfo>());
+
+    private static Fin<MethodInfo> Minter(MintKey row, Op op) =>
+        Minters.Value.Find(row).Match(
+            Some: static held => Fin.Succ(value: held),
+            None: () => op.Catch(() => Fin.Succ(value: row.Host
+                    .GetMethods()
+                    .Single(candidate => candidate.Name == row.Method
+                        && candidate.IsGenericMethodDefinition
+                        && candidate.GetParameters().Length == 2)
+                    .MakeGenericMethod(row.EnumType)))
+                .Map(minted => Minters
+                    .Swap(held => held.ContainsKey(row) ? held : held.Add(row, minted))
+                    .Find(row)
+                    .IfNone(minted)));
 
     public Fin<T> Project<T>(Op? key = null) {
         Op op = key.OrDefault();
@@ -303,29 +328,23 @@ public sealed partial class ArchiveMerge {
 public sealed record ArchiveMap {
     private static readonly StringComparer KeyOrder = StringComparer.Ordinal;
 
-    private ArchiveMap(
-        int version,
-        ArchiveName name,
-        HashMap<ArchiveKey, ArchiveValue> entries,
-        uint observedChangeSerial) =>
-        (Version, Name, Entries, ObservedChangeSerial) = (version, name, entries, observedChangeSerial);
+    private ArchiveMap(int version, ArchiveName name, HashMap<ArchiveKey, ArchiveValue> entries) =>
+        (Version, Name, Entries) = (version, name, entries);
 
     public int Version { get; private init; }
     public ArchiveName Name { get; private init; }
     public HashMap<ArchiveKey, ArchiveValue> Entries { get; private init; }
-    public uint ObservedChangeSerial { get; private init; }
 
     public static Fin<ArchiveMap> Of(
         int version,
         ArchiveName name,
         HashMap<ArchiveKey, ArchiveValue> entries,
-        uint observedChangeSerial,
         Op? key = null) {
         Op op = key.OrDefault();
         return from admittedName in op.AcceptValidated<ArchiveName>(name.Value)
                from admittedEntries in entries
                    .Map(row => (from admittedKey in op.AcceptValidated<ArchiveKey>(row.Key.Value)
-                                from admittedValue in Optional(row.Value).ToFin(Fail: op.InvalidInput())
+                                from admittedValue in op.Need(row.Value)
                                 from archiveValue in admittedValue.AdmitArchive(op)
                                 select (Key: admittedKey, Value: archiveValue)).ToValidation())
                    .Traverse(static row => row)
@@ -336,8 +355,7 @@ public sealed record ArchiveMap {
                    admittedName,
                    admittedEntries.Fold(
                        HashMap<ArchiveKey, ArchiveValue>(),
-                       static (map, row) => map.Add(row.Key, row.Value)),
-                   observedChangeSerial);
+                       static (map, row) => map.Add(row.Key, row.Value)));
     }
 
     public static Fin<ArchiveMap> Detach(ArchivableDictionary source, Op? key = null) {
@@ -348,28 +366,28 @@ public sealed record ArchiveMap {
                        : Fin.Fail<(string Key, object? Value)>(
                            error: op.InvalidResult(detail: $"Archive key '{entry}' disappeared during capture.")))
                    .Traverse(static row => row)
+                   .As()
                    .Map(rows => (
                        Version: source.Version,
                        Name: source.Name,
-                       Serial: source.ChangeSerialNumber,
                        Rows: rows)))
                from name in op.AcceptValidated<ArchiveName>(native.Name)
                from normalized in native.Rows
                    .Map(entry => op.AcceptValidated<ArchiveKey>(entry.Key)
                        .Map(archiveKey => (Raw: entry.Key, Key: archiveKey, Source: entry.Value)))
                    .Traverse(static row => row)
-               let collisions = normalized
+               let collisions = toSeq(normalized
                    .Fold(
                        HashMap<ArchiveKey, Seq<string>>(),
                        static (groups, row) => groups.Find(row.Key).Match(
                            Some: keys => groups.SetItem(row.Key, keys.Add(row.Raw)),
                            None: () => groups.Add(row.Key, Seq(row.Raw))))
+                   .AsIterable()
                    .Choose(static row => row.Value.Count > 1 ? Some((row.Key, row.Value)) : None)
                    .OrderBy(static collision => collision.Key.Value, KeyOrder)
-                   .Map(static collision => (
+                   .Select(static collision => (
                        collision.Key,
-                       Keys: toSeq(collision.Value.OrderBy(static raw => raw, KeyOrder))))
-                   .ToSeq()
+                       Keys: toSeq(collision.Value.OrderBy(static raw => raw, KeyOrder)))))
                from _unique in collisions.IsEmpty
                    ? Fin.Succ(unit)
                    : Fin.Fail<Unit>(new Fault.InvalidValue(
@@ -387,7 +405,6 @@ public sealed record ArchiveMap {
                    native.Version,
                    name,
                    rows.Fold(HashMap<ArchiveKey, ArchiveValue>(), static (map, row) => map.Add(row.Key, row.Captured)),
-                   native.Serial,
                    op)
                select detached;
     }
@@ -397,7 +414,7 @@ public sealed record ArchiveMap {
     public Fin<ArchiveMap> Put(ArchiveKey key, ArchiveValue value, Op? operation = null) {
         Op op = operation.OrDefault();
         return from admittedKey in op.AcceptValidated<ArchiveKey>(key.Value)
-               from admittedValue in Optional(value).ToFin(Fail: op.InvalidInput())
+               from admittedValue in op.Need(value)
                from archiveValue in admittedValue.AdmitArchive(op)
                select this with { Entries = Entries.AddOrUpdate(admittedKey, archiveValue) };
     }
@@ -419,24 +436,20 @@ public sealed record ArchiveMap {
 
     public Fin<Seq<ArchiveChange>> Diff(ArchiveMap current, Op? key = null) {
         Op op = key.OrDefault();
-        return AdmitSchema(current, op).Map(_ => Entries.Keys.Union(current.Entries.Keys).OrderBy(static item => item.Value, KeyOrder)
+        return AdmitSchema(current, op).Map(_ => toSeq(Entries.Keys.Union(current.Entries.Keys).OrderBy(static item => item.Value, KeyOrder))
                 .Choose(item => (Entries.Find(item), current.Entries.Find(item)) switch {
-                    ({ IsSome: false }, { IsSome: true } next) =>
-                        Some<ArchiveChange>(new ArchiveChange.AddedCase(item, next.Value)),
-                    ({ IsSome: true } prior, { IsSome: false }) =>
-                        Some<ArchiveChange>(new ArchiveChange.RemovedCase(item, prior.Value)),
-                    ({ IsSome: true } prior, { IsSome: true } next) when !prior.Value.Same(next.Value) =>
-                        Some<ArchiveChange>(new ArchiveChange.ChangedCase(item, prior.Value, next.Value)),
+                    ({ IsSome: false }, { IsSome: true, Case: ArchiveValue next }) =>
+                        Some<ArchiveChange>(new ArchiveChange.AddedCase(item, next)),
+                    ({ IsSome: true, Case: ArchiveValue prior }, { IsSome: false }) =>
+                        Some<ArchiveChange>(new ArchiveChange.RemovedCase(item, prior)),
+                    ({ IsSome: true, Case: ArchiveValue prior }, { IsSome: true, Case: ArchiveValue next }) when !prior.Same(next) =>
+                        Some<ArchiveChange>(new ArchiveChange.ChangedCase(item, prior, next)),
                     _ => None,
-                })
-                .ToSeq());
+                }));
     }
 
-    // Host truth: the native change serial is a LOWER BOUND — `Remove` and `Clear` are exposed without advancing it — so a
-    // moved serial proves staleness while an unmoved one proves nothing. `Stale` publishes exactly that one direction, which
-    // is why `SameContent` still decides equality and the serial never enters it.
-    internal bool Stale(uint reread) => reread != ObservedChangeSerial;
-
+    // Content decides equality outright: the native change serial is a LOWER BOUND the host leaves unmoved across
+    // `Remove` and `Clear`, so it can neither prove nor disprove a difference this fold does not already see.
     internal bool SameContent(ArchiveMap other) =>
         Version == other.Version
         && Name == other.Name
@@ -457,9 +470,11 @@ public sealed record ArchiveMap {
     }
 
     internal Fin<Unit> WriteTo(ArchivableDictionary target, Op op) =>
-        Entries.OrderBy(static row => row.Key.Value, KeyOrder)
-            .Map(row => row.Value.Write(target, row.Key, op))
+        toSeq(Entries.AsIterable()
+                .OrderBy(static row => row.Key.Value, KeyOrder)
+                .Select(row => row.Value.Write(target, row.Key, op)))
             .Traverse(static write => write)
+            .As()
             .Map(static _ => unit);
 
     public Fin<ArchiveMap> WithEnum<T>(ArchiveKey key, T value, Op? op = null) where T : struct, System.Enum =>
@@ -469,13 +484,13 @@ public sealed record ArchiveMap {
 
 ## [02]-[LIFECYCLE]
 
-`ArchiveMap.Of` closes construction and admits every archive-capable key/value pair. `ArchiveMap.Detach` captures the native header and every `TryGetValue` result inside one `Op.Catch`, rejects the complete normalized-key collision set before payload folding, freezes reference values through the owning slot's copy law, and records `ChangeSerialNumber` as observation evidence only. `ArchiveMap.Merge` and `ArchiveMap.Diff` admit identical names and versions before comparing entries. Slot-owned content equality keeps copied geometry, object references, fonts, sequences, and nested maps stable while exposing host `Remove` and `Clear` despite an unchanged native serial.
+`ArchiveMap.Of` closes construction and admits every archive-capable key/value pair. `ArchiveMap.Detach` captures the native header and every `TryGetValue` result inside one `Op.Catch`, rejects the complete normalized-key collision set before payload folding, and freezes reference values through the owning slot's copy law. `ArchiveMap.Merge` and `ArchiveMap.Diff` admit identical names and versions before comparing entries. Slot-owned content equality keeps copied geometry, object references, fonts, sequences, and nested maps stable, and it sees host `Remove` and `Clear` the native change serial never records.
 
 `ArchiveMap.Mint` creates one `ArchivableDictionary(Version, Name)` and traverses all slot writes on `Fin`. Nested dictionaries recurse through the same currency; geometry, `ObjRef`, `MeshingParameters`, arrays, and fonts copy on both crossings through the slot's one `Detach` law. `ArchiveMerge` rows resolve on the rail, so a `RejectConflict` collision is a typed fault, never a thrown exception inside a fold.
 
 `SessionSource.Configured` consumes only `ArchiveMap.Mint`. `ArchiveIo` and `SnapshotCodec` exchange only `ArchiveMap`; neither surface receives a live `ArchivableDictionary` or a mutable payload. `SettingKind` consumes this carrier for every `PersistentSettings` payload — its rows lift and lower through `ArchiveValue.Of`/`Project` and share `EnumMint` — so the folder carries exactly one typed-value vocabulary across both KV boundaries.
 
-Enum values admitted through `ArchiveValue.Of` or `ArchiveMap.WithEnum<T>` retain their enum identity and mint through `ArchivableDictionary.SetEnumValue<T>` via the shared reflection seam. Values detached from a native dictionary remain text because Rhino stores enum names as ordinary strings and exposes no readable enum discriminant.
+Enum values admitted through `ArchiveValue.Of` or `ArchiveMap.WithEnum<T>` retain their enum identity and mint through `ArchivableDictionary.SetEnumValue<T>` via the shared reflection seam, whose closed handle is held per host/method/enum triple. Values detached from a native dictionary remain text because Rhino stores enum names as ordinary strings and exposes no readable enum discriminant.
 
 ## [03]-[RESEARCH]
 

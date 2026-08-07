@@ -19,13 +19,14 @@
 - Law: `MessagePolicy` admits only an existing default button and one mutually exclusive delivery target; decorative flags remain an independent frozen set.
 - Boundary: EVERY Eto dialog crosses through `ShellWindows.Present` — the `Dialog<TResult>` range picker, and the `CommonDialog` font and folder pickers whose `DialogResult` verdict the overload folds — so this owner retains host-native and platform chooser intents alone and no arm reaches raw `ShowDialog`.
 - Boundary: `Rhino.UI.SaveFileDialog`/`OpenFileDialog` are plain host classes with no disposer, so they mint bare while every Eto dialog brackets; the asymmetry is the base contract, not an omission.
-- Boundary: native `ref`/`out` calls remain statement-shaped inside the terminal fold; color-preview faults accumulate and replace any nominal dialog result with typed failure.
+- Boundary: native `ref`/`out` calls remain statement-shaped inside the terminal fold; a colour-preview callback fault accumulates and rides BESIDE the accepted colour on `InquiryAnswer.Color`, because a transient preview throw never invalidates the colour the operator then accepted — a dismissal answers `UiFault.Dismissed` and carries nothing.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Reflection;
 using Eto.Forms;
+using LanguageExt.UnsafeValueAccess;
 using Rasm.Domain;
 using Rasm.Rhino.Document;
 using Rasm.Rhino.Eto;
@@ -337,7 +338,7 @@ public abstract partial record InquiryAnswer {
     public sealed record LinetypeIndex(int Value) : InquiryAnswer;
     public sealed record PrintWidth(double Value) : InquiryAnswer;
     public sealed record SunChanged : InquiryAnswer;
-    public sealed record Color(Color4f Value) : InquiryAnswer;
+    public sealed record Color(Color4f Value, Seq<Error> PreviewFaults) : InquiryAnswer;
     public sealed record Font(global::Eto.Drawing.Font Value) : InquiryAnswer;
     public sealed record Paths(Seq<FileLocation> Values) : InquiryAnswer;
 }
@@ -617,21 +618,20 @@ public static class Inquiries {
                                 parent: held.Parent,
                                 color: ref color,
                                 allowAlpha: ask.Request.Alpha.Key,
-                                namedColorList: ask.Request.Palette.IfNoneUnsafe((NamedColorList?)null),
+                                namedColorList: ask.Request.Palette.ValueUnsafe(),
                                 colorCallback: ask.Request.Preview
                                     .Map(preview => new Dialogs.OnColorChangedEvent(
                                         color => ignore(held.Op.Catch(() => preview(color)).IfFail(fault => {
                                             _ = previewFaults.Swap(rows => rows.Add(fault));
                                             return unit;
                                         }))))
-                                    .IfNoneUnsafe((Dialogs.OnColorChangedEvent?)null));
-                            Fin<InquiryAnswer> answer = Accepted(
+                                    .ValueUnsafe());
+                            return Accepted(
                                 accepted: accepted,
                                 op: held.Op,
-                                answer: () => Fin.Succ<InquiryAnswer>(value: new InquiryAnswer.Color(Value: color)));
-                            return previewFaults.Value.Head.Match(
-                                Some: first => Fin.Fail<InquiryAnswer>(error: previewFaults.Value.Tail.Fold(first, static (all, next) => all + next)),
-                                None: () => answer);
+                                answer: () => Fin.Succ<InquiryAnswer>(value: new InquiryAnswer.Color(
+                                    Value: color,
+                                    PreviewFaults: previewFaults.Value.Strict())));
                         },
                         font: static (held, ask) => {
                             using FontDialog dialog = new() { Font = ask.Seed.Resolve() };
@@ -687,7 +687,7 @@ public static class Inquiries {
                                     .Bind(verdict => verdict == DialogResult.Ok
                                         ? Paths(raw: Seq(dialog.Directory), op: held.Op)
                                         : Fin.Fail<InquiryAnswer>(error: new UiFault.Dismissed(Key: held.Op)));
-                            }))),
+                            })))),
             key: op));
     }
 
@@ -763,20 +763,20 @@ public static class Inquiries {
         select unit;
 
     private static Fin<Unit> LayerScope(LayerInquiry scope, Op op) =>
-        Optional(scope).ToFin(Fail: op.InvalidInput()).Bind(admitted => admitted.Switch(
+        op.Need(scope).Bind(admitted => admitted.Switch(
             state: op,
             one: static (op, row) => Present(op, row.Current),
             many: static (_, _) => Fin.Succ(unit),
             material: static (_, _) => Fin.Succ(unit)));
 
     private static Fin<Unit> Linetype(LinetypeInquiry request, Op op) =>
-        Optional(request).ToFin(Fail: op.InvalidInput()).Bind(admitted => admitted.Switch(
+        op.Need(request).Bind(admitted => admitted.Switch(
             state: op,
             byId: static (op, row) => Present(op, row.Title, row.Prompt),
             byIndex: static (op, row) => Present(op, row.ByLayer)));
 
     private static Fin<Unit> Font(FontSeed seed, Op op) =>
-        Optional(seed).ToFin(Fail: op.InvalidInput()).Bind(admitted => admitted.Switch(
+        op.Need(seed).Bind(admitted => admitted.Switch(
             state: op,
             unspecified: static (_, _) => Fin.Succ(unit),
             @explicit: static (op, row) => Present(op, row.Value),
@@ -786,7 +786,7 @@ public static class Inquiries {
                 .ToFin()));
 
     private static Fin<Unit> Files(FileInquiry request, Op op) =>
-        Optional(request).ToFin(Fail: op.InvalidInput()).Bind(admitted => admitted.Switch(
+        op.Need(request).Bind(admitted => admitted.Switch(
             state: op,
             save: static (op, row) => FileFrame(row.Frame, op),
             open: static (op, row) =>
@@ -799,7 +799,7 @@ public static class Inquiries {
                 select unit));
 
     private static Fin<Unit> FileFrame(FileFrame frame, Op op) =>
-        Optional(frame).ToFin(Fail: op.InvalidInput()).Bind(admitted =>
+        op.Need(frame).Bind(admitted =>
             from _ in FileLocation(admitted.Seed, op)
             from __ in FileLocation(admitted.Directory, op)
             select unit);
@@ -899,7 +899,8 @@ public static class Inquiries {
 - Law: `LinetypePreview` carries `PreviewChannel` and positive pattern scale, so host paint semantics remain data rather than an unbounded integer.
 - Law: `AssetSource`, `AssetSize`, and `PreviewScale` reject invalid ingress once; `AssetSize` admits both a maximum dimension and an overflow-safe pixel budget before provider allocation.
 - Law: `PreviewPolarity.Host` reads dark mode at execution time, while `Light` and `Dark` are explicit policy rows rather than a tri-state optional boolean.
-- Law: pixel planes and preview strokes materialize into strict `Seq` values inside `Op.Catch` before leaving the host fold.
+- Law: a raster plane leaves as `Arr<byte>` and preview strokes as strict `Seq` rows, both materialized inside `Op.Catch` before leaving the host fold — a full-frame pixel run is a contiguous indexed block a consumer slices, never a linked `Seq` spine one cell per byte.
+- Law: `TextMeasure` shapes host `FormattedText`, which is Eto-affine, so the metric arm crosses `UiThread` INSIDE the Rhino command frame; the two seams nest in that order and this arm is the only one on this page needing both.
 - Boundary: every disposable host asset leaves inside `Lease<T>.Owned`, so the answer case states its own custody and the input-side `PanelIcon.Use` bracket has a symmetric output form; a bare `Bitmap`, `Icon`, or `Image` crossing the boundary is the deleted shape.
 
 ```csharp signature
@@ -1042,7 +1043,7 @@ public abstract partial record AssetAnswer {
     public sealed record Image(Lease<DrawingImage> Value) : AssetAnswer;
     public sealed record NamedColors(Seq<NamedColor> Values) : AssetAnswer;
     public sealed record TextMetrics(global::Eto.Drawing.SizeF Value) : AssetAnswer;
-    public sealed record Pixels(Seq<byte> Value) : AssetAnswer;
+    public sealed record Pixels(Arr<byte> Value) : AssetAnswer;
     public sealed record Strokes(Seq<Seq<Point2f>> Value) : AssetAnswer;
 }
 
@@ -1084,8 +1085,10 @@ public static class HostAssets {
                         select (AssetAnswer)new AssetAnswer.Image(Value: new Lease<DrawingImage>.Owned(Value: image)),
                     namedColors: static (_, ask) => Fin.Succ<AssetAnswer>(value: new AssetAnswer.NamedColors(
                         Values: toSeq(ask.Source.IfNone(() => NamedColorList.Default)).Strict())),
-                    textMeasure: static (held, ask) => held.Op.Catch(() =>
-                        Fin.Succ<AssetAnswer>(value: new AssetAnswer.TextMetrics(Value: ask.Block.Measure()))),
+                    textMeasure: static (held, ask) => UiThread.Run(
+                        dispatch: new UiDispatch<AssetAnswer>.Blocking(Body: () => held.Op.Catch(() =>
+                            Fin.Succ<AssetAnswer>(value: new AssetAnswer.TextMetrics(Value: ask.Block.Measure())))),
+                        key: held.Op).Result,
                     svgBitmap: static (held, ask) => held.Op.Catch(() => Optional(DrawingUtilities.BitmapFromSvg(
                             svg: ask.Source.ToValue(),
                             width: ask.Size.Value.Width,
@@ -1102,7 +1105,7 @@ public static class HostAssets {
                             backgroundColor: ask.Background,
                             adjustForDarkMode: ask.Polarity.Resolve()))
                         .ToFin(Fail: held.Op.InvalidResult())
-                        .Map(static pixels => (AssetAnswer)new AssetAnswer.Pixels(Value: toSeq(pixels).Strict()))),
+                        .Map(static pixels => (AssetAnswer)new AssetAnswer.Pixels(Value: toArray(pixels)))),
                     meshPreview: static (held, ask) =>
                         from _ in guard(flag: !ask.Meshes.IsEmpty, False: held.Op.InvalidInput()).ToFin()
                         from model in held.Document.ToFin(Fail: held.Op.MissingContext())

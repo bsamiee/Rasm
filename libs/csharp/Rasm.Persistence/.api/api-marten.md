@@ -119,14 +119,14 @@
 
 [ENTRYPOINT_SCOPE]: rolling range partitions — declaration on the document mapping, maintenance on `store.Advanced`
 
-| [INDEX] | [SURFACE]                                                                                     | [SHAPE]  | [CAPABILITY]                                           |
-| :-----: | :-------------------------------------------------------------------------------------------- | :------- | :----------------------------------------------------- |
-|  [01]   | `MartenRegistry.For<T>().PartitionOn(expr, x => x.ByRollingRange(PartitionPeriod, int, int))` | instance | declare a rolling window over a duplicated date column |
-|  [02]   | `store.Advanced.ApplyRollingPartitionsAsync(CancellationToken)`                               | instance | roll forward AND drop aged `-> TablePartitionStatus[]` |
-|  [03]   | `store.Advanced.RollPartitionsForwardAsync(CancellationToken)`                                | instance | provision the leading edge only                        |
-|  [04]   | `store.Advanced.DropAgedRollingPartitionsAsync(CancellationToken)`                            | instance | retire the trailing edge only                          |
+| [INDEX] | [SURFACE]                                                             | [SHAPE]  | [CAPABILITY]                                         |
+| :-----: | :-------------------------------------------------------------------- | :------- | :--------------------------------------------------- |
+|  [01]   | `MartenRegistry.For<T>().PartitionOn(expr, x => x.ByRollingRange(…))` | instance | rolling window over a duplicated date column         |
+|  [02]   | `store.Advanced.ApplyRollingPartitionsAsync(CancellationToken)`       | instance | roll forward + drop aged `-> TablePartitionStatus[]` |
+|  [03]   | `store.Advanced.RollPartitionsForwardAsync(CancellationToken)`        | instance | provision the leading edge only                      |
+|  [04]   | `store.Advanced.DropAgedRollingPartitionsAsync(CancellationToken)`    | instance | retire the trailing edge only                        |
 
-- `PartitionPeriod` spans `Hour`/`Day`/`Week`/`Month`/`Year`; `ByRollingRange` asserts at CONFIGURATION time that the partition key is a duplicated `DateTime`/`DateTimeOffset` member, and an injected `TimeProvider` moves the window without the calendar. One `ManagedRangePartitions` instance passed to several document types rolls all their tables in one pass, matched by reference identity.
+- `PartitionPeriod` spans `Hour`/`Day`/`Week`/`Month`/`Year`; `ByRollingRange(PartitionPeriod, int, int)` asserts at CONFIGURATION time that the partition key is a duplicated `DateTime`/`DateTimeOffset` member, and an injected `TimeProvider` moves the window without the calendar. One `ManagedRangePartitions` instance passed to several document types rolls all their tables in one pass, matched by reference identity.
 - Partitions name themselves after the period and a `DEFAULT` overflow partition always exists, so an out-of-window row stores rather than failing its check constraint. Only partitions the policy itself named are ever dropped, and every entrypoint is idempotent and multi-node safe.
 
 [ENTRYPOINT_SCOPE]: document read and write (`session`)

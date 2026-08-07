@@ -18,6 +18,7 @@
 - Law: the pointer seam IS veto-capable — `MouseCallbackEventArgs` derives `CancelEventArgs`, so a Begin edge asks the mount's admitted predicate and writes `Cancel` to suppress Rhino's own default handling, while the matching End edge READS `Cancel` back as evidence of whether that default ran. The predicate is the one synchronous obligation on the callback thread; everything else stays one non-blocking `TryWrite`, overflow behavior is explicit policy, and drop and veto counts both remain readable from the lease.
 - Law: arming crosses the marshal seam — `MouseCallback.Enabled` reflects over the subclass to subscribe and unsubscribe the host's own static view-event tables, so both edges run through `HostThread.Run`, and a mount whose arm refuses never returns a live lease.
 - Law: retire closes callback admission, disables the hook, settles admitted callbacks within the request-owned bound, completes the channel, and then snapshots final totals; the gate refuses a close issued from a thread already holding a claim, since such a close waits on its own release.
+- Law: the bounded drain rides the SCHEDULER, never the closing caller's thread — `LifecycleGate.Begin` arms the close, runs the stop step inline so a marshalled arm keeps its seam, and hands back the completion a host-thread owner settles off-thread, while `Close` awaits that same completion for a pool caller; a blocking drain on the host thread stalls exactly the callbacks it waits to see released.
 - Boundary: `MouseCallbackEventArgs` and `MouseCallback` never cross the callback adapter.
 
 ```csharp signature
@@ -33,111 +34,9 @@ using Rasm.Rhino.Viewport;
 namespace Rasm.Rhino.Display;
 
 // --- [TYPES] --------------------------------------------------------------------------------
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-internal abstract partial record LeaseState {
-    private LeaseState() { }
-    internal sealed record Open(int Claims) : LeaseState;
-    internal sealed record Closing(int Claims, Guid Token, TaskCompletionSource<Unit> Quiesced, TaskCompletionSource<Fin<Unit>> Completed) : LeaseState;
-    internal sealed record Retryable(int Claims) : LeaseState;
-    internal sealed record Closed : LeaseState;
-}
+// LifecycleGate and LeaseState compose from Rasm.Rhino.Document (Document/events.md) — the package's one
+// claims/close/retry lifecycle capsule; the async Begin/Drain shape lives at that owner.
 
-internal sealed class LifecycleGate {
-    private readonly Atom<LeaseState> state = Atom<LeaseState>(new LeaseState.Open(Claims: 0));
-    // A claim runs to completion on the thread that took it, so a close issued from a thread already inside a claim would
-    // wait on its own release forever. The claiming-thread set is the structural refusal for that re-entrancy, and it is
-    // what keeps a bounded blocking close safe on the host callback thread.
-    private readonly Atom<Set<int>> claiming = Atom(Set<int>());
-    private readonly TimeSpan settleWithin;
-    private LifecycleGate(TimeSpan settleWithin) => this.settleWithin = settleWithin;
-    internal static Fin<LifecycleGate> Of(TimeSpan settleWithin, Op key) =>
-        guard(settleWithin > TimeSpan.Zero, key.InvalidInput()).ToFin().Map(_ => new LifecycleGate(settleWithin));
-
-    internal Fin<T> Within<T>(Func<Fin<T>> body, Func<Fin<T>> refused, Op key) =>
-        TryClaim() ? Settle(Marked(body, key)) : key.Catch(refused);
-
-    internal Fin<Unit> Close(Func<Fin<Unit>> stop, Func<Fin<Unit>> settle, Op key) {
-        if (claiming.Value.Contains(Environment.CurrentManagedThreadId)) { return Fin.Fail<Unit>(key.InvalidContext()); }
-        Guid token = Guid.NewGuid();
-        TaskCompletionSource<Unit> quiesced = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        TaskCompletionSource<Fin<Unit>> completed = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        LeaseState next = state.Swap(current => current.Switch(
-            (Token: token, Quiesced: quiesced, Completed: completed),
-            open: static (ctx, row) => (LeaseState)new LeaseState.Closing(row.Claims, ctx.Token, ctx.Quiesced, ctx.Completed),
-            closing: static (_, row) => row,
-            retryable: static (ctx, row) => new LeaseState.Closing(row.Claims, ctx.Token, ctx.Quiesced, ctx.Completed),
-            closed: static (_, row) => row));
-        return next.Switch(
-            (Gate: this, Token: token, Stop: stop, Settle: settle, Key: key),
-            open: static (ctx, _) => Fin.Fail<Unit>(ctx.Key.InvalidContext()),
-            closing: static (ctx, row) => row.Token == ctx.Token
-                ? ctx.Gate.CloseOwned(row, ctx.Stop, ctx.Settle, ctx.Key)
-                : ctx.Gate.Await(row.Completed.Task, ctx.Key).Bind(static outcome => outcome),
-            retryable: static (ctx, _) => Fin.Fail<Unit>(ctx.Key.InvalidContext()),
-            closed: static (_, _) => Fin.Succ(unit));
-    }
-
-    private bool TryClaim() => state.Swap(current => current.Switch(
-        open: static row => (LeaseState)new LeaseState.Open(row.Claims + 1),
-        closing: static row => row,
-        retryable: static row => row,
-        closed: static row => row)).Switch(
-            open: static _ => true,
-            closing: static _ => false,
-            retryable: static _ => false,
-            closed: static _ => false);
-
-    private Fin<T> Marked<T>(Func<Fin<T>> body, Op key) {
-        int thread = Environment.CurrentManagedThreadId;
-        _ = claiming.Swap(rows => rows.Add(thread));
-        try { return key.Catch(body); }
-        finally { _ = claiming.Swap(rows => rows.Remove(thread)); }
-    }
-
-    private Fin<T> Settle<T>(Fin<T> outcome) => outcome.BiBind(
-        Succ: value => (Release(), Fin.Succ(value)).Item2,
-        Fail: failure => (Release(), Fin.Fail<T>(failure)).Item2);
-
-    private Unit Release() => state.Swap(current => current.Switch(
-        open: static row => (LeaseState)new LeaseState.Open(row.Claims - 1),
-        closing: static row => new LeaseState.Closing(row.Claims - 1, row.Token, row.Quiesced, row.Completed),
-        retryable: static row => new LeaseState.Retryable(row.Claims - 1),
-        closed: static row => row)).Switch(
-            open: static _ => unit,
-            closing: static row => Op.SideWhen(row.Claims == 0, () => row.Quiesced.TrySetResult(unit)),
-            retryable: static _ => unit,
-            closed: static _ => unit);
-
-    private Fin<Unit> CloseOwned(LeaseState.Closing row, Func<Fin<Unit>> stop, Func<Fin<Unit>> settle, Op key) {
-        Fin<Unit> stopped = key.Catch(stop);
-        Fin<Unit> drained = row.Claims == 0 ? Fin.Succ(unit) : Await(row.Quiesced.Task, key).Map(static _ => unit);
-        Fin<Unit> settled = drained.Match(
-            Succ: _ => key.Catch(settle),
-            Fail: static _ => Fin.Succ(unit));
-        Seq<Error> trouble = Seq(
-                stopped,
-                drained,
-                settled)
-            .Choose(static step => step.Match(
-                Succ: static _ => Option<Error>.None,
-                Fail: static failure => Some(failure)));
-        Fin<Unit> outcome = trouble.IsEmpty
-            ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(trouble.Fold(Errors.None, static (folded, failure) => folded + failure));
-        _ = state.Swap(current => current.Switch(
-            open: static value => (LeaseState)value,
-            closing: value => value.Token == row.Token
-                ? trouble.IsEmpty ? new LeaseState.Closed() : new LeaseState.Retryable(value.Claims)
-                : value,
-            retryable: static value => value,
-            closed: static value => value));
-        _ = row.Completed.TrySetResult(outcome);
-        return outcome;
-    }
-
-    private Fin<T> Await<T>(Task<T> signal, Op key) => key.Catch(() =>
-        signal.Wait(settleWithin) ? Fin.Succ(signal.Result) : Fin.Fail<T>(key.InvalidContext()));
-}
 
 [SmartEnum<int>]
 public sealed partial class PointerPhase {
@@ -554,18 +453,22 @@ public static class Gumballs {
         return guard(request is not null && request.Valid, op.InvalidInput()).ToFin().Bind(_ => request.Switch(
             op,
             mount: static (op, row) => Mount(row, op).Map(static rig => (GumballReceipt)new GumballReceipt.Mounted(rig)),
+            // The drag flag is an EFFECT, so it lands as one on the effect path — a statement body inside `Map` writes
+            // host-adjacent state on the success rail, where a reader expects a pure projection of the value it carries.
             pick: static (op, row) => op.Catch(() => row.Rig.Conduit.PickGumball(row.Context, row.Point))
-                .Map(value => { row.Rig.Dragging = value; return (GumballReceipt)new GumballReceipt.Picked(value); }),
+                .Bind(value => op.Catch(() => Fin.Succ((Op.Side(() => row.Rig.Dragging = value), value).Item2)))
+                .Map(static value => (GumballReceipt)new GumballReceipt.Picked(value)),
             move: static (op, row) => op.Catch(() => row.Value.Switch(
                     (Rig: row.Rig, Op: op),
                     ray: static (ctx, value) => ctx.Op.Confirm(ctx.Rig.Conduit.UpdateGumball(value.Point, value.WorldLine)),
                     frame: static (ctx, value) => ctx.Op.Confirm(ctx.Rig.Conduit.UpdateGumball(value.Value)))
                 .Map(_ => (GumballReceipt)new GumballReceipt.Moved(row.Rig.Evidence))),
             inspect: static (op, row) => op.Catch(() => Fin.Succ<GumballReceipt>(new GumballReceipt.Inspected(row.Rig.Evidence))),
-            complete: static (op, row) => op.Catch(() => {
-                row.Rig.Dragging = false;
-                return Fin.Succ<GumballReceipt>(new GumballReceipt.Completed(row.Rig.Evidence, row.Decision));
-            })));
+            // Tuple elements settle left to right, so the flag clears before `Evidence` reads it and the receipt carries
+            // the settled drag state rather than the one the completing call arrived under.
+            complete: static (op, row) => op.Catch(() => Fin.Succ((
+                Op.Side(() => row.Rig.Dragging = false),
+                (GumballReceipt)new GumballReceipt.Completed(row.Rig.Evidence, row.Decision)).Item2))));
     }
 
     private static Fin<GumballRig> Mount(GumballRequest.Mount row, Op op) =>
@@ -645,7 +548,10 @@ public abstract partial record WidgetSpec {
     public sealed record Direction(Point3d At, Vector3d Vector, double Radius, Option<double> LineLength, bool OneWay, bool GripPointVisible) : WidgetSpec;
     public sealed record Rotation(Plane Plane, double Radius, bool GripPointVisible) : WidgetSpec;
     public sealed record Text(string Value, Point3d At, int Height, PerceptualColor Ink, PerceptualColor Fill, PerceptualColor Border) : WidgetSpec;
-    public sealed record Svg(string Value, Point2d At, Size2i Extent) : WidgetSpec;
+    // The SVG control seats at an INTEGER screen origin, so the spec carries the folder's integer offset owner and the
+    // adapter projects it at the host boundary — a `Point2d` here truncated a continuous coordinate no caller measured
+    // in pixels, and the negative origin it admitted is a value the offset owner refuses at its own factory.
+    public sealed record Svg(string Value, Offset2i At, Size2i Extent) : WidgetSpec;
     public sealed record Slider(Interval Range, double Value, bool Horizontal, bool DisplayValue, int Precision) : WidgetSpec;
 
     internal bool Valid => Switch(
@@ -663,7 +569,7 @@ public abstract partial record WidgetSpec {
             && row.LineLength.Match(Some: static value => value > 0.0 && double.IsFinite(value), None: static () => true),
         rotation: static row => row.Plane.IsValid && row.Radius > 0.0 && double.IsFinite(row.Radius),
         text: static row => !string.IsNullOrWhiteSpace(row.Value) && row.At.IsValid && row.Height > 0,
-        svg: static row => !string.IsNullOrWhiteSpace(row.Value) && Quant.Finite(row.At) && row.Extent.IsValid,
+        svg: static row => !string.IsNullOrWhiteSpace(row.Value) && row.Extent.IsValid,
         slider: static row => double.IsFinite(row.Range.T0)
             && double.IsFinite(row.Range.T1)
             && row.Range.T0 < row.Range.T1
@@ -676,6 +582,27 @@ public abstract partial record WidgetSpec {
 public sealed partial class ClickUse {
     public static readonly ClickUse Single = new(key: 0);
     public static readonly ClickUse Double = new(key: 1);
+}
+
+// Every adapter forwards the SAME six pointer callbacks, and only the host base type differs — a base type is no reason
+// to re-spell a table six times. `WidgetPulse` IS that table: each row names the fact one host callback projects, so an
+// adapter binds the pointer surface as six one-line delegations to one sink member and a new adapter adds no seventh
+// spelling. Hover carries its own edge in the row rather than a bool argument two call sites could disagree on.
+[SmartEnum<int>]
+internal sealed partial class WidgetPulse {
+    public static readonly WidgetPulse Press = new(
+        key: 0,
+        emit: static (sink, mouse) => sink.Emit(() => new WidgetFact.Pressed(sink.Identity, mouse.View.ActiveViewport.Id, PointerButton.Of(mouse.Button), mouse.FrustumLine)));
+    public static readonly WidgetPulse Release = new(
+        key: 1,
+        emit: static (sink, mouse) => sink.Emit(() => new WidgetFact.Released(sink.Identity, mouse.View.ActiveViewport.Id, PointerButton.Of(mouse.Button), mouse.FrustumLine)));
+    public static readonly WidgetPulse Enter = new(key: 2, emit: static (sink, _) => sink.Emit(() => new WidgetFact.Hovered(sink.Identity, true)));
+    public static readonly WidgetPulse Leave = new(key: 3, emit: static (sink, _) => sink.Emit(() => new WidgetFact.Hovered(sink.Identity, false)));
+    public static readonly WidgetPulse Click = new(key: 4, emit: static (sink, _) => sink.Emit(() => new WidgetFact.Clicked(sink.Identity, ClickUse.Single)));
+    public static readonly WidgetPulse DoubleClick = new(key: 5, emit: static (sink, _) => sink.Emit(() => new WidgetFact.Clicked(sink.Identity, ClickUse.Double)));
+
+    [UseDelegateFromConstructor]
+    internal partial Unit Emit(WidgetSink sink, MouseState mouse);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -755,16 +682,16 @@ internal sealed record WidgetSink(
         key: Key));
 
     internal Unit Retarget(Seq<Mark> marks) => ignore(Program.Swap(_ => marks));
-    internal Unit Press(MouseState mouse) => Emit(() => new WidgetFact.Pressed(Identity, mouse.View.ActiveViewport.Id, PointerButton.Of(mouse.Button), mouse.FrustumLine));
-    internal Unit Release(MouseState mouse) => Emit(() => new WidgetFact.Released(Identity, mouse.View.ActiveViewport.Id, PointerButton.Of(mouse.Button), mouse.FrustumLine));
-    internal Unit Click(ClickUse use) => Emit(() => new WidgetFact.Clicked(Identity, use));
-    internal Unit Hover(bool value) => Emit(() => new WidgetFact.Hovered(Identity, value));
+
+    // The pointer surface enters through ONE member the `WidgetPulse` table drives; the value-carrying callbacks keep
+    // their own members because each admits a payload the pointer table has nowhere to put.
+    internal Unit Pulse(WidgetPulse pulse, MouseState mouse) => pulse.Emit(this, mouse);
     internal Unit Move(Point3d value) => Emit(() => new WidgetFact.Moved(Identity, value));
     internal Unit Rotate(double value) => Emit(() => new WidgetFact.Rotated(Identity, value));
     internal Unit Slide(double value) => Emit(() => new WidgetFact.Slid(Identity, value));
     internal Unit Hit(Func<WidgetHit> project) => Emit(() => new WidgetFact.Hit(Identity, project()));
 
-    private Unit Emit(Func<WidgetFact> project) => Observe(Lifecycle.Within(
+    internal Unit Emit(Func<WidgetFact> project) => Observe(Lifecycle.Within(
         body: () => {
             _ = Submitted.Swap(static count => count + 1);
             _ = Op.SideWhen(!Writer.TryWrite(project()), () => ignore(Rejected.Swap(static count => count + 1)));
@@ -797,8 +724,8 @@ internal sealed class GripWidget : GripUserInterfaceObject {
         _ = Op.SideWhen(!spec.Snaps.IsEmpty, () => SetSnapPoints(spec.Snaps.AsEnumerable()));
     }
     protected override void OnDraw(DrawEventArgs e) { base.OnDraw(e); sink.Paint(e); }
-    protected override void OnMouseDown(MouseState e) => sink.Press(e);
-    protected override void OnMouseUp(MouseState e) => sink.Release(e);
+    protected override void OnMouseDown(MouseState e) => sink.Pulse(WidgetPulse.Press, e);
+    protected override void OnMouseUp(MouseState e) => sink.Pulse(WidgetPulse.Release, e);
     protected override void OnDrag(Point3d value, MouseState _) => sink.Move(value);
     protected override void OnMouseMove(MouseState e) => _ = constraint.Switch(
         (Sink: sink, Mouse: e),
@@ -807,10 +734,10 @@ internal sealed class GripWidget : GripUserInterfaceObject {
         line: static (ctx, value) => ctx.Sink.Hit(() => new WidgetHit.Line(ctx.Mouse.IsMouseOver(value.Value))),
         arc: static (ctx, value) => ctx.Sink.Hit(() => { using Curve curve = value.Value.ToNurbsCurve(); return new WidgetHit.Curve(ctx.Mouse.IsMouseOver(curve, out double t) ? Some(t) : None); }),
         circle: static (ctx, value) => ctx.Sink.Hit(() => { using Curve curve = value.Value.ToNurbsCurve(); return new WidgetHit.Curve(ctx.Mouse.IsMouseOver(curve, out double t) ? Some(t) : None); }));
-    protected override void OnMouseEnter(MouseState _) => sink.Hover(true);
-    protected override void OnMouseLeave(MouseState _) => sink.Hover(false);
-    protected override void OnMouseClick(MouseState _) => sink.Click(ClickUse.Single);
-    protected override void OnMouseDoubleClick(MouseState _) => sink.Click(ClickUse.Double);
+    protected override void OnMouseEnter(MouseState e) => sink.Pulse(WidgetPulse.Enter, e);
+    protected override void OnMouseLeave(MouseState e) => sink.Pulse(WidgetPulse.Leave, e);
+    protected override void OnMouseClick(MouseState e) => sink.Pulse(WidgetPulse.Click, e);
+    protected override void OnMouseDoubleClick(MouseState e) => sink.Pulse(WidgetPulse.DoubleClick, e);
 }
 
 internal sealed class DirectionWidget : DirectionGripUserInterfaceObject {
@@ -823,10 +750,10 @@ internal sealed class DirectionWidget : DirectionGripUserInterfaceObject {
         _ = spec.LineLength.Iter(value => DirectionLineLength = (float)value);
     }
     protected override void OnDraw(DrawEventArgs e) { base.OnDraw(e); sink.Paint(e); }
-    protected override void OnMouseDown(MouseState e) => sink.Press(e);
-    protected override void OnMouseUp(MouseState e) => sink.Release(e);
-    protected override void OnMouseEnter(MouseState _) => sink.Hover(true);
-    protected override void OnMouseLeave(MouseState _) => sink.Hover(false);
+    protected override void OnMouseDown(MouseState e) => sink.Pulse(WidgetPulse.Press, e);
+    protected override void OnMouseUp(MouseState e) => sink.Pulse(WidgetPulse.Release, e);
+    protected override void OnMouseEnter(MouseState e) => sink.Pulse(WidgetPulse.Enter, e);
+    protected override void OnMouseLeave(MouseState e) => sink.Pulse(WidgetPulse.Leave, e);
 }
 
 internal sealed class RotationWidget : RotationGripUserInterfaceObject {
@@ -836,8 +763,8 @@ internal sealed class RotationWidget : RotationGripUserInterfaceObject {
         GripPointVisible = spec.GripPointVisible;
     }
     protected override void OnDraw(DrawEventArgs e) { base.OnDraw(e); sink.Paint(e); }
-    protected override void OnMouseDown(MouseState e) => sink.Press(e);
-    protected override void OnMouseUp(MouseState e) => sink.Release(e);
+    protected override void OnMouseDown(MouseState e) => sink.Pulse(WidgetPulse.Press, e);
+    protected override void OnMouseUp(MouseState e) => sink.Pulse(WidgetPulse.Release, e);
     protected override void OnRotationDrag(double value, MouseState _) => sink.Rotate(value);
 }
 
@@ -851,25 +778,25 @@ internal sealed class TextWidget : TextDotUserInterfaceObject {
         DotBorderColor = Quant.Sys(spec.Border);
     }
     protected override void OnDraw(DrawEventArgs e) { base.OnDraw(e); sink.Paint(e); }
-    protected override void OnMouseDown(MouseState e) => sink.Press(e);
-    protected override void OnMouseUp(MouseState e) => sink.Release(e);
-    protected override void OnMouseEnter(MouseState _) => sink.Hover(true);
-    protected override void OnMouseLeave(MouseState _) => sink.Hover(false);
-    protected override void OnMouseClick(MouseState _) => sink.Click(ClickUse.Single);
-    protected override void OnMouseDoubleClick(MouseState _) => sink.Click(ClickUse.Double);
+    protected override void OnMouseDown(MouseState e) => sink.Pulse(WidgetPulse.Press, e);
+    protected override void OnMouseUp(MouseState e) => sink.Pulse(WidgetPulse.Release, e);
+    protected override void OnMouseEnter(MouseState e) => sink.Pulse(WidgetPulse.Enter, e);
+    protected override void OnMouseLeave(MouseState e) => sink.Pulse(WidgetPulse.Leave, e);
+    protected override void OnMouseClick(MouseState e) => sink.Pulse(WidgetPulse.Click, e);
+    protected override void OnMouseDoubleClick(MouseState e) => sink.Pulse(WidgetPulse.DoubleClick, e);
 }
 
 internal sealed class SvgWidget : UserInterfaceControl {
     private readonly WidgetSink sink;
-    internal SvgWidget(WidgetSpec.Svg spec, WidgetSink sink) : base(new System.Drawing.Point((int)spec.At.X, (int)spec.At.Y), spec.Extent.Native) {
+    internal SvgWidget(WidgetSpec.Svg spec, WidgetSink sink) : base(new System.Drawing.Point(spec.At.X, spec.At.Y), spec.Extent.Native) {
         this.sink = sink;
         SetSvg(spec.Value);
     }
     protected override void OnDraw(DrawEventArgs e) { base.OnDraw(e); sink.Paint(e); }
-    protected override void OnMouseDown(MouseState e) => sink.Press(e);
-    protected override void OnMouseUp(MouseState e) => sink.Release(e);
-    protected override void OnMouseClick(MouseState _) => sink.Click(ClickUse.Single);
-    protected override void OnMouseDoubleClick(MouseState _) => sink.Click(ClickUse.Double);
+    protected override void OnMouseDown(MouseState e) => sink.Pulse(WidgetPulse.Press, e);
+    protected override void OnMouseUp(MouseState e) => sink.Pulse(WidgetPulse.Release, e);
+    protected override void OnMouseClick(MouseState e) => sink.Pulse(WidgetPulse.Click, e);
+    protected override void OnMouseDoubleClick(MouseState e) => sink.Pulse(WidgetPulse.DoubleClick, e);
 }
 
 internal sealed class SliderWidget : UserInterfaceSlider {
@@ -1033,11 +960,16 @@ public sealed class WidgetHost : IDisposable {
 ## [05]-[HOOKS]
 
 - Owner: `DisplayHooks.Mount` registers the two display hook points — `rasm.rhino.display.pointer` granting a `PointerLease` and `rasm.rhino.display.widget` granting a `WidgetHost` — each bind minting a fresh owner so no two consumers contend for one bounded channel.
-- Law: one ask shape serves both points — `PointerRequest.Mount` already carries capacity, overflow, and settle policy, and `WidgetHost.Of` consumes the identical triple, so the widget point reuses the admitted request instead of a parallel ask record; `MountRegistry.MountAll` releases the first seat when the second point refuses.
+- Law: each point carries the ask its seam can honour — both admit the same channel triple, but only the pointer seam vetoes, so `WidgetAsk` states capacity, overflow, and settle bound with NO veto slot while `PointerRequest.Mount` keeps its own; the shared triple is a shape coincidence, and reusing the pointer request handed the widget point a veto policy it silently dropped. `MountRegistry.MountAll` releases the first seat when the second point refuses.
 - Law: display modality splits by seam, not by page — widget `MouseState` callbacks run post-hoc and observe, while the pointer seam vetoes: `MouseCallbackEventArgs` derives `CancelEventArgs`, so the pointer point's grant carries the mount's own veto policy and no second point is minted for it. The two draw-suppression seams (`CullObjectEventArgs.CullObject`, `DrawObjectEventArgs.DrawObject`) stay the conduit owner's.
 - Law: gumball evidence returns on the `Gumballs.Configure` request rail, never as a detached stream, so no gumball point exists — a detached fact stream is the point prerequisite, and gumball occupancy already rides every `PointerFact`.
 
 ```csharp signature
+// --- [MODELS] -------------------------------------------------------------------------------
+// The widget seam OBSERVES — its `MouseState` callbacks run post-hoc — so its ask carries the channel triple and no
+// veto slot at all. A caller that spelled a veto against a seam with nothing to cancel had it accepted and discarded.
+public sealed record WidgetAsk(int Capacity, PointerOverflow Overflow, TimeSpan SettleWithin);
+
 // --- [OPERATIONS] ---------------------------------------------------------------------------
 public static class DisplayHooks {
     public static Fin<Seq<IDisposable>> Mount(PluginKey plugin, Op? key = null) {
@@ -1062,10 +994,10 @@ public static class DisplayHooks {
                     mount: new HookMount(
                     Point: RhinoPoint.DisplayWidget,
                     Plugin: plugin,
-                    Ask: typeof(PointerRequest.Mount),
+                    Ask: typeof(WidgetAsk),
                     Grant: typeof(WidgetHost),
                     Bind: static ask => ask switch {
-                        PointerRequest.Mount request => WidgetHost.Of(
+                        WidgetAsk request => WidgetHost.Of(
                                 capacity: request.Capacity,
                                 overflow: request.Overflow,
                                 settleWithin: request.SettleWithin)

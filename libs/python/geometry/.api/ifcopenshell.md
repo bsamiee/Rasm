@@ -92,16 +92,16 @@ Tessellation rows consume a `geom.settings` knob bag and a `geom.GEOMETRY_LIBRAR
 |  [05]   | `geometry.add_mesh_representation(file, context, vertices, edges=None, faces=None, …)`           | attach a mesh shape representation    |
 |  [05b]  | `geometry.add_profile_representation(file, context, profile, depth=1.0, cardinal_point=5, …)`    | attach an extruded-profile shape      |
 |  [05c]  | `geometry.assign_representation(file, product, representation) -> None`                          | bind a representation to a product    |
-|  [06]   | `geometry.edit_object_placement(file, product, matrix)`                                          | set a product's object placement      |
-|  [07]   | `context.add_context(file, context_type, …)`                                                     | add a representation context          |
-|  [08]   | `unit.add_si_unit(file, unit_type, prefix=None)`                                                 | add an SI unit to the project         |
-|  [09]   | `unit.assign_unit(file, units=None)`                                                             | assign units to the `IfcProject`      |
-|  [10]   | `pset.add_pset(file, product, name)`                                                             | attach a property set                 |
-|  [11]   | `spatial.assign_container(file, products, relating_structure)`                                   | place products (list) in a container  |
-|  [12]   | `aggregate.assign_object(file, products, relating_object)`                                       | aggregate products (list) to a parent |
-|  [13]   | `material.add_material(file, name=None, category=None)`                                          | create and assign materials           |
-|  [14]   | `type.assign_type(file, related_objects, relating_type)`                                         | assign occurrences (list) to a type   |
-|  [15]   | `cost.calculate_cost_item_resource_value(file, cost_item)`                                       | roll resource base costs              |
+|  [08]   | `geometry.edit_object_placement(file, product, matrix)`                                          | set a product's object placement      |
+|  [09]   | `context.add_context(file, context_type, …)`                                                     | add a representation context          |
+|  [10]   | `unit.add_si_unit(file, unit_type, prefix=None)`                                                 | add an SI unit to the project         |
+|  [11]   | `unit.assign_unit(file, units=None)`                                                             | assign units to the `IfcProject`      |
+|  [12]   | `pset.add_pset(file, product, name)`                                                             | attach a property set                 |
+|  [13]   | `spatial.assign_container(file, products, relating_structure)`                                   | place products (list) in a container  |
+|  [14]   | `aggregate.assign_object(file, products, relating_object)`                                       | aggregate products (list) to a parent |
+|  [15]   | `material.add_material(file, name=None, category=None)`                                          | create and assign materials           |
+|  [16]   | `type.assign_type(file, related_objects, relating_type)`                                         | assign occurrences (list) to a type   |
+|  [17]   | `cost.calculate_cost_item_resource_value(file, cost_item)`                                       | roll resource base costs              |
 
 [ENTRYPOINT_SCOPE]: `util` analysis namespace
 
@@ -124,20 +124,20 @@ Tessellation rows consume a `geom.settings` knob bag and a `geom.GEOMETRY_LIBRAR
 
 The georeference band is pure Python over `IfcMapConversion`/`IfcMapConversionScaled`/`IfcRigidOperation` and the IFC2X3 `ePSet_MapConversion` fallback, so it reads without the native wrapper. `get_helmert_transformation_parameters` is the ONE extraction entry and returns a `HelmertTransformation` `NamedTuple` — `(e, n, h, xaa, xao, scale, factor_x, factor_y, factor_z)` — or `None` where no coordinate operation exists; every `auto_*` entry resolves it internally and returns its input unchanged on `None`, so absence is the identity transform rather than a raise. The manual `xyz2enh`/`enh2xyz`/`local2global`/`global2local` entries take those nine parameters as keyword-defaulted floats, which is exactly the `*parameters` splat the `auto_*` legs perform.
 
-| [INDEX] | [SURFACE]                                                                        | [CALL_SHAPE]              | [CAPABILITY]                                      |
-| :-----: | :------------------------------------------------------------------------------- | :------------------------ | :------------------------------------------------ |
-|  [01]   | `util.geolocation.get_helmert_transformation_parameters(ifc_file)`               | model                     | `HelmertTransformation \| None` map-conversion set |
-|  [02]   | `util.geolocation.get_crs(ifc_file)`                                             | model                     | `IfcProjectedCRS` attribute dict                   |
-|  [03]   | `util.geolocation.get_wcs(ifc_file)`                                             | model                     | world coordinate system as a 4x4, or `None`        |
-|  [04]   | `util.geolocation.auto_xyz2enh(ifc_file, x, y, z, should_return_in_map_units)`   | model plus local xyz      | local to easting/northing/height                   |
-|  [05]   | `util.geolocation.auto_enh2xyz(ifc_file, e, n, h, is_specified_in_map_units)`    | model plus map coords     | map to local xyz                                   |
-|  [06]   | `util.geolocation.auto_local2global(ifc_file, matrix, should_return_in_map_units)` | model plus 4x4          | local placement matrix to map frame                |
-|  [07]   | `util.geolocation.auto_global2local(ifc_file, matrix, is_specified_in_map_units)` | model plus 4x4           | map matrix to local frame                          |
-|  [08]   | `util.geolocation.auto_z2e(ifc_file, z, should_return_in_map_units)`             | model plus z              | Z coordinate to elevation                          |
-|  [09]   | `util.geolocation.get_grid_north(ifc_file)` / `get_true_north(ifc_file)`         | model                     | grid and true north angles in degrees              |
-|  [10]   | `util.geolocation.xaxis2angle(x, y)` / `angle2xaxis(angle)`                      | abscissa/ordinate pair    | X-axis direction to angle and back                 |
-|  [11]   | `util.geolocation.yaxis2angle(x, y)` / `angle2yaxis(angle)`                      | abscissa/ordinate pair    | Y-axis direction to angle and back                 |
-|  [12]   | `util.geolocation.dms2dd(degrees, minutes, seconds, us)` / `dd2dms(dd, use_us)`  | angle scalars             | sexagesimal and decimal degrees round-trip         |
+| [INDEX] | [SURFACE]                                                         | [CALL_SHAPE]           | [CAPABILITY]                                |
+| :-----: | :---------------------------------------------------------------- | :--------------------- | :------------------------------------------ |
+|  [01]   | `get_helmert_transformation_parameters(ifc_file)`                 | model                  | `HelmertTransformation \| None`             |
+|  [02]   | `get_crs(ifc_file)`                                               | model                  | `IfcProjectedCRS` attribute dict            |
+|  [03]   | `get_wcs(ifc_file)`                                               | model                  | world coordinate system as a 4x4, or `None` |
+|  [04]   | `auto_xyz2enh(ifc_file, x, y, z, should_return_in_map_units)`     | model plus local xyz   | local to easting/northing/height            |
+|  [05]   | `auto_enh2xyz(ifc_file, e, n, h, is_specified_in_map_units)`      | model plus map coords  | map to local xyz                            |
+|  [06]   | `auto_local2global(ifc_file, matrix, should_return_in_map_units)` | model plus 4x4         | local placement matrix to map frame         |
+|  [07]   | `auto_global2local(ifc_file, matrix, is_specified_in_map_units)`  | model plus 4x4         | map matrix to local frame                   |
+|  [08]   | `auto_z2e(ifc_file, z, should_return_in_map_units)`               | model plus z           | Z coordinate to elevation                   |
+|  [09]   | `get_grid_north(ifc_file)` / `get_true_north(ifc_file)`           | model                  | grid and true north angles in degrees       |
+|  [10]   | `xaxis2angle(x, y)` / `angle2xaxis(angle)`                        | abscissa/ordinate pair | X-axis direction to angle and back          |
+|  [11]   | `yaxis2angle(x, y)` / `angle2yaxis(angle)`                        | abscissa/ordinate pair | Y-axis direction to angle and back          |
+|  [12]   | `dms2dd(degrees, minutes, seconds, us)` / `dd2dms(dd, use_us)`    | angle scalars          | sexagesimal and decimal degrees round-trip  |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

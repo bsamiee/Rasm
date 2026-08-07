@@ -86,7 +86,13 @@
 |  [09]   | `Tokenizer.GetBosTokenId() -> int`                                    | instance | beginning-of-sequence id        |
 |  [10]   | `Tokenizer.GetEosTokenIds() -> ReadOnlySpan<int>`                     | instance | all end-of-sequence ids         |
 |  [11]   | `Tokenizer.GetPadTokenId() -> int`                                    | instance | padding token id                |
-|  [12]   | `TokenizerStream.Decode(int) -> string`                               | instance | decodes one token incrementally |
+|  [12]   | `Tokenizer.GetBotTokenId() -> int`                                    | instance | beginning-of-text id            |
+|  [13]   | `Tokenizer.GetEotTokenId() -> int`                                    | instance | end-of-turn id                  |
+|  [14]   | `Tokenizer.GetBorTokenId() -> int`                                    | instance | beginning-of-response id        |
+|  [15]   | `Tokenizer.GetEorTokenId() -> int`                                    | instance | end-of-response id              |
+|  [16]   | `TokenizerStream.Decode(int) -> string`                               | instance | decodes one token incrementally |
+
+- Rows [12]-[15] THROW when the model defines no such id, so each is a probe rather than a read; `GetBosTokenId`, `GetEosTokenIds`, and `GetPadTokenId` answer for every model.
 
 [ENTRYPOINT_SCOPE]: Sequences token carrier
 - note: created by `Tokenizer.Encode`/`EncodeBatch` or `Generator.GetSequence`; direct construction is internal.
@@ -196,6 +202,9 @@
 |  [08]   | `max_length`         | `double`     | maximum generated sequence length          |
 |  [09]   | `min_length`         | `double`     | minimum generated sequence length          |
 |  [10]   | `early_stopping`     | `bool`       | halts beam search when all beams reach EOS |
+|  [11]   | `batch_size`         | `double`     | staged batch width; MANDATORY on every run |
+
+- Row [11] is not optional: staging without it faults `input sequences count does not match batch size`, and its value is the staged sequence count — one for a single prompt, the `EncodeBatch` sequence count for a batch.
 
 [ENTRYPOINT_SCOPE]: GPU device and native-log control (`Utils`)
 - note: `Utils` is static process-global; the GPU device id selects the CUDA/DML device before model load, and the log toggles drive the native ORT logger.
@@ -206,6 +215,8 @@
 |  [02]   | `Utils.GetCurrentGpuDeviceId() -> int` | static  | reads the active GPU device id      |
 |  [03]   | `Utils.SetLogBool(string, bool)`       | static  | toggles a native ORT log flag       |
 |  [04]   | `Utils.SetLogString(string, string)`   | static  | sets a native ORT log string option |
+|  [05]   | `Utils.EnableTelemetryEvents()`        | static  | enables native telemetry emission   |
+|  [06]   | `Utils.DisableTelemetryEvents()`       | static  | disables native telemetry emission  |
 
 [ENTRYPOINT_SCOPE]: M.E.AI chat client
 - note: each ctor takes a trailing `OnnxRuntimeGenAIChatClientOptions?`; the `string`/`Config` ctors build the `Model` internally, and the response and streaming surface is `IChatClient` from `api-extensions-ai`.
@@ -229,7 +240,7 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- Every GenAI type wraps a native handle and disposes; `using` order is LIFO with `OgaHandle` outermost for process-global init/teardown, and `Adapters : SafeHandle` releases through `OgaDestroyAdapters` at the GC boundary rather than `IDisposable`.
+- Every GenAI type wraps a native handle and disposes; `using` order is LIFO with `OgaHandle` outermost for process-global init/teardown. `Adapters : SafeHandle` releases through `OgaDestroyAdapters` at the GC boundary AND answers `Dispose()`, so an adapter set is released deterministically with the model it was created against rather than left to finalization.
 - `Config(modelDir)` opens `{modelDir}/genai_config.json`; provider selection rides `Config.AppendProvider`/`SetProviderOption` before `new Model(config)`, never per generation.
 - `OnnxRuntimeGenAIException` is the sole fault rail at `Model`/`Config` construction and across the generation loop; a missing or malformed model directory faults it at construction.
 - `SetSearchOption` takes `double` or `bool` only, with no string overload and no `TrySetSearchOption`; an unrecognized key is unvalidated managed-side and faults `OnnxRuntimeGenAIException` from the native layer.
@@ -240,6 +251,17 @@
 - `Tensor` is `Microsoft.ML.OnnxRuntimeGenAI.Tensor`, qualified on any boundary shared with `System.Numerics.Tensors.Tensor<T>`, and `Tensor.GetData<T>()` spans native memory owned by the live `Tensor` that copies out before disposal.
 - `OnnxRuntimeGenAIChatClient` is `sealed : IChatClient, IDisposable` over three ctors — path, `(Model, ownsModel)`, `(Config, ownsConfig)` — with no `(Model, options)` two-arg form, the `owns*` flag governing whether the client disposes the handle, and `OnnxRuntimeGenAIChatClientOptions.PromptFormatter` the override seam for `Tokenizer.ApplyChatTemplate` when the M.E.AI consumer owns prompt assembly.
 - `Utils` is the static process-global control: `SetCurrentGpuDeviceId(int)` sets the global device before model load ahead of the per-decoder `Config.SetDecoderProviderOptionsHardwareDeviceId`, and `SetLogBool`/`SetLogString` are the sole handle to the native ORT logger.
+- `SetRuntimeOption` validates nothing managed-side: an unrecognized key is accepted SILENTLY, and `terminate_session` = `1` mid-drain ABORTS the process — an uncatchable native abort no managed rail observes — so a consumer admits runtime keys against a banned set rather than passing them through.
+- `Generator.GetOutput(name)` and `GetInput(name)` SIGSEGV on a name the live graph does not carry; there is no managed name check, so a read is only safe for a name the model class is known to publish.
+- `Generator.GetSequence(ulong)` performs NO range check — an index past the batch width returns sequence 0 rather than throwing — so every read gates the index against the staged width first.
+- `Generator.IsDone()` answers the whole BATCH: a sequence emitting EOS leaves it false while any other sequence runs, and a finished sequence then emits the pad token at full batch width on every remaining step, so per-sequence stop is caller-owned state.
+- `Generator.TokenCount()` is one batch-wide scalar, and `RewindTo` on a batch wider than one admits only `0` while a restart faults, so a multi-sequence run has no rewind or restart rail at all.
+- `GeneratorParams.SetGuidance(type, data, enableFFTokens)` with fast-forward ENABLED commits tokens `GetNextTokens()` never surfaces, so a streamed decode loses spans the committed sequence holds; under any guidance, `Generator.AppendTokens` admits only spans the grammar derives and rejects free text with a parser error.
+- `Tokenizer.ApplyChatTemplate` takes the tools argument as raw JSON text and the native template pass rejects malformed input; a template carrying no tools block ignores the argument entirely, so a roster passed to such a template is silently inert rather than faulted.
+- `Images.Load`/`Audios.Load` FAULT on an empty path array, so a media-side call dispatches on which side carries paths; `NamedTensors` is opaque — it publishes `Dispose()` alone and no element or shape read.
+- `MultiModalProcessor` binds only a model type registered as multimodal and `StreamingProcessor` binds only the speech-stream type; either constructed against another model type faults, so a consumer gates on `Model.GetModelType()` before construction.
+- `Tokenizer.EncodeBatch` LEFT-PADS a ragged batch to its longest member, so the returned `NumSequences` equals the prompt count and the padded prefix is the pad token.
+- Provider names passed to `Config.AppendProvider` are case-sensitive native strings resolved at `Model` construction: `CoreML` builds and generates on this package version, and `XNNPACK` refuses `not supported in this build` on `osx-arm64`.
 
 [STACKING]:
 - `api-onnxruntime`(`.api/api-onnxruntime.md`): the genai runtime composes the base inference engine; the EP strings `Config.AppendProvider` accepts, the `Config.SetProviderOption` keys, and the `Config.SetDecoderProviderOptionsHardware{DeviceType,DeviceId,VendorId}` selectors bind that catalog's EP roster and `OrtHardwareDevice` discovery, and its per-RID native ABI matrix owns payload availability; the genai payload ships the subset of those RIDs it publishes (`osx-arm64` the host asset), so a decoder provider with no matching genai-and-base payload faults at native init.

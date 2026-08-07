@@ -39,7 +39,7 @@ Rank is reference depth, never domain family: two packages share a rank only whe
 - S3 reads — `Rasm.Compute` references `{Rasm, Rasm.Element, Rasm.AppHost, Rasm.Persistence}` and reads the system of record one-way.
 - S3 generation — `Rasm.Generation` depends up on the kernel, the seam, and the AEC peers, and nothing references it downward.
 - S3 law — the two S3 members never reference each other, and generation composes the kernel's geometry operations rather than owning primitives.
-- S4 leaf — `Rasm.AppUi` references `{Rasm, Rasm.AppHost, Rasm.Compute, Rasm.Materials, Rasm.Persistence}` and stays the consuming leaf.
+- S4 leaf — `Rasm.AppUi` references `{Rasm, Rasm.AppHost, Rasm.Compute, Rasm.Fabrication, Rasm.Materials, Rasm.Persistence}`; nothing references it.
 - S5 app shell — `apps/<host>/<Plugin>/` shells seat outside `libs/csharp` and compose the app platform with the host boundary.
 - S5 shell law — composition-root surfaces home at the app shell; a package blocked on the shell waits rather than pulling composition down.
 
@@ -98,7 +98,8 @@ flowchart TB
     AppUi -->|"[IMPORT]: ContentHash"| Rasm
     AppUi -->|"[IMPORT]: DeterminismContext"| AppHost
     AppUi -->|"[IMPORT]: ResidencyPayload"| Compute
-    AppUi -->|"[IMPORT]: LayeredBsdf/EnvironmentLight/TextureSet"| Materials
+    AppUi -->|"[IMPORT]: LayeredBsdf/SurfaceShade/EnvironmentLight/TextureSet"| Materials
+    AppUi -->|"[IMPORT]: HiddenLineResult"| Fabrication
     AppUi -->|"[IMPORT]: DuckProfileReceipt"| Persistence
     Rasm -->|"forbidden: host-neutral upward"| HOST
 ```
@@ -137,11 +138,10 @@ flowchart LR
     Element <-->|"[WIRE]: GlbContentHash"| PyGeometry
     Element <-->|"[CONTENT_KEY]: ContentAddress"| PyRuntime
     Bim <-->|"[WIRE]: IfcWire"| PyGeometry
-    Bim -->|"[WIRE]: GeoFeatureWire"| PyData
-    PyData -->|"[WIRE]: Assessment"| Materials
+    Bim -->|"[WIRE]: GeoWire"| PyData
     Materials -->|"[WIRE]: MaterialWire + TextureSetWire"| PyRuntime
     PyArtifacts -->|"[WIRE]: AssetSetManifest"| Materials
-    Fabrication -->|"[SHAPE]: Tolerance"| PyArtifacts
+    Fabrication -->|"[WIRE]: IToleranceEncoder bytes"| PyArtifacts
     AppHost <-->|"[WIRE]: DiscoveryResult"| PyRuntime
     Compute <-->|"[WIRE]: ComputeService"| PyGeometry
     Compute <-->|"[WIRE]: ProtoVocabulary"| PyRuntime
@@ -221,7 +221,7 @@ flowchart LR
     Graph e6@-->|"content keys"| Persistence
 ```
 
-Two projection surfaces, both declared in `Rasm.Element`, are the only cross-package contracts: `IElementProjection` (Materials' `ComponentProjector`, Bim's `SemanticProjector`) and `IGraphConstraint` (Bim's `IfcLegality`, rejecting an illegal delta at composition time). Owners mint their own identity at their own seam — Materials the deterministic Type node, Bim the per-ingest rooted id — and nothing re-mints a peer's.
+Two projection surfaces, both declared in `Rasm.Element`, are the only cross-package contracts: `IElementProjection` (Materials' `ComponentProjector`, Bim's `SemanticProjector`) and `IGraphConstraint` (Bim's `IfcLegality`, rejecting an illegal delta at composition time). Element's `TypeCandidate` record carries the type-reconciliation loop beside them as contract-aligned data, crossing from Bim's `ExportTypeCandidates` to Materials' `AdmitImported` under the Bim-declared `IIfcTypeReconciler` port, both ends composing one declaration, never a package edge. Owners mint their own identity at their own seam — Materials the deterministic Type node, Bim the per-ingest rooted id — and nothing re-mints a peer's.
 
 Materials carries IFC names only as neutral `IfcBinding` row data; Bim never re-derives section geometry or material data; Element never carries a fact only one projector understands. Consumers needing the thing read the graph; consumers needing the IFC meaning read Bim's projection; nothing reads across. Canonical seam surfaces change only through an explicit brief entry naming the owner and the migration.
 

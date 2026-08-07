@@ -5,7 +5,7 @@ Block state vocabulary (`Rasm.Rhino.Blocks`) owns one live address, one whole-st
 ## [01]-[INDEX]
 
 - [02]-[ADDRESS]: `Definitions.Lens` this folder's one `ResourceLens<InstanceDefinition>` row over the document spine's `ResourceRef`, resolution re-entering the mutable table per use so no native definition escapes its owning document window.
-- [03]-[SNAPSHOT]: `BlockSnapshot` capturing identity, normalized source state, member order, placement evidence, usage, containers, and both change probes in one host read, `BlockDependency` folding the native table probes, `SourceMode` and `LayerScope` closing the host source and layer discriminants at the boundary, and `LinkState` carrying their interior meaning.
+- [03]-[SNAPSHOT]: `BlockSnapshot` capturing identity, normalized source state, member order, scoped placement evidence, usage, containers, and both change probes in one host read, `BlockDependency`/`BlockDependencyAnswer` folding the native table probes onto a typed answer, `SourceMode` and `LayerScope` closing the host source and layer discriminants at the boundary, and `LinkState` carrying their interior meaning.
 - [04]-[POLICY_VALUES]: closed `ConflictPolicy`, `DeletionPolicy`, `ExplodePolicy`, `Placement`, and `BlockPreview` owners carrying host arguments as data, `PreviewFrame` admitting projection, extent, and raster scale once for every modality.
 - [05]-[SURFACE_LEDGER]: owner-to-kind-to-ingress-to-egress roster across the lens row, snapshot, link state, policy owners, and preview union.
 
@@ -29,13 +29,13 @@ public static class Definitions {
 
 ## [03]-[SNAPSHOT]
 
-`BlockSnapshot` resolves its `ResourceRef` through `Definitions.Lens`, then captures identity, normalized source state, member order, placed-reference evidence, usage, containers, and both change probes in one host read. Member admission revalidates geometry and attributes with native diagnostic evidence before either enters identity. `BlockDependency` admits table indexes against their live bounds before one table fold composes the native dependency probes; its single integer result is `0` when absent, `1` for a present table dependency, and the host nesting depth for a definition dependency.
+`BlockSnapshot` resolves its `ResourceRef` through `Definitions.Lens`, then captures identity, normalized source state, member order, the reference scope its placement census ran under, placed-reference evidence, usage, containers, and both change probes in one host read. Member admission revalidates geometry and attributes with native diagnostic evidence before either enters identity. `Placements` and `InUse` answer only within `Scope`, while `Usage` carries the host's own scope-free tally, so a census reading empty under one scope is never confused with a definition nothing places. Containers carry stable ids, matching the topology rail's own vertex spelling. `BlockDependency` admits table indexes against their live bounds before one table fold composes the native dependency probes, and answers `BlockDependencyAnswer` — presence for a table probe, nesting depth for a definition probe — because one integer standing for both makes a depth of one indistinguishable from a boolean true.
 
 `SourceMode` is the boundary owner for the definition's source axis: three live rows keyed on `InstanceDefinitionUpdateType` ordinals, the retired ordinal `1` folded onto `Static` at admission so a legacy archive reads without the fence ever spelling the `[Obsolete]` host case, and a `Regenerates` behavior column the refresh rail reads. `LayerScope` closes the linked-definition layer policy the same way, so no raw host discriminant crosses into a public payload. `LinkState` linked cases require a nonblank source and preserve embed, tenuous, nested-link, layer-scope, and archive-health evidence for refresh policy.
 
 Every host read on this page runs inside `DocumentSession.Demand`, which resolves on the host command thread — live sessions marshal through `RhinoApp.InvokeAndWait` and headless sessions stay on the caller. That demand IS the affinity rail the thread-affine members (`GetReferences`, every `CreatePreviewBitmap` overload) require; composing one outside a demand is the deleted form.
 
-`BlockStamp.Geometry` remains an in-process invalidation probe. `BlockStamp.Content` hashes length-prefixed definition fields and a detached `File3dm` serialization of every admitted geometry and attribute payload. Ordinal-derived archive ids preserve member order without admitting live definition, member, or archive-minted identity.
+`BlockStamp.Geometry` remains an in-process invalidation probe. `BlockStamp.Content` hashes length-prefixed STORED definition fields and a detached `File3dm` serialization of every admitted geometry and attribute payload; live-state axes — archive health and tenuous resolution — stay snapshot columns on `LinkState.Linked` and are declared derived, never preimage, because a probe that re-reads the linked file on every access would rehash an unchanged definition differently on two consecutive reads. Every preimage write is railed on its own byte count, so a short write refuses instead of shifting the field boundaries the hash depends on. Ordinal-derived archive ids preserve member order without admitting live definition, member, or archive-minted identity.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
@@ -60,7 +60,9 @@ public sealed partial class ReferenceScope {
     public static readonly ReferenceScope Nested = new(key: 1, hostValue: 1);
     public static readonly ReferenceScope Definition = new(key: 2, hostValue: 2);
 
-    public int HostValue { get; }
+    // The host ordinal is the `GetReferences(int)` argument and nothing else, so it stays inside the folder that
+    // spells that call; a public column invites a caller to pass an integer the vocabulary already owns.
+    internal int HostValue { get; }
 }
 
 [SmartEnum<int>]
@@ -91,9 +93,7 @@ public sealed partial class SourceMode {
     internal static Fin<SourceMode> Of(InstanceDefinitionUpdateType update, Op key) =>
         (int)update is RetiredEmbeddedOrdinal
             ? Fin.Succ(value: Static)
-            : TryGet((int)update, out SourceMode? row) && row is not null
-                ? Fin.Succ(value: row)
-                : Fin.Fail<SourceMode>(error: key.InvalidResult(detail: update.ToString()));
+            : key.Row<int, SourceMode>((int)update);
 }
 
 [SmartEnum<int>]
@@ -105,9 +105,7 @@ public sealed partial class LayerScope {
     internal InstanceDefinitionLayerStyle Host => (InstanceDefinitionLayerStyle)Key;
 
     internal static Fin<LayerScope> Of(InstanceDefinitionLayerStyle style, Op key) =>
-        TryGet((int)style, out LayerScope? row) && row is not null
-            ? Fin.Succ(value: row)
-            : Fin.Fail<LayerScope>(error: key.InvalidResult(detail: style.ToString()));
+        key.Row<int, LayerScope>((int)style);
 }
 
 [SmartEnum<int>]
@@ -163,7 +161,7 @@ public abstract partial record BlockDependency {
     public sealed record Linetype(int Index) : BlockDependency;
     public sealed record Definition(ResourceRef Target) : BlockDependency;
 
-    internal Fin<int> Measure(InstanceDefinition owner, RhinoDoc document, Op key) => Switch(
+    internal Fin<BlockDependencyAnswer> Measure(InstanceDefinition owner, RhinoDoc document, Op key) => Switch(
         context: (Owner: owner, Document: document, Op: key),
         layer: static (context, probe) => MeasureTable(
             index: probe.Index,
@@ -184,17 +182,30 @@ public abstract partial record BlockDependency {
                 document: context.Document,
                 key: context.Op)
             .Bind(nested => context.Op.Catch(() => Fin.Succ(
-                value: context.Owner.UsesDefinition(otherIdefIndex: nested.Index)))));
+                value: (BlockDependencyAnswer)new BlockDependencyAnswer.Nesting(
+                    Levels: context.Owner.UsesDefinition(otherIdefIndex: nested.Index))))));
 
-    private static Fin<int> MeasureTable(
+    private static Fin<BlockDependencyAnswer> MeasureTable(
         int index,
         InstanceDefinition owner,
         RhinoDoc document,
         Func<RhinoDoc, int> count,
         Func<InstanceDefinition, int, bool> includes,
         Op op) => op.Catch(() => index >= 0 && index < count(arg: document)
-        ? Fin.Succ(value: includes(arg1: owner, arg2: index) ? 1 : 0)
-        : Fin.Fail<int>(error: op.InvalidInput()));
+        ? Fin.Succ(value: (BlockDependencyAnswer)new BlockDependencyAnswer.Uses(
+            Value: includes(arg1: owner, arg2: index)))
+        : Fin.Fail<BlockDependencyAnswer>(error: op.InvalidInput()));
+}
+
+// The probe answered ONE `int` carrying three unrelated meanings — `0` absent, `1` a present table dependency,
+// and the host's nesting DEPTH for a definition probe — so `> 0` read as "used" on two arms and as "used at least
+// one level deep" on the third, and no reader could tell a depth of one from a boolean true. The answer family is
+// `BlockGraphAnswer`'s discipline applied here: presence and depth are different questions with different types.
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record BlockDependencyAnswer : IDetachedDocumentResult {
+    private BlockDependencyAnswer() { }
+    public sealed record Uses(bool Value) : BlockDependencyAnswer;
+    public sealed record Nesting(int Levels) : BlockDependencyAnswer;
 }
 
 // --- [MODELS] ------------------------------------------------------------------------------
@@ -230,6 +241,10 @@ internal sealed record BlockMemberProjection(
 
 public sealed record BlockPlacement(Guid Id, Transform Motion, Point3d Insertion);
 
+// `Scope` is the placement census's own question, and the snapshot could not answer it: `Placements` and `InUse`
+// derive from `GetReferences(scope)`, so a `Direct` read answering "not in use" and a `Definition` read answering
+// "in use" were the same shape with no column separating them. `Usage` stays the host's own scope-free tally, so
+// the pair reads as census-under-this-scope beside total-across-the-document.
 public sealed record BlockSnapshot(
     Guid Key,
     int Index,
@@ -238,15 +253,16 @@ public sealed record BlockSnapshot(
     LinkState Link,
     int ObjectCount,
     Seq<Guid> MemberIds,
+    ReferenceScope Scope,
     Seq<BlockPlacement> Placements,
     BlockUsage Usage,
     bool InUse,
-    Seq<int> ContainerIndexes,
+    Seq<Guid> ContainerIds,
     BlockStamp Stamp) {
     public static Fin<BlockSnapshot> Of(ResourceRef target, RhinoDoc document, ReferenceScope scope, Op key) =>
-        from address in Optional(target).ToFin(Fail: key.InvalidInput())
-        from owner in Optional(document).ToFin(Fail: key.InvalidInput())
-        from referenceScope in Optional(scope).ToFin(Fail: key.InvalidInput())
+        from address in key.Need(target)
+        from owner in key.Need(document)
+        from referenceScope in key.Need(scope)
         from active in Definitions.Resolve(target: address, document: owner, key: key)
         from snapshot in key.Catch(() => {
             Seq<RhinoObject> members = toSeq(active.GetObjects());
@@ -293,15 +309,13 @@ public sealed record BlockSnapshot(
                    from link in LinkState.Of(definition: active, key: key)
                    from mode in SourceMode.Of(update: active.UpdateType, key: key)
                    from usage in BlockUsage.Of(total: total, topLevel: topLevel, nested: nested, key: key)
-                   let description = Optional(active.Description).Filter(static text => text.Length > 0)
+                   let description = Op.Text(active.Description)
                    from content in Identity(
                        name: active.Name,
                        description: description,
                        mode: mode,
-                       status: active.ArchiveFileStatus,
                        style: active.LayerStyle,
-                       source: Optional(active.SourceArchive).Filter(static path => path.Length > 0),
-                       tenuous: active.IsTenuous,
+                       source: Op.Text(active.SourceArchive),
                        skipNested: active.SkipNestedLinkedDefinitions,
                        objectCount: active.ObjectCount,
                        crc: crc,
@@ -315,68 +329,77 @@ public sealed record BlockSnapshot(
                        Link: link,
                        ObjectCount: active.ObjectCount,
                        MemberIds: memberIds,
+                       Scope: referenceScope,
                        Placements: placements,
                        Usage: usage,
                        InUse: !placements.IsEmpty,
-                       ContainerIndexes: toSeq(active.GetContainers()).Map(static container => container.Index),
+                       ContainerIds: toSeq(active.GetContainers()).Map(static container => container.Id),
                        Stamp: new BlockStamp(Geometry: geometry, Content: content));
         })
         select snapshot;
 
-    public Fin<int> Probe(BlockDependency dependency, RhinoDoc document, Op key) =>
-        Optional(dependency).ToFin(Fail: key.InvalidInput())
+    public Fin<BlockDependencyAnswer> Probe(BlockDependency dependency, RhinoDoc document, Op key) =>
+        key.Need(dependency)
             .Bind(active => Resolve(document: document, key: key)
                 .Bind(owner => active.Measure(owner: owner, document: document, key: key)));
 
     private Fin<InstanceDefinition> Resolve(RhinoDoc document, Op key) =>
         ResourceRef.Of(id: Key).Bind(target => Definitions.Resolve(target: target, document: document, key: key));
 
+    // The preimage is STORED CONTENT alone. `ArchiveFileStatus` and `IsTenuous` are live probes — the first
+    // re-reads the linked file's timestamps on every access, the second reports whether the host has resolved the
+    // link yet — so folding them in made one unchanged definition hash differently on two consecutive reads and
+    // across two machines, which is the one thing a federation identity must never do. Both remain snapshot
+    // columns through `LinkState.Linked`, declared derived live state that no consumer may treat as identity.
     private static Fin<UInt128> Identity(
         string name,
         Option<string> description,
         SourceMode mode,
-        InstanceDefinitionArchiveFileStatus status,
         InstanceDefinitionLayerStyle style,
         Option<string> source,
-        bool tenuous,
         bool skipNested,
         int objectCount,
         uint crc,
         Seq<BlockMemberProjection> members,
         Op op) => op.Catch(() => {
         using ArrayPoolBufferWriter<byte> bytes = new();
-        Write(bytes: bytes, value: name);
-        Write(bytes: bytes, value: description.IfNone(string.Empty));
-        Write(bytes: bytes, value: mode.Key);
-        Write(bytes: bytes, value: (int)status);
-        Write(bytes: bytes, value: (int)style);
-        Write(bytes: bytes, value: source.IfNone(string.Empty));
-        Write(bytes: bytes, value: tenuous);
-        Write(bytes: bytes, value: skipNested);
-        Write(bytes: bytes, value: objectCount);
-        Write(bytes: bytes, value: crc);
-        Write(bytes: bytes, value: members.Count);
-
-        using File3dm archive = new();
-        Seq<(Guid Expected, Guid Actual)> archived = members
-            .Map((member, index) => {
-                Guid expected = ArchiveId(ordinal: index);
-                using ObjectAttributes attributes = member.Attributes.Duplicate();
-                attributes.ObjectId = expected;
-                return (
-                    Expected: expected,
-                    Actual: archive.Objects.Add(item: member.Geometry, attributes: attributes));
-            })
-            .Strict();
-        return from _ in archived
-                   .Traverse(row => guard(row.Actual == row.Expected, op.InvalidResult()).ToFin().ToValidation())
-                   .As()
-                   .ToFin()
-               from payload in Optional(archive.ToByteArray()).ToFin(Fail: op.InvalidResult())
-               let __ = Write(bytes: bytes, value: payload)
+        return from _ in Write(bytes: bytes, value: name, op: op)
+               from __ in Write(bytes: bytes, value: description.IfNone(string.Empty), op: op)
+               from ___ in Write(bytes: bytes, value: mode.Key, op: op)
+               from ____ in Write(bytes: bytes, value: (int)style, op: op)
+               from _____ in Write(bytes: bytes, value: source.IfNone(string.Empty), op: op)
+               from ______ in Write(bytes: bytes, value: skipNested, op: op)
+               from _______ in Write(bytes: bytes, value: objectCount, op: op)
+               from ________ in Write(bytes: bytes, value: crc, op: op)
+               from _________ in Write(bytes: bytes, value: members.Count, op: op)
+               from payload in Archived(members: members, op: op)
+               from __________ in Write(bytes: bytes, value: payload, op: op)
                select ContentHash.Of(canonicalBytes: bytes.WrittenSpan);
     });
 
+    // Exemption: `File3dm.Objects.Add` is the archive's own accumulator and each member must both mint its
+    // ordinal id and land in the same pass, so the staging runs as one effectful fold rather than a projection —
+    // a `Map` doing this work looked pure and could not be reordered or made lazy without silently reordering the
+    // archive, which is exactly the byte sequence the identity hashes.
+    private static Fin<byte[]> Archived(Seq<BlockMemberProjection> members, Op op) => op.Catch(() => {
+        using File3dm archive = new();
+        return members
+            .Fold(
+                Fin.Succ(value: unit),
+                (rail, member) => rail.Bind(_ => op.Catch(() => {
+                    Guid expected = ArchiveId(ordinal: archive.Objects.Count);
+                    using ObjectAttributes attributes = member.Attributes.Duplicate();
+                    attributes.ObjectId = expected;
+                    return guard(
+                        archive.Objects.Add(item: member.Geometry, attributes: attributes) == expected,
+                        op.InvalidResult()).ToFin();
+                })))
+            .Bind(_ => Optional(archive.ToByteArray()).ToFin(Fail: op.InvalidResult()));
+    });
+
+    // The upper twelve bytes are the ordinal's zero PREFIX, not incidental scratch: `stackalloc` on a span the
+    // runtime zero-initializes is what makes ordinal `n` map to one stable guid on every machine, so the write
+    // deliberately fills only the trailing four and reads the rest as declared zeroes.
     private static Guid ArchiveId(int ordinal) {
         Span<byte> bytes = stackalloc byte[16];
         BinaryPrimitives.WriteInt32BigEndian(destination: bytes[^sizeof(int)..], value: checked(ordinal + 1));
@@ -391,27 +414,37 @@ public sealed record BlockSnapshot(
                 Requirement: string.IsNullOrWhiteSpace(value: log) ? "Native object validity failed." : log,
                 Key: Some(op))));
 
-    private static void Write<T>(ArrayPoolBufferWriter<byte> bytes, T value) where T : unmanaged, IBinaryInteger<T> {
-        _ = value.TryWriteBigEndian(destination: bytes.GetSpan(sizeHint: Unsafe.SizeOf<T>()), bytesWritten: out int written);
-        bytes.Advance(count: written);
-    }
+    // `TryWriteBigEndian` reports a SHORT write as `false` and answers a byte count the caller then advances by:
+    // discarding the verdict advanced the writer past a field that was never fully written, so the preimage
+    // silently lost bytes and two different definitions hashed alike. Every leg is now railed on that verdict.
+    private static Fin<Unit> Write<T>(ArrayPoolBufferWriter<byte> bytes, T value, Op op)
+        where T : unmanaged, IBinaryInteger<T> =>
+        op.Catch(() => {
+            bool written = value.TryWriteBigEndian(
+                destination: bytes.GetSpan(sizeHint: Unsafe.SizeOf<T>()),
+                bytesWritten: out int count);
+            return guard(written && count == Unsafe.SizeOf<T>(), op.InvalidResult()).ToFin()
+                .Map(_ => Op.Side(() => bytes.Advance(count: count)));
+        });
 
-    private static void Write(ArrayPoolBufferWriter<byte> bytes, bool value) =>
-        Write(bytes: bytes, value: value ? 1 : 0);
+    private static Fin<Unit> Write(ArrayPoolBufferWriter<byte> bytes, bool value, Op op) =>
+        Write(bytes: bytes, value: value ? 1 : 0, op: op);
 
-    private static void Write(ArrayPoolBufferWriter<byte> bytes, string value) {
-        int count = Encoding.UTF8.GetByteCount(value: value);
-        Write(bytes: bytes, value: count);
-        _ = Encoding.UTF8.GetBytes(value, bytes.GetSpan(sizeHint: count));
-        bytes.Advance(count: count);
-    }
+    private static Fin<Unit> Write(ArrayPoolBufferWriter<byte> bytes, string value, Op op) =>
+        op.Catch(() => {
+            int count = Encoding.UTF8.GetByteCount(value: value);
+            return Write(bytes: bytes, value: count, op: op).Bind(_ => {
+                int encoded = Encoding.UTF8.GetBytes(value, bytes.GetSpan(sizeHint: count));
+                return guard(encoded == count, op.InvalidResult()).ToFin()
+                    .Map(__ => Op.Side(() => bytes.Advance(count: encoded)));
+            });
+        });
 
-    private static Unit Write(ArrayPoolBufferWriter<byte> bytes, byte[] value) {
-        Write(bytes: bytes, value: value.Length);
-        value.AsSpan().CopyTo(destination: bytes.GetSpan(sizeHint: value.Length));
-        bytes.Advance(count: value.Length);
-        return unit;
-    }
+    private static Fin<Unit> Write(ArrayPoolBufferWriter<byte> bytes, byte[] value, Op op) =>
+        Write(bytes: bytes, value: value.Length, op: op).Bind(_ => op.Catch(() => {
+            value.AsSpan().CopyTo(destination: bytes.GetSpan(sizeHint: value.Length));
+            return Fin.Succ(value: Op.Side(() => bytes.Advance(count: value.Length)));
+        }));
 }
 ```
 
@@ -432,12 +465,15 @@ public sealed partial class ConflictPolicy {
 
 [SmartEnum<int>]
 public sealed partial class DeletionPolicy {
-    public static readonly DeletionPolicy RetainReferences = new(key: 0, deleteReferences: false, quiet: true);
-    public static readonly DeletionPolicy Cascade = new(key: 1, deleteReferences: true, quiet: true);
-    public static readonly DeletionPolicy InteractiveCascade = new(key: 2, deleteReferences: true, quiet: false);
+    public static readonly DeletionPolicy RetainReferences = new(key: 0, deleteReferences: false, interaction: HostInteraction.Quiet);
+    public static readonly DeletionPolicy Cascade = new(key: 1, deleteReferences: true, interaction: HostInteraction.Quiet);
+    public static readonly DeletionPolicy InteractiveCascade = new(key: 2, deleteReferences: true, interaction: HostInteraction.Interactive);
 
     public bool DeleteReferences { get; }
-    public bool Quiet { get; }
+
+    // The dialogue column is the spine's `HostInteraction` row, not a second bare bool spelling the same axis: the
+    // host `quiet` argument every folder passes has ONE vocabulary, and a policy carrying its own boolean forks it.
+    public HostInteraction Interaction { get; }
 }
 
 [SmartEnum<int>]
@@ -580,7 +616,7 @@ public abstract partial record BlockPreview {
         (guard(displayModeId != Guid.Empty, key.InvalidInput()).ToFin().ToValidation(),
          PreviewFrame.Of(projection: projection, extent: extent, scale: scale, key: key).ToValidation(),
          guard(Enum.IsDefined(value: camera), key.InvalidInput()).ToFin().ToValidation(),
-         Optional(decoration).ToFin(Fail: key.InvalidInput()).ToValidation())
+         key.Need(decoration).ToValidation())
         .Apply((_, frame, _, admittedDecoration) =>
             (BlockPreview)new AxonometricCase(
                 DisplayModeId: displayModeId, Frame: frame, Camera: camera, Decoration: admittedDecoration))
@@ -616,15 +652,16 @@ public abstract partial record BlockPreview {
 
 ## [05]-[SURFACE_LEDGER]
 
-| [INDEX] | [OWNER]         | [KIND]           | [INGRESS]           | [EGRESS]                   |
-| :-----: | :-------------- | :--------------- | :------------------ | :------------------------- |
-|  [01]   | `Definitions`   | lens row         | `Lens`              | `Resolve`                  |
-|  [02]   | `BlockSnapshot` | record           | `Of` · `Probe`      | state · dependency measure |
-|  [03]   | `SourceMode`    | keyed vocabulary | `Of`                | regeneration column · host |
-|  [04]   | `LayerScope`    | keyed vocabulary | `Of`                | layer policy · host        |
-|  [05]   | `LinkState`     | union            | `Of`                | static or linked evidence  |
-|  [06]   | policy owners   | generated values | generated admission | native arguments           |
-|  [07]   | `BlockPreview`  | union            | factories           | `Render`                   |
+| [INDEX] | [OWNER]                 | [KIND]           | [INGRESS]           | [EGRESS]                        |
+| :-----: | :---------------------- | :--------------- | :------------------ | :------------------------------ |
+|  [01]   | `Definitions`           | lens row         | `Lens`              | `Resolve`                       |
+|  [02]   | `BlockSnapshot`         | record           | `Of` · `Probe`      | scoped state · typed dependency |
+|  [03]   | `BlockDependencyAnswer` | union            | `Measure`           | presence or nesting depth       |
+|  [04]   | `SourceMode`            | keyed vocabulary | `Of`                | regeneration column · host      |
+|  [05]   | `LayerScope`            | keyed vocabulary | `Of`                | layer policy · host             |
+|  [06]   | `LinkState`             | union            | `Of`                | static or linked evidence       |
+|  [07]   | policy owners           | generated values | generated admission | native arguments                |
+|  [08]   | `BlockPreview`          | union            | factories           | `Render`                        |
 
 ## [06]-[RESEARCH]
 

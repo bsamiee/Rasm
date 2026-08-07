@@ -12,6 +12,7 @@ Kernel ROP substrate (`Rasm.Domain`). Every fallible kernel surface fails throug
 - [05]-[RESOURCE_RAIL]: `Lease<T>` — Owned/Borrowed disposal discipline with `Use`/`Resource`/`Dispose` folds.
 - [06]-[VALIDITY_FOLD]: `IValidityEvidence` + `ValidityClaim` — the one receipt-validity fold; a receipt declares which claims hold, never how.
 - [07]-[THREADING_LAW]: `Op` as explicit value key, `Eff<Env>` as runtime carriage, telemetry as a tap, one paradigm per operation.
+- [08]-[CARRIER_CODEC]: `LanguageExtJsonConverterFactory` — the one carrier-space System.Text.Json owner every wire mint at every stratum registers.
 
 ## [02]-[OPERATION_KEY]
 
@@ -46,6 +47,7 @@ public readonly partial struct Op {
     [BoundaryAdapter] public Fin<string> AcceptText(string value) => AcceptValue(value: value).Map(static text => text.Trim());
     [BoundaryAdapter] public Fin<Unit> Confirm(bool success) => success ? Fin.Succ(value: unit) : Fin.Fail<Unit>(error: InvalidResult());
     [BoundaryAdapter] public Fin<T> Need<T>(T? value) where T : class => Optional(value).ToFin(Fail: InvalidInput());
+    [BoundaryAdapter] public Fin<T> Need<T>(T? value) where T : struct => Optional(value).ToFin(Fail: InvalidInput());
     [BoundaryAdapter] public Fin<T> Need<T>(Option<T> value) => value.ToFin(Fail: InvalidInput());
     // Scalar guards refuse on the TOLERANCE family, never `InvalidInput`: a range rejection owes the rejected
     // scalar and the requirement it missed, and `InvalidInput` carries neither, so a bad number and a bad Rhino
@@ -74,6 +76,9 @@ public readonly partial struct Op {
         return unit;
     }
     [BoundaryAdapter] public static Unit SideWhen(bool condition, Action action) => condition ? Side(action: action) : unit;
+    // The blank-as-absence text projection: a null and an empty host string are one absence, read-side sibling of
+    // the admitting `AcceptText`.
+    [BoundaryAdapter] public static Option<string> Text(string? value) => Optional(value).Filter(static text => text.Length > 0);
 }
 ```
 
@@ -132,7 +137,9 @@ public abstract partial record Fault : Expected {
         public override string Message => $"Geometry operation '{Key}' produced no valid Rhino result{Detail.Map(static d => $": {d}").IfNone(static () => ".")}";
         public override string Category => "Result";
     }
-    public sealed partial record Cancelled : Fault { public override string Message => "Geometry operation was cancelled."; public override string Category => "Cancelled"; }
+    // Keyless and subject-neutral: every lane the Eff floor carries lowers here — a geometry fold, an OpenStudio
+    // translate, an IfcOpenShell cross — so naming geometry in the text misreports the operation that stopped.
+    public sealed partial record Cancelled : Fault { public override string Message => "Operation was cancelled."; public override string Category => "Cancelled"; }
     public sealed partial record Unsupported(Op Key, Type GeometryType, Type OutputType) : Fault {
         public override string Message => $"Geometry operation '{Key}' does not support geometry '{GeometryType.Name}' with output '{OutputType.Name}'.";
         public override int Code => UnsupportedCode;
@@ -203,7 +210,7 @@ public abstract partial record Lease<T> where T : class, IDisposable {
 - Entry: a receipt spells `public bool IsValid => ValidityClaim.All(...)` over its claim rows, the implicit `bool` conversion making the fold the body.
 - Law: one claim vocabulary states each predicate once; a receipt declares which claims hold, never how a predicate is computed.
 - Law: predicate policy is named once here — the scalar `Finite` is `RhinoMath.IsValidDouble`, screening both non-finite values and the host `RhinoMath.UnsetValue` sentinel because scalar fields on kernel receipts can carry host-read material; the span `Finite` is the vectorized `TensorPrimitives.IsFiniteAll` gate, correct for solver-produced arrays that never carry the host sentinel. `Admit` (`validation.md`) lifts these same claim rows into `Op`-keyed admission faults, one predicate statement serving both rails; a host-neutral-shaped receipt (`Numerics/*`) folds `Of(...)` claims over its own `double.IsFinite` and epsilon policy.
-- Law: implementing `IValidityEvidence` registers a receipt with the acceptance oracle — `OpAcceptance.ValidityOf` (`validation.md`) reads the one `IValidityEvidence` arm, so a new receipt reaches the oracle with zero oracle edits.
+- Law: implementing `IValidityEvidence` registers a receipt with the acceptance oracle — `OpAcceptance.ValidityOf` (`validation.md`) probes the one `IValidityEvidence` arm ahead of every category default, so a receipt also inhabiting a blanket-admitted category still answers through its own fold and a new receipt reaches the oracle with zero oracle edits.
 - Boundary: the fold is validity evidence, never admission — admission rejects raw material at the boundary with typed faults (`validation.md`), the fold answers whether an already-constructed receipt carries coherent evidence. `All`'s span loop is the named kernel exemption.
 
 ```csharp signature
@@ -255,7 +262,99 @@ One Op-threading law rules every kernel page; no page re-decides it.
 - Law: telemetry is a TAP, never a rail — the `TelemetrySink` (`telemetry.md`) rides `Env` at the `Eff` floor or enters a synchronous gate point as one explicit trailing parameter beside `Context`/`CancellationToken`; facts publish through its one `Tap`, and an observe-side subscriber fault isolates onto the tap receipt, never failing the tapped operation.
 - Boundary: `Env` is `Analysis/query.md`'s frozen record — this page legislates the carriage law, that page owns the record and the pipeline shape.
 
-## [08]-[DENSITY_BAR]
+## [08]-[CARRIER_CODEC]
+
+- Owner: `LanguageExtJsonConverterFactory` with its closed `SeqJsonConverter<T>`/`SetJsonConverter<T>`/`OptionJsonConverter<T>`/`HashMapJsonConverter<K, V>` rows — the ONE carrier-space System.Text.Json owner for the LanguageExt collections any wire crosses. Homed at the kernel because every stratum carries `Rasm`: the S1 suite merge (`Rasm.AppHost/Runtime/ports#WIRE_LAW` `SuiteContracts.Wire`) and the S2 private mints (`Rasm.Persistence/Element/codec` `ElementJson`, `Rasm.Fabrication/Process/telemetry` `FabricationWireContext`) each REGISTER this one type; an S1 home left the S2 graphs — whose reference set is `{Rasm, Rasm.Element}` — unable to name it, which is the strata violation that forced the move.
+- Cases: admission is ONE `FrozenDictionary<Type, Type>` carrier table read by both `CanConvert` and `CreateConverter`, so a new carrier is one row and never a second predicate clause that drifts from what the mint can actually produce.
+- Law: every element round-trips through the SAME options the carrier was resolved from, so nesting composes — a `Seq<T>` whose rows carry `Instant` or generated owners still reaches the NodaTime and Thinktecture converters the registering mint carries, and a carrier converter re-implementing an element codec is the deleted form. The wire shape is exactly what the underlying BCL member emits — array for `Seq` and `Set`, object for `HashMap`, the bare value for `Option` — so a carrier envelope around the elements is the rejected form.
+- Law: `Option<T>` serves BOTH emission postures without a knob — under a resolver carrying an `OmitAbsent`-class modifier (the suite merge) the write leg never sees a `None`; under an explicit-null mint (the S2 graphs, defaulting `JsonIgnoreCondition.Never`) a `None` writes `null` and the read leg admits `null` symmetrically. One converter serves every mint, and the emission posture is the registering RESOLVER's contract, never this owner's.
+- Boundary: registration is the mint's obligation and this owner registers nothing — a per-member `[JsonConverter]` attribute over these carriers and a second factory declaration are the deleted forms at every mint. LanguageExt ships no System.Text.Json support and its carriers are structurally unpopulatable by the serializer — each is an immutable readonly struct whose `[CollectionBuilder]` hook the serializer never reads and whose `Add` returns a NEW value — so without this factory the READ leg fails on every member while the write leg succeeds, the silent decode-failure shape.
+- Packages: LanguageExt.Core; BCL inbox (`System.Text.Json`, `System.Collections.Frozen`).
+- Growth: a new carrier is one `Carriers` row beside its closed converter, never a per-member attribute, a mint-local converter, or a second factory.
+
+```csharp signature
+// --- [CARRIER_CODEC] ------------------------------------------------------------------------
+public sealed class LanguageExtJsonConverterFactory : JsonConverterFactory {
+    // Carrier -> closed-converter row: the admission predicate and the mint read ONE table, so a new carrier is
+    // one row and never a second `CanConvert` clause that drifts from what `CreateConverter` can actually mint.
+    static readonly FrozenDictionary<Type, Type> Carriers = new Dictionary<Type, Type> {
+        [typeof(Seq<>)] = typeof(SeqJsonConverter<>),
+        [typeof(Set<>)] = typeof(SetJsonConverter<>),
+        [typeof(Option<>)] = typeof(OptionJsonConverter<>),
+        [typeof(HashMap<,>)] = typeof(HashMapJsonConverter<,>),
+    }.ToFrozenDictionary();
+
+    public override bool CanConvert(Type type) =>
+        type.IsGenericType && Carriers.ContainsKey(type.GetGenericTypeDefinition());
+
+    public override JsonConverter CreateConverter(Type type, JsonSerializerOptions options) =>
+        (JsonConverter)Activator.CreateInstance(
+            Carriers[type.GetGenericTypeDefinition()].MakeGenericType(type.GetGenericArguments()))!;
+}
+
+public sealed class SeqJsonConverter<T> : JsonConverter<Seq<T>> {
+    public override Seq<T> Read(ref Utf8JsonReader reader, Type type, JsonSerializerOptions options) =>
+        toSeq(JsonSerializer.Deserialize<T[]>(ref reader, options) ?? []);
+
+    public override void Write(Utf8JsonWriter writer, Seq<T> value, JsonSerializerOptions options) {
+        writer.WriteStartArray();
+        value.Iter(item => JsonSerializer.Serialize(writer, item, options));
+        writer.WriteEndArray();
+    }
+}
+
+// Set carries the array shape `Seq` does, since a set and a sequence differ in admission rather than in wire
+// form; ordering is the carrier's own, so a producer and a consumer read one canonical order without a sort
+// clause at either end.
+public sealed class SetJsonConverter<T> : JsonConverter<Set<T>> {
+    public override Set<T> Read(ref Utf8JsonReader reader, Type type, JsonSerializerOptions options) =>
+        toSet(JsonSerializer.Deserialize<T[]>(ref reader, options) ?? []);
+
+    public override void Write(Utf8JsonWriter writer, Set<T> value, JsonSerializerOptions options) {
+        writer.WriteStartArray();
+        value.Iter(item => JsonSerializer.Serialize(writer, item, options));
+        writer.WriteEndArray();
+    }
+}
+
+// Dual-posture by construction: an `OmitAbsent`-modified resolver drops the member ahead of the writer, so
+// there the write leg only ever projects a present value; an explicit-null mint reaches the `None` arm and
+// writes `null`. The read leg admits `null` symmetrically, so a payload from either posture decodes exactly.
+public sealed class OptionJsonConverter<T> : JsonConverter<Option<T>> {
+    public override Option<T> Read(ref Utf8JsonReader reader, Type type, JsonSerializerOptions options) =>
+        reader.TokenType is JsonTokenType.Null
+            ? Option<T>.None
+            : Optional(JsonSerializer.Deserialize<T>(ref reader, options));
+
+    public override void Write(Utf8JsonWriter writer, Option<T> value, JsonSerializerOptions options) =>
+        ignore(value.Match(
+            Some: item => { JsonSerializer.Serialize(writer, item, options); return unit; },
+            None: () => { writer.WriteNullValue(); return unit; }));
+}
+
+// The key rides its own converter's DICTIONARY-KEY leg, so a generated owner keying a map lands as its key
+// scalar and the map reads as a plain JSON object rather than an entry array; serializing the key as a value
+// and trimming its quotes is the deleted form, which loses every escape the property-name leg encodes.
+// `AsIterable` is the map's one key-bearing enumeration, since `HashMap<K, V>`'s carrier-generic `Fold`
+// element is `V` alone; the read borrows the BCL dictionary contract, whose own key leg is the same converter.
+public sealed class HashMapJsonConverter<K, V> : JsonConverter<HashMap<K, V>> where K : notnull {
+    public override HashMap<K, V> Read(ref Utf8JsonReader reader, Type type, JsonSerializerOptions options) =>
+        toHashMap((JsonSerializer.Deserialize<Dictionary<K, V>>(ref reader, options) ?? [])
+            .Select(static entry => (entry.Key, entry.Value)));
+
+    public override void Write(Utf8JsonWriter writer, HashMap<K, V> value, JsonSerializerOptions options) {
+        JsonConverter<K> keys = (JsonConverter<K>)options.GetConverter(typeof(K));
+        writer.WriteStartObject();
+        foreach ((K key, V item) in value.AsIterable()) {
+            keys.WriteAsPropertyName(writer, key, options);
+            JsonSerializer.Serialize(writer, item, options);
+        }
+        writer.WriteEndObject();
+    }
+}
+```
+
+## [09]-[DENSITY_BAR]
 
 One substrate floor; growth is a case, a claim row, or a generated `SelfOp`, never a sibling rail.
 
@@ -266,8 +365,9 @@ One substrate floor; growth is a case, a claim row, or a generated `SelfOp`, nev
 |  [03]   | Substrate faults   | `Expected` + `Fault`                  | typed `Expected`/`Fault` payloads    | `Fault → Error` subtype    |
 |  [04]   | Resource ownership | `Lease<T>`                            | `[Union]` Owned/Borrowed cases       | `Lease<T>.Use → TResult`   |
 |  [05]   | Receipt validity   | `IValidityEvidence` + `ValidityClaim` | evidence floor + claim fold          | `ValidityClaim.All → bool` |
+|  [06]   | Carrier codec      | `LanguageExtJsonConverterFactory`     | closed carrier-to-converter table    | mint registers, wire rides |
 
-## [09]-[RESEARCH]
+## [10]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.

@@ -14,7 +14,7 @@
 - Owner: `ArchiveSource` closes path and owned-byte ingress; `ArchiveSlice` carries each host filter as data; `ArchiveWritePolicy` admits the complete mesh-write matrix before projecting a fresh `File3dmWriteOptions`.
 - Law: byte ingress copies once into `ArchiveBytes`, so deferred execution never observes caller memory. Filtered reads remain path-only; byte requests retain the requested slice as degraded evidence while materializing the complete archive.
 - Law: `ArchiveSlice.Full` bypasses the filtered overload. Every filtered row composes only catalogued `TableTypeFilter` members, and `ObjectTypeFilter.Any` becomes relevant only when `ObjectTable` participates.
-- Law: write-policy admission completes the mesh matrix — an absent target takes its deterministic default row, `RenderOnly` for render-capable targets and `None` otherwise, while a repeated target or incompatible payload rejects — so `Host()` writes every target explicitly and native mesh defaults never leak. `ArchiveVersion` admission is settled at its own boundary, zero naming the current host version. Every write receives a new native options instance.
+- Law: write-policy admission completes the mesh matrix — an absent target takes its deterministic default row, `RenderOnly` for render-capable targets and `None` otherwise, while a repeated target or incompatible payload rejects — so `Host()` writes every target explicitly and native mesh defaults never leak. `FormatVersion` admission is settled at its own boundary, zero naming the current host version: the generated validator states the host-free floor and `Of` applies the live host ceiling, so the type initializes without touching `RhinoApp` and a standalone archive program admits a version outside any running host. Every write receives a new native options instance.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -35,7 +35,7 @@ public abstract partial record ArchiveSource {
     internal Fin<ArchiveSource> Admit(Op op) => Switch(
         op,
         pathCase: static (key, source) => guard(source.Path != default, key.InvalidInput()).ToFin().Map(_ => (ArchiveSource)source),
-        bytesCase: static (key, source) => Optional(source.Bytes).ToFin(Fail: key.InvalidInput()).Map(_ => (ArchiveSource)source));
+        bytesCase: static (key, source) => key.Need(source.Bytes).Map(_ => (ArchiveSource)source));
 }
 
 [ComplexValueObject]
@@ -101,11 +101,22 @@ public sealed partial class ArchiveSlice {
 
 // --- [MODELS] -------------------------------------------------------------------------------
 [ValueObject<int>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
-public readonly partial struct ArchiveVersion {
+public readonly partial struct FormatVersion {
+    // Host-free floor: 0 names the writing host's own version and 2 is the oldest archive revision the host writes.
+    // The live ceiling is a runtime read `Of` applies, never a type-init read that would bind a host version into
+    // the generated validator and fire `RhinoApp.ExeVersion` on first touch of the type.
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) =>
-        validationError = value == 0 || value is >= 2 && value <= RhinoApp.ExeVersion
+        validationError = value == 0 || value >= 2
             ? null
-            : new ValidationError(message: $"Archive version must be 0 or within [2,{RhinoApp.ExeVersion}].");
+            : new ValidationError(message: $"Archive version '{value}' must be 0 or at least 2.");
+
+    public static Fin<FormatVersion> Of(int value, Op? key = null) {
+        Op op = key.OrDefault();
+        return from admitted in op.AcceptValidated<FormatVersion>(candidate: value)
+               from _ceiling in op.Catch(() =>
+                   guard(admitted.Value == 0 || admitted.Value <= RhinoApp.ExeVersion, op.InvalidInput()).ToFin())
+               select admitted;
+    }
 }
 
 [SmartEnum<int>]
@@ -147,22 +158,22 @@ public sealed partial class MeshWrite {
 [ComplexValueObject]
 public sealed partial class ArchiveWritePolicy {
     public static ArchiveWritePolicy Current { get; } = Create(
-        version: ArchiveVersion.Create(value: 0),
+        version: FormatVersion.Create(value: 0),
         saveUserData: true,
         meshes: Completed(Seq<MeshWrite>()));
 
     public static ArchiveWritePolicy Lean { get; } = Create(
-        version: ArchiveVersion.Create(value: 0),
+        version: FormatVersion.Create(value: 0),
         saveUserData: false,
         meshes: toSeq(MeshTarget.Items).Map(target => MeshWrite.Create(target: target, payload: MeshPayload.None)));
 
-    public ArchiveVersion Version { get; }
+    public FormatVersion Version { get; }
     public bool SaveUserData { get; }
     public Seq<MeshWrite> Meshes { get; }
 
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
-        ref ArchiveVersion version,
+        ref FormatVersion version,
         ref bool saveUserData,
         ref Seq<MeshWrite> meshes) =>
         validationError = meshes.Exists(static row => row is null)
@@ -172,7 +183,7 @@ public sealed partial class ArchiveWritePolicy {
             : validationError;
 
     public static Fin<ArchiveWritePolicy> Of(
-        ArchiveVersion version,
+        FormatVersion version,
         bool saveUserData,
         Seq<MeshWrite> meshes = default,
         Op? key = null) {
@@ -182,7 +193,7 @@ public sealed partial class ArchiveWritePolicy {
             saveUserData: saveUserData,
             meshes: Completed(meshes),
             item: out ArchiveWritePolicy? policy) is null
-                ? Optional(policy).ToFin(Fail: op.InvalidInput())
+                ? op.Need(policy)
                 : Fin.Fail<ArchiveWritePolicy>(error: op.InvalidInput()));
     }
 
@@ -206,32 +217,47 @@ public sealed partial class ArchiveWritePolicy {
 
 ## [03]-[RESOURCE_GRAPH]
 
-- Owner: `ArchiveGraph` stores the archive's component topology once; `ResourceRole` classifies nodes, `ResourceRelation` classifies edges, and `ResourceCoverage` states whether each role materializes from the lease or only from path-header access. `ExchangeEvidence` remains the folder-wide detached evidence family.
+- Owner: `ArchiveGraph` stores the archive's component topology once; `ResourceRole` classifies nodes and carries the `ResourceReach` column stating how far a lease reaches that role, `ResourceRelation` classifies edges, and `ResourceCoverage` is the evidence shape a reach row mints. `ExchangeEvidence` remains the folder-wide detached evidence family.
 - Law: graph identity is `(Role, Name, Id)`, and a resolved link endpoint is a stored node. Object placement, layer, material, group, definition membership, instance-reference targets, and linked-source relations derive from the same node rows that projections consume; an instance reference to an absent definition reconstructs its target endpoint from the carried `ParentIdefId` so `Broken()` surfaces the dangling reference as integrity evidence instead of dropping it.
-- Law: catalogued tables materialize directly. Path-only layout rows and unenumerable string tables remain explicit coverage cases, so an empty roster never masquerades as complete graph evidence.
+- Law: reach is a role column, never a coverage-site branch — each role declares whether its table materializes from the lease, answers only a path-header read, or stays opaque, and the reach row mints the matching `ResourceCoverage` case, so an empty roster never masquerades as complete graph evidence and a new unreachable table is one row edit rather than an arm in a coverage switch.
 - Law: exact serialized bytes mint archive identity. `ArchiveDelta` compares node and link sets while preserving both content keys, so structural equality and byte identity remain separate contracts.
 
 ```csharp signature
 // --- [TYPES] --------------------------------------------------------------------------------
 [SmartEnum<int>]
+public sealed partial class ResourceReach {
+    public static readonly ResourceReach Materialized = new(key: 0,
+        cover: static (role, count) => new ResourceCoverage.MaterializedCase(Role: role, Count: count));
+    public static readonly ResourceReach PathHeader = new(key: 1,
+        cover: static (role, _) => new ResourceCoverage.PathHeaderCase(Role: role));
+    public static readonly ResourceReach OpaqueTable = new(key: 2,
+        cover: static (role, _) => new ResourceCoverage.OpaqueTableCase(Role: role));
+
+    [UseDelegateFromConstructor]
+    internal partial ResourceCoverage Cover(ResourceRole role, int count);
+}
+
+[SmartEnum<int>]
 public sealed partial class ResourceRole {
-    public static readonly ResourceRole Layer = new(key: 0);
-    public static readonly ResourceRole Material = new(key: 1);
-    public static readonly ResourceRole Group = new(key: 2);
-    public static readonly ResourceRole Block = new(key: 3);
-    public static readonly ResourceRole Object = new(key: 4);
-    public static readonly ResourceRole ModelView = new(key: 5);
-    public static readonly ResourceRole NamedView = new(key: 6);
-    public static readonly ResourceRole Layout = new(key: 7);
-    public static readonly ResourceRole Embedded = new(key: 8);
-    public static readonly ResourceRole RenderMaterial = new(key: 9);
-    public static readonly ResourceRole RenderEnvironment = new(key: 10);
-    public static readonly ResourceRole RenderTexture = new(key: 11);
-    public static readonly ResourceRole StringEntry = new(key: 12);
-    public static readonly ResourceRole DimensionStyle = new(key: 13);
-    public static readonly ResourceRole LinkedArchive = new(key: 14);
-    public static readonly ResourceRole Settings = new(key: 15);
-    public static readonly ResourceRole Manifest = new(key: 16);
+    public static readonly ResourceRole Layer = new(key: 0, reach: ResourceReach.Materialized);
+    public static readonly ResourceRole Material = new(key: 1, reach: ResourceReach.Materialized);
+    public static readonly ResourceRole Group = new(key: 2, reach: ResourceReach.Materialized);
+    public static readonly ResourceRole Block = new(key: 3, reach: ResourceReach.Materialized);
+    public static readonly ResourceRole Object = new(key: 4, reach: ResourceReach.Materialized);
+    public static readonly ResourceRole ModelView = new(key: 5, reach: ResourceReach.Materialized);
+    public static readonly ResourceRole NamedView = new(key: 6, reach: ResourceReach.Materialized);
+    public static readonly ResourceRole Layout = new(key: 7, reach: ResourceReach.PathHeader);
+    public static readonly ResourceRole Embedded = new(key: 8, reach: ResourceReach.Materialized);
+    public static readonly ResourceRole RenderMaterial = new(key: 9, reach: ResourceReach.Materialized);
+    public static readonly ResourceRole RenderEnvironment = new(key: 10, reach: ResourceReach.Materialized);
+    public static readonly ResourceRole RenderTexture = new(key: 11, reach: ResourceReach.Materialized);
+    public static readonly ResourceRole StringEntry = new(key: 12, reach: ResourceReach.OpaqueTable);
+    public static readonly ResourceRole DimensionStyle = new(key: 13, reach: ResourceReach.Materialized);
+    public static readonly ResourceRole LinkedArchive = new(key: 14, reach: ResourceReach.Materialized);
+    public static readonly ResourceRole Settings = new(key: 15, reach: ResourceReach.Materialized);
+    public static readonly ResourceRole Manifest = new(key: 16, reach: ResourceReach.Materialized);
+
+    public ResourceReach Reach { get; }
 }
 
 [SmartEnum<int>]
@@ -294,7 +320,7 @@ public sealed record ArchiveGraph(
 
 public sealed record ArchiveMetadata(
     Option<string> Notes,
-    int ArchiveVersion,
+    int FormatVersion,
     Option<(string CreatedBy, string LastEditedBy, int Revision, DateTime CreatedOn, DateTime LastEditedOn)> Revision,
     Option<(string Name, string Url, string Details)> Application,
     bool EarthAnchored,
@@ -311,7 +337,7 @@ public sealed record ArchiveMetadata(
         Func<int> dimensionStyles,
         Func<bool> preview) =>
         new(Notes: notes(),
-            ArchiveVersion: archiveVersion(),
+            FormatVersion: archiveVersion(),
             Revision: revision(),
             Application: application(),
             EarthAnchored: anchored(),
@@ -369,7 +395,7 @@ public sealed record ArchiveVerdict(bool Valid, int InvalidObjects, int BrokenLi
 
 - Owner: `ArchivePatch` closes settings, strings, named views, notes, and preview mutation. `ArchiveUnitPolicy` carries model-unit geometry treatment, and `ArchiveChange` detaches the changed resource plus unit evidence.
 - Law: a patch mutates the leased in-memory archive only; `AmendCase` writes a same-directory temporary archive after every patch lands and atomically replaces the target after nonempty-byte verification, so neither patch failure nor write failure exposes a half-applied target.
-- Law: model-unit conversion admits source and destination `LengthUnit` values through the kernel `Context` owner and consumes `Context.ScaleTo`; the meters-per-unit ratio scales geometry before `File3dmSettings.ModelUnits` receives the destination, so custom unit name and scale survive. `PageUnits` relabeling remains independent.
+- Law: unit conversion admits source and destination `LengthUnit` values through the kernel `ModelUnit` owner and consumes `ModelUnit.ScaleTo` — unit identity and its meters-per-unit scale are the whole fact a rescale reads, and a `Context` mint would admit a tolerance triad this fold never touches. The ratio scales geometry before `File3dmSettings.ModelUnits` receives the destination, so custom unit name and scale survive. `PageUnits` relabeling admits through the same owner and remains independent.
 - Law: string deletion is absence — `StringCase` with `None` value deletes through `File3dmStringTable.Delete`, so the value option carries the full write/delete decision. `NotesCase` carries the host's full notes surface — text plus the `IsVisible`/`IsHtml` columns as optional overrides — and commits the whole carrier back through the `Notes` setter so every axis writes through.
 - Boundary: `SetPreviewCase` carries copied `ArchiveBytes`, decodes and clones the bitmap while the stream remains live, and disposes both bitmaps after `SetPreviewImage` copies the pixels. `ClearPreviewCase` passes the host null sentinel.
 - Growth: a new mutable archive surface is one case with its application arm; the amended yield and the total dispatch break loudly until the case is handled.
@@ -399,7 +425,7 @@ public abstract partial record ArchivePatch {
     internal Fin<ArchiveChange> Apply(File3dm archive, Op op) => Switch(
         (Archive: archive, Op: op),
         notesCase: static (ctx, patch) =>
-            from text in Optional(patch.Notes).ToFin(Fail: ctx.Op.InvalidInput())
+            from text in ctx.Op.Need(patch.Notes)
             from change in ctx.Op.Catch(() => {
                 File3dmNotes notes = ctx.Archive.Notes;
                 notes.Notes = text;
@@ -411,7 +437,7 @@ public abstract partial record ArchivePatch {
             })
             select change,
         modelUnitsCase: static (ctx, patch) =>
-            from policy in Optional(patch.Policy).ToFin(Fail: ctx.Op.InvalidInput())
+            from policy in ctx.Op.Need(patch.Policy)
             from evidence in ModelUnits(
                 archive: ctx.Archive,
                 target: patch.Units,
@@ -456,7 +482,7 @@ public abstract partial record ArchivePatch {
             return Fin.Succ(value: new ArchiveChange(
                 Resource: new ResourceNode(ResourceRole.Embedded, nameof(ClearPreviewCase), None)));
         }),
-        setPreviewCase: static (ctx, patch) => Optional(patch.Image).ToFin(Fail: ctx.Op.InvalidInput())
+        setPreviewCase: static (ctx, patch) => ctx.Op.Need(patch.Image)
             .Bind(image => ctx.Op.Catch(() => {
                 using System.IO.MemoryStream stream = new(buffer: image.Value.ToArray(), writable: false);
                 using System.Drawing.Bitmap decoded = new(stream: stream);
@@ -472,9 +498,9 @@ public abstract partial record ArchivePatch {
         ArchiveUnitPolicy policy,
         Op op) {
         LengthUnit before = archive.Settings.ModelUnits;
-        return from current in Context.Of(units: before).ToFin()
-               from destination in Context.Of(units: target).ToFin()
-               from factor in current.ScaleTo(target: destination)
+        return from source in ModelUnit.Of(value: before, key: op)
+               from destination in ModelUnit.Of(value: target, key: op)
+               from factor in source.ScaleTo(target: destination, key: op)
                from _scaled in policy.ScalesGeometry
                    ? toSeq(archive.Objects)
                        .TraverseM(entry => Optional(entry.Geometry)
@@ -495,7 +521,7 @@ public abstract partial record ArchivePatch {
     }
 
     private static Fin<ExchangeEvidence> PageUnits(File3dm archive, LengthUnit target, Op op) =>
-        from _target in Context.Of(units: target).ToFin()
+        from _target in ModelUnit.Of(value: target, key: op)
         from evidence in op.Catch(() => {
             LengthUnit before = archive.Settings.PageUnits;
             archive.Settings.PageUnits = target;
@@ -515,7 +541,7 @@ public sealed record ArchiveChange(ResourceNode Resource, Seq<ExchangeEvidence> 
 
 - Owner: `ArchiveOp` `[Union]` is the standalone request family. Extraction, amendment, and persistence each carry an `OutputPolicy` — the operations rail's one collision/directory/landing owner — so replace-versus-refuse, parent-directory minting, and bounded ordinal renaming are the same rows every Exchange egress obeys, never a second archive-local collision vocabulary. `ArchiveYield` carries detached result data; `ArchiveReceipt` carries the yield plus evidence; `ArchiveStep` retains source ordinal, the failed step's evidence, and mutation residue truth; `ArchiveProgram` retains requested cardinality and the ordered executed prefix.
 - Entry: `Archives.Apply(ArchiveSource, ArchiveOp, Op?) : Fin<ArchiveReceipt>` — no live document or session enters the archive scope.
-- Law: `InspectCase` over a `PathCase` never constructs a `File3dm` — the static header reads (`ReadNotes`, `ReadArchiveVersion`, `ReadRevisionHistory`, `ReadApplicationData`, `ReadEarthAnchorPoint`, `ReadPageViews`, `ReadDimensionStyles`, `ReadPreviewImage`) answer from the file, and the batch dispatcher routes an inner inspect over a path source to the same static reads; only a `BytesCase` inspect projects the in-memory header with `ExchangeEvidence.DegradedCase`, so the yield shape never forks on ingress and the degraded row is emitted only where the layout roster is genuinely unreachable.
+- Law: `InspectCase` over a `PathCase` never constructs a `File3dm` — the static header reads (`ReadNotes`, `ReadFormatVersion`, `ReadRevisionHistory`, `ReadApplicationData`, `ReadEarthAnchorPoint`, `ReadPageViews`, `ReadDimensionStyles`, `ReadPreviewImage`) answer from the file, and the batch dispatcher routes an inner inspect over a path source to the same static reads; only a `BytesCase` inspect projects the in-memory header with `ExchangeEvidence.DegradedCase`, so the yield shape never forks on ingress and the degraded row is emitted only where the layout roster is genuinely unreachable.
 - Law: `ArchiveMetadata.Of` is the ONE projection both ingresses fill, parameterized per field on its own reader, so presence rules cannot diverge between them — `Revised` owns the one presence rule — a positive revision ordinal, gated further on the static reader's parse verdict where a path ingress supplies one — a blank author or application name projects to absence through one text admission, and `Layouts` is `Option<Seq<…>>` so byte ingress spells the unreachable roster as `None` rather than measuring it as empty.
 - Law: `SerializeCase` keys the exact `ToByteArray(policy.Host())` payload it returns; `PersistCase` and `AmendCase` write and verify a same-directory temporary file, move it over the target, and key the bytes that were committed, so content identity names the landed artifact.
 - Law: every nonempty `ReadWithLog`, `WriteWithLog`, and `IsValidWithLog` diagnostic becomes `ExchangeEvidence.NativeCase` with the native call's outcome; a native call without a result carries the same diagnostic in its fault, and an invalid object without native text receives an explicit failed fallback row. `ReadWithLog` names its filter parameter `tableTypeFilterFilter` in the host's own doubled spelling, preserved verbatim beside every other host misspelling this boundary binds — renaming it to the readable form breaks the compile rather than repairing anything.
@@ -523,7 +549,8 @@ public sealed record ArchiveChange(ResourceNode Resource, Seq<ExchangeEvidence> 
 - Law: extraction admits a case-insensitively unique basename set before the first save; folder existence and per-file collision ride each landing's `OutputPolicy` rows. Amendment rejects an empty patch sequence because unchanged persistence already belongs to `PersistCase`.
 - Law: `BatchCase` shares one materialization and dispatches the request sequence in source order; nesting is refused at admission, the first failure seals the executed prefix, and `ArchiveProgram.Requested`, `Steps`, `StoppedAt`, `MutationAttempted`, and `MutationMayRemain` distinguish completion, skipped suffix, external mutation, and possible residue.
 - Law: standalone archive mutation has no undo facility. Every landed artifact stages through `OutputPolicy.Land` — the operations rail's one staging kernel — with the archive's own hooks bound once in `Archives.Land`: `WriteWithLog` into the temporary as the stage payload carrying the native log, and byte re-materialization (`ValidateArchiveBytes`) as the validation, so a landed 3dm is proven parseable both before and after the move; `Land` is internal because the operations rail's fresh-archive geometry emission lands through the same hook, never a second `WriteWithLog` staging spelling. Successful extraction, persistence, and amendment emit `MutationCase(Committed: true, MayRemain: false, UndoRecord: None)`. Failure evidence reads the landing trace, never request modality — a step failing before its first landing call carries no mutation row, and a failure after landing began emits `MutationCase(Attempted: true, MayRemain: true)` because interruption or post-move verification can leave a committed target and multi-file extraction can retain an earlier committed prefix.
-- Boundary: `File3dm`, static-read `ViewInfo`/`DimensionStyle`, `EarthAnchorPoint`, and preview `Bitmap` values live only inside owned lease windows; every yield contains local value shapes, copied byte memory, paths, hashes, or typed faults before release.
+- Boundary: `File3dm`, static-read `ViewInfo`/`DimensionStyle`, `EarthAnchorPoint`, and preview `Bitmap` values live only inside owned lease windows; every yield contains local value shapes, copied byte memory, paths, hashes, or typed faults before release. A static read answering an array of host rows folds through the owned-lease pair — one arm projecting detached values, one arm counting — and both force the fold, because a lazy projection defers the release past the window that owns it.
+- Law: `MutationTrace` is the operations rail's owner (`[02]`), shared by both rails so residue truth reads one shape — this rail arms it at the landing hook, where a committed or half-committed artifact stands behind no undo serial, and the exchange rail arms it at bracket entry; a second trace type beside it is the deleted form.
 
 ```csharp signature
 // --- [TYPES] --------------------------------------------------------------------------------
@@ -547,7 +574,7 @@ public abstract partial record ArchiveOp {
 
     internal Fin<ArchiveOp> Admit(Op op) => Switch(
         op,
-        snapshotCase: static (key, request) => Optional(request.Slice).ToFin(Fail: key.InvalidInput()).Map(_ => (ArchiveOp)request),
+        snapshotCase: static (key, request) => key.Need(request.Slice).Map(_ => (ArchiveOp)request),
         inspectCase: static (_, request) => Fin.Succ<ArchiveOp>(value: request),
         extractCase: static (key, request) => guard(
             request.Folder != default && request.Output is not null,
@@ -559,12 +586,12 @@ public abstract partial record ArchiveOp {
             && request.Policy is not null
             && request.Output is not null,
             key.InvalidInput()).ToFin().Map(_ => (ArchiveOp)request),
-        serializeCase: static (key, request) => Optional(request.Policy).ToFin(Fail: key.InvalidInput()).Map(_ => (ArchiveOp)request),
+        serializeCase: static (key, request) => key.Need(request.Policy).Map(_ => (ArchiveOp)request),
         persistCase: static (key, request) => guard(
             request.Target != default && request.Policy is not null && request.Output is not null,
             key.InvalidInput()).ToFin().Map(_ => (ArchiveOp)request),
         verifyCase: static (_, request) => Fin.Succ<ArchiveOp>(value: request),
-        diffCase: static (key, request) => Optional(request.Other).ToFin(Fail: key.InvalidInput())
+        diffCase: static (key, request) => key.Need(request.Other)
             .Bind(source => source.Admit(op: key))
             .Map(_ => (ArchiveOp)request),
         batchCase: static (key, request) =>
@@ -645,8 +672,8 @@ public sealed record ArchiveReceipt(ArchiveYield Yield, Seq<ExchangeEvidence> Ev
 public static class Archives {
     public static Fin<ArchiveReceipt> Apply(ArchiveSource source, ArchiveOp request, Op? key = null) {
         Op op = key.OrDefault();
-        return from ingress in Optional(source).ToFin(Fail: op.InvalidInput()).Bind(candidate => candidate.Admit(op: op))
-               from operation in Optional(request).ToFin(Fail: op.InvalidInput()).Bind(candidate => candidate.Admit(op: op))
+        return from ingress in op.Need(source).Bind(candidate => candidate.Admit(op: op))
+               from operation in op.Need(request).Bind(candidate => candidate.Admit(op: op))
                from receipt in operation switch {
                    ArchiveOp.InspectCase when ingress is ArchiveSource.PathCase path => InspectPath(path: path.Path, op: op),
                    _ => Materialized(source: ingress, request: operation, op: op),
@@ -877,18 +904,6 @@ public static class Archives {
         }
     }
 
-    private sealed class MutationTrace {
-        private readonly Atom<(bool Attempted, bool MayRemain)> cell = Atom((Attempted: false, MayRemain: false));
-
-        internal bool Attempted => cell.Value.Attempted;
-        internal bool MayRemain => cell.Value.MayRemain;
-
-        internal static MutationTrace Fresh() => new();
-
-        internal Fin<Unit> Landing() =>
-            Fin.Succ(value: ignore(cell.Swap(static _ => (Attempted: true, MayRemain: true))));
-    }
-
     internal static Fin<Landed<Option<string>>> Land(
         File3dm archive,
         DocumentPath target,
@@ -941,7 +956,13 @@ public static class Archives {
         where T : class, IDisposable =>
         toSeq(values ?? Array.Empty<T>())
             .Map(value => new Lease<T>.Owned(Value: value).Use(project))
-            .ToSeq();
+            .Strict();
+
+    // Cardinality needs no projection: the fold releases each host row and carries the running count, so a census
+    // over a static read allocates no per-element result.
+    private static int CountOwned<T>(T[]? values) where T : class, IDisposable =>
+        toSeq(values ?? Array.Empty<T>()).Fold(0, static (count, value) =>
+            new Lease<T>.Owned(Value: value).Use(state: count, project: static (held, _) => held + 1));
 
     private static Fin<ArchiveReceipt> InspectPath(DocumentPath path, Op op) =>
         op.Catch(() => {
@@ -959,7 +980,7 @@ public static class Archives {
             return Fin.Succ(value: ArchiveReceipt.Of(
                 yield: new ArchiveYield.MetadataCase(Metadata: ArchiveMetadata.Of(
                     notes: () => ArchiveMetadata.Text(value: File3dm.ReadNotes(path: path.Value)),
-                    archiveVersion: () => File3dm.ReadArchiveVersion(path: path.Value),
+                    archiveVersion: () => File3dm.ReadFormatVersion(path: path.Value),
                     revision: () => ArchiveMetadata.Revised(
                         read: hasRevision, createdBy: createdBy, lastEditedBy: lastEditedBy,
                         revision: revision, createdOn: createdOn, lastEditedOn: lastEditedOn),
@@ -968,9 +989,7 @@ public static class Archives {
                     layouts: () => Some(ProjectOwned(
                         values: File3dm.ReadPageViews(path: path.Value),
                         project: static view => (view.Name, view.Viewport.Id))),
-                    dimensionStyles: () => ProjectOwned(
-                        values: File3dm.ReadDimensionStyles(path: path.Value),
-                        project: static _ => unit).Count,
+                    dimensionStyles: () => CountOwned(values: File3dm.ReadDimensionStyles(path: path.Value)),
                     preview: () => ArchiveMetadata.Previewed(bitmap: File3dm.ReadPreviewImage(path: path.Value))))));
         });
 
@@ -1021,81 +1040,103 @@ public static class Archives {
     private static Seq<ResourceNode> Rows<T>(IEnumerable<T> table, ResourceRole role, Func<T, string> name, Func<T, Option<Guid>> id) =>
         toSeq(table).Map(row => new ResourceNode(Role: role, Name: name(arg: row), Id: id(arg: row)));
 
+    private sealed record GraphTables(
+        Seq<(int Index, ResourceNode Node)> Layers,
+        Seq<(int Index, ResourceNode Node)> Materials,
+        Seq<(int Index, ResourceNode Node)> Groups,
+        Seq<(InstanceDefinitionGeometry Definition, ResourceNode Node)> Definitions,
+        Seq<(File3dmObject Object, ResourceNode Node)> Objects,
+        Seq<(ResourceNode Node, ResourceNode Source)> Linked);
+
     private static Fin<ArchiveGraph> Graph(File3dm archive, Op op) =>
         op.Catch(() => {
-            Seq<(int Index, ResourceNode Node)> layers = toSeq(archive.AllLayers).Map(static row =>
-                (row.Index, new ResourceNode(ResourceRole.Layer, row.Name, Some(row.Id))));
-            Seq<(int Index, ResourceNode Node)> materials = toSeq(archive.AllMaterials).Map(static row =>
-                (row.Index, new ResourceNode(ResourceRole.Material, row.Name, Some(row.Id))));
-            Seq<(int Index, ResourceNode Node)> groups = toSeq(archive.AllGroups).Map(static row =>
-                (row.Index, new ResourceNode(ResourceRole.Group, row.Name, Some(row.Id))));
-            Seq<(InstanceDefinitionGeometry Definition, ResourceNode Node)> definitions = toSeq(archive.AllInstanceDefinitions).Map(static row =>
-                (row, new ResourceNode(ResourceRole.Block, row.Name, Some(row.Id))));
-            Seq<(File3dmObject Object, ResourceNode Node)> objects = toSeq(archive.Objects).Map(static row =>
+            GraphTables tables = Indexed(archive: archive);
+            Seq<ResourceNode> nodes = Nodes(archive: archive, tables: tables);
+            return Fin.Succ(value: new ArchiveGraph(
+                Nodes: nodes,
+                Links: Links(tables: tables),
+                Coverage: Covered(nodes: nodes)));
+        });
+
+    private static GraphTables Indexed(File3dm archive) {
+        Seq<(InstanceDefinitionGeometry Definition, ResourceNode Node)> definitions = toSeq(archive.AllInstanceDefinitions).Map(static row =>
+            (row, new ResourceNode(ResourceRole.Block, row.Name, Some(row.Id))));
+        return new GraphTables(
+            Layers: toSeq(archive.AllLayers).Map(static row =>
+                (row.Index, new ResourceNode(ResourceRole.Layer, row.Name, Some(row.Id)))),
+            Materials: toSeq(archive.AllMaterials).Map(static row =>
+                (row.Index, new ResourceNode(ResourceRole.Material, row.Name, Some(row.Id)))),
+            Groups: toSeq(archive.AllGroups).Map(static row =>
+                (row.Index, new ResourceNode(ResourceRole.Group, row.Name, Some(row.Id)))),
+            Definitions: definitions,
+            Objects: toSeq(archive.Objects).Map(static row =>
                 (row, new ResourceNode(
                     ResourceRole.Object,
                     string.IsNullOrWhiteSpace(row.Name) ? row.Id.ToString(format: "N") : row.Name,
-                    Some(row.Id))));
-            HashMap<int, ResourceNode> layerByIndex = toHashMap(layers);
-            HashMap<int, ResourceNode> materialByIndex = toHashMap(materials);
-            HashMap<int, ResourceNode> groupByIndex = toHashMap(groups);
-            HashMap<Guid, ResourceNode> objectById = toHashMap(objects.Map(static row => (row.Object.Id, row.Node)));
-            HashMap<Guid, ResourceNode> definitionById = toHashMap(definitions.Map(static row => (row.Definition.Id, row.Node)));
-            Seq<(ResourceNode Node, ResourceNode Source)> linked = definitions
+                    Some(row.Id)))),
+            Linked: definitions
                 .Filter(static row => !string.IsNullOrWhiteSpace(row.Definition.SourceArchive))
                 .Map(static row => (
                     row.Node,
-                    new ResourceNode(ResourceRole.LinkedArchive, row.Definition.SourceArchive, None)));
-            Seq<ResourceNode> nodes = (layers.Map(static row => row.Node)
-                + materials.Map(static row => row.Node)
-                + groups.Map(static row => row.Node)
-                + definitions.Map(static row => row.Node)
-                + objects.Map(static row => row.Node)
-                + Rows(archive.AllViews, ResourceRole.ModelView, static row => row.Name, static row => Some(row.Viewport.Id))
-                + Rows(archive.AllNamedViews, ResourceRole.NamedView, static row => row.Name, static row => Some(row.Viewport.Id))
-                + Rows(archive.EmbeddedFiles, ResourceRole.Embedded, static row => row.Filename, static _ => None)
-                + Rows(archive.RenderMaterials, ResourceRole.RenderMaterial, static row => row.Name, static row => Some(row.Id))
-                + Rows(archive.RenderEnvironments, ResourceRole.RenderEnvironment, static row => row.Name, static row => Some(row.Id))
-                + Rows(archive.RenderTextures, ResourceRole.RenderTexture, static row => row.Name, static row => Some(row.Id))
-                + Rows(archive.AllDimStyles, ResourceRole.DimensionStyle, static row => row.Name, static row => Some(row.Id))
-                + linked.Map(static row => row.Source)
-                + Seq(
-                    new ResourceNode(ResourceRole.Settings, archive.Settings.GetType().Name, None),
-                    new ResourceNode(ResourceRole.Manifest, archive.Manifest.GetType().Name, None)))
-                .Distinct();
-            Seq<ResourceLink> placement = objects.Bind(row =>
-                layerByIndex.Find(row.Object.Attributes.LayerIndex)
-                    .Map(layer => Seq(new ResourceLink(row.Node, layer, ResourceRelation.OnLayer)))
-                    .IfNone(Seq<ResourceLink>())
-                + materialByIndex.Find(row.Object.Attributes.MaterialIndex)
-                    .Map(material => Seq(new ResourceLink(row.Node, material, ResourceRelation.UsesMaterial)))
-                    .IfNone(Seq<ResourceLink>())
-                + toSeq(row.Object.Attributes.GetGroupList()).Choose(index =>
-                    groupByIndex.Find(index).Map(group => new ResourceLink(row.Node, group, ResourceRelation.InGroup))));
-            Seq<ResourceLink> membership = definitions.Bind(row =>
-                toSeq(row.Definition.GetObjectIds()).Choose(id =>
-                    objectById.Find(id).Map(member => new ResourceLink(member, row.Node, ResourceRelation.MemberOf))));
-            Seq<ResourceLink> instances = objects.Choose(row => Optional(row.Object.Geometry).Bind(geometry =>
-                geometry is InstanceReferenceGeometry reference
-                    ? Some(new ResourceLink(
-                        row.Node,
-                        definitionById.Find(reference.ParentIdefId).IfNone(() => new ResourceNode(
-                            ResourceRole.Block, reference.ParentIdefId.ToString(format: "N"), Some(reference.ParentIdefId))),
-                        ResourceRelation.Instantiates))
-                    : Option<ResourceLink>.None));
-            Seq<ResourceLink> sources = linked.Map(static row =>
-                new ResourceLink(row.Node, row.Source, ResourceRelation.LinksArchive));
-            ArchiveGraph graph = new(
-                Nodes: nodes,
-                Links: placement + membership + instances + sources,
-                Coverage: Seq<ResourceCoverage>());
-            Seq<ResourceCoverage> coverage = toSeq(ResourceRole.Items).Map(role => role switch {
-                var value when value == ResourceRole.Layout => new ResourceCoverage.PathHeaderCase(value),
-                var value when value == ResourceRole.StringEntry => new ResourceCoverage.OpaqueTableCase(value),
-                _ => new ResourceCoverage.MaterializedCase(role, graph.Names(role).Count),
-            });
-            return Fin.Succ(value: graph with { Coverage = coverage });
-        });
+                    new ResourceNode(ResourceRole.LinkedArchive, row.Definition.SourceArchive, None))));
+    }
+
+    private static Seq<ResourceNode> Nodes(File3dm archive, GraphTables tables) =>
+        (tables.Layers.Map(static row => row.Node)
+            + tables.Materials.Map(static row => row.Node)
+            + tables.Groups.Map(static row => row.Node)
+            + tables.Definitions.Map(static row => row.Node)
+            + tables.Objects.Map(static row => row.Node)
+            + Rows(archive.AllViews, ResourceRole.ModelView, static row => row.Name, static row => Some(row.Viewport.Id))
+            + Rows(archive.AllNamedViews, ResourceRole.NamedView, static row => row.Name, static row => Some(row.Viewport.Id))
+            + Rows(archive.EmbeddedFiles, ResourceRole.Embedded, static row => row.Filename, static _ => None)
+            + Rows(archive.RenderMaterials, ResourceRole.RenderMaterial, static row => row.Name, static row => Some(row.Id))
+            + Rows(archive.RenderEnvironments, ResourceRole.RenderEnvironment, static row => row.Name, static row => Some(row.Id))
+            + Rows(archive.RenderTextures, ResourceRole.RenderTexture, static row => row.Name, static row => Some(row.Id))
+            + Rows(archive.AllDimStyles, ResourceRole.DimensionStyle, static row => row.Name, static row => Some(row.Id))
+            + tables.Linked.Map(static row => row.Source)
+            + Seq(
+                new ResourceNode(ResourceRole.Settings, archive.Settings.GetType().Name, None),
+                new ResourceNode(ResourceRole.Manifest, archive.Manifest.GetType().Name, None)))
+        .Distinct();
+
+    private static Seq<ResourceLink> Links(GraphTables tables) {
+        HashMap<int, ResourceNode> layerByIndex = toHashMap(tables.Layers);
+        HashMap<int, ResourceNode> materialByIndex = toHashMap(tables.Materials);
+        HashMap<int, ResourceNode> groupByIndex = toHashMap(tables.Groups);
+        HashMap<Guid, ResourceNode> objectById = toHashMap(tables.Objects.Map(static row => (row.Object.Id, row.Node)));
+        HashMap<Guid, ResourceNode> definitionById = toHashMap(tables.Definitions.Map(static row => (row.Definition.Id, row.Node)));
+        Seq<ResourceLink> placement = tables.Objects.Bind(row =>
+            layerByIndex.Find(row.Object.Attributes.LayerIndex)
+                .Map(layer => Seq(new ResourceLink(row.Node, layer, ResourceRelation.OnLayer)))
+                .IfNone(Seq<ResourceLink>())
+            + materialByIndex.Find(row.Object.Attributes.MaterialIndex)
+                .Map(material => Seq(new ResourceLink(row.Node, material, ResourceRelation.UsesMaterial)))
+                .IfNone(Seq<ResourceLink>())
+            + toSeq(row.Object.Attributes.GetGroupList()).Choose(index =>
+                groupByIndex.Find(index).Map(group => new ResourceLink(row.Node, group, ResourceRelation.InGroup))));
+        Seq<ResourceLink> membership = tables.Definitions.Bind(row =>
+            toSeq(row.Definition.GetObjectIds()).Choose(id =>
+                objectById.Find(id).Map(member => new ResourceLink(member, row.Node, ResourceRelation.MemberOf))));
+        Seq<ResourceLink> instances = tables.Objects.Choose(row => Optional(row.Object.Geometry).Bind(geometry =>
+            geometry is InstanceReferenceGeometry reference
+                ? Some(new ResourceLink(
+                    row.Node,
+                    definitionById.Find(reference.ParentIdefId).IfNone(() => new ResourceNode(
+                        ResourceRole.Block, reference.ParentIdefId.ToString(format: "N"), Some(reference.ParentIdefId))),
+                    ResourceRelation.Instantiates))
+                : Option<ResourceLink>.None));
+        Seq<ResourceLink> sources = tables.Linked.Map(static row =>
+            new ResourceLink(row.Node, row.Source, ResourceRelation.LinksArchive));
+        return placement + membership + instances + sources;
+    }
+
+    private static Seq<ResourceCoverage> Covered(Seq<ResourceNode> nodes) =>
+        nodes.Fold(HashMap<ResourceRole, int>(), static (counts, node) =>
+            counts.AddOrUpdate(node.Role, static held => held + 1, static () => 1)) switch {
+            var counted => toSeq(ResourceRole.Items).Map(role =>
+                role.Reach.Cover(role: role, count: counted.Find(role).IfNone(noneValue: 0))),
+        };
 
     private static Fin<ArchiveReceipt> MetadataOf(File3dm archive, Op op) =>
         op.Catch(() => {
@@ -1106,7 +1147,7 @@ public static class Archives {
             return Fin.Succ(value: ArchiveReceipt.Of(
                 yield: new ArchiveYield.MetadataCase(Metadata: ArchiveMetadata.Of(
                     notes: () => ArchiveMetadata.Text(value: archive.Notes.Notes),
-                    archiveVersion: () => archive.ArchiveVersion,
+                    archiveVersion: () => archive.FormatVersion,
                     revision: () => ArchiveMetadata.Revised(
                         read: true, createdBy: archive.CreatedBy, lastEditedBy: archive.LastEditedBy,
                         revision: archive.Revision, createdOn: archive.Created, lastEditedOn: archive.LastEdited),

@@ -41,16 +41,18 @@
 
 Build from points, a DXF, or a Rhino `.3dm`, register interior voids through the `-` operator or `from_points(holes=...)`, then `create_mesh` at a maximum triangle area before binding to a `Section`.
 
-| [INDEX] | [SURFACE]                                                               | [SHAPE]  | [CAPABILITY]                              |
-| :-----: | :---------------------------------------------------------------------- | :------- | :---------------------------------------- |
-|  [01]   | `Geometry.from_points(points, facets, control_points, holes, material)` | factory  | ONE region; raises without exactly one control point |
-|  [01b]  | `CompoundGeometry.from_points(points, facets, control_points, holes=None, materials=None)` | factory  | multi-region owner — one control point per region |
-|  [02]   | `Geometry.from_dxf(dxf_filepath) -> Geometry \| CompoundGeometry`       | factory  | import a DXF profile into a geometry body |
-|  [03]   | `Geometry.from_3dm(filepath)`                                           | factory  | Rhino `.3dm` profile import               |
-|  [04]   | `CompoundGeometry(geoms)`                                               | ctor     | assemble built-up section from regions    |
-|  [05]   | `geometry - hole` (`__sub__`)                                           | operator | subtract a polygon for an interior void   |
-|  [06]   | `geometry.offset_perimeter(amount, where)`                              | instance | inset/outset the perimeter for thickness  |
-|  [07]   | `geometry.create_mesh(mesh_sizes, min_angle=30.0, coarse=False)`        | instance | triangulate; `CompoundGeometry` takes a per-region size list |
+- `from_points` carry: points, facets, control_points, holes, material (`materials` on the compound owner)
+
+| [INDEX] | [SURFACE]                                             | [SHAPE]  | [CAPABILITY]                                                 |
+| :-----: | :---------------------------------------------------- | :------- | :----------------------------------------------------------- |
+|  [01]   | `Geometry.from_points(…)`                             | factory  | ONE region; raises without exactly one control point         |
+|  [01b]  | `CompoundGeometry.from_points(…)`                     | factory  | multi-region owner — one control point per region            |
+|  [03]   | `Geometry.from_dxf(dxf_filepath)`                     | factory  | DXF profile in; answers `Geometry` or `CompoundGeometry`     |
+|  [04]   | `Geometry.from_3dm(filepath)`                         | factory  | Rhino `.3dm` profile import                                  |
+|  [05]   | `CompoundGeometry(geoms)`                             | ctor     | assemble built-up section from regions                       |
+|  [06]   | `geometry - hole` (`__sub__`)                         | operator | subtract a polygon for an interior void                      |
+|  [07]   | `geometry.offset_perimeter(amount, where)`            | instance | inset/outset the perimeter for thickness                     |
+|  [08]   | `geometry.create_mesh(mesh_sizes, min_angle, coarse)` | instance | triangulate; `CompoundGeometry` takes a per-region size list |
 
 [ENTRYPOINT_SCOPE]: property and stress calculation (`analysis.Section`)
 

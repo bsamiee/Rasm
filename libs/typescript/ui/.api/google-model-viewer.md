@@ -45,11 +45,11 @@ Each interface is one capability facet; its config records parameterize the face
 |  [09]   | `AnnotationInterface` / `HotspotData`                  | hotspot + ray  | `position`/`normal`/`canvasPosition`/`facing`  |
 |  [09a]  | `HotspotConfiguration`                                 | hotspot config | `name` IS the slot name; `position`/`normal`   |
 |  [09b]  | `HotspotVisibilityDetails`                             | hotspot event  | `hotspot-visibility` detail `{ visible }`      |
-|  [10]   | `ARInterface` / `ARMode` / `ARStatusDetails`           | AR activation  | mobile AR launch; `iosSrc` USDZ for Quick Look |
-|  [11]   | `EnvironmentInterface` / `ToneMappingValue`            | IBL lighting   | `environmentImage`/`skyboxImage`/`shadow`      |
-|  [12]   | `AnimationInterface` / `PlayAnimationOptions`          | animation      | `repetitions`/`pingpong` clip playback         |
-|  [13]   | `AppendAnimationOptions` / `DetachAnimationOptions`    | animation      | `fade`/`warp`/`weight`/`timeScale` blend       |
-|  [14]   | `StagingInterface`                                     | auto-stage     | `autoRotate` + `autoRotateDelay` turntable     |
+|  [12]   | `ARInterface` / `ARMode` / `ARStatusDetails`           | AR activation  | mobile AR launch; `iosSrc` USDZ for Quick Look |
+|  [13]   | `EnvironmentInterface` / `ToneMappingValue`            | IBL lighting   | `environmentImage`/`skyboxImage`/`shadow`      |
+|  [14]   | `AnimationInterface` / `PlayAnimationOptions`          | animation      | `repetitions`/`pingpong` clip playback         |
+|  [15]   | `AppendAnimationOptions` / `DetachAnimationOptions`    | animation      | `fade`/`warp`/`weight`/`timeScale` blend       |
+|  [16]   | `StagingInterface`                                     | auto-stage     | `autoRotate` + `autoRotateDelay` turntable     |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -75,27 +75,30 @@ Each interface is one capability facet; its config records parameterize the face
 | [INDEX] | [SURFACE]                                                         | [ENTRY_FAMILY] | [CAPABILITY]                               |
 | :-----: | :---------------------------------------------------------------- | :------------- | :----------------------------------------- |
 |  [01]   | `exportScene(options?): Promise<Blob>`                            | scene graph    | GLB round-trip export                      |
-|  [01a]  | `toBlob(options?: ToBlobOptions): Promise<Blob>`                  | scene graph    | viewport raster capture; `ToBlobOptions` is declared un-exported, so a consumer references it structurally |
+|  [01a]  | `toBlob(options?: ToBlobOptions): Promise<Blob>`                  | scene graph    | viewport raster capture                    |
 |  [01b]  | `toDataURL(type?: string, encoderOptions?: number): string`       | scene graph    | sync data-URL capture of the current frame |
-|  [02]   | readonly `.model?: Model` / `.orientation` / `.scale`             | scene graph    | model-root access + transform              |
-|  [03]   | `.availableVariants` / `.variantName`                             | scene graph    | KHR_materials_variants switch              |
-|  [04]   | `createTexture(uri, type?)` / `createCanvasTexture()`             | texture        | runtime `ModelViewerTexture` authoring     |
-|  [05]   | `createVideoTexture(uri)`                                         | texture        | a video-backed `ModelViewerTexture`        |
-|  [06]   | `materialFromPoint(px, py): Material \| null`                     | material pick  | screen-pixel → material                    |
-|  [07]   | `updateHotspot(config)` / `queryHotspot(name)`                    | hotspot        | hotspot update + query                     |
-|  [07a]  | `slot="hotspot*"` + `data-position`/`-normal`/`-surface`          | hotspot mount  | the ONLY creation path; `updateHotspot` moves an existing slot and no-ops otherwise, and the dataset is unobserved |
-|  [08]   | `positionAndNormalFromPoint(px, py)`                              | ray            | pixel → 3D position + normal               |
-|  [09]   | `surfaceFromPoint(px, py): string \| null`                        | ray            | pixel → surface node; `viewer/mark/bcf.md` |
-|  [10]   | `.environmentImage` / `.skyboxImage` / `.skyboxHeight`            | environment    | IBL + skybox binding                       |
-|  [11]   | `.exposure` / `.shadowIntensity`                                  | environment    | OpenPBR exposure + shadow intensity        |
-|  [12]   | `.shadowSoftness` / `hasBakedShadow()`                            | environment    | shadow softness; baked-shadow probe        |
-|  [13]   | `play(options?)` / `pause()` / `.currentTime` / `.timeScale`      | animation      | clip playback control                      |
-|  [14]   | `appendAnimation(name, options?)`                                 | animation      | additive blend layer                       |
-|  [15]   | `detachAnimation(name, options?)`                                 | animation      | remove a blended layer                     |
-|  [16]   | `.animationName` / readonly `.availableAnimations`                | animation      | clip selection                             |
-|  [17]   | `activateAR(): Promise<void>` / readonly `.canActivateAR` / `.ar` | AR             | mobile AR launch                           |
-|  [18]   | `.arModes` / `.arScale` / `.arPlacement` / `.iosSrc`              | AR             | AR mode/scale/placement + USDZ             |
-|  [19]   | `<*>Mixin<T>(Base): Constructor<…Interface> & T`                  | mixin compose  | build a subclass with a capability subset  |
+|  [04]   | readonly `.model?: Model` / `.orientation` / `.scale`             | scene graph    | model-root access + transform              |
+|  [05]   | `.availableVariants` / `.variantName`                             | scene graph    | KHR_materials_variants switch              |
+|  [06]   | `createTexture(uri, type?)` / `createCanvasTexture()`             | texture        | runtime `ModelViewerTexture` authoring     |
+|  [07]   | `createVideoTexture(uri)`                                         | texture        | a video-backed `ModelViewerTexture`        |
+|  [08]   | `materialFromPoint(px, py): Material \| null`                     | material pick  | screen-pixel → material                    |
+|  [09]   | `updateHotspot(config)` / `queryHotspot(name)`                    | hotspot        | hotspot update + query                     |
+|  [07a]  | `slot="hotspot*"` + `data-position`/`-normal`/`-surface`          | hotspot mount  | the ONLY hotspot creation path             |
+|  [11]   | `positionAndNormalFromPoint(px, py)`                              | ray            | pixel → 3D position + normal               |
+|  [12]   | `surfaceFromPoint(px, py): string \| null`                        | ray            | pixel → surface node; `viewer/mark/bcf.md` |
+|  [13]   | `.environmentImage` / `.skyboxImage` / `.skyboxHeight`            | environment    | IBL + skybox binding                       |
+|  [14]   | `.exposure` / `.shadowIntensity`                                  | environment    | OpenPBR exposure + shadow intensity        |
+|  [15]   | `.shadowSoftness` / `hasBakedShadow()`                            | environment    | shadow softness; baked-shadow probe        |
+|  [16]   | `play(options?)` / `pause()` / `.currentTime` / `.timeScale`      | animation      | clip playback control                      |
+|  [17]   | `appendAnimation(name, options?)`                                 | animation      | additive blend layer                       |
+|  [18]   | `detachAnimation(name, options?)`                                 | animation      | remove a blended layer                     |
+|  [19]   | `.animationName` / readonly `.availableAnimations`                | animation      | clip selection                             |
+|  [20]   | `activateAR(): Promise<void>` / readonly `.canActivateAR` / `.ar` | AR             | mobile AR launch                           |
+|  [21]   | `.arModes` / `.arScale` / `.arPlacement` / `.iosSrc`              | AR             | AR mode/scale/placement + USDZ             |
+|  [22]   | `<*>Mixin<T>(Base): Constructor<…Interface> & T`                  | mixin compose  | build a subclass with a capability subset  |
+
+- `toBlob`: `ToBlobOptions` ships un-exported, so a consumer references it structurally.
+- `slot="hotspot*"`: `updateHotspot` moves an existing slot and no-ops otherwise, and the dataset stays unobserved.
 
 ## [04]-[IMPLEMENTATION_LAW]
 

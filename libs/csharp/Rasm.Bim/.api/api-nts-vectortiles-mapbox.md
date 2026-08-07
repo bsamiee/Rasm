@@ -60,7 +60,7 @@
 - `protobuf-net`: `Serializer.Deserialize<Tile>`/`Serialize` drives the wire round-trip over the generated `Tile` DTOs.
 - geospatial seam: the `Semantics/geospatial#GEOSPATIAL_SEAM` `GeoFeature` `IFeature` rows the site model produces feed the tree, and the `GeoModel` `STRtree` holds the same rows the tree slices.
 - coordinate-frame law: geometry MUST be EPSG:4326 before tiling — the `Semantics/georeference#GEODETIC_TRANSFORM` `ProjNET`/OSR leg reprojects `GeoFeature` geometry BEFORE `tree.Add`, never inside the codec.
-- wire-store seam: `VectorTile.Write(Stream, …)` is the per-tile form the `csharp:Rasm.Persistence/Store` PUT or `csharp:Rasm.AppHost` tile endpoint streams, distinct from the filesystem pyramid `tree.Write(path, …)`.
+- wire-store seam: `VectorTile.Write(Stream, …)` is the per-tile form the `Rasm.Persistence/Store/store#OBJECT_STORE` PUT or the `Rasm.AppHost` tile endpoint streams, distinct from the filesystem pyramid `tree.Write(path, …)`.
 
 [LOCAL_ADMISSION]:
 - `VectorTileTree.Write(path, minLineal, minPolygonal, extent)` admits the pyramid encode, `VectorTile.Write(stream, …)` a single tile.

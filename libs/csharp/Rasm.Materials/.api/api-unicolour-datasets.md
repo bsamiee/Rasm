@@ -94,7 +94,7 @@ Concrete `Colourmap` instances, reached through `Colourmaps` handles:
 |  [27]   | `Nord.Frost`                            | static   | named group `IEnumerable<Unicolour>`          |
 |  [28]   | `Nord.Aurora`                           | static   | named group `IEnumerable<Unicolour>`          |
 |  [29]   | `Nord.All`                              | property | all 16 swatches as `IEnumerable<Unicolour>`   |
-|  [30]   | `ArtistPaint.BoneBlack`.. pigments      | static   | Kubelka-Munk `Pigment` reflectance values     |
+|  [30]   | `ArtistPaint.<Pigment>` handles         | static   | Kubelka-Munk `Pigment` reflectance values     |
 |  [31]   | `ArtistPaint.All`                       | property | all 19 pigments as `IEnumerable<Pigment>`     |
 |  [32]   | `ArtistPaint.Configuration`             | static   | sRGB D50 pigment `Configuration`              |
 
@@ -108,8 +108,8 @@ Concrete `Colourmap` instances, reached through `Colourmaps` handles:
 - Observer CMFs, illuminant SPDs, and generic reflectance stay on the main `Wacton.Unicolour` owner (`Spd`, `SpectralCoefficients`, `Illuminant`, `Observer`); this package holds only validation and named-reference tables.
 
 [STACKING]:
-- `Wacton.Unicolour`(`libs/csharp/.api/api-unicolour.md`): `ArtistPaint.All` pigment reflectance feeds the main owner's `Unicolour(Pigment[], double[])` Kubelka-Munk mix under `ArtistPaint.Configuration`, and `Macbeth.All` patches feed `Difference(Unicolour, DeltaE.Ciede2000)` — this package supplies the measured tables, the main owner runs every mix, difference, and conversion.
-- `finish#FINISH`: `FinishPigment` builds a `FrozenDictionary<string, Pigment>` from `ArtistPaint.All`, then mixes the selected `Pigment[]` through the main owner's Kubelka-Munk constructor.
+- `Wacton.Unicolour`(`libs/csharp/.api/api-unicolour.md`): `ArtistPaint.All` pigment reflectance feeds the main owner's `Unicolour(Configuration, Pigment[], double[])` Kubelka-Munk mix under `ArtistPaint.Configuration`, and `Macbeth.All` patches feed `Difference(Unicolour, DeltaE.Ciede2000)` — this package supplies the measured tables, the main owner runs every mix, difference, and conversion.
+- `finish#FINISH`: `FinishPigment` binds each of the nineteen `ArtistPaint` handles as a `[SmartEnum<string>]` row carrying its `Pigment` value, then mixes the selected `Pigment[]` through the main owner's Kubelka-Munk constructor under `ArtistPaint.Configuration`.
 - `graph#MATERIAL_LIBRARY`: `NearestChecker` ranks a candidate `MaterialParameters` base colour against `Macbeth.All` through the main owner's `Difference`, returning the `(Patch, DeltaE)` drift.
 - colourmap ramp: a perceptual ramp samples a `Colourmap` through `Map(x)`/`Palette(count)`, and the produced `Unicolour` values flow to the main owner for further conversion or gamut check.
 
@@ -117,7 +117,7 @@ Concrete `Colourmap` instances, reached through `Colourmaps` handles:
 - Material colour validation reads a reference `Unicolour` from `Macbeth`, `MacAdam`, or an academic set, never re-encoded patch coordinates.
 - Library material rows resolve named colours through `Css`, `Xkcd`, or `Nord`, never hand-keyed hex literals.
 - Perceptual ramps sample a `Colourmap`: lookup-backed maps read their `Lookup`, `Cubehelix` uses its procedural `Map`.
-- Paint-mixing pigment reflectance reads `ArtistPaint` `Pigment` values and mixes through the main owner's Kubelka-Munk constructor.
+- Paint-mixing pigment reflectance reads `ArtistPaint` `Pigment` values and mixes through the main owner's Kubelka-Munk constructor, whose signature carries no illuminant slot — the working space is the `Configuration` argument's own `XyzConfiguration`.
 
 [RAIL_LAW]:
 - Package: `Wacton.Unicolour.Datasets`

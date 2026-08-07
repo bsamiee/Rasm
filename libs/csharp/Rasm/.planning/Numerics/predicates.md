@@ -14,15 +14,17 @@ Every fold is one polynomial instantiated at both the `Interval` filter and `Exp
 - Owner: `Sign` `[SmartEnum<int>]` is the closed ternary verdict every predicate returns, carrying the `Flip`/`Times` parity algebra; `Axis` `[SmartEnum<int>]` is the closed coordinate vocabulary and the ONE generator every axis-projected member spans its three planes over; `Implicit` `[Union<Point3d, Ssi, Lpi, Tpi>]` carries a constructed point as DEFINING POINTS ONLY, its exact homogeneous coordinates derived on demand through `Homogeneous<T>`; `Predicate` is the ONE static surface owning both the direct ladders and the implicit folds.
 - Cases: `Sign`, `Axis`, and the four `Implicit` constructions are the closed vocabularies; `Predicate` carries the four direct members `Orient2D`/`Orient3D`/`InCircle`/`InSphere` beside `Orient2D(in Implicit, in Implicit, in Implicit, Axis)` spanning every explicit/implicit combination × projection plane, `Compare(in Implicit, in Implicit, Axis)` the exact per-coordinate order key, and the in-circum `InCircle`/`InSphere` implicit queries.
 - Entry: every member is a total pure exact function returning `Sign` with no rail; the raw-`double` direct entries are the core cross-package consumers bind, since the Compute lane bars host value types on interior signatures, and the `Point3d` overloads adapt at the seam. Implicit entries discriminate on the carrier's case shape and the `Axis` row. Degenerate constructions (`lambda = 0`) yield `Sign.Zero` through the `Times` flip algebra, the degeneracy witness the consumer's recovery reads.
-- Auto: each direct member filters in `double`, refines at 106-bit `ddouble`, then folds the sign-exact `Expansion`; each implicit member runs the `Interval` directed-rounding filter on the SAME polynomial first, escalating the indeterminate residue to `Expansion` and the in-circum queries on to `RationalOracle.InCircum`. Every member walks its tiers inline as one `??`-chain over the uniform `Sign?`-or-escalate protocol, allocation-free with no captured thunk; every tier is monotone and sign-consistent, so the verdict is always the true sign.
+- Auto: each direct member filters in `double`, refines at 106-bit `ddouble`, then folds the sign-exact `Expansion`; each implicit member opens at the `Interval` directed-rounding filter over the SAME polynomial — a rounded-coordinate `double` filter cannot exist for a point whose coordinates are derived, so there is no cheaper tier below it — escalating the indeterminate residue to `Expansion` and the in-circum queries on to `RationalOracle.InCircum`. Every member walks its tiers inline as one `??`-chain over the uniform `Sign?`-or-escalate protocol, allocation-free with no captured thunk; every tier is monotone and sign-consistent, so the verdict is always the true sign.
 - Receipt: none — a `Sign` verdict carries no residual. Its one emission-side materialization is `Implicit.Round()`, the rounded `Point3d` a consumer emits at its own seam, never a value any predicate reads back.
 - Packages: Thinktecture.Runtime.Extensions (`[SmartEnum]`, `[Union]`), RhinoCommon (`Point3d`), TYoshimura.DoubleDouble (106-bit refine), ExtendedNumerics.BigRational (exact-rational oracle), PeterO.Numbers (interval filter, second-source adjudicator), Rasm.Domain (`Op`/`Fault.InvalidInput`, the `DominantOf` refusal rail), BCL inbox (`FusedMultiplyAdd`, intrinsics probes, `BigInteger`).
-- Growth: a new implicit construction is one `Implicit` case carrying its defining points and one `Homogeneous<T>` arm, every fold and emission member widening by that arm with the generated dispatch breaking loudly; a new direct predicate is one member and one `ErrorBound` row; a new precision stage is one `PrecisionTier` row with one escalation arm per member tail. Multi-implicit in-circum combinations and the 3D multi-implicit `Orient3D`/`InSphere` family are CDTet-gated arms on the existing members — zero new surface.
-- Boundary: the whole family lives on ONE `Predicate` static owner — a per-predicate class or a `FastOrient2D`/`ExactOrient2D` pair is the deleted form. Verdicts are the closed `Sign` and a raw `int`/`double` sign crossing a public signature is the named defect; coordinates are `Point3d` read at the seam, a domain-local point struct the deleted form. Constructed points travel as `Implicit` defining-point carriage rounded ONCE at `Round()` — a `Denominator`-as-`double` field or an `Estimate()` inside an exact carrier is the named robustness defect — and derived `Plane` inputs are dead, so a three-plane point is its NINE points. `DominantOf` is the ONE geometry admission, its float normals barred from every exact carrier; every leaf difference rides the error-free `IExact.Diff`, a raw `double` subtraction wrapped in an exact type the deleted rounded-leaf form. Loosening a filter band to pass a near-degenerate case instead of taking the exact branch is the named correctness defect — a sign verdict is exact or it is a defect.
+- Growth: a new implicit construction is one `Implicit` case carrying its defining points and one `Homogeneous<T>` arm, every fold and emission member widening by that arm with the generated dispatch breaking loudly; a new direct predicate is one member and one `ErrorBound` row; a new precision stage is one `IExact` carrier plus one `??`-chain link in each member tail, since the ladder IS the chain and a parallel tier vocabulary beside it names stages nothing reads. Multi-implicit in-circum combinations and the 3D multi-implicit `Orient3D`/`InSphere` family are CDTet-gated arms on the existing members — zero new surface.
+- Boundary: the whole family lives on ONE `Predicate` static owner — a per-predicate class or a `FastOrient2D`/`ExactOrient2D` pair is the deleted form. Verdicts are the closed `Sign` and a raw `int`/`double` sign crossing a public signature is the named defect; coordinates are `Point3d` read at the seam, a domain-local point struct the deleted form. Constructed points travel as `Implicit` defining-point carriage rounded ONCE at `Round()` — a `Denominator`-as-`double` field or an `Estimate()` inside an exact carrier is the named robustness defect — and derived `Plane` inputs are dead, so a three-plane point is its NINE points. `DominantOf` is the ONE geometry admission, its float normals barred from every exact carrier and its `NumericsPolicy.SplitCeiling` gate the exact carriers' operand domain, so an over-ceiling coordinate refuses on the `Op` rail rather than reaching a `TwoProduct` row that would hand back a NaN error component; every leaf difference rides the error-free `IExact.Diff`, a raw `double` subtraction wrapped in an exact type the deleted rounded-leaf form. Loosening a filter band to pass a near-degenerate case instead of taking the exact branch is the named correctness defect — a sign verdict is exact or it is a defect.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using System;
+using System.Diagnostics;
+using System.Numerics;
 using DoubleDouble;
 using ExtendedNumerics;
 using PeterO.Numbers;
@@ -46,22 +48,13 @@ public sealed partial class Sign {
     public Sign Times(Sign other) => Of(Key * other.Key);
 }
 
-// Rounded-coordinate Double filters cannot exist for a constructed point, so implicit members open at Interval.
-[SmartEnum<int>]
-public sealed partial class PrecisionTier {
-    public static readonly PrecisionTier Double       = new(0); // IEEE-754 forward-error filter (direct only)
-    public static readonly PrecisionTier DoubleDouble = new(1); // ddouble 106-bit error-free-transform refine (direct only)
-    public static readonly PrecisionTier Interval     = new(2); // directed-rounding EFloat bracket filter (implicit only)
-    public static readonly PrecisionTier Expansion    = new(3); // sign-exact nonoverlapping expansion — the direct predicates' terminal tier
-    public static readonly PrecisionTier Rational     = new(4); // implicit in-circum terminal: PRIMARY Fraction + INDEPENDENT ERational, verdicts agreeing
-}
-
 // Key = the axis' coordinate ordinal (the Compare column); U/V = the plane NORMAL to it (the
 // Orient2D/InCircle projection plane). DominantOf is the ONE geometry admission — a float HEURISTIC
 // picking a projection plane, its cross/Newell normals barred from every exact carrier below. It
 // returns Fin<Axis> because a non-finite or zero normal has no dominant axis and refuses onto the
-// Op-keyed rail, never the silent max-component fallback a NaN component would pick; the vector
-// arity is the one gate the triangle/quad arities delegate to. Op? key = null threads the caller's Op.
+// Op-keyed rail, never the silent max-component fallback a NaN component would pick, and because it
+// also carries the exact carriers' operand ceiling; the vector arity is the one gate the triangle
+// and quad arities delegate to. Op? key = null threads the caller's Op.
 [SmartEnum<int>]
 public sealed partial class Axis {
     public static readonly Axis X = new(0, u: 1, v: 2);
@@ -74,7 +67,7 @@ public sealed partial class Axis {
     public static double Coord(Point3d p, int ordinal) => ordinal == 0 ? p.X : ordinal == 1 ? p.Y : p.Z;
 
     public static Fin<Axis> DominantOf(Vector3d d, Op? key = null) =>
-        d.IsValid && !d.IsZero
+        d.IsValid && !d.IsZero && Representable(d)
             ? Fin.Succ(Dominant(Math.Abs(d.X), Math.Abs(d.Y), Math.Abs(d.Z)))
             : Fin.Fail<Axis>(key.OrDefault().InvalidInput());
 
@@ -95,6 +88,17 @@ public sealed partial class Axis {
     }
 
     static Axis Dominant(double x, double y, double z) => x >= y && x >= z ? X : y >= z ? Y : Z;
+
+    // The exact carriers' own operand domain, refused HERE because this is the one admission the family owns. Past
+    // NumericsPolicy.SplitCeiling the Dekker split overflows and the FMA-free TwoProduct row hands back a NaN error
+    // component, which no downstream tier can distinguish from an exact zero — the verdict would be a fabricated
+    // sign, the defect the ladder exists to foreclose. The gate is unconditional rather than HardwareFma-conditional,
+    // so the admitted domain and every verdict over it are RID-independent; scale-and-restore is the rejected repair
+    // because it buys range past 1e300 no geometry in this estate occupies.
+    static bool Representable(Vector3d d) =>
+        Math.Abs(d.X) <= NumericsPolicy.SplitCeiling
+        && Math.Abs(d.Y) <= NumericsPolicy.SplitCeiling
+        && Math.Abs(d.Z) <= NumericsPolicy.SplitCeiling;
 }
 
 [Union<Point3d, Ssi, Lpi, Tpi>(T1Name = "Explicit", T2Name = "Ssi", T3Name = "Lpi", T4Name = "Tpi")]
@@ -552,13 +556,13 @@ public static class RationalOracle {
 ## [03]-[INTERIOR_NUMERICS]
 
 - Owner: `IExact<TSelf>` is the static-abstract exact-carrier algebra letting every construction and determinant polynomial be written ONCE and instantiated at both carriers; `Expansion` is the nonoverlapping floating-point expansion whose `Verdict` is ALWAYS determined; `Interval` is the directed-rounding `EFloat` bracket whose `Verdict` resolves exactly when the bracket excludes zero, at fixed bounded cost per operation — the software directed rounding the runtime cannot express through FPU mode switches; `ErrorBound` is the per-tier permanence filter-row table; `RationalOracle` is the exact adjudicator set, a PRIMARY `Fraction` beside an INDEPENDENT second source; `NumericsPolicy` owns the strict-IEEE-754 invariant, the interior-`double` scope, the error-bound constants, and the FMA capability gate.
-- Cases: `IExact` is the algebra contract both carriers implement; `ErrorBound` carries one row per direct predicate, never a parallel threshold owner; `TwoProduct` carries the FMA row and the Dekker-split row, selected once by the RID capability gate, never per call site.
-- Entry: `TwoProduct` is the exact two-component product — `FusedMultiplyAdd` on FMA-capable RIDs, the Dekker split otherwise, the branch a JIT-constant `HardwareFma` read once and dead-code-eliminated after tiering; `TwoSum` is the exact two-component sum with Knuth's rounding-error recovery; `ErrorBound.Of`/`Refine` are the two filter projections over one verdict protocol — a determinate `Sign` or `null`-escalate.
+- Cases: `IExact` is the algebra contract both carriers implement; `ErrorBound` carries one row per direct predicate, never a parallel threshold owner; `TwoProduct` carries the FMA row and the Dekker-split row, selected once by the RID capability gate, never per call site, and interchangeable over the admitted operand domain rather than universally.
+- Entry: `TwoProduct` is the exact two-component product — `FusedMultiplyAdd` on FMA-capable RIDs, the Dekker split otherwise, the branch a JIT-constant `HardwareFma` read once and dead-code-eliminated after tiering, and the two rows bit-identical over every operand `NumericsPolicy.SplitCeiling` admits, so the branch is invisible to the verdict; `TwoSum` is the exact two-component sum with Knuth's rounding-error recovery; `ErrorBound.Of`/`Refine` are the two filter projections over one verdict protocol — a determinate `Sign` or `null`-escalate.
 - Auto: the error-free transforms and Shewchuk's fast-expansion-sum and scale-expansion hold the nonoverlapping invariant, so `SignOf` reads the true sign from the top nonzero term; `Interval.Mul` brackets all four endpoint products under both directed contexts, so a resolved `Verdict` is a PROOF of the exact sign — the filter accepts or escalates, never mis-decides.
 - Receipt: none — interior arithmetic, filters, and policy cross no public signature; the exact result is the `Sign` the predicate returns.
 - Packages: Thinktecture.Runtime.Extensions (`[SmartEnum]`), TYoshimura.DoubleDouble (106-bit refine), ExtendedNumerics.BigRational (the PRIMARY exact-rational tier over `BigInteger`), PeterO.Numbers (the interval tier and the INDEPENDENT adjudicator whose `EInteger` bignum shares no representation with `Fraction`'s `BigInteger`), BCL inbox (`FusedMultiplyAdd`, FMA/AdvSimd capability statics, `double.Epsilon`); no external geometry dependency.
 - Growth: a new exact carrier (a hardware `Float128` bracket) is one `IExact` conformance every construction instantiates with zero polynomial edits; a new predicate's filter is one `ErrorBound` row; a longer computation grows the `Expansion` component buffer, never a parallel arbitrary-precision type; the interior-`double` scope widens to a new kernel only by naming it in `NumericsPolicy`.
-- Boundary: `Expansion` is ONE owner for sign-exact arithmetic — a free `TwoSum`/`TwoProduct` set or a parallel `BigFloat`/`MPFR` type is the deleted form. `Interval` is ONE owner for the directed-rounding bracket — a per-predicate epsilon-inflation filter is the deleted form, the bracket sound by construction where an epsilon guess is a tuned lie. Both `TwoProduct` rows share one member gated once on `NumericsPolicy.HardwareFma`; a per-call-site FMA probe or a second product type is the deleted form. `ErrorBound` is the single permanence-threshold table, an inlined magic-number literal the named defect. `NumericsPolicy` states the strict-IEEE-754/RID invariant as the floor the forward-error coefficients derive against, and a runtime violating it is outside the support matrix, not a tolerated mode.
+- Boundary: `Expansion` is ONE owner for sign-exact arithmetic — a free `TwoSum`/`TwoProduct` set or a parallel `BigFloat`/`MPFR` type is the deleted form. `Interval` is ONE owner for the directed-rounding bracket — a per-predicate epsilon-inflation filter is the deleted form, the bracket sound by construction where an epsilon guess is a tuned lie. Both `TwoProduct` rows share one member gated once on `NumericsPolicy.HardwareFma`; a per-call-site FMA probe or a second product type is the deleted form, and the row selection never reaches a verdict because `SplitCeiling` bounds the admitted domain to where the rows agree bit for bit. `ErrorBound` is the single permanence-threshold table, an inlined magic-number literal the named defect. `NumericsPolicy` states the strict-IEEE-754/RID invariant as the floor the forward-error coefficients derive against, and a runtime violating it is outside the support matrix, not a tolerated mode; under that same invariant the Dekker row is pure binary64 that RyuJIT never contracts into an `fmadd`, so it carries no RID dependence of its own, and its ONE residual difference from the FMA row — the sign of a zero low word in the underflow regime — is invisible to a sign verdict because `Expansion.Single` drops a zero component, while a bit-level golden over expansion components is the one consumer that must not assume the two rows byte-match.
 
 ```csharp signature
 // --- [TYPES] --------------------------------------------------------------------------------
@@ -581,6 +585,13 @@ public static class NumericsPolicy {
     public const double Epsilon = 1.1102230246251565e-16;            // binary64 unit roundoff 2^-53
     public const double DoubleDoubleEpsilon = 6.162975822039155e-33; // 2^-107, the double-double unit roundoff
     public const double Splitter = 134_217_729.0;                    // 2^27+1 — the Dekker split constant the FMA-free row consumes
+    // The FMA-free row's exact domain edge, derived rather than tuned: `Splitter * value` overflows to infinity
+    // past this magnitude and `c - (c - value)` then yields NaN, so the Dekker split poisons the low word of a
+    // product that never overflowed. INSIDE the ceiling the two TwoProduct rows are bit-identical — Dekker's
+    // theorem makes the exact error of a binary64 product representable in one binary64, so the rows compute the
+    // same real and agree on every bit — and the ONE geometry admission gates on this constant unconditionally,
+    // never on HardwareFma, so a sign verdict never depends on which row the RID selected.
+    public const double SplitCeiling = double.MaxValue / Splitter;   // ~1.3393857589828341e300 (2^997 scale)
 
     public static readonly bool HardwareFma =
         System.Runtime.Intrinsics.X86.Fma.IsSupported || System.Runtime.Intrinsics.Arm.AdvSimd.Arm64.IsSupported;
@@ -617,6 +628,11 @@ public readonly struct Expansion : IExact<Expansion> {
     }
 
     // --- [TWO_PRODUCT]
+    // The two rows are interchangeable over the admitted domain and only there: across [2^-200, 2^200] they are
+    // bit-identical by Dekker's theorem, and the split-overflow divergence past NumericsPolicy.SplitCeiling is the
+    // reason `Axis.DominantOf` refuses an over-ceiling operand instead of letting the FMA-free row emit a NaN low
+    // word. The remaining divergence is the sign of a zero low word in the underflow regime, which no `Expansion`
+    // observes because `Single` drops a zero component before it can carry a sign.
     public static Expansion TwoProduct(double a, double b) { (double hi, double lo) = TwoProductCore(a, b); return Pair(lo, hi); }
 
     static (double Hi, double Lo) TwoProductCore(double a, double b) {
@@ -811,4 +827,4 @@ public sealed record ErrorBound(double Coefficient, double RefineCoefficient) {
 [SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
-- [FMA_FREE_TWOPRODUCT]-[OPEN]: does the Dekker-split `TwoProduct` row emit error components bit-identical to the FMA row on a genuinely FMA-free RID; verify by a differential run of both rows on an FMA-free target.
+(none)

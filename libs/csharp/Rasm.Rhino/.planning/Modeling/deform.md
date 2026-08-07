@@ -364,24 +364,34 @@ public readonly partial struct SquishLaw {
         && double.IsFinite(interiorCompress) && interiorCompress >= 0.0
         && double.IsFinite(absoluteLimit) && absoluteLimit > 0.0;
 
+    // `SquishParameters.Default` mints a FRESH instance on every read — `ReferenceEquals(Default, Default)` is false —
+    // and the type is `IDisposable`, so this rig owns what it reads: it mutates its own instance freely, hands custody
+    // to the consuming arm's `using`, and disposes here on a mid-configure throw rather than stranding the native.
     internal Fin<SquishParameters> Rig(Op key) =>
         key.Catch(() => {
-            SquishParameters parameters = SquishParameters.Default;
-            parameters.Algorithm = Algorithm;
-            parameters.PreserveTopology = Behavior.Contains(SquishBehavior.PreserveTopology);
-            parameters.SaveMapping = Behavior.Contains(SquishBehavior.SaveMapping);
-            parameters.AbsoluteLimit = AbsoluteLimit;
-            parameters.SetDeformation(
-                deformation: Mode,
-                bPreserveBoundary: Behavior.Contains(SquishBehavior.PreserveBoundary),
-                boundaryStretchConstant: BoundaryStretch,
-                boundaryCompressConstant: BoundaryCompress,
-                interiorStretchConstant: InteriorStretch,
-                interiorCompressConstant: InteriorCompress);
-            _ = Spring.Iter(spring => parameters.SetSpringConstants(
-                boundaryBias: spring.Boundary,
-                deformationBias: spring.Deformation));
-            return Fin.Succ(value: parameters);
+            SquishParameters? parameters = null;
+            try {
+                parameters = SquishParameters.Default;
+                parameters.Algorithm = Algorithm;
+                parameters.PreserveTopology = Behavior.Contains(SquishBehavior.PreserveTopology);
+                parameters.SaveMapping = Behavior.Contains(SquishBehavior.SaveMapping);
+                parameters.AbsoluteLimit = AbsoluteLimit;
+                parameters.SetDeformation(
+                    deformation: Mode,
+                    bPreserveBoundary: Behavior.Contains(SquishBehavior.PreserveBoundary),
+                    boundaryStretchConstant: BoundaryStretch,
+                    boundaryCompressConstant: BoundaryCompress,
+                    interiorStretchConstant: InteriorStretch,
+                    interiorCompressConstant: InteriorCompress);
+                _ = Spring.Iter(spring => parameters.SetSpringConstants(
+                    boundaryBias: spring.Boundary,
+                    deformationBias: spring.Deformation));
+                SquishParameters owned = parameters;
+                parameters = null;
+                return Fin.Succ(value: owned);
+            } finally {
+                parameters?.Dispose();
+            }
         });
 }
 ```
@@ -610,7 +620,7 @@ public static class Deforms {
 
 ## [05]-[EXECUTION]
 
-`Deforms.Apply` is `ModelGate.Entry`, so capture, the non-empty guard, accumulating admission, the fold, and the bench stamp are the folder spine's and `Built<DeformSlot>.Bench` carries harvest evidence. Morph and unwrap operations duplicate before mutation. Engine custody splits on the host: `Squisher` and `MeshUnwrapper` are `IDisposable` and release after all primary, carried, mapped, and diagnostic projections are detached, while `Unroller` holds no native handle and needs no release — a lease over it names a disposal the type does not have.
+`Deforms.Apply` is `ModelGate.Entry`, so capture, the non-empty guard, accumulating admission, the fold, and the bench stamp are the folder spine's and `Built<DeformSlot>.Bench` carries harvest evidence. Morph and unwrap operations duplicate before mutation. Engine custody splits on the host: `Squisher` and `MeshUnwrapper` are `IDisposable` and release after all primary, carried, mapped, and diagnostic projections are detached, while `Unroller` holds no native handle and needs no release — a lease over it names a disposal the type does not have. `SquishParameters` is `IDisposable` and its `Default` mints a fresh instance per read, so `SquishLaw.Rig` owns and configures its own instance and the squish arm's `using` closes it; treating `Default` as a shared singleton would both leak and let one operation's dials bleed into the next.
 
 `FollowingGeometryIndex` records one source position per normalized flattened curve. `ModelGate.OwnEach` owns each direct squish result before producing the next, so a later refusal releases the complete prefix. Unroll label rows force with `Strict()` before the host `TextDot` spread is disposed, because a lazy projection reads the location and text off released natives.
 

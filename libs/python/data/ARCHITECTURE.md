@@ -211,8 +211,8 @@ flowchart LR
         Impact[Material impact]
     end
     Persistence[(Rasm.Persistence)]
-    Compute([Rasm.Compute])
     Materials([Rasm.Materials])
+    Compute([Rasm.Compute])
     Bim([Rasm.Bim])
     Compute e1@-->|"[SHAPE]: DoeDataset"| Tabular
     Geospatial e2@-->|"[SHAPE]: GeoArrow"| Compute
@@ -220,9 +220,9 @@ flowchart LR
     Query e4@<-->|"[WIRE]: SubstraitPlan"| Persistence
     Virtual e5@-->|"[CONTENT_KEY]: ContentKey"| Persistence
     Impact e6@<-->|"[CONTENT_KEY]: ContentKey"| Persistence
-    Impact e7@-->|"[WIRE]: Assessment"| Materials
-    Bim e8@-->|"[WIRE]: GeoFeatureWire"| Geospatial
-    Persistence e9@-->|"[WIRE]: FlightTicket"| Query
+    Bim e7@-->|"[WIRE]: GeoFeatureWire"| Geospatial
+    Persistence e8@-->|"[WIRE]: FlightTicket"| Query
+    Impact e9@-->|"[WIRE]: DeclarationRecord"| Materials
 ```
 
 Fences split by peer plane — host runtime, Python siblings, C# peers. Each collapsed edge stands for every contract at that kind between the two owners, and the owning pages enumerate the rest.

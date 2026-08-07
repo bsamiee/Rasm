@@ -32,6 +32,9 @@ using Rhino.Geometry;
 
 namespace Rasm.Rhino.Objects;
 
+// `Rasm.Numerics` is in scope for `PerceptualContext`, `UnitInterval`, and `VectorCone`, so every host colour on
+// this page spells `System.Drawing.Color` in full and no bare `Color` resolves against two candidates.
+
 // --- [TYPES] ------------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class LightKind {
@@ -128,9 +131,7 @@ public sealed partial class LightFrame {
     internal CoordinateSystem Host => (CoordinateSystem)Key;
 
     internal static Fin<LightFrame> Of(CoordinateSystem system, Op key) =>
-        TryGet((int)system, out LightFrame? row) && row is not null
-            ? Fin.Succ(value: row)
-            : Fin.Fail<LightFrame>(error: key.InvalidResult(detail: system.ToString()));
+        key.Row<int, LightFrame>((int)system);
 }
 
 public readonly record struct AreaShape(Vector3d Length, Option<Vector3d> Width = default) {
@@ -183,7 +184,7 @@ public sealed record LightStamp(
             select new LightStamp(
                 Id: native.Id,
                 Index: index,
-                Name: Optional(light.Name).Filter(static text => text.Length > 0),
+                Name: Op.Text(light.Name),
                 Kind: kind,
                 Enabled: light.IsEnabled,
                 Location: light.Location,
@@ -414,6 +415,7 @@ public sealed record LightShade(
 - Owner: `LightSelect` `[Union]` closes the table address — every row, an index, an object id, a name; `LightOp` `[Union]` closes the commit verbs — mint, amend, purge, revive; `LightFact` owns one typed consequence per verb; `ObjectReceipt<LightFact>` collects facts and undo serials; `Lights.Ask` and `Lights.Commit` are the two entries.
 - Law: resolution is index-paired but id-addressed — the complete roster enumerates the table's own `IEnumerable<LightObject>` and resolves each live row's slot from its id, while `Find`, `FindName`, and the revival probe address a single row; one predicate-parameterized scalar projector proves bounds plus live/deleted state for selectors and revival. The slot survives only because `Modify`, `Delete`, and `Undelete` take one, and a deleted row has no live id, so the index address stays the revival ingress alone.
 - Law: the working copy is the mutation site — an amend duplicates through `DuplicateLightGeometry`, applies its admitted edits to the duplicate, and lands once through `Modify(index, working)`, so the live table never observes a half-applied edit and the duplicate disposes on every path.
+- Law: the purge's host-dialogue column is the spine's `HostInteraction`, not `ObjectSignal`. `ObjectSignal` names ENABLED and DISABLED, and the host argument it fed is `quiet` — so `ObjectSignal.Enabled` on a column named `Quiet` read as "enabled" at every call site and meant "suppress the warning", an inversion that is invisible at the call and wrong in exactly the direction that silences a dialogue a caller asked for. `HostInteraction.Quiet`/`Interactive` name the posture directly and `IsQuiet` is the only read.
 - Law: the commit rides `ObjectSpine.Commit` — admission precedes the grant, the spine derives mutate-plus-undo needs with redraw joining by policy, and this page supplies only the per-verb fact fold; every light verb records undo.
 - Law: placement stays the object rail — whole-object transform, delete-by-id, and selection of `LightObject`s ride `TableOp` through `TableTarget.Query` with `IncludeLights`; this rail owns what the object rail cannot spell — light-specific properties, index-addressed table verbs, and kind-gated modality.
 - Boundary: `LightTable.Sun` and `Skylight` stay the render settings page's — `SunState`, `SkylightState`, and `SunEvidence` own that projection; `EventFamily.LightTable` already observes this table onto `EventPayload.Component(TableKind.Lights, …)`, and `SnapshotCategory.Lights` carries snapshot participation.
@@ -483,7 +485,7 @@ public abstract partial record LightOp {
     private LightOp() { }
     public sealed record Mint(LightSeed Seed, Option<string> Name = default) : LightOp;
     public sealed record Amend(LightSelect Select, Seq<LightEdit> Edits) : LightOp;
-    public sealed record Purge(LightSelect Select, ObjectSignal Quiet) : LightOp;
+    public sealed record Purge(LightSelect Select, HostInteraction Interaction) : LightOp;
     public sealed record Revive(int Index) : LightOp;
 
     internal Fin<LightOp> Admit(Op op) =>
@@ -501,7 +503,7 @@ public abstract partial record LightOp {
                 select (LightOp)new Amend(Select: address, Edits: edits),
             purge: static (key, work) =>
                 from address in key.Need(work.Select)
-                from _ in key.Need(work.Quiet)
+                from _ in key.Need(work.Interaction)
                 select (LightOp)work,
             revive: static (key, work) => guard(work.Index >= 0, key.InvalidInput()).ToFin().Map(_ => (LightOp)work));
 
@@ -532,7 +534,7 @@ public abstract partial record LightOp {
             purge: static (context, work) =>
                 from rows in work.Select.Resolve(document: context.Document, key: context.Op)
                 from facts in rows.TraverseM(row => context.Op
-                    .Confirm(success: context.Document.Lights.Delete(row.Index, work.Quiet.On))
+                    .Confirm(success: context.Document.Lights.Delete(row.Index, work.Interaction.IsQuiet))
                     .Map(_ => (LightFact)new LightFact.Purged(Id: row.Native.Id))).As()
                 select facts,
             revive: static (context, work) =>
@@ -604,6 +606,7 @@ public static class Lights {
 |  [05]   | property edits     | `LightEdit`   | kind-gated modalities over one working duplicate        | `LightOp.Amend`         |
 |  [06]   | table address      | `LightSelect` | every, index, id, and name onto index-paired rows       | `Lights.Ask` / `Commit` |
 |  [07]   | commit consequence | `LightFact`   | minted, amended, purged, revived onto the shared spine  | `Lights.Commit`         |
+|  [08]   | host dialogue      | spine owner   | `HostInteraction` composed, never a signal re-spelling  | `LightOp.Purge`         |
 
 ## [06]-[RESEARCH]
 

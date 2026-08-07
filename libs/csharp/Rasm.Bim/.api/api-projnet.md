@@ -55,8 +55,9 @@
 |  [01]   | `CoordinateSystemServices.GetCoordinateSystem(int)`                   | instance | CS from an EPSG/SRID code        |
 |  [02]   | `CoordinateSystemServices.GetCoordinateSystem(string, long)`          | instance | CS by authority + code           |
 |  [03]   | `CoordinateSystemServices.CreateTransformation(int, int)`             | instance | transformation between two SRIDs |
-|  [04]   | `CoordinateSystemFactory.CreateFromWkt(string) -> CoordinateSystem`   | instance | parse a WKT CS definition        |
-|  [05]   | `CoordinateTransformationFactory.CreateFromCoordinateSystems(CS, CS)` | instance | transformation between two CS    |
+|  [04]   | `CoordinateSystemServices.CreateTransformation(CS, CS)`               | instance | facade forward to the factory    |
+|  [05]   | `CoordinateSystemFactory.CreateFromWkt(string) -> CoordinateSystem`   | instance | parse a WKT CS definition        |
+|  [06]   | `CoordinateTransformationFactory.CreateFromCoordinateSystems(CS, CS)` | instance | transformation between two CS    |
 
 [ENTRYPOINT_SCOPE]: transform coordinates — `MathTransform.Transform` overloads
 
@@ -86,7 +87,8 @@
 - Coordinate transformation is pure double-precision managed numeric algebra — no geometry kernel, no topology, no native PROJ. Every batch overload operates on `double` ordinates (`XY` 16 B, `XYZ` 24 B, both `double`-backed); no `Span<float>`/`float[]` overload exists.
 - `CoordinateSystemServices.CreateTransformation(sourceSrid, targetSrid)` yields an `ICoordinateTransformation` whose `.MathTransform` transforms ordinates; `MathTransform.Inverse()` returns the reverse pipeline, so forward-then-inverse recovers the source within numeric tolerance.
 - A `HorizontalDatum.Wgs84Parameters` Bursa-Wolf 7-parameter set drives the datum-to-datum shift `CoordinateTransformationFactory` concatenates between two `ProjectedCoordinateSystem` instances with distinct datums; each `ProjectedCoordinateSystem` resolves its `Projection` and `ProjectionParameter` list from the EPSG/WKT definition.
-- `CoordinateSystemServices()` parameterless seeds only EPSG:4326 (`GeographicCoordinateSystem.WGS84`) and 3857 (`ProjectedCoordinateSystem.WebMercator`); a broader EPSG set enters through the `IEnumerable<KeyValuePair<int,string>>` SRID→WKT definitions ctor.
+- `CoordinateSystemServices()` parameterless seeds only EPSG:4326 (`GeographicCoordinateSystem.WGS84`) and 3857 (`ProjectedCoordinateSystem.WebMercator`) from its private `DefaultInitialization`; a broader EPSG set enters through the `IEnumerable<KeyValuePair<int,string>>` SRID→WKT definitions ctor, enumerated ONCE on a background task at construction, so a code absent from the seed can never be added afterwards (`AddCoordinateSystem` is `protected`).
+- `ProjNET` ships NO EPSG registry file and no code-to-definition resolver: `GetCoordinateSystem(srid)` answers `null` for an unseeded code and `CreateTransformation` forwards that `null` into `CreateFromCoordinateSystems`. Every consumer covering arbitrary EPSG frames resolves each definition itself — the OSR `ImportFromEPSG`/`ExportToWkt` pair over the staged PROJ database is the estate's source — then drives `CoordinateSystemFactory.CreateFromWkt` and `CoordinateTransformationFactory` directly behind its own cache.
 - Phantom members, never cited: `MathTransform.Derivative(double[])`, `GetDomainFlags(List<double>)`, and `GetCodomainConvexHull(List<double>)` are base-only `virtual`, throwing `NotImplementedException` with no override; every factory-built `ICoordinateTransformation` returns `string.Empty` for `AreaOfUse`. Distortion evidence is a central-difference Jacobian probe over the same transform; the domain guard a post-transform non-finite scan (out-of-domain emits NaN).
 
 [STACKING]:
@@ -96,7 +98,7 @@
 [LOCAL_ADMISSION]:
 - CRS resolution enters through `CoordinateSystemServices.GetCoordinateSystem(srid)` or `CoordinateSystemFactory.CreateFromWkt`; transformation construction through `CoordinateSystemServices.CreateTransformation` or `CoordinateTransformationFactory.CreateFromCoordinateSystems`.
 - Coordinate transformation enters through `MathTransform.Transform`; batch through the strided `Span<double>`/`Span<XY>`/`Span<XYZ>` overloads, with `TransformList` the allocating fallback.
-- `CoordinateSystemServices` holds the thread-safe cache as the single CS/transformation owner; a per-call factory rebuild is the rejected form.
+- `CoordinateSystemFactory` and `CoordinateTransformationFactory` stay single shared owners behind a consumer-held cache; a per-call `new` rebuild of either is the rejected form. `CoordinateSystemServices` wraps that pair around a two-code seed, so it serves only a consumer whose SRID set is the seeded one.
 
 [RAIL_LAW]:
 - Package: `ProjNET`

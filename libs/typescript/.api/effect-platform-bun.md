@@ -67,14 +67,14 @@
 
 [ENTRYPOINT_SCOPE]: process exec + worker pools + cluster
 
-| [INDEX] | [SURFACE]                                                         | [SHAPE]        | [CAPABILITY]                                     |
-| :-----: | :---------------------------------------------------------------- | :------------- | :----------------------------------------------- |
-|  [01]   | `BunCommandExecutor.layer`                                        | exec layer     | `proc/exec` subprocess execution                 |
-|  [02]   | `BunWorker.layer(spawn)`                                          | worker client  | `proc/exec` WorkerRunner pools                   |
-|  [03]   | `BunKeyValueStore.layerFileSystem(directory)`                     | KV layer       | `proc/exec` kv row; `EventLog` identity          |
-|  [04]   | `BunSocket.layerWebSocket(url)` / `layerWebSocketConstructor`     | socket layer   | `EventLogRemote.layerWebSocket` constructor      |
-|  [05]   | `BunClusterHttp.layer(options)`                                   | cluster runner | `work/entity` sharding runner                    |
-|  [06]   | `BunClusterHttp.layerHttpServer` / `BunClusterSocket.layer(opts)` | cluster runner | HTTP-hosted / socket-transport runner            |
+| [INDEX] | [SURFACE]                                                         | [SHAPE]        | [CAPABILITY]                                |
+| :-----: | :---------------------------------------------------------------- | :------------- | :------------------------------------------ |
+|  [01]   | `BunCommandExecutor.layer`                                        | exec layer     | `proc/exec` subprocess execution            |
+|  [02]   | `BunWorker.layer(spawn)`                                          | worker client  | `proc/exec` WorkerRunner pools              |
+|  [03]   | `BunKeyValueStore.layerFileSystem(directory)`                     | KV layer       | `proc/exec` kv row; `EventLog` identity     |
+|  [04]   | `BunSocket.layerWebSocket(url)` / `layerWebSocketConstructor`     | socket layer   | `EventLogRemote.layerWebSocket` constructor |
+|  [05]   | `BunClusterHttp.layer(options)`                                   | cluster runner | `work/entity` sharding runner               |
+|  [06]   | `BunClusterHttp.layerHttpServer` / `BunClusterSocket.layer(opts)` | cluster runner | HTTP-hosted / socket-transport runner       |
 
 - `BunCommandExecutor.layer: Layer<CommandExecutor, never, FileSystem>` and `BunWorker.layer(spawn: (id) => Worker): Layer<WorkerManager | Spawner>` back `proc/exec`.
 - `BunClusterHttp.layer` carries `{ transport: "http" | "websocket", serialization?: "msgpack" | "ndjson", clientOnly?, storage?: "local" | "sql" | "byo" }` — transport, serialization, and storage are policy values.

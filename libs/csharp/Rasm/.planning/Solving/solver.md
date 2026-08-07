@@ -1,29 +1,31 @@
 # [RASM_CONSTRAINTS_SOLVER]
 
-`Rasm.Solving` owns one damped Gauss-Newton functor and the parametric-sketch algebra it serves. `Lm.Minimize` is the kernel's one nonlinear least-squares iterate: every `ILmModel` minimizes on one accept/reject λ-ladder under one attempt budget, rank deficiency past the ceiling routing to `GeometryFault.SingularSystem` and `SolveReceipt` evidence gating each step all-finite. Sketch solving closes over that functor — one closed `Constraint` `[Union]` residual-and-Jacobian algebra, `ConstraintSystem` folding incidence into QuikGraph islands, `ConstraintSolver.Solve` returning `Solution`.
+`Rasm.Solving` owns one damped Gauss-Newton functor and the parametric-sketch algebra it serves. `Lm.Minimize` is the kernel's one nonlinear least-squares iterate: every `ILmModel` minimizes on one accept/reject λ-ladder under one attempt budget, rank deficiency past the ceiling routing to `GeometryFault.SingularSystem` and `SolveReceipt` evidence gating each step all-finite. A model states its Jacobian in closed form or states its residual alone in forward-mode dual arithmetic and lets `DualModel` derive it exactly. Sketch solving closes over that functor — one closed `Constraint` `[Union]` residual-and-Jacobian algebra, `ConstraintSystem` folding incidence into union-find islands, `ConstraintSolver.Solve` returning `Solution`.
 
 Solver geometry composes the settled `Point3d`/`Vector3d` vocabulary and routes every factorization through the `Numerics/matrix` owners. Caller `Op` keys thread through every owner, `ddouble` accumulates `Σr²`, and band-2400 `GeometryFault` cases carry every failure; parameters stay raw `double` and public output is `Solution` with its distinct `ConstraintSolveReceipt`. Sibling `EntityKind` and local `SketchEntityKind` stay separate vocabularies.
 
 ## [01]-[INDEX]
 
-- [02]-[LM_FUNCTOR]: `Lm.Minimize` the one damped Gauss-Newton iterate over the `ILmModel` residual+Jacobian floor and `SolvePolicy` ladder.
-- [03]-[CONSTRAINT_SOLVER]: `Constraint` algebra, QuikGraph island decomposition, structural and witness DOF verdicts, and `ConstraintSolver.Solve` returning `Solution`.
+- [02]-[LM_FUNCTOR]: `Lm.Minimize` the one damped Gauss-Newton iterate over the `ILmModel` residual+Jacobian floor and `SolvePolicy` ladder, with `Dual<T>`/`DualModel` deriving exact Jacobians from residual code alone.
+- [03]-[CONSTRAINT_SOLVER]: `Constraint` algebra, union-find island decomposition, structural and witness DOF verdicts, and `ConstraintSolver.Solve` returning `Solution`.
 
 ## [02]-[LM_FUNCTOR]
 
-- Owner: `ILmModel` mints the residual+Jacobian floor — `Dof`, `Seed`, the 106-bit `Norm`, and packed-upper `Linearize` — the open instance-interface seam every residual-row system implements; `SolvePolicy` the λ-ladder policy record carrying the `Canonical` row and clamped `Lower`/`Raise` transitions; `LmState` the internal trial carrier; `LmResult` the typed outcome registering `IValidityEvidence`; `Lm` the static functor surface.
+- Owner: `ILmModel` mints the residual+Jacobian floor — `Dof`, `Seed`, the 106-bit `Norm`, and packed-upper `Linearize` — the open instance-interface seam every residual-row system implements; `IDualResidual` is the residual-only floor beside it and `DualModel` the adapter conforming one to the other; `Dual<T>` the forward-mode scalar those two differentiate through, satisfying `INumber`/`IRootFunctions`/`IPowerFunctions`/`IExponentialFunctions`/`ILogarithmicFunctions`/`ITrigonometricFunctions` at exactly the constraint set it demands of `T`; `SolvePolicy` the λ-ladder policy record carrying the `Canonical` row and clamped `Lower`/`Raise` transitions; `LmState` the internal trial carrier; `LmResult` the typed outcome registering `IValidityEvidence`; `Lm` the static functor surface.
 - Cases: `SolveStatus` closes over `Converged` and `Stalled`; the singular outcome rides the `Fin` failure rail as `GeometryFault.SingularSystem`, kept off the status vocabulary.
 - Entry: `Lm.Minimize(ILmModel, SolvePolicy, Op?)` is the one nonlinear least-squares entrypoint. It routes `GeometryFault.SingularSystem(rank, dof)` when the damped normal matrix stays rank-deficient past `LambdaCeiling` — rank read as the `JᵀJ` eigen-rank through `SymmetricMatrix.DecomposeEigenDetailed`, counted spectral-radius-relative against `EpsilonPolicy.SqrtEpsilon`, a functor-computable witness needing no dense `J`; every other outcome is a success-carrier `LmResult` whose `Status` separates the converged fixpoint from the budget stall.
 - Auto: every foreign model member executes inside the `Op.Catch` funnel — policy and model admission reject a non-finite, non-monotone, or budget-uncrossable policy and a mis-shaped or non-finite seed, and no member runs outside the boundary. Convergence is `‖r‖₂ < ResidualTolerance` or a `‖δ‖₂ < StepFloor` stationary step; a zero-diagonal column damps on the bare `λ` floor because multiplicative damping never regularizes an exact zero, holding that coordinate at the seed — the under-constrained manifold behavior the entry promises. One MathNet path `SymmetricMatrix.Of → DecomposeCholesky → SolveDetailed` mints `SolveReceipt` gating each step all-finite, so an indefinite non-throwing factor fails the mint and the ladder climbs rather than accept a NaN step. Every trial increments `Attempts`, accepted and rejected trials share `MaxIterations` so retry recursion cannot outlive the budget, and objective comparison stays `ddouble` until the one result mint admits a `double` readout.
-- Receipt: `LmResult` carries the converged outcome; the result mint rejects a 106-bit norm outside the `double` range before construction, and a caller reads `Status` before consuming a stalled vector.
-- Packages: `Rasm.Numerics` (`SymmetricMatrix`/`CholeskyResult`/`Dimension`/`PositiveMagnitude`/`EpsilonPolicy` — the `Numerics/matrix` + `Numerics/atoms` owners), TYoshimura.DoubleDouble (`ddouble`/`ddouble.Sqrt`, the 106-bit objective), System.Numerics.Tensors (`TensorPrimitives.Negate`/`Norm`/`Add`), Thinktecture.Runtime.Extensions (`[SmartEnum<int>]`), LanguageExt.Core (`Fin`), BCL inbox.
-- Growth: a new descent strategy is a `SolvePolicy` column selecting the step rule on the same `Minimize` fold; a new model is an `ILmModel` conformance; a new stop criterion is one policy column read at the convergence gate.
-- Boundary: packed-upper `Linearize` is the functor's contract — `Lm.PackedIndex` mirrors `SymmetricMatrix.FlatIndex` so a model scatters the owner's own layout; `ILmModel.Norm` returns `ddouble` by contract, a model narrowing its objective to `double` re-introducing the summation cancellation the contract kills. Damping expresses on the normal diagonal, the damped matrix is always SPD (Cholesky without pivoting), and the packed-upper `SymmetricMatrix` carries it, so the normal-equations form is chosen over QR-on-`J`, the `√λ`-stacked thin-QR alternative activating only past a conditioning budget. Damped-diagonal assembly inside `Step` is the named span-kernel statement exemption; every failure routes `Fin` over band-2400.
+- Receipt: `LmResult` carries the converged outcome; the result mint rejects a 106-bit norm outside the `double` range before construction, and a caller reads `Status` before consuming a stalled vector. A derived Jacobian mints no second receipt — the adapter is a model, so its evidence is the one `LmResult` the functor already returns under its `ValidityClaim.All` fold.
+- Packages: `Rasm.Numerics` (`SymmetricMatrix`/`CholeskyResult`/`Dimension`/`PositiveMagnitude`/`EpsilonPolicy` — the `Numerics/matrix` + `Numerics/atoms` owners), TYoshimura.DoubleDouble (`ddouble`/`ddouble.Sqrt`, the 106-bit objective the dual's value channel binds), System.Numerics.Tensors (`TensorPrimitives.Negate`/`Norm`/`Add`), Thinktecture.Runtime.Extensions (`[SmartEnum<int>]`), LanguageExt.Core (`Fin`), BCL inbox (`System.Numerics` generic math — the operator, `INumber`, and function-group interfaces `Dual<T>` both demands and satisfies; `System.Globalization` `NumberStyles` at its text boundary).
+- Growth: a new descent strategy is a `SolvePolicy` column selecting the step rule on the same `Minimize` fold; a new model is an `ILmModel` conformance, or an `IDualResidual` wrapped by `DualModel` where the residual is easier to state than its partials; a new elementary function under differentiation is one `Dual<T>.Chain` row; a new stop criterion is one policy column read at the convergence gate.
+- Boundary: packed-upper `Linearize` is the functor's contract — `Lm.PackedIndex` mirrors `SymmetricMatrix.FlatIndex` so a model scatters the owner's own layout, and the adapter delegates to that one owner rather than spelling a fourth copy of the index arithmetic; `ILmModel.Norm` returns `ddouble` by contract, a model narrowing its objective to `double` re-introducing the summation cancellation the contract kills. A Jacobian reaching the functor is EXACT from one of two sources — hand-coded closed form, or forward-mode duals, which differentiate rather than difference — and finite differencing halves the 106-bit objective, so it never mints a production Jacobian on this lane and stays the proof estate's differential oracle. `Dual<T>` closes that second source as a FIXPOINT of the generic-math floor — it satisfies precisely the six interfaces it constrains `T` by, so a kernel written once over that floor instantiates at `Dual<ddouble>` and a residual differentiates the very body its forward evaluation reads, one transcription rather than a double-precision model beside a dual-arithmetic copy of it; `Dual<Dual<T>>` is second-order forward mode falling out of the same closure. Three laws make that conformance honest. The tangent is derivative PAYLOAD and never identity, so ordering, comparison, equality, and the hash read the value alone and two duals sharing a value are one number carrying two directions — the record's field-wise equality would split a number by which column seeded it and leave `CompareTo` contradicting `==` at every tie. Finiteness reads BOTH channels because a finite value beside a dead tangent is a dead derivative: `IsNaN`/`IsInfinity`/`IsFinite` fold the pair, the directional infinities narrow by the value's own sign, and every other classification reads the value alone — so a poisoned partial fails the receipt at the dual instead of after the `double` cast that hides it. Conversion is asymmetric by construction: a scalar lifts in as a CONSTANT with zero tangent, which is what resolves a foreign kernel's `CreateChecked` anchors, while lowering out is defined only on the constant sub-algebra and a seeded dual refuses rather than discard the derivative its caller is mid-chain on. The adapter costs `rows × dof` row evaluations where a closed-form arm costs `rows`, so it serves the small-`dof` lane the island economy already bounds and a wide model keeps its analytic arm. Damping expresses on the normal diagonal, the damped matrix is always SPD (Cholesky without pivoting), and the packed-upper `SymmetricMatrix` carries it, so the normal-equations form is chosen over QR-on-`J`, the `√λ`-stacked thin-QR alternative activating only past a conditioning budget. Damped-diagonal assembly inside `Step` and the `Dual<T>` text boundary — the span writer and the backward cut its reader takes — are the named statement exemptions; every failure routes `Fin` over band-2400 except at the generic-math boundary itself, where the interface fixes the throwing contract and the scalar owner's own `Parse` and the `IComparable` mismatch carry it unwrapped.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
 using System;
+using System.Globalization;
 using System.Linq;
+using System.Numerics;
 using System.Numerics.Tensors;
 using DoubleDouble;
 using LanguageExt;
@@ -91,6 +93,268 @@ public sealed record LmResult(double[] Parameters, double Norm, int Iterations, 
         ValidityClaim.Of(Status is not null));
 }
 
+// Forward-mode dual over generic math: `Value` carries the scalar and `Derivative` one seeded direction, so residual code
+// written once evaluates EXACT partials with no tape and no differencing. `ddouble` satisfies every constraint listed, which
+// is what keeps the 106-bit objective intact through differentiation — no admitted package ships a dual scalar.
+// The conformance set IS the constraint set: `Dual<T>` implements exactly the six interfaces it demands of `T`, so any
+// kernel written once over that floor INSTANTIATES at the dual and differentiates the very body it evaluates — a forward
+// model and its Jacobian are then ONE transcription rather than two that drift. The fixpoint is closed, so `Dual<Dual<T>>`
+// is second-order forward mode at zero new surface.
+public readonly record struct Dual<T>(T Value, T Derivative)
+    : INumber<Dual<T>>, IRootFunctions<Dual<T>>, IPowerFunctions<Dual<T>>,
+      IExponentialFunctions<Dual<T>>, ILogarithmicFunctions<Dual<T>>, ITrigonometricFunctions<Dual<T>>
+    where T : INumber<T>, IRootFunctions<T>, IPowerFunctions<T>, IExponentialFunctions<T>, ILogarithmicFunctions<T>, ITrigonometricFunctions<T> {
+    // Chain-rule anchors materialize once per closed T at its own static init instead of at each slope read.
+    static readonly T Two = T.CreateChecked(2);
+    static readonly T Three = T.CreateChecked(3);
+    static readonly T Ln2 = T.Log(Two);
+    static readonly T Ln10 = T.Log(T.CreateChecked(10));
+    const char Mark = 'ε';
+
+    public static Dual<T> Of(T value) => new(Value: value, Derivative: T.Zero);
+    public static Dual<T> Seeded(T value) => new(Value: value, Derivative: T.One);
+
+    // --- [IDENTITY]
+    // Every constant lifts with a ZERO tangent — a literal has no seeded direction, so `One`, the two algebraic
+    // identities, and the transcendental constants are the one `Of` lift and never a second construction.
+    public static Dual<T> Zero => Of(T.Zero);
+    public static Dual<T> One => Of(T.One);
+    public static Dual<T> AdditiveIdentity => Zero;
+    public static Dual<T> MultiplicativeIdentity => One;
+    public static Dual<T> E => Of(T.E);
+    public static Dual<T> Pi => Of(T.Pi);
+    public static Dual<T> Tau => Of(T.Tau);
+    public static int Radix => T.Radix;
+
+    // --- [ALGEBRA]
+    public static Dual<T> operator +(Dual<T> left, Dual<T> right) => new(left.Value + right.Value, left.Derivative + right.Derivative);
+    public static Dual<T> operator -(Dual<T> left, Dual<T> right) => new(left.Value - right.Value, left.Derivative - right.Derivative);
+    public static Dual<T> operator +(Dual<T> value) => value;
+    public static Dual<T> operator -(Dual<T> value) => new(-value.Value, -value.Derivative);
+    public static Dual<T> operator *(Dual<T> left, Dual<T> right) =>
+        new(left.Value * right.Value, (left.Value * right.Derivative) + (right.Value * left.Derivative));
+    public static Dual<T> operator /(Dual<T> left, Dual<T> right) =>
+        new(left.Value / right.Value, ((left.Derivative * right.Value) - (left.Value * right.Derivative)) / (right.Value * right.Value));
+    // The remainder's own quotient is TRUNCATED by the `%` contract, so trunc(x/y) recovers from the remainder itself
+    // and no IFloatingPoint-only rounding member enters the constraint set to state it.
+    public static Dual<T> operator %(Dual<T> left, Dual<T> right) =>
+        (left.Value % right.Value) switch {
+            var rem => new(rem, left.Derivative - (right.Derivative * ((left.Value - rem) / right.Value))),
+        };
+    // Stepping by one moves the value and leaves the direction: the increment is a constant, so its tangent is zero.
+    public static Dual<T> operator ++(Dual<T> value) => value with { Value = value.Value + T.One };
+    public static Dual<T> operator --(Dual<T> value) => value with { Value = value.Value - T.One };
+
+    // --- [ORDER]
+    // IDENTITY LAW: the tangent is derivative payload and never identity, so ordering, comparison, equality, and the
+    // hash all read the PRIMAL alone. Two duals sharing a value are the same number carrying two directions — the
+    // record's field-wise equality would instead split one number by which column it was seeded on, and `CompareTo`
+    // would then contradict `==` for every generic algorithm that ties on a value.
+    public bool Equals(Dual<T> other) => Value.Equals(other.Value);
+    public override int GetHashCode() => Value.GetHashCode();
+    public int CompareTo(Dual<T> other) => Value.CompareTo(other.Value);
+    public int CompareTo(object? value) => value switch {
+        null => 1,
+        Dual<T> other => CompareTo(other),
+        _ => throw new ArgumentException($"expected {nameof(Dual<T>)}", nameof(value)),
+    };
+
+    public static bool operator <(Dual<T> left, Dual<T> right) => left.Value < right.Value;
+    public static bool operator <=(Dual<T> left, Dual<T> right) => left.Value <= right.Value;
+    public static bool operator >(Dual<T> left, Dual<T> right) => left.Value > right.Value;
+    public static bool operator >=(Dual<T> left, Dual<T> right) => left.Value >= right.Value;
+
+    // Magnitude selection returns the WINNING dual whole: the tangent belongs to the branch the comparison took, so
+    // one selector over the scalar owner's own four verdicts keeps NaN propagation and the tie rule single-sourced.
+    static Dual<T> Pick(Dual<T> x, Dual<T> y, T chosen) => chosen.Equals(x.Value) ? x : y;
+    public static Dual<T> MaxMagnitude(Dual<T> x, Dual<T> y) => Pick(x, y, T.MaxMagnitude(x.Value, y.Value));
+    public static Dual<T> MaxMagnitudeNumber(Dual<T> x, Dual<T> y) => Pick(x, y, T.MaxMagnitudeNumber(x.Value, y.Value));
+    public static Dual<T> MinMagnitude(Dual<T> x, Dual<T> y) => Pick(x, y, T.MinMagnitude(x.Value, y.Value));
+    public static Dual<T> MinMagnitudeNumber(Dual<T> x, Dual<T> y) => Pick(x, y, T.MinMagnitudeNumber(x.Value, y.Value));
+
+    // --- [CLASSIFICATION]
+    // POISON LAW: finiteness reads BOTH channels. A finite value beside a dead tangent is a DEAD DERIVATIVE, and a
+    // caller's finiteness gate exists to catch precisely the quantity it is about to consume — so the functor's
+    // all-finite receipt rejects a poisoned partial at the dual rather than after the cast that hides it. The
+    // directional pair narrows `IsInfinity` by the value's own sign, so a tangent-only infinity is infinite without a
+    // direction. Every other classification reads the PRIMAL alone: it asks which number this is, and the tangent is
+    // not a number the question is about.
+    public static bool IsFinite(Dual<T> value) => T.IsFinite(value.Value) && T.IsFinite(value.Derivative);
+    public static bool IsNaN(Dual<T> value) => T.IsNaN(value.Value) || T.IsNaN(value.Derivative);
+    public static bool IsInfinity(Dual<T> value) => !IsNaN(value) && (T.IsInfinity(value.Value) || T.IsInfinity(value.Derivative));
+    public static bool IsPositiveInfinity(Dual<T> value) => IsInfinity(value) && T.IsPositiveInfinity(value.Value);
+    public static bool IsNegativeInfinity(Dual<T> value) => IsInfinity(value) && T.IsNegativeInfinity(value.Value);
+    public static bool IsCanonical(Dual<T> value) => T.IsCanonical(value.Value);
+    public static bool IsComplexNumber(Dual<T> value) => T.IsComplexNumber(value.Value);
+    public static bool IsEvenInteger(Dual<T> value) => T.IsEvenInteger(value.Value);
+    public static bool IsImaginaryNumber(Dual<T> value) => T.IsImaginaryNumber(value.Value);
+    public static bool IsInteger(Dual<T> value) => T.IsInteger(value.Value);
+    public static bool IsNegative(Dual<T> value) => T.IsNegative(value.Value);
+    public static bool IsNormal(Dual<T> value) => T.IsNormal(value.Value);
+    public static bool IsOddInteger(Dual<T> value) => T.IsOddInteger(value.Value);
+    public static bool IsPositive(Dual<T> value) => T.IsPositive(value.Value);
+    public static bool IsRealNumber(Dual<T> value) => T.IsRealNumber(value.Value);
+    public static bool IsSubnormal(Dual<T> value) => T.IsSubnormal(value.Value);
+    public static bool IsZero(Dual<T> value) => T.IsZero(value.Value);
+
+    // --- [CONVERSION]
+    // LIFT IN is total — a foreign scalar is a CONSTANT here, so it enters with a zero tangent and every generic
+    // kernel's `Dual<T>.CreateChecked` anchor resolves through this one rail. LOWER OUT is PARTIAL and says so: a
+    // scalar carries no tangent, so only the constant sub-algebra has an image and a seeded dual refuses rather than
+    // silently discarding the derivative its caller is mid-chain on. A static-abstract member is no method group on a
+    // type parameter, so each mode rides a lambda over the one body.
+    static bool Lift<TOther>(TOther value, Func<TOther, T> mode, out Dual<T> result) {
+        result = Of(mode(arg: value));
+        return true;
+    }
+
+    static bool Lower<TOther>(Dual<T> value, Func<T, TOther> mode, out TOther result) {
+        bool constant = T.IsZero(value.Derivative);
+        result = constant ? mode(arg: value.Value) : default!;
+        return constant;
+    }
+
+    static bool INumberBase<Dual<T>>.TryConvertFromChecked<TOther>(TOther value, out Dual<T> result) => Lift(value, static v => T.CreateChecked(v), out result);
+    static bool INumberBase<Dual<T>>.TryConvertFromSaturating<TOther>(TOther value, out Dual<T> result) => Lift(value, static v => T.CreateSaturating(v), out result);
+    static bool INumberBase<Dual<T>>.TryConvertFromTruncating<TOther>(TOther value, out Dual<T> result) => Lift(value, static v => T.CreateTruncating(v), out result);
+    static bool INumberBase<Dual<T>>.TryConvertToChecked<TOther>(Dual<T> value, out TOther result) => Lower(value, static v => TOther.CreateChecked(v), out result);
+    static bool INumberBase<Dual<T>>.TryConvertToSaturating<TOther>(Dual<T> value, out TOther result) => Lower(value, static v => TOther.CreateSaturating(v), out result);
+    static bool INumberBase<Dual<T>>.TryConvertToTruncating<TOther>(Dual<T> value, out TOther result) => Lower(value, static v => TOther.CreateTruncating(v), out result);
+
+    // --- [CHAIN_RULE]
+    // ONE chain-rule combinator: every elementary row below is its (value, slope) pair, so a new function is a row and
+    // never a re-derived arm. The slope reads the argument AND the value the row just computed, so a row whose
+    // derivative IS its own value — exp, tan, sqrt, cbrt — pays ONE transcendental evaluation rather than two. A
+    // static-abstract member is no method group on a type parameter, so each half stays a lambda.
+    public Dual<T> Chain(Func<T, T> value, Func<T, T, T> slope) =>
+        value(arg: Value) switch { var v => new Dual<T>(Value: v, Derivative: slope(arg1: Value, arg2: v) * Derivative) };
+
+    public static Dual<T> Abs(Dual<T> x) => x.Chain(static v => T.Abs(v), static (a, _) => T.IsNegative(a) ? -T.One : T.One);
+    public static Dual<T> Sqrt(Dual<T> x) => x.Chain(static v => T.Sqrt(v), static (_, r) => T.One / (Two * r));
+    public static Dual<T> Cbrt(Dual<T> x) => x.Chain(static v => T.Cbrt(v), static (_, r) => T.One / (Three * r * r));
+    public static Dual<T> RootN(Dual<T> x, int n) => x.Chain(v => T.RootN(v, n), (a, r) => r / (T.CreateChecked(n) * a));
+
+    public static Dual<T> Exp(Dual<T> x) => x.Chain(static v => T.Exp(v), static (_, e) => e);
+    public static Dual<T> Exp2(Dual<T> x) => x.Chain(static v => T.Exp2(v), static (_, e) => Ln2 * e);
+    public static Dual<T> Exp10(Dual<T> x) => x.Chain(static v => T.Exp10(v), static (_, e) => Ln10 * e);
+    // The *M1/*P1 rows compose the scalar owner's own near-zero-accurate members rather than the generic-math default
+    // that spells them as `Exp(x) − One`: the accuracy those variants exist for is exactly what a residual near its
+    // root reads, and the slope recovers the unshifted exponential from the shifted value at no second evaluation.
+    public static Dual<T> ExpM1(Dual<T> x) => x.Chain(static v => T.ExpM1(v), static (_, e) => e + T.One);
+    public static Dual<T> Exp2M1(Dual<T> x) => x.Chain(static v => T.Exp2M1(v), static (_, e) => Ln2 * (e + T.One));
+    public static Dual<T> Exp10M1(Dual<T> x) => x.Chain(static v => T.Exp10M1(v), static (_, e) => Ln10 * (e + T.One));
+
+    public static Dual<T> Log(Dual<T> x) => x.Chain(static v => T.Log(v), static (a, _) => T.One / a);
+    public static Dual<T> Log2(Dual<T> x) => x.Chain(static v => T.Log2(v), static (a, _) => T.One / (a * Ln2));
+    public static Dual<T> Log10(Dual<T> x) => x.Chain(static v => T.Log10(v), static (a, _) => T.One / (a * Ln10));
+    public static Dual<T> LogP1(Dual<T> x) => x.Chain(static v => T.LogP1(v), static (a, _) => T.One / (T.One + a));
+    public static Dual<T> Log2P1(Dual<T> x) => x.Chain(static v => T.Log2P1(v), static (a, _) => T.One / ((T.One + a) * Ln2));
+    public static Dual<T> Log10P1(Dual<T> x) => x.Chain(static v => T.Log10P1(v), static (a, _) => T.One / ((T.One + a) * Ln10));
+
+    public static Dual<T> Sin(Dual<T> x) => x.Chain(static v => T.Sin(v), static (a, _) => T.Cos(a));
+    public static Dual<T> Cos(Dual<T> x) => x.Chain(static v => T.Cos(v), static (a, _) => -T.Sin(a));
+    public static Dual<T> Tan(Dual<T> x) => x.Chain(static v => T.Tan(v), static (_, t) => T.One + (t * t));
+    public static Dual<T> Asin(Dual<T> x) => x.Chain(static v => T.Asin(v), static (a, _) => T.One / T.Sqrt(T.One - (a * a)));
+    public static Dual<T> Acos(Dual<T> x) => x.Chain(static v => T.Acos(v), static (a, _) => -T.One / T.Sqrt(T.One - (a * a)));
+    public static Dual<T> Atan(Dual<T> x) => x.Chain(static v => T.Atan(v), static (a, _) => T.One / (T.One + (a * a)));
+    // A half-turn ARGUMENT scales the slope by π; a half-turn RESULT divides it.
+    public static Dual<T> SinPi(Dual<T> x) => x.Chain(static v => T.SinPi(v), static (a, _) => T.Pi * T.CosPi(a));
+    public static Dual<T> CosPi(Dual<T> x) => x.Chain(static v => T.CosPi(v), static (a, _) => -T.Pi * T.SinPi(a));
+    public static Dual<T> TanPi(Dual<T> x) => x.Chain(static v => T.TanPi(v), static (_, t) => T.Pi * (T.One + (t * t)));
+    public static Dual<T> AsinPi(Dual<T> x) => x.Chain(static v => T.AsinPi(v), static (a, _) => T.One / (T.Pi * T.Sqrt(T.One - (a * a))));
+    public static Dual<T> AcosPi(Dual<T> x) => x.Chain(static v => T.AcosPi(v), static (a, _) => -T.One / (T.Pi * T.Sqrt(T.One - (a * a))));
+    public static Dual<T> AtanPi(Dual<T> x) => x.Chain(static v => T.AtanPi(v), static (a, _) => T.One / (T.Pi * (T.One + (a * a))));
+
+    // The paired and two-argument rows fold their own value rather than riding `Chain`: each slope REUSES the value it
+    // just computed across both outputs or both operands, so a combinator here would re-evaluate one transcendental
+    // three times to state what one argument reduction already answers.
+    public static (Dual<T> Sin, Dual<T> Cos) SinCos(Dual<T> x) =>
+        T.SinCos(x.Value) switch { var (s, c) => (new(s, c * x.Derivative), new(c, -s * x.Derivative)) };
+
+    public static (Dual<T> SinPi, Dual<T> CosPi) SinCosPi(Dual<T> x) =>
+        T.SinCosPi(x.Value) switch { var (s, c) => (new(s, T.Pi * c * x.Derivative), new(c, -T.Pi * s * x.Derivative)) };
+
+    public static Dual<T> Hypot(Dual<T> x, Dual<T> y) =>
+        T.Hypot(x.Value, y.Value) switch {
+            var h => new(h, ((x.Value * x.Derivative) + (y.Value * y.Derivative)) / h),
+        };
+
+    // logᵦx = ln x / ln β differentiates on BOTH operands; the base's own partial is what a fitted base would ride.
+    public static Dual<T> Log(Dual<T> x, Dual<T> newBase) =>
+        T.Log(newBase.Value) switch {
+            var lb => new(T.Log(x.Value) / lb,
+                (x.Derivative / (x.Value * lb)) - (T.Log(x.Value) * newBase.Derivative / (newBase.Value * lb * lb))),
+        };
+
+    // x^y: the EXPONENT'S OWN tangent is what pulls ln x into the slope, so a constant exponent keeps the real power
+    // rule over a negative base where the general form would poison the whole row with a 0·NaN product.
+    public static Dual<T> Pow(Dual<T> x, Dual<T> y) =>
+        T.Pow(x.Value, y.Value) switch {
+            var v => new(v, (y.Value * T.Pow(x.Value, y.Value - T.One) * x.Derivative)
+                            + (T.IsZero(y.Derivative) ? T.Zero : v * T.Log(x.Value) * y.Derivative)),
+        };
+
+    // --- [TEXT]
+    // ONE text grammar both directions — `<value>±<derivative>ε`, a bare scalar lifting with a zero tangent. The
+    // derivative's sign is always explicit so the reader's backward cut is unambiguous, and every remaining arity the
+    // roster fixes is a style or width spelling of this pair; the UTF-8 arities are the generic-math defaults over them.
+    string TangentSign => T.IsNegative(Derivative) ? string.Empty : "+";
+
+    public override string ToString() => ToString(format: null, provider: null);
+
+    public string ToString(string? format, IFormatProvider? provider) =>
+        $"{Value.ToString(format, provider)}{TangentSign}{Derivative.ToString(format, provider)}{Mark}";
+
+    public bool TryFormat(Span<char> destination, out int charsWritten, ReadOnlySpan<char> format, IFormatProvider? provider) {
+        charsWritten = 0;
+        if (!Value.TryFormat(destination, out int head, format, provider)) { return false; }
+        charsWritten = head + TangentSign.Length;
+        if (charsWritten > destination.Length) { return false; }
+        TangentSign.CopyTo(destination[head..]);
+        if (!Derivative.TryFormat(destination[charsWritten..], out int tail, format, provider)) { return false; }
+        charsWritten += tail;
+        if (charsWritten >= destination.Length) { return false; }
+        destination[charsWritten++] = Mark;
+        return true;
+    }
+
+    // The cut runs BACKWARD from the mark and skips a sign an exponent owns, so `1e-9-2e-3ε` splits at the derivative
+    // and never inside the mantissa's exponent; an absent mark reads a bare scalar and a leading mark a pure tangent.
+    static int Cut(ReadOnlySpan<char> s) {
+        if (s.IsEmpty || s[^1] != Mark) { return -1; }
+        for (int i = s.Length - 2; i > 0; i--) {
+            if (s[i] is '+' or '-' && s[i - 1] is not ('e' or 'E')) { return i; }
+        }
+        return 0;
+    }
+
+    public static Dual<T> Parse(ReadOnlySpan<char> s, NumberStyles style, IFormatProvider? provider) =>
+        Cut(s) switch {
+            < 0 => new(T.Parse(s, style, provider), T.Zero),
+            0 => new(T.Zero, T.Parse(s[..^1], style, provider)),
+            var i => new(T.Parse(s[..i], style, provider), T.Parse(s[i..^1], style, provider)),
+        };
+
+    public static bool TryParse(ReadOnlySpan<char> s, NumberStyles style, IFormatProvider? provider, out Dual<T> result) {
+        T value = T.Zero, slope = T.Zero;
+        int cut = Cut(s);
+        bool read = cut switch {
+            < 0 => T.TryParse(s, style, provider, out value),
+            0 => T.TryParse(s[..^1], style, provider, out slope),
+            _ => T.TryParse(s[..cut], style, provider, out value) && T.TryParse(s[cut..^1], style, provider, out slope),
+        };
+        result = read ? new Dual<T>(value, slope) : default;
+        return read;
+    }
+
+    public static Dual<T> Parse(string s, NumberStyles style, IFormatProvider? provider) => Parse(s.AsSpan(), style, provider);
+    public static Dual<T> Parse(ReadOnlySpan<char> s, IFormatProvider? provider) => Parse(s, NumberStyles.Float | NumberStyles.AllowThousands, provider);
+    public static Dual<T> Parse(string s, IFormatProvider? provider) => Parse(s.AsSpan(), provider);
+    public static bool TryParse(string? s, NumberStyles style, IFormatProvider? provider, out Dual<T> result) => TryParse(s.AsSpan(), style, provider, out result);
+    public static bool TryParse(ReadOnlySpan<char> s, IFormatProvider? provider, out Dual<T> result) => TryParse(s, NumberStyles.Float | NumberStyles.AllowThousands, provider, out result);
+    public static bool TryParse(string? s, IFormatProvider? provider, out Dual<T> result) => TryParse(s.AsSpan(), provider, out result);
+}
+
 // --- [SERVICES] ---------------------------------------------------------------------------
 // PackedNormal/Gradient use Lm.PackedIndex addressing; Norm is the 106-bit objective by contract.
 public interface ILmModel {
@@ -98,6 +362,16 @@ public interface ILmModel {
     double[] Seed { get; }
     ddouble Norm(ReadOnlySpan<double> parameters);
     (double[] PackedNormal, double[] Gradient) Linearize(ReadOnlySpan<double> parameters);
+}
+
+// The residual-only floor beside it: a model states one row at a time in dual arithmetic and the adapter derives the
+// Jacobian. The scalar is Dual<ddouble> because ILmModel.Norm is, and the row-at-a-time read is what keeps the dense J off
+// this lane — a whole-vector read would hold rows x dof to accumulate one JᵀJ.
+public interface IDualResidual {
+    int Dof { get; }
+    int Rows { get; }
+    double[] Seed { get; }
+    Dual<ddouble> Row(int index, ReadOnlySpan<Dual<ddouble>> parameters);
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
@@ -212,18 +486,66 @@ public static class Lm {
             ? Fin.Succ(new LmResult(state.Parameters, (double)state.Norm, state.Iterations, state.Lambda, status))
             : Fin.Fail<LmResult>(key.InvalidResult());
 }
+
+// The auto-Jacobian adapter: an ILmModel conformance, never a second functor. One seeded evaluation per (row, column) yields
+// an EXACT partial — forward-mode duals differentiate, they do not difference — and each row's partials accumulate straight
+// into the packed-upper JᵀJ + Jᵀr through Lm.PackedIndex, so the dense J never materializes and the layout stays the owner's.
+public sealed class DualModel(IDualResidual residual) : ILmModel {
+    public int Dof => residual.Dof;
+
+    public double[] Seed => residual.Seed;
+
+    public ddouble Norm(ReadOnlySpan<double> parameters) {
+        Dual<ddouble>[] frozen = Frozen(parameters: parameters);
+        ddouble sum = ddouble.Zero;
+        for (int index = 0; index < residual.Rows; index++) {
+            ddouble value = residual.Row(index: index, parameters: frozen).Value;
+            sum += value * value;
+        }
+        return ddouble.Sqrt(sum);
+    }
+
+    public (double[] PackedNormal, double[] Gradient) Linearize(ReadOnlySpan<double> parameters) {
+        int n = residual.Dof;
+        Dual<ddouble>[] seeded = Frozen(parameters: parameters);
+        double[] normal = new double[n * (n + 1) / 2];
+        double[] gradient = new double[n];
+        double[] partials = new double[n];
+        for (int index = 0; index < residual.Rows; index++) {
+            double value = 0.0;
+            for (int column = 0; column < n; column++) {
+                seeded[column] = Dual<ddouble>.Seeded(value: seeded[column].Value);
+                Dual<ddouble> evaluated = residual.Row(index: index, parameters: seeded);
+                seeded[column] = Dual<ddouble>.Of(value: seeded[column].Value);
+                partials[column] = (double)evaluated.Derivative;
+                value = (double)evaluated.Value;  // seed-independent: the value channel reports the same row under every seed
+            }
+            for (int a = 0; a < n; a++) {
+                gradient[a] += partials[a] * value;
+                for (int b = a; b < n; b++) normal[Lm.PackedIndex(n: n, i: a, j: b)] += partials[a] * partials[b];
+            }
+        }
+        return (PackedNormal: normal, Gradient: gradient);
+    }
+
+    static Dual<ddouble>[] Frozen(ReadOnlySpan<double> parameters) {
+        Dual<ddouble>[] frozen = new Dual<ddouble>[parameters.Length];
+        for (int index = 0; index < parameters.Length; index++) frozen[index] = Dual<ddouble>.Of(value: parameters[index]);
+        return frozen;
+    }
+}
 ```
 
 ## [03]-[CONSTRAINT_SOLVER]
 
-- Owner: `SketchEntityKind` `[SmartEnum<int>]` discriminates the parametric primitive, each row carrying its parameter `Arity` and a `Carrier` binding to the `Rasm.Domain` `Kind` so admission faults mint typed discriminants; `Entity` is one parametric-primitive algebra over every kind, carrying its kind and its `[Offset, Offset+Arity)` slice into the flat parameter vector; `Constraint` the closed relation `[Union]` whose generated-`Switch` `Residual`, `Touches`, and `WellFormed` folds return residual rows with analytic partials, name the incident entities, and state the per-case operand-kind law; `ConstraintSystem` the immutable graph with accumulating `Build` admission and the QuikGraph `Islands` decomposition; `DofAnalysis`/`DofReport` the verdict and per-island evidence; `ConstraintModel` the island-scoped `ILmModel`; `ConstraintSolveReceipt`/`Solution` the outcome pair; `ConstraintSolver` the static surface owning `Analyze`/`StructuralAnalyze`/`WitnessAnalyze` and the island-folded `Solve`.
+- Owner: `SketchEntityKind` `[SmartEnum<int>]` discriminates the parametric primitive, each row carrying its parameter `Arity` and a `Carrier` binding to the `Rasm.Domain` `Kind` so admission faults mint typed discriminants; `Entity` is one parametric-primitive algebra over every kind, carrying its kind and its `[Offset, Offset+Arity)` slice into the flat parameter vector; `Constraint` the closed relation `[Union]` whose generated-`Switch` `Residual`, `Touches`, and `WellFormed` folds return residual rows with analytic partials, name the incident entities, and state the per-case operand-kind law; `ConstraintSystem` the immutable graph with accumulating `Build` admission and the union-find `Islands` decomposition; `DofAnalysis`/`DofReport` the verdict and per-island evidence; `ConstraintModel` the island-scoped `ILmModel`; `ConstraintSolveReceipt`/`Solution` the outcome pair; `ConstraintSolver` the static surface owning `Analyze`/`StructuralAnalyze`/`WitnessAnalyze` and the island-folded `Solve`.
 - Cases: `Constraint` is the closed relation `[Union]` the fence rosters; `Ground` is the gauge anchor whose absence leaves the rigid-body freedoms honestly under-constrained, and `Distance`, `Tangent`, and `OnCircle` carry squared residuals staying C¹ at coincident and zero-length configurations where the `√`-form Jacobian is undefined. `DofAnalysis` adds the witness-numeric `RedundantConsistent` to the three structural verdicts — the redundant-but-consistent system a row count misclassifies as over-constrained. `SketchEntityKind` discriminates the parametric primitives, each row carrying its parameter arity.
 - Entry: `ConstraintSolver.Solve(ConstraintSystem, SolvePolicy, Op?)` decomposes into islands, instantiates `ConstraintModel : ILmModel` per island, runs `Lm.Minimize` on each small normal system, scatters the sub-solutions back into one parameter vector, and gates the assembled result: `GeometryFault.OverConstrained` when the witness verdict is over-determined and the global residual stays past tolerance — a redundant-and-inconsistent system has no configuration, its payload carrying the dependent-row count `rows − rank(J)` at the witness — with `GeometryFault.SingularSystem` bubbling from any island's ladder; a well- or under-constrained system always solves, LM finding the nearest point on the manifold to the seed. `Analyze` is the pure total structural row-count verdict, `StructuralAnalyze` the per-island maximum-matching refinement, `WitnessAnalyze` the numeric-rank adjudicator. `ConstraintSystem.Build` is the accumulating admission: every non-finite seed value, seed/arity mismatch, dangling reference (membership tests the full `Entity` value, so a mis-kinded reference at a valid offset is equally dangling), operand-kind mismatch, duplicate constraint, and the empty-system report exit together through one `Validation<Error, T>` traverse.
-- Auto: `Islands` folds the entity↔constraint incidence into a transient `UndirectedGraph` and reads `ConnectedComponents` — each component solves on its own `dof_island²` normal matrix instead of `ParameterCount²`, the decomposition that makes a many-sketch document solve at the cost of its largest island; an untouched entity is a zero-row island converging at iteration 0. Per island, `ConstraintModel` gathers the columns into a compact local vector over a single-writer global scratch (islands are column-disjoint, so the scratch never races), folds `Σr²` at 106-bit `ddouble`, and accumulates packed-upper `JᵀJ` + `Jᵀr` from the analytic partials with global→local remap, so the dense `J` never materializes on the LM lane. Residual scatter accumulates rather than overwrites because an arm can emit one column twice for a shared or self-aliased entity. `StructuralAnalyze` reads `MaximumBipartiteMatchingAlgorithm` cardinality as the König structural rank — row deficiency localizes over-constraint to its island and column surplus under-constraint, the locality a global row count is blind to. `WitnessAnalyze` runs PER ISLAND — `J(seed)` is block-diagonal under the island permutation, so each island's compact `rows_island × dof_island` dense block goes through `DecomposeSvd` and the fold is EQUAL to the global witness at `Σ dof_island²` cost, the same economy the solve fold buys; per island it reads true DOF `dof_island − Rank` and projects the residual onto the left-null space via the `SvdResult.U` tail — a vanishing tail is `RedundantConsistent`, redundant constraints that all hold — and verdicts fold `Over > RedundantConsistent > Under > Well` with dependent rows summed.
+- Auto: `Islands` folds the entity↔constraint incidence through a transient `ForestDisjointSet` — every entity a singleton, every constraint one `Union` per operand past its head, `SetCount` the live island census and `FindSet` the grouping key — so the partition costs one near-constant-time pass and no container is minted for a question union-find answers directly; each component solves on its own `dof_island²` normal matrix instead of `ParameterCount²`, the decomposition that makes a many-sketch document solve at the cost of its largest island; an untouched entity is a zero-row island converging at iteration 0. Per island, `ConstraintModel` gathers the columns into a compact local vector over a single-writer global scratch (islands are column-disjoint, so the scratch never races), folds `Σr²` at 106-bit `ddouble`, and accumulates packed-upper `JᵀJ` + `Jᵀr` from the analytic partials with global→local remap, so the dense `J` never materializes on the LM lane. Residual scatter accumulates rather than overwrites because an arm can emit one column twice for a shared or self-aliased entity. `StructuralAnalyze` reads `MaximumBipartiteMatchingAlgorithm` cardinality as the König structural rank — row deficiency localizes over-constraint to its island and column surplus under-constraint, the locality a global row count is blind to. `WitnessAnalyze` runs PER ISLAND — `J(seed)` is block-diagonal under the island permutation, so each island's compact `rows_island × dof_island` dense block goes through `DecomposeSvd` and the fold is EQUAL to the global witness at `Σ dof_island²` cost, the same economy the solve fold buys; per island it reads true DOF `dof_island − Rank` and projects the residual onto the left-null space via the `SvdResult.U` tail — a vanishing tail is `RedundantConsistent`, redundant constraints that all hold — and verdicts fold `Over > RedundantConsistent > Under > Well` with dependent rows summed.
 - Receipt: `Solve` returns `Solution` carrying the converged parameters and the typed `ConstraintSolveReceipt`; `DofReport` is the diagnosis evidence a sketch UI reads to name which island over-constrains — the island whose deficiency row is positive.
-- Packages: `Rhino.Geometry` (`Point3d`/`Vector3d` for entity geometry), `Rasm.Numerics` (`SymmetricMatrix`/`CholeskyResult`/`Matrix`/`SvdResult`/`Dimension`/`PositiveMagnitude` — the `Numerics/matrix` + `Numerics/atoms` owners), QuikGraph (`UndirectedGraph`/`AdjacencyGraph`, `ConnectedComponents`, `MaximumBipartiteMatchingAlgorithm` — the incidence walks), TYoshimura.DoubleDouble (`ddouble` + `DoubleDoubleEnumerableExpand.Sum`, the 106-bit `Σr²`), Thinktecture.Runtime.Extensions (`[Union]`/`[SmartEnum<int>]`, generated `Switch`), LanguageExt.Core (`Fin`/`Validation`/`Seq`, the accumulating `.Traverse` admission), BCL inbox.
+- Packages: `Rhino.Geometry` (`Point3d`/`Vector3d` for entity geometry), `Rasm.Numerics` (`SymmetricMatrix`/`CholeskyResult`/`Matrix`/`SvdResult`/`Dimension`/`PositiveMagnitude` — the `Numerics/matrix` + `Numerics/atoms` owners), QuikGraph (`ForestDisjointSet` the island partition; `AdjacencyGraph` + `MaximumBipartiteMatchingAlgorithm` the structural-rank walk), TYoshimura.DoubleDouble (`ddouble` + `DoubleDoubleEnumerableExpand.Sum`, the 106-bit `Σr²`), Thinktecture.Runtime.Extensions (`[Union]`/`[SmartEnum<int>]`, generated `Switch`), LanguageExt.Core (`Fin`/`Validation`/`Seq`, the accumulating `.Traverse` admission), BCL inbox.
 - Growth: a new geometric relation is one `Constraint` case carrying its `Residual`, `Touches`, and `WellFormed` arms over the same functor; a new parametric primitive is one `SketchEntityKind` row with its arity, `Carrier`, and geometry accessors; a new DOF refinement is a `DofReport` column; a 3D sketch tier is an `Entity` accessor widening over the same constraint algebra.
-- Boundary: the relations differ only in residual expression and analytic partials, never in the iterate, so one `Constraint` `[Union]` with a generated-`Switch` fold owns them all — compile-exhaustive, a new case breaking `Residual`, `Touches`, and `WellFormed` loudly; `Concentric` reuses the center-coincidence rows as sketch vocabulary over the one algebra. Every arm's Jacobian is analytic. Every `Numerics/matrix` call threads the caller's `Op` key, QuikGraph owns the component and matching walks, and every graph verdict exits as a typed domain value. `ConstraintSystem` is immutable and `Solve` returns fresh packed arrays; the `ConstraintModel` scratch is the single-writer run-local exception that never escapes the model. Every failure routes `Fin` over band-2400 as `GeometryFault.<Case>.ToError()`, and the graph-assembly and scatter loops are the named span-kernel statement exemption.
+- Boundary: the relations differ only in residual expression and analytic partials, never in the iterate, so one `Constraint` `[Union]` with a generated-`Switch` fold owns them all — compile-exhaustive, a new case breaking `Residual`, `Touches`, and `WellFormed` loudly; `Concentric` reuses the center-coincidence rows as sketch vocabulary over the one algebra. Every arm's Jacobian is EXACT and hand-coded closed form here, forward-mode duals being the functor's second exact source and a finite difference neither. Every `Numerics/matrix` call threads the caller's `Op` key, QuikGraph owns the partition and matching walks, and every graph verdict exits as a typed domain value. `ConstraintSystem` is immutable and `Solve` returns fresh packed arrays; the `ConstraintModel` scratch is the single-writer run-local exception that never escapes the model. Every failure routes `Fin` over band-2400 as `GeometryFault.<Case>.ToError()`, and the graph-assembly and scatter loops are the named span-kernel statement exemption.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
@@ -237,7 +559,7 @@ using LanguageExt;
 using LanguageExt.Common;
 using QuikGraph;
 using QuikGraph.Algorithms;
-using QuikGraph.Algorithms.MaximumFlow;
+using QuikGraph.Collections;
 using Rasm.Domain;
 using Rasm.Numerics;
 using Rhino.Geometry;
@@ -566,22 +888,39 @@ public sealed record ConstraintSystem(
             .ToFin();
     }
 
-    // DR-planner decomposition: entity ordinals 0..E-1, constraint ordinals E..E+C-1; each weak component solves on its own small normal matrix.
+    // DR-planner decomposition over union-find: every entity is a singleton, every constraint unions the entities it touches,
+    // and one ascending pass groups the partition — a representative's first entity fixes the island ordinal, so the census
+    // costs one near-constant-time pass instead of a component-by-component rescan, and SetCount IS the island count.
     internal Seq<ConstraintIsland> Islands() {
         FrozenDictionary<int, int> byOffset = Entities.Map(static (entity, ordinal) => (entity.Offset, Ordinal: ordinal))
             .ToDictionary(static row => row.Offset, static row => row.Ordinal)
             .ToFrozenDictionary();
-        UndirectedGraph<int, SEdge<int>> graph = new(allowParallelEdges: false);
-        graph.AddVertexRange(Enumerable.Range(0, Entities.Count + Constraints.Count));
-        Constraints.Map(static (constraint, ordinal) => (Constraint: constraint, Ordinal: ordinal))
-            .Iter(row => row.Constraint.Touches.Iter(entity =>
-                graph.AddEdge(new SEdge<int>(byOffset[entity.Offset], Entities.Count + row.Ordinal))));
-        Dictionary<int, int> component = new();
-        int count = graph.ConnectedComponents(component);
-        ConstraintSystem self = this;
-        return toSeq(Enumerable.Range(0, count)).Map(island => new ConstraintIsland(
-            Entities: toSeq(Enumerable.Range(0, self.Entities.Count).Where(e => component[e] == island)),
-            Constraints: toSeq(Enumerable.Range(0, self.Constraints.Count).Where(c => component[self.Entities.Count + c] == island))));
+        ForestDisjointSet<int> partition = new(capacity: Entities.Count);
+        for (int entity = 0; entity < Entities.Count; entity++) partition.MakeSet(entity);
+        // Touches is non-empty on every case, so its head anchors the constraint and every other operand merges into it.
+        int[] anchorOf = new int[Constraints.Count];
+        for (int constraint = 0; constraint < Constraints.Count; constraint++) {
+            Seq<Entity> touched = Constraints[constraint].Touches;
+            anchorOf[constraint] = byOffset[touched[0].Offset];
+            for (int index = 1; index < touched.Count; index++) partition.Union(anchorOf[constraint], byOffset[touched[index].Offset]);
+        }
+        Dictionary<int, int> ordinalOfRoot = new(capacity: partition.SetCount);
+        int[] islandOf = new int[Entities.Count];
+        for (int entity = 0; entity < Entities.Count; entity++) {
+            int root = partition.FindSet(entity);
+            if (!ordinalOfRoot.TryGetValue(root, out int ordinal)) { ordinal = ordinalOfRoot.Count; ordinalOfRoot.Add(root, ordinal); }
+            islandOf[entity] = ordinal;
+        }
+        Seq<int>[] entityRows = new Seq<int>[partition.SetCount];
+        Seq<int>[] constraintRows = new Seq<int>[partition.SetCount];
+        Array.Fill(entityRows, Seq<int>());
+        Array.Fill(constraintRows, Seq<int>());
+        for (int entity = 0; entity < Entities.Count; entity++) entityRows[islandOf[entity]] = entityRows[islandOf[entity]].Add(entity);
+        for (int constraint = 0; constraint < Constraints.Count; constraint++) {
+            int ordinal = islandOf[anchorOf[constraint]];
+            constraintRows[ordinal] = constraintRows[ordinal].Add(constraint);
+        }
+        return toSeq(entityRows.Select((rows, ordinal) => new ConstraintIsland(Entities: rows, Constraints: constraintRows[ordinal])));
     }
 }
 
@@ -637,8 +976,7 @@ internal sealed class ConstraintModel : ILmModel {
         ConstraintSystem home = system;
         return ddouble.Sqrt(constraints
             .Bind(ordinal => home.Constraints[ordinal].Residual(image))
-            .Map(static row => (ddouble)row.Value * row.Value)
-            .Sum());
+            .Fold(ddouble.Zero, static (acc, row) => acc + ((ddouble)row.Value * row.Value)));
     }
 
     // Packed-upper JᵀJ + Jᵀr from the analytic partials with global→local remap; sums ACCUMULATE because an arm can emit one column twice for a self-aliased entity.
@@ -832,8 +1170,7 @@ public static class ConstraintSolver {
     static double ResidualNorm(ConstraintSystem system, double[] parameters) =>
         (double)ddouble.Sqrt(system.Constraints
             .Bind(constraint => constraint.Residual(parameters))
-            .Map(static row => (ddouble)row.Value * row.Value)
-            .Sum());
+            .Fold(ddouble.Zero, static (acc, row) => acc + ((ddouble)row.Value * row.Value)));
 }
 ```
 
@@ -849,7 +1186,7 @@ flowchart LR
     accTitle: Constraint solver dispatch
     accDescr: Constraint systems decompose into islands, route through the shared LM functor, and return typed evidence.
     Build["ConstraintSystem.Build (accumulating Validation)"] --> System[ConstraintSystem]
-    System -->|"Touches incidence → UndirectedGraph"| Islands["ConnectedComponents islands"]
+    System -->|"Touches incidence → ForestDisjointSet"| Islands["union-find islands"]
     System -->|"bipartite rows×columns matching"| DofReport["DofReport (per-island verdicts)"]
     System -->|"dense J → DecomposeSvd + U-tail"| Witness["WitnessAnalyze"]
     Islands -->|"per island: ConstraintModel : ILmModel"| Lm["Lm.Minimize λ-ladder"]
@@ -872,14 +1209,16 @@ One owner per axis; capability is a case, row, column, or fold arm, never a sibl
 |  [05]   | `DOF_VERDICT`         | DOF verdict          | `DofAnalysis`/`DofReport` | `StructuralAnalyze`           |
 |  [06]   | `CONSTRAINT_GRAPH`    | Constraint graph     | `ConstraintSystem`        | `Build → Fin`                 |
 |  [07]   | `SKETCH_SOLVE`        | Sketch solve         | `ConstraintSolver`        | `Solve → Fin<Solution>`       |
+|  [08]   | `AUTO_JACOBIAN`       | Derived Jacobian     | `Dual<T>` + `DualModel`   | `Linearize → packed JᵀJ/Jᵀr`  |
 
 - [DAMPED_GAUSS_NEWTON]: one λ-ladder functor over the residual+Jacobian floor; packed-upper via `Lm.PackedIndex`.
 - [LADDER_POLICY]: policy record (λ factors · `PositiveMagnitude` tolerance · step floor · budget) + `Canonical` row.
 - [PARAMETRIC_ENTITY]: `record` over `SketchEntityKind` `[SmartEnum<int>]` with `Arity`/`Carrier` columns.
 - [CONSTRAINT_ALGEBRA]: `[Union]` + generated-`Switch` `Residual`/`Touches`/`WellFormed` folds, analytic partials per arm.
 - [DOF_VERDICT]: `[SmartEnum<int>]` structural row count + König matching + witness SVD rank.
-- [CONSTRAINT_GRAPH]: immutable graph + accumulating `Build` + QuikGraph `Islands` decomposition fold.
+- [CONSTRAINT_GRAPH]: immutable graph + accumulating `Build` + `ForestDisjointSet` `Islands` decomposition fold.
 - [SKETCH_SOLVE]: island fold instantiating `ConstraintModel : ILmModel` per component, scatter-recombine.
+- [AUTO_JACOBIAN]: forward-mode dual scalar closing the generic-math floor it constrains on + the `IDualResidual` adapter scattering through `Lm.PackedIndex`.
 
 Every owner is pure-managed author-kernel composing the `Numerics/matrix` and QuikGraph substrate with `ddouble` as the objective; no tier-3 native gate applies.
 

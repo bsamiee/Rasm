@@ -763,7 +763,7 @@ public static class FlatTableEgress {
             properties.SetThriftStringSizeLimit(ThriftStringLimit);
             properties.SetThriftContainerSizeLimit(ThriftContainerLimit);
             custody.Iter(pme => properties.FileDecryptionProperties = pme.Crypto.GetFileDecryptionProperties(
-                pme.Kms, pme.Decrypt, path.MatchUnsafe(Some: static held => (string)held, None: static () => null)));
+                pme.Kms, pme.Decrypt, path.Match<string?>(Some: static held => (string)held, None: static () => null)));
             return properties;
         }
 
@@ -2530,7 +2530,7 @@ public readonly record struct SeriesBucket(Instant Bucket, UInt128 Series, doubl
 public readonly record struct SeriesJobHealth(string Hypertable, string Status, Option<Instant> LastSuccessfulFinish, long TotalFailures);
 
 // ONE warehouse row vocabulary both ends of the Fleet seam read: the `Version/egress` sink lands EXACTLY these
-// columns projected from the CdcEnvelope (`id` the content key, `source`/`type`/`time` the envelope attributes,
+// columns projected from `Egress.Envelope` (`id` the content key, `source`/`type`/`time` the envelope attributes,
 // `partition_key`/`sequence` the partitioning extensions, `data` the redacted payload), and a fleet question
 // composes over `WarehouseSchema.Shape`. The roster is one `AnalyticsSchema` value, so the sink's insert
 // columns, the residence DDL, and the reader's ordinals derive from ONE declaration and cannot drift.

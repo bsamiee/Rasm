@@ -1,169 +1,195 @@
 # [MATERIALS_CONNECTOR]
 
-THE FRAMING-CONNECTOR SEED PAGE owns the `ComponentFamily.Connector` fold, manufacturer catalogue, directional resistance algebra, and host-neutral plate receipt. `ConnectorInstall` carries the attaching fastener's designation, canonical `FastenerKind`, duration policy, and its closed `FastenerSource` — the typed `(ThreadRow, GradeRow)` currency a bolted install derives its allowable and shank from, or the tested ICC-ES columns a nailed or screwed install publishes. Every row admits its published directional values and fastener-group fidelity before `Component.Of`, and `ConnectorCapacity.DemandRatio` rails unsupported demanded directions.
+THE FRAMING-CONNECTOR SEED PAGE owns the `ComponentFamily.Connector` fold, the evaluation-report catalogue, the directional allowable algebra, and the host-neutral plate receipt. Every allowable is a PUBLISHED evaluation-report cell carrying the report that issued it and the safety basis that report states, so the duration factor a value already contains is a property of the value rather than a policy a consumer guesses. A direction a report does not publish is TYPED ABSENCE — no connector on this page asserts a resistance no evaluation measured. `ConnectorInstall` carries the attaching fastener's designation, canonical `FastenerKind`, and its closed `FastenerSource`; the demand verdict is `capacity#SECTION_CAPACITY` `Utilisation`, never a row-local ratio.
 
 ## [01]-[INDEX]
 
-- [02]-[CONNECTOR_FAMILY]: the `LoadDirection` vocabulary, `ConnectorType` discriminant, `ConnectorInstall` attachment policy over its closed `FastenerSource`, frozen gauge/duration tables, admitted resistance and demand values, `ConnectorPlate` host receipt, typed catalogue, detail builder, and `ConnectorSeed.Rows` fold.
+- [02]-[CONNECTOR_FAMILY]: the `LoadDirection` vocabulary over both published lateral axes, the `LoadBasis` safety-format rows, the `Allowable` two-column published cell, the `ConnectorType` discriminant, `ConnectorInstall` attachment policy over its closed `FastenerSource`, the frozen gauge/duration tables, `EvaluationReport` provenance, the `LoadResistance` admitted set, `ConnectorPlate` fabrication receipt, the typed catalogue, detail builder, and `ConnectorSeed.Rows` fold.
 
 ## [02]-[CONNECTOR_FAMILY]
 
-- Owner: `ConnectorType` carries accessory identity, resisted directions, and plate dispatch; `ConnectorInstall` carries attaching-fastener policy over the closed `FastenerSource` (derived from the typed thread/grade currency or published as tested columns); `LoadDirection` owns directional reads; `LoadResistance` and `LoadDemand` admit resistance and demand; `ConnectorRow` owns catalogue capacity; `ConnectorCapacity` owns the unit-check; `ConnectorPlate` carries host materialization; `ConnectorDetail` and `ConnectorSeed` own realization and construction.
-- Cases: type {`joist-hanger` (face-mount saddle — `SHOE`, seat-bearing download, resists download + uplift, builds `ConnectorPlate.Saddle`) · `framing-angle` (L-bend clip — `BRACKET`, resists uplift + lateral, builds `.Angle`) · `strap` (flat tension tie — `BRACKET`, uplift only, builds `.Strap`) · `hold-down` (shear-wall anchor — `ANCHORPLATE`, bolt-fastened, uplift only, builds `.AnchorPlate`)} × gauge {18/16/14/12/10 ga} × install {nailed (10d common — `NAIL`, published) · screwed (SD structural screw — `SCREW`, published) · bolted (5/8-in A325 through-bolt — `BOLT`, derived)} — a connector is one `ConnectorRow` over one type, one `GaugeRow`, one `ConnectorInstall`, and its published fastener schedule, never a connector subtype.
-- Entry: `ConnectorSeed.Rows(context)` traverses each row through `Allowable`, `SectionProfile.Rectangle.Of`, and `Component.Of`. `ConnectorRow.GovernedCapacity(duration, key)` scales only admitted resisted values. `ConnectorCapacity.DemandRatio(demand, key)` returns the maximum supported-direction ratio on `Fin` and faults when positive demand targets an unresisted direction. `ConnectorRow.Plate` dispatches host materialization through `ConnectorType.BuildPlate`.
-- Packages: Rasm.Domain (`Op`/`Context`), Rasm.Element (`MaterialId`, `DetailSchema`, `PropertyBag`, the SI `Dimension` axis the bag mints over), Rasm.Materials.Component (the parent owner: `Component`/`ComponentRow`/`ComponentFamily`/`SectionProfile.Rectangle.Of` the railed profile admission/`IfcBinding`/`Coring`/`ComponentStandard`/`ComponentAuthority`/`ComponentFault`/`ComponentDetail`), Thinktecture.Runtime.Extensions (`[SmartEnum<string>]` + comparer accessors for the type/direction/install vocabularies, `[UseDelegateFromConstructor]` for the direction reads and the plate builder, `[ComplexValueObject]` for `LoadResistance`, `[Union]` for `ConnectorPlate`), LanguageExt.Core (`Fin`/`Seq`/`Traverse`/`.As()`/`guard`), BCL (`ImmutableArray`, `FrozenSet`). No structural-connector package exists among admitted surfaces (VividOrange is member-catalogue + EN-grade scope; the AISI/NDS bodies have no typed code object), so the rows are AUTHORED/PUBLISHED in-fence and the citations ride `ComponentAuthority.Aisi` plus per-column provenance.
-- Growth: a new connector is one `ConnectorRow` entry (typed vocabulary refs, published allowables + the report's fastener schedule); a new gauge one `GaugeRow`; a new duration case one `DurationRow`; a new connector class one `ConnectorType` row reusing an existing plate builder (a twist-strap reuses `BuildStrap`); a new attachment one `ConnectorInstall` row; a new resisted-load direction one `LoadDirection` row — its delegate columns force every read site to answer at compile time — never a per-connector type, never a parallel per-direction member family. A new host body form is one `ConnectorPlate` case plus one builder.
-- Boundary: the bespoke `ConnectorSection` payload and its `ComponentSection` arm are DELETED — the carried-member fit is the closed `SectionProfile.Rectangle` arm (gross facts base-constructor state), the realization identity rides the seed-built bag (`AccessoryType` + the install-sourced separate `FastenerType` token + carried-member measured columns, dimension-only SI mints — row names and mint shapes identical to the retired projector switch, the `FastenerType` value reading the actual install schedule so a screwed row stamps `SCREW` and the type-level `NAILPLATE` misstamp on nailed hangers/straps is corrected), and the capacity algebra rides the typed `ConnectorRow`; the published allowable is the manufacturer-evaluated capacity, never a re-derived analysis — the fastener-group bound (`Fasteners · PerFastenerKn`) is the ADMISSION fidelity gate that keeps the schedule columns load-bearing (a published value no schedule can deliver faults at seed), and `GaugeRow.AxialSectionCapacityKnPerMm` (`Fy·t`) is the AISI net-section datum a `Rasm.Compute` developed-width section check reads off the seam — the connector owns the datum, Compute owns the check; the row admission is ONE site (`Allowable`) — the `LoadResistance` factory guards each resisted allowable positive, each UNRESISTED column exactly zero, and at least one direction resisted, so an unrepresentable connector never constructs, a value transcribed into an unresisted column faults instead of silently dropping, and `GoverningKn` never reads a placeholder column; the `ConnectorPlate` receipt derives every field from row columns plus the AISI forming radius (`1.5·t`) and the fastener shank — the shared sheet/hole facts as ONE `PlateStock` base-state product — so the host solid traces to the row, never a literal, and this owner never constructs a host brep; substance and appearance are independent `MaterialId` slots (`steel.g33`/`steel.g50` substance off the gauge, galvanized `metal.steel` appearance); the IFC entity class is the `Rasm.Bim` egress gate's read over the verified accessory token, the attaching fastener a SEPARATE `IfcMechanicalFastener` related at egress; a connector schedule station-steps the layout fold over these rows, never a parallel connector-layout owner.
+- Owner: `ConnectorType` carries accessory identity and plate dispatch; `LoadBasis` carries the four published safety formats and the duration algebra each one licenses; `Allowable` carries one published cell with both governing columns the report prints; `LoadResistance` admits the directional set; `ConnectorInstall` carries attaching-fastener policy over the closed `FastenerSource`; `EvaluationReport` carries per-row issuing identity and its combination rule; `ConnectorRow` owns catalogue capacity; `ConnectorCapacity` owns the lifted design values; `ConnectorPlate` carries fabrication geometry; `ConnectorDetail` and `ConnectorSeed` own realization and construction.
+- Cases: type {`joist-hanger` (face-mount saddle — `SHOE`, seat-bearing download) · `top-flange-hanger` (header-bearing saddle — `SHOE`) · `column-cap` (post-to-beam saddle — `SHOE`) · `framing-angle` (L-bend clip — `BRACKET`) · `hurricane-tie` (rafter-to-plate clip — `BRACKET`) · `strap` (flat tension tie — `BRACKET`) · `post-base` (cast-in standoff — `ANCHORPLATE`) · `hold-down` (shear-wall anchor — `ANCHORPLATE`)} × install {nailed · screwed · bolted} — a connector is one `ConnectorRow` over one type, one install, its published allowable set, and its report, never a connector subtype. The DIRECTIONS a connector resists are the directions its report publishes, read off the row's own cells.
+- Entry: `ConnectorSeed.Rows(context)` traverses each row through `Allowable`, `SectionProfile.Rectangle.Of`, and `Component.Of`. `ConnectorRow.GovernedCapacity(duration, key)` applies each cell's OWN basis scaling once. `ConnectorSeed.Capacity` is the family producer the `ComponentFamily.Connector` row binds. `ConnectorRow.Plate` dispatches fabrication geometry through `ConnectorType.BuildPlate` where the report publishes a base-metal gauge.
+- Packages: Rasm.Domain (`Op`/`Context`), Rasm.Element (`MaterialId`, `DetailSchema`, `PropertyBag`, `PropertyName`, `PropertyValue`, the SI `Dimension` axis the bag mints over), Rasm.Materials.Component (the parent owner: `Component`/`ComponentRow`/`ComponentFamily`/`SectionProfile.Rectangle.Of` the railed profile admission/`IfcBinding`/`Coring`/`ComponentStandard`/`ComponentAuthority`/`ComponentFault`/`ComponentDetail`, and the sibling `Threads` thread currency a bolted install binds), Thinktecture.Runtime.Extensions (`[SmartEnum<string>]` + comparer accessors for the type/direction/basis/install vocabularies, `[UseDelegateFromConstructor]` for the direction reads, the basis duration scaling, and the plate builder, `[ComplexValueObject]` for `LoadResistance`, `[Union]` for `ConnectorPlate`/`FastenerSource`), LanguageExt.Core (`Fin`/`Seq`/`Option`/`Traverse`/`.As()`/`guard`), BCL (`ImmutableArray`, `FrozenDictionary`). No structural-connector package exists among admitted surfaces (VividOrange is member-catalogue + EN-grade scope; the ICC-ES evaluation reports have no typed code object), so the rows are PUBLISHED in-fence with per-row report provenance.
+- Growth: a new connector is one `ConnectorRow` entry (typed vocabulary refs, its report, its published cells); a new gauge one `GaugeRow`; a new duration case one `DurationRow`; a new connector class one `ConnectorType` row reusing an existing plate builder (a twist-strap reuses `BuildStrap`); a new attachment one `ConnectorInstall` row; a new published safety format one `LoadBasis` row; a new resisted-load direction one `LoadDirection` row — its delegate column forces every read site to answer at compile time. A new host body form is one `ConnectorPlate` case plus one builder.
+- Boundary: the published allowable is the manufacturer-evaluated capacity, never a re-derived analysis and never a runtime-lowered one. An evaluation report publishes the fastener schedule as a CONDITION of its allowable, not as a bound to re-check, so a `Fasteners · PerFastenerKn` admission product over an invented per-fastener capacity is the deleted form — it hands a certified number a second opinion nothing certified. What a report DOES publish twice is the pair of governing columns on the strap and coil families, the connection-governed value beside the steel-strength-governed one, so `Allowable` carries both and the design value is the published lesser: a real gate over two printed cells rather than a fabricated one over a synthesized product.
+- Boundary: the SAFETY FORMAT is per cell, not per page. An uplift or lateral value is published at `C_D = 1.6` and may never be increased, only reduced for a longer duration; a hanger download is published as discrete duration columns to `C_D = 1.25` and is never interpolated past them; a post-base or column-cap download is bearing-governed and may not be increased at all; a steel-strength-governed value carries no duration factor whatsoever. Applying one blanket `C_D` across that set over-credits three of the four, which is why the factor rides `LoadBasis` and the scaling happens exactly once, HERE, where the basis is — the lifted receipt carries finished design values and `capacity#SECTION_CAPACITY` applies nothing further.
+- Boundary: `GaugeRow.AxialSectionCapacityKnPerMm` (`Fy·t`) is the AISI net-section datum a `Rasm.Compute` developed-width section check reads off the seam — the connector owns the datum, Compute owns the check. Base-metal gauge is OPTIONAL because an evaluation report publishes loads for every model and sheet thickness for only some: a row whose gauge is published refines its substance to that gauge's own SS grade and carries a fabrication plate; a row without one carries galvanized sheet steel and no plate, which is the truthful statement rather than a guessed thickness the host would then cut. The connector's own `SectionProfile.Rectangle` is its STAMPED SHEET — the plate footprint by the sheet thickness — while the carried-member envelope is a COMPATIBILITY column stating what the connector fits, never the connector's own section. The IFC entity class is the `Rasm.Bim` egress gate's read over the verified accessory token, the attaching fastener a SEPARATE `IfcMechanicalFastener` related at egress.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
-using System.Collections.Frozen;        // FrozenSet (the ConnectorType resisted-direction set)
+using System.Collections.Frozen;        // FrozenDictionary (the designation-keyed row join the capacity producer reads)
 using System.Collections.Immutable;
 using LanguageExt;
 using Rasm.Domain;                      // Op, Context
-using Rasm.Element.Composition;                     // MaterialId, DetailSchema, PropertyBag
+using Rasm.Element.Composition;                     // MaterialId, DetailSchema, PropertyBag, PropertyName, PropertyValue
 using Rasm.Element.Properties;
 using Thinktecture;
-using SiDim = Rasm.Element.Properties.Dimension;   // the SI-dimension axis the detail-bag mints ride
+using Dimension = Rasm.Element.Properties.Dimension;   // the SI-dimension axis the detail-bag mints ride — disambiguated from the Rasm.Numerics discrete count
 using static LanguageExt.Prelude;
 
 namespace Rasm.Materials.Component;
 
 // --- [TYPES] -------------------------------------------------------------------------------
-// The resisted-load direction vocabulary — the [Flags] bitfield's replacement: membership is set algebra
-// (ConnectorType.Resists.Contains), behavior is the delegate columns owning every per-direction slot read, so the
-// governing-min, the capacity build, and the demand-ratio max are LoadDirection.Items folds instead of triplicated
-// member chains; a fourth direction is one row that breaks every read site at compile time. SeatBorne names the one
-// direction a carried-member saddle transfers through seat bearing (the hanger download), exempting it from the
-// fastener-group fidelity gate.
+// The SAFETY FORMAT a published cell carries, as the duration algebra it licenses. Evaluation reports state the
+// format per column and the four differ materially: an uplift or lateral value already contains C_D = 1.6 and the
+// report forbids any further increase while requiring reduction where a longer duration governs; a hanger download is
+// tabulated as discrete duration columns and the report interpolates nothing past its C_D = 1.25 column; a post-base
+// or column-cap download is bearing-governed and explicitly may not be increased for short-term loading; a
+// steel-strength-governed value is an AISI S100 result carrying neither C_D nor a stress increase. Each row owns the
+// scaling its own format permits, so a blanket factor cannot over-credit the three that forbid one.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class LoadBasis {
+    public static readonly LoadBasis WindSeismic   = new("wind-seismic",    static cd => Math.Min(1.0, cd / 1.60));
+    public static readonly LoadBasis DurationBand  = new("duration-band",   static cd => Math.Min(1.25, cd));
+    public static readonly LoadBasis Bearing       = new("bearing",         static _ => 1.0);
+    public static readonly LoadBasis SteelStrength = new("steel-strength",  static _ => 1.0);
+    [UseDelegateFromConstructor] public partial double DurationScale(double cd);
+}
+
+// The resisted-load direction vocabulary. Both LATERAL axes are published axes, not one: a report tabulates F1
+// (parallel to the plate, the terminating member bearing on the connector flange) beside F2 (perpendicular), and they
+// differ by up to a factor of three on the same tie — collapsing them onto one column credits the weak axis with the
+// strong axis's value. Membership is no longer a type-level set: the DIRECTIONS a connector resists are exactly the
+// cells its own evaluation report publishes, so the row's Option columns ARE the set and a hand-authored roster
+// cannot disagree with the data beside it. SeatBorne names the one direction a carried-member saddle transfers
+// through seat bearing rather than through its fastener schedule.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class LoadDirection {
-    public static readonly LoadDirection Download = new("download", static r => r.DownloadKn, static d => d.DownloadKn, static c => c.DownloadKn, static t => t.CarriesMember);
-    public static readonly LoadDirection Uplift   = new("uplift",   static r => r.UpliftKn,   static d => d.UpliftKn,   static c => c.UpliftKn,   static _ => false);
-    public static readonly LoadDirection Lateral  = new("lateral",  static r => r.LateralKn,  static d => d.LateralKn,  static c => c.LateralKn,  static _ => false);
+    public static readonly LoadDirection Download   = new("download",    static r => r.Download,   static t => t.CarriesMember);
+    public static readonly LoadDirection Uplift     = new("uplift",      static r => r.Uplift,     static _ => false);
+    public static readonly LoadDirection LateralF1  = new("lateral-f1",  static r => r.LateralF1,  static _ => false);
+    public static readonly LoadDirection LateralF2  = new("lateral-f2",  static r => r.LateralF2,  static _ => false);
 
-    [UseDelegateFromConstructor] public partial double Published(LoadResistance resistance);
-    [UseDelegateFromConstructor] public partial double Demand(LoadDemand demand);
-    [UseDelegateFromConstructor] public partial double Adjusted(ConnectorCapacity capacity);
+    [UseDelegateFromConstructor] public partial Option<Allowable> Published(LoadResistance resistance);
     [UseDelegateFromConstructor] public partial bool SeatBorne(ConnectorType type);
-    public bool Resisted(ConnectorType type) => type.Resists.Contains(this);
 }
 
 // ConnectorType carries the portable IfcDiscreteAccessoryTypeEnum token the Rasm.Bim egress reads (the fabricated
-// body the connector IS — the SEPARATE attaching-fastener token rides ConnectorInstall, the actual per-row
-// schedule), the resisted-direction set, and the BuildPlate body-form column: the vocabulary item owns its plate
-// geometry, so a new type names its body by reusing a builder — the BRACKET token splitting into Angle and Strap
-// bodies is why the form is a per-type delegate, never derivable from the accessory token.
+// body the connector IS — the SEPARATE attaching-fastener token rides ConnectorInstall) and the BuildPlate body-form
+// column: the vocabulary item owns its plate geometry, so a new type names its body by reusing a builder — the
+// BRACKET token splitting into Angle and Strap bodies is why the form is a per-type delegate, never derivable from
+// the accessory token.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ConnectorType {
-    public static readonly ConnectorType JoistHanger  = new("joist-hanger",  ifcDesignation: "joist-hanger",  ifcAccessoryType: "SHOE",        carriesMember: true,  resists: new[] { LoadDirection.Download, LoadDirection.Uplift }.ToFrozenSet(), BuildSaddle);
-    public static readonly ConnectorType FramingAngle = new("framing-angle", ifcDesignation: "framing-angle", ifcAccessoryType: "BRACKET",     carriesMember: false, resists: new[] { LoadDirection.Uplift, LoadDirection.Lateral }.ToFrozenSet(),  BuildAngle);
-    public static readonly ConnectorType Strap        = new("strap",         ifcDesignation: "strap-tie",     ifcAccessoryType: "BRACKET",     carriesMember: false, resists: new[] { LoadDirection.Uplift }.ToFrozenSet(),                         BuildStrap);
-    public static readonly ConnectorType HoldDown     = new("hold-down",     ifcDesignation: "hold-down",     ifcAccessoryType: "ANCHORPLATE", carriesMember: false, resists: new[] { LoadDirection.Uplift }.ToFrozenSet(),                         BuildAnchorPlate);
+    public static readonly ConnectorType JoistHanger      = new("joist-hanger",      ifcDesignation: "joist-hanger",      ifcAccessoryType: "SHOE",        carriesMember: true,  BuildSaddle);
+    public static readonly ConnectorType TopFlangeHanger  = new("top-flange-hanger", ifcDesignation: "top-flange-hanger", ifcAccessoryType: "SHOE",        carriesMember: true,  BuildSaddle);
+    public static readonly ConnectorType ColumnCap        = new("column-cap",        ifcDesignation: "column-cap",        ifcAccessoryType: "SHOE",        carriesMember: true,  BuildSaddle);
+    public static readonly ConnectorType FramingAngle     = new("framing-angle",     ifcDesignation: "framing-angle",     ifcAccessoryType: "BRACKET",     carriesMember: false, BuildAngle);
+    public static readonly ConnectorType HurricaneTie     = new("hurricane-tie",     ifcDesignation: "hurricane-tie",     ifcAccessoryType: "BRACKET",     carriesMember: false, BuildAngle);
+    public static readonly ConnectorType Strap            = new("strap",             ifcDesignation: "strap-tie",         ifcAccessoryType: "BRACKET",     carriesMember: false, BuildStrap);
+    public static readonly ConnectorType PostBase         = new("post-base",         ifcDesignation: "post-base",         ifcAccessoryType: "ANCHORPLATE", carriesMember: false, BuildAnchorPlate);
+    public static readonly ConnectorType HoldDown         = new("hold-down",         ifcDesignation: "hold-down",         ifcAccessoryType: "ANCHORPLATE", carriesMember: false, BuildAnchorPlate);
     public string IfcDesignation { get; }     // the ObjectType discriminant the federation reads past the predefined enum
     public string IfcAccessoryType { get; }   // IFC4.3 IfcDiscreteAccessoryTypeEnum member — the connector body
-    public bool CarriesMember { get; }        // true only for the saddle-seat hanger
-    public FrozenSet<LoadDirection> Resists { get; }
+    public bool CarriesMember { get; }        // true only for the seat-bearing saddle forms
 
     [UseDelegateFromConstructor]
-    public partial ConnectorPlate BuildPlate(ConnectorRow row);
+    public partial ConnectorPlate BuildPlate(ConnectorRow row, GaugeRow gauge);
 
-    const double NailPitchMm = 19.05;     // 3/4in standard cold-formed hole-grid pitch
-    const double BendFactor = 1.5;        // AISI S100 minimum inside forming radius ≈ 1.5·t
-    const double HoleClearanceMm = 0.8;   // nail/screw hole over the fastener shank
-    const double SeatFloorMm = 38.1;      // 2x-lumber minimum seat/leg dimension
+    // The four cold-formed FABRICATION policy values. Each is a published sheet-metal rule rather than a row column
+    // because it is a property of the forming process, not of any one product: AISI S100 sets the minimum inside bend
+    // radius at 1.5 times the base metal, the standard cold-formed hole grid steps at 3/4 in, a punched hole clears
+    // its fastener shank by 0.8 mm, and a nominal 2x seat is the 1.5 in dressed lumber face. A row overrides none of
+    // them today, and a product that does carries its own column rather than editing these.
+    const double HoleGridPitchMm = 19.05;
+    const double BendRadiusRatio = 1.5;
+    const double HoleClearanceMm = 0.8;
+    const double NominalSeatMm = 38.1;
 
     // The shared stamped-sheet + hole-schedule product derived ONCE per row — never re-spelled per form.
-    static PlateStock Sheet(ConnectorRow r) => new(
-        SheetThicknessMm: r.Gauge.BaseThicknessMm,
-        BendRadiusMm: r.Gauge.BaseThicknessMm * BendFactor,
+    static PlateStock Sheet(ConnectorRow r, GaugeRow gauge) => new(
+        SheetThicknessMm: gauge.BaseThicknessMm,
+        BendRadiusMm: gauge.BaseThicknessMm * BendRadiusRatio,
         FastenerDesignation: r.Install.FastenerDesignation,
         FastenerKind: r.Install.FastenerKind,
         HoleDiameterMm: r.Install.ShankDiameterMm + HoleClearanceMm,
         HoleCount: r.Fasteners,
-        HolePitchMm: NailPitchMm);
+        HolePitchMm: HoleGridPitchMm);
 
-    // Face-mount U-saddle: seat cradles the joist width, side flanges rise the joist depth, back flange face-nails
-    // the support; the host distributes Stock.HoleCount holes at Stock.HolePitchMm over the side and back faces.
-    static ConnectorPlate BuildSaddle(ConnectorRow r) => new ConnectorPlate.Saddle(
+    // Face-mount U-saddle: seat cradles the carried member's width, side flanges rise its depth, back flange
+    // face-fastens the support; the host distributes Stock.HoleCount holes at Stock.HolePitchMm over the faces.
+    static ConnectorPlate BuildSaddle(ConnectorRow r, GaugeRow gauge) => new ConnectorPlate.Saddle(
         SeatWidthMm: r.CarriedMemberWidthMm,
-        SeatDepthMm: Math.Max(SeatFloorMm, r.CarriedMemberWidthMm),
+        SeatDepthMm: Math.Max(NominalSeatMm, r.CarriedMemberWidthMm),
         SideFlangeHeightMm: r.CarriedMemberDepthMm,
-        BackFlangeWidthMm: 25.4 + r.Gauge.BaseThicknessMm * 6.0,
-        Stock: Sheet(r));
+        BackFlangeWidthMm: NominalSeatMm,
+        Stock: Sheet(r, gauge));
 
-    // L-bend: two formed legs (the carried-member fit columns) at one bend, each leg a fastened face.
-    static ConnectorPlate BuildAngle(ConnectorRow r) => new ConnectorPlate.Angle(
+    static ConnectorPlate BuildAngle(ConnectorRow r, GaugeRow gauge) => new ConnectorPlate.Angle(
         LegAMm: r.CarriedMemberWidthMm,
         LegBMm: r.CarriedMemberDepthMm,
-        WidthMm: Math.Max(SeatFloorMm, r.CarriedMemberWidthMm),
-        Stock: Sheet(r));
+        WidthMm: Math.Max(NominalSeatMm, r.CarriedMemberWidthMm),
+        Stock: Sheet(r, gauge));
 
-    // Flat tension strap — no bend, so the stock's forming radius is zero; a wide strap stacks two gauge lines.
-    static ConnectorPlate BuildStrap(ConnectorRow r) => new ConnectorPlate.Strap(
+    // Flat tension strap — no bend, so the stock's forming radius is zero; a strap wider than a nominal seat stacks a
+    // second gauge line of holes.
+    static ConnectorPlate BuildStrap(ConnectorRow r, GaugeRow gauge) => new ConnectorPlate.Strap(
         LengthMm: r.CarriedMemberDepthMm,
         WidthMm: r.CarriedMemberWidthMm,
-        GaugeLines: r.CarriedMemberWidthMm >= 50.0 ? 2 : 1,
-        Stock: Sheet(r) with { BendRadiusMm = 0.0 });
+        GaugeLines: r.CarriedMemberWidthMm >= NominalSeatMm ? 2 : 1,
+        Stock: Sheet(r, gauge));
 
-    // Shear-wall hold-down: post seat, cast-in anchor-rod hole (the larger clearance); the stock hole schedule is
-    // the post-attachment bolt grid.
-    static ConnectorPlate BuildAnchorPlate(ConnectorRow r) => new ConnectorPlate.AnchorPlate(
+    static ConnectorPlate BuildAnchorPlate(ConnectorRow r, GaugeRow gauge) => new ConnectorPlate.AnchorPlate(
         SeatWidthMm: r.CarriedMemberWidthMm,
         SeatHeightMm: r.CarriedMemberDepthMm,
-        StandoffMm: r.Gauge.BaseThicknessMm * 2.0,
-        AnchorBoltHoleDiameterMm: r.Install.ShankDiameterMm + 2.0,
-        Stock: Sheet(r));
+        StandoffMm: gauge.BaseThicknessMm * 2.0,
+        AnchorBoltHoleDiameterMm: r.Install.ShankDiameterMm + HoleClearanceMm,
+        Stock: Sheet(r, gauge));
 }
 
-// The attachment policy over the TYPED fastener currency: a bolted install binds the fastener#FASTENER_FAMILY
-// `(ThreadRow, GradeRow)` pair its through-bolt actually is, so its per-fastener allowable is the sibling family's
-// exact double-shear `Fastening.ShearCapacityKn` over the real 5/8-in stress area and A325 grade band — never the
-// hardcoded 18.0 kN literal for an "ungraded through-bolt", and never a shank diameter re-spelling
-// `ThreadRow.MajorMm`. The nailed and screwed installs bind their published ICC-ES per-fastener allowable and shank
-// diameter as columns, because those values have NO computed source (an evaluation-report nail value is a tested
-// allowable, not a derivation) — the Option column IS the discriminant, so `PerFastenerKn` and `ShankDiameterMm` are
-// PROJECTIONS over one source each, and `ConnectorRow.FastenerGroupAllowableKn` and `ConnectorType`'s hole diameters
-// both read them.
+// The attachment policy over the closed fastener SOURCE: a bolted install binds the fastener#FASTENER_FAMILY
+// ThreadRow its through-bolt actually is, so the plate hole sizes off that thread's own published major diameter
+// rather than a re-spelled literal; a nailed or screwed install carries the published shank of the fastener its
+// evaluation report names. The per-fastener ALLOWABLE is gone from both arms: a report's connector value is not a
+// fastener-group sum, and a shank diameter is the only fastener datum this page's own geometry actually reads.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ConnectorInstall {
-    public static readonly ConnectorInstall Nailed  = new("nailed",  fastenerDesignation: "10d-common",   fastenerKind: FastenerKind.Nail,  source: new FastenerSource.Published(perFastenerKn: 0.62, shankDiameterMm: 3.76), durationSensitive: true);
-    public static readonly ConnectorInstall Screwed = new("screwed", fastenerDesignation: "sd9-screw",    fastenerKind: FastenerKind.Screw, source: new FastenerSource.Published(perFastenerKn: 1.05, shankDiameterMm: 4.50), durationSensitive: true);
-    public static readonly ConnectorInstall Bolted  = new("bolted",  fastenerDesignation: "through-bolt", fastenerKind: FastenerKind.Bolt,  source: new FastenerSource.Threaded(Threads.In0625, Grades.A325), durationSensitive: false);
+    public static readonly ConnectorInstall Nailed  = new("nailed",  fastenerDesignation: "10d-common", fastenerKind: FastenerKind.Nail,  source: new FastenerSource.Published(3.76));
+    public static readonly ConnectorInstall Sinker  = new("sinker",  fastenerDesignation: "16d-sinker", fastenerKind: FastenerKind.Nail,  source: new FastenerSource.Published(4.11));
+    public static readonly ConnectorInstall Screwed = new("screwed", fastenerDesignation: "sd9-screw",  fastenerKind: FastenerKind.Screw, source: new FastenerSource.Published(4.50));
+    public static readonly ConnectorInstall Bolted  = new("bolted",  fastenerDesignation: "through-bolt", fastenerKind: FastenerKind.Bolt, source: new FastenerSource.Threaded(Threads.In0625));
     public string FastenerDesignation { get; }
     public FastenerKind FastenerKind { get; }
     public FastenerSource Source { get; }
-    public bool DurationSensitive { get; }
 
-    const double ShearPlanes = 2.0;   // a through-bolt in a hold-down bears in double shear (connector sheet + carried member)
-
-    // ONE per-fastener allowable, TOTAL over the closed source: a threaded install COMPUTES its double-shear capacity
-    // through the sibling family's own gross-shank projection over the real stress area and grade band, a published
-    // install reads its evaluation-report column. No absence branch and no fallback exist — the union is the totality.
-    public double PerFastenerKn => Source.Switch(
-        threaded: static s => ShearPlanes * Fastening.ShearCapacityKn(s.Thread, s.Grade, ShearPlane.Shank),
-        published: static s => s.PerFastenerKn);
-
-    // The shank the plate hole and the anchor-bolt hole size from: the thread's OWN published major diameter for a
-    // threaded install (never a re-spelled literal), the published shank for a plain one.
+    // The shank the plate hole and the anchor-bolt hole size from — one projection, TOTAL over the closed source.
     public double ShankDiameterMm => Source.Switch(
         threaded: static s => s.Thread.MajorMm,
         published: static s => s.ShankDiameterMm);
 }
 
-// The closed attaching-fastener SOURCE: a threaded install carries the fastener#FASTENER_FAMILY typed currency the
-// design value derives from; a published install carries the tested ICC-ES columns that HAVE no computed source (an
-// evaluation-report nail or screw allowable is a tested value, never a derivation). Each case carries exactly the
-// evidence its arm consumes, so neither projection has a fallback and a third source is one case plus two arms.
 [Union]
 public abstract partial record FastenerSource {
     private FastenerSource() { }
-    public sealed record Threaded(ThreadRow Thread, GradeRow Grade) : FastenerSource;
-    public sealed record Published(double PerFastenerKn, double ShankDiameterMm) : FastenerSource;
+    public sealed record Threaded(ThreadRow Thread) : FastenerSource;
+    public sealed record Published(double ShankDiameterMm) : FastenerSource;
 }
+
+// --- [MODELS] ------------------------------------------------------------------------------
+// ONE published allowable cell. ConnectionKn is the report's connection-governed value under its stated Basis; SteelKn
+// is the report's SEPARATELY PRINTED steel-strength column, present on the strap and coil families where the sheet
+// itself governs above a certain fastener count. The design value is the published LESSER of the two and the
+// governing basis follows it, so the strength plateau those families reach is a read of two printed columns rather
+// than a derived cap — and a family the report prints once carries None and is governed by its own basis alone.
+public readonly record struct Allowable(double ConnectionKn, Option<double> SteelKn, LoadBasis Basis) {
+    public bool SteelGoverns => SteelKn.Exists(steel => steel < ConnectionKn);
+    public double PublishedKn => SteelKn.Map(steel => Math.Min(ConnectionKn, steel)).IfNone(ConnectionKn);
+    public LoadBasis Governing => SteelGoverns ? LoadBasis.SteelStrength : Basis;
+    public double DesignKn(DurationRow duration) => PublishedKn * Governing.DurationScale(duration.Cd);
+}
+
+// The issuing evaluation report — per-row provenance, because these values have no derivation and their only warrant
+// is the report that published them. CombinesDirections is the report's OWN interaction rule and it genuinely
+// differs: one report publishes a unity equation summing the three direction ratios, another states flatly that its
+// tabulated directions cannot be simultaneously combined and the connector must be checked one direction at a time.
+// A page-wide rule would silently pick one report's law for the other's products.
+public readonly record struct EvaluationReport(string Number, ComponentAuthority Body, bool CombinesDirections);
 
 // AISI S100 cold-formed sheet row — PUBLISHED base-metal (uncoated) and design (as-formed) thickness, the gauge-band
 // SS Grade 33/50 minimum yield; DEFINED per-unit-width axial section datum Fy·t — the net-section strength per mm of
@@ -177,35 +203,32 @@ public readonly record struct GaugeRow(string Key, int GaugeNumber, double BaseT
 // two factors, never conflated.
 public readonly record struct DurationRow(string Key, double Cd);
 
-// The admitted three-direction allowable — the factory guards every resisted allowable positive, every UNRESISTED
-// column exactly zero (a strap row carrying a download is a transcription fault, never a silently-ignored value),
-// and at least one direction resisted. GoverningKn folds ONLY the resisted directions; the indexer reads a
-// direction's allowable (0 when unresisted, so a demand there over-stresses).
+// The admitted directional set. Every column is an Option because a report publishes what it measured and nothing
+// else: no hanger table in the evaluation estate publishes ANY lateral value, and the post-base and column-cap
+// reports omit lateral deliberately — one of them says so out loud, directing a beam-parallel force to a connection
+// other than the cap. Zero would assert a measured nothing; absence states the truth, and the factory's only law is
+// that a connector resisting no direction at all is not a connector.
 [ComplexValueObject]
 public readonly partial struct LoadResistance {
     public ConnectorType Type { get; }
-    public double DownloadKn { get; }
-    public double UpliftKn { get; }
-    public double LateralKn { get; }
+    public Option<Allowable> Download { get; }
+    public Option<Allowable> Uplift { get; }
+    public Option<Allowable> LateralF1 { get; }
+    public Option<Allowable> LateralF2 { get; }
 
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
-        ref ConnectorType type, ref double downloadKn, ref double upliftKn, ref double lateralKn) {
+        ref ConnectorType type, ref Option<Allowable> download, ref Option<Allowable> uplift,
+        ref Option<Allowable> lateralF1, ref Option<Allowable> lateralF2) {
+        Seq<Option<Allowable>> cells = Seq(download, uplift, lateralF1, lateralF2);
         bool degenerate =
             type is null ||
-            !double.IsFinite(downloadKn) || !double.IsFinite(upliftKn) || !double.IsFinite(lateralKn) ||
-            (LoadDirection.Download.Resisted(type) ? !(downloadKn > 0.0) : downloadKn != 0.0) ||
-            (LoadDirection.Uplift.Resisted(type) ? !(upliftKn > 0.0) : upliftKn != 0.0) ||
-            (LoadDirection.Lateral.Resisted(type) ? !(lateralKn > 0.0) : lateralKn != 0.0);
+            cells.ForAll(static cell => cell.IsNone) ||
+            cells.Somes().Exists(static cell => !double.IsFinite(cell.ConnectionKn) || cell.ConnectionKn <= 0.0
+                || cell.SteelKn.Exists(static steel => !double.IsFinite(steel) || steel <= 0.0));
         if (degenerate)
-            validationError = new ValidationError($"<load-resistance-degenerate:{type?.Key}:d={downloadKn:R}:u={upliftKn:R}:l={lateralKn:R}>");
+            validationError = new ValidationError($"<load-resistance-degenerate:{type?.Key}>");
     }
-
-    public double GoverningKn {
-        get { LoadResistance self = this; return Type.Resists.Min(direction => direction.Published(self)); }
-    }
-
-    public double this[LoadDirection direction] => direction.Resisted(Type) ? direction.Published(this) : 0.0;
 }
 
 // The stamped-sheet stock every plate form shares — gauge sheet, AISI forming radius, the fastener hole schedule;
@@ -219,10 +242,11 @@ public readonly record struct PlateStock(
     int HoleCount,
     double HolePitchMm);
 
-// The host-materialization body — one [Union] over the four cold-formed forms; the shared PlateStock is BASE-
-// CONSTRUCTOR STATE (the SectionProfile gross-fact pattern), so a case carries ONLY its form fields and the host
-// reads sheet/hole facts polymorphically off Stock. Every field derives from row columns plus the forming radius
-// and fastener shank. NEVER a host brep here.
+// The FABRICATION body — one [Union] over the four cold-formed forms; the shared PlateStock is BASE-CONSTRUCTOR
+// STATE (the SectionProfile gross-fact pattern), so a case carries ONLY its form fields and every reader takes
+// sheet/hole facts polymorphically off Stock. Its consumers are the connector's OWN section — the stamped sheet is
+// what a connector's cross-section IS — and the realization detail rows a shop and the Bim fabrication lane read; the
+// host cuts the solid from those scalars and NEVER a brep authored here.
 [Union]
 public abstract partial record ConnectorPlate {
     private ConnectorPlate(PlateStock stock) => Stock = stock;
@@ -232,97 +256,71 @@ public abstract partial record ConnectorPlate {
     public sealed record Angle(double LegAMm, double LegBMm, double WidthMm, PlateStock Stock) : ConnectorPlate(Stock);
     public sealed record Strap(double LengthMm, double WidthMm, int GaugeLines, PlateStock Stock) : ConnectorPlate(Stock);
     public sealed record AnchorPlate(double SeatWidthMm, double SeatHeightMm, double StandoffMm, double AnchorBoltHoleDiameterMm, PlateStock Stock) : ConnectorPlate(Stock);
+
+    // The developed sheet width the connector's own rectangular section takes — the one form-dependent scalar the
+    // section admission and the detail bag both read.
+    public double FootprintMm => Switch(
+        saddle: static p => p.SeatWidthMm + 2.0 * p.SideFlangeHeightMm,
+        angle: static p => p.WidthMm,
+        strap: static p => p.WidthMm,
+        anchorPlate: static p => p.SeatWidthMm);
 }
 
-// The duration-adjusted allowable receipt the design seam reads: capacity#SECTION_CAPACITY lifts it as
-// CapacityReceipt.Connector onto the Connection case's one Check(demand) rail — seat-borne download Cd-exempt,
-// uplift and lateral Cd-scaled — so a hanger and the member it hangs report through one governing-action fold, and
-// DemandRatio stays the direction-typed row-local read, never a parallel verdict surface.
-public readonly record struct ConnectorCapacity(ConnectorType Type, double DownloadKn, double UpliftKn, double LateralKn, double Cd) {
-    public double GoverningKn {
-        get { ConnectorCapacity self = this; return Type.Resists.Min(direction => direction.Adjusted(self)); }
-    }
+// The allowable receipt the design seam reads: capacity#SECTION_CAPACITY lifts it as CapacityReceipt.Connector onto
+// the Connection case's one Check(demand) rail. Every column is a FINISHED design value — each cell's own basis
+// applied its own duration scaling exactly once at GovernedCapacity, because the four published formats scale
+// differently and no single factor downstream could serve them. Combine states the issuing report's own interaction
+// rule, so the Check arm sums direction ratios only where the report that published them says it may.
+public readonly record struct ConnectorCapacity(
+    ConnectorType Type, Option<double> DownloadKn, Option<double> UpliftKn,
+    Option<double> LateralF1Kn, Option<double> LateralF2Kn, bool Combines);
 
-    public Fin<double> DemandRatio(LoadDemand demand, Op key) {
-        ConnectorCapacity self = this;
-        return guard(
-                LoadDirection.Items.All(direction => direction.Demand(demand) == 0.0 || direction.Resisted(Type)),
-                ComponentFault.Capacity(key, "<connector-demand-in-unresisted-direction>"))
-            .ToFin()
-            .Map(_ => LoadDirection.Items.Max(direction => direction.Demand(demand) == 0.0 ? 0.0 : direction.Demand(demand) / direction.Adjusted(self)));
-    }
-}
-
-[ComplexValueObject]
-public readonly partial struct LoadDemand {
-    public double DownloadKn { get; }
-    public double UpliftKn { get; }
-    public double LateralKn { get; }
-
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double downloadKn, ref double upliftKn, ref double lateralKn) =>
-        validationError = double.IsFinite(downloadKn) && downloadKn >= 0.0
-            && double.IsFinite(upliftKn) && upliftKn >= 0.0
-            && double.IsFinite(lateralKn) && lateralKn >= 0.0
-            ? null
-            : new ValidationError($"<connector-demand-invalid:d={downloadKn:R}:u={upliftKn:R}:l={lateralKn:R}>");
-
-    public static Fin<LoadDemand> Of(double downloadKn, double upliftKn, double lateralKn, Op key) =>
-        Validate(downloadKn, upliftKn, lateralKn, out LoadDemand demand) is { } error
-            ? Fin.Fail<LoadDemand>(ComponentFault.Dimension(key, error.Message))
-            : Fin.Succ(demand);
-}
-
-// The typed catalogue row AND the capacity owner: vocabulary refs are symbolic (no string re-resolution, no unknown-
-// key fault cases), the published allowables AND the report's fastener schedule are raw columns admitted ONCE through
-// Allowable, and the design algebra rides the row — GovernedCapacity scales the admitted values by Cd; the schedule
-// fidelity bound keeps the Fasteners/install columns load-bearing. The gauge designation rides the GaugeRow constant,
-// never a re-admitted discrete column.
+// The typed catalogue row AND the capacity owner: vocabulary refs are symbolic, the published cells and the issuing
+// report are raw columns admitted ONCE through Allowable, and the design algebra rides the row. Gauge is the OPTIONAL
+// base-metal read — present where the report publishes a sheet thickness, absent where it publishes loads alone.
 public readonly record struct ConnectorRow(
-    string Designation, ConnectorType Type, GaugeRow Gauge, ConnectorInstall Install, int Fasteners,
+    string Designation, ConnectorType Type, EvaluationReport Report, Option<GaugeRow> Gauge, ConnectorInstall Install, int Fasteners,
     double CarriedMemberWidthMm, double CarriedMemberDepthMm,
-    double DownloadKn, double UpliftKn, double LateralKn) {
+    Option<Allowable> DownloadKn, Option<Allowable> UpliftKn, Option<Allowable> LateralF1Kn, Option<Allowable> LateralF2Kn) {
 
-    public double FastenerGroupAllowableKn => Fasteners * Install.PerFastenerKn;
-    public MaterialId Substance => Gauge.Substance;
-    public ConnectorPlate Plate => Type.BuildPlate(this);
+    // Galvanized sheet steel is the substance every connector on this page is made of; a published gauge REFINES it
+    // to that band's own SS grade. The two are the same statement at two specificities, never a guess standing in for
+    // a datum.
+    static readonly MaterialId GalvanizedSheet = MaterialId.Of("steel.galvanized-sheet");
+    public MaterialId Substance => Gauge.Map(static gauge => gauge.Substance).IfNone(GalvanizedSheet);
+    public Option<ConnectorPlate> Plate => Gauge.Map(gauge => Type.BuildPlate(this, gauge));
 
-    // The ONE admission of the published columns, two disjoint gates: resisted flags come from the type-level
-    // direction set, so a strap row carrying a download (or a hanger row missing one) rails ComponentFault.Dimension —
-    // a transcription fault; then transcription FIDELITY — every fastener-transferred resisted allowable must sit
-    // within the row's own schedule bound Fasteners·PerFastenerKn (the seat-borne hanger download bears on the saddle,
-    // exempt via LoadDirection.SeatBorne), railing ComponentFault.Capacity — a certified allowable is NEVER lowered at
-    // runtime, it is proven deliverable at seed. The leading Fin.Succ(this) lift anchors the row as a range variable —
-    // a struct query lambda cannot read `this` (CS1673).
+    // The ONE admission of the published columns: the generated factory proves every present cell positive and finite
+    // and refuses a row resisting nothing. A direction the report never published is absent, so there is no
+    // transcription gate to run against a type-level roster and no placeholder column for one to read.
     public Fin<LoadResistance> Allowable(Op key) =>
         from row in Fin.Succ(this)
         from admitted in LoadResistance.Validate(
-                type: row.Type, downloadKn: row.DownloadKn, upliftKn: row.UpliftKn, lateralKn: row.LateralKn,
-                out LoadResistance built) is { } error
-            ? Fin.Fail<LoadResistance>(ComponentFault.Dimension(key, $"<resistance-mismatch:{row.Type.Key}:{row.Designation}:{error.Message}>"))
+                type: row.Type, download: row.DownloadKn, uplift: row.UpliftKn,
+                lateralF1: row.LateralF1Kn, lateralF2: row.LateralF2Kn, out LoadResistance built) is { } error
+            ? Fin.Fail<LoadResistance>(ComponentFault.Dimension(key, $"<resistance-degenerate:{row.Designation}:{error.Message}>"))
             : Fin.Succ(built)
-        from delivered in guard(
-            row.Type.Resists.Where(d => !d.SeatBorne(row.Type)).All(d => d.Published(admitted) <= row.FastenerGroupAllowableKn),
-            ComponentFault.Capacity(key, $"<published-exceeds-fastener-group:{row.Designation}:{row.Fasteners}x{row.Install.PerFastenerKn:R}>"))
         select admitted;
 
-    // The duration-adjusted receipt: the admitted published values (already proven deliverable at admission) scaled by
-    // Cd for a wood-driven duration-sensitive install; an unresisted direction reads 0 through the indexer.
+    // The receipt: each admitted cell scaled by ITS OWN basis at the project duration, once. A seat-borne download
+    // bears on the saddle rather than through the fastener schedule, which the direction row records and a
+    // fabrication reader consumes; it changes no scaling here, because the report already priced the bearing.
     public Fin<ConnectorCapacity> GovernedCapacity(DurationRow duration, Op key) =>
         from row in Fin.Succ(this)
         from allowable in row.Allowable(key)
-        let cd = row.Install.DurationSensitive ? duration.Cd : 1.0
         select new ConnectorCapacity(
             row.Type,
-            allowable[LoadDirection.Download] * cd,
-            allowable[LoadDirection.Uplift] * cd,
-            allowable[LoadDirection.Lateral] * cd,
-            cd);
+            LoadDirection.Download.Published(allowable).Map(cell => cell.DesignKn(duration)),
+            LoadDirection.Uplift.Published(allowable).Map(cell => cell.DesignKn(duration)),
+            LoadDirection.LateralF1.Published(allowable).Map(cell => cell.DesignKn(duration)),
+            LoadDirection.LateralF2.Published(allowable).Map(cell => cell.DesignKn(duration)),
+            row.Report.CombinesDirections);
 }
 
 // --- [TABLES] ------------------------------------------------------------------------------
 // 7 AISI S100 gauge rows — PUBLISHED manufacturer base-metal thickness, ≈0.90·base design thickness, gauge-implied
 // SS Grade 33 (230 MPa, light 22/20/18/16 ga) / Grade 50 (340 MPa, structural 14/12/10 ga) yield. The thin 22/20 ga
-// rows serve the panel#PANEL_FAMILY steel-deck seed (deck-b/deck-a keys) — one cold-formed gauge vocabulary, no parallel deck enum.
+// rows serve the panel#PANEL_FAMILY steel-deck seed — one cold-formed gauge vocabulary, no parallel deck enum.
 public static class Gauges {
     public static readonly GaugeRow Ga22 = new("22ga", 22, 0.759, 0.683, 230.0, "steel.g33");
     public static readonly GaugeRow Ga20 = new("20ga", 20, 0.912, 0.821, 230.0, "steel.g33");
@@ -345,72 +343,155 @@ public static class Durations {
     public static readonly ImmutableArray<DurationRow> Rows = [Permanent, TenYear, TwoMonth, SevenDay, WindSeismic, Impact];
 }
 
-// The AUTHORED catalogue: ICC-ES ten-year-duration allowables AND the report's fastener schedule (both PUBLISHED —
-// the same evaluation-report table row; no producer package, no cross-product); an unresisted direction carries 0.0
-// the type-level set ignores. Typed refs replace the prior string columns and their TryGet re-resolution.
+// The catalogue: PUBLISHED evaluation-report allowables, every cell read from the report its row names. Values arrive
+// in the POUNDS their reports print and convert once at the mint, so no kilonewton literal here is a hand-run
+// conversion nothing can re-check. The strap and coil rows carry both governing columns; the hanger, post-base, and
+// column-cap rows carry NO lateral cell, because no report in this estate publishes one for them.
 public static class Connectors {
-    internal static readonly ComponentStandard Standard = new("us", StandardJointThicknessMm: 0.0, Authority: ComponentAuthority.Aisi);
+    const double LbfToKn = 0.004448222;
     internal static readonly MaterialId Galvanized = MaterialId.Of("metal.steel");
+    internal static readonly ComponentStandard Standard = new("us", StandardJointThicknessMm: 0.0, Authority: ComponentAuthority.IccEs);
+
+    // The reports the rows cite. The interaction rule is each report's own: one publishes a unity equation over its
+    // three direction ratios, the others tabulate directions that may not be combined at all.
+    static readonly EvaluationReport Esr2105 = new("ESR-2105", ComponentAuthority.IccEs, CombinesDirections: false);
+    static readonly EvaluationReport Esr2613 = new("ESR-2613", ComponentAuthority.IccEs, CombinesDirections: true);
+    static readonly EvaluationReport Esr2552 = new("ESR-2552", ComponentAuthority.IccEs, CombinesDirections: false);
+    static readonly EvaluationReport Esr2604 = new("ESR-2604", ComponentAuthority.IccEs, CombinesDirections: false);
+    static readonly EvaluationReport Esr1622 = new("ESR-1622", ComponentAuthority.IccEs, CombinesDirections: false);
+    static readonly EvaluationReport Er130   = new("UES ER-130", ComponentAuthority.IccEs, CombinesDirections: false);
+
+    static Option<Allowable> Cell(double connectionLbf, LoadBasis basis) => Some(new Allowable(connectionLbf * LbfToKn, None, basis));
+    static Option<Allowable> Cell(double connectionLbf, double steelLbf, LoadBasis basis) => Some(new Allowable(connectionLbf * LbfToKn, Some(steelLbf * LbfToKn), basis));
+    static readonly Option<Allowable> Unpublished = Option<Allowable>.None;
 
     public static readonly ImmutableArray<ConnectorRow> Rows = [
-        new("connector.jh-2x6-18ga",        ConnectorType.JoistHanger,  Gauges.Ga18, ConnectorInstall.Nailed,   6,  38.1,  139.7,  4.85,  0.78,  0.0),
-        new("connector.jh-2x8-18ga",        ConnectorType.JoistHanger,  Gauges.Ga18, ConnectorInstall.Nailed,   8,  38.1,  184.2,  7.83,  0.78,  0.0),
-        new("connector.jh-2x10-16ga",       ConnectorType.JoistHanger,  Gauges.Ga16, ConnectorInstall.Nailed,  10,  38.1,  235.0, 10.45,  1.00,  0.0),
-        new("connector.jh-2x12-16ga",       ConnectorType.JoistHanger,  Gauges.Ga16, ConnectorInstall.Nailed,  12,  38.1,  285.8, 12.46,  1.00,  0.0),
-        new("connector.jh-2x14-16ga",       ConnectorType.JoistHanger,  Gauges.Ga16, ConnectorInstall.Nailed,  14,  38.1,  336.6, 13.50,  1.00,  0.0),
-        new("connector.jh-4x8-14ga",        ConnectorType.JoistHanger,  Gauges.Ga14, ConnectorInstall.Screwed, 12,  88.9,  184.2, 14.23,  1.33,  0.0),
-        new("connector.jh-4x10-14ga",       ConnectorType.JoistHanger,  Gauges.Ga14, ConnectorInstall.Screwed, 14,  88.9,  235.0, 17.79,  1.33,  0.0),
-        new("connector.jh-4x12-14ga",       ConnectorType.JoistHanger,  Gauges.Ga14, ConnectorInstall.Screwed, 16,  88.9,  285.8, 20.50,  1.33,  0.0),
-        new("connector.jh-6x10-12ga",       ConnectorType.JoistHanger,  Gauges.Ga12, ConnectorInstall.Screwed, 18, 139.7,  235.0, 26.70,  1.78,  0.0),
-        new("connector.angle-a23-18ga",     ConnectorType.FramingAngle, Gauges.Ga18, ConnectorInstall.Nailed,   6,  38.1,   38.1,  0.0,   2.45,  1.45),
-        new("connector.angle-a35-18ga",     ConnectorType.FramingAngle, Gauges.Ga18, ConnectorInstall.Nailed,  12,  38.1,   38.1,  0.0,   3.96,  2.18),
-        new("connector.angle-l50-16ga",     ConnectorType.FramingAngle, Gauges.Ga16, ConnectorInstall.Nailed,   8,  50.8,   50.8,  0.0,   4.60,  2.55),
-        new("connector.angle-l70-16ga",     ConnectorType.FramingAngle, Gauges.Ga16, ConnectorInstall.Screwed,  6,  63.5,   63.5,  0.0,   5.74,  3.11),
-        new("connector.angle-l90-14ga",     ConnectorType.FramingAngle, Gauges.Ga14, ConnectorInstall.Screwed, 10,  88.9,   88.9,  0.0,   8.45,  4.60),
-        new("connector.strap-pa18-18ga",    ConnectorType.Strap,        Gauges.Ga18, ConnectorInstall.Nailed,   8,  38.1,  228.6,  0.0,   4.20,  0.0),
-        new("connector.strap-cs16-16ga",    ConnectorType.Strap,        Gauges.Ga16, ConnectorInstall.Nailed,  16,  38.1,  600.0,  0.0,   9.34,  0.0),
-        new("connector.strap-cs14-14ga",    ConnectorType.Strap,        Gauges.Ga14, ConnectorInstall.Nailed,  24,  50.8,  900.0,  0.0,  14.50,  0.0),
-        new("connector.strap-mst27-14ga",   ConnectorType.Strap,        Gauges.Ga14, ConnectorInstall.Nailed,  30,  50.8,  685.8,  0.0,  18.30,  0.0),
-        new("connector.strap-cmst16-16ga",  ConnectorType.Strap,        Gauges.Ga16, ConnectorInstall.Nailed,  40,  63.5, 1219.2,  0.0,  24.50,  0.0),
-        new("connector.holdown-hd5b-12ga",  ConnectorType.HoldDown,     Gauges.Ga12, ConnectorInstall.Bolted,   2,  63.5,  254.0,  0.0,  23.13,  0.0),
-        new("connector.holdown-hdu8-12ga",  ConnectorType.HoldDown,     Gauges.Ga12, ConnectorInstall.Bolted,   2,  63.5,  298.5,  0.0,  29.30,  0.0),
-        new("connector.holdown-hd12-10ga",  ConnectorType.HoldDown,     Gauges.Ga10, ConnectorInstall.Bolted,   4,  76.2,  330.0,  0.0,  53.38,  0.0),
-        new("connector.holdown-hdu14-10ga", ConnectorType.HoldDown,     Gauges.Ga10, ConnectorInstall.Bolted,   4,  76.2,  384.2,  0.0,  65.40,  0.0)];
+        // --- strap ties: tension only, at C_D = 1.6; the longer models reach the sheet's own steel-strength plateau,
+        // which the report prints as its own column beside the connection value.
+        new("connector.strap-lsta12", ConnectorType.Strap, Esr2105, Some(Gauges.Ga20), ConnectorInstall.Nailed, 10, 38.1,  304.8, Unpublished, Cell(925.0, LoadBasis.WindSeismic),  Unpublished, Unpublished),
+        new("connector.strap-lsta18", ConnectorType.Strap, Esr2105, Some(Gauges.Ga20), ConnectorInstall.Nailed, 14, 38.1,  457.2, Unpublished, Cell(1235.0, LoadBasis.SteelStrength), Unpublished, Unpublished),
+        new("connector.strap-lsta30", ConnectorType.Strap, Esr2105, Some(Gauges.Ga18), ConnectorInstall.Nailed, 22, 38.1,  762.0, Unpublished, Cell(1640.0, LoadBasis.SteelStrength), Unpublished, Unpublished),
+        new("connector.strap-msta18", ConnectorType.Strap, Esr2105, Some(Gauges.Ga18), ConnectorInstall.Nailed, 14, 38.1,  457.2, Unpublished, Cell(1315.0, LoadBasis.WindSeismic),  Unpublished, Unpublished),
+        new("connector.strap-msta24", ConnectorType.Strap, Esr2105, Some(Gauges.Ga18), ConnectorInstall.Nailed, 18, 38.1,  609.6, Unpublished, Cell(1640.0, LoadBasis.SteelStrength), Unpublished, Unpublished),
+        new("connector.strap-msta36", ConnectorType.Strap, Esr2105, Some(Gauges.Ga16), ConnectorInstall.Nailed, 26, 38.1,  914.4, Unpublished, Cell(2050.0, LoadBasis.SteelStrength), Unpublished, Unpublished),
+        new("connector.strap-cs16",   ConnectorType.Strap, Esr2105, Some(Gauges.Ga16), ConnectorInstall.Nailed, 20, 38.1,  609.6, Unpublished, Cell(1890.0, 1705.0, LoadBasis.WindSeismic), Unpublished, Unpublished),
+        new("connector.strap-cmst14", ConnectorType.Strap, Esr2105, Some(Gauges.Ga14), ConnectorInstall.Sinker, 56, 50.8, 1524.0, Unpublished, Cell(6550.0, 6475.0, LoadBasis.WindSeismic), Unpublished, Unpublished),
+        // --- hold-downs: tension only, nailed to a nominal 3x post.
+        new("connector.holdown-htt4", ConnectorType.HoldDown, Er130, None, ConnectorInstall.Sinker, 18, 63.5, 304.8, Unpublished, Cell(4235.0, LoadBasis.WindSeismic), Unpublished, Unpublished),
+        new("connector.holdown-htt5", ConnectorType.HoldDown, Er130, None, ConnectorInstall.Sinker, 26, 63.5, 406.4, Unpublished, Cell(5090.0, LoadBasis.WindSeismic), Unpublished, Unpublished),
+        // --- hurricane ties: the one family publishing BOTH lateral axes, and the spread between them is the reason
+        // the vocabulary carries two — an H2.5A resists its two laterals equally while an H1 resists F1 nearly three
+        // times its F2.
+        new("connector.tie-h1",    ConnectorType.HurricaneTie, Esr2613, None, ConnectorInstall.Nailed, 10, 38.1, 139.7, Unpublished, Cell(470.0, LoadBasis.WindSeismic),  Cell(510.0, LoadBasis.WindSeismic), Cell(190.0, LoadBasis.WindSeismic)),
+        new("connector.tie-h1a",   ConnectorType.HurricaneTie, Esr2613, None, ConnectorInstall.Nailed,  8, 38.1, 139.7, Unpublished, Cell(545.0, LoadBasis.WindSeismic),  Cell(420.0, LoadBasis.WindSeismic), Cell(265.0, LoadBasis.WindSeismic)),
+        new("connector.tie-h2-5a", ConnectorType.HurricaneTie, Esr2613, None, ConnectorInstall.Nailed, 10, 38.1, 139.7, Unpublished, Cell(700.0, LoadBasis.WindSeismic),  Cell(110.0, LoadBasis.WindSeismic), Cell(110.0, LoadBasis.WindSeismic)),
+        new("connector.tie-h10a",  ConnectorType.HurricaneTie, Esr2613, None, ConnectorInstall.Nailed, 18, 38.1, 184.2, Unpublished, Cell(1040.0, LoadBasis.WindSeismic), Cell(565.0, LoadBasis.WindSeismic), Cell(285.0, LoadBasis.WindSeismic)),
+        // --- post bases: uplift at C_D = 1.6 beside a BEARING-governed download the report forbids increasing. The
+        // nailed and bolted attachments are separate rows because the report publishes separate uplifts for them and
+        // states they are not cumulative.
+        new("connector.base-abu44-nailed", ConnectorType.PostBase, Esr1622, None, ConnectorInstall.Sinker, 12,  88.9, 88.9, Cell(7570.0, LoadBasis.Bearing),  Cell(1900.0, LoadBasis.WindSeismic), Unpublished, Unpublished),
+        new("connector.base-abu44-bolted", ConnectorType.PostBase, Esr1622, None, ConnectorInstall.Bolted,  2,  88.9, 88.9, Cell(7570.0, LoadBasis.Bearing),  Cell(2300.0, LoadBasis.WindSeismic), Unpublished, Unpublished),
+        new("connector.base-abu66-nailed", ConnectorType.PostBase, Esr1622, None, ConnectorInstall.Sinker, 12, 139.7, 139.7, Cell(18205.0, LoadBasis.Bearing), Cell(2475.0, LoadBasis.WindSeismic), Unpublished, Unpublished),
+        // --- column caps: bearing-governed download, uplift at C_D = 1.6, and NO lateral at all — the report directs
+        // a beam-parallel tension to a connection other than the cap, so absence here is the report's own instruction.
+        new("connector.cap-cc44", ConnectorType.ColumnCap, Esr2604, None, ConnectorInstall.Bolted, 6,  88.9,  88.9, Cell(19020.0, LoadBasis.Bearing), Cell(1850.0, LoadBasis.WindSeismic), Unpublished, Unpublished),
+        new("connector.cap-cc66", ConnectorType.ColumnCap, Esr2604, None, ConnectorInstall.Bolted, 6, 139.7, 139.7, Cell(33275.0, LoadBasis.Bearing), Cell(5545.0, LoadBasis.WindSeismic), Unpublished, Unpublished),
+        // --- face-mount and top-flange hangers: download published as discrete duration columns (the C_D = 1.0 cell
+        // is stored and the basis scales it only across the band the report tabulates), uplift at C_D = 1.6, and no
+        // lateral cell in any hanger table in the evaluation estate.
+        new("connector.hanger-lus26",  ConnectorType.JoistHanger,     Esr2552, None, ConnectorInstall.Nailed,  8, 38.1, 139.7, Cell(865.0, LoadBasis.DurationBand),  Cell(1165.0, LoadBasis.WindSeismic), Unpublished, Unpublished),
+        new("connector.hanger-lus210", ConnectorType.JoistHanger,     Esr2552, None, ConnectorInstall.Nailed, 12, 38.1, 235.0, Cell(1335.0, LoadBasis.DurationBand), Cell(1165.0, LoadBasis.WindSeismic), Unpublished, Unpublished),
+        new("connector.hanger-hus26",  ConnectorType.JoistHanger,     Esr2552, None, ConnectorInstall.Sinker, 20, 38.1, 139.7, Cell(2735.0, LoadBasis.DurationBand), Cell(1320.0, LoadBasis.WindSeismic), Unpublished, Unpublished),
+        new("connector.hanger-hus210", ConnectorType.JoistHanger,     Esr2552, None, ConnectorInstall.Sinker, 40, 38.1, 235.0, Cell(5450.0, LoadBasis.DurationBand), Cell(2635.0, LoadBasis.WindSeismic), Unpublished, Unpublished),
+        new("connector.hanger-hgus26", ConnectorType.TopFlangeHanger, Esr2552, None, ConnectorInstall.Sinker, 28, 38.1, 139.7, Cell(4355.0, LoadBasis.DurationBand), Cell(1040.0, LoadBasis.WindSeismic), Unpublished, Unpublished),
+        new("connector.hanger-hgus412", ConnectorType.TopFlangeHanger, Esr2552, None, ConnectorInstall.Sinker, 76, 88.9, 285.8, Cell(11915.0, LoadBasis.DurationBand), Cell(5205.0, LoadBasis.WindSeismic), Unpublished, Unpublished)];
 }
 
 // --- [OPERATIONS] --------------------------------------------------------------------------
-// The seed-time DetailLane.Realization bag — row names and mint shapes identical to the retired projector switch
-// (AccessoryType + the SEPARATE attaching FastenerType token, dimension-only SI mints for the carried-member
-// columns); the FastenerType value reads the INSTALL schedule (the actual fastener), never a type-level constant.
+// The seed-time DetailLane.Realization bag: the accessory token, the SEPARATE attaching FastenerType token (the
+// actual install schedule, so a screwed row stamps SCREW), the carried-member compatibility columns, the report
+// identity a submittal cites, and — where the report publishes a base metal — the fabrication plate as one complex
+// row, which is the plate receipt's consumer and the shop's cut sheet.
 public static class ConnectorDetail {
-    public static Fin<PropertyBag> Of(ConnectorType type, ConnectorInstall install, double carriedWidthMm, double carriedDepthMm) =>
-        from width in ComponentDetail.Measured(DetailSchema.CarriedMemberWidth, SiDim.LengthDim, carriedWidthMm * 1e-3)
-        from depth in ComponentDetail.Measured(DetailSchema.CarriedMemberDepth, SiDim.LengthDim, carriedDepthMm * 1e-3)
-        select ComponentDetail.RealizationRows(
-            ComponentDetail.Token(DetailSchema.AccessoryType, type.IfcAccessoryType),
-            ComponentDetail.Token(DetailSchema.FastenerType, install.FastenerKind.IfcPredefinedType),
+    public static Fin<PropertyBag> Of(ConnectorRow row) =>
+        from width in ComponentDetail.Measured(DetailSchema.CarriedMemberWidth, Dimension.LengthDim, row.CarriedMemberWidthMm * 1e-3)
+        from depth in ComponentDetail.Measured(DetailSchema.CarriedMemberDepth, Dimension.LengthDim, row.CarriedMemberDepthMm * 1e-3)
+        from plate in row.Plate.Match(Some: p => PlateRow(p).Map(Some), None: static () => Fin.Succ(Option<(PropertyName, PropertyValue)>.None))
+        select ComponentDetail.RealizationRows([
+            ComponentDetail.Token(DetailSchema.AccessoryType, row.Type.IfcAccessoryType),
+            ComponentDetail.Token(DetailSchema.FastenerType, row.Install.FastenerKind.IfcPredefinedType),
+            ComponentDetail.Token(DetailSchema.EvaluationReport, row.Report.Number),
+            ComponentDetail.Sourced(ConnectorSeed.Evaluated),
             width,
-            depth);
+            depth,
+            .. plate.ToSeq(),
+        ]);
+
+    static Fin<(PropertyName, PropertyValue)> PlateRow(ConnectorPlate plate) =>
+        from thickness in Si(plate.Stock.SheetThicknessMm)
+        from bend in Si(plate.Stock.BendRadiusMm)
+        from hole in Si(plate.Stock.HoleDiameterMm)
+        from pitch in Si(plate.Stock.HolePitchMm)
+        from footprint in Si(plate.FootprintMm)
+        select (DetailSchema.ConnectorPlate, (PropertyValue)new PropertyValue.Complex("connector-plate", Map(
+            (PropertyName.Create("SheetThickness"), thickness),
+            (PropertyName.Create("BendRadius"), bend),
+            (PropertyName.Create("HoleDiameter"), hole),
+            (PropertyName.Create("HolePitch"), pitch),
+            (PropertyName.Create("HoleCount"), (PropertyValue)new PropertyValue.Text($"{plate.Stock.HoleCount}")),
+            (PropertyName.Create("DevelopedWidth"), footprint))));
+
+    static Fin<PropertyValue> Si(double mm) =>
+        MeasureValue.OfSi(Dimension.LengthDim, mm * 1e-3).Map(static value => (PropertyValue)new PropertyValue.Measure(value));
 }
 
 // --- [COMPOSITION] -------------------------------------------------------------------------
-// The ONE catalogue fold: every authored row admits its allowable once, rails its profile through the parent
-// SectionProfile.Rectangle.Of, then Component.Of — Traverse is the rail, a rejected row ABORTS the build; an
-// intentional exclusion is an explicit Filter BEFORE construction (the current range stocks every row).
-// Sectioned: false — a connector contributes no ComputedSection.
+// The ONE catalogue fold: every row admits its allowable set once, rails its own stamped-sheet profile through the
+// parent SectionProfile.Rectangle.Of, then Component.Of — Traverse is the rail, a rejected row ABORTS the build. The
+// stamped sheet is a solvable Rectangle, so its section membership derives from that geometry; the design values still
+// come off the evaluation report alone, and no consumer reads the sheet's receipt as a connector capacity.
 public static class ConnectorSeed {
+    // Every column on a connector row is read off its evaluation report — the allowable cells, the gauge, the
+    // fastener schedule — and an evaluation report IS the publishing body for a product no standard tabulates, so the
+    // whole roster carries one provenance rather than a per-row selector whose arms would agree.
+    public static readonly Provenance Evaluated = Provenance.Published;
+
+    // The connector's OWN cross-section is its stamped sheet: the developed plate width by the base-metal thickness.
+    // Where the report publishes no gauge there is no sheet to section, so the row profiles at its carried-member
+    // envelope instead — the compatibility rectangle, declared as such rather than passed off as the connector body.
+    static Fin<SectionProfile> ProfileOf(ConnectorRow row, Op key) =>
+        row.Plate.Match(
+            Some: plate => SectionProfile.Rectangle.Of(plate.FootprintMm, plate.Stock.SheetThicknessMm, key),
+            None: () => SectionProfile.Rectangle.Of(row.CarriedMemberWidthMm, row.CarriedMemberDepthMm, key));
+
     public static Fin<Seq<ComponentRow>> Rows(Context context) =>
-        Connectors.Rows.ToSeq()
+        toSeq(Connectors.Rows)
             .Traverse(row =>
                 from allowable in row.Allowable(context.Key)
-                from profile in SectionProfile.Rectangle.Of(row.CarriedMemberWidthMm, row.CarriedMemberDepthMm, context.Key)
-                from detail in ConnectorDetail.Of(row.Type, row.Install, row.CarriedMemberWidthMm, row.CarriedMemberDepthMm)
+                from profile in ProfileOf(row, context.Key)
+                from detail in ConnectorDetail.Of(row)
                 from item in Component.Of(
                     ComponentFamily.Connector, row.Designation, profile,
                     IfcBinding.Of("IfcDiscreteAccessory", row.Type.IfcAccessoryType),
                     Coring.None, Connectors.Standard, substanceId: row.Substance, appearanceId: Connectors.Galvanized,
                     detail: Some(detail), context.Key)
-                select new ComponentRow(item, Sectioned: false)).As();
+                select new ComponentRow(item, Evaluated)).As();
+
+    static readonly FrozenDictionary<ComponentId, ConnectorRow> Table =
+        Connectors.Rows.ToFrozenDictionary(static row => ComponentId.Create(row.Designation), static row => row);
+
+    public static Fin<ConnectorRow> Resolve(Component component, Op key) =>
+        Table.TryGetValue(component.Designation, out ConnectorRow row)
+            ? Fin.Succ(row)
+            : ComponentFault.Family(key, $"<connector-row-unregistered:{component.Designation.Value}>");
+
+    // The ComponentFamily.Connector CAPACITY producer: the placement's NDS duration row is the only input the
+    // catalogue cannot carry, and each published cell's own basis decides what that duration is allowed to do to it.
+    // A connector is unsectioned, so the section argument is structurally absent and never read.
+    public static Fin<SectionCapacity> Capacity(Component component, Option<ComputedSection> section, CapacityPlacement placement, Op key) =>
+        from row in Resolve(component, key)
+        from governed in row.GovernedCapacity(placement.ConnectorDuration, key)
+        select SectionCapacity.Lift(new CapacityReceipt.Connector(component.Designation, governed));
 }
 ```
 

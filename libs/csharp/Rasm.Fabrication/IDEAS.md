@@ -19,142 +19,7 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 Capability, Shape, Unlocks, and Anchors are required on every open card; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Ideas state higher-order concepts, never landing-grain tasks.
 -->
 
-[FABRICATION_FINITE_CAPACITY]-[ACTIVE]: Time-phase lot derivation binds routing instants to fleet availability, maintenance, and load-factor windows.
-- Capability: `LotOf` consumes routing and availability per assigned step, drives every schedule advance, and emits reservations beside lead, critical-path, and slack evidence.
-- Shape: Multi-lot load leveling and quote lead-time receipts remain on the lap-phased lot fold under operation-topology order.
-- Unlocks: Capacity-aware routing, promise intervals, and shop-floor dispatch order.
-- Anchors: QuikGraph `SourceFirstBidirectionalTopologicalSort`, `Kinematics/fleet.md`, `Process/derivation.md`, and `Verify/estimation.md`.
-- Tension: `PlannedStep` carries machine kind without a `MachineInstance` identity, so instance contention requires widening the step owner.
-
-[MAGAZINE_CHANGE_TIME_TO_ESTIMATION]-[QUEUED]: Price magazine traverse time as typed estimate evidence.
-- Capability: `ToolChange.Elapsed` derives from layout index steps and arm swing instead of a flat dwell.
-- Shape: Estimation consumes one per-change evidence row, and simulation advances its modal clock by the same elapsed value.
-- Unlocks: Magazine-aware quoting and cycle simulation.
-- Anchors: `Tooling/magazine.md`, `Verify/estimation.md`, and `Verify/simulate.md`.
-
-[STABILITY_SPEED_SELECTION_IN_POSTING]-[QUEUED]: Carry chatter-aware spindle selection into motion and posting.
-- Capability: `StabilityReceipt.Recommend` selects the highest-margin stable spindle point at the requested depth.
-- Shape: Posting intersects the recommendation with controller and power limits, while motion carries it on `CutStrategy`.
-- Unlocks: Stable emitted spindle words and physics-backed feed optimization.
-- Anchors: `Tooling/cuttingdata.md`, `Posting/optimization.md`, and `Toolpath/motion.md`.
-
-[COMMON_LINE_AFFINITY]-[QUEUED]: Placements whose accepted edges become shared cuts rank first.
-- Capability: `NestObjective` scores shared-edge length during placement rather than discovering it after layout.
-- Shape: One shared-edge weight and evidence field consume a reusable collinear-overlap measure from linking.
-- Unlocks: Lower pierce count and cut length without trading away packing yield.
-- Anchors: `Nesting/nfp.md` candidate contact, cut-length evidence, and `Nesting/linking.md` shared-cut editing.
-- Tension: Linking must publish the overlap measure before the placement scorer can consume it without coupling owners.
-
-[FIXTURING_DISTORTION]-[QUEUED]: Fold joining thermal load, preload, and fixture release into per-member displacement evidence.
-- Capability: one closed `DistortionSource` family produces the residual field that stability and tolerance consumers require.
-- Shape: Assembly tolerance chains and setup datum-transfer budgets consume one displacement receipt.
-- Unlocks: Post-weld position error and fixture-release distortion planning.
-- Anchors: `Joining/sequence.md`, `Fixturing/assembly.md`, and `Fixturing/setups.md`.
-
-[ORBITAL_ARC_DEPOSIT_PATH]-[QUEUED]: Emit true circular motion for co-circular weld seam spans.
-- Capability: `Weld.Pass` emits a circular move with rotation sense when transported torch frames satisfy an arc-fit gate.
-- Shape: Non-circular runs retain the linear chain, and weld-pass admission accepts the circular arm.
-- Unlocks: Faithful circumferential deposits for pipe positions without chord-error dependence.
-- Anchors: `Process/owner.md`, `Joining/weld.md`, and `Geometry2D/arcs.md`.
-- Tension: Architecture must ledger the legal Joining-to-Geometry2D consumption before the arc-fit owner is consumed.
-
-[STACKUP_CONTRIBUTION_ON_QUALITY_RECORDS]-[QUEUED]: Publish dominant tolerance-chain contribution on as-built quality records.
-- Capability: Quality evidence retains stack method and ranked contribution rows from `ChainReceipt`.
-- Shape: each failed characteristic names the feature variation dominating its closure.
-- Unlocks: Corrective-action routing and targeted capability studies.
-- Anchors: `Spec/tolerance.md` and `Documentation/report.md`.
-
-[GDT_ANNOTATION_AS_SPEC_EVIDENCE]-[QUEUED]: Draft feature-control frames from specification-owned symbols.
-- Capability: Projection consumes `FeatureFrameReceipt.Annotation` and row symbols while retaining layout in the render tier.
-- Shape: One layout-free symbol law feeds drawings, travelers, exchange, and reports.
-- Unlocks: New characteristic and modifier rows reach every rendered surface without a second vocabulary.
-- Anchors: `Spec/tolerance.md` and the app drafting receipt seam.
-
-[TOOLPATH_ORIENTED_MOTION_ATOM]-[QUEUED]: Extend `Move` with a continuous tool-frame and contact payload.
-- Capability: Surface swarf, contact propagation, machine solve, posting, and swept-solid guard consume one oriented atom.
-- Shape: Indexed 3+2 remains on `SurfaceFrame`; only continuous orientation widens `Move`.
-- Unlocks: Typed multi-axis motion through the full CAM-to-post chain.
-- Anchors: `Process/owner.md`, `Toolpath/surface.md`, and `Toolpath/guard.md`.
-
-[OPENCAM_COMPOUND_CUTTER_EVIDENCE]-[QUEUED]: Make compound cutter construction total over explicit form evidence.
-- Capability: `CutterForm` carries compound family, major length, and secondary angle.
-- Shape: `OpenCamCutterKind` dispatches every catalogued constructor without inferring compound form from coincident dimensions.
-- Unlocks: Faithful BullCone and compound cutter lowering.
-- Anchors: `Process/owner.md` and `Toolpath/surface.md`.
-
-[FABRICATION_MOTION_DIRECTIVE_ATOM]-[QUEUED]: Carry dwell, oriented stop, and spindle synchronization on the motion atom.
-- Capability: One directive payload lowers through turning and posting without a parallel command family.
-- Shape: Fine-bore and turning directives become admitted motion rather than typed failures.
-- Unlocks: Controller-neutral directive generation.
-- Anchors: `Process/owner.md`, `Toolpath/motion.md`, `Toolpath/turning.md`, and `Posting/dialect.md`.
-
-[SPECIALIZED_TOOLPATH_EGRESS]-[QUEUED]: Admit specialized programs without sequential-motion flattening.
-- Capability: One typed envelope preserves wire guide simultaneity, bevel axis/pivot/THC/inspection rows, and link segment metrics through posting, simulation, and estimation.
-- Shape: `PostSource` and evidence-consumer registries consume S0 wire payloads that preserve specialized evidence without upward Process dependencies.
-- Unlocks: Authoritative specialized receipts cross canonical consumer seams.
-- Anchors: `Toolpath/wire.md`, `Toolpath/bevel.md`, `Toolpath/link.md`, `Posting/program.md`, `Verify/simulate.md`, and `Verify/estimation.md`.
-
-[EROSION_CONTOUR_ROUTES_WIRE_OWNER]-[QUEUED]: Route erosion boundary passes through the wire-EDM owner.
-- Capability: `EngagementPolicy` carries `WirePolicy`, so spark gap, overburn, taper-guide, and retention law replace cutter-radius compensation.
-- Shape: `Cam.Generate` sends erosion boundary passes into `WireEdm.Generate`.
-- Unlocks: Total erosion routing with wire-specific refusal evidence.
-- Anchors: `Toolpath/motion.md` and `Toolpath/wire.md`.
-
-[PARTITION_DENSITY_CLOSURE]-[QUEUED]: Derive partition policy from target areal density.
-- Capability: Boundary area maps density to pitch, relaxation, and separation policy.
-- Shape: Retained cell areas and Lloyd residuals close the inverse derivation on `PartitionStrategy`.
-- Unlocks: Parameterized stipple and engrave generation without preset constants.
-- Anchors: `Toolpath/partition.md`.
-
-[DIMENSIONAL_ADMISSION_ATOM]-[QUEUED]: Centralize dimensional quantity admission on the Process atoms vocabulary.
-- Capability: One caller-fault-parameterized arrow converts unit-bearing text into canonical machining scalars.
-- Shape: Folder-local length parsers collapse onto the atom owner.
-- Unlocks: Shared unit policy and additional quantity families without wrapper multiplication.
-- Anchors: `Process/owner.md`, `Toolpath/wire.md`, `Toolpath/link.md`, and `Toolpath/bevel.md`.
-
-[SPINDLE_SPEED_OWNER]-[QUEUED]: One owner spells the surface-speed-to-spindle law the package currently states five times.
-- Capability: the cutting-speed/rpm correspondence lives on one cutting-physics owner as a forward/inverse pair over the canonical mm and m-per-minute carriers, so a diameter convention or unit change lands once.
-- Shape: the pair seats on `Process/physics.md`'s cutting-physics owner; `Process/physics.md` (three sites), `Kinematics/fleet.md`, and the inverse at `Tooling/cuttingdata.md` compose it, each losing its own `Math.PI`/`1000.0` transcription.
-- Unlocks: the five-copy duplication and its five conversion literals delete as a consequence; the R2 unit rule closes on the last rpm sites.
-- Anchors: the five censused sites (`physics.md` three, `fleet.md:1200`, `cuttingdata.md:464`); the landed UnitsNet typed-product precedent at `Fixturing/workholding.md`.
-
-[UNMEASURED_SUPPORT_LAYER]-[QUEUED]: The audit's unsupported-mass reading distinguishes a measured zero from a measurement never taken.
-- Capability: a support-free modality reports ABSENCE on the unsupported-mass axis instead of a fabricated zero, so the recoater-strike score stops silently understating by the whole trend term on runs that never measured support.
-- Shape: `Verify/audit.md` splits the collapsed guard — `layer == 0` stays a measured structural zero with its reason stated; the risk-off case carries absent measures on `LayerMetric.UnsupportedAreaMm2`/`UnsupportedMassKg`/`UnsupportedMassTrendKg` with the recoater composition reading the absence arm.
-- Unlocks: honest recoater-strike likelihood on support-free modalities; the `[FORGED_ZERO]` scar closes at its one proven live leak.
-- Anchors: `LayerMetric` is confined to `audit.md` (single-file consumer census, eight sites), so the receipt reshape has no cross-page ripple; `AuditDefect.RecoaterStrike` emits independently of the Support risk.
-
-[NEST_COST_REFERENCE]-[QUEUED]: The nest objective's cost term ranks scale-free across price bases.
-- Capability: every `NestObjective` term weighs a pure number, so `Balanced`'s equal weights compare honestly whatever the caller's currency basis — the cost term normalizes against a declared cost reference instead of tracking the raw price density.
-- Shape: a cost-reference column on the scoring input beside the frozen `NestEvidence` record — never on the CanonicalWriter-digested carrier itself; `Nesting/nfp.md` `NestObjective.Score` divides through it.
-- Unlocks: cross-run and cross-supplier nest ranking; the stated structural divergence at `NestEvidence` retires.
-- Anchors: the digest-freeze ruling at `[04]-[STRUCTURE]` (the reference rides scoring input, not the frozen record); the `Yield`/`Cut`/`Remnant` terms already pure.
-
-[LINK_TOUR_REFINEMENT]-[QUEUED]: Refine linked tours against realized obstacle-aware transition cost.
-- Capability: one bounded precedence-safe two-opt or Or-opt stage reorders only swaps whose graph in-degrees remain satisfied.
-- Shape: `LinkReceipt` carries improvement delta after re-entering transition routing for swapped pairs.
-- Unlocks: Tours optimized against routed geometry instead of Euclidean proxy cost.
-- Anchors: `Toolpath/link.md`.
-
-[INSPECTION_TEST_PLAN]-[QUEUED]: Own the ordered inspection hold-point plan.
-- Capability: one `HoldPoint` family over inspection stages carries release attestations for hold, witness, review, and surveillance points.
-- Shape: Traveler step release consumes satisfied hold evidence rather than rendered plan text.
-- Unlocks: Customer and notified-body release gating before material advances.
-- Anchors: `Documentation/report.md`, `Joining/procedure.md`, and `Documentation/traveler.md`.
-
-[SHOP_SCHEDULE_DERIVATION]-[QUEUED]: Shop-deliverable schedules derive from realized detail bags — bar bending schedules, weld maps, and stud layouts off the projected realization vocabulary.
-- Capability: the projected `DetailSchema.Realization` bags over the registered `FabricationProjector : IElementProjection` row carry the realized Materials scalar vocabularies — schedule derivation folds them into shop deliverables without re-resolving materials.
-- Shape: derivation folds on `libs/csharp/Rasm.Fabrication/.planning/Documentation/report.md` reading the projector facts of `libs/csharp/Rasm.Fabrication/.planning/Process/derivation.md`; each schedule kind one fold row.
-- Unlocks: shop paperwork generates from the seam graph; the Materials realization vocabularies gain their consuming end.
-- Anchors: the `FabricationProjector` registration row, the seam `DetailSchema.Realization` bags, the Documentation traveler and report owners.
-- Ripple: `Rasm.Materials` `[FABRICATION_SCHEDULE_WIRE]`.
-
-[SOLVER_BENCHMARK_CORPUS]-[BLOCKED]: Produce accepted benchmark claims before measured probe routes consume them.
-- Capability: each solver case emits one durable benchmark receipt whose accepted projection authorizes the matching measured route.
-- Shape: `AcceptedBenchmarkClaim` is the package boundary; AppHost owns claim projection and the branch benchmark tier owns case production.
-- Unlocks: `ProbeRoute.Measured` becomes evidence-backed instead of roster-backed.
-- Anchors: `Toolpath/guard.md#[02]-[GUARD]` and `Toolpath/guard.md#[03]-[RESEARCH]`.
-- Arms: claim-family projection and case producers are absent; arm when `libs/csharp/Rasm.AppHost/.planning/Observability/benchmarks.md` maps accepted receipts and `tests/csharp/_benchmarks` mints every roster case.
+(none)
 
 ## [02]-[CLOSED]
 
@@ -175,5 +40,27 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 [SHOP_STATE_SLOTS]-[COMPLETE]: `RemnantSlots`, `FleetSlots`, `MagazineSlots`, and `CapabilitySlots` name the `store.fabrication.<domain>.<verb>` streams on their owning pages as value federation; the Persistence slot registry's contributed span mounts them at composition.
 [SOLVER_MEMO_CACHE]-[COMPLETE]: `PairMemo` content-keys the NFP pair matrix on `PairTable.Key` through the runtime-carried `HybridCache` with hit/miss engine facts; a further memo lane is one content key and one `GetOrBuild` wrap on the same owner, and the durable L2 federates at the Persistence cache seam.
 [FABRICATION_FACT_RAIL]-[COMPLETE]: `Process/telemetry.md` owns the `FabricationFact` union, the `rasm.fabrication.*` instrument roster with its contributor port, the envelope projection fan, and the suite-taxonomy classification rows; emitting pages carry their kind anchors and classified members their attributes.
-[KINEMATICS_CELL_PLACEMENT]-[COMPLETE]: `RobotProgram.Place` ranks batch-solved base placements over one loaded robot system with feasibility, travel, posture, peak-step, and peak-joint evidence.
-[TILTED_AXIS_SWEPT_SOLID_GUARD]-[DROPPED]: Current `Move` cases carry no tool axis, so planar sweep is exact for every admitted move; reopen only when an oriented move atom lands and require typed refusal for unsupported axes.
+[KINEMATICS_CELL_PLACEMENT]-[COMPLETE]: `RobotProgram.Run` under `CellProgramRequest.Placement` ranks batch-solved base placements over one loaded robot system on the `CellPlacementMetric` rows — feasibility, travel, posture, peak-step, peak-joint — normalized through `CellPlacementPolicy.Burden`; the placement lane is a request case, never a verb beside the one entry.
+[TILTED_AXIS_SWEPT_SOLID_GUARD]-[COMPLETE]: the drop's own reopen trigger fired — `MoveOrientation` landed, so the exact-planar-sweep premise no longer holds for every admitted move, and the guard answers a typed `swept-solid:oriented-move` refusal instead of a silent planar approximation.
+[FABRICATION_FINITE_CAPACITY]-[COMPLETE]: `PlannedStep.Instance` names the physical station, `Kinematics/fleet` generates availability from `CalendarSpan`/`MaintenanceRule` rows and covers a demand roster through `Fleet.Assign`, and `Process/derivation` `LotOf` advances every schedule against those windows, emitting reservations beside lead, critical-path, and slack evidence.
+[MAGAZINE_CHANGE_TIME_TO_ESTIMATION]-[COMPLETE]: `ToolChangeEvidence` derives `Elapsed` from layout index distance and arm swing on the magazine owner — an empty spindle measuring from `MagazineLayout.Park` — and both `Verify/estimation` and `Verify/simulate` consume the one row rather than a flat dwell.
+[STABILITY_SPEED_SELECTION_IN_POSTING]-[COMPLETE]: `StabilityReceipt.Recommend` answers the highest-margin `StablePoint` at the requested depth, `Toolpath/motion` carries it on `CutStrategy`, and `Posting/optimization` intersects it with dialect and power limits, refusing typed when no stable point survives.
+[COMMON_LINE_AFFINITY]-[COMPLETE]: `Nesting/linking` publishes the collinear-overlap measure as one owner and `NestObjective` scores a shared-edge term during placement against `NestBasis.Reference`, so shared cuts rank at placement instead of surfacing after layout.
+[FIXTURING_DISTORTION]-[COMPLETE]: `Joining/sequence` loads thermal shrinkage, clamp preload, and stage release into ONE stiffness assembly through `CholeskySparse.Of` and one `DisplacementReceipt`; `Fixturing/assembly` tolerance chains and `Fixturing/setups` datum-transfer budgets consume that one receipt through `DatumTransfer`, and the clamp roster is what made the second and third families real loads rather than declared cases.
+[ORBITAL_ARC_DEPOSIT_PATH]-[COMPLETE]: `ArcFitPolicy` gates a circumcircle-and-residual fit over transported torch frames and `Weld.Pass` emits `Move.Circular` with its rotation sense; the fit is self-contained value geometry on the weld owner, so no Joining-to-Geometry2D consumption edge was earned and none was ledgered.
+[STACKUP_CONTRIBUTION_ON_QUALITY_RECORDS]-[COMPLETE]: `StackupContributionRow` carries stack method and ranked shares onto the quality record with `Dominant` naming the feature variation that closed the chain, projected from the `ChainReceipt` both stackup routes rank on rather than a second algebra — the chain declares the terms, the capability owner simulates those same terms, and both rankings key on the term name.
+[GDT_ANNOTATION_AS_SPEC_EVIDENCE]-[COMPLETE]: `FeatureFrameReceipt.Annotation` is the one layout-free `FrameSymbolRow` stream, `Documentation/projection` republishes it on `ProjectionAnchor` beside the screen locus, and the app drafting owner places those compartments without minting a second characteristic vocabulary.
+[TOOLPATH_ORIENTED_MOTION_ATOM]-[COMPLETE]: `MoveOrientation` carries the continuous tool frame and contact point on `Move` while indexed 3+2 stays on `SurfaceFrame`, and the swept-solid guard answers a typed refusal for an oriented move rather than approximating it planar.
+[OPENCAM_COMPOUND_CUTTER_EVIDENCE]-[COMPLETE]: `CutterForm` reads `MajorLength` and `SecondaryAngle` off its metric stream under a `CutterFamily.Compound` row, so `OpenCamCutterKind` dispatches every catalogued constructor — BullCone and the composite relief rows included — without inferring form from coincident dimensions.
+[FABRICATION_MOTION_DIRECTIVE_ATOM]-[COMPLETE]: `MotionDirective` carries `Dwell` over its `DwellBasis`, `OrientedStop`, `Synchronize`, and the specialized envelope, so turning directive rows lower as admitted motion and `Posting/dialect` owns the executable spelling alone.
+[SPECIALIZED_TOOLPATH_EGRESS]-[COMPLETE]: one `SpecializedToolpathEnvelope` preserves wire guide simultaneity, bevel axis and THC rows, and link segment metrics through `PostSource.Specialized`, `SimulationSlice.Specialized`, and the estimation fold, with no sequential-motion flattening at any seam.
+[EROSION_CONTOUR_ROUTES_WIRE_OWNER]-[COMPLETE]: `EngagementPolicy` carries `WirePolicy` and `Cam.Generate` routes erosion boundary passes into `WireEdm.Generate`, so spark gap, overburn, taper guide, and retention replace cutter-radius compensation with wire-specific refusal evidence.
+[PARTITION_DENSITY_CLOSURE]-[COMPLETE]: `PartitionDensity` closes the inverse `PartitionStrategy` opens — target areal density and cell area against the density and mean cell area the retained cells realized, beside the walk's Lloyd residual — so a consumer reads whether the field it asked for is the field it got.
+[DIMENSIONAL_ADMISSION_ATOM]-[COMPLETE]: `QuantityArrow` is the one caller-fault-parameterized dimension-text boundary at the atoms floor, `PhysicsQuantity.Parse` turned internal behind it, and the folder-local length parsers in wire, link, and bevel collapsed onto it.
+[SPINDLE_SPEED_OWNER]-[COMPLETE]: `SurfaceSpeed` seats the forward and inverse cutting-speed correspondence on the cutting-physics owner over canonical mm and m-per-minute carriers; every transcription composes it, and the `ShankDiameter`-for-cutting-diameter defect at the posting site died with the duplication.
+[UNMEASURED_SUPPORT_LAYER]-[COMPLETE]: `LayerMetric` carries every modality-conditional axis on `Option` and `RecoaterLikelihood` splits into `Measured` and `Partial` carrying the absent `LayerMeasure` set, so a support-free modality reports absence and the recoater-strike gate stops silently understating by a whole trend term.
+[NEST_COST_REFERENCE]-[COMPLETE]: `NestBasis` carries the cost reference on the scoring input beside the frozen digest carrier, and every `NestObjective` term divides through it, so `Balanced` weights compare honestly across currency bases without moving a minted key.
+[LINK_TOUR_REFINEMENT]-[COMPLETE]: `Link.Route` refines its closed tour under the precedence it was built against, re-entering transition routing for swapped pairs, and `LinkReceipt` carries the improvement delta beside the width, bound, and rejection solver evidence.
+[INSPECTION_TEST_PLAN]-[COMPLETE]: `HoldKind` closes the blocking and attendance axes, `HoldPoint`/`HoldRelease` carry the attestation, `InspectionTestPlan.Of` derives requirements and hold points together, and `Unreleased` is the ONE satisfaction law the traveler both gates on and reports its open-hold count from — so a document releases against attested evidence rather than a hold point it merely printed.
+[SHOP_SCHEDULE_DERIVATION]-[COMPLETE]: `ShopSchedule` folds `DetailSchema.Realization` bags into bar-bending, weld-map, and stud-layout deliverables at `Documentation/report`, each kind naming its input rows and emitting only where every named row is present, with every deliverable name minted through the seam's own custody scope.
+[SOLVER_BENCHMARK_CORPUS]-[COMPLETE]: `AcceptedBenchmarkClaim` closes the package boundary — one accepted result bound to the `HostEvidence` digest its pass was stamped over, under an injected judgment seam only `BenchmarkGate.Judge` mints — so `ProbeRoute.Measured` rests on evidence; case production re-carded at the branch tier that owns the test estate.

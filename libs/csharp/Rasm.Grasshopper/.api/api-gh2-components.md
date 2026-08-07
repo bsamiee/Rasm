@@ -6,7 +6,7 @@
 
 [PACKAGE_SURFACE]: `Grasshopper2` 'Rhino 9 WIP Grasshopper2 SDK'
 - assembly: `Grasshopper2.dll` (installed `Grasshopper2Plugin.rhp` managed plug-in; in-process, no NuGet redistribution)
-- namespace: `Grasshopper2.Components`, `.Components.Standard`, `Grasshopper2.Parameters`, `.Parameters.Standard`, `Grasshopper2.Data`, `.Data.Meta`, `Grasshopper2.Doc`, `.Doc.Attributes`, `Grasshopper2.Types.Assistant`, `.Types.Conversion`, `Grasshopper2.Framework`, `GrasshopperIO`
+- namespace: `Grasshopper2.Components`, `.Components.Standard`, `Grasshopper2.Parameters`, `.Parameters.Standard`, `Grasshopper2.Data`, `.Data.Meta`, `Grasshopper2.Doc`, `.Doc.Attributes`, `Grasshopper2.Types.Assistant`, `.Types.Conversion`, `Grasshopper2.Framework`, `Grasshopper2.Bake`, `GrasshopperIO`
 - host: RhinoWIP `RhCore.framework` — `Rhino.Geometry` supplies the carrier types component pins bind
 - io: `GrasshopperIO` `IoIdAttribute` stamps the persistent type id every document object serializes under
 - rail: component-authoring model
@@ -45,28 +45,28 @@
 
 The `IAttributes` contract itself is `api-gh2-document.md`'s; this partition holds the concrete bases a component author subclasses and states their edge against that contract.
 
-| [INDEX] | [SYMBOL]                                          | [TYPE_FAMILY]  | [CAPABILITY]                                                            |
-| :-----: | :------------------------------------------------ | :------------- | :----------------------------------------------------------------------- |
-|  [01]   | `Grasshopper2.Doc.Attributes<T>`                  | abstract class | pivot, bounds, hit tests, tooltip, and the two-stage draw spine          |
-|  [02]   | `Doc.Attributes.ComponentAttributes`              | class          | component layout boxes, ZUI grips, tentative pins, foreground decoration |
-|  [03]   | `Doc.Attributes.ResizableAttributes<T>`           | abstract class | persisted size, edge grab, snapping, resize undo, explicit edge cursor   |
-|  [04]   | `Doc.Attributes.IResizableAttributes`             | interface      | the `Size` contract the resize responder and the undo action read        |
-|  [05]   | `Grasshopper2.Doc.ICursorAwareAttributes`         | interface      | `Cursor CursorAt(PointF)` hover feedback                                 |
+| [INDEX] | [SYMBOL]                                  | [TYPE_FAMILY]  | [CAPABILITY]                                                             |
+| :-----: | :---------------------------------------- | :------------- | :----------------------------------------------------------------------- |
+|  [01]   | `Grasshopper2.Doc.Attributes<T>`          | abstract class | pivot, bounds, hit tests, tooltip, and the two-stage draw spine          |
+|  [02]   | `Doc.Attributes.ComponentAttributes`      | class          | component layout boxes, ZUI grips, tentative pins, foreground decoration |
+|  [03]   | `Doc.Attributes.ResizableAttributes<T>`   | abstract class | persisted size, edge grab, snapping, resize undo, explicit edge cursor   |
+|  [04]   | `Doc.Attributes.IResizableAttributes`     | interface      | the `Size` contract the resize responder and the undo action read        |
+|  [05]   | `Grasshopper2.Doc.ICursorAwareAttributes` | interface      | `Cursor CursorAt(PointF)` hover feedback                                 |
 
 [PUBLIC_TYPE_SCOPE]: writable parameter modifiers (`Grasshopper2.Parameters.Standard`)
 
-| [INDEX] | [SYMBOL]                                       | [TYPE_FAMILY] | [CAPABILITY]                                     |
-| :-----: | :--------------------------------------------- | :------------ | :------------------------------------------------ |
-|  [01]   | `VectorParameter` / `AngleParameter`           | parameter     | unitise/reverse, enforcement ordinal and reduce   |
-|  [02]   | `BooleanParameter` / `ConnectionParameter`     | parameter     | negation and null policy, connection collection   |
-|  [03]   | `IntegerParameter` / `NumberParameter`         | parameter     | index policy plus `UiInteger`/`UiNumber` hints    |
-|  [04]   | `NumericParameter` / `CurveParameter`          | parameter     | exotic filtering, domain normalisation and flip   |
-|  [05]   | `SurfaceParameter` / `TextParameter`           | parameter     | mesh admission, flavour, extensions, casing       |
-|  [06]   | `TextPatternParameter` / `LanguageParameter`   | parameter     | pattern kind and case, culture-code carrier       |
-|  [07]   | `IndexModifier` / `NumericFilter`              | enum          | integer indexing policy, exotic numeric admission |
-|  [08]   | `CurveParameter.NormalisationMethod`           | nested enum   | the domain rule surfaces and curves both read     |
+| [INDEX] | [SYMBOL]                                        | [TYPE_FAMILY] | [CAPABILITY]                                      |
+| :-----: | :---------------------------------------------- | :------------ | :------------------------------------------------ |
+|  [01]   | `VectorParameter` / `AngleParameter`            | parameter     | unitise/reverse, enforcement ordinal and reduce   |
+|  [02]   | `BooleanParameter` / `ConnectionParameter`      | parameter     | negation and null policy, connection collection   |
+|  [03]   | `IntegerParameter` / `NumberParameter`          | parameter     | index policy plus `UiInteger`/`UiNumber` hints    |
+|  [04]   | `NumericParameter` / `CurveParameter`           | parameter     | exotic filtering, domain normalisation and flip   |
+|  [05]   | `SurfaceParameter` / `TextParameter`            | parameter     | mesh admission, flavour, extensions, casing       |
+|  [06]   | `TextPatternParameter` / `LanguageParameter`    | parameter     | pattern kind and case, culture-code carrier       |
+|  [07]   | `IndexModifier` / `NumericFilter`               | enum          | integer indexing policy, exotic numeric admission |
+|  [08]   | `CurveParameter.NormalisationMethod`            | nested enum   | the domain rule surfaces and curves both read     |
 |  [09]   | `TextParameter.CasingBehaviour` / `TextFlavour` | enum          | casing projection and string-versus-file flavour  |
-|  [10]   | `TextPatternKind`                              | enum          | the pattern dialect a text-pattern pin matches    |
+|  [10]   | `TextPatternKind`                               | enum          | the pattern dialect a text-pattern pin matches    |
 
 [PUBLIC_TYPE_SCOPE]: tree data algebra and conversion
 
@@ -94,7 +94,7 @@ The `IAttributes` contract itself is `api-gh2-document.md`'s; this partition hol
 |  [06]   | `PostProcess(Solution, FleetingCustomData)`                 | lifecycle | close the solution-scoped process  |
 |  [07]   | `PostProcessTree(ITree, int, Solution)`                     | lifecycle | finalize one output tree           |
 |  [08]   | `ComputeInternal(Solution, CallStack)`                      | lifecycle | drive internal computation         |
-|  [09]   | `Parameters` / `Connectivity` / `ConnectivityComplete`      | state     | expose pins and wire connectivity  |
+|  [09]   | `Parameters`                                                | state     | expose the component's pin roster  |
 |  [10]   | `Threading`                                                 | state     | select component processing policy |
 |  [11]   | `SupportsVariableParameters`                                | gate      | expose variable-pin capability     |
 |  [12]   | `CanCreateParameter(Side, int)` / `CanRemoveParameter(...)` | gate      | admit a variable-pin change        |
@@ -156,31 +156,35 @@ The `IAttributes` contract itself is `api-gh2-document.md`'s; this partition hol
 |  [19]   | `GetItemWithSurfaceAssistant(int, out object, out ...)`        | assisted get | value read paired with its surface service |
 
 - `IDataAccess.Get*`: each returns `bool`, the out-value binding only when the read succeeds.
+- `IDataAccess` context and iteration columns: `Index`, `Iterations`, `CustomData`, `Callstack`, `Solution`, `CountIn`/`CountOut`, `CoverageIn`/`CoverageOut`, `NameIn`/`NameOut`, `AccessIn`/`AccessOut`, `HasInputChanged(int)`, `GetNull(int)`/`GetNullArray`, `GetMeta(int)`/`GetMetaArray`, `GetIndex`/`GetIndices`/`GetIndexing`.
+- `IDataAccess` dedicated typed reads own their conversion: `GetTransform(int, out Transform)` and `GetQuaternion(int, out Quaternion)` sit beside the generic path, and the `Rectify*` (`Domain`/`Enum`/`LessThan`/`LessThanOrEqualTo`/`NonNegative`/`Positive`) and `Verify*` (assistant, domain, twig-count, coincidence, colinearity, parallelism, zero/unit-vector) families gate reads without a hand-rolled guard ladder.
+- `Connectivity`/`ConnectivityComplete` exist on no public `Component` surface and `ComputeInternal(Solution, CallStack)` is a nonpublic virtual — host plumbing, never an override seam.
+- Adder rosters run wide: `InputAdder` 55 `Add*` members, `OutputAdder` 54, `ModularInputAdder` 94 (typed + `AddHidden*` twins), `ModularOutputAdder` 96; `ModularList.Show(int[, ActionList])`/`Hide(int[, ActionList])` drive modular visibility.
 
 [ENTRYPOINT_SCOPE]: component-attribute overrides and resize state (`Grasshopper2.Doc`, `Grasshopper2.Doc.Attributes`)
 
-| [INDEX] | [SURFACE]                                                                             | [SHAPE]  | [CAPABILITY]                                     |
-| :-----: | :------------------------------------------------------------------------------------ | :------- | :------------------------------------------------ |
-|  [01]   | `Attributes<T>.Pivot` / `Bounds` / `AggregateBounds` / `Owner` / `Snappable`           | property | placement, extent, and owner state                |
-|  [02]   | `Attributes<T>.IsCoincident(PointF)` / `IsContained` / `Intersects(RectangleF)`        | virtual  | hit, containment, and marquee tests               |
-|  [03]   | `Attributes<T>.ShowTooltipAt(PointF)` / `HandleDoubleClick(PointF)`                    | virtual  | tooltip and double-click verdicts                 |
-|  [04]   | `Attributes<T>.PivotMoved(PointF, PointF)` / `Move(float, float)`                      | virtual  | relocation hook and mutation                      |
-|  [05]   | `Attributes<T>.Layout(Shape)` / `InvalidateLayout()`                                   | abstract | the two members every concrete base must supply   |
-|  [06]   | `Attributes<T>.Draw(Context, Skin)` / `protected Draw(Context, Skin, Capsule)`         | virtual  | outer pin-aware pass and the inner capsule pass   |
-|  [07]   | `ComponentAttributes(Component owner)` / `CentralBox` / `LabelBox` / `ContentBox`      | ctor     | component construction and its three layout boxes |
-|  [08]   | `ComponentAttributes.Responder -> Responses`                                           | property | the private nested responder subclasses hook      |
-|  [09]   | `ComponentAttributes.LayoutBounds(Shape)` / `LayoutCentralBox` / `Layout{Input,Output}Parameters` | virtual | the four layout stages                    |
-|  [10]   | `ComponentAttributes.Draw(Context, Skin, Capsule)`                                     | sealed   | sealed override — decoration is the only seam     |
-|  [11]   | `ComponentAttributes.DrawForegroundDecorations(Context, Skin, Capsule, Shade)`         | virtual  | the post-content decoration seam                  |
-|  [12]   | `DrawBackground` / `DrawContent` / `DrawIcon` / `DrawName` / `DrawLabel` / `DrawUserName` | virtual | per-region paint overrides                     |
-|  [13]   | `ShowTentativeInputs` / `ShowTentativeOutputs` / `TentativeInputs` / `TentativeOutputs` | property | animated ZUI grip advertisement                  |
-|  [14]   | `ResizableAttributes<T>(T owner, SizeF minimumSize, SizeF maximumSize)`                | ctor     | orders min/max and restores persisted size        |
-|  [15]   | `ResizableAttributes<T>.Size` / `MinimumSize` / `MaximumSize`                          | property | clamped, rounded, persisted extent                |
-|  [16]   | `ResizableAttributes<T>.InvalidateLayout()`                                            | virtual  | empty base body — the size-commit observation hook |
-|  [17]   | `ResizableAttributes<T>.Layout(Shape)`                                                 | virtual  | lays out pins only; no capsule boxes              |
-|  [18]   | `ResizableAttributes<T>.Responder -> Responses`                                        | property | the private nested resize responder               |
-|  [19]   | `const int ResizableAttributes<T>.EdgeSize = 6`                                        | constant | the edge-grab and cursor padding in pixels        |
-|  [20]   | `ICursorAwareAttributes.CursorAt(PointF)`                                              | explicit | `ResizableAttributes<T>` implements it explicitly |
+| [INDEX] | [SURFACE]                                                                           | [SHAPE]  | [CAPABILITY]                         |
+| :-----: | :---------------------------------------------------------------------------------- | :------- | :----------------------------------- |
+|  [01]   | `Attributes<T>.{Pivot, Bounds, AggregateBounds, Owner, Snappable}`                  | property | placement, extent, and owner state   |
+|  [02]   | `Attributes<T>.IsCoincident(PointF)` / `IsContained` / `Intersects(RectangleF)`     | virtual  | hit, containment, and marquee tests  |
+|  [03]   | `Attributes<T>.ShowTooltipAt(PointF)` / `HandleDoubleClick(PointF)`                 | virtual  | tooltip and double-click verdicts    |
+|  [04]   | `Attributes<T>.PivotMoved(PointF, PointF)` / `Move(float, float)`                   | virtual  | relocation hook and mutation         |
+|  [05]   | `Attributes<T>.Layout(Shape)` / `InvalidateLayout()`                                | abstract | required on every concrete base      |
+|  [06]   | `Attributes<T>.Draw(Context, Skin)` / `protected Draw(Context, Skin, Capsule)`      | virtual  | outer pin-aware + inner capsule pass |
+|  [07]   | `ComponentAttributes(Component owner)` / `{Central, Label, Content}Box`             | ctor     | construction + three layout boxes    |
+|  [08]   | `ComponentAttributes.Responder -> Responses`                                        | property | private nested responder, hook point |
+|  [09]   | `ComponentAttributes.Layout{Bounds, CentralBox, InputParameters, OutputParameters}` | virtual  | the four layout stages               |
+|  [10]   | `ComponentAttributes.Draw(Context, Skin, Capsule)`                                  | sealed   | sealed; decoration is the only seam  |
+|  [11]   | `ComponentAttributes.DrawForegroundDecorations(Context, Skin, Capsule, Shade)`      | virtual  | the post-content decoration seam     |
+|  [12]   | `Draw{Background, Content, Icon, Name, Label, UserName}`                            | virtual  | per-region paint overrides           |
+|  [13]   | `ShowTentative{Inputs, Outputs}` / `Tentative{Inputs, Outputs}`                     | property | animated ZUI grip advertisement      |
+|  [14]   | `ResizableAttributes<T>(T owner, SizeF minimumSize, SizeF maximumSize)`             | ctor     | orders min/max, restores size        |
+|  [15]   | `ResizableAttributes<T>.{Size, MinimumSize, MaximumSize}`                           | property | clamped, rounded, persisted extent   |
+|  [16]   | `ResizableAttributes<T>.InvalidateLayout()`                                         | virtual  | empty base body; size-commit hook    |
+|  [17]   | `ResizableAttributes<T>.Layout(Shape)`                                              | virtual  | lays out pins only; no capsule boxes |
+|  [18]   | `ResizableAttributes<T>.Responder -> Responses`                                     | property | the private nested resize responder  |
+|  [19]   | `const int ResizableAttributes<T>.EdgeSize = 6`                                     | constant | edge-grab and cursor padding, pixels |
+|  [20]   | `ICursorAwareAttributes.CursorAt(PointF)`                                           | explicit | explicit on `ResizableAttributes<T>` |
 
 - `ResizableAttributes<T> : Attributes<T>` directly, NOT `ComponentAttributes` — so `LayoutBounds`, `DrawForegroundDecorations`, and the three layout boxes exist only on the component base, and a resizable shell hooks `Layout(Shape)` and `protected Draw(Context, Skin, Capsule)` instead, reading its shade as `skin.Shades[Owner]`.
 - `Size`'s setter is the whole commit: it clamps to `MinimumSize`/`MaximumSize`, rounds, writes `Owner.CustomValues.Set("Attr.Size", value)`, re-frames `Bounds` from `Pivot`, then calls the empty `InvalidateLayout()` — so overriding `InvalidateLayout` is the sanctioned committed-size hook and it fires during base construction before a subclass field is assigned.
@@ -189,20 +193,34 @@ The `IAttributes` contract itself is `api-gh2-document.md`'s; this partition hol
 
 [ENTRYPOINT_SCOPE]: writable parameter modifiers (`Grasshopper2.Parameters.Standard`)
 
-| [INDEX] | [SURFACE]                                                                       | [SHAPE]  | [CAPABILITY]                                |
-| :-----: | :------------------------------------------------------------------------------- | :------- | :-------------------------------------------- |
-|  [01]   | `VectorParameter.UnitiseVectors` / `ReverseVectors`                              | `bool`   | unit-length and sense projection             |
-|  [02]   | `AngleParameter.EnforceKind` / `ReduceAngles`                                    | `int`, `bool` | untyped 0/1/2/3 unit ordinal, turn reduction |
-|  [03]   | `BooleanParameter.NegateValues` / `ReplaceNullsWithTrue` / `ReplaceNullsWithFalse` | `bool` | negation and the two null substitutions      |
-|  [04]   | `ConnectionParameter.DoCollect`                                                  | `bool`   | collect connected source ids                 |
-|  [05]   | `IntegerParameter.IsIndex` / `Indexing` / `Hint`                                 | `bool`, `IndexModifier`, `UiInteger` | index posture, wrap policy, UI hint |
-|  [06]   | `NumberParameter.Hint`                                                           | `UiNumber` | slider domain and precision hint           |
-|  [07]   | `NumericParameter.ExoticFilter`                                                  | `NumericFilter` | admitted exotic numeric families      |
-|  [08]   | `CurveParameter.NormaliseDomains` / `FlipCurves`                                 | `NormalisationMethod`, `bool` | domain rule and sense flip |
-|  [09]   | `SurfaceParameter.AcceptMeshes` / `NormaliseDomains` / `FlipSurfaces`            | `bool`, `CurveParameter.NormalisationMethod`, `bool` | mesh admission, domain, flip |
-|  [10]   | `TextParameter.Flavour` / `FileExtensions` / `WatchFiles` / `Casing` / `CleanWhitespace` | `TextFlavour`, `string[]`, `bool`, `CasingBehaviour`, `bool` | the five text columns |
-|  [11]   | `TextPatternParameter.PatternKind` / `CaseSensitive`                             | `TextPatternKind`, `bool` | pattern dialect and case policy   |
-|  [12]   | `IParameter.PersistentDataWeak`                                                  | `ITree`  | the erased persisted-tree slot               |
+| [INDEX] | [SURFACE]                                | [SHAPE]                              | [CAPABILITY]                     |
+| :-----: | :--------------------------------------- | :----------------------------------- | :------------------------------- |
+|  [01]   | `VectorParameter.UnitiseVectors`         | `bool`                               | unit-length projection           |
+|  [02]   | `VectorParameter.ReverseVectors`         | `bool`                               | sense projection                 |
+|  [03]   | `AngleParameter.EnforceKind`             | `int`                                | untyped 0/1/2/3 unit ordinal     |
+|  [04]   | `AngleParameter.ReduceAngles`            | `bool`                               | turn reduction                   |
+|  [05]   | `BooleanParameter.NegateValues`          | `bool`                               | negation                         |
+|  [06]   | `BooleanParameter.ReplaceNullsWithTrue`  | `bool`                               | null substitution to true        |
+|  [07]   | `BooleanParameter.ReplaceNullsWithFalse` | `bool`                               | null substitution to false       |
+|  [08]   | `ConnectionParameter.DoCollect`          | `bool`                               | collect connected source ids     |
+|  [09]   | `IntegerParameter.IsIndex`               | `bool`                               | index posture                    |
+|  [10]   | `IntegerParameter.Indexing`              | `IndexModifier`                      | wrap policy                      |
+|  [11]   | `IntegerParameter.Hint`                  | `UiInteger`                          | integer UI hint                  |
+|  [12]   | `NumberParameter.Hint`                   | `UiNumber`                           | slider domain and precision hint |
+|  [13]   | `NumericParameter.ExoticFilter`          | `NumericFilter`                      | admitted exotic numeric families |
+|  [14]   | `CurveParameter.NormaliseDomains`        | `NormalisationMethod`                | curve domain rule                |
+|  [15]   | `CurveParameter.FlipCurves`              | `bool`                               | curve sense flip                 |
+|  [16]   | `SurfaceParameter.AcceptMeshes`          | `bool`                               | mesh admission                   |
+|  [17]   | `SurfaceParameter.NormaliseDomains`      | `CurveParameter.NormalisationMethod` | surface domain rule              |
+|  [18]   | `SurfaceParameter.FlipSurfaces`          | `bool`                               | surface sense flip               |
+|  [19]   | `TextParameter.Flavour`                  | `TextFlavour`                        | text flavour                     |
+|  [20]   | `TextParameter.FileExtensions`           | `string[]`                           | extension filter                 |
+|  [21]   | `TextParameter.WatchFiles`               | `bool`                               | file-watch toggle                |
+|  [22]   | `TextParameter.Casing`                   | `CasingBehaviour`                    | casing policy                    |
+|  [23]   | `TextParameter.CleanWhitespace`          | `bool`                               | whitespace cleanup               |
+|  [24]   | `TextPatternParameter.PatternKind`       | `TextPatternKind`                    | pattern dialect                  |
+|  [25]   | `TextPatternParameter.CaseSensitive`     | `bool`                               | case policy                      |
+|  [26]   | `IParameter.PersistentDataWeak`          | `ITree`                              | erased persisted-tree slot       |
 
 - every row above is a `public { get; set; }` auto-property on the concrete parameter, so a pin modifier is assigned after the adder returns and never through a declaration argument; `TextParameter.WatchFiles` alone initializes `true`.
 - `AngleParameter.EnforceKind` is a raw host `int` with NO host enum behind it — the persisted `Integer32("EnforceKind")` and the host's own `== 1`/`== 2`/`== 3` toolbar reads ARE the protocol, so the ordinals `0` none, `1` degrees, `2` radians, `3` turns are host wire constants and a boundary vocabulary typing them carries them as an `int` column.

@@ -7,6 +7,7 @@
 - [02]-[SCOPE]: acquisition rows over the live editor, canvas, and document chain
 - [03]-[OPERATOR]: generated session commands, repaint policy, monotonic acknowledgements, and bounded projections
 - [04]-[CACHE]: weak document identity, typed document-tagged cache slots, and entry-policy rows
+- [05]-[ROOT]: the plugin-root cache composition seam discharging the app-root registration obligations
 
 ## [02]-[SCOPE]
 
@@ -167,7 +168,7 @@ public static class GhSession {
                 revealCase: static (k, c) => EtoDispatch.Run(body: () =>
                     k.Catch(body: () => Fin.Succ(Editor.ShowEditor(
                         createVisible: true,
-                        layoutRules: c.Layout.MatchUnsafe(Some: static rules => rules, None: static () => null))))
+                        layoutRules: c.Layout.Match<string?>(Some: static rules => rules, None: static () => null))))
                     .Map(_ => (Operation: SessionOp.RevealCase.SelfOp, Deferred: false)), key: k),
                 executeCase: static (k, c) =>
                     from target in k.Need(c.Target)
@@ -220,7 +221,7 @@ public static class GhSession {
 - Law: cache payloads are detached serializable values such as encoded raster bytes, layout measurements, or parse receipts. A `GhScope`, live host object, Eto bitmap, lease, or delegate never becomes a cache value; a raster past the substrate payload bound returns uncached silently, so oversized canvas captures select `Resident` and never rely on L2.
 - Law: `gh-doc:{documentId:N}` is the cache-observability dimension — `HybridCacheOptions.ReportTagMetrics` surfaces per-tag hit/miss on the `HybridCache` EventSource keyed by exactly this tag, wired at the composition root; this boundary mints the tag and emits nothing itself, and `Shell/telemetry.md` records the custody rows and the app-root obligation set.
 - Law: every `document.state` fact invalidates its document tag. Its fact shape carries document identity but no before/after state, so this boundary invents no closing-only distinction.
-- Boundary: the composition root supplies `HybridCache` and owns the serializer, payload-bound, and tag-metric registrations the overlay records; `ValueTask` remains the package carrier, and a kernel consumer bridges at its own seam.
+- Boundary: the composition root supplies `HybridCache` through `[05]`'s `PlatformCache.Compose`, which owns the serializer, payload-bound, and tag-metric registrations the overlay records; `ValueTask` remains the package carrier, and a kernel consumer bridges at its own seam.
 - Growth: a new cached concern is one `CacheSlot` value at the call site; a new invalidation axis is one exact tag value; a new residency posture is one `SlotPolicy` row.
 
 ```csharp signature
@@ -232,11 +233,15 @@ using Rasm.Csp;
 namespace Rasm.Grasshopper.Shell;
 
 // --- [TYPES] --------------------------------------------------------------------------------
+// The 64-column ceiling keeps the composed key (`gh:` + 32 hex + 2 separators + slot) far below the root's
+// MaximumKeyLength, because an over-length key routes straight to the factory and silently uncaches the slot.
 [ValueObject<string>]
 public readonly partial struct CacheSlot {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         value = value?.Trim() ?? string.Empty;
-        validationError = value.Length > 0 ? null : new ValidationError(message: "CacheSlot requires a non-blank identity.");
+        validationError = value.Length is > 0 and <= 64
+            ? null
+            : new ValidationError(message: "CacheSlot requires a non-blank identity of at most 64 characters.");
     }
 }
 
@@ -307,7 +312,56 @@ flowchart LR
     Events -->|"exact tag invalidation"| Cache[("SessionCache")]
 ```
 
-## [05]-[RESEARCH]
+## [05]-[ROOT]
+
+- Owner: `PlatformCache` — the GH plugin app-root cache composition seam, the cache twin of `Platform/composition.md`'s `PlatformTelemetry`: one registration block per plugin root discharging the `libs/csharp/.api/api-hybrid-cache.md` `Rasm.Grasshopper` obligations, so `[04]`'s consumers read a substrate the root has actually provisioned.
+- Entry: `PlatformCache.Compose(IServiceCollection services, long rasterCeiling)` → `IServiceCollection` — the one registration block; the ceiling is the byte size of the largest admitted canvas raster, supplied by the root as a policy value.
+- Law: codec admission PRECEDES `AddHybridCache` — the substrate seeds `TimeProvider.System`, an `IMemoryCache`, a JSON factory, and the inbuilt `string`/`byte[]` codecs through try-add, so the encoded-raster codec registered ahead of the seed is the one that binds; `ImmutableArray<byte>` is the boundary's raster carrier and ships no inbuilt codec, which is exactly the gap this admission closes.
+- Law: `MaximumPayloadBytes` sizes against the raster ceiling because an over-quota payload logs and returns uncached silently — an undersized cap disables raster caching with no fault; `MaximumKeyLength` holds the substrate default, which the `CacheSlot` 64-column ceiling already rides far below, so no composed key can reach the silent-bypass floor.
+- Law: `ReportTagMetrics` arms the per-document hit/miss dimension — the `gh-doc:{documentId:N}` tag `[04]` mints reads off the `HybridCache` EventSource at the root, and no folder instrument doubles it.
+- Law: no L2 registers here — the plugin root runs L1-only by construction (the substrate drops a plain in-process `MemoryDistributedCache` behind the default L1), so `Resident`'s L2 bypass is belt-over-braces and `Recency`'s L2 re-read arm engages only in a root that later binds a real `IBufferDistributedCache`.
+- Boundary: this cluster is app-root material exactly as `PlatformTelemetry` is — the boundary's packages never reference `Microsoft.Extensions.DependencyInjection`, and the root that composes this block is the same root that admits the meter and the redactor.
+- Packages: app root only — Microsoft.Extensions.Caching.Hybrid (`AddHybridCache`, `IHybridCacheBuilder.AddSerializer`, `HybridCacheOptions`), Microsoft.Extensions.DependencyInjection, BCL inbox (`IBufferWriter<byte>`, `ReadOnlySequence<byte>`, `ImmutableCollectionsMarshal`).
+- Growth: a new cached carrier type is one codec registration ahead of the seed; a new option pin is one property row in the one options lambda.
+
+```csharp signature
+// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+using System.Buffers;
+using System.Collections.Immutable;
+using System.Runtime.InteropServices;
+using Microsoft.Extensions.Caching.Hybrid;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace Rasm.Grasshopper.Shell;
+
+// --- [COMPOSITION] --------------------------------------------------------------------------
+// App-root seam: the plugin root transcribes this block; no package source references DI or provisions a cache.
+public static class PlatformCache {
+    // ImmutableArray<byte> carries every encoded raster the boundary caches and the substrate ships no codec
+    // for it; the wrapper is zero-copy on both legs — the write leg spans the array, the read leg re-wraps the
+    // materialized buffer without a second copy.
+    private sealed class RasterCodec : IHybridCacheSerializer<ImmutableArray<byte>> {
+        public ImmutableArray<byte> Deserialize(ReadOnlySequence<byte> source) =>
+            ImmutableCollectionsMarshal.AsImmutableArray(source.ToArray());
+
+        public void Serialize(ImmutableArray<byte> value, IBufferWriter<byte> target) =>
+            target.Write(value.AsSpan());
+    }
+
+    public static IServiceCollection Compose(IServiceCollection services, long rasterCeiling) {
+        ArgumentNullException.ThrowIfNull(services);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(rasterCeiling);
+        services.AddSingleton<IHybridCacheSerializer<ImmutableArray<byte>>>(new RasterCodec());
+        services.AddHybridCache(options => {
+            options.MaximumPayloadBytes = rasterCeiling;
+            options.ReportTagMetrics = true;
+        });
+        return services;
+    }
+}
+```
+
+## [06]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.

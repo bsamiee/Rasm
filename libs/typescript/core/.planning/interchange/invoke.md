@@ -62,7 +62,7 @@ import { TenantContext } from "../value/identity.ts"
 import { Ingress } from "../value/schema.ts"
 import { Carrier } from "./carrier.ts"
 import { FaultDetail, Hops, Parity, WireFault } from "./codec.ts"
-import { Proto } from "./format.ts"
+import { Json, Proto } from "./format.ts"
 
 const _edge = (reason: Hops.Reason): FaultDetail.Hop =>
   new FaultDetail.Hop({ site: "<local-edge>", reason, elapsed: Duration.zero })
@@ -279,7 +279,7 @@ class Dial extends Effect.Service<Dial>()("@rasm/ts/core/Dial", {
 - Law: the descriptor walk seals through `_sdk(service)` as a DECODE — `Schema.declare` yields a guard schema and nothing else, so the seal is `Schema.decodeUnknown` on the rail whose `ParseError` the bind signature already declares; the predicate proves every descriptor method has a constructed function before the mapped `Sdk<T>` exists, and no assertion, non-null pin, `.make` (which a declared schema does not carry), or client-member index survives the assembly boundary.
 - Growth: a new method appears in the SDK at regeneration with zero edits here; a method gaining idempotency is one budget row at the caller; a new outcome dimension widens the `Exit` fold's anchored union, never an arm.
 - Boundary: the emitted `DescService` consts are build artifacts the app's capability modules import — the composition root hands the same consts to the contract gate and sequences `DescriptorGate.admitted("CapabilityDescriptorWire")` ahead of `bind`, so RPC method drift refuses before any client pins; the `CapabilityDescriptorWire` census row homes here; `Budget` rows are `value/fault.ts` vocabulary; every instrument mounts from its `observe/convention` row, so this plane carries no constructor pick and no bucket ladder — the interchange plane's one import of the vocabulary spine.
-- Packages: `@connectrpc/connect` (`Client`); `@bufbuild/protobuf` (`DescService`); `effect` (`Cause`, `Effect`, `Exit`, `Match`, `Metric`, `Option`, `Schema`, `Stream`, `pipe`); `./codec.ts` (`Parity`, `WireFault`); `./format.ts` (`Proto`); `../observe/convention.ts` (`Convention`); `../value/contentKey.ts` (`ContentKey`, `Digest`); `../value/fault.ts` (`Budget`).
+- Packages: `@connectrpc/connect` (`Client`); `@bufbuild/protobuf` (`DescService`); `effect` (`Cause`, `Effect`, `Exit`, `Match`, `Metric`, `Option`, `Schema`, `Stream`, `pipe`); `./codec.ts` (`Parity`, `WireFault`); `./format.ts` (`Json`, `Proto`); `../observe/convention.ts` (`Convention`); `../value/contentKey.ts` (`ContentKey`, `Digest`); `../value/fault.ts` (`Budget`).
 
 ```typescript signature
 class CapabilityDescriptor extends Schema.Class<CapabilityDescriptor>("CapabilityDescriptor")({
@@ -288,10 +288,10 @@ class CapabilityDescriptor extends Schema.Class<CapabilityDescriptor>("Capabilit
   key: Digest.FromBytes,
   minted: Schema.DateTimeUtc,
 }) {
-  static readonly FromBytes: Schema.Schema<CapabilityDescriptor, Uint8Array> = Proto.family(
-    Proto.suite.CapabilityDescriptorWire,
-    CapabilityDescriptor,
-  )
+  // the pinned preimage is `DescriptorPin.Of`'s ordinal-ordered fixed-field JSON document beside its content
+  // address ([02.12], `canonical-json` + `digest`), so the byte row is the census json engine and the pin
+  // compares over exactly the octets this schema reads — a proto row here re-framed the document it addresses
+  static readonly FromBytes: Schema.Schema<CapabilityDescriptor, Uint8Array> = Json.schema(CapabilityDescriptor)
   static readonly admit = (
     octets: Uint8Array,
     pinned: ContentKey,
@@ -493,8 +493,8 @@ const Capability: {
 - Law: the msgpack row is the command lane's standing frame — the `Hlc` halves are `bigint` and JSON owns no bigint spelling, so both ndjson rows are legal only over JSON-safe encoded schemas on both directions; `ndjson-text` is `Ndjson.duplexSchemaString` over the string channel, the text-frame lane for text-only transports, under the same JSON-safety law — a serving edge that must frame commands as text lands its JSON stamp spelling first, and swapping a row under a bigint-carrying receipt is the precision defect the frame discriminant cannot absorb.
 - Law: the verb correlation seals before key erasure — `_make` compiles each mapped row into one uniform closure that captures its body decoder and handler together; the runtime table stores those closures, so lookup needs neither an assertion nor a non-null pin and cannot pair one verb's decoder with another verb's handler.
 - Growth: a new verb is one row in the app's table — body schema, receipt schema, handler — with the outbound union and the emission counter inheriting it; a new outcome kind is one tagged case every exhaustive consumer breaks on; a fourth frame row is one `_frames` row.
-- Boundary: the `CommandPayloadWire`/`SupportCaptureWire` census rows home here; the availability vocabulary and the total `admits` fallback are `state/evidence.ts`'s; the socket Layer and the serving loop are the runtime wave's.
-- Packages: `@effect/platform` (`MsgPack`, `Ndjson`, `Socket`); `effect` (`Cause`, `Context`, `Data`, `Effect`, `Exit`, `HashMap`, `Metric`, `Option`, `Schema`, `Scope`, `Struct`); `./codec.ts` (`WireFault`); `./format.ts` (`Proto`); `../observe/convention.ts` (`Convention`); `../value/clock.ts` (`Hlc`); `../value/identity.ts` (`TenantContext`); `../state/evidence.ts` (`Availability`).
+- Boundary: the `CommandPayloadWire` census row homes here; `SupportCapture` carries NO census row and no family name — it is a verb body this branch mints and reads, never a peer crossing, and the AppHost `SupportCaptureWire` it once wore is a different shape running the other direction (that producer's flattened bundle export, landed at `codec` under the `json` arm). The availability vocabulary and the total `admits` fallback are `state/evidence.ts`'s; the socket Layer and the serving loop are the runtime wave's.
+- Packages: `@effect/platform` (`MsgPack`, `Ndjson`, `Socket`); `effect` (`Cause`, `Context`, `Data`, `Effect`, `Exit`, `HashMap`, `Metric`, `Option`, `Schema`, `Scope`, `Struct`); `./codec.ts` (`WireFault`); `./format.ts` (`Json`, `Proto`); `../observe/convention.ts` (`Convention`); `../value/clock.ts` (`Hlc`); `../value/identity.ts` (`TenantContext`); `../state/evidence.ts` (`Availability`).
 
 ```typescript signature
 class CommandPayload extends Schema.Class<CommandPayload>("CommandPayload")({
@@ -503,10 +503,9 @@ class CommandPayload extends Schema.Class<CommandPayload>("CommandPayload")({
   tenant: TenantContext,
   stamp: Hlc,
 }) {
-  static readonly FromBytes: Schema.Schema<CommandPayload, Uint8Array> = Proto.family(
-    Proto.suite.CommandPayloadWire,
-    CommandPayload,
-  )
+  // the AppUi shell mints this payload as source-generated JSON under its own camelCase Strict wire law and
+  // publishes no descriptor for it, so the byte row is the census json engine like every other AppUi family
+  static readonly FromBytes: Schema.Schema<CommandPayload, Uint8Array> = Json.schema(CommandPayload)
 }
 
 type Dispatched<A> = Data.TaggedEnum<{
@@ -538,13 +537,12 @@ class SupportCapture extends Schema.Class<SupportCapture>("SupportCapture")({
   at: Schema.DateTimeUtc,
 }) {
   static readonly Receipt: typeof SupportReceipt = SupportReceipt
-  static readonly FromBytes: Schema.Schema<SupportCapture, Uint8Array> = Proto.family(
-    Proto.suite.SupportCaptureWire,
-    SupportCapture,
-  )
-  static readonly captured = (octets: Uint8Array): Effect.Effect<SupportReceipt, ParseResult.ParseError, SupportIntake> =>
+  // No `FromBytes` and no wire family: this shape is the support VERB'S BODY, so the verb row's body schema
+  // decodes it off whatever frame the channel already carries, exactly like every other verb on the table. The
+  // deleted form bound `Proto.suite.SupportCaptureWire` — a name the AppHost export projection owns and a
+  // descriptor no `.proto` declares — so it decoded a peer's family name against bytes nobody writes.
+  static readonly captured = (report: SupportCapture): Effect.Effect<SupportReceipt, never, SupportIntake> =>
     Effect.gen(function* () {
-      const report = yield* Schema.decodeUnknown(SupportCapture.FromBytes)(octets)
       const intake = yield* SupportIntake
       return yield* intake.deliver(report)
     })

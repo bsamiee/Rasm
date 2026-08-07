@@ -35,5 +35,9 @@
         <Using Include="Rhino.Render.ChangeQueue" Alias="Cq" />
         <Using Include="Rhino.DocObjects.Font" Alias="Font" />
         <Using Include="Eto.Drawing.Matrix" Alias="Matrix" />
+        <Using Include="Rasm.Rhino.Document.Fact&lt;Rasm.Rhino.Annotation.DraftSlot, Rasm.Rhino.Annotation.DraftBody&gt;" Alias="DraftFact" />
+        <Using Include="Rasm.Rhino.Document.FactStream&lt;Rasm.Rhino.Annotation.DraftSlot, Rasm.Rhino.Annotation.DraftBody&gt;" Alias="DraftReceipt" />
+        <Using Include="Rasm.Rhino.Document.Fact&lt;Rasm.Rhino.Blocks.BlockSlot, Rasm.Rhino.Blocks.BlockBody&gt;" Alias="BlockFact" />
+        <Using Include="Rasm.Rhino.Document.FactStream&lt;Rasm.Rhino.Blocks.BlockSlot, Rasm.Rhino.Blocks.BlockBody&gt;" Alias="BlockReceipt" />
     </ItemGroup>
 </Project>

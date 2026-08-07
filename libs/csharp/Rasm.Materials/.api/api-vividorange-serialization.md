@@ -34,12 +34,12 @@
 
 `UnitsNetBaseJsonConverter<T>` roots the converter family over the `ValueUnit`/`ExtendedValueUnit` DTO model and the `RegisterCustomType` registry.
 
-| [INDEX] | [SYMBOL]                           | [TYPE_FAMILY] | [CAPABILITY]                                    |
-| :-----: | :--------------------------------- | :------------ | :---------------------------------------------- |
-|  [01]   | `UnitsNetBaseJsonConverter<T>`     | class         | DTO base, decimal-precision path, type registry |
-|  [02]   | `AbbreviatedUnitsConverter`        | class         | compact `"value unit"` form, cache-resolved     |
-|  [03]   | `UnitsNetIQuantityJsonConverter`   | class         | object `{ Value, Unit }` read and write         |
-|  [04]   | `UnitsNetIComparableJsonConverter` | class         | read-only `IComparable` object form             |
+| [INDEX] | [SYMBOL]                           | [TYPE_FAMILY]  | [CAPABILITY]                                    |
+| :-----: | :--------------------------------- | :------------- | :---------------------------------------------- |
+|  [01]   | `UnitsNetBaseJsonConverter<T>`     | abstract class | DTO base, decimal-precision path, type registry |
+|  [02]   | `AbbreviatedUnitsConverter`        | class          | compact `"value unit"` form, cache-resolved     |
+|  [03]   | `UnitsNetIQuantityJsonConverter`   | class          | object `{ Value, Unit }` read and write         |
+|  [04]   | `UnitsNetIComparableJsonConverter` | class          | read-only `IComparable` object form             |
 
 ## [03]-[ENTRYPOINTS]
 

@@ -24,9 +24,12 @@
 - Law: shell registration is one-shot and host-driven, never caller-timed — `RenderPlugIn.RegisterRenderPanels`/`RegisterRenderTabs` hand the registrars in and every row registered after those callbacks return is silently ignored, so `Registry.Run` only ARMS the declaration and `RenderShell.Drain` inside each override is what registers; a second arming after a drain refuses rather than seating rows the host will discard.
 - Law: `RenderPanels.RegisterPanel` and `RenderTabs.RegisterTab` are instance members on host-minted registrars with internal constructors, so no page mints one — `ShellRegistrar` absorbs whichever instance the override was handed and nothing else.
 - Law: registration composes only the engine-carrying overloads — the engine-less pair is host-obsolete and forwards the plug-in id, the place-less panel form forwards `Left`, so `ShellRow.Seat` resolves both defaults and issues exactly one registrar call per row.
-- Law: a seated row is resolvable — `RenderShell.Resolve<TBody>` folds the two static `FromRenderSessionId` resolvers and the side-pane id behind the armed row that owns `TBody`, and `SessionIdFromTab` is not a second fact: the host defines it as `SidePaneUiIdFromTab`, so one `Option<Guid>` carries it and a panel seat carries none.
+- Law: a seated row is resolvable — `RenderShell.Resolve<TBody>` folds the two static `FromRenderSessionId` resolvers and the side-pane id behind the armed row that owns `TBody`. The host declares TWO tab-id members and they carry ONE fact: `SessionIdFromTab`'s entire body is `return SidePaneUiIdFromTab(tab);`, so `ShellSeat<TBody>` holds one `Option<Guid>` — a second field would mirror the identical value under a second name — and a panel seat carries none.
 - Boundary: the host also discovers serializers through `RenderPlugIn.RenderContentSerializers()` and the shell registrars through its two register overrides; the adapter shape is this page's, the plug-in overrides that forward them are the plug-in's.
-- Law: `RhinoSettings` has one public constructor and it takes a native pointer, so the render-editor bridge is never minted here — `EditorBridge` wraps the `IRdkViewModel` the host hands a UI section and vends each payload by its `DataSource.ProviderIds` row, committing or discarding a write by that same id. `Registry.Read` borrows the settings payload for one callback and detaches `EditorFacts`; the live wrapper never crosses out, and `RhinoSettings.Dispose` clears only the managed pointer, so custody stays the host's.
+- Law: `RhinoSettings` has one public constructor and it takes a native pointer, so the render-editor bridge is never minted here — `EditorBridge` wraps the `IRdkViewModel` the host hands a UI section and vends each payload by its `DataSource.ProviderIds` row, committing or discarding a write by that same id. `Registry.Read` borrows the settings payload for one callback and detaches `EditorFacts`; the live wrapper never crosses out.
+- Law: the native behind an editor payload is always the host's; only the managed wrapper's finalizer registration is the borrow's, so release is an `EditorSlot` column and every current row releases. Host truth: `GetData` resolves each provider id through ONE static id→type dispatch shared by both managed controller families — the settings row vends `Rhino.Render.DataSources.RhinoSettings`, the selection and display rows vend `Rhino.Render.RenderContentCollection` minted through its non-owning `(nint)` constructor — and each wrapper's `Dispose` clears the managed pointer, suppresses the finalizer, and deletes NO native; an id outside the dispatch answers null, never a foreign carrier. A NEW row proves its own payload's disposal body before its release column is set, because a payload family whose wrapper owns its native would be destroyed under the host.
+- Law: `ContentUuidCatalog.Census` is built once and memoized — the ids are process-static host constants, so a `Find` reads the built value instead of re-reflecting the type and re-invoking one native getter per member.
+- Law: the seed grammar is fail-closed on both sides — a member name matching no token and one matching two are equally unclassifiable, each refusal names the member and its match count, and a rename the grammar cannot read fails the WHOLE census rather than answering `None` for a real built-in id; the repair is a token row, never a fallback bucket.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -67,21 +70,28 @@ public sealed record ContentUuidSeed(string Name, ContentKind Kind, ContentUuidR
     : IDetachedDocumentResult;
 
 public static class ContentUuidCatalog {
-    public static Fin<Seq<ContentUuidSeed>> Census(Op? key = null) {
-        Op op = key.OrDefault();
-        return from slots in op.Catch(() => Fin.Succ(toSeq(Slots())))
-               from _ in guard(!slots.IsEmpty, op.InvalidResult())
-               from seeds in slots.TraverseM(slot => Seed(slot, op)).As()
-               from __ in guard(seeds.Map(static seed => seed.Id).Distinct().Count == seeds.Count, op.InvalidResult())
-               select seeds;
-    }
+    // Every `ContentUuids` id is a process-static host constant over `RhRdkUuids_GetUuid`, so the census is built ONCE
+    // behind a lazy cell and every `Find` reads that value — the unmemoized form re-reflected the type and re-invoked one
+    // native getter per member on each lookup.
+    private static readonly Lazy<Fin<Seq<ContentUuidSeed>>> Seeds = new(
+        static () => Build(Op.Of(name: nameof(ContentUuidCatalog))),
+        LazyThreadSafetyMode.ExecutionAndPublication);
+
+    public static Fin<Seq<ContentUuidSeed>> Census() => Seeds.Value;
 
     public static Fin<Option<ContentUuidSeed>> Find(Guid id, Op? key = null) {
         Op op = key.OrDefault();
         return from _ in guard(id != Guid.Empty, op.InvalidInput()).ToFin()
-               from seeds in Census(op)
+               from seeds in Census()
                select seeds.Find(seed => seed.Id == id);
     }
+
+    private static Fin<Seq<ContentUuidSeed>> Build(Op op) =>
+        from slots in op.Catch(() => Fin.Succ(toSeq(Slots())))
+        from _ in guard(!slots.IsEmpty, op.InvalidResult())
+        from seeds in slots.TraverseM(slot => Seed(slot, op)).As()
+        from __ in guard(seeds.Map(static seed => seed.Id).Distinct().Count == seeds.Count, op.InvalidResult())
+        select seeds.Strict();
 
     // Host truth: every `ContentUuids` id is a get-only static PROPERTY over `RhRdkUuids_GetUuid`, so the field arm is the
     // total-coverage half rather than the live one; an EMPTY projection fails here, because a vacuously-passing duplicate
@@ -103,18 +113,37 @@ public static class ContentUuidCatalog {
             : Fin.Fail<Guid>(op.InvalidResult()))
         select new ContentUuidSeed(Name: slot.Name, Kind: kind, Role: role, Id: id);
 
+    // The grammar is a name-shape test over host member names, so it is fail-closed on BOTH sides: a name matching no token
+    // and a name matching two are equally unclassifiable, and each refusal names the member and its match count rather than
+    // failing anonymously. An ordered first-match ladder was the silent-misfile path — a member spelling two kinds would
+    // have taken whichever arm the ladder reached first. Consequence of a host rename or a new member the grammar cannot
+    // read: the WHOLE census refuses, deliberately, because a partially classified roster answers `None` for a real built-in
+    // id and reads as absence; the repair is a token row, never a fallback bucket.
+    private static readonly Seq<(string Suffix, ContentUuidRole Role)> RoleSuffixes = Seq(
+        ("CCI", ContentUuidRole.Cci),
+        ("Instance", ContentUuidRole.DefaultInstance),
+        ("Type", ContentUuidRole.Type),
+        ("Texture", ContentUuidRole.Type));
+
+    private static readonly Seq<(string Token, ContentKind Kind)> KindTokens = Seq(
+        ("Material", ContentKind.Material),
+        ("Environment", ContentKind.Environment),
+        ("Texture", ContentKind.Texture));
+
     private static Fin<ContentUuidRole> Role(string name, Op op) =>
-        name.EndsWith("CCI", StringComparison.Ordinal) ? Fin.Succ(ContentUuidRole.Cci)
-        : name.EndsWith("Instance", StringComparison.Ordinal) ? Fin.Succ(ContentUuidRole.DefaultInstance)
-        : name.EndsWith("Type", StringComparison.Ordinal)
-            || name.EndsWith("Texture", StringComparison.Ordinal) ? Fin.Succ(ContentUuidRole.Type)
-        : Fin.Fail<ContentUuidRole>(op.InvalidResult());
+        RoleSuffixes
+            .Filter(row => name.EndsWith(row.Suffix, StringComparison.Ordinal))
+            .Map(static row => row.Role)
+            .Distinct() switch {
+            [var only] => Fin.Succ(only),
+            var matched => Fin.Fail<ContentUuidRole>(op.InvalidResult(detail: $"role:{name}:{matched.Count}")),
+        };
 
     private static Fin<ContentKind> Kind(string name, Op op) =>
-        name.Contains("Material", StringComparison.Ordinal) ? Fin.Succ(ContentKind.Material)
-        : name.Contains("Environment", StringComparison.Ordinal) ? Fin.Succ(ContentKind.Environment)
-        : name.Contains("Texture", StringComparison.Ordinal) ? Fin.Succ(ContentKind.Texture)
-        : Fin.Fail<ContentKind>(op.InvalidResult());
+        KindTokens.Filter(row => name.Contains(row.Token, StringComparison.Ordinal)) switch {
+            [var only] => Fin.Succ(only.Kind),
+            var matched => Fin.Fail<ContentKind>(op.InvalidResult(detail: $"kind:{name}:{matched.Count}")),
+        };
 }
 
 [ValueObject<string>]
@@ -295,7 +324,7 @@ public abstract partial record ShellRow {
         Op op = key.OrDefault();
         return from keyed in Keyed(body: body, op: op)
                from label in op.AcceptText(value: caption)
-               from art in Optional(icon).ToFin(Fail: op.InvalidInput())
+               from art in op.Need(icon)
                from _ in guard(engine.ForAll(static id => id != Guid.Empty), op.InvalidInput()).ToFin()
                select (ShellRow)new TabCase(Body: keyed, Caption: label, Icon: art, Engine: engine);
     }
@@ -311,7 +340,7 @@ public abstract partial record ShellRow {
         (Registrar: registrar, Owner: owner, Op: op),
         panelCase: static (context, row) =>
             from panels in context.Registrar.IsPanels
-                ? Optional(context.Registrar.AsPanels).ToFin(Fail: context.Op.InvalidInput())
+                ? context.Op.Need(context.Registrar.AsPanels)
                 : Fin.Fail<RenderPanels>(error: context.Op.InvalidContext())
             from _ in context.Op.Catch(() => Op.Side(() => panels.RegisterPanel(
                 plugin: context.Owner,
@@ -325,7 +354,7 @@ public abstract partial record ShellRow {
             select unit,
         tabCase: static (context, row) =>
             from tabs in context.Registrar.IsTabs
-                ? Optional(context.Registrar.AsTabs).ToFin(Fail: context.Op.InvalidInput())
+                ? context.Op.Need(context.Registrar.AsTabs)
                 : Fin.Fail<RenderTabs>(error: context.Op.InvalidContext())
             from _ in context.Op.Catch(() => Op.Side(() => tabs.RegisterTab(
                 plugin: context.Owner,
@@ -339,7 +368,7 @@ public abstract partial record ShellRow {
     // EXACTLY ONE `GuidAttribute`, so all three gates prove at admission. `IsPublic` is the host's own test and a nested
     // public type fails it there too, so widening this to `IsVisible` would admit a row the registrar still rejects.
     private static Fin<Type> Keyed(Type body, Op op) =>
-        from active in Optional(body).ToFin(Fail: op.InvalidInput())
+        from active in op.Need(body)
         from _ in guard(active is { IsClass: true, IsPublic: true }, op.InvalidInput()).ToFin()
         from __ in guard(active.GetConstructor(Type.EmptyTypes) is not null, op.InvalidInput()).ToFin()
         from ___ in guard(
@@ -356,7 +385,7 @@ public readonly partial struct ShellRegistrar;
 public sealed record RenderShellProgram(PlugIn Owner, Seq<ShellRow> Rows) {
     public static Fin<RenderShellProgram> Of(PlugIn owner, Seq<ShellRow> rows, Op? key = null) {
         Op op = key.OrDefault();
-        return from active in Optional(owner).ToFin(Fail: op.InvalidInput())
+        return from active in op.Need(owner)
                from _ in guard(!rows.IsEmpty && rows.ForAll(static row => row is not null), op.InvalidInput()).ToFin()
                select new RenderShellProgram(Owner: active, Rows: rows.Strict());
     }
@@ -370,11 +399,23 @@ public sealed record EditorFacts(
     Seq<Size2i> CustomSizes,
     bool CustomSizeIsPreset) : IDetachedDocumentResult;
 
+// Release is a per-slot column because custody is per-payload. Host truth: `GetData` maps each id through one static
+// dispatch — `RhinoSettings` for the settings row, `RenderContentCollection` for the selection and display rows — and
+// every payload is a NON-OWNING wrapper: `RhinoSettings.Dispose` runs `Dispose(true)` then `GC.SuppressFinalize` over a
+// body whose whole content is `m_cpp = IntPtr.Zero`, and the collection's `(nint)` constructor sets
+// `m_delete_cpp_pointer = false` so its `Dispose` skips `CRhRdkContentArray_Delete`. Releasing therefore retires the
+// finalizer each borrow registered and frees nothing the host holds, on every row; the column stays per-row because a
+// FUTURE payload family may own its native, and that row proves its disposal body before it lands.
 [SmartEnum<Guid>]
 public sealed partial class EditorSlot {
-    public static readonly EditorSlot Settings = new(key: global::Rhino.UI.Controls.DataSource.ProviderIds.RhinoSettings);
-    public static readonly EditorSlot Selection = new(key: global::Rhino.UI.Controls.DataSource.ProviderIds.ContentSelection);
-    public static readonly EditorSlot Display = new(key: global::Rhino.UI.Controls.DataSource.ProviderIds.ContentDisplayCollection);
+    public static readonly EditorSlot Settings = new(
+        key: global::Rhino.UI.Controls.DataSource.ProviderIds.RhinoSettings, releases: true);
+    public static readonly EditorSlot Selection = new(
+        key: global::Rhino.UI.Controls.DataSource.ProviderIds.ContentSelection, releases: true);
+    public static readonly EditorSlot Display = new(
+        key: global::Rhino.UI.Controls.DataSource.ProviderIds.ContentDisplayCollection, releases: true);
+
+    internal bool Releases { get; }
 }
 
 [SmartEnum<string>]
@@ -389,9 +430,9 @@ public sealed partial class EditorIntent {
 
 // Host truth: `RhinoSettings` declares exactly one public constructor and it takes a native `nint`, so no page mints one —
 // the host vends every editor payload through `IRdkViewModel.GetData(Guid, bool, bool)` inside a UI section's
-// `RunScript(IRdkViewModel)`, keyed by a `DataSource.ProviderIds` row, and `Commit`/`Discard` close a write. Each payload is
-// host-owned for the call: `RhinoSettings.Dispose` only clears the managed pointer and never deletes the native, so the
-// borrow is released by the host, never owned here.
+// `RunScript(IRdkViewModel)`, keyed by a `DataSource.ProviderIds` row, and `Commit`/`Discard` close a write. The NATIVE
+// stays host-owned in every case; what the borrow owns is the managed wrapper's finalizer registration, and `EditorSlot`
+// carries per row whether releasing it is proven safe.
 public sealed record EditorBridge {
     private EditorBridge(global::Rhino.UI.Controls.IRdkViewModel model) => Model = model;
 
@@ -399,24 +440,38 @@ public sealed record EditorBridge {
 
     public static Fin<EditorBridge> Of(global::Rhino.UI.Controls.IRdkViewModel model, Op? key = null) {
         Op op = key.OrDefault();
-        return Optional(model).ToFin(Fail: op.InvalidInput()).Map(static active => new EditorBridge(model: active));
+        return op.Need(model).Map(static active => new EditorBridge(model: active));
     }
 
     internal Fin<TOut> Use<TPayload, TOut>(EditorSlot slot, EditorIntent intent, Func<TPayload, Fin<TOut>> borrow, Op key)
         where TPayload : class {
         EditorBridge self = this;
         Fin<TOut> outcome =
-            from activeSlot in Optional(slot).ToFin(Fail: key.InvalidInput())
-            from activeIntent in Optional(intent).ToFin(Fail: key.InvalidInput())
-            from activeBorrow in Optional(borrow).ToFin(Fail: key.InvalidInput())
+            from activeSlot in key.Need(slot)
+            from activeIntent in key.Need(intent)
+            from activeBorrow in key.Need(borrow)
             from payload in key.Catch(() => Optional(self.Model.GetData(
                     uuidDataType: activeSlot.Key,
                     bForWrite: activeIntent.Writes,
                     bAutoChangeBracket: activeIntent.Brackets) as TPayload)
                 .ToFin(Fail: key.InvalidResult(detail: activeSlot.ToString())))
-            from result in key.Catch(() => activeBorrow(payload))
+            from result in Borrowed(slot: activeSlot, payload: payload, borrow: activeBorrow, key: key)
             select result;
         return intent is { Writes: true } ? self.Settle(slot: slot, outcome: outcome, key: key) : outcome;
+    }
+
+    // The release is the BRACKET's on a releasing row and a no-op otherwise, and it runs before commit or discard settles
+    // the write — the wrapper is dead the moment the borrow returns, and a failed release appends onto the borrow's fault.
+    private static Fin<TOut> Borrowed<TPayload, TOut>(
+        EditorSlot slot, TPayload payload, Func<TPayload, Fin<TOut>> borrow, Op key) where TPayload : class {
+        Fin<TOut> outcome = key.Catch(() => borrow(payload));
+        return slot.Releases && payload is IDisposable held
+            ? key.Catch(() => { held.Dispose(); return Fin.Succ(value: unit); }).Match(
+                Succ: _ => outcome,
+                Fail: release => outcome.Match(
+                    Succ: _ => Fin.Fail<TOut>(error: release),
+                    Fail: primary => Fin.Fail<TOut>(error: primary + release)))
+            : outcome;
     }
 
     private Fin<TOut> Settle<TOut>(EditorSlot slot, Fin<TOut> outcome, Op key) {
@@ -461,12 +516,13 @@ public static class RenderShell {
     }
 
     // Host truth: `FromRenderSessionId` is a public STATIC on each registry answering `null` for an unseated or undecorated
-    // type, and `SessionIdFromTab` is literally `SidePaneUiIdFromTab`, so ONE side-pane id answers both host names and a panel
-    // carries none. The armed row that owns `TBody` selects the registry, so the caller names only its own body type.
+    // type. `SidePaneUiIdFromTab` and `SessionIdFromTab` are two DISTINCT public statics, and the second's whole body is
+    // `return SidePaneUiIdFromTab(tab);` — two names, one value — so ONE side-pane id answers both and a panel carries none.
+    // The armed row that owns `TBody` selects the registry, so the caller names only its own body type.
     public static Fin<Option<ShellSeat<TBody>>> Resolve<TBody>(PlugIn owner, Guid session, Op? key = null)
         where TBody : class {
         Op op = key.OrDefault();
-        return from active in Optional(owner).ToFin(Fail: op.InvalidInput())
+        return from active in op.Need(owner)
                from _ in guard(session != Guid.Empty, op.InvalidInput()).ToFin()
                from program in Armed.Value.ToFin(Fail: op.MissingContext())
                from row in program.Rows.Find(candidate => candidate.BodyType == typeof(TBody))
@@ -498,12 +554,12 @@ public sealed class ContentSerializer : RenderContentSerializer {
 
     public static Fin<ContentSerializer> Of(SerializerProgram program, Op? key = null) {
         Op op = key.OrDefault();
-        return from active in Optional(program).ToFin(Fail: op.InvalidInput())
-               from extension in Optional(active.FileExtension).ToFin(Fail: op.InvalidInput())
-               from kind in Optional(active.Kind).ToFin(Fail: op.InvalidInput())
+        return from active in op.Need(program)
+               from extension in op.Need(active.FileExtension)
+               from kind in op.Need(active.Kind)
                from english in op.AcceptText(active.EnglishDescription)
                from local in op.AcceptText(active.LocalDescription)
-               from retention in Optional(active.Retention).ToFin(Fail: op.InvalidInput())
+               from retention in op.Need(active.Retention)
                from _ in guard(active.Read.IsSome || active.Write.IsSome || active.LoadMultiple.IsSome, op.InvalidInput())
                select new ContentSerializer(active with {
                    FileExtension = extension,
@@ -534,8 +590,8 @@ public sealed class ContentSerializer : RenderContentSerializer {
     public override bool Write(string pathToFile, RenderContent renderContent, CreatePreviewEventArgs previewArgs) {
         Op op = Op.Of(name: nameof(Write));
         return (from path in op.AcceptText(pathToFile)
-                from content in Optional(renderContent).ToFin(Fail: op.InvalidInput())
-                from preview in Optional(previewArgs).ToFin(Fail: op.InvalidInput())
+                from content in op.Need(renderContent)
+                from preview in op.Need(previewArgs)
                 from write in program.Write.ToFin(Fail: op.InvalidInput())
                 from _ in op.Catch(() => write(path, content, preview))
                 select unit).Match(
@@ -548,8 +604,8 @@ public sealed class ContentSerializer : RenderContentSerializer {
     public override bool LoadMultiple(
         RhinoDoc document, IEnumerable<string> paths, RenderContentKind kind, RenderContentSerializer.LoadMultipleFlags flags) {
         Op op = Op.Of(name: nameof(LoadMultiple));
-        return (from activeDocument in Optional(document).ToFin(Fail: op.InvalidInput())
-                from activePaths in Optional(paths).ToFin(Fail: op.InvalidInput())
+        return (from activeDocument in op.Need(document)
+                from activePaths in op.Need(paths)
                 from files in op.Catch(() => Fin.Succ(toSeq(activePaths)))
                 from _0 in guard(!files.IsEmpty && files.ForAll(static path => !string.IsNullOrWhiteSpace(path)), op.InvalidInput())
                 from load in program.LoadMultiple.ToFin(Fail: op.InvalidInput())
@@ -646,11 +702,11 @@ public abstract partial record ContentAdmission {
         Switch(
             context: (Document: document, Reason: reason, Op: op),
             factory: static (context, source) =>
-                from kind in Optional(source.Kind).ToFin(Fail: context.Op.InvalidInput())
+                from kind in context.Op.Need(source.Kind)
                 from _ in guard(source.TypeId != Guid.Empty, context.Op.InvalidInput())
                 from parent in source.Into.Traverse(into =>
                     from slot in context.Op.AcceptText(value: into.Slot)
-                    from target in Optional(into.Parent).ToFin(Fail: context.Op.InvalidInput())
+                    from target in context.Op.Need(into.Parent)
                     from live in target.Resolve(document: context.Document, key: context.Op)
                     select (Content: live, Slot: slot)).As()
                 from minted in context.Op.Catch(() => Optional(RenderContent.Create(context.Document, source.TypeId))
@@ -664,7 +720,7 @@ public abstract partial record ContentAdmission {
                     op: context.Op)
                 select receipt,
             serialized: static (context, source) =>
-                from kind in Optional(source.Kind).ToFin(Fail: context.Op.InvalidInput())
+                from kind in context.Op.Need(source.Kind)
                 from receipt in Adopted(kind, source.Source, static (io, ctx) => io.Mint(document: ctx.Document, key: ctx.Op), context)
                 select receipt,
             material: static (context, source) =>
@@ -679,7 +735,7 @@ public abstract partial record ContentAdmission {
         TSource? source,
         Func<TSource, (RhinoDoc Document, ChangeReason Reason, Op Op), Fin<Lease<RenderContent>>> mint,
         (RhinoDoc Document, ChangeReason Reason, Op Op) context) where TSource : class =>
-        from active in Optional(source).ToFin(Fail: context.Op.InvalidInput())
+        from active in context.Op.Need(source)
         from lease in mint(active, context)
         from receipt in Transfer(
             expected: expected, lease: lease, document: context.Document,
@@ -722,15 +778,15 @@ public abstract partial record TreeMutation {
             context: (Parent: parent, Document: document, Op: op),
             graft: static (ctx, edit) =>
                 from slot in ctx.Op.AcceptText(value: edit.Slot)
-                from target in Optional(edit.Child).ToFin(Fail: ctx.Op.InvalidInput())
-                from reason in Optional(edit.Reason).ToFin(Fail: ctx.Op.InvalidInput())
+                from target in ctx.Op.Need(edit.Child)
+                from reason in ctx.Op.Need(edit.Reason)
                 from child in target.Resolve(document: ctx.Document, key: ctx.Op)
                 from _acceptable in Accepts(parent: ctx.Parent, child: child, slot: slot, op: ctx.Op)
                 from _ in ChangeScope.Write(content: ctx.Parent, reason: reason, key: ctx.Op,
                     body: live => ctx.Op.Catch(() => ctx.Op.Confirm(success: live.SetChild(renderContent: child, childSlotName: slot))))
                 select ContentReceipt.Content(slot: ContentSlot.Grafted, id: ctx.Parent.Id),
             prune: static (ctx, edit) =>
-                from reason in Optional(edit.Reason).ToFin(Fail: ctx.Op.InvalidInput())
+                from reason in ctx.Op.Need(edit.Reason)
                 from slot in edit.Slot.Traverse(value => ctx.Op.AcceptText(value: value)).As()
                 from _ in ChangeScope.Write(content: ctx.Parent, reason: reason, key: ctx.Op,
                     body: live => slot.Case switch {
@@ -740,7 +796,7 @@ public abstract partial record TreeMutation {
                 select ContentReceipt.Content(slot: ContentSlot.Pruned, id: ctx.Parent.Id),
             slot: static (ctx, edit) =>
                 from name in ctx.Op.AcceptText(value: edit.Name)
-                from reason in Optional(edit.Reason).ToFin(Fail: ctx.Op.InvalidInput())
+                from reason in ctx.Op.Need(edit.Reason)
                 from _ in guard(
                     (edit.On.IsSome || edit.Amount.IsSome)
                     && edit.Amount.Map(static amount => double.IsFinite(amount)).IfNone(true),
@@ -846,41 +902,41 @@ public abstract partial record ContentMutation {
                 select ContentReceipt.Content(slot: ContentSlot.Detached, id: ctx.Content.Id),
             rename: static (ctx, edit) =>
                 from name in ctx.Op.AcceptText(value: edit.Name)
-                from reason in Optional(edit.Reason).ToFin(Fail: ctx.Op.InvalidInput())
-                from policy in Optional(edit.Policy).ToFin(Fail: ctx.Op.InvalidInput())
+                from reason in ctx.Op.Need(edit.Reason)
+                from policy in ctx.Op.Need(edit.Policy)
                 from _ in ChangeScope.Write(ctx.Content, reason, live => ctx.Op.Catch(() => {
                     live.SetName(name, renameEvents: true, ensureNameUnique: policy.EnsuresUnique);
                     return Fin.Succ(value: unit);
                 }), ctx.Op)
                 select ContentReceipt.Content(slot: ContentSlot.Renamed, id: ctx.Content.Id),
             tree: static (ctx, edit) =>
-                from change in Optional(edit.Edit).ToFin(Fail: ctx.Op.InvalidInput())
+                from change in ctx.Op.Need(edit.Edit)
                 from receipt in change.Apply(parent: ctx.Content, document: ctx.Document, op: ctx.Op)
                 select receipt,
             field: static (ctx, edit) =>
                 from name in ctx.Op.AcceptText(value: edit.Name)
-                from value in Optional(edit.Value).ToFin(Fail: ctx.Op.InvalidInput())
-                from reason in Optional(edit.Reason).ToFin(Fail: ctx.Op.InvalidInput())
+                from value in ctx.Op.Need(edit.Value)
+                from reason in ctx.Op.Need(edit.Reason)
                 from _ in ChangeScope.Write(ctx.Content, reason, live => value.Write(live.Fields, name, ctx.Op), ctx.Op)
                 select ContentReceipt.Content(slot: ContentSlot.FieldSet, id: ctx.Content.Id),
             param: static (ctx, edit) =>
-                from scope in Optional(edit.Scope).ToFin(Fail: ctx.Op.InvalidInput())
-                from value in Optional(edit.Value).ToFin(Fail: ctx.Op.InvalidInput())
-                from reason in Optional(edit.Reason).ToFin(Fail: ctx.Op.InvalidInput())
-                from context in Optional(edit.Context).ToFin(Fail: ctx.Op.InvalidInput())
+                from scope in ctx.Op.Need(edit.Scope)
+                from value in ctx.Op.Need(edit.Value)
+                from reason in ctx.Op.Need(edit.Reason)
+                from context in ctx.Op.Need(edit.Context)
                 from _ in scope.Write(ctx.Content, value, reason, context.Native, ctx.Op)
                 select ContentReceipt.Content(slot: ContentSlot.FieldSet, id: ctx.Content.Id),
             texture: static (ctx, edit) =>
-                from texture in Optional(ctx.Content as RenderTexture).ToFin(Fail: ctx.Op.InvalidInput())
-                from config in Optional(edit.Config).ToFin(Fail: ctx.Op.InvalidInput())
-                from reason in Optional(edit.Reason).ToFin(Fail: ctx.Op.InvalidInput())
+                from texture in ctx.Op.Need(ctx.Content as RenderTexture)
+                from config in ctx.Op.Need(edit.Config)
+                from reason in ctx.Op.Need(edit.Reason)
                 from _ in config.Apply(texture, reason, ctx.Op)
                 select ContentReceipt.Content(slot: ContentSlot.Configured, id: ctx.Content.Id),
             assign: static (ctx, edit) =>
-                from material in Optional(ctx.Content as RenderMaterial).ToFin(Fail: ctx.Op.InvalidInput())
-                from objects in Optional(edit.Objects).ToFin(Fail: ctx.Op.InvalidInput())
-                from subFaces in Optional(edit.SubFaces).ToFin(Fail: ctx.Op.InvalidInput())
-                from blocks in Optional(edit.Blocks).ToFin(Fail: ctx.Op.InvalidInput())
+                from material in ctx.Op.Need(ctx.Content as RenderMaterial)
+                from objects in ctx.Op.Need(edit.Objects)
+                from subFaces in ctx.Op.Need(edit.SubFaces)
+                from blocks in ctx.Op.Need(edit.Blocks)
                 from ids in objects.Resolve(document: ctx.Document, key: ctx.Op)
                 from _ in ctx.Op.Catch(() => {
                     ObjRef[] references = new ObjRef[ids.Count];
@@ -900,25 +956,25 @@ public abstract partial record ContentMutation {
                 })
                 select ContentReceipt.Objects(slot: ContentSlot.Assigned, ids: ids),
             replace: static (ctx, edit) =>
-                from source in Optional(edit.Source).ToFin(Fail: ctx.Op.InvalidInput())
+                from source in ctx.Op.Need(edit.Source)
                 from lease in source.Mint(document: ctx.Document, key: ctx.Op)
                 from receipt in ReplaceWith(target: ctx.Content, lease: lease, op: ctx.Op)
                 select receipt,
             group: static (ctx, edit) =>
-                from mode in Optional(edit.Mode).ToFin(Fail: ctx.Op.InvalidInput())
+                from mode in ctx.Op.Need(edit.Mode)
                 from receipt in mode.Apply(content: ctx.Content, op: ctx.Op)
                 select receipt,
             export: static (ctx, edit) =>
-                from output in Optional(edit.Output).ToFin(Fail: ctx.Op.InvalidInput())
+                from output in ctx.Op.Need(edit.Output)
                 from receipt in output.Switch(
                     context: (Content: ctx.Content, Op: ctx.Op),
                     archive: static (state, archive) =>
-                        from embed in Optional(archive.Embed).ToFin(Fail: state.Op.InvalidInput())
+                        from embed in state.Op.Need(archive.Embed)
                         from path in state.Op.AcceptText(value: archive.Path)
                         from _ in state.Op.Catch(() => state.Op.Confirm(success: state.Content.SaveToFile(path, embed.Native)))
                         select ContentReceipt.Path(slot: ContentSlot.Exported, path: path),
                     textureImage: static (state, image) =>
-                        from texture in Optional(state.Content as RenderTexture).ToFin(Fail: state.Op.InvalidInput())
+                        from texture in state.Op.Need(state.Content as RenderTexture)
                         from path in state.Op.AcceptText(value: image.Path)
                         from _ in TextureExport.Export(
                             texture: texture, path: path,
@@ -960,13 +1016,13 @@ public abstract partial record ContentOp {
         Switch(
             context: (Document: document, Scope: scope, Reason: reason, Op: op),
             admit: static (ctx, edit) =>
-                from source in Optional(edit.Source).ToFin(Fail: ctx.Op.InvalidInput())
+                from source in ctx.Op.Need(edit.Source)
                 from _ in guard(source.Expected == ctx.Scope, ctx.Op.InvalidInput())
                 from receipt in source.Apply(document: ctx.Document, reason: ctx.Reason, op: ctx.Op)
                 select receipt,
             mutate: static (ctx, edit) =>
-                from target in Optional(edit.Target).ToFin(Fail: ctx.Op.InvalidInput())
-                from change in Optional(edit.Change).ToFin(Fail: ctx.Op.InvalidInput())
+                from target in ctx.Op.Need(edit.Target)
+                from change in ctx.Op.Need(edit.Change)
                 from content in target.Resolve(document: ctx.Document, key: ctx.Op)
                 from kind in ContentKind.Of(content, ctx.Op)
                 from _ in guard(kind == ctx.Scope, ctx.Op.InvalidInput())
@@ -1047,8 +1103,8 @@ public sealed record ContentCollectionProbe {
     public static Fin<ContentCollectionProbe> Of(
         Lease<RenderContentCollection> collection, Lease<RenderContentKindList> kinds, Op? key = null) {
         Op op = key.OrDefault();
-        return from activeCollection in Optional(collection).ToFin(Fail: op.InvalidInput())
-               from activeKinds in Optional(kinds).ToFin(Fail: op.InvalidInput())
+        return from activeCollection in op.Need(collection)
+               from activeKinds in op.Need(kinds)
                select new ContentCollectionProbe(collection: activeCollection, kinds: activeKinds);
     }
 
@@ -1141,8 +1197,10 @@ public static class ContentQuery {
     public static ContentQuery<FieldCensus> Fields { get; } =
         new(read: static (_, content, op) => FieldCensus.Of(fields: content.Fields, key: op));
 
-    public static ContentQuery<ScentCensus> Scents { get; } =
-        As<RenderMaterial, ScentCensus>(static (material, _) => Fin.Succ(value: MaterialScent.CensusOf(material: material)));
+    // An empty ask runs the whole scent roster; a named ask pays only its own rows' native predicates.
+    public static ContentQuery<ScentCensus> Scents(Seq<MaterialScent> wanted = default) =>
+        As<RenderMaterial, ScentCensus>((material, _) =>
+            Fin.Succ(value: MaterialScent.CensusOf(material: material, wanted: wanted)));
 
     public static ContentQuery<TextureConfig> Config { get; } =
         As<RenderTexture, TextureConfig>(static (texture, op) => TextureConfig.Of(texture: texture, key: op));
@@ -1152,7 +1210,7 @@ public static class ContentQuery {
 
     public static ContentQuery<HashWitness> Hash(HashProbe probe) =>
         new(read: (document, content, op) =>
-            from active in Optional(probe).ToFin(Fail: op.InvalidInput())
+            from active in op.Need(probe)
             from value in active.DocumentWorkflow
                 ? new Lease<RenderSettings>.Owned(Value: document.RenderSettings).Use(settings =>
                     SubOwners.Within(
@@ -1166,7 +1224,7 @@ public static class ContentQuery {
 
     public static ContentQuery<FieldValue> Param(ParamScope scope) =>
         new(read: (_, content, op) =>
-            from active in Optional(scope).ToFin(Fail: op.InvalidInput())
+            from active in op.Need(scope)
             from value in active.Read(content: content, key: op)
             select value);
 
@@ -1180,7 +1238,7 @@ public static class ContentQuery {
         RenderTexture.TextureGeneration generation, Func<Material, Fin<TOut>> borrow)
         where TOut : IDetachedDocumentResult =>
         As<RenderMaterial, TOut>((material, op) =>
-            from activeBorrow in Optional(borrow).ToFin(Fail: op.InvalidInput())
+            from activeBorrow in op.Need(borrow)
             from _ in guard(Enum.IsDefined(generation), op.InvalidInput()).ToFin()
             from result in MaterialBridge.Bake(
                 material: material, generation: generation, borrow: activeBorrow, key: op)
@@ -1190,7 +1248,7 @@ public static class ContentQuery {
         RenderTexture.TextureGeneration generation, Func<global::Rhino.DocObjects.PhysicallyBasedMaterial, Fin<TOut>> borrow)
         where TOut : IDetachedDocumentResult =>
         As<RenderMaterial, TOut>((material, op) =>
-            from activeBorrow in Optional(borrow).ToFin(Fail: op.InvalidInput())
+            from activeBorrow in op.Need(borrow)
             from _ in guard(Enum.IsDefined(generation), op.InvalidInput()).ToFin()
             from result in MaterialBridge.Pbr(
                 material: material, generation: generation, borrow: activeBorrow, key: op)
@@ -1202,7 +1260,7 @@ public static class ContentQuery {
 
     public static ContentQuery<ContentIcon> Icon(IconRequest request) =>
         new(read: (_, content, op) =>
-            from active in Optional(request).ToFin(Fail: op.InvalidInput())
+            from active in op.Need(request)
             from icon in op.Catch(() => active.Switch(
                 context: (Content: content, Op: op),
                 standard: static (state, query) => Own(
@@ -1210,7 +1268,7 @@ public static class ContentQuery {
                 @virtual: static (state, query) => Own(
                     state.Content.VirtualIcon(query.Extent.Native, out System.Drawing.Bitmap rendered), rendered, state.Op),
                 dynamic: static (state, query) =>
-                    from policy in Optional(query.Policy).ToFin(Fail: state.Op.InvalidInput())
+                    from policy in state.Op.Need(query.Policy)
                     from icon in Own(
                         state.Content.DynamicIcon(query.Extent.Native, out System.Drawing.Bitmap rendered, policy.Native),
                         rendered,
@@ -1220,7 +1278,7 @@ public static class ContentQuery {
 
     public static ContentQuery<MatchEvidence> Match(ContentRef old) =>
         new(read: (document, content, op) =>
-            from reference in Optional(old).ToFin(Fail: op.InvalidInput())
+            from reference in op.Need(old)
             from prior in reference.Resolve(document: document, key: op)
             from native in op.Catch(() => Fin.Succ(content.MatchData(oldContent: prior)))
             from verdict in MatchVerdict.Of(native, op)
@@ -1234,9 +1292,9 @@ public static class ContentQuery {
 
     public static ContentQuery<ContentCollectionEvidence> Collection(ContentCollectionProbe probe) =>
         new(read: (_, content, op) =>
-            from active in Optional(probe).ToFin(Fail: op.InvalidInput())
-            from collectionLease in Optional(active.Collection).ToFin(Fail: op.InvalidInput())
-            from kindLease in Optional(active.Kinds).ToFin(Fail: op.InvalidInput())
+            from active in op.Need(probe)
+            from collectionLease in op.Need(active.Collection)
+            from kindLease in op.Need(active.Kinds)
             from result in collectionLease.Use(collection => kindLease.Use(kinds =>
                 from usage in op.Catch(() => ContentUsageFilter.Of(collection.GetFilterContentByUsage(), op))
                 from count in op.Catch(() => Fin.Succ(collection.Count()))
@@ -1273,7 +1331,7 @@ public static class ContentQuery {
 
     private static ContentQuery<TOut> As<TContent, TOut>(Func<TContent, Op, Fin<TOut>> project)
         where TContent : RenderContent where TOut : IDetachedDocumentResult =>
-        new(read: (_, content, op) => Optional(content as TContent).ToFin(Fail: op.InvalidInput()).Bind(typed => project(typed, op)));
+        new(read: (_, content, op) => op.Need(content as TContent).Bind(typed => project(typed, op)));
 }
 
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -1309,7 +1367,7 @@ public sealed class RegistryQuery<T> where T : IDetachedDocumentResult {
 public static class RegistryQuery {
     public static RegistryQuery<ContentTypeCensus> Factories { get; } =
         new(op =>
-            from builtIn in ContentUuidCatalog.Census(op)
+            from builtIn in ContentUuidCatalog.Census()
             from registered in ContentTypeInfo.Census(op)
             select new ContentTypeCensus(BuiltInUuids: builtIn, RegisteredFactories: registered));
 
@@ -1329,20 +1387,20 @@ public static class RegistryQuery {
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
 public static class Registry {
-    public static Fin<RegistryResult> Run(RegistryCommand command) {
-        Op op = Op.Of();
-        return from active in Optional(command).ToFin(Fail: op.InvalidInput())
+    public static Fin<RegistryResult> Run(RegistryCommand command, Op? key = null) {
+        Op op = key.OrDefault();
+        return from active in op.Need(command)
                from result in active.Switch(
                    context: op,
                    registerContent: static (state, request) => Register(request.Assembly, request.PlugInId, state)
                        .Map(static types => (RegistryResult)new RegistryResult.Registered(types)),
                    registerSerializer: static (state, request) =>
-                       from serializer in Optional(request.Serializer).ToFin(Fail: state.InvalidInput())
+                       from serializer in state.Need(request.Serializer)
                        from _ in guard(request.PlugInId != Guid.Empty, state.InvalidInput())
                        from registered in serializer.Register(request.PlugInId)
                        select (RegistryResult)new RegistryResult.SerializerRegistered(),
                    armShell: static (state, request) =>
-                       from program in Optional(request.Program).ToFin(Fail: state.InvalidInput())
+                       from program in state.Need(request.Program)
                        from _ in RenderShell.Arm(program: program, op: state)
                        select (RegistryResult)new RegistryResult.ShellArmed(Rows: program.Rows.Count),
                    change: static (state, request) => Commit(request.Session, request.Transaction, state)
@@ -1350,16 +1408,16 @@ public static class Registry {
                select result;
     }
 
-    public static Fin<T> Read<T>(RegistryQuery<T> query) where T : IDetachedDocumentResult {
-        Op op = Op.Of();
-        return from active in Optional(query).ToFin(Fail: op.InvalidInput())
+    public static Fin<T> Read<T>(RegistryQuery<T> query, Op? key = null) where T : IDetachedDocumentResult {
+        Op op = key.OrDefault();
+        return from active in op.Need(query)
                from result in active.Run(op)
                select result;
     }
 
     // The bridge borrows the host's own `RhinoSettings` for the callback alone, so every value detaches before the borrow ends.
     internal static Fin<EditorFacts> Editor(EditorBridge bridge, Op op) =>
-        from active in Optional(bridge).ToFin(Fail: op.InvalidInput())
+        from active in op.Need(bridge)
         from facts in active.Use<RhinoSettings, EditorFacts>(
             slot: EditorSlot.Settings,
             intent: EditorIntent.Read,
@@ -1379,7 +1437,7 @@ public static class Registry {
             CustomSizeIsPreset: settings.CustomImageSizeIsPreset);
 
     private static Fin<Seq<Type>> Register(Assembly assembly, Guid pluginId, Op op) {
-        return from active in Optional(assembly).ToFin(Fail: op.InvalidInput())
+        return from active in op.Need(assembly)
                from _ in guard(pluginId != Guid.Empty, op.InvalidInput())
                from registered in op.Catch(() => Optional(RenderContent.RegisterContent(assembly: active, pluginId: pluginId))
             .ToFin(Fail: op.InvalidResult())
@@ -1388,12 +1446,12 @@ public static class Registry {
     }
 
     private static Fin<ContentReceipt> Commit(DocumentSession session, ContentTransaction plan, Op op) {
-        return from activeSession in Optional(session).ToFin(Fail: op.InvalidInput())
-               from active in Optional(plan).ToFin(Fail: op.InvalidInput())
-               from kind in Optional(active.Kind).ToFin(Fail: op.InvalidInput())
-               from reason in Optional(active.Reason).ToFin(Fail: op.InvalidInput())
-               from redraw in Optional(active.Redraw).ToFin(Fail: op.InvalidInput())
-               from undo in Optional(active.Undo).ToFin(Fail: op.InvalidInput())
+        return from activeSession in op.Need(session)
+               from active in op.Need(plan)
+               from kind in op.Need(active.Kind)
+               from reason in op.Need(active.Reason)
+               from redraw in op.Need(active.Redraw)
+               from undo in op.Need(active.Undo)
                from name in op.AcceptText(value: active.Name)
                from _ in guard(
                    !active.Operations.IsEmpty && active.Operations.ForAll(static operation => operation is not null),
@@ -1443,9 +1501,9 @@ public static class Registry {
     }
 
     internal static Fin<T> Query<T>(DocumentSession session, ContentRef target, ContentQuery<T> query, Op op) {
-        return from activeSession in Optional(session).ToFin(Fail: op.InvalidInput())
-               from activeTarget in Optional(target).ToFin(Fail: op.InvalidInput())
-               from active in Optional(query).ToFin(Fail: op.InvalidInput())
+        return from activeSession in op.Need(session)
+               from activeTarget in op.Need(target)
+               from active in op.Need(query)
                from result in activeSession.Demand(
                    use: document =>
                        from content in activeTarget.Resolve(document: document, key: op)
@@ -1457,8 +1515,8 @@ public static class Registry {
     }
 
     internal static Fin<ContentRoster> Roster(DocumentSession session, ContentKind kind, Op op) {
-        return from activeSession in Optional(session).ToFin(Fail: op.InvalidInput())
-               from activeKind in Optional(kind).ToFin(Fail: op.InvalidInput())
+        return from activeSession in op.Need(session)
+               from activeKind in op.Need(kind)
                from result in activeSession.Demand(
                    use: document => op.Catch(() => Fin.Succ(value: new ContentRoster(
                        Kind: activeKind,
@@ -1469,7 +1527,7 @@ public static class Registry {
     }
 
     internal static Fin<EnvironmentBindings> CurrentEnvironments(DocumentSession session, Op op) {
-        return from activeSession in Optional(session).ToFin(Fail: op.InvalidInput())
+        return from activeSession in op.Need(session)
                from result in activeSession.Demand(
                    use: document => op.Catch(() => {
                        ICurrentEnvironment current = document.CurrentEnvironment;
@@ -1572,8 +1630,9 @@ public readonly record struct ContentReceipt : IDetachedDocumentResult {
 - Law: a pulse row carries its `ScopeAffinity` and `ContentStream.Of` refuses the pairing its rows cannot honour — `PreviewReady` alone is `AnyDocumentOnly`, because `PreviewRenderedEventArgs` publishes no document to gate on, so a `Document`-scoped stream naming it fails admission rather than seating a subscription that can never deliver.
 - Law: callback delivery transfers the original fact to the sink and prepares a detached ledger copy first. Success releases the spare copy; failure retains it with the fault and releases the delivered original before the host delegate returns.
 - Law: the failure ledger is capacity-bounded by the injected `RetentionPolicy`; an overflow evicts the oldest retained failures, releases each evicted fact on the owner's existing `Release` rail, and folds its fault into typed `RetentionOverflow` evidence, so a full ledger sheds resources without a silent drop and its `Overflow` count-and-fault read survives the eviction.
-- Law: one locked lifecycle cell admits delivery, counts in-flight callbacks, mutates failure retention, and publishes close; detachment, sinks, and release execute outside it. Close blocks new sink entry, drains every admitted callback before capturing the subscription and ledger, and publishes completion only after release; reentrant close delegates capture to the final callback instead of waiting on itself.
-- Law: `ContentHooks.Mount` registers the `rasm.rhino.render.content` point on the `MountRegistry` row grammar — ask `ContentObservation` carrying scope, pulses, filter, retention, and sink; grant `ContentStream` — so each binder mints its own stream and the point stays observe-only per the registry census.
+- Law: the stream composes the Document spine's `LifecycleGate` — the package's ONE claims/close/retry capsule — and owns only its subscription cell and bounded ledger; a hand-rolled `lock`/`Monitor` lifecycle machine beside it is the collapsed form. `Within` admits or refuses each delivery, `Close` drains every admitted claim inside the gate's bounded settle before the stop and settle callbacks release the subscription and the retained facts, and a close issued from a thread already inside a delivery claim refuses typed rather than waiting on its own release.
+- Law: `ContentStream.Close` is the exit that answers; `Dispose` forwards to it and drops the answer, so a caller needing the close verdict names `Close`.
+- Law: `ContentHooks.Mount` registers the `rasm.rhino.render.content` point on the `MountRegistry` row grammar — ask `ContentObservation` carrying scope, pulses, filter, retention, settle bound, and sink; grant `ContentStream` — so each binder mints its own stream and the point stays observe-only per the registry census.
 - Growth: a new host content event is one `ContentPulse` row with its bind column; a new evidence axis is one `ContentSignal` case.
 
 ```csharp signature
@@ -1792,6 +1851,7 @@ public sealed record ContentObservation(
     Seq<ContentPulse> Pulses,
     PulseFilter Filter,
     RetentionPolicy Retention,
+    TimeSpan SettleWithin,
     Func<ContentFact, Fin<Unit>> Sink);
 
 public static class ContentHooks {
@@ -1808,6 +1868,7 @@ public static class ContentHooks {
                             pulses: request.Pulses,
                             filter: request.Filter,
                             retention: request.Retention,
+                            settleWithin: request.SettleWithin,
                             sink: request.Sink)
                         .Map(static stream => (object)stream),
                     _ => Fin.Fail<object>(error: Op.Of(name: nameof(ContentHooks)).InvalidInput()),
@@ -1823,105 +1884,85 @@ public sealed class ContentStream : IDisposable {
     public Seq<ContentStreamFailure> Failures => state.Failures;
     public RetentionOverflow Overflow => state.Overflow;
 
-    public void Dispose() => state.Dispose();
+    public Fin<Unit> Close(Op? key = null) => state.Close(op: key.OrDefault());
+
+    public void Dispose() => ignore(Close());
 
     public static Fin<ContentStream> Of(
         EventScope scope, Seq<ContentPulse> pulses, PulseFilter filter, RetentionPolicy retention,
-        Func<ContentFact, Fin<Unit>> sink) {
+        TimeSpan settleWithin, Func<ContentFact, Fin<Unit>> sink) {
         Op op = Op.Of(name: nameof(ContentStream));
-        return from activeScope in Optional(scope).ToFin(Fail: op.InvalidInput())
-               from activeFilter in Optional(filter).ToFin(Fail: op.InvalidInput())
-               from activeRetention in Optional(retention).ToFin(Fail: op.InvalidInput())
-               from activeSink in Optional(sink).ToFin(Fail: op.InvalidInput())
+        return from activeScope in op.Need(scope)
+               from activeFilter in op.Need(filter)
+               from activeRetention in op.Need(retention)
+               from activeSink in op.Need(sink)
                from _ in guard(!pulses.IsEmpty && pulses.ForAll(static pulse => pulse is not null), op.InvalidInput())
                from _affinity in guard(pulses.ForAll(pulse => pulse.Affinity.Admits(scope: activeScope)), op.InvalidInput())
-               let state = new ContentStreamState(retention: activeRetention)
+               from lifecycle in LifecycleGate.Of(settleWithin: settleWithin, key: op)
+               let state = new ContentStreamState(gate: lifecycle, retention: activeRetention)
                from attached in Subscription.AttachAll(pulses.Distinct().Map(pulse =>
                    (Func<Fin<Subscription>>)(() => pulse.Bind(
                        pulse: pulse,
                        scope: activeScope,
                        filter: activeFilter,
                        deliver: fact => state.Deliver(fact, activeSink, op)))))
-               from _attached in state.Attach(subscription: attached, op: op)
+               from _attached in state.Attach(attached: attached, op: op)
                select new ContentStream(state: state);
     }
 
-    private sealed class ContentStreamState : IDisposable {
-        private readonly object gate = new();
+    // The lifecycle machine is the Document spine's `LifecycleGate` — claims, bounded settle, and one-owner close — so this
+    // owner keeps only what is its own: the subscription cell and the bounded failure ledger. The gate's re-entrancy law
+    // applies verbatim: a close issued from a thread already inside a delivery claim REFUSES typed rather than waiting on
+    // its own release, so a sink closing its own stream gets a fault instead of a deadlock.
+    private sealed class ContentStreamState {
+        private readonly LifecycleGate gate;
         private readonly RetentionPolicy retention;
-        private readonly System.Collections.Generic.Dictionary<int, int> callers = [];
-        private Subscription? subscription;
-        private FailureLedger<ContentStreamFailure> ledger = FailureLedger<ContentStreamFailure>.Empty;
-        private bool accepting = true;
-        private bool closing;
-        private bool closed;
-        private int inFlight;
+        private readonly Atom<Option<Subscription>> subscription = Atom(Option<Subscription>.None);
+        // `FailureLedger.Admit` already answers the retained ledger beside that admission's evictions, so the atom holds
+        // that pair and one `Swap` publishes both — the eviction set the releasing caller drains is the swap's own return.
+        private readonly Atom<(FailureLedger<ContentStreamFailure> Ledger, Seq<ContentStreamFailure> Evicted)> ledger =
+            Atom((Ledger: FailureLedger<ContentStreamFailure>.Empty, Evicted: Seq<ContentStreamFailure>()));
 
-        internal ContentStreamState(RetentionPolicy retention) => this.retention = retention;
+        internal ContentStreamState(LifecycleGate gate, RetentionPolicy retention) =>
+            (this.gate, this.retention) = (gate, retention);
 
-        internal Seq<ContentStreamFailure> Failures {
-            get {
-                lock (gate) {
-                    return ledger.Retained;
-                }
-            }
-        }
+        internal Seq<ContentStreamFailure> Failures => ledger.Value.Ledger.Retained;
 
-        internal RetentionOverflow Overflow {
-            get {
-                lock (gate) {
-                    return ledger.Overflow;
-                }
-            }
-        }
+        internal RetentionOverflow Overflow => ledger.Value.Ledger.Overflow;
 
-        internal Fin<Unit> Attach(Subscription subscription, Op op) {
-            lock (gate) {
-                if (accepting && !closed) {
-                    this.subscription = subscription;
-                    return Fin.Succ(value: unit);
-                }
-            }
-            return op.Catch(() => {
-                subscription.Dispose();
-                return Fin.Fail<Unit>(op.InvalidContext());
-            });
-        }
+        internal Fin<Unit> Attach(Subscription attached, Op op) =>
+            gate.Within(
+                body: () => Fin.Succ(value: ignore(subscription.Swap(_ => Some(attached)))),
+                refused: () => op.Catch(() => {
+                    attached.Dispose();
+                    return Fin.Fail<Unit>(error: op.InvalidContext());
+                }),
+                key: op);
 
-        internal Fin<Unit> Deliver(ContentFact fact, Func<ContentFact, Fin<Unit>> sink, Op op) {
-            int caller = Environment.CurrentManagedThreadId;
-            lock (gate) {
-                if (!accepting) {
-                    return Settled(
-                        primary: op.InvalidContext(),
-                        releases: Seq<Func<Fin<Unit>>>(() => Release(fact: fact, op: op)));
-                }
-                inFlight++;
-                callers.TryGetValue(key: caller, value: out int depth);
-                callers[caller] = depth + 1;
-            }
-            try {
-                return Delivered(fact: fact, sink: sink, op: op);
-            }
-            finally {
-                Option<(Subscription? Subscription, Seq<ContentStreamFailure> Failures)> closure = None;
-                lock (gate) {
-                    inFlight--;
-                    int depth = callers[caller] - 1;
-                    if (depth == 0) {
-                        callers.Remove(key: caller);
-                    }
-                    else {
-                        callers[caller] = depth;
-                    }
-                    if (!accepting && inFlight == 0 && !closing && !closed) {
-                        closure = Some(BeginClose());
-                    }
-                    Monitor.PulseAll(gate);
-                }
-                closure.Iter(FinishClose);
-            }
-        }
+        internal Fin<Unit> Deliver(ContentFact fact, Func<ContentFact, Fin<Unit>> sink, Op op) =>
+            gate.Within(
+                body: () => Delivered(fact: fact, sink: sink, op: op),
+                refused: () => Settled(
+                    primary: op.InvalidContext(),
+                    releases: Seq<Func<Fin<Unit>>>(() => Release(fact: fact, op: op))),
+                key: op);
+
+        // Only the close owner runs these two, and only after every admitted claim has drained, so the read-then-clear on
+        // each cell needs no lock of its own.
+        internal Fin<Unit> Close(Op op) =>
+            gate.Close(
+                stop: () => op.Catch(() => {
+                    Option<Subscription> captured = subscription.Value;
+                    _ = subscription.Swap(static _ => Option<Subscription>.None);
+                    return Fin.Succ(value: captured.Iter(static held => held.Dispose()));
+                }),
+                settle: () => op.Catch(() => {
+                    Seq<ContentStreamFailure> retained = ledger.Value.Ledger.Retained;
+                    _ = ledger.Swap(static _ =>
+                        (Ledger: FailureLedger<ContentStreamFailure>.Empty, Evicted: Seq<ContentStreamFailure>()));
+                    return Fin.Succ(value: retained.Iter(static failure => failure.Dispose()));
+                }),
+                key: op);
 
         private Fin<Unit> Delivered(ContentFact fact, Func<ContentFact, Fin<Unit>> sink, Op op) =>
             fact.Detached(op).Match(
@@ -1934,30 +1975,14 @@ public sealed class ContentStream : IDisposable {
             Release(fact: detached, op: op).Map(_ => value);
 
         private Fin<Unit> Retained(ContentFact original, ContentFact detached, Error fault, Op op) =>
-            op.Catch(() => {
-                lock (gate) {
-                    if (closing || closed) {
-                        return Fin.Succ(value: (Open: false, Evicted: Seq<ContentStreamFailure>()));
-                    }
-                    (FailureLedger<ContentStreamFailure> next, Seq<ContentStreamFailure> evicted) = ledger.Admit(
-                        policy: retention,
-                        incoming: new ContentStreamFailure(Fact: detached, Fault: fault),
-                        fault: static failure => failure.Fault);
-                    ledger = next;
-                    return Fin.Succ(value: (Open: true, Evicted: evicted));
-                }
-            }).Match(
-                Succ: state => state.Open
-                    ? Settled(
-                        primary: fault,
-                        releases: Seq<Func<Fin<Unit>>>(() => Release(fact: original, op: op))
-                            + state.Evicted.Map(dropped =>
-                                (Func<Fin<Unit>>)(() => Release(fact: dropped.Fact, op: op))))
-                    : Settled(
-                        primary: fault + op.InvalidContext(),
-                        releases: Seq<Func<Fin<Unit>>>(
-                            () => Release(fact: original, op: op),
-                            () => Release(fact: detached, op: op))),
+            op.Catch(() => Fin.Succ(value: ledger.Swap(state => state.Ledger.Admit(
+                policy: retention,
+                incoming: new ContentStreamFailure(Fact: detached, Fault: fault),
+                fault: static failure => failure.Fault)))).Match(
+                Succ: state => Settled(
+                    primary: fault,
+                    releases: Seq<Func<Fin<Unit>>>(() => Release(fact: original, op: op))
+                        + state.Evicted.Map(dropped => (Func<Fin<Unit>>)(() => Release(fact: dropped.Fact, op: op)))),
                 Fail: custody => Settled(
                     primary: fault + custody,
                     releases: Seq<Func<Fin<Unit>>>(
@@ -1980,76 +2005,30 @@ public sealed class ContentStream : IDisposable {
             fact.Dispose();
             return Fin.Succ(value: unit);
         });
-
-        public void Dispose() {
-            Option<(Subscription? Subscription, Seq<ContentStreamFailure> Failures)> closure = None;
-            int caller = Environment.CurrentManagedThreadId;
-            lock (gate) {
-                if (closed) {
-                    return;
-                }
-                accepting = false;
-                if (callers.ContainsKey(key: caller)) {
-                    return;
-                }
-                if (inFlight == 0 && !closing) {
-                    closure = Some(BeginClose());
-                }
-                else {
-                    while (!closed) {
-                        Monitor.Wait(gate);
-                    }
-                }
-            }
-            closure.Iter(FinishClose);
-        }
-
-        private (Subscription? Subscription, Seq<ContentStreamFailure> Failures) BeginClose() {
-            closing = true;
-            Subscription? captured = subscription;
-            Seq<ContentStreamFailure> failures = ledger.Retained;
-            subscription = null;
-            ledger = FailureLedger<ContentStreamFailure>.Empty;
-            return (Subscription: captured, Failures: failures);
-        }
-
-        private void FinishClose((Subscription? Subscription, Seq<ContentStreamFailure> Failures) closure) {
-            try {
-                closure.Subscription?.Dispose();
-                closure.Failures.Iter(static failure => failure.Dispose());
-            }
-            finally {
-                lock (gate) {
-                    closing = false;
-                    closed = true;
-                    Monitor.PulseAll(gate);
-                }
-            }
-        }
     }
 }
 ```
 
 ## [07]-[SURFACE_LEDGER]
 
-| [INDEX] | [CONCERN]       | [OWNER]                            | [FORM]                            | [ENTRY]              |
-| :-----: | :-------------- | :--------------------------------- | :-------------------------------- | :------------------- |
-|  [01]   | UUID seeds      | `ContentUuidCatalog`               | generated kind and role data      | `Census` / `Find`    |
-|  [02]   | factory census  | `ContentTypeCensus`                | UUIDs plus registered factories   | `Registry.Read`      |
-|  [03]   | custom format   | `ContentSerializer`                | transfer, reports, failure ledger | `Registry.Run`       |
-|  [04]   | mutation        | `ContentOp` / `ContentTransaction` | admission or target mutation      | `Registry.Run`       |
-|  [05]   | typed reads     | `RegistryQuery<T>`                 | result-correlated programs        | `Registry.Read<T>`   |
-|  [06]   | collection read | `ContentCollectionEvidence`        | leased set and kind evidence      | `Collection`         |
-|  [07]   | receipts        | `ContentReceipt`                   | additive fact rows                | `RegistryResult`     |
-|  [08]   | content events  | `ContentPulse`                     | verified event rows               | `ContentStream.Of`   |
-|  [09]   | event evidence  | `ContentSignal`                    | payload and failure ledger        | `ContentStream.Of`   |
-|  [10]   | hook point      | `ContentHooks`                     | `rasm.rhino.render.content` mount | `ContentHooks.Mount` |
-|  [11]   | failure ledger  | `RetentionPolicy`                  | bounded ledger, overflow evidence | `Of` / `Admit`       |
-|  [12]   | shell rows      | `RenderShellProgram` / `ShellRow`  | keyed panel and side-pane rows    | `Registry.Run`       |
-|  [13]   | shell drain     | `RenderShell` / `ShellRegistrar`   | one-shot host-callback seating    | `RenderShell.Drain`  |
-|  [14]   | shell resolve   | `ShellSeat<TBody>`                 | seated body plus side-pane id     | `RenderShell.Resolve`|
-|  [15]   | editor payloads | `EditorBridge` / `EditorSlot`      | provider-keyed borrow and commit  | `EditorBridge.Of`    |
-|  [16]   | editor facts    | `EditorFacts`                      | renderer, view, and size facts    | `Registry.Read`      |
+| [INDEX] | [CONCERN]       | [OWNER]                            | [FORM]                            | [ENTRY]               |
+| :-----: | :-------------- | :--------------------------------- | :-------------------------------- | :-------------------- |
+|  [01]   | UUID seeds      | `ContentUuidCatalog`               | generated kind and role data      | `Census` / `Find`     |
+|  [02]   | factory census  | `ContentTypeCensus`                | UUIDs plus registered factories   | `Registry.Read`       |
+|  [03]   | custom format   | `ContentSerializer`                | transfer, reports, failure ledger | `Registry.Run`        |
+|  [04]   | mutation        | `ContentOp` / `ContentTransaction` | admission or target mutation      | `Registry.Run`        |
+|  [05]   | typed reads     | `RegistryQuery<T>`                 | result-correlated programs        | `Registry.Read<T>`    |
+|  [06]   | collection read | `ContentCollectionEvidence`        | leased set and kind evidence      | `Collection`          |
+|  [07]   | receipts        | `ContentReceipt`                   | additive fact rows                | `RegistryResult`      |
+|  [08]   | content events  | `ContentPulse`                     | verified event rows               | `ContentStream.Of`    |
+|  [09]   | event evidence  | `ContentSignal`                    | payload and failure ledger        | `ContentStream.Of`    |
+|  [10]   | hook point      | `ContentHooks`                     | `rasm.rhino.render.content` mount | `ContentHooks.Mount`  |
+|  [11]   | failure ledger  | `RetentionPolicy`                  | bounded ledger, overflow evidence | `Of` / `Admit`        |
+|  [12]   | shell rows      | `RenderShellProgram` / `ShellRow`  | keyed panel and side-pane rows    | `Registry.Run`        |
+|  [13]   | shell drain     | `RenderShell` / `ShellRegistrar`   | one-shot host-callback seating    | `RenderShell.Drain`   |
+|  [14]   | shell resolve   | `ShellSeat<TBody>`                 | seated body plus side-pane id     | `RenderShell.Resolve` |
+|  [15]   | editor payloads | `EditorBridge` / `EditorSlot`      | provider-keyed borrow and commit  | `EditorBridge.Of`     |
+|  [16]   | editor facts    | `EditorFacts`                      | renderer, view, and size facts    | `Registry.Read`       |
 
 ## [08]-[RESEARCH]
 
@@ -2058,8 +2037,4 @@ public sealed class ContentStream : IDisposable {
 [SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
-[EDITOR_PAYLOAD]-[OPEN]: which concrete payload each `DataSource.ProviderIds` row vends from `IRdkViewModel.GetData` —
-`RhinoSettings` for the settings row is settled by its own type name, while `ContentSelection` and `ContentDisplayCollection`
-are asserted as `RenderContentCollection` only by `EditorSlot`'s type argument, which `EditorBridge.Use` refuses on mismatch;
-verify by invoking `GetData` under a live render editor on the bridge rail, since the `DataSources` back-ends are internal and
-decompilation proves no correspondence.
+(none)

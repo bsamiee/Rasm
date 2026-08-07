@@ -207,9 +207,9 @@ Every surface belongs to `HealthServiceImpl`; `ServingStatus` denotes `HealthChe
 - `Google.Protobuf`(`.api/api-protobuf.md`): generated `IMessage<T>` requests and responses are the payloads `GrpcServiceOptions.MaxReceiveMessageSize` bounds.
 - `NodaTime.Serialization.Protobuf`(`.api/api-nodatime-protobuf.md`): `Instant` and `Duration` cross the server edge as `Timestamp` and `Duration` through its conversion extensions.
 - `Grpc.Net.Client`(`.api/api-grpc-client.md`): `GrpcServiceOptions.CompressionProviders` and the message-size pair mirror `GrpcChannelOptions`, so one policy row set configures both ends.
-- `Grpc.Core.Api`(`Rasm.Compute/.api/api-grpc-common.md`): service methods take `ServerCallContext` and `IServerStreamWriter<T>`, and interceptors read `Metadata` off the same call.
+- `Grpc.Core.Api`(`.api/api-grpc-core-api.md`): service methods take `ServerCallContext` and `IServerStreamWriter<T>`, and interceptors read `Metadata` off the same call.
 - `Grpc.Net.Client.Web`(`Rasm.Compute/.api/api-grpc-client-web.md`): `GrpcWebHandler` frames what the `UseGrpcWeb` middleware unframes — one grpc-web contract, encode and decode.
-- `Microsoft.AspNetCore.TestHost`(`Rasm.Compute/.api/api-microsoftaspnetcoretesthost.md`): `TestServer.CreateHandler()` feeds `GrpcChannelOptions.HttpHandler`, dialing a mapped endpoint with no socket.
+- `Microsoft.AspNetCore.TestHost`(`tests/csharp/.api/aspnetcore-testhost.md`): `TestServer.CreateHandler()` feeds `GrpcChannelOptions.HttpHandler`, dialing a mapped endpoint with no socket.
 - `OpenTelemetry.Instrumentation.AspNetCore`(`.api/api-otel-instrumentation-aspnetcore.md`): `AspNetCoreTraceInstrumentationOptions.EnableGrpcAspNetCoreSupport` shapes the inbound span for every mapped gRPC endpoint.
 - AppHost composition: `AddGrpc` folds into `AddServiceOptions<TService>` and then `Interceptors.Add<TInterceptor>` for policy depth; `IServiceMethodProvider<TService>` registers methods no generated base declares, and `IGrpcServiceActivator<TService>` with `IGrpcInterceptorActivator` own both instance lifetimes.
 

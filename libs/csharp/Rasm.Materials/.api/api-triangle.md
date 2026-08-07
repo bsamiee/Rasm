@@ -71,24 +71,24 @@
 
 [PUBLIC_TYPE_SCOPE]: Voronoi dual, smoothing, quality tools — `TriangleNet.Voronoi` / `.Smoothing` / `.Tools`
 
-| [INDEX] | [SYMBOL]             | [TYPE_FAMILY]  | [CAPABILITY]            |
-| :-----: | :------------------- | :------------- | :---------------------- |
-|  [01]   | `StandardVoronoi`    | class          | unbounded Voronoi dual  |
-|  [02]   | `BoundedVoronoi`     | class          | hull-clipped dual       |
-|  [03]   | `VoronoiBase`        | abstract class | dual construction base  |
-|  [04]   | `DcelMesh`           | class          | half-edge topology      |
-|  [05]   | `SimpleSmoother`     | class          | vertex relaxation       |
-|  [06]   | `QualityMeasure`     | class          | FEA quality metrics     |
-|  [07]   | `Statistic`          | static class   | predicate-call counters |
-|  [08]   | `IntersectionHelper` | static class   | segment/box clipping    |
-|  [09]   | `Interpolation`      | static class   | scalar field sampling   |
-|  [10]   | `TriangleQuadTree`   | class          | point-location index    |
-|  [11]   | `AdjacencyMatrix`    | class          | sparse mesh adjacency   |
-|  [12]   | `CuthillMcKee`       | class          | bandwidth reduction     |
+| [INDEX] | [SYMBOL]             | [TYPE_FAMILY]  | [CAPABILITY]                                           |
+| :-----: | :------------------- | :------------- | :----------------------------------------------------- |
+|  [01]   | `StandardVoronoi`    | class          | unbounded Voronoi dual                                 |
+|  [02]   | `BoundedVoronoi`     | class          | hull-clipped dual                                      |
+|  [03]   | `VoronoiBase`        | abstract class | dual construction base                                 |
+|  [04]   | `DcelMesh`           | class          | half-edge topology                                     |
+|  [05]   | `SimpleSmoother`     | class          | vertex relaxation                                      |
+|  [06]   | `QualityMeasure`     | class          | FEA quality metrics                                    |
+|  [07]   | `Statistic`          | class          | static predicate-call counters + instance mesh metrics |
+|  [08]   | `IntersectionHelper` | static class   | segment/box clipping                                   |
+|  [09]   | `Interpolation`      | static class   | scalar field sampling                                  |
+|  [10]   | `TriangleQuadTree`   | class          | point-location index                                   |
+|  [11]   | `AdjacencyMatrix`    | class          | sparse mesh adjacency                                  |
+|  [12]   | `CuthillMcKee`       | class          | bandwidth reduction                                    |
 
-- `QualityMeasure.Update(Mesh)`: computes `area_min`/`area_max`/`area_total` and `alpha_min`/`alpha_max`/`alpha_ave` minimum-angle statistics for the FEA quality gate.
+- `QualityMeasure.Update(Mesh)`: fills the public `AreaMinimum`/`AreaMaximum`/`AreaRatio` area statistics and the `AlphaMinimum`/`AlphaMaximum`/`AlphaAverage`/`AlphaArea` minimum-angle set beside the `Q_Minimum`..`Q_Area` quality band and `Bandwidth()`, for the FEA quality gate; the snake-cased accumulators are fields on private nested classes and reach no consumer.
 - `IntersectionHelper.IntersectSegments`/`LiangBarsky`/`BoxRayIntersection`: segment intersection and Liang-Barsky box clipping.
-- `[Statistic]`: `InCircleCount` `InCircleAdaptCount` `CounterClockwiseCount` `Orient3dCount` `CircumcenterCount` `RelocationCount`.
+- `[Statistic]`: `InCircleCount` `InCircleAdaptCount` `CounterClockwiseCount` `CounterClockwiseAdaptCount` `Orient3dCount` `HyperbolaCount` `CircleTopCount` `CircumcenterCount` `RelocationCount`.
 
 [PUBLIC_TYPE_SCOPE]: file I/O — `TriangleNet.IO`
 

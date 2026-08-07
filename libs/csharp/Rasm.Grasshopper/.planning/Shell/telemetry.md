@@ -11,25 +11,29 @@
 ## [02]-[CUSTODY]
 
 - Owner: `GhTelemetry` — the composition capsule pairing the factory-owned instrument spine with logger admission. `GhInstruments` mints the `Rasm.Grasshopper` meter through `IMeterFactory.Create(MeterOptions)` exactly once, stamping the composing plugin's identity as a meter-scope tag, and hands it to the kernel `InstrumentSet` that owns every handle and the write rail.
-- Entry: `GhTelemetry.Of(IMeterFactory factory, string plugin, Option<ILoggerFactory> logs = default, Option<string> version = default, Op? key = null)` → `Fin<GhTelemetry>` — the one admission gate; `Instruments` and `Logs` are the two capability slots consumers reach.
+- Entry: `GhTelemetry.Of(IMeterFactory factory, HookScope plugin, Option<ILoggerFactory> logs = default, Option<string> version = default, Op? key = null)` → `Fin<GhTelemetry>` — the one admission gate; `Instruments` and `Logs` are the two capability slots consumers reach.
+- Law: plugin identity is the typed `Shell/hooks.md` `HookScope` — the one process-global plugin key the `(point, scope)` hook registry and the `gh.plugin` meter tag share by construction, so the two per-plugin surfaces cannot fork their key space; a raw `string plugin` parameter re-deriving the trim/nonblank admission inline was the fork the folder ruling forecloses, and the `RULINGS.md` single-typed row now holds with zero raw-string plugin surfaces.
 - Law: the injected factory is the sole per-ALC meter lifetime owner — a composing plugin passes its `PluginTelemetryHost.Meters`, and `AssemblyLoadContext.Unloading` drives the host's `ForceFlush`-then-`Dispose` on both providers, so no instrument outlives its plugin and an unload never drops the tail of an export batch. `GhTelemetry.Dispose` unbinds the composition logger only; disposing the minted meter here competes with provider custody.
-- Law: a composition that runs logger-less takes `NullLoggerFactory.Instance` through the `Option` default, never a nullable factory; fault-family `[LoggerMessage]` partials live beside their retaining owners (`Canvas/paint.md` `PaintLog`, `Shell/events.md` `UiEventsLog`, `Eto/runtime.md` `RuntimeLog`, `Platform/native.md` `NativeLog`) and resolve their `ILogger` through `GhLog.For` at the fault-record site, so a retained fault emits once when it lands and no consumer polls a `LastFault` cell.
+- Law: a composition that runs logger-less takes `NullLoggerFactory.Instance` through the `Option` default, never a nullable factory; fault-family `[LoggerMessage]` partials live beside their retaining owners (`Canvas/paint.md` `PaintLog`, `Shell/events.md` `UiEventsLog`, `Eto/runtime.md` `RuntimeLog`, `Platform/native.md` `NativeLog`, `Platform/capture.md` `CaptureLog`) and resolve their `ILogger` through `GhLog.For` at the fault-record site, so a retained fault emits once when it lands and no consumer polls a `LastFault` cell — five partials, and a new log class lands its classification sweep in the same pass or it does not land.
+- Law: every boundary log payload parameter carries its `DataClassification` — the `GhSensitivity` rows below are the folder's spellings of the app-root taxonomy values, attached as `[UserContent]`/`[HostPath]`/`[MachineIdentity]`/`[AccountIdentity]` parameter attributes on the five partials, so the fail-closed app-root redactor sees every sensitive value and an unclassified boundary line never crosses the export seam invisible. The branch classification ruling seats the attach at this producer because only the boundary knows a payload embeds user content or a host path.
+- Law: two classification rules cover the roster — every `detail` parameter is a `Fault`-derived `Error.Message` off arbitrary consumer callbacks, host throws, or capture faults (window titles, file paths, user-typed text) and classifies `[UserContent]`; `DispatchStall`'s `operation` parameter is a caller-minted `Op` name spelling member identity and classifies `[MachineIdentity]`. Bounded vocabulary keys (`source` as a `UiSource` row key, `lane`, measurements) stay unclassified operational values.
+- Law: `GhSensitivity.Values` rides the contributor port's `Classifications` column, so every classification value this boundary attaches is rostered at composition and a value present here and absent at the root refuses at admission instead of erasing at egress.
 - Law: `GhLog` is the per-load-context ambient logger cell under first-mount-wins seat custody — `Of` binds a SUPPLIED factory only while the seat is free and holds the seat token, a later capsule keeps its own `Logs` without overwriting the live binding, and `Dispose` restores `NullLoggerFactory.Instance` only through its own token, so disposing one capsule never disables another still-live one; collectible plugin ALCs isolate the static per plugin, so two co-resident plugins never share a binding, and an unbound context emits into the null logger at zero cost. `GhFault`-raising Components pages take `ILogger` by injection alone because the island imports no UI-thread sibling.
 - Law: two co-resident plugins each `Of` over their own per-ALC factory, so identical `rasm.grasshopper.*` instrument names stay isolated by provider scope and the `gh.plugin` meter tag attributes each series to its composing plugin.
-- Boundary: app roots mint the string-scoped `TelemetryContributorPort` with `Scope` `Rasm.Grasshopper`, an empty `Instruments` seq, `GhInstruments.Rows` on `Published`, and `GhInstruments.Board` on the pack column — the two roster columns split by WHO MOUNTS, so a root binds no handle for a per-ALC row and a roster on neither column exports streams the branch naming gate never proves, while pack admission resolves against the port's own declaration so a self-minting contributor proves its board exactly as a mounted one does.
+- Boundary: app roots mint the string-scoped `TelemetryContributorPort` with `Scope` `Rasm.Grasshopper`, an empty `Instruments` seq, `GhInstruments.Rows` on `Published`, `GhSensitivity.Values` on `Classifications`, and `GhInstruments.Board` on the pack column — the two roster columns split by WHO MOUNTS, so a root binds no handle for a per-ALC row and a roster on neither column exports streams the branch naming gate never proves, while pack admission resolves against the port's own declaration so a self-minting contributor proves its board exactly as a mounted one does.
 - Boundary: this roster CREATES instruments on the injected per-ALC meter, so `SignalGovernance.Views` reads these streams on its foreign arm and derives each stream's tag keys from the published row's own `Dimensions`.
 - Boundary: `GhInstruments` projects the typed `GhEvidence` union pre-envelope, the typed-fold family beside Compute `ComputeInstrumentFan`.
 - Boundary: envelope kind-arm tables are a second truth beside the typed fold and never land here.
 - Boundary: app-root obligations — the provider admits the `Rasm.Grasshopper` meter by name; sampler, exemplar filter, views, cardinality caps, and OTLP egress bind at the provider; `HybridCacheOptions.ReportTagMetrics` with the `gh-doc:{documentId:N}` dimension, the raster serializer, and the `MaximumPayloadBytes` sizing ride the `libs/csharp/.api/api-hybrid-cache.md` app-root obligations — this folder emits receipts and cache tags, never provider registrations.
-- Packages: BCL inbox (`System.Diagnostics.Metrics` — `IMeterFactory`, `MeterOptions`, `Meter`), Microsoft.Extensions.Logging.Abstractions (`ILoggerFactory`, `NullLoggerFactory`), LanguageExt.Core, `Rasm.Domain` (`InstrumentSpec`, `InstrumentSet`, `Buckets`, `LevelCells`, `BoardPack`, `PanelSpec`, `Objective`, `Sli`).
+- Packages: BCL inbox (`System.Diagnostics.Metrics` — `IMeterFactory`, `MeterOptions`, `Meter`), Microsoft.Extensions.Logging.Abstractions (`ILoggerFactory`, `NullLoggerFactory`), Microsoft.Extensions.Compliance.Redaction (`DataClassification`, `DataClassificationAttribute` — the classification grammar; the redactor executes at the app root alone), LanguageExt.Core, `Rasm.Domain` (`InstrumentSpec`, `InstrumentSet`, `Buckets`, `LevelCells`, `BoardPack`, `PanelSpec`, `Objective`, `Sli`, `ClassifiedValue`), `Shell/hooks.md` (`HookScope`).
 - Growth: a new capability slot on the capsule is one property with its admission default; a new attribution axis is one meter-scope tag at the mint.
 
 ## [03]-[ROSTER]
 
 - Owner: `GhInstruments.Rows` — the kernel `InstrumentSpec` declarations this capsule mounts through `InstrumentSet.Of` and publishes on its port; each row names its own `MeasureForm`, so the kernel (kind x form) bind derivation spells every create and this page spells none, and the frame and acknowledgement histograms carry the kernel `Buckets.CanvasFrameSeconds` and `Buckets.AckSeconds` advice rows as the explicit-bucket fallback a backend without base2-exponential histograms reads.
-- Owner: `GhInstruments.Board` — the folder's one kernel `BoardPack`, binding a panel per published row beside the four reliability objectives that grade canvas interactivity, marshal latency, command acknowledgement, and solution-object survival.
+- Owner: `GhInstruments.Board` — the folder's one kernel `BoardPack`, binding a panel per published row beside the three reliability objectives that grade canvas interactivity, marshal latency, and command acknowledgement — solution-object survival stays receipt-only because `SolutionRecord`'s per-object counters are host structural zeros no objective can grade.
 - Law: instrument identity de-duplicates by name inside the meter, so name, unit, description, bound policy, and tag vocabulary are declaration facts spelled once ON THE ROW and every mint and every governance read projects from it; units are UCUM (`s`, `{mark}`, `{command}`) and never pre-baked into the name.
-- Law: `Head` is the folder's one estate segment, so every instrument name and every rasm-owned tag key concatenates it at compile time and a segment rename moves one const.
+- Law: `Head` is the folder's one estate segment — every instrument name and the `OpSlot` tag key concatenate it at compile time, so a segment rename moves one const; `gh.doc` and `gh.plugin` are the folder's compact attribution pair spelled whole by declaration, outside the estate prefix.
 - Law: every row is a projection of a typed receipt already on disk — a metric minted beside this roster is a second truth, and a receipt field no row projects stays receipt-only by declaration.
 - Law: the kind table is the closed field-to-instrument correspondence; a new projected field is one table row, one instrument declaration, and one arm edit, never a call-site meter write.
 - Law: instrument names, tag keys, and the dimension VALUES an objective partitions on are consts the roster, every arm, and every pack row read, so a rename moves one line and a partition indicator can never grade a value no write produces.
@@ -48,12 +52,12 @@ Instrument cells and rasm-owned tag cells extend the `rasm.grasshopper.` prefix;
 |  [06]   | `SessionReceipt` per command      | `session.commands` | `{command}`   | `Counter<long>`     | `gh.doc`, `op`, `deferred` |
 |  [07]   | `RunPulse.Invalid`                | `solution.invalid` | `{parameter}` | `Histogram<long>`   | `gh.doc`                   |
 |  [08]   | `RunEvidence` per completed run   | `solution.runs`    | `{run}`       | `Counter<long>`     | `gh.doc`, `culmination`    |
-|  [10]   | `SolutionTrace.Pulses` per row    | `solution.pulses`  | `{pulse}`     | `Counter<long>`     | `gh.doc`, `signal`         |
-|  [11]   | drain drop evidence per shed fact | `drain.dropped`    | `{fact}`      | `Counter<long>`     | `source`                   |
-|  [12]   | `DispatchPulse.Elapsed`           | `dispatch.body`    | `s`           | `Histogram<double>` | `lane`                     |
-|  [13]   | `DispatchPulse.Breached` per lane | `dispatch.stalls`  | `{stall}`     | `Counter<long>`     | `lane`                     |
-|  [14]   | `BudgetBreach` per judged subject | `frame.breach`     | `{breach}`    | `Counter<long>`     | `gh.doc`, `gate`           |
-|  [15]   | hook subscriber fault per point   | `hook.faults`      | `{fault}`     | `Counter<long>`     | `point`                    |
+|  [09]   | `SolutionTrace.Pulses` per row    | `solution.pulses`  | `{pulse}`     | `Counter<long>`     | `gh.doc`, `signal`         |
+|  [10]   | drain drop evidence per shed fact | `drain.dropped`    | `{fact}`      | `Counter<long>`     | `source`                   |
+|  [11]   | `DispatchPulse.Elapsed`           | `dispatch.body`    | `s`           | `Histogram<double>` | `lane`                     |
+|  [12]   | `DispatchPulse.Breached` per lane | `dispatch.stalls`  | `{stall}`     | `Counter<long>`     | `lane`                     |
+|  [13]   | `BudgetBreach` per judged subject | `frame.breach`     | `{breach}`    | `Counter<long>`     | `gh.doc`, `gate`           |
+|  [14]   | hook subscriber fault per point   | `hook.faults`      | `{fault}`     | `Counter<long>`     | `point`                    |
 
 - Boundary: feeders are the receipt owners — `Canvas/paint.md` (`PaintReceipt`), `Canvas/motion.md` (`FrameWindow`, `BudgetBreach`), `Canvas/canvas.md` (`FramePulse`), `Shell/session.md` (`SessionReceipt`), `Document/solution.md` (`RunPulse`, `RunEvidence`, `SolutionTrace`), `Eto/runtime.md` (`DispatchPulse` through `EtoDispatch.Watch`), `Shell/hooks.md` (parked `IsolatedFault` evidence through the `GhHooks.Faults` cell's `Change` tap), and the `Shell/events.md` bounded drain's drop accounting; session-cache hit/miss stays off this roster because `ReportTagMetrics` surfaces it per `gh-doc` tag on the `HybridCache` EventSource.
 - Growth: a new instrument is one `Rows` declaration and one arm write, the handle deriving; a new bucket policy is one kernel `Buckets` row; a per-phase or per-disposition family is one instrument with a tag axis, never sibling instruments per value; a new board tile is one `PanelSpec` and a new reliability target one `Objective` on the same pack.
@@ -61,7 +65,7 @@ Instrument cells and rasm-owned tag cells extend the `rasm.grasshopper.` prefix;
 ## [04]-[PROJECTION]
 
 - Owner: `GhEvidence` `[Union]` — the one fact family closing the folder's receipt corpus; `GhInstruments.Project` — the one total fold from evidence onto the kernel write rail.
-- Entry: `Project(GhEvidence fact)` → `Fin<Unit>` — every document-scoped case carries its `DocumentToken` guid, and `GhEvidence.Document` projects `Some(document)` for those cases and `None` for process-scoped evidence. Every document-scoped write carries `gh.doc = {documentId:N}`, the same identity axis the session cache spells as its `gh-doc:{documentId:N}` tag, so metric series, cache tag metrics, and journal partitions join on one dimension.
+- Entry: `Project(GhEvidence fact)` → `Fin<Unit>` — every document-scoped case carries its `DocumentToken` guid, and `GhEvidence.Document` projects `Some(document)` for those cases and `None` for process-scoped evidence. Every document-scoped write carries `gh.doc = {documentId:N}`, the same identity VALUE the session cache spells under its `gh-doc:{documentId:N}` tag — the two key spellings differ by declaration, so the join is on the `{documentId:N}` value, and a query correlating metric series with cache tag metrics renames the key explicitly.
 - Law: the fold is the generated total `Switch` — a new receipt family is one union case, and the build breaks every projection site until its arm decides instrument writes or returns `unit` explicitly.
 - Law: drop evidence is process-scoped — the `DropCase` write carries its `source` lane and no document tag, because a shed fact's document identity died with the fact.
 - Law: document attribution is fact-owned — `PaintCase`, `WindowCase`, `PulseCase`, `SessionCase`, `ProbeCase`, `RunCase`, `TraceCase`, and `BreachCase` carry `DocumentId`; `DropCase`, `DispatchCase`, and `HookFaultCase` project no document. `SessionJournal.Append` derives its partition from the enclosing `JournalFact` projection and takes no independently supplied document argument.
@@ -74,6 +78,7 @@ Instrument cells and rasm-owned tag cells extend the `rasm.grasshopper.` prefix;
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using System.Diagnostics.Metrics;
+using Microsoft.Extensions.Compliance.Classification;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Rasm.Csp;
@@ -85,6 +90,33 @@ using Rasm.Grasshopper.Eto;
 namespace Rasm.Grasshopper.Shell;
 
 // --- [TYPES] --------------------------------------------------------------------------------
+// One taxonomy spelling and one const per value feed BOTH columns below, so a re-spelling cannot land on
+// the framework row and miss the contributed pair — the drift that makes a federated value unrostered.
+// The values are the app-root DataClassification taxonomy's own keys; this boundary attaches, the root redacts.
+public static class GhSensitivity {
+    const string Taxonomy = nameof(DataClassification);
+    const string UserContentValue = "user-content";
+    const string HostPathValue = "host-path";
+    const string MachineIdentityValue = "host-identity";
+    const string AccountIdentityValue = "personal";
+
+    public static readonly DataClassification UserContent = new(taxonomyName: Taxonomy, value: UserContentValue);
+    public static readonly DataClassification HostPath = new(taxonomyName: Taxonomy, value: HostPathValue);
+    public static readonly DataClassification MachineIdentity = new(taxonomyName: Taxonomy, value: MachineIdentityValue);
+    public static readonly DataClassification AccountIdentity = new(taxonomyName: Taxonomy, value: AccountIdentityValue);
+
+    public static readonly Seq<ClassifiedValue> Values = Seq(
+        new ClassifiedValue(Taxonomy, UserContentValue),
+        new ClassifiedValue(Taxonomy, HostPathValue),
+        new ClassifiedValue(Taxonomy, MachineIdentityValue),
+        new ClassifiedValue(Taxonomy, AccountIdentityValue));
+}
+
+public sealed class UserContentAttribute() : DataClassificationAttribute(GhSensitivity.UserContent);
+public sealed class HostPathAttribute() : DataClassificationAttribute(GhSensitivity.HostPath);
+public sealed class MachineIdentityAttribute() : DataClassificationAttribute(GhSensitivity.MachineIdentity);
+public sealed class AccountIdentityAttribute() : DataClassificationAttribute(GhSensitivity.AccountIdentity);
+
 [Union]
 public abstract partial record GhEvidence {
     private GhEvidence() { }
@@ -121,7 +153,7 @@ public sealed class GhInstruments {
 
     // ONE head for the folder's whole vocabulary: every instrument name and every rasm-owned tag key
     // concatenates it at compile time, so the segment is stated once and the branch naming gate proves it
-    // against the domain roster through this roster's port column. Fifteen repeated literals could each drift
+    // against the domain roster through this roster's port column. Fourteen repeated literals could each drift
     // alone; one const cannot.
     private const string Head = "rasm.grasshopper.";
 
@@ -172,7 +204,7 @@ public sealed class GhInstruments {
     // kernel bind derivation mints every handle from them, and the port publishes them. These instruments
     // mint on the injected per-ALC meter this capsule owns, so `Published` is their column — seating them in
     // `Instruments` binds a second handle for each name on the root's own meter, and leaving them off both
-    // columns exports fifteen streams the branch naming gate never sees and the view predicate never projects.
+    // columns exports fourteen streams the branch naming gate never sees and the view predicate never projects.
     public static readonly Seq<InstrumentSpec> Rows = Seq(
         InstrumentSpec.Advised(PaintDuration, "s", "Paint plan execution wall time per receipt.",
             MeasureForm.Real, Buckets.CanvasFrameSeconds, DocSlot),
@@ -238,7 +270,7 @@ public sealed class GhInstruments {
             Objective.Create("grasshopper.session.ack", new Sli.Latency(SessionAck, AckCeiling, 0.99d), 0.99d, Duration.Zero)));
 
     // Whole handle custody is the kernel `InstrumentSet`: it derives every create from the row's own
-    // (kind x form) pair, de-duplicates by name inside the meter, and returns the typed write rail. Fifteen
+    // (kind x form) pair, de-duplicates by name inside the meter, and returns the typed write rail. Fourteen
     // private handle fields beside three per-family mint helpers re-spell that derivation and hand back a
     // void write, so an unmounted name and a family mismatch both vanish where the rail names them.
     private readonly InstrumentSet set;
@@ -247,10 +279,10 @@ public sealed class GhInstruments {
 
     // No pulled row declares here, so the cell store mounts empty and stays the kernel's — a per-capsule
     // level cell would be state this boundary owns and never reads.
-    internal static GhInstruments Of(IMeterFactory factory, string plugin, Option<string> version) =>
+    internal static GhInstruments Of(IMeterFactory factory, HookScope plugin, Option<string> version) =>
         new(set: InstrumentSet.Of(new LevelCells(), (factory.Create(new MeterOptions(MeterName) {
-            Version = version.MatchUnsafe(Some: static held => held, None: static () => null),
-            Tags = [new KeyValuePair<string, object?>("gh.plugin", plugin)],
+            Version = version.Match<string?>(Some: static held => held, None: static () => null),
+            Tags = [new KeyValuePair<string, object?>("gh.plugin", (string)plugin)],
         }), Rows)));
 
     // Projection returns the kernel write rail rather than swallowing it: a refused measurement reaches the
@@ -365,12 +397,13 @@ public sealed class GhTelemetry : IDisposable {
     public ILoggerFactory Logs { get; }
 
     public static Fin<GhTelemetry> Of(
-        IMeterFactory factory, string plugin,
+        IMeterFactory factory, HookScope plugin,
         Option<ILoggerFactory> logs = default, Option<string> version = default, Op? key = null) {
         Op op = key.OrDefault();
+        // HookScope IS the admission — the typed key arrived trimmed and nonblank through its own factory, and
+        // a default-constructed struct refuses here so an unadmitted scope never reaches the meter tag.
         return from owner in op.Need(factory)
-               from identity in guard(!string.IsNullOrWhiteSpace(plugin), op.InvalidInput()).ToFin()
-                   .Map(_ => plugin.Trim())
+               from identity in op.AcceptValue(value: plugin)
                from telemetry in op.Catch(body: () => {
                    // only a SUPPLIED factory contends for the ambient seat — an Option-defaulted null sink never binds,
                    // so a logger-less capsule cannot displace a live binding; the held seat is the disposal token.
@@ -419,9 +452,10 @@ flowchart LR
 | [INDEX] | [CONCERN]           | [OWNER]         | [RAIL]                                   | [CASES] |
 | :-----: | :------------------ | :-------------- | :--------------------------------------- | :-----: |
 |  [01]   | receipt ingress     | `GhEvidence`    | closed union → one total projection fold |   11    |
-|  [02]   | instrument roster   | `GhInstruments` | `Project(GhEvidence) → Fin<Unit>`        |   15    |
+|  [02]   | instrument roster   | `GhInstruments` | `Project(GhEvidence) → Fin<Unit>`        |   14    |
 |  [03]   | telemetry admission | `GhTelemetry`   | `Of → Fin<GhTelemetry>`; logger inverse  |    1    |
 |  [04]   | ambient log seam    | `GhLog`         | `For(category) → ILogger`                |    1    |
+|  [05]   | sensitivity rows    | `GhSensitivity` | classification values + port roster      |    4    |
 
 `Op`, `Lease<T>`, `DocumentToken`, the kernel instrument mechanism, and every receipt owner are composed upstream; the app root owns `IMeterFactory` custody, provider binding, views, and OTLP egress — nothing on this page names an exporter.
 

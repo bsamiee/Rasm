@@ -10,7 +10,7 @@
 - assembly: `RhinoCommon.dll` (`Panels`, `StatusBar`, `StackedDialogPage`, `DrawingUtilities`, gumball, mouse, toolbar, UI-thread)
 - namespace: `Rhino.UI` (panels, dialogs, pages, mouse, status, toolbar, resources, in-viewport UI objects)
 - namespace: `Rhino.UI.Gumball` (`GumballObject`, `GumballDisplayConduit`, `GumballFrame`)
-- namespace: `Rhino.UI.Controls` (`EtoCollapsibleSection`(+`Holder`) section hosts; the full `Rhino.UI.dll` control library is `api-rhino-ui-controls.md`)
+- namespace: `Rhino.UI.Controls` (`EtoCollapsibleSection`(+`Holder`) section hosts; the full `Rhino.UI.dll` control library is `libs/csharp/Rasm.Rhino/.api/api-rhino-ui-controls.md`)
 - namespace: `Rhino.UI.Controls.DataSource` (`ProviderIds` provider-identity roster, `EventArgs`/`EventInfoArgs` payloads — `RhinoCommon.dll`)
 - asset: host-resolved managed reference; the boundary composes it, the manifest never pins it
 - rail: host-boundary native-ui
@@ -62,22 +62,22 @@
 | :-----: | :------------------------------ | :----------- | :--------------------------- |
 |  [01]   | `CommandPromptChangedEventArgs` | prompt state | prompt, default, and options |
 
-- Registers the in-viewport UI object family (`api-rhinocommon-custom-objects.md`): `UserInterfaceObjectBase` with its grip, direction, rotation, text-dot, control, and slider derivations, `MouseState`, and `ViewUserInterfaceTable` all carry their members there, beside the custom-object authoring surface sharing their derivation contract. This boundary supplies only the namespace and the pipeline seam.
+- Registers the in-viewport UI object family (`libs/csharp/Rasm.Rhino/.api/api-rhinocommon-custom-objects.md`): `UserInterfaceObjectBase` with its grip, direction, rotation, text-dot, control, and slider derivations, `MouseState`, and `ViewUserInterfaceTable` all carry their members there, beside the custom-object authoring surface sharing their derivation contract. This boundary supplies only the namespace and the pipeline seam.
 
 [PUBLIC_TYPE_SCOPE]: status, toolbar, and resources
 
-| [INDEX] | [SYMBOL]                       | [KIND]           | [CAPABILITY]                     |
-| :-----: | :----------------------------- | :--------------- | :------------------------------- |
-|  [01]   | `StatusBar`                    | status chrome    | status panes and progress meter  |
-|  [02]   | `RuiUpdateUi`                  | menu state       | live menu synchronization        |
-|  [03]   | `ToolbarFile`                  | toolbar file     | `.rui` file access               |
-|  [04]   | `ToolbarFileCollection`        | toolbar registry | `.rui` open/find collection      |
-|  [05]   | `Toolbar`                      | toolbar state    | toolbar identity, global sizing  |
-|  [06]   | `ToolbarGroup`                 | toolbar group    | group identity and visibility    |
-|  [07]   | `DrawingUtilities`             | resource loader  | native UI resource utilities     |
-|  [08]   | `RhinoApp` (UI-thread members) | thread marshal   | main-thread dispatch             |
-|  [09]   | `RhinoView.ShowToast`          | transient notice | viewport toast                   |
-|  [10]   | `Localization`                 | locale service   | language id + unit formatting    |
+| [INDEX] | [SYMBOL]                       | [KIND]           | [CAPABILITY]                    |
+| :-----: | :----------------------------- | :--------------- | :------------------------------ |
+|  [01]   | `StatusBar`                    | status chrome    | status panes and progress meter |
+|  [02]   | `RuiUpdateUi`                  | menu state       | live menu synchronization       |
+|  [03]   | `ToolbarFile`                  | toolbar file     | `.rui` file access              |
+|  [04]   | `ToolbarFileCollection`        | toolbar registry | `.rui` open/find collection     |
+|  [05]   | `Toolbar`                      | toolbar state    | toolbar identity, global sizing |
+|  [06]   | `ToolbarGroup`                 | toolbar group    | group identity and visibility   |
+|  [07]   | `DrawingUtilities`             | resource loader  | native UI resource utilities    |
+|  [08]   | `RhinoApp` (UI-thread members) | thread marshal   | main-thread dispatch            |
+|  [09]   | `RhinoView.ShowToast`          | transient notice | viewport toast                  |
+|  [10]   | `Localization`                 | locale service   | language id + unit formatting   |
 
 [PUBLIC_TYPE_SCOPE]: RDK data-source provider identities
 - namespace: `Rhino.UI.Controls.DataSource`
@@ -163,18 +163,18 @@
 |  [65]   | `StackedDialogPage.NavigationTextColor` (get/set)                         | page         | Windows navigation color       |
 |  [66]   | `StackedDialogPage.NavigationTextIsBold` (get/set)                        | page         | Windows navigation bold        |
 |  [67]   | `ObjectPropertiesPage.EnglishPageTitle` (abstract) / `LocalPageTitle`     | page         | English and localized titles   |
-|  [68]   | `ObjectPropertiesPage.PageControl : object`                               | page         | host control carrier           |
-|  [69]   | `ObjectPropertiesPage.PageType : PropertyPageType` / `Index : int`        | page         | page kind and button order     |
-|  [70]   | `ObjectPropertiesPage.SupportedTypes : ObjectType`                        | page         | selection type filter          |
+|  [68]   | `ObjectPropertiesPage.PageControl -> object`                              | page         | host control carrier           |
+|  [69]   | `ObjectPropertiesPage.PageType -> PropertyPageType` / `Index -> int`      | page         | page kind and button order     |
+|  [70]   | `ObjectPropertiesPage.SupportedTypes -> ObjectType`                       | page         | selection type filter          |
 |  [71]   | `ObjectPropertiesPage.AllObjectsMustBeSupported` / `SupportsSubObjects`   | page         | selection admission width      |
 |  [72]   | `ObjectPropertiesPage.PageIconEmbeddedResourceString`/`PageIcon(Size)`    | page         | page icon resolution           |
 |  [73]   | `ObjectPropertiesPage.OnActivate(bool)` / `OnHelp()`                      | page         | activation and help hooks      |
 |  [74]   | `ObjectPropertiesPage.OnCreateParent(nint)`/`OnSizeParent(int, int)`      | page         | native parent hooks            |
-|  [75]   | `ObjectPropertiesPage.SelectedObjects : RhinoObject[]`                    | page         | supported-type selection read  |
-|  [76]   | `ObjectPropertiesPage.GetSelectedObjects<T>() : T[]`                      | page         | typed selection read           |
+|  [75]   | `ObjectPropertiesPage.SelectedObjects -> RhinoObject[]`                   | page         | supported-type selection read  |
+|  [76]   | `ObjectPropertiesPage.GetSelectedObjects<T>() -> T[]`                     | page         | typed selection read           |
 |  [77]   | `ObjectPropertiesPage.AnySelectedObject<T>()` / `<T>(bool allMatch)`      | page         | typed selection test           |
 |  [78]   | `ObjectPropertiesPage.RunScript(ObjectPropertiesPageEventArgs)`           | page         | scripted properties run        |
-|  [79]   | `OptionsDialogPage.OptionsPageType : PageType` (nested `enum`)            | page         | options versus doc properties  |
+|  [79]   | `OptionsDialogPage.OptionsPageType -> PageType` (nested `enum`)           | page         | options versus doc properties  |
 |  [80]   | `OptionsDialogPage.RunScript(RhinoDoc, RunMode)`                          | page         | scripted options run           |
 
 `ThemeSettings.ThemeChanged` is a public static `EventHandler` field subscribed through `+=`; the `EtoExtensions` notifier behind it is private. Native styling, document-owned presentation, semi-modal display, and window position persistence are the registered branch bridge (`libs/csharp/.api/api-rhino-ui.md`), which the `RhinoEtoApp` parents above present against.
@@ -205,13 +205,13 @@
 |  [15]   | `Dialogs.ShowSunDialog(Sun)`                                                              | dialog       | sun editor                |
 |  [16]   | `new OpenFileDialog()` / `new SaveFileDialog()`                                           | dialog       | mint file dialog          |
 |  [17]   | `OpenFileDialog.DefaultExt`/`FileName`/`Title`/`Filter`/`InitialDirectory` (get/set)      | dialog       | open-dialog text state    |
-|  [18]   | `OpenFileDialog.MultiSelect` (get/set) / `FileNames` (get) / `ShowOpenDialog() : bool`    | dialog       | multi-select open run     |
+|  [18]   | `OpenFileDialog.MultiSelect` (get/set) / `FileNames` (get) / `ShowOpenDialog() -> bool`   | dialog       | multi-select open run     |
 |  [19]   | `SaveFileDialog.DefaultExt`/`FileName`/`Title`/`Filter`/`InitialDirectory` (get/set)      | dialog       | save-dialog text state    |
-|  [20]   | `SaveFileDialog.ShowSaveDialog() : bool`                                                  | dialog       | save-name run             |
+|  [20]   | `SaveFileDialog.ShowSaveDialog() -> bool`                                                 | dialog       | save-name run             |
 |  [21]   | `new GumballObject()` / `GumballObject.Dispose()`                                         | gumball      | mint and release state    |
 |  [22]   | `GumballObject.SetFromBoundingBox(BoundingBox)` / `(Plane, BoundingBox)`                  | gumball      | seat from extents         |
-|  [23]   | `GumballObject.SetFromLine/Plane/Arc/Circle/Ellipse/Curve/Extrusion/Light/Hatch(...)`      | gumball      | seat from one carrier     |
-|  [24]   | `GumballObject.Frame : GumballFrame` (get/set)                                            | gumball      | plane, scale grip, mode   |
+|  [23]   | `GumballObject.SetFromLine/Plane/Arc/Circle/Ellipse/Curve/Extrusion/Light/Hatch(...)`     | gumball      | seat from one carrier     |
+|  [24]   | `GumballObject.Frame -> GumballFrame` (get/set)                                           | gumball      | plane, scale grip, mode   |
 |  [25]   | `new GumballDisplayConduit()` / `(ActiveSpace)` / `Dispose()`                             | gumball      | mint and release conduit  |
 |  [26]   | `GumballDisplayConduit.Enabled` (get/set)                                                 | gumball      | arm conduit participation |
 |  [27]   | `GumballDisplayConduit.SetBaseGumball(GumballObject[, GumballAppearanceSettings])`        | gumball      | seat manipulator          |
@@ -281,11 +281,11 @@
 |  [33]   | `DrawingUtilities.CreateCurvePreviewGeometry(Curve, Linetype, int, int)`                         | resource     | create curve preview   |
 |  [34]   | `NamedColorList.Default`                                                                         | resource     | default named palette  |
 |  [35]   | `WaitCursor()` / `Dispose()`                                                                     | cursor       | scope host wait cursor |
-|  [36]   | `RhinoApp.ToolbarFiles : ToolbarFileCollection` (static get)                                     | toolbar      | process `.rui` set     |
-|  [37]   | `ToolbarFileCollection.Count` / `this[int]` / `GetEnumerator() : IEnumerator<ToolbarFile>`       | toolbar      | enumerate open files   |
-|  [38]   | `ToolbarFile.Id : Guid` / `Name : string` / `Path : string`                                      | toolbar      | file identity, alias   |
-|  [39]   | `ToolbarFile.GroupCount : int` / `ToolbarCount : int`                                            | toolbar      | file roster arity      |
-|  [40]   | `ToolbarFile.GetSvg(Guid imageId, bool darkMode) : string`                                       | toolbar      | per-image SVG payload  |
+|  [36]   | `RhinoApp.ToolbarFiles -> ToolbarFileCollection` (static get)                                    | toolbar      | process `.rui` set     |
+|  [37]   | `ToolbarFileCollection.Count` / `this[int]` / `GetEnumerator() -> IEnumerator<ToolbarFile>`      | toolbar      | enumerate open files   |
+|  [38]   | `ToolbarFile.Id -> Guid` / `Name -> string` / `Path -> string`                                   | toolbar      | file identity, alias   |
+|  [39]   | `ToolbarFile.GroupCount -> int` / `ToolbarCount -> int`                                          | toolbar      | file roster arity      |
+|  [40]   | `ToolbarFile.GetSvg(Guid imageId, bool darkMode) -> string`                                      | toolbar      | per-image SVG payload  |
 |  [41]   | `ToolbarGroup.Id`/`Name`; `Toolbar.Id`/`Name` (each `Guid`/`string` get)                         | toolbar      | group and bar identity |
 
 - `RhinoApp.ToolbarFiles` is the process-wide `.rui` set — a lazily minted `ToolbarFileCollection : IEnumerable<ToolbarFile>` whose `Count`/`this[int]` read the native file registry live, so the collection is a cursor over host state, never a snapshot to retain.
@@ -298,22 +298,22 @@
 
 `Localization` is a `RhinoCommon.dll` static in `Rhino.UI`; its `LocalizeString`/`LocalizeCommandName`/`LocalizeDialogItem`/`LocalizeForm` family resolves plug-in XML string tables and returns the English input unchanged when none ship, while the locale-identity and unit-formatting members are table-free.
 
-| [INDEX] | [SURFACE]                                                                                 | [CALL_SHAPE] | [CAPABILITY]                |
-| :-----: | :---------------------------------------------------------------------------------------- | :----------- | :-------------------------- |
-|  [01]   | `CurrentLanguageId : int`                                                                 | locale       | host language LCID          |
-|  [02]   | `RunningAsEnglish : bool`                                                                 | locale       | English-locale discriminant |
-|  [03]   | `LogicalSort(string string1, string string2) : int`                                       | locale       | digit-aware sort            |
-|  [04]   | `UnitSystemName(UnitSystem, bool capitalize, bool singular, bool abbreviate) : string`    | formatting   | localized unit-system name  |
-|  [05]   | `FormatNumber(double, UnitSystem, DistanceDisplayMode, int, bool) : string`               | formatting   | unit-aware number text      |
-|  [06]   | `FormatNumber(double, LengthUnit, DistanceDisplayMode, int, bool) : string`               | formatting   | length-unit number text     |
-|  [07]   | `FormatNumber(double x) : string`                                                         | formatting   | locale number text          |
-|  [08]   | `FormatDistanceAndTolerance(double, UnitSystem, DimensionStyle, bool alternate) : string` | formatting   | style-driven distance text  |
-|  [09]   | `FormatArea(double, UnitSystem, DimensionStyle, bool alternate) : string`                 | formatting   | style-driven area text      |
-|  [10]   | `FormatVolume(double, UnitSystem, DimensionStyle, bool alternate) : string`               | formatting   | style-driven volume text    |
-|  [11]   | `LocalizeString(string english, int contextId) : string`                                  | string map   | plug-in string-table lookup |
-|  [12]   | `LocalizeCommandName(string english) : string`                                            | string map   | command-name lookup         |
-|  [13]   | `LocalizeCommandOptionName(string english, int contextId) : LocalizeStringPair`           | string map   | option-name pair            |
-|  [14]   | `LocalizeCommandOptionValue(string english, int contextId) : LocalizeStringPair`          | string map   | option-value pair           |
+| [INDEX] | [SURFACE]                                                                                  | [CALL_SHAPE] | [CAPABILITY]                |
+| :-----: | :----------------------------------------------------------------------------------------- | :----------- | :-------------------------- |
+|  [01]   | `CurrentLanguageId -> int`                                                                 | locale       | host language LCID          |
+|  [02]   | `RunningAsEnglish -> bool`                                                                 | locale       | English-locale discriminant |
+|  [03]   | `LogicalSort(string string1, string string2) -> int`                                       | locale       | digit-aware sort            |
+|  [04]   | `UnitSystemName(UnitSystem, bool capitalize, bool singular, bool abbreviate) -> string`    | formatting   | localized unit-system name  |
+|  [05]   | `FormatNumber(double, UnitSystem, DistanceDisplayMode, int, bool) -> string`               | formatting   | unit-aware number text      |
+|  [06]   | `FormatNumber(double, LengthUnit, DistanceDisplayMode, int, bool) -> string`               | formatting   | length-unit number text     |
+|  [07]   | `FormatNumber(double x) -> string`                                                         | formatting   | locale number text          |
+|  [08]   | `FormatDistanceAndTolerance(double, UnitSystem, DimensionStyle, bool alternate) -> string` | formatting   | style-driven distance text  |
+|  [09]   | `FormatArea(double, UnitSystem, DimensionStyle, bool alternate) -> string`                 | formatting   | style-driven area text      |
+|  [10]   | `FormatVolume(double, UnitSystem, DimensionStyle, bool alternate) -> string`               | formatting   | style-driven volume text    |
+|  [11]   | `LocalizeString(string english, int contextId) -> string`                                  | string map   | plug-in string-table lookup |
+|  [12]   | `LocalizeCommandName(string english) -> string`                                            | string map   | command-name lookup         |
+|  [13]   | `LocalizeCommandOptionName(string english, int contextId) -> LocalizeStringPair`           | string map   | option-name pair            |
+|  [14]   | `LocalizeCommandOptionValue(string english, int contextId) -> LocalizeStringPair`          | string map   | option-value pair           |
 
 [ENTRYPOINT_SCOPE]: RDK data-source provider identities
 - namespace: `Rhino.UI.Controls.DataSource`
@@ -323,24 +323,25 @@
 - `DataSource.ProviderIds` render-settings ids: `Sun`, `CurrentEnvironment`, `RhinoSettings`, `Skylight`, `GroundPlane`, `Dithering`, `LinearWorkflow`, `RenderChannels`.
 - `DataSource.ProviderIds` content and decal ids: `ContentDatabase`, `ContentLookup`, `ContentSelection`, `ContentParam`, `Decals`.
 - `DataSource.ProviderIds` rendering-pipeline ids: `RdkRendering`, `RdkRenderingProgress`, `RdkRenderingGamma`, `RdkRenderingToneMapping`, `RdkRenderingPostEffects`, `RdkRenderingPostEffectDOF`, `RdkRenderingPostEffectGlare`.
-- `DataSource.EventArgs.DataType : Guid` / `DataSource.EventInfoArgs.EventInfoPtr : nint` — event-payload changed-data-type and native info pointer.
+- `DataSource.EventArgs.DataType -> Guid` / `DataSource.EventInfoArgs.EventInfoPtr -> nint` — event-payload changed-data-type and native info pointer.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Native chrome registers once per plug-in in one owner: `Panels.RegisterPanel` seats a panel type, `StackedDialogPage`/`OptionsDialogPage`/`ObjectPropertiesPage` seat pages, and the host resolves instances through `GetPanel`/`GetPanels<T>`; a second registration of the same type is the collapsed form.
 - Every Eto surface reaches a Rhino window through one path: `RhinoEtoApp` resolves the document-owned parent and the registered bridge applies native styling and presents the surface against a document; the control tree is authored through the folder Eto catalogs, never re-implemented here.
-- Interaction runs three tiers with disjoint owners: `MouseCallback` is the document-wide viewport mouse hook with begin/end phase pairs and a per-event veto, a gumball is the dedicated manipulator — a `GumballDisplayConduit` seated from a `GumballObject`, never a hand-rolled grip cluster — and the registered in-viewport widget family is `api-rhinocommon-custom-objects.md`'s, reached here only as the namespace and pipeline seam it draws through.
+- Interaction runs three tiers with disjoint owners: `MouseCallback` is the document-wide viewport mouse hook with begin/end phase pairs and a per-event veto, a gumball is the dedicated manipulator — a `GumballDisplayConduit` seated from a `GumballObject`, never a hand-rolled grip cluster — and the registered in-viewport widget family is `libs/csharp/Rasm.Rhino/.api/api-rhinocommon-custom-objects.md`'s, reached here only as the namespace and pipeline seam it draws through.
 - Every host callback runs on the UI thread: work touching document or UI state from a background context marshals through `RhinoApp.InvokeOnUiThread`/`InvokeAndWait`, gated by `IsOnMainThread`.
 
 [STACKING]:
-- `api-rhino-ui`(`../../.api/api-rhino-ui.md`): the registered host bridge — `UseRhinoStyle`, document-owned `Show`/`GetRhinoDoc`, `ShowSemiModal`, position persistence, and the single-value prompts this boundary composes and re-tables none of.
-- `api-eto-forms.md`/`api-eto-drawing.md`/`api-eto-runtime.md`: a panel or dialog's content is an Eto control tree from those catalogs; this boundary supplies the `RhinoEtoApp` window ownership the registered bridge presents against.
-- `api-languageext.md`(`../../.api/api-languageext.md`): panel registration, page activation, dialog results, and resource loads trap onto the rail — `Try.lift(() => Panels.RegisterPanel(...)).Run()` and `Optional(Dialogs.ShowColorDialog(...)).ToFin(error)`; a dialog result or a loaded preview image crosses as `Fin<A>`, never a nullable host handle.
-- `api-thinktecture-runtime-extensions.md`(`../../.api/api-thinktecture-runtime-extensions.md`): host UI enums (`PanelType`, `FloatPanelMode`, `ShowPanelReason`, `MouseButton`, `GumballMode`, `PropertyPageType`, the dialog button/icon selectors) map at the edge to `[SmartEnum]` owners, and a panel/page `Guid` is a `[ValueObject<Guid>]`.
-- `api-rhinocommon-custom-objects.md`: the whole in-viewport widget family — `UserInterfaceObjectBase` and its grip, direction, rotation, text-dot, control, and slider derivations, `MouseState`, and `ViewUserInterfaceTable` — carries its members there beside the custom-object derivation contract it shares; this boundary registers it and tables none of it.
-- `api-rhinocommon-display.md`: a widget's `OnDraw` receives a `DrawEventArgs` and draws through the same `DisplayPipeline` the display catalog owns, and the gumball is a display conduit — the UI widget is a pipeline participant, not a private renderer.
-- `api-rhino-ui-controls.md`: `Rhino.UI.dll`'s full control library composes into a panel or page hosted through this boundary; a `DataSource.ProviderIds` `Guid` binds a UI data source, and an `EventInfoArgs.EventInfoPtr` native pointer traps at the edge, never crossing into a domain signature.
+- `RhinoCommon` value substrate(`libs/csharp/.api/api-rhinocommon.md`): the `Point3d`/`Plane`/`Line`/`BoundingBox` carriers this boundary threads cross the wire from the substrate; it composes them and re-derives none.
+- `libs/csharp/.api/api-rhino-ui.md`: the registered host bridge — `UseRhinoStyle`, document-owned `Show`/`GetRhinoDoc`, `ShowSemiModal`, position persistence, and the single-value prompts this boundary composes and re-tables none of.
+- `libs/csharp/Rasm.Rhino/.api/api-eto-forms.md`/`libs/csharp/Rasm.Rhino/.api/api-eto-drawing.md`/`libs/csharp/Rasm.Rhino/.api/api-eto-runtime.md`: a panel or dialog's content is an Eto control tree from those catalogs; this boundary supplies the `RhinoEtoApp` window ownership the registered bridge presents against.
+- `libs/csharp/.api/api-languageext.md`: panel registration, page activation, dialog results, and resource loads trap onto the rail — `Try.lift(() => Panels.RegisterPanel(...)).Run()` and `Optional(Dialogs.ShowColorDialog(...)).ToFin(error)`; a dialog result or a loaded preview image crosses as `Fin<A>`, never a nullable host handle.
+- `libs/csharp/.api/api-thinktecture-runtime-extensions.md`: host UI enums (`PanelType`, `FloatPanelMode`, `ShowPanelReason`, `MouseButton`, `GumballMode`, `PropertyPageType`, the dialog button/icon selectors) map at the edge to `[SmartEnum]` owners, and a panel/page `Guid` is a `[ValueObject<Guid>]`.
+- `libs/csharp/Rasm.Rhino/.api/api-rhinocommon-custom-objects.md`: the whole in-viewport widget family — `UserInterfaceObjectBase` and its grip, direction, rotation, text-dot, control, and slider derivations, `MouseState`, and `ViewUserInterfaceTable` — carries its members there beside the custom-object derivation contract it shares; this boundary registers it and tables none of it.
+- `libs/csharp/Rasm.Rhino/.api/api-rhinocommon-display.md`: a widget's `OnDraw` receives a `DrawEventArgs` and draws through the same `DisplayPipeline` the display catalog owns, and the gumball is a display conduit — the UI widget is a pipeline participant, not a private renderer.
+- `libs/csharp/Rasm.Rhino/.api/api-rhino-ui-controls.md`: `Rhino.UI.dll`'s full control library composes into a panel or page hosted through this boundary; a `DataSource.ProviderIds` `Guid` binds a UI data source, and an `EventInfoArgs.EventInfoPtr` native pointer traps at the edge, never crossing into a domain signature.
 
 [LOCAL_ADMISSION]:
 - `Rhino.UI` types are host handles trapped and mapped at the boundary; a `Panels` id, a `Dialogs` result, or a `MouseState` never enters a domain signature — the domain sees a `Fin<A>`, a bounded owner, or a canonical shape.

@@ -353,31 +353,31 @@ This catalog owns the control binding, the `Mapsui` core model, layer, style, th
 
 [STYLE_ENTRY_SCOPE]: style, theme, and projection construction
 
-| [INDEX] | [SURFACE]                                                   | [SHAPE]  | [CAPABILITY]                            |
-| :-----: | :---------------------------------------------------------- | :------- | :-------------------------------------- |
-|  [01]   | `new VectorStyle { Line, Outline, Fill }`                   | ctor     | vector paint                            |
-|  [02]   | `new RasterStyle { Outline, Opacity }`                      | ctor     | tile and raster paint                   |
-|  [03]   | `ImageStyles.CreatePinStyle(Color?, Color?, double)`        | static   | built-in pin marker style               |
-|  [04]   | `new Pen(Color, double)`                                    | ctor     | stroke value                            |
-|  [05]   | `new Brush(Color)`                                          | ctor     | fill value                              |
-|  [06]   | `Color.FromArgb(int, int, int, int)`                        | static   | ARGB colour                             |
-|  [07]   | `Color.FromString(string)`                                  | static   | hex or CSS-name colour                  |
-|  [08]   | `Color.FromHsl(float, float, float, int)`                   | static   | HSL colour                              |
-|  [09]   | `Color.Opacity(Color, float?)`                              | static   | alpha-adjusted copy                     |
-|  [10]   | `new ThemeStyle(Func<IFeature, Viewport, IStyle?>)`         | ctor     | per-feature style from attribute + zoom |
-|  [11]   | `new GradientTheme(string, double, double, IStyle, IStyle)` | ctor     | column-value interpolated style         |
-|  [12]   | `GradientTheme.GetStyle(IFeature, Viewport)`                | instance | resolved interpolated style             |
-|  [13]   | `new ColorBlend(Color[], double[])`                         | ctor     | positioned colour ramp                  |
-|  [14]   | `ColorBlend.GetColor(double)`                               | instance | ramp sample at a position               |
-|  [15]   | `ColorBlend.TwoColors(Color, Color)`                        | static   | two-stop ramp                           |
-|  [16]   | `ColorBlend.ThreeColors(Color, Color, Color)`               | static   | three-stop ramp                         |
-|  [17]   | `SphericalMercator.FromLonLat(double, double)`              | static   | WGS-84 to EPSG:3857                     |
-|  [18]   | `SphericalMercator.ToLonLat(double, double)`                | static   | EPSG:3857 to WGS-84                     |
-|  [19]   | `ProjectionDefaults.Projection`                             | static   | ambient `IProjection` slot              |
-|  [20]   | `IProjection.Project(string, string, MPoint)`               | instance | in-place point reprojection             |
-|  [21]   | `IProjection.IsProjectionSupported(string?, string?)`       | instance | CRS pair coverage probe                 |
-|  [22]   | `ViewportExtensions.ScreenToWorldXY(Viewport, double, double)` | static | screen point to world coordinate pair   |
-|  [23]   | `ViewportExtensions.WorldToScreenXY(Viewport, double, double)` | static | world coordinate pair to screen point   |
+| [INDEX] | [SURFACE]                                                      | [SHAPE]  | [CAPABILITY]                            |
+| :-----: | :------------------------------------------------------------- | :------- | :-------------------------------------- |
+|  [01]   | `new VectorStyle { Line, Outline, Fill }`                      | ctor     | vector paint                            |
+|  [02]   | `new RasterStyle { Outline, Opacity }`                         | ctor     | tile and raster paint                   |
+|  [03]   | `ImageStyles.CreatePinStyle(Color?, Color?, double)`           | static   | built-in pin marker style               |
+|  [04]   | `new Pen(Color, double)`                                       | ctor     | stroke value                            |
+|  [05]   | `new Brush(Color)`                                             | ctor     | fill value                              |
+|  [06]   | `Color.FromArgb(int, int, int, int)`                           | static   | ARGB colour                             |
+|  [07]   | `Color.FromString(string)`                                     | static   | hex or CSS-name colour                  |
+|  [08]   | `Color.FromHsl(float, float, float, int)`                      | static   | HSL colour                              |
+|  [09]   | `Color.Opacity(Color, float?)`                                 | static   | alpha-adjusted copy                     |
+|  [10]   | `new ThemeStyle(Func<IFeature, Viewport, IStyle?>)`            | ctor     | per-feature style from attribute + zoom |
+|  [11]   | `new GradientTheme(string, double, double, IStyle, IStyle)`    | ctor     | column-value interpolated style         |
+|  [12]   | `GradientTheme.GetStyle(IFeature, Viewport)`                   | instance | resolved interpolated style             |
+|  [13]   | `new ColorBlend(Color[], double[])`                            | ctor     | positioned colour ramp                  |
+|  [14]   | `ColorBlend.GetColor(double)`                                  | instance | ramp sample at a position               |
+|  [15]   | `ColorBlend.TwoColors(Color, Color)`                           | static   | two-stop ramp                           |
+|  [16]   | `ColorBlend.ThreeColors(Color, Color, Color)`                  | static   | three-stop ramp                         |
+|  [17]   | `SphericalMercator.FromLonLat(double, double)`                 | static   | WGS-84 to EPSG:3857                     |
+|  [18]   | `SphericalMercator.ToLonLat(double, double)`                   | static   | EPSG:3857 to WGS-84                     |
+|  [19]   | `ProjectionDefaults.Projection`                                | static   | ambient `IProjection` slot              |
+|  [20]   | `IProjection.Project(string, string, MPoint)`                  | instance | in-place point reprojection             |
+|  [21]   | `IProjection.IsProjectionSupported(string?, string?)`          | instance | CRS pair coverage probe                 |
+|  [22]   | `ViewportExtensions.ScreenToWorldXY(Viewport, double, double)` | static   | screen point to world coordinate pair   |
+|  [23]   | `ViewportExtensions.WorldToScreenXY(Viewport, double, double)` | static   | world coordinate pair to screen point   |
 
 - `ThemeStyle` also ships the `Func<IFeature, IStyle?>` arity where viewport-relative styling is not needed.
 - `GradientTheme` interpolates only when `MinStyle` and `MaxStyle` share one type drawn from `VectorStyle`, `ImageStyle`, or `LabelStyle`, and only over a numeric column value; every other pairing throws.

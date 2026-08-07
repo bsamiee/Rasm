@@ -116,16 +116,16 @@
 
 [ENTRYPOINT_SCOPE]: ordering, structural decomposition, and storage hygiene
 
-| [INDEX] | [SURFACE]                                                              | [SHAPE] | [CAPABILITY]                                  |
-| :-----: | :--------------------------------------------------------------------- | :------ | :-------------------------------------------- |
-|  [01]   | `AMD.Generate<T>(CompressedColumnStorage<T>, ColumnOrdering) -> int[]` | factory | mint the fill-reducing permutation            |
-|  [02]   | `AMD.Generate(SymbolicColumnStorage, ColumnOrdering) -> int[]`         | factory | the same mint over a pattern-only matrix      |
-|  [03]   | `DulmageMendelsohn.Generate<T>(CompressedColumnStorage<T>, int)`       | factory | block-triangular decomposition of the pattern |
-|  [04]   | `StronglyConnectedComponents.Generate<T>(CompressedColumnStorage<T>)`  | factory | strong components of the pattern digraph      |
-|  [05]   | `SymbolicColumnStorage.Create<T>(CompressedColumnStorage<T>, bool)`    | factory | strip values to a pattern-only carrier        |
-|  [06]   | `Helper.ValidateStorage<T>(CompressedColumnStorage<T>, bool) -> bool`  | static  | verify sorted unique rows and pointer order   |
-|  [07]   | `Helper.SortIndices<T>(CompressedColumnStorage<T>)`                    | static  | restore sorted rows after buffer surgery      |
-|  [08]   | `Helper.TrimStorage<T>(CompressedColumnStorage<T>)`                    | static  | shrink buffers to the stored-entry count      |
+| [INDEX] | [SURFACE]                                                                 | [SHAPE] | [CAPABILITY]                                  |
+| :-----: | :------------------------------------------------------------------------ | :------ | :-------------------------------------------- |
+|  [01]   | `AMD.Generate<T>(CompressedColumnStorage<T>, ColumnOrdering) -> int[]`    | factory | mint the fill-reducing permutation            |
+|  [02]   | `AMD.Generate(SymbolicColumnStorage, ColumnOrdering) -> int[]`            | factory | the same mint over a pattern-only matrix      |
+|  [03]   | `DulmageMendelsohn.Generate<T>(CompressedColumnStorage<T>, int seed = 0)` | factory | block-triangular decomposition of the pattern |
+|  [04]   | `StronglyConnectedComponents.Generate<T>(CompressedColumnStorage<T>)`     | factory | strong components of the pattern digraph      |
+|  [05]   | `SymbolicColumnStorage.Create<T>(CompressedColumnStorage<T>, bool)`       | factory | strip values to a pattern-only carrier        |
+|  [06]   | `Helper.ValidateStorage<T>(CompressedColumnStorage<T>, bool) -> bool`     | static  | verify sorted unique rows and pointer order   |
+|  [07]   | `Helper.SortIndices<T>(CompressedColumnStorage<T>)`                       | static  | restore sorted rows after buffer surgery      |
+|  [08]   | `Helper.TrimStorage<T>(CompressedColumnStorage<T>)`                       | static  | shrink buffers to the stored-entry count      |
 
 [DULMAGE_MENDELSOHN]: `Blocks` `Singletons` `StructuralRank` `RowPermutation` `ColumnPermutation` `BlockRowPointers` `BlockColumnPointers` `CoarseRowDecomposition` `CoarseColumnDecomposition`
 [STRONGLY_CONNECTED_COMPONENTS]: `Blocks` `BlockPointers` `Indices`
@@ -172,6 +172,9 @@
 - `SparseQR` transposes internally below `m = n`: at `m ≥ n` it returns the least-squares minimizer, below it the minimum-norm solution of the underdetermined system.
 - `PermuteRows(int[])` mutates the receiver where `PermuteColumns(int[])` returns a new matrix.
 - `NonZerosCount` is the fill receipt: `L` for Cholesky and LDL', `L + U − n` for LU, `Q + R − m` for QR.
+- `DulmageMendelsohn.Generate`'s second parameter is a maximum-matching randomization SEED — `0` natural order, `-1` reverse, any other value random — never a dimension, and a nonzero value moves the block boundaries between two runs of one operator. It answers `null` when the matching or either breadth-first sweep fails, so the return is nullable.
+- `StructuralRank` is the library's own `rr[3]` and the deficiency is `min(m, n) − StructuralRank`; a hand-derived deficiency over coarse-block arithmetic reimplements it wrongly.
+- `CoarseRowDecomposition` and `CoarseColumnDecomposition` are `int[5]` boundary arrays over the 3-by-3 block structure of `A(p, q)`: rows split `[rr[0], rr[1])` under-determined, `[rr[1], rr[2])` square well-determined, `[rr[2], rr[3])` over-determined, `[rr[3], rr[4] = m)` unmatched; columns split `[cc[0], cc[1])` unmatched, `[cc[1], cc[2])` under-determined, `[cc[2], cc[3])` square, `[cc[3], cc[4] = n)` over-determined.
 - `ColumnPointers` runs `cols + 1` long and every solver reads its columns as sorted unique rows.
 - `ParallelMultiply` falls back to serial for small problems or one processor, and `ParallelOptions.MaxDegreeOfParallelism` caps the fan.
 

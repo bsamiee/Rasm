@@ -175,6 +175,10 @@ Base assets ship the `win-{x64,arm64}` payloads inline; every other RID resolves
 |  [14]   | `(string, Dictionary<string,string> = null)`                               | instance | generic EP by name and key-value options  |
 |  [15]   | `(OrtEnv, IReadOnlyList<OrtEpDevice>, IReadOnlyDictionary<string,string>)` | instance | EP from an autoEP device list             |
 
+- `[14]` carries no managed name check — it marshals the name to UTF-8 and hands it to native, where a CLOSED table admits a short or canonical spelling per EP and answers `ORT_INVALID_ARGUMENT` for everything else. Its own doc comment names only QNN/SNPE/XNNPACK/CoreML/AZURE and is stale. Accepted pairs (short / canonical): `DML`/`DmlExecutionProvider`, `QNN`/`QNNExecutionProvider`, `OpenVINO`/`OpenVINOExecutionProvider`, `SNPE`/`SNPEExecutionProvider`, `XNNPACK`/`XnnpackExecutionProvider`, `WEBNN`/`WebNNExecutionProvider`, `WebGPU`/`WebGpuExecutionProvider`, `AZURE`/`AzureExecutionProvider`, `JS`/`JsExecutionProvider`, `VitisAI`/`VitisAIExecutionProvider`, `CoreML`/`CoreMLExecutionProvider`, `NvTensorRtRtx`/`NvTensorRTRTXExecutionProvider`, `MIGraphX`/`MIGraphXExecutionProvider`, `CPU`/`CPUExecutionProvider`. Matching is exact-case `strcmp` with no normalization, so `OPENVINO` and `webgpu` both refuse. CUDA and TensorRT are ABSENT from the table: their only managed dictionary path is `OrtCUDAProviderOptions`/`OrtTensorRTProviderOptions` `UpdateOptions(Dictionary)` fed to `[03]`/`[06]`. Admitted options fold into session config as `ep.<lower_case_ep_name>.<KEY>`.
+- OpenVINO, DirectML, and MIGraphX publish NO managed provider-options class, and `[04]`/`[10]`/`[11]` take a bare scalar, so `[14]` is their sanctioned dictionary path rather than a fallback.
+- ROCm is REMOVED from the runtime source tree; `[07]`, `[08]`, `OrtROCMProviderOptions`, and `MakeSessionOptionWithRocmProvider` remain as ABI-stable stubs whose native entry points unconditionally return a not-enabled status. AMD hardware routes through MIGraphX or Vitis AI.
+
 [ENTRYPOINT_SCOPE]: value construction, custom-op registration, and run config
 
 | [INDEX] | [SURFACE]                                                                   | [SHAPE]  | [CAPABILITY]                         |
@@ -320,11 +324,12 @@ Base assets ship the `win-{x64,arm64}` payloads inline; every other RID resolves
 |  [25]   | `OrtMemoryInfo(string, OrtMemoryInfoDeviceType, ...)`                               | ctor     | extended device descriptor          |
 |  [26]   | `OrtMemoryInfo.{Name, Id}`                                                          | instance | allocator/device name and id        |
 |  [27]   | `OrtMemoryInfo.GetAllocatorType() -> OrtAllocatorType`                              | instance | arena/device allocator classifier   |
-|  [28]   | `OrtMemoryInfo.GetMemoryType() -> OrtMemType`                                       | instance | legacy CPU/output mem-type axis     |
+|  [28]   | `OrtMemoryInfo.GetMemoryType() -> OrtMemType`                                       | instance | CPU input/output pinning axis       |
 |  [29]   | `OrtMemoryInfo.GetDeviceMemoryType() -> OrtDeviceMemoryType`                        | instance | V2 device-memory class              |
 |  [30]   | `OrtMemoryInfo.GetVendorId() -> uint`                                               | instance | device vendor id                    |
 
 - `CreateTensorValueWithData` takes a trailing `(nint dataPtr, long sizeBytes)`; the extended `OrtMemoryInfo` ctor takes `(string, OrtMemoryInfoDeviceType, uint vendorId, int deviceId, OrtDeviceMemoryType, ulong alignment, OrtAllocatorType)`.
+- `GetMemoryType` answers where a slot is pinned relative to the CPU (`CpuInput`/`CpuOutput`/`Cpu`/`Default`) and `GetDeviceMemoryType` answers how the device classes the buffer (`DEFAULT`/`HOST_ACCESSIBLE`); the device-aware descriptor built through the extended ctor reads the second beside `GetVendorId`, and the pinning axis reads the first — one descriptor, two questions, never one substituting for the other.
 - `GetTensorMemoryInfo().Name` is the arena name the `ModelRun` receipt stamps as `ArenaAllocator`; binding amortizes I/O allocation across repeated runs and is the measured hot-loop path.
 
 [ENTRYPOINT_SCOPE]: EP-context model compilation on `OrtModelCompilationOptions`
@@ -392,6 +397,90 @@ Base assets ship the `win-{x64,arm64}` payloads inline; every other RID resolves
 | [INDEX] | [KEY_STRING]            | [VALUE_DOMAIN] | [ROLE]                                                  |
 | :-----: | :---------------------- | :------------- | :------------------------------------------------------ |
 |  [01]   | `allow_virtual_devices` | `0` / `1`      | admits virtual hardware devices into autoEP enumeration |
+
+[CONFIG_KEY_SCOPE]: CUDA provider-option keys through `OrtCUDAProviderOptions.UpdateOptions`
+
+| [INDEX] | [KEY_STRING]                | [VALUE_DOMAIN]                                              |
+| :-----: | :-------------------------- | :---------------------------------------------------------- |
+|  [01]   | `device_id`                 | decimal int, `0 <= id < cudaGetDeviceCount()`; parse throws |
+|  [02]   | `gpu_mem_limit`             | byte count                                                  |
+|  [03]   | `arena_extend_strategy`     | arena growth policy                                         |
+|  [04]   | `cudnn_conv_algo_search`    | algorithm-search posture                                    |
+|  [05]   | `do_copy_in_default_stream` | `0` / `1`                                                   |
+|  [06]   | `user_compute_stream`       | caller stream handle                                        |
+|  [07]   | `enable_cuda_graph`         | `0` / `1`                                                   |
+|  [08]   | `prefer_nhwc`               | `0` / `1`                                                   |
+|  [09]   | `use_tf32`                  | `0` / `1`                                                   |
+|  [10]   | `sdpa_kernel`               | attention-kernel selector                                   |
+|  [11]   | `fuse_conv_bias`            | `0` / `1`                                                   |
+
+[CONFIG_KEY_SCOPE]: TensorRT provider-option keys through `OrtTensorRTProviderOptions.UpdateOptions` — warm-start cache half
+
+| [INDEX] | [KEY_STRING]                        | [VALUE_DOMAIN]                                          | [DEFAULT]               |
+| :-----: | :---------------------------------- | :------------------------------------------------------ | :---------------------- |
+|  [01]   | `device_id`                         | decimal int under the CUDA device-count gate            | `0`                     |
+|  [02]   | `trt_engine_cache_enable`           | `0` / `1`                                               | `0`                     |
+|  [03]   | `trt_engine_cache_path`             | directory path string                                   | working directory       |
+|  [04]   | `trt_engine_cache_prefix`           | filename prefix string                                  | none                    |
+|  [05]   | `trt_timing_cache_enable`           | `0` / `1`                                               | `0`                     |
+|  [06]   | `trt_timing_cache_path`             | path string                                             | `trt_engine_cache_path` |
+|  [07]   | `trt_force_timing_cache`            | `0` / `1` — use the cache across a device-profile shift | `0`                     |
+|  [08]   | `trt_dump_ep_context_model`         | `0` / `1`                                               | `0`                     |
+|  [09]   | `trt_ep_context_file_path`          | path, filename, or filename-with-path                   | none                    |
+|  [10]   | `trt_ep_context_embed_mode`         | `0` engine-cache path / `1` engine binary               | `0`                     |
+|  [11]   | `trt_engine_hw_compatible`          | `0` / `1` — Ampere-and-later cross-GPU engine compat    | `0`                     |
+|  [12]   | `trt_weight_stripped_engine_enable` | `0` / `1`                                               | `0`                     |
+|  [13]   | `trt_onnx_model_folder_path`        | path, pairs with weight-stripped engines                | none                    |
+
+- boolean keys take `1`/`0` from C++ and C#, never `True`/`False`. With `[08]` and `[02]` both set and `[09]` naming a context directory, an empty `[03]` writes engines into that directory while a relative `[03]` nests beneath it.
+
+[CONFIG_KEY_SCOPE]: OpenVINO provider-option keys through the generic string append
+
+| [INDEX] | [KEY_STRING]               | [VALUE_DOMAIN]                                                                       |
+| :-----: | :------------------------- | :----------------------------------------------------------------------------------- |
+|  [01]   | `device_type`              | `CPU`/`GPU`/`NPU`, indexed `GPU.0`; `AUTO`/`HETERO`/`MULTI` bare or `:`-led priority |
+|  [02]   | `device_luid`              | device LUID string                                                                   |
+|  [03]   | `load_config`              | per-device property map — successor to the deprecated scalar knobs                   |
+|  [04]   | `context`                  | caller OpenCL context handle                                                         |
+|  [05]   | `enable_opencl_throttling` | `0` / `1`                                                                            |
+|  [06]   | `enable_qdq_optimizer`     | `0` / `1`                                                                            |
+|  [07]   | `enable_causallm`          | `0` / `1`                                                                            |
+|  [08]   | `disable_dynamic_shapes`   | `0` / `1`                                                                            |
+|  [09]   | `reshape_input`            | input reshape spec                                                                   |
+|  [10]   | `layout`                   | tensor layout spec                                                                   |
+|  [11]   | `model_priority`           | scheduling priority                                                                  |
+
+- an unlisted key throws `Invalid provider_option key`. `device_type` refuses anything outside that vocabulary, and the legacy fused spellings (`CPU_FP32`, `GPU_FP16`, `NPU_FP16`) are gone — the parser splits at `_` and routes the tail to precision parsing.
+- `precision`, `num_of_threads`, `cache_dir`, and `num_streams` are DEPRECATED in favour of `load_config`: they still parse on the classic provider-options path and are hard-refused with `ORT_INVALID_ARGUMENT` on the `AppendExecutionProvider_V2`/auto-EP path. `device_id` here takes `CPU`/`GPU`/`NPU` rather than an ordinal, logs a deprecation, and overwrites `device_type`.
+
+[CONFIG_KEY_SCOPE]: DirectML provider-option keys through the generic string append
+
+| [INDEX] | [KEY_STRING]             | [VALUE_DOMAIN]                                                       |
+| :-----: | :----------------------- | :------------------------------------------------------------------- |
+|  [01]   | `device_id`              | DXGI adapter index (`IDXGIFactory::EnumAdapters` order); `0` default |
+|  [02]   | `performance_preference` | `default`, `high_performance`, `minimum_power`                       |
+|  [03]   | `device_filter`          | `any`, `gpu`, `npu`                                                  |
+|  [04]   | `disable_metacommands`   | boolean                                                              |
+
+- a present `device_id` short-circuits the preference-and-filter selection path; a negative index is invalid.
+
+[CONFIG_KEY_SCOPE]: MIGraphX provider-option keys through the generic string append
+
+| [INDEX] | [KEY_STRING]                                 | [VALUE_DOMAIN]                               |
+| :-----: | :------------------------------------------- | :------------------------------------------- |
+|  [01]   | `device_id`                                  | decimal int, `0 <= id < hipGetDeviceCount()` |
+|  [02]   | `migraphx_fp16_enable`                       | `0` / `1`                                    |
+|  [03]   | `migraphx_bf16_enable`                       | `0` / `1`                                    |
+|  [04]   | `migraphx_fp8_enable`                        | `0` / `1`                                    |
+|  [05]   | `migraphx_int8_enable`                       | `0` / `1`                                    |
+|  [06]   | `migraphx_int8_calibration_table_name`       | calibration-table name                       |
+|  [07]   | `migraphx_int8_use_native_calibration_table` | `0` / `1`                                    |
+|  [08]   | `migraphx_exhaustive_tune`                   | `0` / `1`                                    |
+|  [09]   | `migraphx_mem_limit`                         | byte count                                   |
+|  [10]   | `migraphx_arena_extend_strategy`             | arena growth policy                          |
+|  [11]   | `migraphx_model_cache_dir`                   | cache-directory path                         |
+
+- `device_id` is the one MIGraphX key carrying no `migraphx_` prefix.
 
 [CONFIG_KEY_SCOPE]: CoreML provider-option keys
 

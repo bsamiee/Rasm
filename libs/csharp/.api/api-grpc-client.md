@@ -256,7 +256,7 @@
 
 [STACKING]:
 - `Grpc.Net.Common`(`Rasm.Compute/.api/api-grpc-common.md`): `ICompressionProvider` rows register on `GrpcChannelOptions.CompressionProviders`, the per-call `grpc-internal-encoding-request` metadata key selects one by `EncodingName`, `ConnectivityState` is the vocabulary `GrpcChannel.State` reports, and `IAsyncStreamReader<T>.ReadAllAsync` drains a server-streaming response.
-- `Grpc.Core.Api`(`Rasm.Compute/.api/api-grpc-common.md`): `Metadata` with `Metadata.Entry` is the header carrier `CallOptions.Headers`, `WithHeaders`, and `RpcException.Trailers` all thread; the `-bin` key suffix selects `ValueBytes` over `Value`.
+- `Grpc.Core.Api`(`.api/api-grpc-core-api.md`): `Metadata` with `Metadata.Entry` is the header carrier `CallOptions.Headers`, `WithHeaders`, and `RpcException.Trailers` all thread; the `-bin` key suffix selects `ValueBytes` over `Value`.
 - `Grpc.Tools`(`.api/api-grpc-tools.md`): a generated `<Service>Client` binds the `CallInvoker` from `CreateCallInvoker`, so every interceptor in the chain sits under the typed stub with no generated-code edit.
 - `Google.Protobuf`(`.api/api-protobuf.md`): `IMessage<T>` payloads serialize on the call path, and `MaxSendMessageSize` with `MaxReceiveMessageSize` bounds each frame.
 - `NodaTime.Serialization.Protobuf`(`.api/api-nodatime-protobuf.md`): `Timestamp` and `Duration` fields project through `ToInstant` and `ToNodaDuration`, so the message clock and the `WithDeadline` budget share one time vocabulary.

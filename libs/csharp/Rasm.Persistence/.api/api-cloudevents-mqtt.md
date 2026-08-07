@@ -10,6 +10,7 @@
 - namespace: `CloudNative.CloudEvents.Mqtt`
 - asset: pure-managed library; no native asset, no RID burden
 - depends: `CloudNative.CloudEvents` (core envelope/formatter, `api-cloudevents`), `MQTTnet` (the `MqttApplicationMessage` transport, `api-mqtt`)
+- abi: compiled against the MQTTnet v4 message shape — the egress `PayloadSegment` WRITE survives on the pinned v5 carrier because v5 keeps that member as a set-only `ArraySegment<byte>` shim folding into `Payload`, while the ingress `PayloadSegment` READ has no v5 getter and faults `MissingMethodException`, so a decode against the restored carrier reads `MqttApplicationMessage.Payload` (`ReadOnlySequence<byte>`) into `formatter.DecodeStructuredModeMessage` directly
 - rail: sync-egress
 
 ## [02]-[PUBLIC_TYPES]
@@ -30,29 +31,30 @@
 |  [02]   | `message.ToCloudEvent(formatter, params extensions)`         | ingress map | structured-mode decode; `params` extension attrs  |
 |  [03]   | `message.ToCloudEvent(formatter, IEnumerable<extensions>)`   | ingress map | decode; `IEnumerable<CloudEventAttribute>` attrs  |
 
-- `ce.ToMqttApplicationMessage`: throws `ArgumentOutOfRangeException("contentMode", …)` on any `ContentMode` but `Structured`.
-- `message.ToCloudEvent`: decodes `PayloadSegment` through `formatter.DecodeStructuredModeMessage` under a null `ContentType`; the `params` overload forwards to the `IEnumerable` one, and both gate message and formatter through `Validation.CheckNotNull`.
+- `ce.ToMqttApplicationMessage`: throws `ArgumentOutOfRangeException("contentMode", …)` on any `ContentMode` but `Structured`; it assembles the message through an object initializer over the `PayloadSegment` setter rather than `MqttApplicationMessageBuilder`, and the v5 shim folds those bytes into `Payload`, so the returned message exposes its body on `Payload` alone.
+- `message.ToCloudEvent`: reads the retired v4 `PayloadSegment` getter into `formatter.DecodeStructuredModeMessage` under a null `ContentType`; the `params` overload forwards to the `IEnumerable` one, and both gate message and formatter through `Validation.CheckNotNull`, so the null gates pass and the member faults on the missing getter instead.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `MqttExtensions` is the whole binding; its carrier `MqttApplicationMessage`, `MqttUserProperty`, and `MqttQualityOfServiceLevel` are `MQTTnet`'s transport model (`api-mqtt`), and the consumed `CloudEvent`, `CloudEventFormatter`, `ContentMode`, and `CloudEventAttribute` are `api-cloudevents`', never the binding's.
-- `ce.ToMqttApplicationMessage(Structured, formatter, topic)` packs the entire event into `PayloadSegment` under `application/cloudevents+json` and returns the exact `MqttApplicationMessage` an `IMqttClient.PublishAsync` publishes with no re-map; structured mode carries no `ce_type`/`ce_source` header-route form, so a broker filters on topic alone.
+- `ce.ToMqttApplicationMessage(Structured, formatter, topic)` packs the entire event into the message body under `application/cloudevents+json` and returns the exact `MqttApplicationMessage` an `IMqttClient.PublishAsync` publishes with no re-map, its body readable on `Payload`; structured mode carries no `ce_type`/`ce_source` header-route form, so a broker filters on topic alone.
 
 [STACKING]:
 - `api-cloudevents`(`.api/api-cloudevents.md`): the injected shared `CloudEventFormatter`/`JsonEventFormatter<T>` encodes and decodes every event through `EncodeStructuredModeMessage`/`DecodeStructuredModeMessage`, and the mapped `CloudEvent` is that overlay's envelope algebra.
 - `api-mqtt`(`libs/csharp/.api/api-mqtt.md`): `ToMqttApplicationMessage`'s result is the exact `MqttApplicationMessage` an `IMqttClient.PublishAsync` sends at QoS-1 whose PUBACK is the `DeliveryAck`; the W3C `traceparent`/`tracestate` pair rides `MqttApplicationMessage.UserProperties` (`List<MqttUserProperty>`), stamped beside the encode and read beside the decode by the AppHost `TraceContext` adapter, symmetric with the NATS-header and AMQP application-property carriers.
 - `Version/egress` rail: the `Version/ledger#CHANGEFEED` `OpLogEntry` → `CloudEvent` via the `Egress.Envelope` projector → `ce.ToMqttApplicationMessage(ContentMode.Structured, formatter, topic)` → the QoS-1 publish; the CloudEvents `id` is the only dedup handle, so receiver-side id-dedup is the MQTT sink's whole dedup story.
-- ownership splits at the message: this binding owns the structured-mode CloudEvents body over `PayloadSegment`, while `Topic`, `MqttQualityOfServiceLevel`, and the `UserProperties` trace pair are `EgressSink.Mqtt` subscription policy.
+- ownership splits at the message: this binding owns the structured-mode CloudEvents body over `Payload`, while `Topic`, `MqttQualityOfServiceLevel`, and the `UserProperties` trace pair are `EgressSink.Mqtt` subscription policy.
 - `api-cloudevents-mqtt`(`libs/csharp/Rasm.Compute/.api/api-cloudevents-mqtt.md`): the Compute partition registers this catalogue as the binding owner and adds only the twin capture-INGEST direction — the `IMqttClient` subscription decoding one sample per `MqttApplicationMessage` onto the `WorkLane.CaptureIngest` DropOldest row; the two directions share one `MqttExtensions` surface and one `CloudEvent` vocabulary, so a Compute-side member roster or a second envelope shape is the fork this split forecloses.
 
 [LOCAL_ADMISSION]:
 - egress pins `cloudEvent.ToMqttApplicationMessage(ContentMode.Structured, formatter, topic)` at the single `EgressSink.Mqtt` call site; a `ContentMode.Binary` call is compile-legal and run-time-throwing.
+- a leg reading a message back decodes `MqttApplicationMessage.Payload` through the shared formatter; `message.ToCloudEvent` is compile-legal and run-time-throwing on the pinned carrier, so the ingress overloads never enter a call site.
 - one shared `JsonEventFormatter`/`JsonEventFormatter<T>` instance encodes and decodes every message, its serializer options fixed at construction, never per message.
 - extension attributes (`traceparent`, `redacted`, `sequence`) are declared once via `CloudEventAttribute.CreateExtension` and read back on ingress through the `ToCloudEvent` overload with the identical attribute enumerable.
 
 [RAIL_LAW]:
 - Package: `CloudNative.CloudEvents.Mqtt`
 - Owns: the CloudEvents MQTT protocol binding — structured-mode `CloudEvent` ⇄ `MqttApplicationMessage` for the `EgressSink.Mqtt` sync-egress leg
-- Accept: `ToMqttApplicationMessage`/`ToCloudEvent` with an injected shared `CloudEventFormatter`, `ContentMode.Structured`, pre-declared extension attributes, and W3C trace on `MqttApplicationMessage.UserProperties`
-- Reject: `ContentMode.Binary`, hand-rolled CloudEvents JSON over a raw `MqttApplicationMessage` payload, a per-message formatter instance, trace context in the envelope body instead of `UserProperties`, or a per-transport envelope shape parallel to the shared `CloudEvent` projection
+- Accept: `ToMqttApplicationMessage` with an injected shared `CloudEventFormatter`, `ContentMode.Structured`, pre-declared extension attributes, and W3C trace on `MqttApplicationMessage.UserProperties`
+- Reject: `ContentMode.Binary`, `message.ToCloudEvent` against the pinned v5 carrier, hand-rolled CloudEvents JSON over a raw `MqttApplicationMessage` payload, a per-message formatter instance, trace context in the envelope body instead of `UserProperties`, or a per-transport envelope shape parallel to the shared `CloudEvent` projection

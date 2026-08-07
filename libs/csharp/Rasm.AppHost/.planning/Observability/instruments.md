@@ -14,12 +14,12 @@ Settled composition: `InstrumentSpec` with its `InstrumentKind` and `MeasureForm
 ## [02]-[INSTRUMENT_CATALOG]
 
 - Owner: `HostInstruments` — the ONE AppHost roster of `InstrumentSpec` values: the spine rows (log flush, redaction, drain) and the domain rows in one declaration, the dimension-slot consts every `[03]` arm writes through, the `BoardPack` of panels and reliability objectives over those same rows, and the contributor-port mint beside them.
-- Cases: hop attempt and duration rows off `HopReceipt`; stale-binding and degradation-level rows read the composition's `LevelCells` scalars, the capability-roster row reading the keyed family the frozen capability registry projects off its own surface index at composition; broker delivery-outcome counts off `DeliveryReceipt`; command-admission counts and per-unit spend rows off `CommandReceipt`, the spend family derived from the `CostUnit` vocabulary; lifecycle-transition counts off the `Phase` hook tap; benchmark duration and regression rows off `BenchmarkReceipt`; live-wire rejection counts off the inbound coercion seam and write-back disposition counts off `WriteReceipt`; fleet-wave counts off `RollAnnotationWire`; machine-observation counts off the decode lane; durable-egress batch and byte counts off `OtlpOfflineFact`, one population partitioned on signal and disposition; the two GenAI semconv rows `gen_ai.client.token.usage` and `gen_ai.client.operation.duration` stamped by the governed model loop.
+- Cases: incident-buffer flush counts off `IncidentBuffers.Flush` and sink-loss counts off the `SpineLossFold` fact, the two log-plane rows whose producing arms sit at Observability/telemetry#LOG_PROJECTION; masked-value counts off the exported support manifest, the one plane carrying both a mask and its classification; hop attempt and duration rows off `HopReceipt`; stale-binding and degradation-level rows read the composition's `LevelCells` scalars, the capability-roster row reading the keyed family the frozen capability registry projects off its own surface index at composition; broker delivery-outcome counts off `DeliveryReceipt`; command-admission counts and per-unit spend rows off `CommandReceipt`, the spend family derived from the `CostUnit` vocabulary; lifecycle-transition counts off the `Phase` hook tap; benchmark duration and regression rows off `BenchmarkReceipt`; live-wire rejection counts off the inbound coercion seam and write-back disposition counts off `WriteReceipt`; fleet-wave counts off `RollAnnotationWire`; machine-observation counts off the decode lane; durable-egress batch and byte counts off `OtlpOfflineFact`, one population partitioned on signal and disposition; the two GenAI semconv rows `gen_ai.client.token.usage` and `gen_ai.client.operation.duration` stamped by the governed model loop.
 - Entry: `HostInstruments.Rows` — the declaration roster, each row naming its kind, measurement form, and dimension slots so the bind body derives and no create is spelled here; `HostInstruments.Board` — the kernel pack of panels and reliability objectives over those same rows, handed outward on the port rather than reached by name from a composition root; `HostInstruments.Telemetry(string version, string schemaUrl = TelemetryIdentity.SchemaUrl)` — the one `TelemetryContributorPort` carrying the row set, its semconv schema coordinate, and that pack, mounted and proved beside every sibling contributor port at `[03]-[RECEIPT_PROJECTION]`.
-- Auto: the spend rows derive from `CostUnit.Items` and read each row's own `Ucum` column, so the unit vocabulary answers once at its owner and a second UCUM map here forks on any admission; a histogram row naming a `Buckets` policy ships `InstrumentAdvice<T>` explicit-bucket boundaries at creation — the fallback a backend without exponential histograms reads — while a bare `Distribution` row keeps the base2-exponential default the `[04]` provider rows pin; a keyed level family names its tag once at the factory, which seats it as the row's own leading dimension, so per-key cardinality rides one instrument, a panel breaks on the key with no second declaration, and a per-key instrument mint is the deleted form; a reliability target over a tag-partitioned counter reads the good values off that counter's declared dimension, so an availability objective mints no numerator twin; each panel omits its widget so `PanelKind.For` derives the canonical one from the named row's measurement shape, and each objective omits its window so the kernel compliance default applies.
+- Auto: the spend rows derive from `CostUnit.Items` and read each row's own `Ucum` column, so the unit vocabulary answers once at its owner and a second UCUM map here forks on any admission; a histogram row naming a `Buckets` policy ships `InstrumentAdvice<T>` explicit-bucket boundaries at creation — the fallback a backend without exponential histograms reads — while a bare `Distribution` row keeps the base2-exponential default the `[04]` provider rows pin; a keyed level family names its tag once at the factory, which seats it as the row's own leading dimension, so per-key cardinality rides one instrument, a panel breaks on the key with no second declaration, and a per-key instrument mint is the deleted form; that leading dimension declares the key the family MAY carry rather than one every entry holds, so a producer whose group has no key writes the same row untagged and the declaration reads as its own absence arm — one roster answers a partitioned and an unpartitioned composition exactly as one `Dimensions` set answers a tenanted and an untenanted write — and the untagged entry is that family's absent-key PARTITION, never a total over its keyed ones — a total there doubles the population they already carry; a reliability target over a tag-partitioned counter reads the good values off that counter's declared dimension, so an availability objective mints no numerator twin; each panel omits its widget so `PanelKind.For` derives the canonical one from the named row's measurement shape, and each objective omits its window so the kernel compliance default applies.
 - Packages: Rasm, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox.
 - Growth: one domain metric is one `InstrumentSpec` factory call in this roster and one projection arm at `[03]-[RECEIPT_PROJECTION]`; a per-unit family derives from its owning vocabulary, never hand-enumerated rows; a level is one `set.Level` write at its producing arm and one `Level` or `Levels` declaration; a new tag key is one slot const both the row's `Dimensions` and its arm read, concatenating the one package head; one board tile is one `PanelSpec` row and one reliability target one `Objective` row on the same pack.
-- Boundary: every row binds through the composition's minted meter, so no instrument outlives its `IMeterFactory` owner; `LevelCells` reaches a pulled row at bind time through the kernel spec's own bind derivation, so no row closes over the cell and one declaration mounts against any composition — the degradation tap, the livewire binding fold, and the Agent/capability registry mount write the levels the gauges read, so a level is current at every collection and no process-static cell exists — the roster family is the composition-freeze projection its owning registry carries, never a per-admission push a registration fold strands mid-composition; the GenAI rows keep the semconv spelling rather than the `rasm.*` namespace because the convention owns the name, and their `gen_ai.token.type` dimension carries the input/output split the reasoning loop stamps; the declared `Dimensions` ARE the exported tag vocabulary — the governance view predicate at Observability/telemetry#SIGNAL_GOVERNANCE projects each stream onto this row's own list beside the one tenancy key under one series budget, so an undeclared tag reaches no exporter and a row admits an evidence string only by declaring it here, where this roster's classification grades it; the pack declares HERE rather than beside the alert engine because a panel and an objective name mounted instruments while a health rule names a `HealthSignal`, so the two never share an evidence plane — objectives compile to `AlertSpec` rows the deploy plane provisions off a metric series, and the alert engine folds the in-process degradation reading, so a burn arm on either side mints the second grader both boundaries forbid; the pack leaves this roster only on the contributor port, so the AppHost proves at `[03]-[RECEIPT_PROJECTION]` through the same fold every sibling pack rides and no composition root spells this static field; admission resolves against the port's declaration rather than a mounted handle set, so a plugin-ALC contributor's pack is provable at the same seam.
+- Boundary: every row binds through the composition's minted meter, so no instrument outlives its `IMeterFactory` owner; `LevelCells` reaches a pulled row at bind time through the kernel spec's own bind derivation, so no row closes over the cell and one declaration mounts against any composition — three arms write the levels the gauges read and each spells ONE call, so a pulled row is current at every collection and no process-static cell exists: the degradation tap writes `fan.Set.Level(HealthLevel, (double)reading.Level.Rank)` at `[03]`'s own `Tap`, the Agent/capability registry mount writes the keyed `CapabilityRoster` family off its surface index, and the Wire/livewire binding fold writes `fan.Set.Level(BindingStale, stale)` on every binding-state commit, `stale` being the count its own state map holds in a stale or faulted case — a level written on ENTRY to that state alone decays into a reading no recovery ever clears; the drain band writes its distribution row at the same altitude, one `fan.Set.Write(DrainDuration, consumed.TotalSeconds, InstrumentSet.Tags((BandSlot, band.Key)))` per completed drain step at Runtime/lifecycle#DRAIN_CONDUCTOR, so the reliability objective over that series grades a measured population instead of reading permanently healthy over an empty one — the roster family is the composition-freeze projection its owning registry carries, never a per-admission push a registration fold strands mid-composition; the GenAI rows keep the semconv spelling rather than the `rasm.*` namespace because the convention owns the name, and their `gen_ai.token.type` dimension carries the input/output split the reasoning loop stamps; the declared `Dimensions` ARE the exported tag vocabulary — the governance view predicate at Observability/telemetry#SIGNAL_GOVERNANCE projects each stream onto this row's own list beside the one tenancy key under one series budget, so an undeclared tag reaches no exporter and a row admits an evidence string only by declaring it here, where this roster's classification grades it — a declared key a given entry omits is absent from that entry's tag set, which the one predicate row shapes exactly as it shapes the keyed entries, so a sometimes-absent dimension mints no second stream and the whole family stays inside one budget; the pack declares HERE rather than beside the alert engine because a panel and an objective name mounted instruments while a health rule names a `HealthSignal`, so the two never share an evidence plane — objectives compile to `AlertSpec` rows the deploy plane provisions off a metric series, and the alert engine folds the in-process degradation reading, so a burn arm on either side mints the second grader both boundaries forbid; the pack leaves this roster only on the contributor port, so the AppHost proves at `[03]-[RECEIPT_PROJECTION]` through the same fold every sibling pack rides and no composition root spells this static field; admission resolves against the port's declaration rather than a mounted handle set, so a plugin-ALC contributor's pack is provable at the same seam.
 
 ```csharp signature
 public static class HostInstruments {
@@ -51,9 +51,13 @@ public static class HostInstruments {
     public const string TriggerSlot = Head + "phase.trigger";
     public const string SignalSlot = Head + "signal";
     public const string DispositionSlot = Head + "otlp.disposition";
+    public const string ScopeSlot = Head + "buffer.scope";
+    public const string SinkSlot = Head + "sink";
+    public const string LossSlot = Head + "loss.kind";
     public const string TokenTypeSlot = "gen_ai.token.type";
 
     public const string LogsFlushed = Head + "logs.flushed";
+    public const string LogsLost = Head + "logs.lost";
     public const string RedactionTags = Head + "redaction.tags";
     public const string DrainDuration = Head + "drain.duration";
     public const string HopAttempts = Head + "hop.attempts";
@@ -83,14 +87,22 @@ public static class HostInstruments {
     // Items-derived roster materializes on first read: an eager field initializer folds another type's
     // vocabulary before its own static construction is protected, capturing an empty roster.
     private static readonly Lazy<Seq<InstrumentSpec>> Roster = new(static () => Seq(
-        InstrumentSpec.Count(LogsFlushed, "{record}", "buffered log records replayed by the incident flush", MeasureForm.Whole),
-        InstrumentSpec.Count(RedactionTags, "{tag}", "classified tags redacted before any exporter observed them", MeasureForm.Whole, ClassSlot),
+        // Flushes count SCOPES, not records: `LogBuffer.Flush` publishes no count and replays through a
+        // provider-owned `IBufferedLogger` this branch never holds, so a record unit here would name a
+        // measurement no surface takes. Scope presence is measured, and which hold an incident drained is what
+        // the count is read for.
+        InstrumentSpec.Count(LogsFlushed, "{flush}", "incident buffer flushes by held scope", MeasureForm.Whole, ScopeSlot),
+        InstrumentSpec.Count(LogsLost, "{record}", "log records lost by sink and failure kind", MeasureForm.Whole, SinkSlot, LossSlot),
+        InstrumentSpec.Count(RedactionTags, "{value}", "values this branch's egress seam masked, by classification", MeasureForm.Whole, ClassSlot),
         InstrumentSpec.Distribution(DrainDuration, "s", "drain-band fold duration per band", MeasureForm.Real, BandSlot),
         InstrumentSpec.Count(HopAttempts, "{attempt}", "outbound hop attempts by hop kind and outcome", MeasureForm.Whole, HopSlot, OutcomeSlot),
         InstrumentSpec.Advised(HopDuration, "s", "outbound hop wall duration per attempt", MeasureForm.Real, Buckets.HopSeconds, HopSlot, OutcomeSlot),
         InstrumentSpec.Level(BindingStale, "{binding}", "external bindings in stale or faulted state", MeasureForm.Whole),
         InstrumentSpec.Count(DeliveryOutcomes, "{delivery}", "broker deliveries by channel and outcome", MeasureForm.Whole, ChannelSlot, OutcomeSlot),
         InstrumentSpec.Count(CommandAdmissions, "{command}", "command dispatches by transaction disposition", MeasureForm.Whole, TxnSlot),
+        // Descriptors carry a REQUIRED surface key, so this family writes no untagged entry — one keyed row
+        // whose declared key every entry holds, and [03]'s governance view shapes it identically to a family
+        // that sometimes omits one.
         InstrumentSpec.Levels(CapabilityRoster, "{descriptor}", "live capability descriptors by admitting surface", MeasureForm.Whole, SurfaceSlot),
         InstrumentSpec.Count(LifecycleTransitions, "{transition}", "lifecycle phase commits by from, to, and trigger", MeasureForm.Whole, FromSlot, ToSlot, TriggerSlot),
         InstrumentSpec.Level(HealthLevel, "1", "derived degradation level rank, zero full through four suspended", MeasureForm.Whole),
@@ -131,7 +143,8 @@ public static class HostInstruments {
             PanelSpec.Of("lifecycle transitions", LifecycleTransitions, FromSlot, ToSlot, TriggerSlot),
             PanelSpec.Of("degradation level", HealthLevel),
             PanelSpec.Of("stale bindings", BindingStale),
-            PanelSpec.Of("redacted tags", RedactionTags, ClassSlot),
+            PanelSpec.Of("redacted values", RedactionTags, ClassSlot),
+            PanelSpec.Of("log loss", LogsLost, SinkSlot, LossSlot),
             PanelSpec.Of("benchmark regressions", BenchmarkRegressions, SuiteSlot, CaseSlot, VerdictSlot),
             PanelSpec.Of("fleet waves", FleetWaves, StrategySlot, ChannelSlot, VerdictSlot),
             PanelSpec.Of("model tokens", ModelTokenUsage, TokenTypeSlot),
@@ -167,7 +180,7 @@ public static class HostInstruments {
 - Receipt: none — the fan is a projection of receipts; a metric minted beside the fan is a second truth.
 - Packages: Rasm, LanguageExt.Core, NodaTime, BCL inbox.
 - Growth: a new projected receipt is one kind constant, one kind-keyed table row, and its instrument row at `[02]`; a sibling package's projected slot is one row in its contributed arm table; a contributor's first board is one `Board` value on its own port with this fold untouched; an unmapped kind projects nothing and stays receipt-only by declaration.
-- Boundary: the kind constants are the canonical spellings — every emitting page passes its `InstrumentFan` constant to `ReceiptSinkPort.Send` (`HopKind` at Wire/outbound, `DeliveryKind` at the delivery fan, `SweepKind` at Wire/outbox, `CommandKind` at Agent/capability, `ModelKind` at Agent/reasoning, `BenchmarkKind` at Observability/benchmarks, `WireKind` at the Wire/livewire inbound rejection seam, `WriteKind` at the Wire/livewire write-back mint, `RollKind` at the Sandbox/provisioning fleet-wave annotation, `ObservationKind` at the Wire/livewire machine decode lane, `OfflineKind` at the Observability/telemetry#SIGNAL_GOVERNANCE durable OTLP queue) — and the kind registry is per-package: the AppHost table owns AppHost kinds, a contributed table owns its own slot spellings, and sibling fans project their kinds typed pre-envelope (AppUi over its evidence union, Compute over `ComputeReceipt`, Grasshopper over `GhEvidence`, Element over `ElementFact`) — so one envelope kind projects in exactly one arm and a `Send` kind outside every package fan is receipt-only by declaration; payload field reads stay inside the table arms — the one place wire names meet instrument writes — and a projection arm never re-validates the payload the typed owner already admitted; a wire `Duration` field crosses as its NodaTime roundtrip text and `Seconds` is the one arm-side decode.
+- Boundary: the kind constants are the canonical spellings — every emitting page passes its `InstrumentFan` constant to `ReceiptSinkPort.Send` (`HopKind` at Wire/outbound, `DeliveryKind` at the delivery fan, `SweepKind` at Wire/outbox, `CommandKind` at Agent/capability, `ModelKind` at Agent/reasoning, `BenchmarkKind` at Observability/benchmarks, `WireKind` at the Wire/livewire inbound rejection seam, `WriteKind` at the Wire/livewire write-back mint, `RollKind` at the Sandbox/provisioning fleet-wave annotation, `ObservationKind` at the Wire/livewire machine decode lane, `OfflineKind` at the Observability/telemetry#SIGNAL_GOVERNANCE durable OTLP queue, `LossKind` at that page's `SpineLossFold` listener, `SupportKind` at the Observability/bundles#MANIFEST_RECEIPT export) — and the kind registry is per-package: the AppHost table owns AppHost kinds, a contributed table owns its own slot spellings, and sibling fans project their kinds typed pre-envelope (AppUi over its evidence union, Compute over `ComputeReceipt`, Grasshopper over `GhEvidence`, Element over `ElementFact`) — so one envelope kind projects in exactly one arm and a `Send` kind outside every package fan is receipt-only by declaration; payload field reads stay inside the table arms — the one place wire names meet instrument writes — and a projection arm never re-validates the payload the typed owner already admitted; a wire `Duration` field crosses as its NodaTime roundtrip text and `Seconds` is the one arm-side decode.
 
 ```csharp signature
 public static class InstrumentFan {
@@ -182,6 +195,8 @@ public static class InstrumentFan {
     public const string RollKind = "fleet-roll";
     public const string ObservationKind = "machine-observation";
     public const string OfflineKind = "otlp-offline";
+    public const string LossKind = "log-loss";
+    public const string SupportKind = "support-bundle";
 
     // One (wire field, semconv token type) row per column of the usage family: a third token type is one row,
     // never a third hand-spelled write pair on a family every column shares.
@@ -254,6 +269,25 @@ public static class InstrumentFan {
                 from _ in set.Write(HostInstruments.OtlpOffline, 1L, tags)
                 from done in set.Write(HostInstruments.OtlpOfflineBytes, payload.GetProperty("bytes").GetInt64(), tags)
                 select done,
+            // Sink loss rides the receipt rail for the same reason the offline fact does: the evidence must not
+            // travel the leg it reports as down, and a log line about a failed log sink is exactly that leg.
+            // The count is the failed batch's own record count, so a listener reporting a drop of zero records
+            // writes zero rather than one — a per-failure tally would price a queue overflow like a single throw.
+            [LossKind] = static (set, payload) =>
+                set.Write(HostInstruments.LogsLost, payload.GetProperty("count").GetInt64(), InstrumentSet.Tags(
+                    (HostInstruments.SinkSlot, payload.GetProperty("sink").GetString()),
+                    (HostInstruments.LossSlot, payload.GetProperty("kind").GetString()))),
+            // Redaction counts are the MANIFEST's own per-entry evidence, the one plane on this branch where a
+            // masked value and its classification are both known: the generated tag path redacts inside the
+            // provider and publishes neither. One point per entry keyed on the entry's classification, so a
+            // bundle whose every artifact masked nothing writes nothing rather than a zero-valued row.
+            [SupportKind] = static (set, payload) =>
+                toSeq(payload.GetProperty("manifest").GetProperty("entries").EnumerateArray())
+                    .Filter(static entry => entry.GetProperty("redactions").GetInt32() > 0)
+                    .TraverseM(entry => set.Write(
+                        HostInstruments.RedactionTags, entry.GetProperty("redactions").GetInt64(),
+                        InstrumentSet.Tags((HostInstruments.ClassSlot, entry.GetProperty("classification").GetString()))))
+                    .As().Map(static _ => unit),
         }.ToFrozenDictionary(StringComparer.Ordinal);
 
     // One meter per contributor port and one frozen mount across all of them is the kernel's own multi-mount
@@ -325,18 +359,18 @@ public static class InstrumentFan {
 
 [CONTRIBUTED_ARMS]: every emitting package contributes through the kernel port shape — a wire-borne contributor mounts one kind-arm table beside its port, a typed-fold contributor projects pre-envelope and contributes rows alone, and each port carries its own semconv schema coordinate beside whatever board pack its rows declare, which `Mount` proves against that port's own declaration roster. Host custody names where the contributor's meters live — hosted roots ride `SignalGovernance.Govern`, plugin-hosted processes ride the `PluginTelemetryHost` per-ALC capsule.
 
-| [INDEX] | [CONTRIBUTOR]      | [PROJECTION]                         | [PORT_MINT]                        | [CUSTODY]      |
-| :-----: | :----------------- | :----------------------------------- | :--------------------------------- | :------------- |
-|  [01]   | `Rasm` kernel      | typed fold — `TelemetrySink.Tap`     | `KernelInstruments.Telemetry`      | composing root |
-|  [02]   | `Rasm.Element`     | typed fold — `GraphInstrument`       | `ElementInstruments.Telemetry`     | composing root |
-|  [03]   | `Rasm.Bim`         | typed fold — `BimTelemetry.Tap`      | `BimTelemetry.Telemetry`           | composing root |
-|  [04]   | `Rasm.Materials`   | receipt arms at this fan             | `MaterialsInstruments.Telemetry`   | composing root |
-|  [05]   | `Rasm.Fabrication` | `FabricationInstruments.Arms`        | `FabricationInstruments.Telemetry` | host root      |
-|  [06]   | `Rasm.Persistence` | `StoreInstruments.Arms`              | `StoreInstruments.Telemetry`       | host root      |
-|  [07]   | `Rasm.Compute`     | typed fold — `ComputeInstrumentFan`  | `ReceiptSurface.Telemetry`         | host root      |
-|  [08]   | `Rasm.AppUi`       | typed fold — `EvidenceFan`           | `AppUiTelemetry.Contribute`        | host root      |
-|  [09]   | `Rasm.Rhino`       | observe taps on the mount registry   | `RhinoInstruments.Telemetry`       | plugin ALC     |
-|  [10]   | `Rasm.Grasshopper` | typed fold — `GhInstruments.Project` | `PlatformTelemetry.Open`           | plugin ALC     |
+| [INDEX] | [CONTRIBUTOR]      | [PROJECTION]                           | [PORT_MINT]                        | [CUSTODY]      |
+| :-----: | :----------------- | :------------------------------------- | :--------------------------------- | :------------- |
+|  [01]   | `Rasm` kernel      | typed fold — `TelemetrySink.Tap`       | `KernelInstruments.Telemetry`      | composing root |
+|  [02]   | `Rasm.Element`     | typed fold — `GraphInstrument`         | `ElementInstruments.Telemetry`     | composing root |
+|  [03]   | `Rasm.Bim`         | typed fold — `BimTelemetry.Tap`        | `BimTelemetry.Telemetry`           | composing root |
+|  [04]   | `Rasm.Materials`   | receipt arms at this fan               | `MaterialsInstruments.Telemetry`   | composing root |
+|  [05]   | `Rasm.Fabrication` | `FabricationInstruments.Arms`/`.Facts` | `FabricationInstruments.Telemetry` | host root      |
+|  [06]   | `Rasm.Persistence` | `StoreInstruments.Arms`                | `StoreInstruments.Telemetry`       | host root      |
+|  [07]   | `Rasm.Compute`     | typed fold — `ComputeInstrumentFan`    | `ReceiptSurface.Telemetry`         | host root      |
+|  [08]   | `Rasm.AppUi`       | typed fold — `EvidenceFan`             | `AppUiTelemetry.Contribute`        | host root      |
+|  [09]   | `Rasm.Rhino`       | observe taps on the mount registry     | `RhinoInstruments.Telemetry`       | plugin ALC     |
+|  [10]   | `Rasm.Grasshopper` | typed fold — `GhInstruments.Project`   | `PlatformTelemetry.Open`           | plugin ALC     |
 
 ## [04]-[PROVIDER_LIFETIME]
 

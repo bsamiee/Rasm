@@ -1,27 +1,29 @@
-# [RASM_FABRICATION_PROCESS_FAMILY]
+# [RASM_FABRICATION_FAMILY]
 
-`ProcessKind`, `ProcessModality`, `InteractionKind`, `PhysicsKind`, `CutStrategy`, and `PostDialect` remain bounded generated vocabularies. `Machine.Admit` generates equipment from keyed capability data, physical axes, holding, topology, and dimensional envelopes; canonical archetypes are `MachineIngress.Seed` data, never named machine API. Keyed selection accumulates axis failures before `ProcessFamily` resolves selection, ordering, connected families, policy-weighted compatibility routes, and slot-preserving fleet matching through typed receipts.
+`ProcessKind`, `ProcessModality`, `InteractionKind`, `PhysicsKind`, `CutStrategy`, `MachineAxis`, and `PostDialect` remain bounded generated vocabularies. `Machine.Admit` generates equipment from keyed capability data, physical axes, holding, topology, and dimensional envelopes; canonical archetypes are `MachineIngress.Seed` data, never named machine API. Keyed selection accumulates axis failures before `ProcessFamily` resolves selection, ordering, connected families, policy-weighted compatibility routes, and slot-preserving fleet matching through typed receipts.
 
-`PostDialect` binds grammar, work-offset policy, compensation, arc mode, physical-record cap, numeric rendering, word retention, modality, features, and command overrides. `MachineCapacity` carries removal, turning, thermal, jet, erosion, extrusion/deposition, resin, powder, forming, joining, and robot envelopes through `UnitsNet`; `CoolantDelivery` carries delivery pressure, temperature, and concentration. `MachineIngress.Robot` admits manufacturer, payload, reach, and ordinal-keyed joint travel as provider-free rows `Kinematics/cell` projects, so no `Robots` type reaches this floor.
+`MachineAxis` seats here beside the machine model it addresses: `Order` is TOTAL across the roster, so a posting block order never depends on declaration accident, and a gantry pair derives from the two duplicated rows sharing one address rather than from a companion string looked up by name.
 
-`MachineCapacity.Facts` is the one envelope correspondence: each case emits quantity facts and robot joint-limit facts once, and validity with all queries reads that stream. `Machine.Capacity<TQuantity>` folds a chosen quantity axis through a `CapacityFold` row over `UnitMath`; `Machine.Capacity(MachineAxis)` returns the matching admitted joint limit. `ProcessKind.Demands` declares which `CapacityKind` a process requires, so equipment fitness is one equality rather than an enumerated physics table with per-process exceptions.
+`PostDialect` binds grammar, work-offset policy, compensation, arc mode, physical-record cap, numeric rendering, word retention, modality, features, and command overrides; `DialectFeatures` names the shared feature bundles and `Codes` the shared vendor spellings, so a controller declares only what it adds or lacks. `CommandKeys` is the override vocabulary posting looks a spelling up by, so a key absent from a row is a capability that controller never declared. `MachineCapacity` carries removal, turning, thermal, jet, erosion, extrusion/deposition, resin, powder, forming, joining, and robot envelopes through `UnitsNet`; `CoolantDelivery` carries delivery pressure, temperature, concentration, AND the speed, life, and evacuation response the cut sees, so no second medium-response table exists anywhere in the package. `MachineIngress.Robot` admits manufacturer, payload, reach, and ordinal-keyed joint travel as provider-free rows `Kinematics/cell` projects, so no `Robots` type reaches this floor.
+
+`MachineCapacity.Facts` is the one envelope correspondence: each case folds its OWN axis-and-reader row table into quantity facts and robot joint-limit facts, and `Machine` holds that stream once so validity and every query read one build. `Machine.Capacity<TQuantity>` folds a chosen quantity axis through a `CapacityFold` row over `UnitMath`; `Machine.Capacity(MachineAxis)` returns the matching admitted joint limit. `ProcessKind.Demands` declares which `CapacityKind` a process requires, so equipment fitness is one equality rather than an enumerated physics table with per-process exceptions. A process names NO dialect: a controller is a property of the machine that runs the process, so the selection graph resolves the pairing through `PostDialect.Admits` and a pinned default would fabricate a correspondence the shop never declared.
 
 Wire posture: HOST-LOCAL. These axes cross only the in-process `FabricationInput` seam to the physics, toolpath, kinematics, posting, tooling, and fixturing kernels — never a browser or peer wire; no row sits between wire and rail.
 
 ## [01]-[INDEX]
 
-- [02]-[PROCESS_FAMILY]: owns bounded process axes, generated equipment, graph relations, keyed admission, compatibility queries, and allocation receipts.
+- [02]-[PROCESS_AXES]: the bounded vocabularies — cut dimensionality and strategy, modality class, physics, interaction, kinematics, holding, capacity kind, axis and fold, coolant delivery with its cut response, axis kind, machine axis, and the dialect grammar rows.
+- [03]-[MACHINE_MODEL]: `WcsRoster`, `DialectFeatures`, `CommandKeys`, `PostDialect`, `ProcessKind`, `RobotManufacturer`, `AxisTravel`, `AxisLimit`, `CapacityFact`, `MachineCapacity`, `MachineIngress`, `Machine`.
+- [04]-[FAMILY_GRAPH]: `FamilyNode`, `RoutePolicy`, `ProcessSelection`, `FamilyOp`, `FamilyResult`, `ProcessFamily`.
 
-## [02]-[PROCESS_FAMILY]
+## [02]-[PROCESS_AXES]
 
-- Owner: bounded smart enums own process, physics, strategy, kinematics, holding, coolant, and dialect grammar; `Machine` owns admitted runtime equipment; `ProcessFamily` owns their relational graph.
-- Cases: `ProcessModality` covers subtractive, thermal, abrasive, erosion, additive, formed, and joined strategy postures. `InteractionKind` retains every modality's contact, jet, beam, discharge, deposition, fusion, cure, deformation, and bond mechanisms without a false modality-wide contact flag. `PhysicsKind` separates subtractive, thermal, abrasive, fused-filament, deposition, joining, wire erosion, resin, powder, and forming inputs. `ProcessKind` adds grinding, sawing, deposition, vat polymerization, and powder-bed production. `MachineIngress.Seed` rows cover every `CapacityKind` a process demands, so no admitted process is unallocatable against the canonical fleet; a press brake names its synchronized ram and backgauge axes, and a turn-mill carries both its turning and its live-tool removal envelope.
-- Entry: `Machine.Admit` consumes one `MachineIngress` case and `Machine.Register` seats the admitted result in the keyed registry the `[ObjectFactory<string>]` boundary resolves, so registered shop equipment and the built-in archetypes share one resolution space; `ProcessFamily.Admit` consumes a machine registry; `FamilyOp.Select` carries one admitted `ProcessSelection`; and `ProcessFamily.Apply` consumes one `FamilyOp` modality.
-- Auto: `ProcessPhysics` reads `ProcessKind.Physics`; toolpath admission reads `ProcessModality.Admits`; and posting resolves the selected dialect through `PostDialect.Admits` and enforces `PostDialect.BlockCap` where a controller stores a bounded program. Kinematics reads `Machine.Topology`, `KinematicClass.OrientationDof`, and `Machine.Axes`; fixturing reads `Machine.Holding`; posting reads grammar, admitted work-offset range, compensation, arc, retention, feature, render, and override columns. Machine admission proves every quantity fact finite and positive unless its axis is signed, retains every admitted joint limit, and proves each admitted process reaches a capacity whose case-owned `CapacityKind` equals its `Demands`. Job-size limits remain execution policy.
-- Receipt: `FamilyResult` returns admitted selection, weighted or unreachable paths, ordering, components, allocation pairs, and unassigned demand slots without exposing mutable graph state.
-- Packages: `Thinktecture.Runtime.Extensions`, `LanguageExt.Core`, `QuikGraph`, and `UnitsNet` compose at their owning boundaries.
-- Growth: a machine is one `Machine.Register` call over any `MachineIngress`, and a `Seeds` row is an archetype rather than a gate; a compatibility is one graph edge; a query is one `FamilyOp` case; a bounded vocabulary adds one generated row. An envelope dimension is one `CapacityAxis` row with one `CapacityFact` on the owning capacity case; an aggregation is one `CapacityFold` row; a process's equipment demand is its `CapacityKind` column.
-- Boundary: process, machine, modality, strategy, kinematics, holding, and dialect remain independent axes. Machine topology and physical axes are authoritative for motion; dialect rows contain capability data only; every textual key admits once through `ProcessFamily.Admit<TAxis>`.
+- Owner: bounded smart enums own process, physics, strategy, kinematics, holding, coolant, machine-axis, and dialect grammar; every row carries the columns its consumers read and nothing they do not.
+- Cases: `ProcessModality` covers subtractive, thermal, abrasive, erosion, additive, formed, and joined strategy postures. `InteractionKind` retains every modality's contact, jet, beam, discharge, deposition, fusion, cure, deformation, and bond mechanisms without a false modality-wide contact flag. `PhysicsKind` separates subtractive, thermal, abrasive, fused-filament, deposition, joining, wire erosion, resin, powder, and forming inputs.
+- Law: `MachineAxis.Order` is TOTAL — every row holds a distinct rank with room between families, so a posting block order is stable and a gantry duplicate never ties with the axis it duplicates. `Paired` derives from the two `Duplicated` rows sharing one address, so no companion key is spelled twice and no keyed lookup can miss.
+- Law: `CoolantDelivery` carries the cut response as COLUMNS. A parallel table keyed by delivery restates the roster and needs an identity fallback for a row it forgot; a column cannot forget a row.
+- Growth: a bounded vocabulary adds one generated row; an envelope dimension is one `CapacityAxis` row; an aggregation is one `CapacityFold` row.
+- Boundary: process, machine, modality, strategy, kinematics, holding, and dialect remain independent axes.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
@@ -33,6 +35,7 @@ using LanguageExt.Traits;
 using QuikGraph;
 using QuikGraph.Algorithms;
 using QuikGraph.Algorithms.ConnectedComponents;
+using Rasm.Element.Projection;
 using Rasm.Numerics;
 using Thinktecture;
 using UnitsNet;
@@ -260,19 +263,88 @@ public sealed partial class CapacityFold {
             mean: static state => UnitMath.Average(state.All, state.Unit)));
 }
 
+// Pressure, temperature, and concentration IDENTIFY the medium; the speed, life, and evacuation factors are what
+// that medium does to the cut. Both live on the row, so `Process/physics` reads a column instead of a parallel
+// table keyed by this vocabulary — a table has to restate every row and silently defaults the one it forgot.
 [SmartEnum<string>]
 public sealed partial class CoolantDelivery {
-    public static readonly CoolantDelivery Dry = new("dry", None, None, Ratio.FromPercent(0.0));
-    public static readonly CoolantDelivery Flood = new("flood", Some(Pressure.FromBars(3.0)), None, Ratio.FromPercent(8.0));
-    public static readonly CoolantDelivery Mist = new("mist", Some(Pressure.FromBars(5.0)), None, Ratio.FromPercent(2.0));
-    public static readonly CoolantDelivery MinimumQuantity = new("minimum-quantity", Some(Pressure.FromBars(6.0)), None, Ratio.FromPercent(0.5));
-    public static readonly CoolantDelivery ThroughTool = new("through-tool", Some(Pressure.FromBars(70.0)), None, Ratio.FromPercent(8.0));
-    public static readonly CoolantDelivery HighPressure = new("high-pressure", Some(Pressure.FromBars(150.0)), None, Ratio.FromPercent(8.0));
-    public static readonly CoolantDelivery Cryogenic = new("cryogenic", Some(Pressure.FromBars(10.0)), Some(Temperature.FromDegreesCelsius(-196.0)), Ratio.FromPercent(0.0));
+    public static readonly CoolantDelivery Dry = new("dry",
+        None, None, Ratio.FromPercent(0.0), speedFactor: 0.70, lifeFactor: 0.55, evacuation: 0.30);
+    public static readonly CoolantDelivery Flood = new("flood",
+        Some(Pressure.FromBars(3.0)), None, Ratio.FromPercent(8.0), speedFactor: 1.00, lifeFactor: 1.00, evacuation: 0.85);
+    public static readonly CoolantDelivery Mist = new("mist",
+        Some(Pressure.FromBars(5.0)), None, Ratio.FromPercent(2.0), speedFactor: 0.95, lifeFactor: 0.90, evacuation: 0.70);
+    public static readonly CoolantDelivery MinimumQuantity = new("minimum-quantity",
+        Some(Pressure.FromBars(6.0)), None, Ratio.FromPercent(0.5), speedFactor: 0.98, lifeFactor: 0.95, evacuation: 0.65);
+    public static readonly CoolantDelivery ThroughTool = new("through-tool",
+        Some(Pressure.FromBars(70.0)), None, Ratio.FromPercent(8.0), speedFactor: 1.15, lifeFactor: 1.35, evacuation: 1.00);
+    public static readonly CoolantDelivery HighPressure = new("high-pressure",
+        Some(Pressure.FromBars(150.0)), None, Ratio.FromPercent(8.0), speedFactor: 1.30, lifeFactor: 1.60, evacuation: 1.00);
+    public static readonly CoolantDelivery Cryogenic = new("cryogenic",
+        Some(Pressure.FromBars(10.0)), Some(Temperature.FromDegreesCelsius(-196.0)), Ratio.FromPercent(0.0),
+        speedFactor: 1.45, lifeFactor: 2.10, evacuation: 0.90);
 
     public Option<Pressure> Pressure { get; }
     public Option<Temperature> Temperature { get; }
     public Ratio Concentration { get; }
+    public double SpeedFactor { get; }
+    public double LifeFactor { get; }
+    public double Evacuation { get; }
+}
+
+[SmartEnum<string>]
+public sealed partial class AxisKind {
+    public static readonly AxisKind Linear = new("linear");
+    public static readonly AxisKind Rotary = new("rotary");
+    public static readonly AxisKind Spindle = new("spindle");
+    public static readonly AxisKind Auxiliary = new("auxiliary");
+}
+
+// `Order` is the posting block rank and it is TOTAL: every row holds a distinct ordinal, families are spaced so a
+// new axis lands between its neighbours without renumbering, and a gantry duplicate ranks immediately after the
+// axis it duplicates. Only `Address` is wire-bearing; `Order` is emission policy this page owns.
+[SmartEnum<string>]
+public sealed partial class MachineAxis {
+    public static readonly MachineAxis X = new("x", AxisKind.Linear, address: 'X', order: 0);
+    public static readonly MachineAxis Y = new("y", AxisKind.Linear, address: 'Y', order: 10);
+    public static readonly MachineAxis Y1 = new("y1", AxisKind.Linear, address: 'Y', order: 11, duplicated: true);
+    public static readonly MachineAxis Y2 = new("y2", AxisKind.Linear, address: 'Y', order: 12, duplicated: true);
+    public static readonly MachineAxis Z = new("z", AxisKind.Linear, address: 'Z', order: 20);
+    public static readonly MachineAxis Z1 = new("z1", AxisKind.Linear, address: 'Z', order: 21, duplicated: true);
+    public static readonly MachineAxis Z2 = new("z2", AxisKind.Linear, address: 'Z', order: 22, duplicated: true);
+    public static readonly MachineAxis A = new("a", AxisKind.Rotary, address: 'A', order: 30, wraps: true);
+    public static readonly MachineAxis B = new("b", AxisKind.Rotary, address: 'B', order: 31, wraps: true);
+    public static readonly MachineAxis C = new("c", AxisKind.Rotary, address: 'C', order: 32, wraps: true);
+    public static readonly MachineAxis U = new("u", AxisKind.Linear, address: 'U', order: 40);
+    public static readonly MachineAxis V = new("v", AxisKind.Linear, address: 'V', order: 41);
+    public static readonly MachineAxis W = new("w", AxisKind.Linear, address: 'W', order: 42);
+    public static readonly MachineAxis R = new("r", AxisKind.Linear, address: 'R', order: 43);
+    public static readonly MachineAxis S1 = new("s1", AxisKind.Spindle, address: 'S', order: 50);
+    public static readonly MachineAxis S2 = new("s2", AxisKind.Spindle, address: 'S', order: 51);
+    public static readonly MachineAxis J1 = new("j1", AxisKind.Rotary, address: 'J', order: 60, wraps: true);
+    public static readonly MachineAxis J2 = new("j2", AxisKind.Rotary, address: 'J', order: 61, wraps: true);
+    public static readonly MachineAxis J3 = new("j3", AxisKind.Rotary, address: 'J', order: 62, wraps: true);
+    public static readonly MachineAxis J4 = new("j4", AxisKind.Rotary, address: 'J', order: 63, wraps: true);
+    public static readonly MachineAxis J5 = new("j5", AxisKind.Rotary, address: 'J', order: 64, wraps: true);
+    public static readonly MachineAxis J6 = new("j6", AxisKind.Rotary, address: 'J', order: 65, wraps: true);
+    public static readonly MachineAxis J7 = new("j7", AxisKind.Rotary, address: 'J', order: 66, wraps: true);
+    public static readonly MachineAxis E1 = new("e1", AxisKind.Auxiliary, address: 'E', order: 70);
+    public static readonly MachineAxis E2 = new("e2", AxisKind.Auxiliary, address: 'E', order: 71);
+
+    public AxisKind Kind { get; }
+    public char Address { get; }
+    public int Order { get; }
+    public bool Wraps { get; }
+
+    // A synchronized gantry pair: two rows carrying one controller address. The pairing DERIVES from the roster,
+    // so no row spells its partner's key and no lookup of that key can miss.
+    public bool Duplicated { get; }
+
+    public bool Rotary => Kind == AxisKind.Rotary;
+
+    public Option<MachineAxis> Paired => Duplicated
+        ? toSeq(Items).Find(row => row.Duplicated && row.Address == Address && row.Key != Key)
+        : None;
 }
 
 [SmartEnum<string>]
@@ -348,119 +420,171 @@ public sealed partial class DialectFeature {
     public static readonly DialectFeature Checksum = new("checksum");
 }
 
+```
+
+## [03]-[MACHINE_MODEL]
+
+- Owner: `PostDialect` owns controller grammar and capability; `ProcessKind` owns the process axis correspondence; `MachineCapacity` owns the envelope shapes; `MachineIngress` owns the admission payloads; `Machine` owns admitted runtime equipment and its keyed resolution.
+- Cases: `ProcessKind` covers milling, turning, routing, grinding, sawing, thermal and abrasive cutting, erosion, every additive modality, joining, and forming. `MachineIngress.Seed` rows cover every `CapacityKind` a process demands, so no admitted process is unallocatable against the canonical fleet; a press brake names its synchronized ram and backgauge axes, and a turn-mill carries both its turning and its live-tool removal envelope.
+- Entry: `Machine.Admit` consumes one `MachineIngress` case and `Machine.Register` seats the admitted result in the keyed registry the `[ObjectFactory<string>]` boundary resolves, so registered shop equipment and the built-in archetypes share ONE resolution space and no second lookup path exists.
+- Auto: `ProcessPhysics` reads `ProcessKind.Physics`; toolpath admission reads `ProcessModality.Admits`; posting resolves the selected dialect through `PostDialect.Admits` and enforces `PostDialect.BlockCap` where a controller stores a bounded program. Kinematics reads `Machine.Topology`, `KinematicClass.OrientationDof`, and `Machine.Axes`; fixturing reads `Machine.Holding`. Machine admission proves every quantity fact finite and positive unless its axis is signed, retains every admitted joint limit, and proves each admitted process reaches a capacity whose case-owned `CapacityKind` equals its `Demands`. Job-size limits remain execution policy.
+- Law: a `Seeds` row is an ARCHETYPE, not a gate. Seeding folds each archetype through the same admission a shop registration takes, and a seed that fails that admission surfaces as a registry refusal rather than a silently missing row.
+- Growth: a machine is one `Machine.Register` call over any `MachineIngress`; a dialect is one row over the named feature and spelling bundles; a vendor word is one `CommandKeys` constant and one override entry; an envelope dimension is one row on the owning capacity's fact table.
+- Boundary: machine topology and physical axes are authoritative for motion; dialect rows contain capability data only.
+
+```csharp signature
 // --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
 [ComplexValueObject]
+[ValidationError<FabricationFault>]
 public sealed partial class WcsRoster {
     public int Slots { get; }
     public int ExtendedBase { get; }
     public int Extended { get; }
     public int Total => Slots + Extended;
 
+    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref ValidationError? validationError,
+        ref FabricationFault? validationError,
         ref int slots,
         ref int extendedBase,
-        ref int extended) =>
-        validationError = slots >= 0 && extendedBase >= 0 && extended >= 0 && (extended == 0 || extendedBase > 0)
-            ? null
-            : new ValidationError("<work-offset-range-degenerate>");
+        ref int extended) {
+        if (slots < 0 || extendedBase < 0 || extended < 0 || (extended != 0 && extendedBase <= 0))
+            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Posting, "work-offset-range");
+    }
 
     public static Fin<WcsRoster> Admit(int slots, int extendedBase, int extended) =>
-        Validate(slots, extendedBase, extended, out WcsRoster roster) is { } error
-            ? Fin.Fail<WcsRoster>(new FabricationFault.PolicyInadmissible(FabConcern.Process, error.Message))
-            : Fin.Succ(roster);
+        Validate(slots, extendedBase, extended, out WcsRoster roster).Admitted(roster);
+}
+
+// The feature sets controllers SHARE, named once. A dialect row states the bundle it belongs to plus what it adds
+// or lacks, so the seventeen-row full-mill set is one declaration rather than five transcriptions that drift.
+// These fields seat before the dialect rows because a static initializer reading a later field captures its default.
+public static class DialectFeatures {
+    public static readonly Set<DialectFeature> Base = Set(
+        DialectFeature.Metric, DialectFeature.Absolute, DialectFeature.Incremental,
+        DialectFeature.PlaneSelection, DialectFeature.ToolChange, DialectFeature.TimeDwell, DialectFeature.LineNumbers);
+
+    public static readonly Set<DialectFeature> Imperial = Base + Set(DialectFeature.Imperial);
+
+    public static readonly Set<DialectFeature> Multiaxis = Imperial + Set(
+        DialectFeature.Rotary, DialectFeature.Tcp, DialectFeature.InverseTime, DialectFeature.Probing,
+        DialectFeature.RigidTap, DialectFeature.ThreadCycle, DialectFeature.RevolutionDwell);
+
+    public static readonly Set<DialectFeature> FullMill = Multiaxis + Set(
+        DialectFeature.Polar, DialectFeature.Cylindrical, DialectFeature.Spline);
+
+    public static readonly Set<DialectFeature> Streaming = Base + Set(DialectFeature.Checksum);
+}
+
+// The command key a dialect override is looked up by. A bare string spelled at the reader forks the moment one copy
+// is edited, so every key is a declared constant the override map and every reader share. A reader either RAILS on a
+// missing entry — the controller never declared that capability — or renders the bare key, which is visibly wrong in
+// the emitted record rather than silently absent from it.
+public static class CommandKeys {
+    public const string WcsExtended = "wcs-extended";
+    public const string WcsDynamic = "wcs-dynamic";
+    public const string ThreadCycle = "thread-cycle";
+    public const string MotionSynchronize = "motion-synchronize";
+    public const string ChannelBarrier = "channel-barrier";
+    public const string SubprogramCall = "subprogram-call";
+    public const string SubprogramLabel = "subprogram-label";
+    public const string SubprogramRepeat = "subprogram-repeat";
+    public const string SubprogramDefine = "subprogram-define";
+    public const string SubprogramReturn = "subprogram-return";
+    public const string LayerMark = "layer-mark";
+    public const string ExtrudeMove = "extrude-move";
 }
 
 [SmartEnum<string>]
 public sealed partial class PostDialect {
     public static readonly PostDialect LinuxCnc = new("linuxcnc", PostFamily.WordAddress, CycleGrammar.SingleBlock, MacroGrammar.None,
-        SubprogramGrammar.Label, WcsRoster.Create(6, 1, 3), Set(CutterCompKind.Radius, CutterCompKind.Length), Some(ArcMode.Both), blockCap: None, decimals: 4, WordRetention.Modal,
+        SubprogramGrammar.Label, WcsRoster.Create(6, 1, 3), Compensation.Full, Some(ArcMode.Both), blockCap: None, decimals: 4, WordRetention.Modal,
         Set(ProcessModality.Subtractive, ProcessModality.Thermal, ProcessModality.Abrasive, ProcessModality.Erosion),
-        Set(DialectFeature.Metric, DialectFeature.Imperial, DialectFeature.Absolute, DialectFeature.Incremental, DialectFeature.PlaneSelection,
-            DialectFeature.Rotary, DialectFeature.Tcp, DialectFeature.InverseTime, DialectFeature.Polar, DialectFeature.Spline,
-            DialectFeature.Probing, DialectFeature.ToolChange, DialectFeature.RigidTap, DialectFeature.ThreadCycle,
-            DialectFeature.TimeDwell, DialectFeature.RevolutionDwell, DialectFeature.LineNumbers), Map(("thread-cycle", "G76")));
+        DialectFeatures.Multiaxis + Set(DialectFeature.Polar, DialectFeature.Spline),
+        Map((CommandKeys.ThreadCycle, "G76"), (CommandKeys.SubprogramCall, "O"), (CommandKeys.SubprogramRepeat, "L"),
+            (CommandKeys.SubprogramDefine, "O"), (CommandKeys.SubprogramReturn, "M99")));
     public static readonly PostDialect Grbl = new("grbl", PostFamily.WordAddress, CycleGrammar.Expanded, MacroGrammar.None,
-        SubprogramGrammar.None, WcsRoster.Create(6, 0, 0), Set<CutterCompKind>(), Some(ArcMode.Both), blockCap: None, decimals: 3, WordRetention.Modal,
+        SubprogramGrammar.None, WcsRoster.Create(6, 0, 0), Compensation.None, Some(ArcMode.Both), blockCap: None, decimals: 3, WordRetention.Modal,
         Set(ProcessModality.Subtractive, ProcessModality.Thermal),
-        Set(DialectFeature.Metric, DialectFeature.Imperial, DialectFeature.Absolute, DialectFeature.Incremental, DialectFeature.PlaneSelection,
-            DialectFeature.ToolChange, DialectFeature.TimeDwell, DialectFeature.LineNumbers, DialectFeature.Checksum), Map<string, string>());
+        DialectFeatures.Imperial + Set(DialectFeature.Checksum), Codes.None);
     public static readonly PostDialect Fanuc = new("fanuc", PostFamily.WordAddress, CycleGrammar.SingleBlock, MacroGrammar.MacroB,
-        SubprogramGrammar.M98, WcsRoster.Create(6, 1, 48), Set(CutterCompKind.Radius, CutterCompKind.Length), Some(ArcMode.Both), blockCap: None, decimals: 3, WordRetention.Modal,
+        SubprogramGrammar.M98, WcsRoster.Create(6, 1, 48), Compensation.Full, Some(ArcMode.Both), blockCap: None, decimals: 3, WordRetention.Modal,
         Set(ProcessModality.Subtractive, ProcessModality.Abrasive, ProcessModality.Erosion, ProcessModality.Additive, ProcessModality.Joined),
-        Set(DialectFeature.Metric, DialectFeature.Imperial, DialectFeature.Absolute, DialectFeature.Incremental, DialectFeature.PlaneSelection,
-            DialectFeature.Rotary, DialectFeature.Tcp, DialectFeature.InverseTime, DialectFeature.Polar, DialectFeature.Cylindrical,
-            DialectFeature.Spline, DialectFeature.Probing, DialectFeature.ToolChange, DialectFeature.RigidTap, DialectFeature.ThreadCycle,
-            DialectFeature.TimeDwell, DialectFeature.RevolutionDwell, DialectFeature.LineNumbers), Map(("thread-cycle", "G76")));
+        DialectFeatures.FullMill,
+        Codes.IsoSubprogram + Codes.IsoOffsets + Map((CommandKeys.ThreadCycle, "G76"), (CommandKeys.MotionSynchronize, "G51.2")));
     public static readonly PostDialect Haas = new("haas", PostFamily.WordAddress, CycleGrammar.SingleBlock, MacroGrammar.MacroB,
-        SubprogramGrammar.M98, WcsRoster.Create(6, 1, 99), Set(CutterCompKind.Radius, CutterCompKind.Length), Some(ArcMode.Both), blockCap: None, decimals: 4, WordRetention.Modal,
-        Set(ProcessModality.Subtractive),
-        Set(DialectFeature.Metric, DialectFeature.Imperial, DialectFeature.Absolute, DialectFeature.Incremental, DialectFeature.PlaneSelection,
-            DialectFeature.Rotary, DialectFeature.Tcp, DialectFeature.InverseTime, DialectFeature.Probing, DialectFeature.ToolChange,
-            DialectFeature.RigidTap, DialectFeature.ThreadCycle, DialectFeature.TimeDwell, DialectFeature.RevolutionDwell,
-            DialectFeature.LineNumbers), Map(("thread-cycle", "G76")));
+        SubprogramGrammar.M98, WcsRoster.Create(6, 1, 99), Compensation.Full, Some(ArcMode.Both), blockCap: None, decimals: 4, WordRetention.Modal,
+        Set(ProcessModality.Subtractive), DialectFeatures.Multiaxis,
+        Codes.IsoSubprogram + Map((CommandKeys.ThreadCycle, "G76"), (CommandKeys.WcsExtended, "G154"), (CommandKeys.WcsDynamic, "G254")));
     public static readonly PostDialect Mazak = new("mazak", PostFamily.WordAddress, CycleGrammar.SingleBlock, MacroGrammar.MacroB,
-        SubprogramGrammar.M98, WcsRoster.Create(6, 1, 48), Set(CutterCompKind.Radius, CutterCompKind.Length), Some(ArcMode.Both), blockCap: None, decimals: 4, WordRetention.Modal,
-        Set(ProcessModality.Subtractive),
-        Set(DialectFeature.Metric, DialectFeature.Imperial, DialectFeature.Absolute, DialectFeature.Incremental, DialectFeature.PlaneSelection,
-            DialectFeature.Rotary, DialectFeature.Tcp, DialectFeature.InverseTime, DialectFeature.Polar, DialectFeature.Cylindrical,
-            DialectFeature.Spline, DialectFeature.Probing, DialectFeature.ToolChange, DialectFeature.RigidTap, DialectFeature.ThreadCycle,
-            DialectFeature.TimeDwell, DialectFeature.RevolutionDwell, DialectFeature.LineNumbers), Map<string, string>());
+        SubprogramGrammar.M98, WcsRoster.Create(6, 1, 48), Compensation.Full, Some(ArcMode.Both), blockCap: None, decimals: 4, WordRetention.Modal,
+        Set(ProcessModality.Subtractive), DialectFeatures.FullMill,
+        Codes.IsoSubprogram + Codes.IsoOffsets + Map((CommandKeys.MotionSynchronize, "G51.2")));
     public static readonly PostDialect Hypertherm = new("hypertherm", PostFamily.WordAddress, CycleGrammar.Expanded, MacroGrammar.None,
         SubprogramGrammar.M98, WcsRoster.Create(1, 0, 0), Set(CutterCompKind.Radius), Some(ArcMode.Ijk), blockCap: None, decimals: 4, WordRetention.Modal,
         Set(ProcessModality.Thermal),
-        Set(DialectFeature.Metric, DialectFeature.Imperial, DialectFeature.Absolute, DialectFeature.Incremental, DialectFeature.PlaneSelection,
-            DialectFeature.TimeDwell, DialectFeature.LineNumbers, DialectFeature.Checksum), Map<string, string>());
+        DialectFeatures.Imperial - Set(DialectFeature.ToolChange) + Set(DialectFeature.Checksum), Codes.IsoSubprogram);
     public static readonly PostDialect Siemens840D = new("siemens-840d", PostFamily.WordAddress, CycleGrammar.DialectCycle, MacroGrammar.RParam,
-        SubprogramGrammar.Label, WcsRoster.Create(4, 1, 95), Set(CutterCompKind.Radius, CutterCompKind.Length), Some(ArcMode.Both), blockCap: None, decimals: 3, WordRetention.Modal,
+        SubprogramGrammar.Label, WcsRoster.Create(4, 1, 95), Compensation.Full, Some(ArcMode.Both), blockCap: None, decimals: 3, WordRetention.Modal,
         Set(ProcessModality.Subtractive, ProcessModality.Thermal, ProcessModality.Erosion),
-        Set(DialectFeature.Metric, DialectFeature.Imperial, DialectFeature.Absolute, DialectFeature.Incremental, DialectFeature.PlaneSelection,
-            DialectFeature.Rotary, DialectFeature.Tcp, DialectFeature.InverseTime, DialectFeature.Polar, DialectFeature.Cylindrical,
-            DialectFeature.Spline, DialectFeature.Probing, DialectFeature.ToolChange, DialectFeature.RigidTap, DialectFeature.ThreadCycle,
-            DialectFeature.TimeDwell, DialectFeature.RevolutionDwell, DialectFeature.LineNumbers), Map<string, string>());
+        DialectFeatures.FullMill, Codes.LabelSubprogram + Map((CommandKeys.ChannelBarrier, "WAITM")));
     public static readonly PostDialect HeidenhainTnc = new("heidenhain-tnc", PostFamily.Conversational, CycleGrammar.DialectCycle, MacroGrammar.QParam,
-        SubprogramGrammar.Label, WcsRoster.Create(0, 1, 99), Set(CutterCompKind.Radius, CutterCompKind.Length), Some(ArcMode.Ijk), blockCap: None, decimals: 3, WordRetention.Explicit,
+        SubprogramGrammar.Label, WcsRoster.Create(0, 1, 99), Compensation.Full, Some(ArcMode.Ijk), blockCap: None, decimals: 3, WordRetention.Explicit,
         Set(ProcessModality.Subtractive),
-        Set(DialectFeature.Metric, DialectFeature.Absolute, DialectFeature.Incremental, DialectFeature.PlaneSelection, DialectFeature.Rotary,
-            DialectFeature.Tcp, DialectFeature.InverseTime, DialectFeature.Polar, DialectFeature.Cylindrical, DialectFeature.Spline,
-            DialectFeature.Probing, DialectFeature.ToolChange, DialectFeature.RigidTap, DialectFeature.ThreadCycle,
-            DialectFeature.TimeDwell, DialectFeature.RevolutionDwell, DialectFeature.LineNumbers), Map<string, string>());
+        DialectFeatures.FullMill - Set(DialectFeature.Imperial), Codes.LabelSubprogram);
     public static readonly PostDialect OkumaOsp = new("okuma-osp", PostFamily.WordAddress, CycleGrammar.DialectCycle, MacroGrammar.UserTask,
-        SubprogramGrammar.Label, WcsRoster.Create(6, 1, 50), Set(CutterCompKind.Radius, CutterCompKind.Length), Some(ArcMode.Both), blockCap: None, decimals: 4, WordRetention.Modal,
-        Set(ProcessModality.Subtractive),
-        Set(DialectFeature.Metric, DialectFeature.Imperial, DialectFeature.Absolute, DialectFeature.Incremental, DialectFeature.PlaneSelection,
-            DialectFeature.Rotary, DialectFeature.Tcp, DialectFeature.InverseTime, DialectFeature.Polar, DialectFeature.Cylindrical,
-            DialectFeature.Spline, DialectFeature.Probing, DialectFeature.ToolChange, DialectFeature.RigidTap, DialectFeature.ThreadCycle,
-            DialectFeature.TimeDwell, DialectFeature.RevolutionDwell, DialectFeature.LineNumbers), Map<string, string>());
+        SubprogramGrammar.Label, WcsRoster.Create(6, 1, 50), Compensation.Full, Some(ArcMode.Both), blockCap: None, decimals: 4, WordRetention.Modal,
+        Set(ProcessModality.Subtractive), DialectFeatures.FullMill,
+        Map((CommandKeys.SubprogramCall, "CALL O"), (CommandKeys.SubprogramRepeat, "L"),
+            (CommandKeys.SubprogramDefine, "O"), (CommandKeys.SubprogramReturn, "RTS")));
     public static readonly PostDialect Fagor = new("fagor", PostFamily.WordAddress, CycleGrammar.SingleBlock, MacroGrammar.RParam,
-        SubprogramGrammar.Label, WcsRoster.Create(6, 1, 20), Set(CutterCompKind.Radius, CutterCompKind.Length), Some(ArcMode.Both), blockCap: None, decimals: 4, WordRetention.Modal,
-        Set(ProcessModality.Subtractive),
-        Set(DialectFeature.Metric, DialectFeature.Imperial, DialectFeature.Absolute, DialectFeature.Incremental, DialectFeature.PlaneSelection,
-            DialectFeature.Rotary, DialectFeature.Tcp, DialectFeature.InverseTime, DialectFeature.Polar, DialectFeature.Cylindrical,
-            DialectFeature.Spline, DialectFeature.Probing, DialectFeature.ToolChange, DialectFeature.RigidTap, DialectFeature.ThreadCycle,
-            DialectFeature.TimeDwell, DialectFeature.RevolutionDwell, DialectFeature.LineNumbers), Map<string, string>());
+        SubprogramGrammar.Label, WcsRoster.Create(6, 1, 20), Compensation.Full, Some(ArcMode.Both), blockCap: None, decimals: 4, WordRetention.Modal,
+        Set(ProcessModality.Subtractive), DialectFeatures.FullMill, Codes.LabelSubprogram);
     public static readonly PostDialect Centroid = new("centroid", PostFamily.WordAddress, CycleGrammar.SingleBlock, MacroGrammar.MacroB,
-        SubprogramGrammar.M98, WcsRoster.Create(6, 1, 12), Set(CutterCompKind.Radius, CutterCompKind.Length), Some(ArcMode.Both), blockCap: None, decimals: 4, WordRetention.Modal,
-        Set(ProcessModality.Subtractive),
-        Set(DialectFeature.Metric, DialectFeature.Imperial, DialectFeature.Absolute, DialectFeature.Incremental, DialectFeature.PlaneSelection,
-            DialectFeature.Rotary, DialectFeature.Tcp, DialectFeature.InverseTime, DialectFeature.Probing, DialectFeature.ToolChange,
-            DialectFeature.RigidTap, DialectFeature.ThreadCycle, DialectFeature.TimeDwell, DialectFeature.RevolutionDwell,
-            DialectFeature.LineNumbers), Map<string, string>());
+        SubprogramGrammar.M98, WcsRoster.Create(6, 1, 12), Compensation.Full, Some(ArcMode.Both), blockCap: None, decimals: 4, WordRetention.Modal,
+        Set(ProcessModality.Subtractive), DialectFeatures.Multiaxis,
+        Codes.IsoSubprogram + Map((CommandKeys.WcsExtended, "G54.1")));
     public static readonly PostDialect Marlin = new("marlin", PostFamily.AdditiveGcode, CycleGrammar.Expanded, MacroGrammar.None,
-        SubprogramGrammar.None, WcsRoster.Create(0, 0, 0), Set<CutterCompKind>(), Some(ArcMode.Both), blockCap: None, decimals: 3, WordRetention.Modal,
-        Set(ProcessModality.Additive),
-        Set(DialectFeature.Metric, DialectFeature.Absolute, DialectFeature.Incremental, DialectFeature.PlaneSelection,
-            DialectFeature.ToolChange, DialectFeature.TimeDwell, DialectFeature.LineNumbers, DialectFeature.Checksum), Map<string, string>());
+        SubprogramGrammar.None, WcsRoster.Create(0, 0, 0), Compensation.None, Some(ArcMode.Both), blockCap: None, decimals: 3, WordRetention.Modal,
+        Set(ProcessModality.Additive), DialectFeatures.Streaming, Codes.LayerStream);
     public static readonly PostDialect Reprap = new("reprap", PostFamily.AdditiveGcode, CycleGrammar.Expanded, MacroGrammar.None,
-        SubprogramGrammar.None, WcsRoster.Create(6, 1, 3), Set<CutterCompKind>(), Some(ArcMode.Both), blockCap: None, decimals: 3, WordRetention.Modal,
-        Set(ProcessModality.Additive),
-        Set(DialectFeature.Metric, DialectFeature.Absolute, DialectFeature.Incremental, DialectFeature.PlaneSelection,
-            DialectFeature.ToolChange, DialectFeature.TimeDwell, DialectFeature.LineNumbers, DialectFeature.Checksum), Map<string, string>());
+        SubprogramGrammar.None, WcsRoster.Create(6, 1, 3), Compensation.None, Some(ArcMode.Both), blockCap: None, decimals: 3, WordRetention.Modal,
+        Set(ProcessModality.Additive), DialectFeatures.Streaming, Codes.LayerStream);
     public static readonly PostDialect Delem = new("delem", PostFamily.Forming, CycleGrammar.DialectCycle, MacroGrammar.None,
-        SubprogramGrammar.None, WcsRoster.Create(0, 0, 0), Set<CutterCompKind>(), None, blockCap: Some(25), decimals: 3, WordRetention.Explicit,
+        SubprogramGrammar.None, WcsRoster.Create(0, 0, 0), Compensation.None, None, blockCap: Some(25), decimals: 3, WordRetention.Explicit,
         Set(ProcessModality.Formed),
-        Set(DialectFeature.Metric, DialectFeature.Imperial, DialectFeature.Absolute, DialectFeature.Incremental,
-            DialectFeature.ToolChange, DialectFeature.TimeDwell, DialectFeature.LineNumbers), Map<string, string>());
+        DialectFeatures.Imperial - Set(DialectFeature.PlaneSelection), Codes.None);
+
+    // The two compensation postures every controller row takes; a bare `Set(...)` literal at thirteen rows is the
+    // same transcription defect the feature bundles delete.
+    private static class Compensation {
+        public static readonly Set<CutterCompKind> Full = Set(CutterCompKind.Radius, CutterCompKind.Length);
+        public static readonly Set<CutterCompKind> None = Set<CutterCompKind>();
+    }
+
+    // The vendor spellings controllers SHARE, named once for the reason the feature bundles are: the ISO subprogram
+    // quintet is ONE declaration across every `M98` row and the label quartet one across the control languages that
+    // call a label, so a row states its bundle plus only the spellings it alone carries.
+    private static class Codes {
+        public static readonly Map<string, string> IsoSubprogram = Map(
+            (CommandKeys.SubprogramCall, "M98"), (CommandKeys.SubprogramLabel, "P"), (CommandKeys.SubprogramRepeat, "L"),
+            (CommandKeys.SubprogramDefine, "O"), (CommandKeys.SubprogramReturn, "M99"));
+
+        public static readonly Map<string, string> LabelSubprogram = Map(
+            (CommandKeys.SubprogramCall, "CALL LBL"), (CommandKeys.SubprogramRepeat, "REP"),
+            (CommandKeys.SubprogramDefine, "LBL"), (CommandKeys.SubprogramReturn, "LBL 0"));
+
+        // The Fanuc-lineage extended and dynamic work-offset codes. A controller spelling either differently carries
+        // its own pair, and one with no dynamic frame carries NO entry, so the slot refuses rather than degrading to
+        // a base offset that means a different frame.
+        public static readonly Map<string, string> IsoOffsets = Map(
+            (CommandKeys.WcsExtended, "G54.1"), (CommandKeys.WcsDynamic, "G54.2"));
+
+        public static readonly Map<string, string> LayerStream = Map(
+            (CommandKeys.LayerMark, ";LAYER:"), (CommandKeys.ExtrudeMove, "G1 E"));
+
+        public static readonly Map<string, string> None = Map<string, string>();
+    }
 
     public PostFamily Family { get; }
     public CycleGrammar Cycles { get; }
@@ -483,48 +607,47 @@ public sealed partial class PostDialect {
 
 [SmartEnum<string>]
 public sealed partial class ProcessKind {
-    public static readonly ProcessKind Mill = new("mill", ProcessModality.Subtractive, InteractionKind.SolidContact, PhysicsKind.Subtractive, KinematicClass.CartesianGantry, PostDialect.LinuxCnc, CapacityKind.Removal);
-    public static readonly ProcessKind Turn = new("turn", ProcessModality.Subtractive, InteractionKind.SolidContact, PhysicsKind.Subtractive, KinematicClass.RotarySpindle, PostDialect.Fanuc, CapacityKind.Turning);
-    public static readonly ProcessKind Route = new("route", ProcessModality.Subtractive, InteractionKind.SolidContact, PhysicsKind.Subtractive, KinematicClass.CartesianGantry, PostDialect.Grbl, CapacityKind.Removal);
-    public static readonly ProcessKind Grind = new("grind", ProcessModality.Subtractive, InteractionKind.SolidContact, PhysicsKind.Subtractive, KinematicClass.CartesianGantry, PostDialect.Fanuc, CapacityKind.Removal);
-    public static readonly ProcessKind Saw = new("saw", ProcessModality.Subtractive, InteractionKind.SolidContact, PhysicsKind.Subtractive, KinematicClass.CartesianGantry, PostDialect.Fanuc, CapacityKind.Removal);
-    public static readonly ProcessKind Laser = new("laser", ProcessModality.Thermal, InteractionKind.PhotonBeam, PhysicsKind.Thermal, KinematicClass.CartesianGantry, PostDialect.Grbl, CapacityKind.Thermal);
-    public static readonly ProcessKind Plasma = new("plasma", ProcessModality.Thermal, InteractionKind.PlasmaJet, PhysicsKind.Thermal, KinematicClass.CartesianGantry, PostDialect.Hypertherm, CapacityKind.Thermal);
-    public static readonly ProcessKind Waterjet = new("waterjet", ProcessModality.Abrasive, InteractionKind.AbrasiveJet, PhysicsKind.Abrasive, KinematicClass.CartesianGantry, PostDialect.Fanuc, CapacityKind.Jet);
-    public static readonly ProcessKind FusedFilament = new("fused-filament", ProcessModality.Additive, InteractionKind.MoltenDeposition, PhysicsKind.Fff, KinematicClass.CartesianGantry, PostDialect.Marlin, CapacityKind.Additive);
-    public static readonly ProcessKind Deposition = new("deposition", ProcessModality.Additive, InteractionKind.MoltenDeposition, PhysicsKind.Deposition, KinematicClass.ArticulatedArm, PostDialect.Fanuc, CapacityKind.Additive);
-    public static readonly ProcessKind VatPolymer = new("vat-polymer", ProcessModality.Additive, InteractionKind.ResinCure, PhysicsKind.Resin, KinematicClass.CartesianGantry, PostDialect.Marlin, CapacityKind.Resin);
-    public static readonly ProcessKind PowderBed = new("powder-bed", ProcessModality.Additive, InteractionKind.PowderFusion, PhysicsKind.Powder, KinematicClass.CartesianGantry, PostDialect.Marlin, CapacityKind.Powder);
-    public static readonly ProcessKind Oxyfuel = new("oxyfuel", ProcessModality.Thermal, InteractionKind.CombustionJet, PhysicsKind.Thermal, KinematicClass.CartesianGantry, PostDialect.Hypertherm, CapacityKind.Thermal);
-    public static readonly ProcessKind EdmWire = new("edm-wire", ProcessModality.Erosion, InteractionKind.ElectricalDischarge, PhysicsKind.Erosion, KinematicClass.CartesianGantry, PostDialect.Fanuc, CapacityKind.Erosion);
-    public static readonly ProcessKind Weld = new("weld", ProcessModality.Joined, InteractionKind.ArcFusion, PhysicsKind.Joining, KinematicClass.ArticulatedArm, PostDialect.Fanuc, CapacityKind.Joining);
-    public static readonly ProcessKind PressBrake = new("press-brake", ProcessModality.Formed, InteractionKind.PlasticDeformation, PhysicsKind.Forming, KinematicClass.CartesianGantry, PostDialect.Delem, CapacityKind.Forming);
-    public static readonly ProcessKind Drill = new("drill", ProcessModality.Subtractive, InteractionKind.SolidContact, PhysicsKind.Subtractive, KinematicClass.CartesianGantry, PostDialect.Fanuc, CapacityKind.Removal);
-    public static readonly ProcessKind Bore = new("bore", ProcessModality.Subtractive, InteractionKind.SolidContact, PhysicsKind.Subtractive, KinematicClass.CartesianGantry, PostDialect.Fanuc, CapacityKind.Removal);
-    public static readonly ProcessKind Ream = new("ream", ProcessModality.Subtractive, InteractionKind.SolidContact, PhysicsKind.Subtractive, KinematicClass.CartesianGantry, PostDialect.Fanuc, CapacityKind.Removal);
-    public static readonly ProcessKind Hone = new("hone", ProcessModality.Subtractive, InteractionKind.SolidContact, PhysicsKind.Subtractive, KinematicClass.RotarySpindle, PostDialect.Fanuc, CapacityKind.Removal);
-    public static readonly ProcessKind Lap = new("lap", ProcessModality.Subtractive, InteractionKind.SolidContact, PhysicsKind.Subtractive, KinematicClass.CartesianGantry, PostDialect.Fanuc, CapacityKind.Removal);
-    public static readonly ProcessKind Broach = new("broach", ProcessModality.Subtractive, InteractionKind.SolidContact, PhysicsKind.Subtractive, KinematicClass.LinearLift, PostDialect.Fanuc, CapacityKind.Removal);
-    public static readonly ProcessKind GearCut = new("gear-cut", ProcessModality.Subtractive, InteractionKind.SolidContact, PhysicsKind.Subtractive, KinematicClass.RotarySpindle, PostDialect.Siemens840D, CapacityKind.Removal);
-    public static readonly ProcessKind Ultrasonic = new("ultrasonic", ProcessModality.Abrasive, InteractionKind.SolidContact, PhysicsKind.Abrasive, KinematicClass.CartesianGantry, PostDialect.Fanuc, CapacityKind.Removal);
-    public static readonly ProcessKind ElectronBeam = new("electron-beam", ProcessModality.Thermal, InteractionKind.ElectronBeam, PhysicsKind.Thermal, KinematicClass.CartesianGantry, PostDialect.Siemens840D, CapacityKind.Thermal);
-    public static readonly ProcessKind BinderJet = new("binder-jet", ProcessModality.Additive, InteractionKind.BinderJet, PhysicsKind.Powder, KinematicClass.CartesianGantry, PostDialect.Marlin, CapacityKind.Powder);
-    public static readonly ProcessKind MaterialJet = new("material-jet", ProcessModality.Additive, InteractionKind.MaterialJet, PhysicsKind.Resin, KinematicClass.CartesianGantry, PostDialect.Marlin, CapacityKind.Resin);
-    public static readonly ProcessKind SheetLamination = new("sheet-lamination", ProcessModality.Additive, InteractionKind.SheetBond, PhysicsKind.Deposition, KinematicClass.CartesianGantry, PostDialect.Fanuc, CapacityKind.Additive);
-    public static readonly ProcessKind DirectedEnergy = new("directed-energy", ProcessModality.Additive, InteractionKind.PhotonBeam, PhysicsKind.Deposition, KinematicClass.ArticulatedArm, PostDialect.Fanuc, CapacityKind.Additive);
-    public static readonly ProcessKind FrictionStir = new("friction-stir", ProcessModality.Joined, InteractionKind.SolidStateBond, PhysicsKind.Joining, KinematicClass.ArticulatedArm, PostDialect.Fanuc, CapacityKind.Joining);
-    public static readonly ProcessKind Braze = new("braze", ProcessModality.Joined, InteractionKind.BrazedJoint, PhysicsKind.Joining, KinematicClass.ArticulatedArm, PostDialect.Fanuc, CapacityKind.Joining);
-    public static readonly ProcessKind Adhesive = new("adhesive", ProcessModality.Joined, InteractionKind.AdhesiveBond, PhysicsKind.Joining, KinematicClass.ArticulatedArm, PostDialect.Fanuc, CapacityKind.Joining);
-    public static readonly ProcessKind Stamp = new("stamp", ProcessModality.Formed, InteractionKind.PlasticDeformation, PhysicsKind.Forming, KinematicClass.LinearLift, PostDialect.Delem, CapacityKind.Forming);
-    public static readonly ProcessKind Forge = new("forge", ProcessModality.Formed, InteractionKind.PlasticDeformation, PhysicsKind.Forming, KinematicClass.LinearLift, PostDialect.Delem, CapacityKind.Forming);
-    public static readonly ProcessKind RollForm = new("roll-form", ProcessModality.Formed, InteractionKind.PlasticDeformation, PhysicsKind.Forming, KinematicClass.RotarySpindle, PostDialect.Delem, CapacityKind.Forming);
-    public static readonly ProcessKind TubeBend = new("tube-bend", ProcessModality.Formed, InteractionKind.PlasticDeformation, PhysicsKind.Forming, KinematicClass.RotarySpindle, PostDialect.Delem, CapacityKind.Forming);
+    public static readonly ProcessKind Mill = new("mill", ProcessModality.Subtractive, InteractionKind.SolidContact, PhysicsKind.Subtractive, KinematicClass.CartesianGantry, CapacityKind.Removal);
+    public static readonly ProcessKind Turn = new("turn", ProcessModality.Subtractive, InteractionKind.SolidContact, PhysicsKind.Subtractive, KinematicClass.RotarySpindle, CapacityKind.Turning);
+    public static readonly ProcessKind Route = new("route", ProcessModality.Subtractive, InteractionKind.SolidContact, PhysicsKind.Subtractive, KinematicClass.CartesianGantry, CapacityKind.Removal);
+    public static readonly ProcessKind Grind = new("grind", ProcessModality.Subtractive, InteractionKind.SolidContact, PhysicsKind.Subtractive, KinematicClass.CartesianGantry, CapacityKind.Removal);
+    public static readonly ProcessKind Saw = new("saw", ProcessModality.Subtractive, InteractionKind.SolidContact, PhysicsKind.Subtractive, KinematicClass.CartesianGantry, CapacityKind.Removal);
+    public static readonly ProcessKind Laser = new("laser", ProcessModality.Thermal, InteractionKind.PhotonBeam, PhysicsKind.Thermal, KinematicClass.CartesianGantry, CapacityKind.Thermal);
+    public static readonly ProcessKind Plasma = new("plasma", ProcessModality.Thermal, InteractionKind.PlasmaJet, PhysicsKind.Thermal, KinematicClass.CartesianGantry, CapacityKind.Thermal);
+    public static readonly ProcessKind Waterjet = new("waterjet", ProcessModality.Abrasive, InteractionKind.AbrasiveJet, PhysicsKind.Abrasive, KinematicClass.CartesianGantry, CapacityKind.Jet);
+    public static readonly ProcessKind FusedFilament = new("fused-filament", ProcessModality.Additive, InteractionKind.MoltenDeposition, PhysicsKind.Fff, KinematicClass.CartesianGantry, CapacityKind.Additive);
+    public static readonly ProcessKind Deposition = new("deposition", ProcessModality.Additive, InteractionKind.MoltenDeposition, PhysicsKind.Deposition, KinematicClass.ArticulatedArm, CapacityKind.Additive);
+    public static readonly ProcessKind VatPolymer = new("vat-polymer", ProcessModality.Additive, InteractionKind.ResinCure, PhysicsKind.Resin, KinematicClass.CartesianGantry, CapacityKind.Resin);
+    public static readonly ProcessKind PowderBed = new("powder-bed", ProcessModality.Additive, InteractionKind.PowderFusion, PhysicsKind.Powder, KinematicClass.CartesianGantry, CapacityKind.Powder);
+    public static readonly ProcessKind Oxyfuel = new("oxyfuel", ProcessModality.Thermal, InteractionKind.CombustionJet, PhysicsKind.Thermal, KinematicClass.CartesianGantry, CapacityKind.Thermal);
+    public static readonly ProcessKind EdmWire = new("edm-wire", ProcessModality.Erosion, InteractionKind.ElectricalDischarge, PhysicsKind.Erosion, KinematicClass.CartesianGantry, CapacityKind.Erosion);
+    public static readonly ProcessKind Weld = new("weld", ProcessModality.Joined, InteractionKind.ArcFusion, PhysicsKind.Joining, KinematicClass.ArticulatedArm, CapacityKind.Joining);
+    public static readonly ProcessKind PressBrake = new("press-brake", ProcessModality.Formed, InteractionKind.PlasticDeformation, PhysicsKind.Forming, KinematicClass.CartesianGantry, CapacityKind.Forming);
+    public static readonly ProcessKind Drill = new("drill", ProcessModality.Subtractive, InteractionKind.SolidContact, PhysicsKind.Subtractive, KinematicClass.CartesianGantry, CapacityKind.Removal);
+    public static readonly ProcessKind Bore = new("bore", ProcessModality.Subtractive, InteractionKind.SolidContact, PhysicsKind.Subtractive, KinematicClass.CartesianGantry, CapacityKind.Removal);
+    public static readonly ProcessKind Ream = new("ream", ProcessModality.Subtractive, InteractionKind.SolidContact, PhysicsKind.Subtractive, KinematicClass.CartesianGantry, CapacityKind.Removal);
+    public static readonly ProcessKind Hone = new("hone", ProcessModality.Subtractive, InteractionKind.SolidContact, PhysicsKind.Subtractive, KinematicClass.RotarySpindle, CapacityKind.Removal);
+    public static readonly ProcessKind Lap = new("lap", ProcessModality.Subtractive, InteractionKind.SolidContact, PhysicsKind.Subtractive, KinematicClass.CartesianGantry, CapacityKind.Removal);
+    public static readonly ProcessKind Broach = new("broach", ProcessModality.Subtractive, InteractionKind.SolidContact, PhysicsKind.Subtractive, KinematicClass.LinearLift, CapacityKind.Removal);
+    public static readonly ProcessKind GearCut = new("gear-cut", ProcessModality.Subtractive, InteractionKind.SolidContact, PhysicsKind.Subtractive, KinematicClass.RotarySpindle, CapacityKind.Removal);
+    public static readonly ProcessKind Ultrasonic = new("ultrasonic", ProcessModality.Abrasive, InteractionKind.SolidContact, PhysicsKind.Abrasive, KinematicClass.CartesianGantry, CapacityKind.Removal);
+    public static readonly ProcessKind ElectronBeam = new("electron-beam", ProcessModality.Thermal, InteractionKind.ElectronBeam, PhysicsKind.Thermal, KinematicClass.CartesianGantry, CapacityKind.Thermal);
+    public static readonly ProcessKind BinderJet = new("binder-jet", ProcessModality.Additive, InteractionKind.BinderJet, PhysicsKind.Powder, KinematicClass.CartesianGantry, CapacityKind.Powder);
+    public static readonly ProcessKind MaterialJet = new("material-jet", ProcessModality.Additive, InteractionKind.MaterialJet, PhysicsKind.Resin, KinematicClass.CartesianGantry, CapacityKind.Resin);
+    public static readonly ProcessKind SheetLamination = new("sheet-lamination", ProcessModality.Additive, InteractionKind.SheetBond, PhysicsKind.Deposition, KinematicClass.CartesianGantry, CapacityKind.Additive);
+    public static readonly ProcessKind DirectedEnergy = new("directed-energy", ProcessModality.Additive, InteractionKind.PhotonBeam, PhysicsKind.Deposition, KinematicClass.ArticulatedArm, CapacityKind.Additive);
+    public static readonly ProcessKind FrictionStir = new("friction-stir", ProcessModality.Joined, InteractionKind.SolidStateBond, PhysicsKind.Joining, KinematicClass.ArticulatedArm, CapacityKind.Joining);
+    public static readonly ProcessKind Braze = new("braze", ProcessModality.Joined, InteractionKind.BrazedJoint, PhysicsKind.Joining, KinematicClass.ArticulatedArm, CapacityKind.Joining);
+    public static readonly ProcessKind Adhesive = new("adhesive", ProcessModality.Joined, InteractionKind.AdhesiveBond, PhysicsKind.Joining, KinematicClass.ArticulatedArm, CapacityKind.Joining);
+    public static readonly ProcessKind Stamp = new("stamp", ProcessModality.Formed, InteractionKind.PlasticDeformation, PhysicsKind.Forming, KinematicClass.LinearLift, CapacityKind.Forming);
+    public static readonly ProcessKind Forge = new("forge", ProcessModality.Formed, InteractionKind.PlasticDeformation, PhysicsKind.Forming, KinematicClass.LinearLift, CapacityKind.Forming);
+    public static readonly ProcessKind RollForm = new("roll-form", ProcessModality.Formed, InteractionKind.PlasticDeformation, PhysicsKind.Forming, KinematicClass.RotarySpindle, CapacityKind.Forming);
+    public static readonly ProcessKind TubeBend = new("tube-bend", ProcessModality.Formed, InteractionKind.PlasticDeformation, PhysicsKind.Forming, KinematicClass.RotarySpindle, CapacityKind.Forming);
 
     public ProcessModality Modality { get; }
     public InteractionKind Interaction { get; }
     public PhysicsKind Physics { get; }
     public KinematicClass Kinematics { get; }
-    public PostDialect Dialect { get; }
     public CapacityKind Demands { get; }
 }
 
@@ -551,22 +674,27 @@ public abstract partial record AxisTravel {
 }
 
 [ComplexValueObject]
+[ValidationError<FabricationFault>]
 public sealed partial class AxisLimit {
     public MachineAxis Axis { get; }
     public AxisTravel Travel { get; }
 
+    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref ValidationError? validationError,
+        ref FabricationFault? validationError,
         ref MachineAxis axis,
-        ref AxisTravel travel) =>
-        validationError = axis is not null && travel is not null && travel.Switch(
+        ref AxisTravel travel) {
+        if (!travel.Switch(
             state: axis,
             rotary: static (machineAxis, value) => machineAxis.Rotary && value.Minimum < value.Maximum
                 && value.MaximumSpeed > RotationalSpeed.Zero,
             linear: static (machineAxis, value) => !machineAxis.Rotary && value.Minimum < value.Maximum
-                && value.MaximumSpeed > Speed.Zero)
-            ? null
-            : new ValidationError("<axis-limit-degenerate>");
+                && value.MaximumSpeed > Speed.Zero))
+            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "axis-limit");
+    }
+
+    public static Fin<AxisLimit> Admit(MachineAxis axis, AxisTravel travel) =>
+        Validate(axis, travel, out AxisLimit limit).Admitted(limit);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -651,77 +779,54 @@ public abstract partial record MachineCapacity(CapacityKind Kind) {
         Length Reach,
         Arr<AxisLimit> Joints) : MachineCapacity(CapacityKind.Robot);
 
+    // Each case folds its OWN (axis, reader) row table: one row per envelope dimension, so a new dimension is one
+    // pair rather than a re-spelled fact construction, and every case's stream is built by one lift.
     public Seq<CapacityFact> Facts() => Switch(
-        removal: static value => Seq<CapacityFact>(
-            new CapacityFact.Quantity(CapacityAxis.TravelX, value.X),
-            new CapacityFact.Quantity(CapacityAxis.TravelY, value.Y),
-            new CapacityFact.Quantity(CapacityAxis.TravelZ, value.Z),
-            new CapacityFact.Quantity(CapacityAxis.Feed, value.Feed),
-            new CapacityFact.Quantity(CapacityAxis.Spindle, value.Spindle),
-            new CapacityFact.Quantity(CapacityAxis.SourcePower, value.SpindlePower),
-            new CapacityFact.Quantity(CapacityAxis.SpindleTorque, value.SpindleTorque),
-            new CapacityFact.Quantity(CapacityAxis.Thrust, value.Thrust)),
-        turning: static value => Seq<CapacityFact>(
-            new CapacityFact.Quantity(CapacityAxis.Swing, value.Swing),
-            new CapacityFact.Quantity(CapacityAxis.BetweenCenters, value.BetweenCenters),
-            new CapacityFact.Quantity(CapacityAxis.Feed, value.Feed),
-            new CapacityFact.Quantity(CapacityAxis.Spindle, value.Spindle),
-            new CapacityFact.Quantity(CapacityAxis.SourcePower, value.SpindlePower),
-            new CapacityFact.Quantity(CapacityAxis.SpindleTorque, value.SpindleTorque)),
-        thermal: static value => Seq<CapacityFact>(
-            new CapacityFact.Quantity(CapacityAxis.TravelX, value.X),
-            new CapacityFact.Quantity(CapacityAxis.TravelY, value.Y),
-            new CapacityFact.Quantity(CapacityAxis.SourcePower, value.SourcePower),
-            new CapacityFact.Quantity(CapacityAxis.ProcessTemperature, value.ProcessTemperature),
-            new CapacityFact.Quantity(CapacityAxis.SupplyPressure, value.AssistGas)),
-        jet: static value => Seq<CapacityFact>(
-            new CapacityFact.Quantity(CapacityAxis.TravelX, value.X),
-            new CapacityFact.Quantity(CapacityAxis.TravelY, value.Y),
-            new CapacityFact.Quantity(CapacityAxis.TravelZ, value.Z),
-            new CapacityFact.Quantity(CapacityAxis.SupplyPressure, value.PumpPressure),
-            new CapacityFact.Quantity(CapacityAxis.SourcePower, value.PumpPower),
-            new CapacityFact.Quantity(CapacityAxis.Traverse, value.Traverse)),
-        erosion: static value => Seq<CapacityFact>(
-            new CapacityFact.Quantity(CapacityAxis.TravelX, value.X),
-            new CapacityFact.Quantity(CapacityAxis.TravelY, value.Y),
-            new CapacityFact.Quantity(CapacityAxis.TravelZ, value.Z),
-            new CapacityFact.Quantity(CapacityAxis.SourcePower, value.GeneratorPower),
-            new CapacityFact.Quantity(CapacityAxis.ElectrodeFeed, value.ElectrodeFeed)),
-        additive: static value => Seq<CapacityFact>(
-            new CapacityFact.Quantity(CapacityAxis.TravelX, value.X),
-            new CapacityFact.Quantity(CapacityAxis.TravelY, value.Y),
-            new CapacityFact.Quantity(CapacityAxis.TravelZ, value.Z),
-            new CapacityFact.Quantity(CapacityAxis.DepositionRate, value.DepositionRate),
-            new CapacityFact.Quantity(CapacityAxis.ProcessTemperature, value.Chamber),
-            new CapacityFact.Quantity(CapacityAxis.SourcePower, value.SourcePower)),
-        resin: static value => Seq<CapacityFact>(
-            new CapacityFact.Quantity(CapacityAxis.TravelX, value.X),
-            new CapacityFact.Quantity(CapacityAxis.TravelY, value.Y),
-            new CapacityFact.Quantity(CapacityAxis.TravelZ, value.Z),
-            new CapacityFact.Quantity(CapacityAxis.SourcePower, value.ExposurePower),
-            new CapacityFact.Quantity(CapacityAxis.PeelSpeed, value.PeelSpeed),
-            new CapacityFact.Quantity(CapacityAxis.ProcessTemperature, value.VatTemperature)),
-        powder: static value => Seq<CapacityFact>(
-            new CapacityFact.Quantity(CapacityAxis.TravelX, value.X),
-            new CapacityFact.Quantity(CapacityAxis.TravelY, value.Y),
-            new CapacityFact.Quantity(CapacityAxis.TravelZ, value.Z),
-            new CapacityFact.Quantity(CapacityAxis.SourcePower, value.BeamPower),
-            new CapacityFact.Quantity(CapacityAxis.ScanSpeed, value.ScanSpeed),
-            new CapacityFact.Quantity(CapacityAxis.ProcessTemperature, value.BedTemperature)),
-        forming: static value => Seq<CapacityFact>(
-            new CapacityFact.Quantity(CapacityAxis.BedLength, value.Bed),
-            new CapacityFact.Quantity(CapacityAxis.PressCapacity, value.Capacity),
-            new CapacityFact.Quantity(CapacityAxis.SupplyPressure, value.HydraulicPressure),
-            new CapacityFact.Quantity(CapacityAxis.StrokeEnergy, value.StrokeEnergy)),
-        joining: static value => Seq<CapacityFact>(
-            new CapacityFact.Quantity(CapacityAxis.SourcePower, value.SourcePower),
-            new CapacityFact.Quantity(CapacityAxis.ProcessTemperature, value.ProcessTemperature),
-            new CapacityFact.Quantity(CapacityAxis.ClampForce, value.ClampForce),
-            new CapacityFact.Quantity(CapacityAxis.TravelSpeed, value.Travel)),
-        robot: static value => Seq<CapacityFact>(
-            new CapacityFact.Quantity(CapacityAxis.Payload, value.Payload),
-            new CapacityFact.Quantity(CapacityAxis.Reach, value.Reach))
-            + value.Joints.Map(static limit => (CapacityFact)new CapacityFact.Joint(limit)).ToSeq());
+        removal: static v => Quantities(
+            (CapacityAxis.TravelX, v.X), (CapacityAxis.TravelY, v.Y), (CapacityAxis.TravelZ, v.Z),
+            (CapacityAxis.Feed, v.Feed), (CapacityAxis.Spindle, v.Spindle),
+            (CapacityAxis.SourcePower, v.SpindlePower), (CapacityAxis.SpindleTorque, v.SpindleTorque),
+            (CapacityAxis.Thrust, v.Thrust)),
+        turning: static v => Quantities(
+            (CapacityAxis.Swing, v.Swing), (CapacityAxis.BetweenCenters, v.BetweenCenters),
+            (CapacityAxis.Feed, v.Feed), (CapacityAxis.Spindle, v.Spindle),
+            (CapacityAxis.SourcePower, v.SpindlePower), (CapacityAxis.SpindleTorque, v.SpindleTorque)),
+        thermal: static v => Quantities(
+            (CapacityAxis.TravelX, v.X), (CapacityAxis.TravelY, v.Y),
+            (CapacityAxis.SourcePower, v.SourcePower), (CapacityAxis.ProcessTemperature, v.ProcessTemperature),
+            (CapacityAxis.SupplyPressure, v.AssistGas)),
+        jet: static v => Quantities(
+            (CapacityAxis.TravelX, v.X), (CapacityAxis.TravelY, v.Y), (CapacityAxis.TravelZ, v.Z),
+            (CapacityAxis.SupplyPressure, v.PumpPressure), (CapacityAxis.SourcePower, v.PumpPower),
+            (CapacityAxis.Traverse, v.Traverse)),
+        erosion: static v => Quantities(
+            (CapacityAxis.TravelX, v.X), (CapacityAxis.TravelY, v.Y), (CapacityAxis.TravelZ, v.Z),
+            (CapacityAxis.SourcePower, v.GeneratorPower), (CapacityAxis.ElectrodeFeed, v.ElectrodeFeed)),
+        additive: static v => Quantities(
+            (CapacityAxis.TravelX, v.X), (CapacityAxis.TravelY, v.Y), (CapacityAxis.TravelZ, v.Z),
+            (CapacityAxis.DepositionRate, v.DepositionRate), (CapacityAxis.ProcessTemperature, v.Chamber),
+            (CapacityAxis.SourcePower, v.SourcePower)),
+        resin: static v => Quantities(
+            (CapacityAxis.TravelX, v.X), (CapacityAxis.TravelY, v.Y), (CapacityAxis.TravelZ, v.Z),
+            (CapacityAxis.SourcePower, v.ExposurePower), (CapacityAxis.PeelSpeed, v.PeelSpeed),
+            (CapacityAxis.ProcessTemperature, v.VatTemperature)),
+        powder: static v => Quantities(
+            (CapacityAxis.TravelX, v.X), (CapacityAxis.TravelY, v.Y), (CapacityAxis.TravelZ, v.Z),
+            (CapacityAxis.SourcePower, v.BeamPower), (CapacityAxis.ScanSpeed, v.ScanSpeed),
+            (CapacityAxis.ProcessTemperature, v.BedTemperature)),
+        forming: static v => Quantities(
+            (CapacityAxis.BedLength, v.Bed), (CapacityAxis.PressCapacity, v.Capacity),
+            (CapacityAxis.SupplyPressure, v.HydraulicPressure), (CapacityAxis.StrokeEnergy, v.StrokeEnergy)),
+        joining: static v => Quantities(
+            (CapacityAxis.SourcePower, v.SourcePower), (CapacityAxis.ProcessTemperature, v.ProcessTemperature),
+            (CapacityAxis.ClampForce, v.ClampForce), (CapacityAxis.TravelSpeed, v.Travel)),
+        robot: static v => Quantities((CapacityAxis.Payload, v.Payload), (CapacityAxis.Reach, v.Reach))
+            + toSeq(v.Joints).Map(static limit => (CapacityFact)new CapacityFact.Joint(limit)));
+
+    private static Seq<CapacityFact> Quantities(params ReadOnlySpan<(CapacityAxis Axis, IQuantity Value)> rows) =>
+        Iterable<(CapacityAxis Axis, IQuantity Value)>.FromSpan(rows)
+            .Map(static row => (CapacityFact)new CapacityFact.Quantity(row.Axis, row.Value))
+            .ToSeq();
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -754,6 +859,7 @@ public abstract partial record MachineIngress {
 
 [ComplexValueObject]
 [ObjectFactory<string>]
+[ValidationError<FabricationFault>]
 public sealed partial class Machine {
     public string Key { get; }
     public Set<ProcessKind> Processes { get; }
@@ -764,84 +870,83 @@ public sealed partial class Machine {
     public Seq<MachineCapacity> Capacities { get; }
     public int AxisCount => Axes.Count;
 
+    // One fact stream per machine, held on first read. Admission, the quantity fold, and the joint lookup all read
+    // it, so an envelope query costs a filter rather than a rebuild of every capacity's row table. The slot is
+    // DERIVED from the admitted capacities, so it stays out of construction, equality, and every codec.
+    [IgnoreMember]
+    private Seq<CapacityFact>? facts;
+
+    public Seq<CapacityFact> Facts => facts ??= Capacities.Bind(static capacity => capacity.Facts());
+
     public bool Admits(ProcessKind process) => Processes.Contains(process);
 
     public Option<TQuantity> Capacity<TQuantity>(CapacityAxis axis, CapacityFold fold, Enum unit)
         where TQuantity : IQuantity => fold.Apply(
-            Capacities.Bind(static capacity => capacity.Facts())
-            .Choose(fact => fact is CapacityFact.Quantity row && row.Axis == axis && row.Value is TQuantity typed
+            Facts.Choose(fact => fact is CapacityFact.Quantity row && row.Axis == axis && row.Value is TQuantity typed
                 ? Some(typed)
                 : None),
             unit);
 
-    public Option<AxisLimit> Capacity(MachineAxis axis) =>
-        Capacities.Bind(static capacity => capacity.Facts())
-            .Choose(fact => fact is CapacityFact.Joint { Value: { } limit } && limit.Axis == axis
-                ? Some(limit)
-                : None)
-            .Head;
+    public Option<AxisLimit> Capacity(MachineAxis axis) => Facts
+        .Choose(fact => fact is CapacityFact.Joint { Value: { } limit } && limit.Axis == axis ? Some(limit) : None)
+        .Head;
 
+    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref ValidationError? validationError,
+        ref FabricationFault? validationError,
         ref string key,
         ref Set<ProcessKind> processes,
         ref HoldingClass holding,
         ref Set<MachineAxis> axes,
         ref KinematicClass topology,
         ref Set<CoolantDelivery> coolant,
-        ref Seq<MachineCapacity> capacities) =>
-        validationError = !string.IsNullOrWhiteSpace(key)
+        ref Seq<MachineCapacity> capacities) {
+        if (!(Witness.Keyed(key)
             && !processes.IsEmpty
-            && holding is not null
             && !axes.IsEmpty
-            && topology is not null
             && axes.Count >= topology.MinAxes
             && axes.Count(static axis => axis.Rotary) >= topology.OrientationDof
             && !capacities.IsEmpty
             && capacities.ForAll(CapacityValid)
-            && processes.ForAll(process => capacities.Exists(capacity => CapacityFits(process, capacity)))
-                ? null
-                : new ValidationError("<machine-degenerate>");
+            && processes.ForAll(process => capacities.Exists(capacity => capacity.Kind == process.Demands))))
+            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Process, "machine");
+    }
 
-    public static Fin<Machine> Admit(MachineIngress ingress) => ingress is null
-        ? Fin.Fail<Machine>(new FabricationFault.PolicyInadmissible(FabConcern.Process, "machine-ingress"))
-        : ingress.Switch(
-            seed: static value => AdmitSeed(value),
-            robot: static value => AdmitRobot(value));
+    public static Fin<Machine> Admit(MachineIngress ingress) => ingress.Switch(
+        seed: static value => AdmitSeed(value),
+        robot: static value => AdmitRobot(value));
 
     private static Fin<Machine> AdmitSeed(MachineIngress.Seed seed) =>
-        seed is null
-            ? Fin.Fail<Machine>(new FabricationFault.PolicyInadmissible(FabConcern.Process, "machine-seed"))
-            : Validate(seed.Key, seed.Processes, seed.Holding, seed.Axes, seed.Topology, seed.Coolant, seed.Capacities, out Machine machine) is { } error
-                ? Fin.Fail<Machine>(new FabricationFault.PolicyInadmissible(FabConcern.Process, error.Message))
-                : Fin.Succ(machine);
+        Validate(seed.Key, seed.Processes, seed.Holding, seed.Axes, seed.Topology, seed.Coolant, seed.Capacities,
+            out Machine machine).Admitted(machine);
 
     // Out-parameter seam: the ObjectFactory contract fixes the shape. The registry holds machines already admitted,
     // so the keyed boundary is a lookup, never a second admission — re-validating here would re-decide an invariant
-    // the mint already settled and would keep the resolution space frozen at the archetypes.
+    // the mint already settled and would keep the resolution space frozen at the archetypes. This is the ONE
+    // resolution path: a sibling key lookup that scans a caller-held machine sequence forks the space.
     [BoundaryAdapter]
-    public static ValidationError? Validate(string? value, IFormatProvider? provider, out Machine? item) {
-        item = Optional(value).Bind(key => Registry.Value.Find(key)).MatchUnsafe(static machine => machine, () => null);
-        return item is null ? new ValidationError($"<machine-unknown:{value}>") : null;
+    public static FabricationFault? Validate(string? value, IFormatProvider? provider, out Machine? item) {
+        item = Optional(value).Bind(key => Registry.Value.Find(key)).Match<Machine?>(static machine => machine, static () => null);
+        return item is null ? new FabricationFault.UnknownAxis(nameof(Machine), value ?? string.Empty) : null;
     }
+
+    public static Fin<Machine> Resolve(string key) => Admission.Of<Machine, string>(key);
 
     public string ToValue() => Key;
 
     private static Fin<Machine> AdmitRobot(MachineIngress.Robot seed) =>
-        seed.Manufacturer is null || seed.Joints.IsEmpty || seed.ProcessCapacities.IsEmpty
-            ? Fin.Fail<Machine>(new FabricationFault.PolicyInadmissible(FabConcern.Process, "machine:robot"))
+        seed.Joints.IsEmpty || seed.ProcessCapacities.IsEmpty
+            ? Fin.Fail<Machine>(new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "machine:robot"))
             : seed.Joints.ToSeq()
             .Traverse(joint => joint.Ordinal < 0 || joint.Ordinal >= RobotAxes.Count
-                ? Fin.Fail<AxisLimit>(new FabricationFault.PolicyInadmissible(FabConcern.Process, "machine:robot-axis"))
-                : AxisLimit.Validate(RobotAxes[joint.Ordinal], joint.Travel, out AxisLimit limit) is { } error
-                    ? Fin.Fail<AxisLimit>(new FabricationFault.PolicyInadmissible(FabConcern.Process, error.Message))
-                    : Fin.Succ(limit))
+                ? Fin.Fail<AxisLimit>(new FabricationFault.PolicyInadmissible(FabConcern.Kinematics, "machine:robot-axis"))
+                : AxisLimit.Admit(RobotAxes[joint.Ordinal], joint.Travel))
             .As()
             .Bind(limits => AdmitSeed(new MachineIngress.Seed(
                 seed.Key,
                 seed.Processes,
                 seed.Holding,
-                limits.Map(static limit => limit.Axis).ToSet(),
+                toSet(limits.Map(static limit => limit.Axis)),
                 KinematicClass.ArticulatedArm,
                 seed.Coolant,
                 seed.ProcessCapacities.Add(new MachineCapacity.Robot(
@@ -971,11 +1076,17 @@ public sealed partial class Machine {
     // fold populates and the archetypes are only its opening rows. This field seats AFTER `Seeds` because a static
     // initializer reading a later field captures the uninitialized default. Registration is first-writer-wins by key,
     // so a second admission of one key resolves to the machine already registered rather than forking the vocabulary.
-    private static readonly Atom<HashMap<string, Machine>> Registry = Atom(Seeds.Fold(
-        HashMap<string, Machine>.Empty,
-        static (rows, seed) => AdmitSeed(seed).Match(
-            Succ: machine => rows.AddOrUpdate(machine.Key, machine),
-            Fail: _ => rows)));
+    private static readonly Atom<HashMap<string, Machine>> Registry = Atom(SeededRows);
+
+    // A seed that fails admission is a DEFECT in the archetype roster, not a row to skip: swallowing it leaves the
+    // registry silently short and every key lookup against it answers `UnknownAxis` for a machine the page declared.
+    // The refusal surfaces at type initialization, where the roster is authored, rather than at a caller's lookup.
+    private static HashMap<string, Machine> SeededRows => Seeds
+        .Traverse(AdmitSeed)
+        .As()
+        .Match(
+            Succ: static rows => rows.Fold(HashMap<string, Machine>.Empty, static (index, machine) => index.AddOrUpdate(machine.Key, machine)),
+            Fail: static refusal => throw new InvalidOperationException(refusal.Message));
 
     public static Fin<Machine> Register(MachineIngress ingress) =>
         Admit(ingress).Map(static machine =>
@@ -986,11 +1097,22 @@ public sealed partial class Machine {
     private static bool CapacityValid(MachineCapacity capacity) => capacity.Facts().ForAll(static fact => fact.Switch(
         quantity: static row => double.IsFinite((double)row.Value.Value)
             && (row.Axis.Signed || (double)row.Value.Value > 0.0),
-        joint: static row => row.Value is not null));
-
-    private static bool CapacityFits(ProcessKind process, MachineCapacity capacity) => capacity.Kind == process.Demands;
+        joint: static _ => true));
 }
 
+```
+
+## [04]-[FAMILY_GRAPH]
+
+- Owner: `ProcessFamily` owns the relational graph over the bounded axes and the admitted machines; `FamilyOp` names the queries; `FamilyResult` carries their receipts.
+- Entry: `ProcessFamily.Admit` consumes a machine registry; `FamilyOp.Select` carries one admitted `ProcessSelection`; `ProcessFamily.Apply` consumes one `FamilyOp` modality.
+- Law: routing weights are FINITE. A process node is the route's own pivot and every path transits one, so pricing it at infinity makes every total weight infinite and the weighted lane degenerate — a hop costs what the policy says its node kind costs, and unreachability is the algorithm's own answer, never an arithmetic sentinel.
+- Law: ONE undirected container serves both reachability and component labelling. Dijkstra takes the undirected graph directly, so a third container built by duplicating every edge in reverse is the deleted form.
+- Law: the matching solver's super-source and super-sink are SOLVER state on a solver-local vertex; widening the domain family with a synthetic case forces every consumer's switch to answer for a vertex no domain fact ever names. Matching edges carry REFERENCE identity through `Edge<T>` — a value edge collapses a forward edge onto its reverse and hands the solver twice the residual capacity it has.
+- Receipt: `FamilyResult` returns admitted selection, weighted or unreachable paths, ordering, component labels, allocation pairs, and unassigned demand slots without exposing mutable graph state.
+- Packages: `QuikGraph` (`BidirectionalGraph`, `UndirectedGraph`, `SEdge`, `Edge`, `ShortestPathsDijkstra`, `ConnectedComponents`, `TopologicalSort`, `MaximumBipartiteMatchingAlgorithm`).
+
+```csharp signature
 // --- [BOUNDARIES] ---------------------------------------------------------------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record FamilyNode {
@@ -1000,8 +1122,6 @@ public abstract partial record FamilyNode {
     public sealed record Equipment(Machine Value) : FamilyNode;
     public sealed record Strategy(CutStrategy Value) : FamilyNode;
     public sealed record Dialect(PostDialect Value) : FamilyNode;
-    public sealed record Demand(int Slot, ProcessKind Value) : FamilyNode;
-    public sealed record Augment(int Value) : FamilyNode;
 }
 
 [SmartEnum<string>]
@@ -1014,16 +1134,18 @@ public sealed partial class RoutePolicy {
     public double Strategy { get; }
     public double Dialect { get; }
 
+    // Every weight is FINITE and every route transits a process node, so a pivot costs nothing to enter. Pricing a
+    // transited node at infinity made every total weight infinite and every ranked route indistinguishable.
     public double Weight(FamilyNode relation) => relation.Switch(
-        process: static _ => double.PositiveInfinity,
-        equipment: _ => Equipment,
-        strategy: _ => Strategy,
-        dialect: _ => Dialect,
-        demand: static _ => double.PositiveInfinity,
-        augment: static _ => double.PositiveInfinity);
+        state: this,
+        process: static (_, _) => 0.0,
+        equipment: static (policy, _) => policy.Equipment,
+        strategy: static (policy, _) => policy.Strategy,
+        dialect: static (policy, _) => policy.Dialect);
 }
 
 [ComplexValueObject]
+[ValidationError<FabricationFault>]
 public sealed partial class ProcessSelection {
     public string Process { get; }
     public string Machine { get; }
@@ -1032,17 +1154,17 @@ public sealed partial class ProcessSelection {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref ValidationError? validationError,
+        ref FabricationFault? validationError,
         ref string process,
         ref string machine,
         ref string strategy,
-        ref string dialect) =>
-        validationError = !string.IsNullOrWhiteSpace(process)
-            && !string.IsNullOrWhiteSpace(machine)
-            && !string.IsNullOrWhiteSpace(strategy)
-            && !string.IsNullOrWhiteSpace(dialect)
-                ? null
-                : new ValidationError("<process-selection-degenerate>");
+        ref string dialect) {
+        if (!(Witness.Keyed(process) && Witness.Keyed(machine) && Witness.Keyed(strategy) && Witness.Keyed(dialect)))
+            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Process, "process-selection");
+    }
+
+    public static Fin<ProcessSelection> Admit(string process, string machine, string strategy, string dialect) =>
+        Validate(process, machine, strategy, dialect, out ProcessSelection selection).Admitted(selection);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -1073,44 +1195,37 @@ public abstract partial record FamilyResult {
 public sealed class ProcessFamily {
     private readonly BidirectionalGraph<FamilyNode, SEdge<FamilyNode>> _graph;
 
-    // Reachability and component labelling both traverse against edge direction; the undirected projection is built once.
+    // ONE symmetric container. Reachability, weighted routing, and component labelling all read against edge
+    // direction, and the shipped Dijkstra takes an undirected graph, so a second container built by duplicating
+    // every edge in reverse is a third copy of one relation.
     private readonly UndirectedGraph<FamilyNode, SEdge<FamilyNode>> _undirected;
-    private readonly AdjacencyGraph<FamilyNode, SEdge<FamilyNode>> _routes;
 
     private ProcessFamily(Seq<Machine> machines, BidirectionalGraph<FamilyNode, SEdge<FamilyNode>> graph) =>
-        (Machines, _graph, _undirected, _routes) = (machines, graph, Undirected(graph), Routes(graph));
+        (Machines, _graph, _undirected) = (machines, graph, Undirected(graph));
 
     public Seq<Machine> Machines { get; }
 
-    public static Fin<TAxis> Admit<TAxis>(string key)
-        where TAxis : class, IObjectFactory<TAxis, string, ValidationError> =>
-        TAxis.Validate(key, null, out TAxis? value) is { } error || value is null
-            ? Fin.Fail<TAxis>(new FabricationFault.UnknownAxis(typeof(TAxis).Name, key))
-            : Fin.Succ(value);
-
     public static Fin<ProcessFamily> Admit(Seq<Machine> machines) =>
-        machines.IsEmpty
-            || !machines.ForAll(static machine => machine is not null)
-            || machines.Map(static machine => machine.Key).Distinct().Count != machines.Count
+        machines.IsEmpty || machines.Map(static machine => machine.Key).Distinct().Count != machines.Count
             ? Fin.Fail<ProcessFamily>(new FabricationFault.PolicyInadmissible(FabConcern.Process, "process-family:machines"))
             : Fin.Succ(new ProcessFamily(machines, Build(machines)));
 
-    public Fin<FamilyResult> Apply(FamilyOp operation) => operation is null
-        ? Fin.Fail<FamilyResult>(new FabricationFault.PolicyInadmissible(FabConcern.Process, "process-family:operation"))
-        : operation.Switch(
-            state: this,
-            select: static (family, value) => family.Select(value.Value),
-            route: static (family, value) => family.Route(value),
-            order: static (family, _) => Fin.Succ<FamilyResult>(new FamilyResult.Order(family._graph.TopologicalSort().ToSeq())),
-            components: static (family, _) => Fin.Succ<FamilyResult>(new FamilyResult.Components(family.Components())),
-            allocate: static (family, value) => family.Allocate(value.Demand));
+    public Fin<FamilyResult> Apply(FamilyOp operation) => operation.Switch(
+        state: this,
+        select: static (family, value) => family.Select(value.Value),
+        route: static (family, value) => family.Route(value),
+        order: static (family, _) => Fin.Succ<FamilyResult>(new FamilyResult.Order(family._graph.TopologicalSort().ToSeq())),
+        components: static (family, _) => Fin.Succ<FamilyResult>(new FamilyResult.Components(family.Components())),
+        allocate: static (family, value) => family.Allocate(value.Demand));
 
-    private Fin<FamilyResult> Select(ProcessSelection selection) => selection is null
-        ? Fin.Fail<FamilyResult>(new FabricationFault.PolicyInadmissible(FabConcern.Process, "process-family:selection"))
-        : (Admit<ProcessKind>(selection.Process).ToValidation(),
-           MachineOf(selection.Machine),
-           Admit<CutStrategy>(selection.Strategy).ToValidation(),
-           Admit<PostDialect>(selection.Dialect).ToValidation())
+    // Every textual key admits through the ONE generated-owner bridge, and the machine key resolves through the
+    // registry the `[ObjectFactory<string>]` boundary owns — a linear scan of the caller's own machine sequence is
+    // a second resolution space that answers differently for a registered machine the caller did not hold.
+    private Fin<FamilyResult> Select(ProcessSelection selection) =>
+        (Admission.Of<ProcessKind, string>(selection.Process).ToValidation(),
+         Machine.Resolve(selection.Machine).ToValidation(),
+         Admission.Of<CutStrategy, string>(selection.Strategy).ToValidation(),
+         Admission.Of<PostDialect, string>(selection.Dialect).ToValidation())
             .Apply(static (process, machine, strategy, dialect) => new FamilyResult.Selection(process, machine, strategy, dialect))
             .As()
             .ToFin()
@@ -1118,36 +1233,27 @@ public sealed class ProcessFamily {
                 Relation(result.Machine.Admits(result.Process), new RelationFault.ProcessMachine(result.Process, result.Machine)),
                 Relation(result.Process.Modality.Admits(result.Strategy), new RelationFault.ModalityStrategy(result.Process.Modality, result.Strategy)),
                 Relation(result.Dialect.Admits(result.Process.Modality), new RelationFault.DialectModality(result.Dialect, result.Process.Modality)))
-                .Apply((_, _, _) => (FamilyResult)result)
+                .Apply(static (_, _, _) => (FamilyResult)result)
                 .As()
                 .ToFin());
 
     private Fin<FamilyResult> Route(FamilyOp.Route route) {
-        if (route.Source is null
-            || route.Target is null
-            || route.Policy is null) {
-            return Fin.Fail<FamilyResult>(new FabricationFault.PolicyInadmissible(FabConcern.Process, "process-family:route"));
-        }
-
-        if (!_graph.Vertices.Contains(route.Source) || !_graph.Vertices.Contains(route.Target)) {
+        if (!_undirected.ContainsVertex(route.Source) || !_undirected.ContainsVertex(route.Target))
             return Fin.Succ<FamilyResult>(new FamilyResult.UnreachableRoute(route.Source, route.Target));
-        }
 
-        if (Equals(route.Source, route.Target)) {
+        if (Equals(route.Source, route.Target))
             return Fin.Succ<FamilyResult>(new FamilyResult.WeightedRoute(Seq(route.Source), 0.0));
-        }
 
-        TryFunc<FamilyNode, IEnumerable<SEdge<FamilyNode>>> find = _routes.ShortestPathsDijkstra(
+        TryFunc<FamilyNode, IEnumerable<SEdge<FamilyNode>>> find = _undirected.ShortestPathsDijkstra(
             edge => route.Policy.Weight(edge.Target),
             route.Source);
-        if (!find(route.Target, out IEnumerable<SEdge<FamilyNode>>? path) || path is null) {
-            return Fin.Succ<FamilyResult>(new FamilyResult.UnreachableRoute(route.Source, route.Target));
-        }
-
-        (Seq<FamilyNode> Nodes, double Total) receipt = toSeq(path).Fold(
-            (Seq(route.Source), 0.0),
-            (state, edge) => (state.Nodes.Add(edge.Target), state.Total + route.Policy.Weight(edge.Target)));
-        return Fin.Succ<FamilyResult>(new FamilyResult.WeightedRoute(receipt.Nodes, receipt.Total));
+        return !find(route.Target, out IEnumerable<SEdge<FamilyNode>>? path) || path is null
+            ? Fin.Succ<FamilyResult>(new FamilyResult.UnreachableRoute(route.Source, route.Target))
+            : toSeq(path)
+                .Fold(
+                    (Nodes: Seq(route.Source), Total: 0.0),
+                    (state, edge) => (state.Nodes.Add(edge.Target), state.Total + route.Policy.Weight(edge.Target)))
+                .Apply(receipt => Fin.Succ<FamilyResult>(new FamilyResult.WeightedRoute(receipt.Nodes, receipt.Total)));
     }
 
     private Map<FamilyNode, int> Components() {
@@ -1164,47 +1270,46 @@ public sealed class ProcessFamily {
         return graph;
     }
 
-    private static AdjacencyGraph<FamilyNode, SEdge<FamilyNode>> Routes(
-        BidirectionalGraph<FamilyNode, SEdge<FamilyNode>> source) {
-        AdjacencyGraph<FamilyNode, SEdge<FamilyNode>> graph = new(allowParallelEdges: false);
-        graph.AddVertexRange(source.Vertices);
-        graph.AddEdgeRange(source.Edges.SelectMany(static edge => new[] {
-            edge,
-            new SEdge<FamilyNode>(edge.Target, edge.Source),
-        }));
-        return graph;
+    // The matching solver's own vertex. Super-source and super-sink are SOLVER state, so widening the domain family
+    // with a synthetic case would force every consumer's switch to answer for a vertex no domain fact names.
+    private abstract record MatchVertex {
+        private MatchVertex() { }
+
+        public sealed record Slot(int Ordinal, ProcessKind Process) : MatchVertex;
+        public sealed record Station(Machine Value) : MatchVertex;
+        public sealed record Synthetic(int Ordinal) : MatchVertex;
     }
 
     private Fin<FamilyResult> Allocate(Seq<ProcessKind> demand) {
-        if (demand.IsEmpty || !demand.ForAll(static process => process is not null)) {
+        if (demand.IsEmpty)
             return Fin.Fail<FamilyResult>(new FabricationFault.PolicyInadmissible(FabConcern.Process, "process-family:allocation"));
-        }
 
-        AdjacencyGraph<FamilyNode, SEdge<FamilyNode>> graph = new(allowParallelEdges: false);
-        Seq<FamilyNode> sources = demand.Map((process, slot) => (FamilyNode)new FamilyNode.Demand(slot, process));
-        Seq<FamilyNode> targets = Machines.Map(static machine => (FamilyNode)new FamilyNode.Equipment(machine));
+        // `Edge<T>` carries REFERENCE identity: a value edge makes the forward and reverse edges of one pair equal,
+        // so the residual network hands the solver twice the capacity the graph actually has.
+        AdjacencyGraph<MatchVertex, Edge<MatchVertex>> graph = new(allowParallelEdges: false);
+        Seq<MatchVertex> sources = demand.Map(static (process, slot) => (MatchVertex)new MatchVertex.Slot(slot, process));
+        Seq<MatchVertex> targets = Machines.Map(static machine => (MatchVertex)new MatchVertex.Station(machine));
         graph.AddVertexRange(sources + targets);
         graph.AddEdgeRange(from source in sources
                            from target in targets
-                           where source is FamilyNode.Demand slot
-                               && target is FamilyNode.Equipment equipment
-                               && equipment.Value.Admits(slot.Value)
-                           select new SEdge<FamilyNode>(source, target));
-        int augment = 0;
-        MaximumBipartiteMatchingAlgorithm<FamilyNode, SEdge<FamilyNode>> matching = new(
+                           where source is MatchVertex.Slot slot
+                               && target is MatchVertex.Station station
+                               && station.Value.Admits(slot.Process)
+                           select new Edge<MatchVertex>(source, target));
+        int synthetic = 0;
+        MaximumBipartiteMatchingAlgorithm<MatchVertex, Edge<MatchVertex>> matching = new(
             graph,
             sources,
             targets,
-            () => new FamilyNode.Augment(augment++),
-            static (source, target) => new SEdge<FamilyNode>(source, target));
+            () => new MatchVertex.Synthetic(synthetic++),
+            static (source, target) => new Edge<MatchVertex>(source, target));
         matching.Compute();
-        Seq<(int Slot, ProcessKind Process, Machine Machine)> pairs = toSeq(matching.MatchedEdges)
-            .Choose(static edge => edge is { Source: FamilyNode.Demand process, Target: FamilyNode.Equipment machine }
-                ? Some((process.Slot, process.Value, machine.Value))
+        Seq<(int Slot, ProcessKind Process, Machine Machine)> pairs = toSeq(toSeq(matching.MatchedEdges)
+            .Choose(static edge => edge is { Source: MatchVertex.Slot slot, Target: MatchVertex.Station station }
+                ? Some((slot.Ordinal, slot.Process, station.Value))
                 : None)
-            .OrderBy(static pair => pair.Slot)
-            .ToSeq();
-        Set<int> matched = pairs.Map(static pair => pair.Slot).ToSet();
+            .OrderBy(static pair => pair.Item1));
+        Set<int> matched = toSet(pairs.Map(static pair => pair.Slot));
         Seq<(int Slot, ProcessKind Process)> unassigned = demand
             .Map(static (process, slot) => (Slot: slot, Process: process))
             .Filter(row => !matched.Contains(row.Slot));
@@ -1231,17 +1336,12 @@ public sealed class ProcessFamily {
         process: static (_, _) => false,
         equipment: static (source, value) => value.Value.Admits(source),
         strategy: static (source, value) => source.Modality.Admits(value.Value),
-        dialect: static (source, value) => value.Value.Admits(source.Modality),
-        demand: static (_, _) => false,
-        augment: static (_, _) => false);
+        dialect: static (source, value) => value.Value.Admits(source.Modality));
 
+    // The gated mint runs the pair's own predicate, so a correspondence that actually holds cannot be raised as an
+    // inadmissible pairing.
     private static K<Validation<Error>, Unit> Relation(bool admits, RelationFault fault) =>
-        AdmissionSlots.Gate(admits, new FabricationFault.InadmissiblePair(fault));
-
-    private K<Validation<Error>, Machine> MachineOf(string key) =>
-        Machines.Find(machine => string.Equals(machine.Key, key, StringComparison.Ordinal))
-            .ToFin(new FabricationFault.UnknownAxis(nameof(Machine), key))
-            .ToValidation();
+        AdmissionSlots.Gate(admits, FabricationFault.Pairing(fault));
 }
 ```
 
@@ -1270,7 +1370,7 @@ flowchart LR
     Selection --> Fabrication["owner FabricationInput.Admit"]
 ```
 
-## [03]-[RESEARCH]
+## [05]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.

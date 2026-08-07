@@ -29,17 +29,17 @@
 
 `--animate-in`/`--animate-out` are the master `@theme` animations that become the `animate-in`/`animate-out` utilities; the `@property`-typed `--tw-animation-*` axes and the `--animation-*`/`--percentage-*` scales are the bounded vocabularies the setter and modifier utilities resolve against.
 
-| [INDEX] | [SYMBOL]                                                                    | [TYPE_FAMILY]    | [CAPABILITY]                          |
-| :-----: | :-------------------------------------------------------------------------- | :--------------- | :------------------------------------ |
-|  [01]   | `--animate-in` / `--animate-out` (`@theme`, = `enter`/`exit` + timing vars) | master animation | the `animate-in`/`out` utilities      |
-|  [02]   | `--tw-animation-{delay,direction,duration,fill-mode,iteration-count}`       | timing axis      | set by the timing modifiers           |
-|  [03]   | `--animate-accordion-down/up`                                               | named animation  | accordion — `system/act`              |
-|  [04]   | `--animate-collapsible-down/up` / `--animate-caret-blink`                   | named animation  | collapsible, caret — `system/act`     |
-|  [05]   | `--animation-delay-{0,75,100,150,200,300,500,700,1000}`                     | delay scale      | `delay-*`; `delay-[…]` arbitrary      |
-|  [06]   | `--animation-repeat-{0,1,infinite}`                                         | timing scale     | `repeat-*` values                     |
-|  [07]   | `--animation-direction-{normal,reverse,alternate,alternate-reverse}`        | timing scale     | `direction-*` values                  |
-|  [08]   | `--animation-fill-mode-{none,forwards,backwards,both}`                      | timing scale     | `fill-mode-*` values                  |
-|  [09]   | `--percentage-{0,5,…,100}` / `--percentage-translate-full`                  | fraction scale   | `fade-*`/`zoom-*` percentages         |
+| [INDEX] | [SYMBOL]                                                                    | [TYPE_FAMILY]    | [CAPABILITY]                      |
+| :-----: | :-------------------------------------------------------------------------- | :--------------- | :-------------------------------- |
+|  [01]   | `--animate-in` / `--animate-out` (`@theme`, = `enter`/`exit` + timing vars) | master animation | the `animate-in`/`out` utilities  |
+|  [02]   | `--tw-animation-{delay,direction,duration,fill-mode,iteration-count}`       | timing axis      | set by the timing modifiers       |
+|  [03]   | `--animate-accordion-down/up`                                               | named animation  | accordion — `system/act`          |
+|  [04]   | `--animate-collapsible-down/up` / `--animate-caret-blink`                   | named animation  | collapsible, caret — `system/act` |
+|  [05]   | `--animation-delay-{0,75,100,150,200,300,500,700,1000}`                     | delay scale      | `delay-*`; `delay-[…]` arbitrary  |
+|  [06]   | `--animation-repeat-{0,1,infinite}`                                         | timing scale     | `repeat-*` values                 |
+|  [07]   | `--animation-direction-{normal,reverse,alternate,alternate-reverse}`        | timing scale     | `direction-*` values              |
+|  [08]   | `--animation-fill-mode-{none,forwards,backwards,both}`                      | timing scale     | `fill-mode-*` values              |
+|  [09]   | `--percentage-{0,5,…,100}` / `--percentage-translate-full`                  | fraction scale   | `fade-*`/`zoom-*` percentages     |
 
 ## [03]-[ENTRYPOINTS]
 

@@ -11,26 +11,30 @@ Provider presence is PROVED, never assumed: `pye57` and `open3d` both carry inte
 ## [02]-[INGESTION]
 
 - Owner: `ScanIngestion`, the frozen dispatch owner carrying the composition `ScopeKey` its weave stamps; `ScanOp`'s tag IS the codec-carrying discriminant across BOTH directions — read and write ride one surface because the domain admits the inverse and a sibling `write_scan` entry would fork the provider gate, the receipt, and the weave. `Cloud` mints HERE as the scan plane's sealed cloud crossing — bare ndarray fields, the `tensor()`/`legacy()` rebuild pair, and its own `digest` content key — and `scan/registration`, `scan/deviation`, `scan/reconstruction` import it downward, never a per-page carrier twin and never a per-page cloud hash. It carries no rigid re-pose: every fine registration arm publishes its own initial-transform argument, so a carrier-level pre-pose would pay a whole-cloud copy per solve for a 4x4 the provider takes directly. `SplatScan` byte-mirrors the C#-minted `GaussianSplatScan` wire vocabulary field for field, so the companion produces exactly what the residency lane admits.
-- Cases: `ScanOp` arms `arrow_las` (the data-branch `PointRecordTable` carrier — table, point count, point format, CRS WKT, and content key together), `e57` (the `pye57` structured multi-scan source read per-scan with acquisition pose applied and `ScanHeader` provenance harvested), `e57_write` (the `write_scan_raw` append leg, pose from the supplied rotation/translation), and `splat` (raw SPZ/SOG container bytes the `_container` preamble reader parses worker-side and the companion decodes), matched by `match`/`assert_never`. `IngestProduct` mirrors the outcome — `cloud`, `splat`, or the written `ContentKey` — one closed family, never an erased `object` a consumer re-discriminates. `IngestStage` rows — `GROUND_CLASSIFY` (`SMRF` default / `PMF` alternate), `OUTLIER_REMOVE`, `DECIMATE` (`DECIMATION` / `VOXELDOWNSIZE`), `RANGE_CROP` — each build their `pdal.Filter` through one `_STAGE` row, the swappable rows dispatching to the policy-chosen `_FILTER` factory, so a stage's driver and option dict are one row read; `FARTHEST_POINT` is the carrier-fold row on `_CARRIER`, bounding a point budget geometry-uniformly where every `pdal` decimator bounds by file order or by cell occupancy.
-- Law: a below-floor provider refuses BY NAME — `_UNREACHED` derives once at import from `find_spec` over every marked distribution this page can reach, and `_reached` gates BOTH axes a provider enters on, the verb's own codec through `_OP_MODULE` and every rostered native stage through `_STAGE_MODULE`, onto `Error(BoundaryFault(import_=...))` before the offload; so an unprovisioned host reads a provisioning refusal naming `pye57` or `open3d` rather than a worker-death rail carrying a private module path, and a policy naming a native stage refuses at the same seam its verb would instead of surviving the gate and dying inside the graph. The gate is capability presence, never an offload route, since a process-pool worker shares the one venv.
+- Cases: `ScanOp` arms `arrow_las` (the data-branch `PointRecordTable` carrier — table, point count, point format, CRS WKT, and content key together), `e57` (the `pye57` structured multi-scan source read per-scan with acquisition pose applied and `ScanHeader` provenance harvested), `e57_write` (the `write_scan_raw` append leg, pose from the supplied rotation/translation), and `splat` (raw SPZ/SOG container bytes the signature-dispatched `_container` reader opens worker-side and the companion decodes), matched by `match`/`assert_never`. `IngestProduct` mirrors the outcome — `cloud`, `splat`, or the written `ContentKey` — one closed family, never an erased `object` a consumer re-discriminates. `IngestStage` rows — `GROUND_CLASSIFY` (`SMRF` default / `PMF` alternate), `OUTLIER_REMOVE`, `DECIMATE` (`DECIMATION` / `VOXELDOWNSIZE`), `RANGE_CROP` — each build their `pdal.Filter` through one `_STAGE` row, the swappable rows dispatching to the policy-chosen `_FILTER` factory, so a stage's driver and option dict are one row read; `FARTHEST_POINT` is the carrier-fold row on `_CARRIER`, bounding a point budget geometry-uniformly where every `pdal` decimator bounds by file order or by cell occupancy.
+- Law: a below-floor provider refuses BY NAME — `_UNREACHED` derives once at import from `find_spec` over every marked module this page can reach, and `_reached` gates all THREE axes a provider enters on, the verb's own codec through `_OP_MODULE`, the container a byte-fed verb carries through `_FORMAT_MODULE`, and every rostered native stage through `_STAGE_MODULE`, onto `Error(BoundaryFault(import_=...))` before the offload; so an unprovisioned host reads a provisioning refusal naming `pye57`, `open3d`, or `PIL` rather than a worker-death rail carrying a private module path, and a policy naming a native stage refuses at the same seam its verb would instead of surviving the gate and dying inside the graph. The container axis is its own row set rather than a verb row because `splat` spans two formats with different demands — an SPZ payload decodes on the interpreter floor alone — so the gate resolves the format off the payload's leading signature through the same `_SIGNATURE` table `_container` dispatches on, and a verb-level image row would refuse a decode the host can serve. The refusal names the IMPORT module, so a host reading `PIL` provisions the `pillow` distribution. The gate is capability presence, never an offload route, since a process-pool worker shares the one venv.
 - Law: a cleaning stage is a PIPE row or a CARRIER row and the two tables partition the vocabulary — `_STAGE` builds the `pdal` filters the `|` graph composes, `_CARRIER` holds the folds no driver expresses, and the pipe runs whole before the carrier folds run in policy order. The split is structural rather than a preference: a `pdal` stage consumes and yields a structured array inside one pipeline, so a carrier fold between two of them would break the pipe into two executes and pay a second full pass. That is why `FARTHEST_POINT` is a carrier row — `filters.decimation` keeps every Nth point in FILE order and `filters.voxeldownsize` one point per occupied cell, so neither bounds a point BUDGET while preserving shape, which is the exact guarantee a non-rigid solve needs. `output_points` therefore reads the CARRIER's census rather than the pipeline array's, since a fold that dropped points would otherwise report a decimation it never made.
 - Law: the crossing carrier is admitted WHOLE — the point count, point format, CRS WKT, and content key the data owner already parsed all cross on `PointRecordTable`, so `srs` falls back to the carrier's own `crs_wkt` when the executed pipeline reports none, `point_format` joins the fact census, and `source_key` chains the cleaning provenance back to the decode; taking `.table` alone would discard four facts and then re-derive an empty CRS from an in-memory array that never carried one.
-- Law: the splat container admits on its OWN leading signature and its own declared bounds — `_container` opens the NGSP v4 preamble-and-TOC read or the legacy gzip body by magic, decompresses streams through stdlib `compression.zstd`/`gzip` (interpreter-floor surfaces, so no distribution gate and no `_OP_MODULE` row), enforces the packer's version window, `INT32_MAX` point cap, ratio bound, and per-stream size declarations as typed `malformed` refusals, and hands `_splatted` a header whose `fractional_bits` owns the position scale; a legacy version whose encodings the `_LAYOUT` roster does not declare (v1 float16 positions, v1/v2 first-three rotations) refuses by version name rather than decoding garbage.
+- Law: the splat container admits on its OWN leading signature and its own declared bounds — one `_SIGNATURE` row per magic names the format and the reader together, so the floor gate and the decode read one owner and can never disagree about what a payload is. The SPZ arms open the NGSP v4 preamble-and-TOC read or the legacy gzip body, decompress through stdlib `compression.zstd`/`gzip`, and enforce the packer's version window, `INT32_MAX` point cap, ratio bound, and per-stream size declarations as typed `malformed` refusals against a header whose `fractional_bits` owns the position scale; a legacy version whose encodings the `_LAYOUT` roster does not declare (v1 float16 positions, v1/v2 first-three rotations) refuses by version name rather than decoding garbage. The SOG arm opens the bundled `.sog` — a ZIP whose members sit at the archive root — reads it whole through stdlib `zipfile` so no handle outlives its window, decodes `meta.json` VERSION-first (v1 writes no version key and stores per-property affine mins/maxs where v2 stores codebooks, so it refuses by version rather than through this reader's rows), and admits the count and band declarations before any plane is touched. The raw-bytes ingress reaches the bundled form alone; a loose plane directory is a filesystem source no byte payload carries.
+- Law: `_channels` and `_planes` are SIBLING folds under one `SplatBody` case each, never one table stretched over both — SOG breaks the packed-block model in five structural ways: no concatenated body, codebook indirection where the layout row carries an affine gain, positions spanning two planes bit-combined, an AC band indirecting twice through a plane dimensioned by coefficient rather than by splat, and a smallest-three quaternion whose omitted-component index rides an alpha byte rather than a packed 2-bit field. Reusing the SPZ quaternion arm rotates every splat whose omitted slot differs, which no shape gate can see. Both folds yield one canonical channel dict, so the DC head, the shape gate, and the framed key stay one owner above every container.
+- Law: SOG planes are LOSSLESS WebP by the container's own encoder contract, and that contract is an ADMISSION ASSUMPTION rather than a decodable fact — the decoder exposes no lossless flag, so a lossy plane decodes silently into wrong codebook indices and quantized codes that every gate here passes. What the reader does admit is per-MEMBER: absence, an unrecognized or truncated payload, a declared pixel count past the decoder's own bomb ceiling, fewer bands than the plane's row declares, a pixel census short of the splat count, a codebook off the 8-bit index space, and a centroid label or grid extent outside the manifest's own declaration, each refusing by member name so an operator reads which plane broke rather than which wire channel noticed.
 - Law: an unmeasured ratio is absent, never `1.0` — an empty input cloud measures no decimation, so the slot is `None` and the fact projection omits it, where a fabricated `1.0` publishes "nothing was removed" over a pass that removed nothing because there was nothing to remove.
 - Receipt: `IngestReceipt.of` derives the decimation ratio from counts and integer-narrows at one factory; `facts` emits the native slots and tuple axes once, omitting every absent measure; `_emit` carries the `@receipted(OPEN)` aspect. Ingestion mints no graduation subject — a cleaned cloud is an intra-folder precondition the `register` rail graduates downstream, so no `scan-ingestion` member sits on the `rasm.geometry.graduation` `GeometrySubject` union.
-- Packages: `pdal` (the injected `Filter.smrf`/`.pmf`/`.outlier`/`.decimation`/`.voxeldownsize`/`.range` factories, the `|` pipe composition, the `execute()`/`iterator(chunk_size)` runs, and the `srswkt2`/`schema` output metadata), `pye57` (`E57` context-manager open, `read_scan(transform=True)` the conditioned global-frame intake, `get_header` the typed `ScanHeader`, `write_scan_raw` the one append entry), `open3d` (touched only by the `Cloud.tensor()`/`legacy()` rebuild projections a consumer calls on its own native floor), `pyarrow` (the carrier's columns), `numpy` (structured-array assembly over the shared `_DTYPE`, the splat channel unpack and TOC read), stdlib `compression.zstd` + `gzip` (the SPZ container stream decompression — interpreter-floor surfaces, never a `zstandard` distribution), `expression` (`Block`/`Map`/`Option` folds), `beartype` (the `_structured` fence), `msgspec` (frozen carriers), the geometry `evidence_run`/`EvidenceScope` weave, and the runtime `RuntimeRail`/`LanePolicy.offload`/`Kernel`/`ContentIdentity`/`Receipt`/`receipted` rails. `laspy` is consumed transitively through the data-branch carrier, never imported here; every compiled band is a module-scope `lazy import` behind its floor gate.
-- Growth: a new cleaning stage is one `IngestStage` member and one row on `_STAGE` or `_CARRIER` by which regime expresses it (and one `_FILTER` row when a new driver backs a pipe stage, one `_STAGE_MODULE` row when a carrier fold is native); a new driver alternative on a swappable stage is one `IngestFilter` member and one `_FILTER` row and the policy default; a new scan verb is one `ScanOp` case, one `_dispatch` arm, and — where it needs a marked provider — one `_OP_MODULE` row; a new splat container is one `SplatFormat` member, one `_container` signature arm, and one `_LAYOUT` row, since the channel unpack is one offset fold over the declared layout rather than a per-format reader, and a new packed ENCODING inside such a row is one `ChannelCodec` member and one arm; a container block the wire record carries no field for is one `Nothing`-channelled row; a new output-metadata fact is one `facts` slot read off the executed pipeline.
+- Packages: `pdal` (the injected `Filter.smrf`/`.pmf`/`.outlier`/`.decimation`/`.voxeldownsize`/`.range` factories, the `|` pipe composition, the `execute()`/`iterator(chunk_size)` runs, and the `srswkt2`/`schema` output metadata), `pye57` (`E57` context-manager open, `read_scan(transform=True)` the conditioned global-frame intake, `get_header` the typed `ScanHeader`, `write_scan_raw` the one append entry), `open3d` (touched only by the `Cloud.tensor()`/`legacy()` rebuild projections a consumer calls on its own native floor), `pillow` (`Image.open` over the archive member's octets under the `formats` plugin pin, `getbands`/`convert` the band admission and narrowing, and the `__array_interface__` copy `np.asarray` reads — the SOG plane decode alone, never an ingestion-side raster op), `pyarrow` (the carrier's columns), `numpy` (structured-array assembly over the shared `_DTYPE`, the splat channel unpack, the TOC read, and the codebook/centroid fancy indexing), stdlib `compression.zstd` + `gzip` + `zipfile` + `io.BytesIO` (SPZ stream decompression and the SOG archive read — interpreter-floor surfaces, never a `zstandard` distribution), `expression` (`Block`/`Map`/`Option` folds), `beartype` (the `_structured` fence), `msgspec` (frozen carriers and the one `json.Decoder` pair the SOG manifest admits through), the geometry `evidence_run`/`EvidenceScope` weave, and the runtime `RuntimeRail`/`LanePolicy.offload`/`Kernel`/`ContentIdentity`/`Receipt`/`receipted` rails. `laspy` is consumed transitively through the data-branch carrier, never imported here; every compiled band is a module-scope `lazy import` behind its floor gate.
+- Growth: a new cleaning stage is one `IngestStage` member and one row on `_STAGE` or `_CARRIER` by which regime expresses it (and one `_FILTER` row when a new driver backs a pipe stage, one `_STAGE_MODULE` row when a carrier fold is native); a new driver alternative on a swappable stage is one `IngestFilter` member and one `_FILTER` row and the policy default; a new scan verb is one `ScanOp` case, one `_dispatch` arm, and — where it needs a marked provider — one `_OP_MODULE` row; a new splat container is one `SplatFormat` member, one `_SIGNATURE` row, and then whichever regime expresses it — a `_LAYOUT` row when the body is a packed-block roster the offset fold indexes, or one `SplatBody` case with its own `_splatted` arm and decode fold when the container's encoding breaks that model, and a container whose planes need a marked provider adds one `_FORMAT_MODULE` row; a new packed ENCODING inside a `_LAYOUT` row is one `ChannelCodec` member and one arm; a packed block the wire record carries no field for is one `Nothing`-channelled row; a new output-metadata fact is one `facts` slot read off the executed pipeline.
 - Boundary: the inbound LAS/LAZ/COPC decode and the `PointRecordTable` mint are `data/spatial/mesh#POINTCLOUD`'s (`laspy` full decode and the COPC octree subset live there), so ingestion never re-reads LAS nor crosses a `pdal` `Pipeline` at the data seam; the E57 path is ingestion's in BOTH directions because `pye57` is absent from the data branch and no data owner holds an E57 codec, so declining the write leg to that seam would leave E57 egress unowned in the whole branch. The `GaussianSplatScan` wire vocabulary is C#-minted and the runtime `transport/shapes` registry codec pair carries it — this owner produces the typed `SplatScan` and its content key, never a proto shape, and the outward frame is the runtime `ArtifactFrame` seam an app root drives. Registration is `scan/registration#REGISTRATION`'s; ingestion never registers, deviates, reconstructs, tessellates, stores, or mutates a Rhino/GH document.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 import gzip
 import struct
+import zipfile
 from collections.abc import Callable
 from compression import zstd
 from enum import StrEnum
 from functools import partial
 from importlib.util import find_spec
+from io import BytesIO
 from pathlib import Path
 from typing import TYPE_CHECKING, Final, Literal, assert_never
 
@@ -38,7 +42,8 @@ import numpy as np
 from beartype import beartype
 from expression import Error, Nothing, Ok, Option, Result, Some, case, tag, tagged_union
 from expression.collections import Block, Map
-from msgspec import Struct, field
+from msgspec import DecodeError, Struct, ValidationError, field
+from msgspec.json import Decoder
 
 from rasm.geometry.graduation import EvidenceScope, evidence_run
 from rasm.runtime.faults import FAULT_CONF, BoundaryFault, RuntimeRail
@@ -48,7 +53,9 @@ from rasm.runtime.receipts import DEFAULT_SCOPE, OPEN, Receipt, ScopeKey, receip
 from rasm.runtime.workers import Kernel, KernelTrait
 
 # the compiled scan band, each a module-scope proxy behind its floor gate: `pdal` resolves on every floor and the
-# other two are interpreter-marked, so `_UNREACHED` refuses their arms by name before a proxy is ever touched.
+# other three are interpreter-marked, so `_UNREACHED` refuses their arms by name before a proxy is ever touched.
+# A `lazy` statement is module-scope only — inside a function body it is a SyntaxError.
+lazy from PIL import Image, UnidentifiedImageError
 lazy import open3d as o3d
 lazy import pdal
 lazy import pye57
@@ -86,7 +93,7 @@ class IngestFilter(StrEnum):
 
 class SplatFormat(StrEnum):
     SPZ_V4 = "spz-v4"  # Niantic SPZ: v4 is a 32-byte plaintext header + per-stream ZSTD behind a TOC; pre-v4 one gzip member
-    SOG_V2 = "sog-v2"  # PlayCanvas SOG, a container bundling a JSON manifest beside per-channel planes
+    SOG_V2 = "sog-v2"  # PlayCanvas SOG v2: a ZIP whose root holds `meta.json` beside the lossless-WebP planes it names
 
 
 class SplatChannel(StrEnum):
@@ -120,12 +127,17 @@ _COLOR_DTYPE: Final = np.dtype([*_DTYPE.descr, *((band, np.uint16) for band in (
 # rather than through `run`, and they return provider HANDLES, so absence raises INTO the enclosing lane fence
 # naming the module exactly as the entry gate does, never a probe re-run per projection call.
 _CLOUD_MODULE: Final[str] = "open3d"
-_UNREACHED: Final[frozenset[str]] = frozenset(module for module in ("pye57", _CLOUD_MODULE) if find_spec(module) is None)
+_IMAGE_MODULE: Final[str] = "PIL"  # the top-level module `find_spec` resolves and the refusal names; distribution `pillow`
+_UNREACHED: Final[frozenset[str]] = frozenset(m for m in ("pye57", _CLOUD_MODULE, _IMAGE_MODULE) if find_spec(m) is None)
 
-# the TWO axes a marked provider enters on: the verb's own codec, and a cleaning stage whose fold is native rather
-# than a `pdal` driver. Both resolve against one absence set, so a host provisioned for one and not the other reads
-# one refusal naming the module it lacks instead of two half-facts a caller meets on consecutive runs.
+# the THREE axes a marked provider enters on: the verb's own codec, the CONTAINER a byte-fed verb carries, and a
+# cleaning stage whose fold is native rather than a `pdal` driver. All resolve against one absence set, so a host
+# provisioned for one and not another reads one refusal naming the module it lacks instead of two half-facts a
+# caller meets on consecutive runs. The container axis is its own row set because the splat verb spans two formats
+# with different provider demands: an SPZ payload decodes on the interpreter floor alone, so a verb-level image row
+# would refuse a decode the host can serve.
 _OP_MODULE: Final[Map[OpKind, str]] = Map.of_seq([(OpKind.E57, "pye57"), (OpKind.E57_WRITE, "pye57")])
+_FORMAT_MODULE: Final[Map[SplatFormat, str]] = Map.of_seq([(SplatFormat.SOG_V2, _IMAGE_MODULE)])
 _STAGE_MODULE: Final[Map[IngestStage, str]] = Map.of_seq([(IngestStage.FARTHEST_POINT, _CLOUD_MODULE)])
 
 # spherical-harmonic band ceiling the wire law fixes: `harmonic_degree` is 0..3, and the per-splat harmonic width
@@ -138,11 +150,25 @@ _MAX_HARMONIC_DEGREE: Final[int] = 3
 # packer's own: ZSTD-stream containers span `MIN_ZSTD..LATEST` (both 4 today), smallest-three rotations begin at
 # version 3, and the packer's point-count admission caps at `INT32_MAX` with the 1024x compression-ratio bound over
 # the positions-stream floor of nine bytes per splat.
-_NGSP_MAGIC: Final[int] = 0x5053474E
+_NGSP_MAGIC: Final[bytes] = b"NGSP"  # the leading octets both the signature table and the legacy body check read
 _NGSP_HEADER: Final[struct.Struct] = struct.Struct("<IIIBBBBI12x")
 _LEGACY_HEADER: Final[struct.Struct] = struct.Struct("<IIIBBBB")
 _ZSTD_VERSIONS: Final[range] = range(4, 5)
 _LEGACY_VERSION: Final[int] = 3  # the one gzip-framed layout `_LAYOUT`'s SPZ row declares; v1/v2 encodings are unrostered
+
+# the SOG v2 container's own declarations. `meta.json` is the fixed root member naming every other one; v2 is the
+# one manifest shape this reader decodes, because v1 carries NO version key and stores per-property affine
+# mins/maxs instead of codebooks — a different encoding a v2 reader would silently misread. Every codebook is
+# exactly the 8-bit index space its plane channel addresses, the centroid grid seats a fixed 64 centroids per row,
+# and the quaternion's omitted-component index rides the alpha byte as an offset from `_QUAT_MODE_BASE`.
+_SOG_MANIFEST: Final[str] = "meta.json"
+_SOG_VERSION: Final[int] = 2
+_SOG_CODEBOOK: Final[int] = 256
+_SOG_CENTROID_ROW: Final[int] = 64
+_SOG_MAX_CENTROIDS: Final[int] = 65_536
+_QUAT_MODE_BASE: Final[int] = 252
+_WEBP: Final[tuple[str, ...]] = ("WEBP",)  # the plugin restriction `Image.open` probes, so an archive member never walks the whole codec registry
+_PLANE_MODE: Final[Map[int, str]] = Map.of_seq([(3, "RGB"), (4, "RGBA")])  # the band count a plane row declares, as the mode `convert` narrows to
 
 # --- [ERRORS] ---------------------------------------------------------------------------
 
@@ -300,15 +326,66 @@ class ChannelSpec(Struct, frozen=True, gc=False):
     codec: ChannelCodec = ChannelCodec.AFFINE
 
 
+class SogVersion(Struct, frozen=True, gc=False):
+    # the drift gate alone, decoded BEFORE the manifest shape: a v1 archive carries neither `quats` nor `sh0`, so
+    # decoding the whole shape first would report a missing field where the honest refusal names the version. The
+    # default IS the v1 discriminant, because v1 writes no version key at all.
+    version: int = 0
+
+
+class SogBlock(Struct, frozen=True, gc=False):
+    # ONE manifest block shape spanning every property SOG v2 declares, because the properties differ only in which
+    # columns they fill: `means` carries two planes and the per-axis span its 16-bit codes lerp inside, `scales` and
+    # `sh0` a 256-entry codebook their plane channels index, `quats` a bare plane, and `shN` a centroid/label plane
+    # pair beside its centroid census and band count. A struct per property would fork one wire shape five ways and
+    # give the decode five readers over four inert columns; the defaults ARE the per-property inertness.
+    files: tuple[str, ...]  # order is significant — `means` reads low plane then high, `shN` centroids then labels
+    codebook: tuple[float, ...] = ()
+    mins: tuple[float, float, float] = (0.0, 0.0, 0.0)
+    maxs: tuple[float, float, float] = (0.0, 0.0, 0.0)
+    count: int = 0
+    bands: int = 0
+
+
+class SogMeta(Struct, frozen=True, gc=False):
+    # the SOG manifest as the container declares it. Unknown keys are ADMITTED rather than forbidden: the container
+    # is externally versioned and `SogVersion` is the drift gate, so a v2 archive carrying a later optional block
+    # this reader has no field for stays readable, exactly as the reference reader treats it — the manifest's
+    # `antialias` flag is one such key, and the wire record carries no field it could land on.
+    count: int
+    means: SogBlock
+    scales: SogBlock
+    quats: SogBlock
+    sh0: SogBlock
+    shN: SogBlock | None = None  # absent ⇒ harmonic degree 0, the DC-only band
+
+
+# co-located with the shapes they decode, because a `Decoder` binds its type at construction and one module-level
+# instance serves every read.
+_SOG_VERSION_DECODER: Final[Decoder[SogVersion]] = Decoder(type=SogVersion)
+_SOG_META_DECODER: Final[Decoder[SogMeta]] = Decoder(type=SogMeta)
+
+
 class SplatHeader(Struct, frozen=True, gc=False):
-    # the container's OWN declaration, admitted rather than assumed: both formats publish their splat count,
-    # harmonic band, and fixed-point resolution in-band, so the channel fold derives every extent and the position
-    # scale from this record and no census or precision literal is hardcoded. `_container` is the preamble reader
-    # that produces it from raw bytes; the fold, the shape gate, the content key, and the carrier ride below it.
+    # the container's OWN declaration, admitted rather than assumed: every format publishes its splat count and
+    # harmonic band in-band, so the channel fold derives every extent from this record and no census literal is
+    # hardcoded. `_container` is the signature-dispatched reader that produces it from raw bytes; the fold, the
+    # shape gate, the content key, and the carrier ride below it.
     fmt: SplatFormat
     splat_count: int
     harmonic_degree: int
-    fractional_bits: int
+    fractional_bits: int = 0  # the SPZ FIXED24 resolution; a planar container stores no fixed point and reads the absent case
+
+
+@tagged_union(frozen=True)
+class SplatBody:
+    # what a container hands its own decode fold, and the reason `_container` is not typed to `bytes`: SPZ resolves
+    # to one concatenated block body an offset fold indexes, while SOG resolves to a parsed manifest beside the
+    # named planes it addresses. Erasing both to `bytes` would force the planar arm to re-open the archive and
+    # re-decode the manifest a second time, giving one fact two owners.
+    tag: Literal["packed", "planar"] = tag()
+    packed: bytes = case()
+    planar: tuple[SogMeta, Map[str, bytes]] = case()
 
 
 class IngestPolicy(Struct, frozen=True, gc=False):
@@ -423,14 +500,24 @@ class IngestReceipt(Struct, frozen=True, gc=False):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
+def _demanded(op: ScanOp) -> Block[str]:
+    # the CONTAINER's provider demand, resolved off the payload's own leading signature rather than off the verb —
+    # `splat` spans two formats and an SPZ payload decodes on the interpreter floor alone, so a verb-level image row
+    # would refuse a decode the host can serve. The probe reads the same `_SIGNATURE` table `_container` dispatches
+    # on, so one owner holds every magic and the gate can never disagree with the reader it gates.
+    if op.tag is not OpKind.SPLAT:
+        return Block.empty()
+    return _signed(op.splat).bind(lambda row: _FORMAT_MODULE.try_find(row[1])).map(Block.singleton).default_value(Block.empty())
+
+
 def _reached(op: ScanOp, policy: IngestPolicy) -> "RuntimeRail[ScanOp]":
-    # the ONE floor gate, ahead of the offload, over BOTH axes a marked provider enters on: the verb's own codec and
-    # every rostered stage whose fold is native. A provider absent at import refuses by MODULE NAME, so the operator
-    # reads a provisioning fact instead of a worker death carrying a private path — and a policy naming a native
-    # stage on a host that lacks its distribution refuses at the same seam its verb would, rather than surviving the
-    # gate and dying inside the graph.
+    # the ONE floor gate, ahead of the offload, over every axis a marked provider enters on: the verb's own codec,
+    # the container a byte-fed verb carries, and every rostered stage whose fold is native. A provider absent at
+    # import refuses by MODULE NAME, so the operator reads a provisioning fact instead of a worker death carrying a
+    # private path — and a policy naming a native stage on a host that lacks its distribution refuses at the same
+    # seam its verb would, rather than surviving the gate and dying inside the graph.
     verb = _OP_MODULE.try_find(op.tag).map(Block.singleton).default_value(Block.empty())
-    demanded = verb.append(Block.of_seq(policy.stages).choose(_STAGE_MODULE.try_find))
+    demanded = verb.append(_demanded(op)).append(Block.of_seq(policy.stages).choose(_STAGE_MODULE.try_find))
     return demanded.filter(lambda module: module in _UNREACHED).try_head().map(lambda module: Error(BoundaryFault(import_=module))).default_value(Ok(op))
 
 
@@ -481,6 +568,9 @@ def _write_e57(path: str, cloud: Cloud, stations: tuple[StationFact, ...], pose:
         for station in stations:  # Exemption: the provider appends one scan node per call, its own streaming seam.
             handle.write_scan_raw(data, name=station.guid, rotation=matrix[:3, :3], translation=matrix[:3, 3])
     return ContentIdentity.key("e57", Path(path).read_bytes())
+
+
+# --- [PACKED_DECODE]
 
 
 def _fixed24(raw: np.ndarray, count: int, gain: float) -> np.ndarray:
@@ -542,13 +632,150 @@ def _channels(header: SplatHeader, body: bytes) -> dict[SplatChannel, np.ndarray
     return _LAYOUT[header.fmt].fold(block, (0, {}))[1]
 
 
-def _ngsp(raw: bytes) -> tuple[SplatHeader, bytes]:
+# --- [PLANAR_DECODE]
+
+
+def _plane(planes: Map[str, bytes], name: str, bands: int) -> np.ndarray:
+    # the ONE plane-admission seam, owning every refusal a named member can carry — absent from the archive,
+    # unrecognized, oversized, truncated mid-decode, or carrying fewer bands than its row declares — each named by
+    # MEMBER, so an operator reads which plane broke rather than which wire channel noticed. `formats` pins the WebP
+    # plugin, so an arbitrary archive member never walks the whole codec registry; `convert` narrows a wider source
+    # to the declared band count, because a lossless WebP written without alpha opens `RGB` and a fixed `[..., 3]`
+    # would index past its last band. `np.asarray` reads Pillow's `__array_interface__`, which hands over an owned
+    # bytes copy rather than a view onto the decoder buffer, so the array outlives the window that produced it.
+    payload = planes.try_find(name).default_with(lambda: _malformed(f"plane-absent:{name}"))
+    try:
+        with Image.open(BytesIO(payload), formats=_WEBP) as opened:
+            if len(opened.getbands()) < bands:
+                _malformed(f"plane-bands:{name}")
+            return np.asarray(opened.convert(_PLANE_MODE[bands]))
+    except UnidentifiedImageError:  # the narrower arm reads first: it subclasses OSError
+        return _malformed(f"plane-unrecognized:{name}")
+    except Image.DecompressionBombError:
+        # the bomb ceiling raises from `open` itself, off the DECLARED dimensions and before a pixel decodes, and it
+        # is no `OSError` — an arm short of it lets a hostile plane header cross the worker seam as a bare raise.
+        return _malformed(f"plane-oversized:{name}")
+    except OSError:
+        return _malformed(f"plane-truncated:{name}")
+
+
+def _rows(planes: Map[str, bytes], name: str, bands: int, count: int) -> np.ndarray:
+    # the per-splat projection: the container's pixel order IS the splat order — `i = x + y * W` is exactly a
+    # row-major flatten of the (H, W, bands) grid — so the read is one reshape and a head slice, and the trailing
+    # pixels a plane pads its final row with fall away. A plane that cannot cover the census refuses by MEMBER,
+    # where short-slicing would surface later as a shape-gate breach naming only the wire channel it fed.
+    plane = _plane(planes, name, bands)
+    flat = plane.reshape(-1, plane.shape[-1])
+    if flat.shape[0] < count:
+        _malformed(f"plane-extent:{name}")
+    return flat[:count]
+
+
+def _codebook(values: tuple[float, ...], name: str) -> np.ndarray:
+    # a codebook is exactly the 8-bit index space its plane channel addresses, so its extent is admitted before the
+    # lookup: a short table is an out-of-range fancy index, never a decode that merely reads slightly wrong.
+    if len(values) != _SOG_CODEBOOK:
+        _malformed(f"codebook:{name}")
+    return np.asarray(values, dtype=np.float32)
+
+
+def _lerped(low: np.ndarray, high: np.ndarray, mins: tuple[float, float, float], maxs: tuple[float, float, float]) -> np.ndarray:
+    # positions are ONE value bit-split across two planes — `q = (u << 8) | l` at 16 bits per axis — so a
+    # single-plane read is wrong by the whole high byte rather than merely coarse. The normalized code lerps inside
+    # the manifest's own per-axis span and the packer's signed log inverse restores the coordinate; `expm1` is the
+    # exact form of `exp(x) - 1` where the plain subtraction cancels catastrophically near the origin.
+    base = np.asarray(mins, dtype=np.float32)
+    q = (high.astype(np.uint32) << 8) | low.astype(np.uint32)
+    n = base + (np.asarray(maxs, dtype=np.float32) - base) * (q.astype(np.float32) / 65535.0)
+    return np.sign(n) * np.expm1(np.abs(n))
+
+
+def _quats(plane: np.ndarray) -> np.ndarray:
+    # SOG's smallest-three is NOT the SPZ codec, and reusing that arm rotates every splat whose omitted slot differs
+    # — a divergence no shape gate can see: the omitted component is named by the ALPHA byte as an offset from
+    # `_QUAT_MODE_BASE` rather than by a 2-bit field inside a packed word, the kept three ride full 8-bit channels
+    # over the [-1/√2, 1/√2] window rather than 10-bit signed lanes, and only the derived component's positivity is
+    # shared. An alpha outside the four declared modes is RESERVED by the container, so it refuses rather than
+    # decoding through a mode the writer never meant.
+    mode = plane[:, 3].astype(np.intp) - _QUAT_MODE_BASE
+    if bool(np.any((mode < 0) | (mode > 3))):
+        _malformed("quats:reserved-mode")
+    kept = (plane[:, :3].astype(np.float32) / 255.0 - 0.5) * (2.0 / np.sqrt(2.0))
+    out = np.zeros((plane.shape[0], 4), dtype=np.float32)
+    slots = np.stack([np.delete(np.arange(4), omitted) for omitted in range(4)])[mode]
+    np.put_along_axis(out, slots, kept, axis=1)
+    np.put_along_axis(out, mode[:, None], np.sqrt(np.clip(1.0 - (kept**2).sum(axis=1), 0.0, None))[:, None], axis=1)
+    return out
+
+
+def _harmonics(shN: SogBlock | None, planes: Map[str, bytes], count: int, degree: int) -> np.ndarray:
+    # the AC band, reached through DOUBLE indirection no other channel needs: a per-splat label selects a shared
+    # centroid, the centroid's own channels are codebook indices, and the centroid plane is dimensioned by
+    # coefficient rather than by splat — `_SOG_CENTROID_ROW` centroids per row, each holding `coeffs` consecutive
+    # columns. The per-splat coefficient count DERIVES as the wire band minus its DC triple, so the widths the bands
+    # imply are one derivation rather than a transcribed column the two ends can disagree on. An absent block yields
+    # the zero-width array the DC head alone composes to `harmonic_width(0)`.
+    if shN is None:
+        return np.empty((count, 0), dtype=np.float32)
+    coeffs = SplatScan.harmonic_width(degree) // 3 - 1
+    if len(shN.files) != 2 or not 0 < shN.count <= _SOG_MAX_CENTROIDS:
+        _malformed(f"shN:{shN.count}")
+    labels = _rows(planes, shN.files[1], 3, count)
+    label = labels[:, 0].astype(np.intp) | (labels[:, 1].astype(np.intp) << 8)
+    grid = _plane(planes, shN.files[0], 3)
+    if int(label.max(initial=0)) >= shN.count or grid.shape[0] * _SOG_CENTROID_ROW < shN.count or grid.shape[1] < _SOG_CENTROID_ROW * coeffs:
+        _malformed("shN:centroid-extent")
+    picked = grid[
+        (label // _SOG_CENTROID_ROW)[:, None],
+        ((label % _SOG_CENTROID_ROW) * coeffs)[:, None] + np.arange(coeffs)[None, :],
+        :,
+    ]
+    return _codebook(shN.codebook, "shN")[picked].reshape(count, coeffs * 3)
+
+
+def _planes(header: SplatHeader, meta: SogMeta, planes: Map[str, bytes]) -> dict[SplatChannel, np.ndarray]:
+    # the `_channels` SIBLING: no concatenated body and no offset fold, because every channel is its own plane the
+    # manifest NAMES, two of them reach their values through a codebook rather than an affine gain, positions span
+    # two planes bit-combined, and the AC band indirects twice through a plane of different dimension — five
+    # structural breaks a `_LAYOUT` row cannot express. The product is the same channel dict `_channels` yields, so
+    # the DC head, the shape gate, and the framed key stay one owner above both containers.
+    count = header.splat_count
+    if (len(meta.means.files), len(meta.scales.files), len(meta.quats.files), len(meta.sh0.files)) != (2, 1, 1, 1):
+        _malformed("sog:plane-arity")
+    sh0 = _rows(planes, meta.sh0.files[0], 4, count)
+    return {
+        SplatChannel.POSITION: _lerped(
+            _rows(planes, meta.means.files[0], 3, count),
+            _rows(planes, meta.means.files[1], 3, count),
+            meta.means.mins,
+            meta.means.maxs,
+        ),
+        # the scale codebook is LOG-domain, so a stored index resolves to a log scale the exponential lifts.
+        SplatChannel.SCALE: np.exp(_codebook(meta.scales.codebook, "scales")[_rows(planes, meta.scales.files[0], 3, count)]),
+        SplatChannel.ROTATION: _quats(_rows(planes, meta.quats.files[0], 4, count)),
+        # the DC coefficient is the codebook entry RAW: the `0.5 + c * SH_C0` a viewer applies is a RENDER transform,
+        # and folding it here would ship a pre-lit colour where the wire's harmonic band declares a coefficient.
+        SplatChannel.COLOR: _codebook(meta.sh0.codebook, "sh0")[sh0[:, :3]],
+        SplatChannel.HARMONIC: _harmonics(meta.shN, planes, count, header.harmonic_degree),
+        # the alpha byte is already the sigmoid-activated opacity the wire admits, exactly as the SPZ row reads it.
+        SplatChannel.ALPHA: sh0[:, 3].astype(np.float32) / 255.0,
+    }
+
+
+# --- [CONTAINERS]
+
+
+def _ngsp(raw: bytes) -> tuple[SplatHeader, SplatBody]:
     # the v4 plaintext zone is `[header][extensions][TOC]` with the ZSTD frames concatenated after the TOC in
     # attribute order — positions, alphas, colors, scales, rotations, harmonics, zero-size attributes skipped —
     # which IS `_LAYOUT` row order, so the decompressed concatenation is exactly the body the offset fold indexes.
     # An extension zone between header and TOC is skipped by construction: the wire record declares no field for
     # it, the container-level analogue of a `Nothing`-channelled block. Admission bounds are the packer's own:
     # version window, `INT32_MAX` point cap with the compression-ratio floor, and the TOC seated inside the file.
+    # The extent guard reads BEFORE the unpack, because `unpack_from` on a short buffer raises a `struct.error` the
+    # lane would carry as a provider trace where a typed refusal naming the length is the honest answer.
+    if len(raw) < _NGSP_HEADER.size:
+        _malformed(f"truncated:{len(raw)}")
     _magic, version, points, degree, fractional, _flags, streams, toc = _NGSP_HEADER.unpack_from(raw)
     toc_end = toc + streams * 16
     checks = (
@@ -572,49 +799,92 @@ def _ngsp(raw: bytes) -> tuple[SplatHeader, bytes]:
     tail, body = Block.of_seq((int(row[0]), int(row[1])) for row in pairs).fold(frame, (toc_end, ()))
     if tail != len(raw):
         _malformed(f"container:trailing:{len(raw) - tail}")
-    return SplatHeader(SplatFormat.SPZ_V4, points, degree, fractional), b"".join(body)
+    return SplatHeader(SplatFormat.SPZ_V4, points, degree, fractional), SplatBody(packed=b"".join(body))
 
 
-def _legacy(body: bytes) -> tuple[SplatHeader, bytes]:
+def _legacy(body: bytes) -> tuple[SplatHeader, SplatBody]:
     # the pre-v4 gzip framing: one 16-byte header, then the attribute blocks in the same order the v4 streams take.
     # Version 3 is the one legacy layout the SPZ `_LAYOUT` row declares (24-bit fixed positions, smallest-three
     # rotations); v1 stores float16 positions and v1/v2 store first-three 3-byte rotations — encodings no declared
     # row carries — so those versions refuse by name rather than decoding garbage under a shape gate that cannot
     # see the difference, and a gzip body claiming a ZSTD-era version is out of the packer's own contract.
-    if len(body) < _LEGACY_HEADER.size or int.from_bytes(body[:4], "little") != _NGSP_MAGIC:
+    if len(body) < _LEGACY_HEADER.size or body[:4] != _NGSP_MAGIC:
         _malformed("legacy:header")
     _magic, version, points, degree, fractional, _flags, _reserved = _LEGACY_HEADER.unpack_from(body)
     if version != _LEGACY_VERSION:
         _malformed(f"legacy-version:{version}")
     if not 0 < points <= 0x7FFFFFFF:
         _malformed(f"count:{points}")
-    return SplatHeader(SplatFormat.SPZ_V4, points, degree, fractional), body[_LEGACY_HEADER.size :]
+    return SplatHeader(SplatFormat.SPZ_V4, points, degree, fractional), SplatBody(packed=body[_LEGACY_HEADER.size :])
 
 
-def _container(raw: bytes) -> tuple[SplatHeader, bytes]:
-    # raw container bytes -> the container's own declaration plus the concatenated block body. Discrimination is
-    # the container's leading signature — the NGSP magic opens the v4 preamble-and-TOC read, a gzip signature opens
-    # the legacy single-stream body — and stream decompression is stdlib `compression.zstd`/`gzip`, which the
-    # interpreter floor ships, so no distribution gates this arm and no `_OP_MODULE` row exists for the verb.
-    if len(raw) >= _NGSP_HEADER.size and int.from_bytes(raw[:4], "little") == _NGSP_MAGIC:
-        return _ngsp(raw)
-    if raw[:2] == b"\x1f\x8b":
-        return _legacy(gzip.decompress(raw))
-    return _malformed("container:unrecognized")
+def _manifest[T](decoder: Decoder[T], body: bytes) -> T:
+    # the manifest's two wire-rejection paths stay distinct, because a constraint or discriminant miss is not
+    # malformed JSON and collapsing them loses which one a reader must fix; the narrower arm reads first, since
+    # `ValidationError` subclasses `DecodeError`.
+    try:
+        return decoder.decode(body)
+    except ValidationError:
+        return _malformed("sog-meta:constraint")
+    except DecodeError:
+        return _malformed("sog-meta:malformed")
 
 
-def _splatted(header: SplatHeader, body: bytes) -> tuple[SplatScan, ContentKey]:
-    # declaration first, layout second, gate third, key fourth: the header carries the container's own extents, the
-    # layout row carries its channel order, the shape gate proves the result against the wire law before it leaves
-    # the companion, and the framed digest keys it. The key resolves HERE beside the gate rather than at each
-    # consumer, so the two refusals a decoded container can carry — a breached channel and an unreadable preimage —
-    # land on one seam and reach the lane fence through one raise.
-    if _LAYOUT[header.fmt].is_empty():
-        # a container whose layout is not yet proven refuses BY FORMAT rather than decoding through an invented
-        # roster: an empty layout yields no channel at all, and the missing-key crash that follows would read as a
-        # corrupt payload instead of as the unlanded reader it is.
-        _malformed(f"unlaid-layout:{header.fmt.value}")
-    channels = _channels(header, body)
+def _sog(raw: bytes) -> tuple[SplatHeader, SplatBody]:
+    # the bundled `.sog` is a ZIP whose members sit at the archive ROOT with `meta.json` naming every other one, and
+    # the raw-bytes ingress reaches exactly that bundled form — a loose plane directory is a filesystem source no
+    # byte payload carries. The archive reads WHOLE into an in-memory map, so no handle outlives the window that
+    # opened it, which is also what lets the manifest decode exactly once and ride onward on `SplatBody.planar`
+    # instead of being re-read by the plane fold. Plane FILENAMES are arbitrary — the manifest names them and the
+    # order inside each block's `files` is significant — so nothing here matches on an extension or a fixed name
+    # beyond the one manifest member the container fixes.
+    try:
+        with zipfile.ZipFile(BytesIO(raw)) as archive:
+            held = Map.of_seq((name, archive.read(name)) for name in archive.namelist())
+    except (zipfile.BadZipFile, OSError):
+        return _malformed("sog:archive")
+    body = held.try_find(_SOG_MANIFEST).default_with(lambda: _malformed(f"plane-absent:{_SOG_MANIFEST}"))
+    version = _manifest(_SOG_VERSION_DECODER, body).version
+    if version != _SOG_VERSION:
+        _malformed(f"sog-version:{version}")
+    meta = _manifest(_SOG_META_DECODER, body)
+    degree = 0 if meta.shN is None else meta.shN.bands
+    checks = (
+        (0 < meta.count <= 0x7FFFFFFF, f"count:{meta.count}"),
+        (0 <= degree <= _MAX_HARMONIC_DEGREE, f"bands:{degree}"),
+    )
+    Block.of_seq(checks).choose(lambda row: Nothing if row[0] else Some(row[1])).try_head().map(_malformed)
+    return SplatHeader(SplatFormat.SOG_V2, meta.count, degree), SplatBody(planar=(meta, held))
+
+
+def _signed(raw: bytes) -> Option[tuple[bytes, SplatFormat, Callable[[bytes], tuple[SplatHeader, SplatBody]]]]:
+    # the ONE magic read: the first `_SIGNATURE` row whose leading octets prefix the payload names both the format
+    # the floor gate resolves a provider against and the reader that opens it, so the gate and the decode can never
+    # disagree about what a payload is.
+    return _SIGNATURE.filter(lambda row: raw[: len(row[0])] == row[0]).try_head()
+
+
+def _container(raw: bytes) -> tuple[SplatHeader, SplatBody]:
+    # raw container bytes -> the container's own declaration plus whatever body its decode fold consumes. SPZ stream
+    # decompression is stdlib `compression.zstd`/`gzip` and the SOG archive read is stdlib `zipfile`, all
+    # interpreter-floor surfaces, so the only distribution any container arm demands is the image codec the SOG
+    # planes decode through, which `_FORMAT_MODULE` gates by signature ahead of the offload.
+    return _signed(raw).map(lambda row: row[2](raw)).default_with(lambda: _malformed("container:unrecognized"))
+
+
+def _splatted(header: SplatHeader, body: SplatBody) -> tuple[SplatScan, ContentKey]:
+    # declaration first, channels second, gate third, key fourth: the header carries the container's own extents,
+    # the body's own case selects the fold that produces the canonical channel dict, the shape gate proves the
+    # result against the wire law before it leaves the companion, and the framed digest keys it. The key resolves
+    # HERE beside the gate rather than at each consumer, so the two refusals a decoded container can carry — a
+    # breached channel and an unreadable preimage — land on one seam and reach the lane fence through one raise.
+    match body:
+        case SplatBody(tag="packed", packed=blob):
+            channels = _channels(header, blob)
+        case SplatBody(tag="planar", planar=(meta, planes)):
+            channels = _planes(header, meta, planes)
+        case _ as unreachable:
+            assert_never(unreachable)
     scan = SplatScan(
         header.fmt.value,
         channels[SplatChannel.POSITION],
@@ -816,10 +1086,18 @@ _LAYOUT: Final[Map[SplatFormat, Block[ChannelSpec]]] = Map.of_seq([
             ChannelSpec(Some(SplatChannel.HARMONIC), 0, "u1", 1.0 / 128.0, -1.0),
         )),
     ),
-    # SOG carries no landed layout: its per-plane image codecs are not a packed-block roster this fold indexes, and
-    # an invented row would decode garbage under a shape gate that cannot see the difference. The `[03]` row owns it.
-    (SplatFormat.SOG_V2, Block.empty()),
 ])
+
+# one row per container signature: the leading octets a payload declares itself with, the format they name, and the
+# reader that opens it. `_container` dispatches on this table and `_demanded` reads its format column for the floor
+# gate, so one owner holds every magic and no second probe can disagree with the reader it gates. Row order is read
+# order, and the three prefixes are mutually disjoint, so no row shadows another; only the SPZ rows share a format,
+# because the v4 preamble-and-TOC read and the gzip-framed legacy body decode to one packed layout.
+_SIGNATURE: Final[Block[tuple[bytes, SplatFormat, Callable[[bytes], tuple[SplatHeader, SplatBody]]]]] = Block.of_seq((
+    (_NGSP_MAGIC, SplatFormat.SPZ_V4, _ngsp),
+    (b"\x1f\x8b", SplatFormat.SPZ_V4, lambda raw: _legacy(gzip.decompress(raw))),
+    (b"PK\x03\x04", SplatFormat.SOG_V2, _sog),
+))
 ```
 
 ## [03]-[RESEARCH]
@@ -828,4 +1106,4 @@ _LAYOUT: Final[Map[SplatFormat, Block[ChannelSpec]]] = Map.of_seq([
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
 -->
 
-- [SOG_V2_LAYOUT]-[OPEN]: SOG v2 is not a packed-block roster at all — it bundles a JSON manifest beside per-channel IMAGE planes — so the open question is whether its planes decode onto this fold's offset model with a per-plane image codec column, or whether the container earns its own arm beside `_channels` entirely; read the published SOG v2 specification for the manifest's declared fields (splat count, harmonic degree, per-plane codec, channel order) and its plane-to-attribute correspondence, then either fill the empty `_LAYOUT` SOG row against a proven codec column or land the separate arm. The empty roster is the truthful interim: an invented row decodes garbage under a shape gate that cannot see the difference.
+(none)

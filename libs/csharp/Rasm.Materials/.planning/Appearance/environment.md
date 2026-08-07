@@ -1,25 +1,25 @@
 # [MATERIALS_ENVIRONMENT]
 
-THE SKY, ENVIRONMENT-MAP, AND IMAGE-BASED-LIGHTING OWNER. One `SkyModel` `[Union]` synthesizes a scene-linear radiance field from an analytic daylight model — the Hosek-Wilkie fitted-coefficient asset over its solar-elevation Bézier lattice and the ISO 15469 fifteen-type CIE standard sky over one gradation × indicatrix algebra — one `EnvironmentMap` admits any equirect, cube-face, or octahedral layout under the frozen `+Z`-up correspondence and carries the whole layout relation in one `Project` fold, one `IblPrefilter.Prefilter` reduces an admitted map to the `IblProducts` receipt every renderer consumes (SH9 irradiance, the GGX roughness-ordered specular level set, split-sum BRDF LUT, marginal-conditional luminance CDF), and one `EnvironmentLight` record is the row `Rasm.AppUi/Render/pathtrace#LIGHT_RIG` resolves over the declared `[BOUNDARY]` seam — directional radiance, importance sample, SH irradiance, specular level, and split-sum read all answering on that one owner so no consumer re-derives the mapping. `SkyModel` admits a sky variation as one case and `CieSkyType` as one ROW, `MapLayout` a storage arrangement as one ROW, and `IblProducts` a prefilter product as one COLUMN — never a per-model sky type, a direction-named converter pair, or a second SH spelling. Every owner here composes the `bsdf#MICROFACET_KERNEL` `Microfacet` VNDF sampler and Smith masking for every GGX integral (the prefiltered dome and the shaded surface integrate the SAME distribution), the `bsdf#SHADING_FRAME` `LocalVector`/`RgbSpectrum`/`MaterialFault` band-2450 rail, the `graph#MATERIAL_GRAPH` `PortValue.SceneLinear` Acescg working space, the `photometric#PHOTOMETRIC` unit gate for an authored zenith luminance, the `Raster/plane#TEXTURE_PLANE` `TexturePlane`/`TexturePyramid` typed-texel arena with its `Read`/`Write` row rails and `AsImage` sampler bridge, the `texture#TEXTURE_UV` sampler for every filtered read, the seam `Rasm.Element` `ContentAddress` for every blob key, the kernel `Dimension`/`UnitInterval`/`Op` atoms with `CommunityToolkit.HighPerformance` struct-action partitioning, and NodaTime `Instant` for solar position — re-minting no plane, no colour space, no fault, and no hash. Solar geometry composes the kernel `Rasm/Numerics/calculus#SOLAR_EPHEMERIS` almanac and projects HERE into the frozen frame, so no host sun object and no second ephemeris crosses the host-neutral boundary; the container decode of an ingested HDRI is `Raster/codec#RASTER_CODEC`, this owner consuming the decoded plane alone.
+THE SKY, ENVIRONMENT-MAP, AND IMAGE-BASED-LIGHTING OWNER. One `SkyModel` `[Union]` synthesizes a scene-linear radiance field from an analytic daylight model — the Hosek-Wilkie fitted-coefficient asset over its solar-elevation Bézier lattice and the ISO 15469 fifteen-type CIE standard sky over one gradation × indicatrix algebra — one `EnvironmentMap` admits any equirect, cube-face, or octahedral layout under the frozen `+Z`-up correspondence and carries the whole layout relation in one `Project` fold, one `IblPrefilter.Prefilter` reduces an admitted map to the `IblProducts` receipt every renderer consumes (SH9 irradiance, the GGX roughness-ordered specular level set, split-sum BRDF LUT, marginal-conditional luminance CDF), and one `EnvironmentLight` record is the row `Rasm.AppUi/Render/pathtrace#LIGHT_RIG` resolves over the declared `[BOUNDARY]` seam — directional radiance, importance sample, SH irradiance, specular level, and split-sum read all answering on that one owner so no consumer re-derives the mapping. `SkyModel` admits a sky variation as one case and `CieSkyType` as one ROW, `MapLayout` a storage arrangement as one ROW, and `IblProducts` a prefilter product as one COLUMN — never a per-model sky type, a direction-named converter pair, or a second SH spelling. Every owner here composes the `bsdf#MICROFACET_KERNEL` `Microfacet` VNDF sampler and Smith masking for every GGX integral (the prefiltered dome and the shaded surface integrate the SAME distribution), the `bsdf#SHADING_FRAME` `LocalVector<T>`/`RgbSpectrum`/`MaterialFault` band-2450 rail, the `graph#MATERIAL_GRAPH` `PortValue.SceneLinear` Acescg working space, the `photometric#PHOTOMETRIC` unit gate for an authored zenith luminance, the `Raster/plane#TEXTURE_PLANE` `TexturePlane`/`TexturePyramid` typed-texel arena with its `Read`/`Write` row rails and `AsImage` sampler bridge, the `texture#TEXTURE_UV` sampler for every filtered read, the seam `Rasm.Element` `ContentAddress` for every blob key, the kernel `Dimension`/`UnitInterval`/`Op` atoms with `CommunityToolkit.HighPerformance` struct-action partitioning, and NodaTime `Instant` for solar position — re-minting no plane, no colour space, no fault, and no hash. Solar geometry composes the kernel `Rasm/Numerics/calculus#SOLAR_EPHEMERIS` almanac and projects HERE into the frozen frame, so no host sun object and no second ephemeris crosses the host-neutral boundary; the container decode of an ingested HDRI is `Raster/codec#RASTER_CODEC`, this owner consuming the decoded plane alone.
 
 ## [01]-[INDEX]
 
-- [02]-[SKY_MODEL]: `CieGradation`/`CieIndicatrix`/`CieSkyType` close the standard-sky algebra, `SkyCoefficients` carries the content-keyed fitted asset over its solar-elevation Bézier lattice, `SolarPosition` projects the kernel almanac's geodetic sun into the frozen frame, `SkyModel` `[Union]` states the radiance law with its ground hemisphere, and `SkyRender.Render` runs the one layout-parameterized synthesis.
+- [02]-[SKY_MODEL]: `CieGradation`/`CieIndicatrix`/`CieSkyType` close the standard-sky algebra, `SkyCoefficients` and `SolarCoefficients` carry the two content-keyed fitted assets over one `ControlLattice` Bézier algebra, `SolarFrame` projects the kernel almanac's geodetic sun into the frozen frame, `SkyModel` `[Union]` states the radiance law with its ground hemisphere and its solar disc, and `SkyRender.Radiance` supplies the per-texel radiance closure the press subject sweeps.
 - [03]-[ENVIRONMENT_MAP]: `MapLayout` bands storage with its per-row coordinate law, `Equirectangular` freezes the correspondence, `EnvironmentMap.Of` admits with its per-layer sampler lift, `Stored`/`Radiance` answer the stored-frame and world-frame reads, and `Project` carries the one layout relation in both directions.
-- [04]-[IBL_PREFILTER]: `ShBand` tables the nine-row basis, `Sh9` pairs projection with irradiance reconstruction, `IblPrefilter` integrates the GGX specular level set, the split-sum BRDF LUT, and the luminance CDF over the kernel `Deterministic.Hammersley` draw, and `IblProducts` carries the receipt.
+- [04]-[IBL_PREFILTER]: `ShBand` tables the nine-row basis, `Sh9` pairs projection with irradiance reconstruction, `IblPrefilter` integrates the GGX specular level set, the split-sum BRDF LUT, and the luminance CDF over the kernel `Deterministic.Hammersley` draw, `IblProducts` carries the CPU receipt, and `IblProduct` splits the content-addressable mint from the accelerator lane's key-less preview.
 - [05]-[ENVIRONMENT_LIGHT]: `EnvironmentLight` resolves the row the render seam consumes, gates its own admission, and publishes the six reads an integrator and a raster shading pass share.
-- [06]-[RESEARCH]: open epistemic debt with its verification route.
 
 ## [02]-[SKY_MODEL]
 
-- Owner: `WorldDirection` the page-owned `+Z`-up WORLD direction carrier every dome surface speaks (structurally distinct from the `bsdf#SHADING_FRAME` tangent `LocalVector`); `SkyModel` `[Union]` (`HosekWilkie` · `CieStandard`); `SkyCoefficients` the content-keyed fitted-coefficient asset; `CieSkyType`/`CieGradation`/`CieIndicatrix` `[SmartEnum<int>]` bands; `SolarPosition` the frame adapter over the kernel `Numerics/calculus#SOLAR_EPHEMERIS` almanac; `SkyAtmosphere` the turbidity, ground-albedo, zenith-level, and exposure row; `SkyRender` the synthesis fold.
-- Cases: sky {`HosekWilkie` (the fitted anisotropic-Mie daylight model over a `SkyCoefficients` asset), `CieStandard` (the ISO 15469 relative-luminance distribution over a `CieSkyType` row)}; gradation {`I`…`VI`}; indicatrix {`One`…`Six`}; sky-type {`Type01`…`Type15`, each binding one gradation and one indicatrix — `Type01` the CIE Overcast Sky, `Type12` the CIE Standard Clear Sky}.
-- Entry: `public static Fin<TexturePlane> Render(SkyModel model, SkyAtmosphere atmosphere, WorldDirection sun, MapLayout layout, Dimension edge, RenderBudget budget, Op key)` is the ONE synthesis fold — the LAYOUT ROW supplies the extent, the layer count, and the coordinate law, so a cube-face sky and an equirect sky are one body and an extent contradicting the arrangement is unrepresentable rather than caught by a parity gate; `SolarPosition.Of(latitudeDegrees, longitudeDegrees, instant, key, elevationM)` is the ONE sun-direction entry, so a caller holding a measured direction passes it and a caller holding a site and a clock resolves it here. `MaterialFault` rails a sub-unit or super-decade turbidity, a negative zenith level, a non-positive exposure, an out-of-range site, and a non-finite radiance.
+- Owner: `WorldDirection` the page-owned `+Z`-up WORLD direction carrier every dome surface speaks (structurally distinct from the `bsdf#SHADING_FRAME` tangent `LocalVector<T>`); `SkyModel` `[Union]` (`HosekWilkie` · `CieStandard`); `SkyCoefficients` and `SolarCoefficients` the two content-keyed fitted assets over the one `ControlLattice` interpolation algebra; `SolarDisc` the resolved direct-beam term; `CieSkyType`/`CieGradation`/`CieIndicatrix` `[SmartEnum<int>]` bands; `SolarFrame` the frame projection over the kernel `Numerics/calculus#SOLAR_EPHEMERIS` almanac; `SkyAtmosphere` the turbidity, ground-albedo, admitted-zenith-level, exposure, and solar-angular-diameter row; `SkyRender` the radiance-closure surface; `SkySpectrum` the one band→scene colour path both fitted assets cross.
+- Cases: sky {`HosekWilkie` (the fitted anisotropic-Mie daylight model over a `SkyCoefficients` diffuse asset paired with its `SolarCoefficients` limb-darkened disc asset), `CieStandard` (the ISO 15469 relative-luminance distribution over a `CieSkyType` row)}; gradation {`I`…`VI`}; indicatrix {`One`…`Six`}; sky-type {`Type01`…`Type15`, each binding one gradation and one indicatrix — `Type01` the CIE Overcast Sky, `Type12` the CIE Standard Clear Sky}.
+- Entry: `public static Func<Vector3d, RgbSpectrum> Radiance(SkyModel model, SkyAtmosphere atmosphere, WorldDirection sun)` is the ONE synthesis surface — the per-texel radiance closure `Raster/press#PRESS_PLAN` `PressSubject.Sky` calls under `PressProgram.Dome`, so the sky owner supplies the model and the press owns partitioning, cancellation, the receipt, and the accelerator lane; `SolarFrame.Of(latitudeDegrees, longitudeDegrees, instant, key, elevationM)` is the ONE sun-direction entry, so a caller holding a measured direction passes it and a caller holding a site and a clock resolves it here; `SkyModel.Disc(WorldDirection sun, SkyAtmosphere atmosphere)` is the ONE direct-beam read both cases answer. `MaterialFault` rails a sub-unit or super-decade turbidity, a negative zenith level, a non-positive exposure, an out-of-band solar diameter, an out-of-range site, and a non-finite radiance.
 - Law: radiance covers the WHOLE sphere. Each model distributes its own radiance over the upper hemisphere; the lower hemisphere is the GROUND — `GroundAlbedo` times the model's horizon radiance, evaluated once per texel through the same case — so a synthesized dome carries a real bounce rather than the mirrored bright band a clamped zenith cosine produces below the horizon. `GroundAlbedo` reaches that ground term as the same `RgbSpectrum` the Hosek-Wilkie fit consumes as its albedo axis, so one authored value drives both the sky's own inter-reflection and the dome's lower half.
-- Law: the per-texel sweeps on this page are its `[EXPRESSION_SPINE]` kernel exemption — a `readonly struct` `IAction` row writes into the plane owner's `Write` rail by row index, the carve-out `texture#TEXTURE_UV` `ProceduralNoise` and `acquisition#ACQUISITION` `SolveGgx` also name; every other operation is expression-bodied and rail-threaded. Radiance leaves a model in scene-linear AP1 channels at `PlaneTransfer.Linear`, so a display transfer never enters a SYNTHESIZED plane and the tone map that makes it viewable stays `surface#TONE_MAP`'s. Every channel folds through a finiteness gate before `RgbSpectrum.Create`: a non-finite fitted coefficient throws the carrier's own admission inside a partitioned sweep where no rail carries it.
-- Packages: Wacton.Unicolour (composed at the consuming edge — the scene-linear channel basis is `graph#MATERIAL_GRAPH` `PortValue.SceneLinear`, and a chromatic sky lands through the `photometric#PHOTOMETRIC` `EmissionSpectrum.Chromatic` arm rather than a re-minted illuminant here), NodaTime (`Instant` — the solar fold's clock carrier; a `DateTime` with an inferred kind is the fabricated-instant defect), CommunityToolkit.HighPerformance (`SpanOwner<T>` per-row scratch and `ParallelHelper.For` over a struct `IAction` row; the plane arena and its row windows are `Raster/plane#TEXTURE_PLANE`'s), Rasm (project — `Dimension`/`UnitInterval`/`Op`, and the `Numerics/calculus#SOLAR_EPHEMERIS` `SolarPosition.At`/`SolarSite`/`SunPosition` almanac the frame adapter projects), Rasm.Element (project — `ContentAddress` for the coefficient digest), Rasm.Materials.Appearance.Bsdf (`LocalVector`/`RgbSpectrum`/`MaterialFault`), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox.
-- Growth: a new standard sky is one `CieSkyType` row over the existing group pair — the fifteen admitted types are a PROJECTION of the six × six product, so a national-annex sky is a row and never a case; a new gradation or indicatrix is one row on its own band; a genuinely new analytic radiance law is one `SkyModel` case; a new atmospheric parameter is one `SkyAtmosphere` column every case reads or ignores. `SkyCoefficients` carries the Hosek-Wilkie coefficient block as a CONTENT-KEYED DATA ASSET, this page's one carve-out from the generated-table law: the coefficients are a least-squares fit over a brute-force atmospheric simulation, so generating them from a defining sequence is fiction — `SkyCoefficients.Of` admits the caller-supplied block against its declared extents and stamps a `ContentAddress`, and a revised fit is a NEW digest rather than an edit. `ControlPoints` carries the fit's SOLAR-ELEVATION axis as a Bézier control lattice, so the block's degree is a declared extent and the Bernstein weights generate from the binomial rather than from a transcribed row.
-- Boundary: solar position resolves the apparent refraction-corrected topocentric direction in the frozen `+Z`-up local frame — `+X` geographic north, `+Y` west, azimuth measured FROM `+X` increasing EASTWARD onto `−Y`: CLOCKWISE viewed from `+Z`, the OPPOSITE angular sense of the `[03]` equirect `u`, and the fold carries that sign exactly once (`−sin(azimuth)` on the `Y` lane), so the two conventions meet in the direction VALUE and never share an angular sense a transcriber could copy wrongly — while the geodetic datum, the site CRS, and any reprojection stay the app-root edge's and this owner takes latitude, longitude, and site elevation as admitted scalars. Site HEIGHT reaches the almanac's pressure-corrected refraction because it is the axis the correction is written on — a hardcoded sea level silently answers every alpine and altiplano study at the wrong horizon band, which is a wrong number no gate downstream can recover. Ground albedo enters as an `RgbSpectrum`, the validated non-negative three-band carrier, so a spectrally tinted ground bounce is representable and a scalar albedo is the grey triple rather than a second parameter shape. `photometric#PHOTOMETRIC` `Photometric.Admit` clears every authored ZENITH LEVEL before the `CieStandard` arm distributes it, so a `cd/m²` sky and a `lux` sky reach one radiometric scalar and no page-local efficacy divide exists.
+- Law: the SYNTHESIZED FIELD carries the sky alone and the DISC rides its own term. A half-degree source four decades brighter than the sky around it lands in one texel of a bounded dome, so writing it into the plane makes the `[04]` guide's texel measure the only structure importance-sampling it — a firefly no tap budget resolves and a quadrature error the SH projection carries forever. `Radiance` is therefore the diffuse field at every direction and `Disc` the direct beam the `[05]` row publishes as its own arm, which is what lets one dome serve a raster read and a path-traced draw without double-counting the sun.
+- Law: the per-texel sweeps on this page are its `[EXPRESSION_SPINE]` kernel exemption — a `readonly struct` `IAction` row writes into the plane owner's `Write` rail by row index, the carve-out `texture#TEXTURE_UV` `ProceduralNoise` also names — joined by the `SkySpectrum` band combination and its type-init reconstruction; every other operation is expression-bodied and rail-threaded. Radiance leaves a model in scene-linear AP1 channels at `PlaneTransfer.Linear`, so a display transfer never enters a SYNTHESIZED plane and the tone map that makes it viewable stays `surface#TONE_MAP`'s. Every channel folds through a finiteness gate before `RgbSpectrum.Create`: a non-finite fitted coefficient throws the carrier's own admission inside a partitioned sweep where no rail carries it.
+- Packages: Wacton.Unicolour (composed at the consuming edge — the scene-linear channel basis is `graph#MATERIAL_GRAPH` `PortValue.SceneLinear`, and a chromatic sky lands through the `photometric#PHOTOMETRIC` `EmissionSpectrum` arms `SkyModel.Cie` admits onto the `CieStandard` case as an admitted `EmissionInput` tint rather than a re-minted illuminant here), NodaTime (`Instant` — the solar fold's clock carrier; a `DateTime` with an inferred kind is the fabricated-instant defect), CommunityToolkit.HighPerformance (`SpanOwner<T>` per-row scratch and `ParallelHelper.For` over a struct `IAction` row; the plane arena and its row windows are `Raster/plane#TEXTURE_PLANE`'s), Rasm (project — `Dimension`/`UnitInterval`/`Op`, and the `Numerics/calculus#SOLAR_EPHEMERIS` `SolarPosition.At`/`SolarSite`/`SunPosition` almanac the frame projection reads), Rasm.Element (project — `ContentAddress` for the two asset digests), Rasm.Materials.Appearance.Bsdf (`LocalVector<T>`/`RgbSpectrum`/`MaterialFault`), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox.
+- Growth: a new standard sky is one `CieSkyType` row over the existing group pair — the fifteen admitted types are a PROJECTION of the six × six product, so a national-annex sky is a row and never a case; a new gradation or indicatrix is one row on its own band; a genuinely new analytic radiance law is one `SkyModel` case; a new atmospheric parameter is one `SkyAtmosphere` column every case reads or ignores. `SkyCoefficients` and `SolarCoefficients` carry the Hosek-Wilkie diffuse and solar-radiance blocks as TWO CONTENT-KEYED DATA ASSETS, this page's one carve-out from the generated-table law: both are least-squares fits over a brute-force atmospheric simulation, so generating either from a defining sequence is fiction — each `Of` admits its caller-supplied block against its own declared extents and stamps its own `ContentAddress`, and a revised fit is a NEW digest rather than an edit. They stay TWO assets rather than one concatenated block because their lattices differ in rank: the diffuse fit carries a ground-albedo axis the disc fit has no term for, and the disc fit carries a limb-darkening axis the diffuse fit has no direction for — one extent gate over a merged block would admit either array in the other's slot. `ControlPoints` carries each fit's SOLAR-ELEVATION axis as a Bézier control lattice, so the block's degree is a declared extent and the Bernstein weights generate from the binomial rather than from a transcribed row; `ControlLattice` owns that generation ONCE, so a third fitted asset is a record with its own extents and no second interpolation.
+- Boundary: solar position resolves the apparent refraction-corrected topocentric direction in the frozen `+Z`-up local frame — `+X` geographic north, `+Y` west, azimuth measured FROM `+X` increasing EASTWARD onto `−Y`: CLOCKWISE viewed from `+Z`, the OPPOSITE angular sense of the `[03]` equirect `u`, and the fold carries that sign exactly once (`−sin(azimuth)` on the `Y` lane), so the two conventions meet in the direction VALUE and never share an angular sense a transcriber could copy wrongly — while the geodetic datum, the site CRS, and any reprojection stay the app-root edge's and this owner takes latitude, longitude, and site elevation as admitted scalars. Site HEIGHT reaches the almanac's pressure-corrected refraction because it is the axis the correction is written on — a hardcoded sea level silently answers every alpine and altiplano study at the wrong horizon band, which is a wrong number no gate downstream can recover. Ground albedo enters as an `RgbSpectrum`, the validated non-negative three-band carrier, so a spectrally tinted ground bounce is representable and a scalar albedo is the grey triple rather than a second parameter shape. `photometric#PHOTOMETRIC` `Photometric.Admit` clears every authored ZENITH LEVEL at `SkyAtmosphere.Of` before the `CieStandard` arm distributes it, so a `cd/m²` sky and a `lux` sky reach one radiometric scalar and no page-local efficacy divide exists; the row carries the whole `UnitEvidence` receipt and `ZenithRadiance` is its radiometric projection, never a bare scalar a caller could set past the gate. SOLAR ANGULAR DIAMETER is an admitted `SkyAtmosphere` column with no page default: the disc a study wants is the site's own apparent diameter at its own date, an eclipse or a stylized sun is the same column at another value, and a transcribed mean would ship one epoch's astronomy as though it were a law of this owner. The `CieStandard` arm's disc is its own indicatrix evaluated at zero angular distance — the circumsolar peak the group already carries — so the ratio distribution and its direct beam are ONE algebra and no second solar model enters beside a standard sky.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
@@ -29,16 +29,18 @@ using System.Runtime.InteropServices;                // MemoryMarshal (the coeff
 using CommunityToolkit.HighPerformance;              // IAction, ReadOnlyMemory2D (the struct partition row, the level window)
 using CommunityToolkit.HighPerformance.Buffers;      // SpanOwner, AllocationMode
 using CommunityToolkit.HighPerformance.Helpers;      // ParallelHelper
+using System.Threading;                              // CancellationToken — the governance carrier's token half
 using LanguageExt;                                   // Fin, Seq, Option
+using LanguageExt.Common;                            // Error — the abandonment the governance seam lowers
 using NodaTime;                                      // Instant
 using Rasm.Domain;                                   // Op, Deterministic (Hammersley — the composed low-discrepancy draw)
 using Rasm.Element.Projection;                       // ContentAddress (the seam content key)
-using Rasm.Materials.Appearance.Bsdf;                // LocalVector, RgbSpectrum, MaterialFault (band 2450), Microfacet
-using Rasm.Materials.Appearance.Photometric;         // UnitEvidence, PhotometricQuantity, Photometric (the ONE light-unit gate)
+using Rasm.Materials.Appearance.Bsdf;                // LocalVector<T>, RgbSpectrum, MaterialFault (band 2450), Microfacet<T>
+using Rasm.Materials.Appearance.Photometric;         // UnitEvidence, PhotometricQuantity, EmissionInput, Photometric (the ONE light-unit gate)
 using Rasm.Materials.Appearance.Texture;             // TextureSource, TextureUv, SamplerState, UvFrame, UvSample, ShadeVec4, AddressMode, FilterMode
 using Rasm.Drawing;                                  // ChannelDtype — the kernel storage-type roster the HDR depth gate reads
-using Rasm.Materials.Raster;                         // TexturePlane, TexturePyramid, PlaneFormat, PlaneTransfer, PlanePrimaries, AlphaMode, MipPolicy, LayerLaw
-using Rasm.Numerics;                                 // Dimension, UnitInterval, SolarSite, SunPosition (the kernel almanac the adapter projects)
+using Rasm.Materials.Raster;                         // TexturePlane, TexturePyramid, PlaneFormat, PlaneTransfer, PlanePrimaries, AlphaMode, MipPolicy, LayerLaw, BakeGovernance
+using Rasm.Numerics;                                 // Dimension, UnitInterval, SolarPosition, SolarSite, SunPosition (the kernel almanac the frame projection reads)
 using Rhino.Geometry;                                // Vector3d — the UvSample world/normal lanes the dome leaves unused
 using Thinktecture;
 using static LanguageExt.Prelude;
@@ -50,12 +52,12 @@ namespace Rasm.Materials.Appearance;
 
 // --- [TYPES] -------------------------------------------------------------------------------
 // THE WORLD-DIRECTION CARRIER — the frozen +Z-up WORLD basis every dome surface speaks, a DISTINCT type from the
-// bsdf#SHADING_FRAME WorldDirection tangent triple ON PURPOSE: the two frames share axis labels and nothing else,
+// bsdf#SHADING_FRAME LocalVector<T> tangent triple ON PURPOSE: the two frames share axis labels and nothing else,
 // and one type serving both admitted a surface tangent-frame vector into a dome read as a silent re-lighting no
-// gate could see. The split is STRUCTURAL — a dome entry takes WorldDirection, a lobe kernel takes WorldDirection,
+// gate could see. The split is STRUCTURAL — a dome entry takes WorldDirection, a lobe kernel takes LocalVector<T>,
 // and the one legal crossing is an explicit basis rotation (the specular sweep's Oriented completion here; the
 // consumer's own OracleFrame transform at the render seam). CosZenith reads the +Z zenith cosine every sky and
-// measure law consumes; Zenith is the degenerate-normalize floor, matching WorldDirection's own convention.
+// measure law consumes; Zenith is the degenerate-normalize floor, matching LocalVector<T>'s own convention.
 public readonly record struct WorldDirection(double X, double Y, double Z) {
     public double CosZenith => Z;
     public double Dot(WorldDirection o) => (X * o.X) + (Y * o.Y) + (Z * o.Z);
@@ -65,6 +67,16 @@ public readonly record struct WorldDirection(double X, double Y, double Z) {
     public WorldDirection Normalize() {
         double n = Math.Sqrt((X * X) + (Y * Y) + (Z * Z));
         return n > 1e-12 ? new(X / n, Y / n, Z / n) : Zenith;
+    }
+
+    // Oriented completes an orthonormal basis on THIS direction and rotates a frame-local triple onto it — the one
+    // legal tangent-to-world crossing the WorldDirection/LocalVector<T> split makes explicit, declared once so the
+    // specular sweep's VNDF tap and the solar cap draw share one completion rather than two that could disagree.
+    public WorldDirection Oriented(double x, double y, double z) {
+        WorldDirection up = Math.Abs(Z) < 0.999 ? Zenith : new WorldDirection(1.0, 0.0, 0.0);
+        WorldDirection t = new WorldDirection((up.Y * Z) - (up.Z * Y), (up.Z * X) - (up.X * Z), (up.X * Y) - (up.Y * X)).Normalize();
+        WorldDirection b = new((Y * t.Z) - (Z * t.Y), (Z * t.X) - (X * t.Z), (X * t.Y) - (Y * t.X));
+        return t.Scale(x).Add(b.Scale(y)).Add(Scale(z)).Normalize();
     }
 
     public static readonly WorldDirection Zenith = new(0.0, 0.0, 1.0);
@@ -163,15 +175,15 @@ public sealed partial class MapLayout {
     // transform here would slide the mapping out from under the prefilter products that integrated it.
     public static readonly MapLayout Equirect =
         new("equirect", layers: 1, law: LayerLaw.None, aspect: 2.0, forward: Equirectangular.Of, inverse: Equirectangular.Direction,
-            layerOf: static _ => 0, measure: Equirectangular.Measure,
+            layerOf: static _ => 0, solidAngle: Equirectangular.Measure,
             sampler: new SamplerState(AddressMode.Repeat, AddressMode.Clamp, FilterMode.Trilinear, UvFrame.Identity));
     public static readonly MapLayout CubeFaces =
         new("cube-faces", layers: 6, law: LayerLaw.CubeFaces, aspect: 1.0, forward: Cube.Of, inverse: Cube.Direction,
-            layerOf: Cube.Face, measure: Cube.Measure,
+            layerOf: Cube.Face, solidAngle: Cube.Measure,
             sampler: new SamplerState(AddressMode.Clamp, AddressMode.Clamp, FilterMode.Trilinear, UvFrame.Identity));
     public static readonly MapLayout Octahedral =
         new("octahedral", layers: 1, law: LayerLaw.None, aspect: 1.0, forward: Octahedron.Of, inverse: Octahedron.Direction,
-            layerOf: static _ => 0, measure: Octahedron.Measure,
+            layerOf: static _ => 0, solidAngle: Octahedron.Measure,
             sampler: new SamplerState(AddressMode.Clamp, AddressMode.Clamp, FilterMode.Trilinear, UvFrame.Identity));
     public int Layers { get; }
     public LayerLaw Law { get; }
@@ -205,22 +217,87 @@ public sealed partial class MapLayout {
 // SkyAtmosphere rows the atmospheric parameters every sky case reads: Turbidity the Linke coefficient the
 // Hosek-Wilkie fit is parameterized on, GroundAlbedo the spectral bounce folded into the dome AND distributed over
 // its lower hemisphere, ZenithRadiance the admitted absolute level (already radiometric through the photometric
-// gate) the CIE ratio scales, Exposure the scene-linear multiplier a caller re-applies without re-rendering. One
-// row, every case.
-public readonly record struct SkyAtmosphere(double Turbidity, RgbSpectrum GroundAlbedo, double ZenithRadiance, double Exposure) {
-    public static Fin<SkyAtmosphere> Of(double turbidity, RgbSpectrum groundAlbedo, double zenithRadiance, double exposure, Op key) =>
+// gate) the CIE ratio scales, Exposure the scene-linear multiplier a caller re-applies without re-rendering,
+// SolarDiameter the APPARENT angular diameter of the disc in radians. One row, every case.
+// BandAlbedo is the authored GroundAlbedo resolved onto the fitted assets' own eleven-band grid, DERIVED once here
+// because the value is constant over a whole dome and the fit indexes it per band per texel — the RgbSpectrum stays
+// the authored column the folder law names, and this is its spectral projection rather than a second parameter.
+// ZenithLevel is the ADMITTED light magnitude, carried WHOLE as the photometric#PHOTOMETRIC receipt rather than as a
+// bare scalar: Of composes Photometric.Admit, so a cd/m² sky and a lux sky reach one radiometric number through the
+// folder's one gate and no page-local efficacy divide exists. Carrying the receipt rather than its radiometric field
+// alone is what lets the light row state WHICH unit a dome was authored in on the wire it mirrors.
+public readonly record struct SkyAtmosphere(
+    double Turbidity, RgbSpectrum GroundAlbedo, ReadOnlyMemory<double> BandAlbedo,
+    UnitEvidence ZenithLevel, double Exposure, double SolarDiameter) {
+    public double ZenithRadiance => ZenithLevel.RadiometricSi;
+    // The solar band is admitted rather than defaulted: apparent diameter varies with the earth-sun distance across a
+    // year, an eclipse study drives it to zero, and a stylized sun drives it wide, so a page constant would ship one
+    // epoch's astronomy as this owner's law. The upper bound is the geometry the disc algebra stays valid under — a
+    // source subtending more than a twentieth of the hemisphere is an area light, not a disc.
+    public const double SolarDiameterCeiling = Math.PI / 36.0;
+
+    // HalfAngleCosine is the disc membership test every direct-beam read shares: an angular distance whose cosine
+    // meets it lies ON the disc. One derivation, so the render, the light row, and the density never disagree about
+    // where the sun ends.
+    public double HalfAngleCosine => Math.Cos(SolarDiameter / 2.0);
+
+    // SolidAngle is the disc's own measure, the spherical cap 2pi(1 - cos(half-angle)) — the density denominator a
+    // uniform disc draw divides by and the factor a radiance-to-power reduction multiplies through.
+    public double SolidAngle => 2.0 * Math.PI * (1.0 - HalfAngleCosine);
+
+    // The zenith level enters as an AUTHORED magnitude with its own unit and crosses Photometric.Admit HERE — the
+    // folder law that every authored light magnitude crosses that gate is a fence on this page, not a claim about
+    // one. A dimensionless authoring passes PhotometricQuantity.Radiance, whose Borrowed coercion leaves
+    // RadiometricSi == CanonicalValue, so the unitless case costs one construction and no branch downstream.
+    public static Fin<SkyAtmosphere> Of(
+        double turbidity, RgbSpectrum groundAlbedo, PhotometricQuantity zenithQuantity, double zenithValue, Enum zenithUnit,
+        double exposure, double solarDiameter, Op key, Guid correlation) =>
         double.IsFinite(turbidity) && turbidity is >= 1.0 and <= 10.0
-        && double.IsFinite(zenithRadiance) && zenithRadiance >= 0.0
         && double.IsFinite(exposure) && exposure > 0.0
-            ? Fin.Succ(new SkyAtmosphere(turbidity, groundAlbedo, zenithRadiance, exposure))
-            : MaterialFault.Parameter(key, $"<sky-atmosphere-out-of-range:{turbidity:R},{zenithRadiance:R},{exposure:R}>");
+        && double.IsFinite(solarDiameter) && solarDiameter > 0.0 && solarDiameter <= SolarDiameterCeiling
+            ? from level in Photometric.Admit(zenithQuantity, zenithValue, zenithUnit, key, correlation)
+              from bands in SkySpectrum.BandAlbedo(groundAlbedo, key)
+              select new SkyAtmosphere(turbidity, groundAlbedo, bands, level, exposure, solarDiameter)
+            : MaterialFault.Parameter(key,
+                  $"<sky-atmosphere-out-of-range:{turbidity:R},{exposure:R},{solarDiameter:R}>");
 }
 
 // RenderBudget carries the partition budget every sweep on this page reads: ParallelFloor bounds per-thread work off the
-// caller's own policy rather than a page literal, and Parallel is the arming column a benchmark receipt flips.
-public readonly record struct RenderBudget(int ParallelFloor, bool Parallel) {
-    public static readonly RenderBudget Default = new(ParallelFloor: 32, Parallel: true);
+// caller's own policy rather than a page literal, Bands sets the governance granularity the same way, and Parallel is
+// the arming column a benchmark receipt flips.
+// GOVERNANCE rides the SAME row rather than a parameter tail, because every long entry on this page already threads
+// the budget and none of them threaded a token: a layout reprojection and an IBL prefilter each sweep
+// a whole environment field, and widening those signatures with two tails is the form the corpus deletes. The value
+// is the folder's ONE filter#PLANE_OP BakeGovernance carrier, so the sky dome, the texture press, and the plane
+// transform chain report on one shape and a caller composes one sink across all three. Default is INERT — an
+// ungoverned sweep pays one struct copy — and Governed is the seat an ambient-effect caller destructures into.
+public readonly record struct RenderBudget(int ParallelFloor, int Bands, bool Parallel, BakeGovernance Governance = default) {
+    public static readonly RenderBudget Default = new(ParallelFloor: 32, Bands: 16, Parallel: true);
     public int Floor => Parallel ? Math.Max(1, ParallelFloor) : int.MaxValue;
+    public RenderBudget Governed(Option<IProgress<double>> progress, CancellationToken cancel) =>
+        this with { Governance = Governance.Governed(progress, cancel) };
+    // The publish-and-check seam every sweep opens its level, face, or band group on. The unit is the sweep's own
+    // outer step — a mip level, a cube face, a CDF row block — because that is the boundary whose count the entry
+    // already knows; a per-texel report over a sixteen-million-texel field publishes one number sixteen million times.
+    public Option<Error> Opened(int done, int total) =>
+        Governance.Opened(total <= 0 ? 1.0 : done / (double)total);
+
+    // Sweep is the ONE governed partition every whole-field entry on this page runs — the layout reprojection, the SH
+    // projection, the luminance guide, the split-sum LUT, and each specular level (the dome synthesis sweeps on the
+    // press engine instead, which is why no sky sweep appears beside these). The stacked
+    // index space splits into the CALLER'S declared band count, each band partitioning through ParallelHelper.For and
+    // each band boundary opening the publish-and-check seam, so a dome sweep is watchable and abortable at a
+    // granularity no page literal fixes and an abandoned run stops at a band edge rather than after the whole field.
+    // A raw ParallelHelper.For beside this member is the ungoverned form: it takes the budget and reports nothing,
+    // which is a signature claiming governance the body never honours.
+    public Fin<Unit> Sweep<TAction>(int stacked, in TAction action) where TAction : struct, IAction {
+        int bands = Math.Max(1, Math.Min(Bands, stacked));
+        for (int band = 0; band < bands; band++) {
+            if (Opened(band, bands).Case is Error abandoned) { return Fin.Fail<Unit>(abandoned); }
+            ParallelHelper.For((int)((long)stacked * band / bands), (int)((long)stacked * (band + 1) / bands), action, Floor);
+        }
+        return Fin.Succ(Unit.Default);
+    }
 }
 
 // SkyCoefficients carries the Hosek-Wilkie fitted dataset as a CONTENT-KEYED ASSET — this page's one carve-out from
@@ -230,9 +307,10 @@ public readonly record struct RenderBudget(int ParallelFloor, bool Parallel) {
 // albedo node, turbidity node, Bezier control point, term) — the SOLAR-ELEVATION axis is the control-point dimension,
 // which is why a lookup takes an elevation parameter rather than a control-point index a caller would have to know
 // how to choose. The published fit's own extents are 10 turbidity nodes (integer 1..10), 2 albedo nodes (0 and 1),
-// 6 quintic control points, 9 configuration terms, and 1 radiance term — 3 channels for an RGB or XYZ block, 11 for the
-// spectral block at 320, 360, and 400..720 nm in 40 nm steps — so an RGB block admits at 3·2·10·6·10 = 3600
-// doubles. The configuration and radiance datasets ride the IDENTICAL (albedo, turbidity, control point) lattice in the
+// 6 quintic control points, 9 configuration terms, and 1 radiance term, over the SkySpectrum eleven-band grid — the
+// tristimulus block is refused here rather than admitted and re-based, because it is fitted against sRGB primaries
+// no column declares and its own solar counterpart was never published in tristimulus form at all, so admitting it
+// would put a dome and its sun on two colour paths. The configuration and radiance datasets ride the IDENTICAL (albedo, turbidity, control point) lattice in the
 // identical order, which is what lets them read as term slots 0..8 and 9 of ONE block; they ship as SEPARATE
 // arrays, so admitting them means INTERLEAVING each radiance value after its own nine-term group, never concatenating the
 // two arrays — a concatenated block admits the extent gate cleanly and then reads every radiance level as a
@@ -241,7 +319,7 @@ public sealed record SkyCoefficients(
     ReadOnlyMemory<double> Fitted, int Channels, int AlbedoNodes, int TurbidityNodes, int ControlPoints, int Terms, ContentAddress Key) {
     public static Fin<SkyCoefficients> Of(
         ReadOnlyMemory<double> fitted, int channels, int albedoNodes, int turbidityNodes, int controlPoints, int terms, Op key) =>
-        channels > 0 && albedoNodes > 0 && turbidityNodes > 0 && controlPoints > 1 && terms > 0
+        channels == SkySpectrum.BandCount && albedoNodes > 0 && turbidityNodes > 0 && controlPoints > 1 && terms > 0
         && fitted.Length == channels * albedoNodes * turbidityNodes * controlPoints * terms
         && Finite.All(fitted.Span)
             ? Fin.Succ(new SkyCoefficients(fitted, channels, albedoNodes, turbidityNodes, controlPoints, terms,
@@ -253,55 +331,182 @@ public sealed record SkyCoefficients(
     // degree, so both interpolations are the DATASET's contract and neither is a caller policy.
     public double Term(int channel, double albedo, double turbidity, double elevation, int term) {
         ReadOnlySpan<double> block = Fitted.Span;
-        (int a0, double at) = Node(albedo, AlbedoNodes);
-        (int t0, double tt) = Node((turbidity - 1.0) / 9.0, TurbidityNodes);
+        (int a0, double at) = ControlLattice.Node(albedo, AlbedoNodes);
+        (int t0, double tt) = ControlLattice.Node((turbidity - 1.0) / 9.0, TurbidityNodes);
         (int a1, int t1) = (Math.Min(a0 + 1, AlbedoNodes - 1), Math.Min(t0 + 1, TurbidityNodes - 1));
-        double lo = Lerp(Bezier(block, channel, a0, t0, elevation, term), Bezier(block, channel, a0, t1, elevation, term), tt);
-        double hi = Lerp(Bezier(block, channel, a1, t0, elevation, term), Bezier(block, channel, a1, t1, elevation, term), tt);
-        return Lerp(lo, hi, at);
+        double lo = ControlLattice.Lerp(Curve(block, channel, a0, t0, elevation, term), Curve(block, channel, a0, t1, elevation, term), tt);
+        double hi = ControlLattice.Lerp(Curve(block, channel, a1, t0, elevation, term), Curve(block, channel, a1, t1, elevation, term), tt);
+        return ControlLattice.Lerp(lo, hi, at);
     }
 
+    // Terms IS the control-point stride: the elevation axis is the next-outer lattice dimension, so consecutive
+    // control points sit one term-block apart and the Bernstein fold needs the first index and that step alone.
+    double Curve(ReadOnlySpan<double> block, int channel, int albedo, int turbidity, double elevation, int term) =>
+        ControlLattice.Bezier(block, At(channel, albedo, turbidity, controlPoint: 0, term), Terms, ControlPoints, elevation);
+
+    int At(int channel, int albedo, int turbidity, int controlPoint, int term) =>
+        ((((((channel * AlbedoNodes) + albedo) * TurbidityNodes) + turbidity) * ControlPoints) + controlPoint) * Terms + term;
+}
+
+// SolarCoefficients carries the Hosek-Wilkie SOLAR-RADIANCE fit as the page's SECOND content-keyed asset, on its own
+// digest, beside the diffuse block. The two stay separate assets rather than one merged array because their lattices
+// differ in RANK: this fit carries no ground-albedo axis (a disc's own emission does not read the ground it lights)
+// and carries a LIMB-DARKENING axis the diffuse fit has no direction for, so one extent gate over a concatenated
+// block would admit either array in the other's slot and read every limb coefficient as a configuration term.
+// Lattice axes run (channel, turbidity node, Bezier control point, limb term) — the solar-elevation axis is again the
+// control-point dimension, so a lookup takes an elevation parameter rather than an index a caller would have to
+// choose, and the limb terms are the polynomial in the cosine of the emission angle across the visible disc.
+public sealed record SolarCoefficients(
+    ReadOnlyMemory<double> Fitted, int Channels, int TurbidityNodes, int ControlPoints, int LimbTerms, ContentAddress Key) {
+    public static Fin<SolarCoefficients> Of(
+        ReadOnlyMemory<double> fitted, int channels, int turbidityNodes, int controlPoints, int limbTerms, Op key) =>
+        channels == SkySpectrum.BandCount && turbidityNodes > 0 && controlPoints > 1 && limbTerms > 0
+        && fitted.Length == channels * turbidityNodes * controlPoints * limbTerms
+        && Finite.All(fitted.Span)
+            ? Fin.Succ(new SolarCoefficients(fitted, channels, turbidityNodes, controlPoints, limbTerms,
+                  ContentAddress.Of(MemoryMarshal.AsBytes(fitted.Span))))
+            : MaterialFault.Parameter(key, $"<solar-coefficients-extent:{fitted.Length}>");
+
+    // ONE read: the turbidity lattice interpolates, the elevation control points fold through Bernstein per limb
+    // term, and the limb polynomial evaluates by Horner in the EMISSION-ANGLE COSINE — the disc-relative radius
+    // enters as sqrt(1 − r²), which is that cosine on a sphere, so the centre reads the full polynomial and the limb
+    // reads its constant term. Feeding the radius itself would darken the CENTRE and brighten the rim, which is the
+    // inversion a plausible-looking disc hides.
+    public double Radiance(int channel, double turbidity, double elevation, UnitInterval discRadius) {
+        ReadOnlySpan<double> block = Fitted.Span;
+        (int t0, double tt) = ControlLattice.Node((turbidity - 1.0) / 9.0, TurbidityNodes);
+        int t1 = Math.Min(t0 + 1, TurbidityNodes - 1);
+        double mu = Math.Sqrt(Math.Max(0.0, 1.0 - (discRadius.Value * discRadius.Value))), sum = 0.0;
+        for (int limb = LimbTerms - 1; limb >= 0; limb--) {
+            double lo = ControlLattice.Bezier(block, At(channel, t0, controlPoint: 0, limb), LimbTerms, ControlPoints, elevation);
+            double hi = ControlLattice.Bezier(block, At(channel, t1, controlPoint: 0, limb), LimbTerms, ControlPoints, elevation);
+            sum = (sum * mu) + ControlLattice.Lerp(lo, hi, tt);
+        }
+        return sum;
+    }
+
+    int At(int channel, int turbidity, int controlPoint, int limb) =>
+        ((((channel * TurbidityNodes) + turbidity) * ControlPoints) + controlPoint) * LimbTerms + limb;
+}
+
+// ControlLattice owns the interpolation algebra BOTH fitted assets read, so a third block is a record with its own
+// extents and no second derivation. Node and Lerp are the piecewise half; Bezier is the polynomial half over an axis
+// addressed by a first index and a stride, which is what lets one fold serve two lattices of different rank.
+internal static class ControlLattice {
     // Exemption: the Bernstein evaluation is a measured kernel — the weights GENERATE from the binomial at the
     // declared degree through the recurrence w(i+1) = w(i)·(n−i)/(i+1)·s/(1−s), so a fit shipped at a different
     // control-point count evaluates without a transcribed row. The parameter clamps a hair below one because the
     // recurrence divides by (1 − s): at the exact endpoint every weight would collapse to zero rather than to the
     // terminal control point, which is a zenith sun reading a black sky.
-    double Bezier(ReadOnlySpan<double> block, int channel, int albedo, int turbidity, double elevation, int term) {
-        double s = Math.Clamp(elevation, 0.0, 1.0 - 1e-12), inverse = 1.0 - s, sum = 0.0, weight = Math.Pow(inverse, ControlPoints - 1);
-        for (int i = 0; i < ControlPoints; i++) {
-            sum += weight * block[At(channel, albedo, turbidity, i, term)];
-            weight = i + 1 < ControlPoints ? weight * s * (ControlPoints - 1 - i) / ((i + 1) * inverse) : weight;
+    public static double Bezier(ReadOnlySpan<double> block, int first, int stride, int controlPoints, double parameter) {
+        double s = Math.Clamp(parameter, 0.0, 1.0 - 1e-12), inverse = 1.0 - s, sum = 0.0, weight = Math.Pow(inverse, controlPoints - 1);
+        for (int i = 0; i < controlPoints; i++) {
+            sum += weight * block[first + (i * stride)];
+            weight = i + 1 < controlPoints ? weight * s * (controlPoints - 1 - i) / ((i + 1) * inverse) : weight;
         }
         return sum;
     }
 
-    int At(int channel, int albedo, int turbidity, int controlPoint, int term) =>
-        ((((((channel * AlbedoNodes) + albedo) * TurbidityNodes) + turbidity) * ControlPoints) + controlPoint) * Terms + term;
-
-    static (int Node, double Fraction) Node(double unit, int nodes) {
+    public static (int Node, double Fraction) Node(double unit, int nodes) {
         double scaled = Math.Clamp(unit, 0.0, 1.0) * (nodes - 1);
         int index = Math.Clamp((int)Math.Floor(scaled), 0, Math.Max(0, nodes - 2));
         return (index, scaled - index);
     }
 
-    static double Lerp(double a, double b, double t) => a + ((b - a) * t);
+    public static double Lerp(double a, double b, double t) => a + ((b - a) * t);
+}
+
+// SolarDisc is the resolved DIRECT BEAM every case answers: the sun's own direction, the spherical cap it subtends,
+// and the radiance profile across that cap. Limb is a ROW DELEGATE because the two cases genuinely differ in what
+// they publish — the Hosek-Wilkie fit carries a limb-darkening polynomial over the disc, the CIE standard sky carries
+// the one circumsolar value its indicatrix already implies — so a caller reads ONE profile and no draw branches on
+// the model. Mean is the area-weighted disc average the [05] row publishes to the render seam and the [04] power
+// split reads; reading the centre as the whole disc over-states a limb-darkened sun by its own darkening ratio.
+public sealed record SolarDisc(
+    WorldDirection Direction, double CosHalfAngle, double SolidAngle, Func<UnitInterval, RgbSpectrum> Limb) {
+    // Exemption: the disc average is a bounded-quadrature kernel — the profile is a low-degree polynomial in the
+    // emission-angle cosine, so a midpoint rule over the cap's own linear-in-radius area measure resolves it well
+    // past the precision any radiance consumer reads, and the node count is a declared extent rather than a target.
+    private const int MeanNodes = 32;
+
+    public RgbSpectrum Centre => Limb(UnitInterval.Create(0.0));
+    public RgbSpectrum Mean { get; } = Average(Limb);
+
+    public bool Contains(WorldDirection direction) => direction.Normalize().Dot(Direction) >= CosHalfAngle;
+
+    // Radius answers WHERE on the disc a direction lands, so the profile reads one parameter rather than an angle
+    // every caller converts. Outside the cap the answer saturates at the rim, which is what keeps the profile total.
+    public UnitInterval Radius(WorldDirection direction) =>
+        Math.Clamp(direction.Normalize().Dot(Direction), -1.0, 1.0) switch {
+            var cosine => UnitInterval.Create(Math.Clamp(
+                Math.Sqrt(Math.Max(0.0, 1.0 - (cosine * cosine)) / Math.Max(1e-12, 1.0 - (CosHalfAngle * CosHalfAngle))), 0.0, 1.0)),
+        };
+
+    public RgbSpectrum Radiance(WorldDirection direction) =>
+        Contains(direction) ? Limb(Radius(direction)) : RgbSpectrum.Black;
+
+    static RgbSpectrum Average(Func<UnitInterval, RgbSpectrum> limb) {
+        (double r, double g, double b) = (0.0, 0.0, 0.0);
+        for (int i = 0; i < MeanNodes; i++) {
+            double radius = (i + 0.5) / MeanNodes;
+            RgbSpectrum sample = limb(UnitInterval.Create(radius));
+            (r, g, b) = (r + (sample.R * radius), g + (sample.G * radius), b + (sample.B * radius));
+        }
+        Span<double> channels = [2.0 * r / MeanNodes, 2.0 * g / MeanNodes, 2.0 * b / MeanNodes];
+        return Finite.Spectrum(channels);
+    }
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record SkyModel {
     private SkyModel() { }
 
-    public sealed record HosekWilkie(SkyCoefficients Coefficients) : SkyModel;
-    public sealed record CieStandard(CieSkyType Type) : SkyModel;
+    public sealed record HosekWilkie(SkyCoefficients Coefficients, SolarCoefficients Solar) : SkyModel;
+    public sealed record CieStandard(CieSkyType Type, RgbSpectrum Tint) : SkyModel;
 
-    // TermRadiance indexes the radiance level the published fit carries past its nine configuration terms per
-    // (channel, albedo, turbidity, elevation). Term COUNT is the asset's declared extent; these are the slot names the
-    // expansion reads, so a fit shipped with more terms admits and the extra slots go unread by this expansion.
-    private const int TermRadiance = 9;
+    // The published fit's own BLOCK ORDER, named by the ROLE each term plays in the expansion rather than by the
+    // paper's alphabetic letters — because the two DISAGREE at the tail. The dataset stores the Mie DIRECTIONALITY
+    // in the ninth slot and the zenith-gradient term in the eighth, while the paper's A..I naming puts the
+    // directionality eighth; binding the letters in order therefore transposes the two and produces a plausible sky
+    // with an inverted circumsolar band and a mis-scaled horizon, which no extent gate and no finiteness gate can
+    // see. Role names make that binding checkable at the read. Term COUNT is the asset's declared extent, so a fit
+    // shipped with more terms admits and the extra slots go unread by this expansion.
+    private const int TermGradationScale = 0, TermGradationExponent = 1, TermConstant = 2,
+        TermForwardScatter = 3, TermForwardDecay = 4, TermRayleigh = 5,
+        TermMieScale = 6, TermZenith = 7, TermMieDirectionality = 8, TermRadiance = 9;
+
+    // Cie is the CIE arm's ONE mint and the producer the chromatic escape needed: the standard sky publishes a
+    // LUMINANCE ratio, so a coloured overcast or a warm low sun reaches it as an ADMITTED photometric#PHOTOMETRIC
+    // EmissionInput whose Radiance is unit-Y chromaticity by construction — the tint is therefore a hue with the
+    // energy left on ZenithRadiance where the ratio distributes it, and every EmissionSpectrum arm (blackbody,
+    // standard illuminant, datasheet chromaticity, measured SPD, constant colour) reaches this case through the one
+    // admission rather than through a colour path minted here. Absent chroma is the achromatic sky at unit tint,
+    // the degenerate case of the same algebra rather than a second construction.
+    // TOTAL: both arms succeed, so no Fin envelope and no Op key — a rail with no failure to carry correlates
+    // nothing. The tint crosses the page's own Finite.Spectrum gate rather than a bare Math.Max, because
+    // Math.Max(0.0, NaN) is NaN and the validated mint would take it.
+    public static SkyModel Cie(CieSkyType type, Option<EmissionInput> chroma) =>
+        new CieStandard(type, chroma
+            .Map(static input => input.Radiance.RgbLinear.Triplet switch {
+                var t => Finite.Spectrum([t.First, t.Second, t.Third]),
+            })
+            .IfNone(RgbSpectrum.White));
 
     public string WireKey => Switch(
         hosekWilkie: static _ => "hosek-wilkie",
         cieStandard: static c => c.Type.WireKey);
+
+    // Disc resolves the direct beam BOTH cases answer, on the atmosphere's own admitted angular diameter. The
+    // Hosek-Wilkie arm reads its solar asset across the disc; the CIE arm evaluates its own distribution at zero
+    // angular distance from the sun — the circumsolar peak the indicatrix group already carries — so the standard
+    // sky's ratio law and its direct beam are ONE algebra and no second solar model enters beside it.
+    public SolarDisc Disc(WorldDirection sun, SkyAtmosphere atmosphere) => Switch(
+        state: (Sun: sun.Normalize(), Atmosphere: atmosphere),
+        hosekWilkie: static (s, h) => new SolarDisc(s.Sun, s.Atmosphere.HalfAngleCosine, s.Atmosphere.SolidAngle,
+            radius => Limb(h.Solar, s.Sun, s.Atmosphere, radius)),
+        cieStandard: static (s, c) => Circumsolar(c, s.Sun, s.Atmosphere) switch {
+            var beam => new SolarDisc(s.Sun, s.Atmosphere.HalfAngleCosine, s.Atmosphere.SolidAngle, _ => beam),
+        });
 
     // Per-direction scene-linear radiance in the +Z-up local frame over the WHOLE sphere. Both arms are pure over
     // (direction, sun, atmosphere) and the render fold owns the sweep, so a per-model entrypoint cannot exist. Below the
@@ -315,7 +520,7 @@ public abstract partial record SkyModel {
     RgbSpectrum Sky(WorldDirection direction, WorldDirection sun, SkyAtmosphere atmosphere) => Switch(
         state: (Direction: direction, Sun: sun, Atmosphere: atmosphere),
         hosekWilkie: static (s, h) => Fitted(h.Coefficients, s.Direction, s.Sun, s.Atmosphere),
-        cieStandard: static (s, c) => Standard(c.Type, s.Direction, s.Sun, s.Atmosphere));
+        cieStandard: static (s, c) => Standard(c, s.Direction, s.Sun, s.Atmosphere));
 
     // Ground reads the model's own radiance at the horizon on the sun's azimuth and multiplies by the spectral
     // albedo: one evaluation, both cases, no second lighting model and no flat authored constant. A zenith sun has
@@ -341,49 +546,75 @@ public abstract partial record SkyModel {
         double cosTheta = Math.Max(0.0, direction.CosZenith);
         double cosGamma = Math.Clamp(direction.Dot(sun), -1.0, 1.0);
         double gamma = Math.Acos(cosGamma);
-        double elevation = Math.Cbrt(Math.Clamp(Math.Asin(Math.Clamp(sun.CosZenith, -1.0, 1.0)) / (Math.PI / 2.0), 0.0, 1.0));
-        ReadOnlySpan<double> albedo = [atmosphere.GroundAlbedo.R, atmosphere.GroundAlbedo.G, atmosphere.GroundAlbedo.B];
-        Span<double> channels = stackalloc double[3];
-        for (int c = 0; c < 3; c++) {
-            double a = fit.Term(c, albedo[c], atmosphere.Turbidity, elevation, 0), b = fit.Term(c, albedo[c], atmosphere.Turbidity, elevation, 1);
-            double p = fit.Term(c, albedo[c], atmosphere.Turbidity, elevation, 2), d = fit.Term(c, albedo[c], atmosphere.Turbidity, elevation, 3);
-            double e = fit.Term(c, albedo[c], atmosphere.Turbidity, elevation, 4), f = fit.Term(c, albedo[c], atmosphere.Turbidity, elevation, 5);
-            double g = fit.Term(c, albedo[c], atmosphere.Turbidity, elevation, 6), h = fit.Term(c, albedo[c], atmosphere.Turbidity, elevation, 7);
-            double i = fit.Term(c, albedo[c], atmosphere.Turbidity, elevation, 8);
-            double level = fit.Term(c, albedo[c], atmosphere.Turbidity, elevation, TermRadiance);
-            double mie = (1.0 + (cosGamma * cosGamma)) / Math.Pow(Math.Max(1e-6, 1.0 + (h * h) - (2.0 * h * cosGamma)), 1.5);
-            double expansion = (1.0 + (a * Math.Exp(b / (cosTheta + 0.01))))
-                             * (p + (d * Math.Exp(e * gamma)) + (f * cosGamma * cosGamma) + (g * mie) + (i * Math.Sqrt(cosTheta)));
-            channels[c] = expansion * level * atmosphere.Exposure;
+        double elevation = Elevation(sun);
+        ReadOnlySpan<double> albedo = atmosphere.BandAlbedo.Span;
+        Span<double> channels = stackalloc double[fit.Channels];
+        for (int c = 0; c < fit.Channels; c++) {
+            double Term(int slot) => fit.Term(c, albedo[c], atmosphere.Turbidity, elevation, slot);
+            double directionality = Term(TermMieDirectionality);
+            double mie = (1.0 + (cosGamma * cosGamma))
+                       / Math.Pow(Math.Max(1e-6, 1.0 + (directionality * directionality) - (2.0 * directionality * cosGamma)), 1.5);
+            double expansion = (1.0 + (Term(TermGradationScale) * Math.Exp(Term(TermGradationExponent) / (cosTheta + 0.01))))
+                             * (Term(TermConstant)
+                                + (Term(TermForwardScatter) * Math.Exp(Term(TermForwardDecay) * gamma))
+                                + (Term(TermRayleigh) * cosGamma * cosGamma)
+                                + (Term(TermMieScale) * mie)
+                                + (Term(TermZenith) * Math.Sqrt(cosTheta)));
+            channels[c] = expansion * Term(TermRadiance);
         }
-        return Finite.Spectrum(channels);
+        return SkySpectrum.ToScene(channels, atmosphere.Exposure);
     }
 
-    // Standard distributes the CIE standard sky's LUMINANCE ratio, so this arm is achromatic in the working space: a
-    // chromatic overcast dome is the photometric#PHOTOMETRIC EmissionSpectrum.Chromatic arm a caller composes, never a
-    // second colour path minted here.
-    static RgbSpectrum Standard(CieSkyType type, WorldDirection direction, WorldDirection sun, SkyAtmosphere atmosphere) {
-        double level = type.Relative(
+    // Standard distributes the CIE standard sky's LUMINANCE ratio and paints it with the case's own admitted Tint,
+    // so the arm carries a hue without a second colour path: the ratio owns the distribution, ZenithRadiance the
+    // energy, and the unit-Y tint the chromaticity Cie admitted off the photometric gate.
+    static RgbSpectrum Standard(CieStandard sky, WorldDirection direction, WorldDirection sun, SkyAtmosphere atmosphere) {
+        double level = sky.Type.Relative(
             Math.Max(1e-4, direction.CosZenith),
             Math.Acos(Math.Clamp(direction.Dot(sun), -1.0, 1.0)),
             Math.Acos(Math.Clamp(sun.CosZenith, -1.0, 1.0))) * atmosphere.ZenithRadiance * atmosphere.Exposure;
-        Span<double> channels = [level, level, level];
+        Span<double> channels = [level * sky.Tint.R, level * sky.Tint.G, level * sky.Tint.B];
         return Finite.Spectrum(channels);
     }
+
+    // Circumsolar reads the SAME distribution at zero angular distance from the sun, which is the disc's own
+    // radiance: the indicatrix group peaks there by construction, so the standard sky's direct beam is its own
+    // circumsolar limit rather than a solar model bolted beside it.
+    static RgbSpectrum Circumsolar(CieStandard sky, WorldDirection sun, SkyAtmosphere atmosphere) =>
+        Standard(sky, sun, sun, atmosphere);
+
+    // Limb reads the solar asset across the disc at the sun's own elevation and turbidity. Radius is the profile's
+    // one parameter, so the centre reads the full polynomial and the rim its constant term.
+    static RgbSpectrum Limb(SolarCoefficients solar, WorldDirection sun, SkyAtmosphere atmosphere, UnitInterval radius) {
+        double elevation = Elevation(sun);
+        Span<double> channels = stackalloc double[solar.Channels];
+        for (int c = 0; c < solar.Channels; c++) {
+            channels[c] = solar.Radiance(c, atmosphere.Turbidity, elevation, radius);
+        }
+        return SkySpectrum.ToScene(channels, atmosphere.Exposure);
+    }
+
+    // Elevation is the fit's own cube-root parameterization, derived ONCE so the diffuse expansion and the disc read
+    // one axis: both assets index their control lattice on it, and two derivations would let a low sun read the
+    // sky at one elevation and its own disc at another.
+    static double Elevation(WorldDirection sun) =>
+        Math.Cbrt(Math.Clamp(Math.Asin(Math.Clamp(sun.CosZenith, -1.0, 1.0)) / (Math.PI / 2.0), 0.0, 1.0));
 }
 
 // --- [OPERATIONS] --------------------------------------------------------------------------
-// SolarPosition is the FRAME ADAPTER over the kernel Rasm/Numerics/calculus#SOLAR_EPHEMERIS almanac: the apparent
+// SolarFrame is the FRAME PROJECTION over the kernel Rasm/Numerics/calculus#SOLAR_EPHEMERIS almanac: the apparent
 // azimuth/altitude ANGLES resolve at the kernel (nutation, quadratic mean longitude, pressure-corrected refraction),
 // and this owner projects them into the frozen +X-north/+Y-west/+Z-up frame — the one part of the fold that is this
-// page's own correspondence. The kernel SunPosition.Direction (+Y-north survey frame) is deliberately unread here.
+// page's own correspondence, which is what the name states. The kernel keeps the SolarPosition name and stays the
+// one ephemeris home, so the call below is an ordinary composition rather than a qualified escape from a shadow.
+// The kernel SunPosition.Direction (+Y-north survey frame) is deliberately unread here.
 // CONSEQUENCE for a daylight consumer: the kernel's closed-form fold holds arc-minute apparent position across the
 // four centuries around J2000 and degrades gradually outside that window, so a study inside it is bounded by the
 // atmosphere rather than by the almanac — real pressure, temperature, and humidity variance near the horizon exceeds
 // the whole algorithmic budget, which is why site ELEVATION is a parameter here and a higher-order ephemeris is not.
 // A study that genuinely needs sub-arc-second position across millennia is a kernel-tier request, never a fold added
 // beside this adapter.
-public static class SolarPosition {
+public static class SolarFrame {
     // Elevation is a SITE axis, not a constant: the kernel almanac corrects Bennett refraction by the
     // barometric pressure ratio at the site's own height, so a mountain site and a sea-level site resolve
     // different apparent altitudes near the horizon — exactly the band a daylight study reads. The gate
@@ -395,7 +626,7 @@ public static class SolarPosition {
         double.IsFinite(latitudeDegrees) && latitudeDegrees is >= -90.0 and <= 90.0
         && double.IsFinite(longitudeDegrees) && longitudeDegrees is >= -180.0 and <= 180.0
         && double.IsFinite(elevationM) && elevationM is > -500.0 and <= 10000.0
-            ? Fin.Succ(Project(Rasm.Numerics.SolarPosition.At(
+            ? Fin.Succ(Project(SolarPosition.At(
                 SolarSite.Create(latitudeDegrees, longitudeDegrees, timezoneHours: 0.0, elevationM), instant)))
             : MaterialFault.Parameter(key, $"<solar-site-out-of-range:{latitudeDegrees:R},{longitudeDegrees:R},{elevationM:R}>");
 
@@ -407,6 +638,68 @@ public static class SolarPosition {
         double apparent = sun.AltitudeDeg * (Math.PI / 180.0);
         return new WorldDirection(Math.Cos(apparent) * Math.Cos(azimuth), -(Math.Cos(apparent) * Math.Sin(azimuth)), Math.Sin(apparent)).Normalize();
     }
+}
+
+// SkySpectrum is the ONE colour path both fitted assets cross. The published Hosek-Wilkie datasets carry a
+// SOLAR-RADIANCE block in SPECTRAL FORM ONLY — no tristimulus solar fit was ever published — while the
+// three-channel diffuse block is fitted against sRGB primaries, so admitting the tristimulus block beside the
+// spectral one would put a dome and its own sun on two colour paths and hand the dome a primaries re-base no
+// SkyCoefficients column declares. Both assets therefore admit their ELEVEN-BAND spectral fit and integrate here.
+// The integration is a DERIVED band→scene matrix built once at type init: each band's unit basis reconstructs onto
+// the Spd sampling grid through the same monotone-cubic reconstruction surface#SPECTRAL_UPSAMPLE runs (no overshoot,
+// so a basis bounded in [0,1] cannot acquire a negative lobe at its own edges), crosses Wacton's observer
+// integration through the ONE PortValue.SceneLinear working space, and lands as that band's scene-linear
+// contribution. Per texel the whole integration is then the linear combination the expansion already produced —
+// no interpolant rebuilds per sample, and the CIE observer, the white point, and the AP1 primaries all arrive from
+// the one owner that publishes them rather than from a re-base this page would have to declare.
+internal static class SkySpectrum {
+    // The published spectral grid: 320 nm to 720 nm at a uniform 40 nm step.
+    public const int BandStartNm = 320, BandStepNm = 40, BandCount = 11;
+
+    // A band's scene-linear column may carry NEGATIVE channels — a narrow spectral basis lies outside AP1, and that
+    // is the honest reading. Only the SUM over a real spectrum is a radiance, so the floor-and-finiteness gate runs
+    // once on the combination rather than per column, where it would bias every integration it touched.
+    private static readonly (double R, double G, double B)[] Basis = [.. Enumerable.Range(0, BandCount).Select(static band =>
+        new Unicolour(PortValue.SceneLinear, Reconstruct(band)).RgbLinear.Triplet switch {
+            var t => (t.First, t.Second, t.Third),
+        })];
+
+    // Exemption: the type-init reconstruction is a measured kernel — one monotone-cubic interpolant per band, built
+    // eleven times at class load and never again.
+    private static Spd Reconstruct(int band) =>
+        Interpolate.CubicSplineMonotone(
+            [.. Enumerable.Range(0, BandCount).Select(static i => (double)(BandStartNm + (i * BandStepNm)))],
+            [.. Enumerable.Range(0, BandCount).Select(i => i == band ? 1.0 : 0.0)]) switch {
+            var curve => new Spd(SpectralUpsample.SampleStart, SpectralUpsample.SampleStep,
+                [.. Enumerable.Range(0, SpectralUpsample.SampleCount).Select(sample =>
+                    Math.Max(0.0, curve.Interpolate(SpectralUpsample.SampleStart + (sample * SpectralUpsample.SampleStep))))]),
+        };
+
+    // Exemption: the per-texel combination is a measured kernel — eleven multiply-adds over the derived columns.
+    public static RgbSpectrum ToScene(ReadOnlySpan<double> bands, double exposure) {
+        (double r, double g, double b) = (0.0, 0.0, 0.0);
+        for (int band = 0; band < bands.Length; band++) {
+            (double br, double bg, double bb) = Basis[band];
+            (r, g, b) = (r + (bands[band] * br), g + (bands[band] * bg), b + (bands[band] * bb));
+        }
+        Span<double> channels = [r * exposure, g * exposure, b * exposure];
+        return Finite.Spectrum(channels);
+    }
+
+    // The ground albedo authored as an RgbSpectrum resolves onto the fit's OWN band grid once per atmosphere, never
+    // per texel: the upsample's sampled reflectance IS the curve, read at each band centre off the page's declared
+    // extent. Below the visible grid the reflectance flat-extrapolates from its first sample — a reflectance carries
+    // no structure at 320 and 360 nm that a visible-range upsample could have invented — and the two lattice bands
+    // there read that value rather than a fabricated one or a zero the fit would take as a black ground.
+    public static Fin<ReadOnlyMemory<double>> BandAlbedo(RgbSpectrum albedo, Op key) =>
+        SpectralUpsample.ToCurve(albedo, key).Map(static curve =>
+            (ReadOnlyMemory<double>)[.. Enumerable.Range(0, BandCount).Select(band =>
+                Math.Clamp((BandStartNm + (band * BandStepNm) - SpectralUpsample.SampleStart) / (double)SpectralUpsample.SampleStep, 0.0, SpectralUpsample.SampleCount - 1.0) switch {
+                    var position => (int)position switch {
+                        var node when node >= SpectralUpsample.SampleCount - 1 => curve.Span[SpectralUpsample.SampleCount - 1],
+                        var node => curve.Span[node] + ((curve.Span[node + 1] - curve.Span[node]) * (position - node)),
+                    },
+                })]);
 }
 
 // Finite folds both finiteness gates under the declared kernel exemption: All gates an admitted block, Spectrum gates
@@ -425,52 +718,33 @@ internal static class Finite {
 }
 
 public static class SkyRender {
-    // ONE synthesis entry, parameterized by the LAYOUT ROW. The extent, the layer count, and the inverse coordinate
-    // law all read off the row, so a cube-face dome and an equirect dome are one body and the 2:1 equirect law is the
-    // row's aspect column rather than a width-parity gate a cube layout would fail for the wrong reason. The sweep
-    // partitions stacked (layer, row) indices through ParallelHelper.For over a readonly-struct IAction row that
-    // writes through the plane owner's own Write rail — the transfer and lane gather are the arena's, never re-spelled.
-    public static Fin<TexturePlane> Render(
-        SkyModel model, SkyAtmosphere atmosphere, WorldDirection sun, MapLayout layout, Dimension edge, RenderBudget budget, Op key) {
-        (Dimension width, Dimension height) = layout.Extent(edge);
-        return TexturePlane.Of(PlaneFormat.Rgba32F, width, height, PlaneTransfer.Linear, AlphaMode.None, key,
-                    layers: Some(Dimension.Create(layout.Layers)))
-                .Map(plane => {
-                    ParallelHelper.For(0, height.Value * layout.Layers, new SkySweep(model, atmosphere, sun.Normalize(), layout, plane), budget.Floor);
-                    return plane;
-                });
-    }
-
-    // Exemption: one row per partitioned index, each texel resolving the [03] correspondence into the ShadeVec4 field the
-    // Write rail gathers. Scratch is rented per invocation off the array pool the SpanOwner rail owns, never held on the
-    // plane — a plane-held buffer serializes every row fold this page and the filter passes drive.
-    readonly struct SkySweep(SkyModel model, SkyAtmosphere atmosphere, WorldDirection sun, MapLayout layout, TexturePlane plane) : IAction {
-        public void Invoke(int stacked) {
-            (int width, int height) = (plane.Width.Value, plane.Height.Value);
-            (int layer, int y) = (stacked / height, stacked % height);
-            using SpanOwner<ShadeVec4> field = SpanOwner<ShadeVec4>.Allocate(width, AllocationMode.Clear);
-            UnitInterval v = UnitInterval.Create((y + 0.5) / height);
-            Span<ShadeVec4> lanes = field.Span;
-            for (int x = 0; x < width; x++) {
-                RgbSpectrum radiance = model.Radiance(
-                    layout.Inverse(UnitInterval.Create((x + 0.5) / width), v, layer), sun, atmosphere);
-                lanes[x] = new ShadeVec4(radiance.R, radiance.G, radiance.B, 1.0);
-            }
-            plane.WriteShade(y, layer, lanes);
-        }
-    }
+    // The sky owner supplies the per-texel RADIANCE and NOTHING ELSE. Raster/press#PRESS_PLAN PressSubject.Sky
+    // carries this closure, partitions the dome under PressProgram.Dome, and owns the extent, the layer arrangement
+    // (its equirect band arm reading LayerLaw.CubeFaces for a cube dome), cancellation, the receipt, and the
+    // accelerator lane. A page-local partition beside that engine was the press spelled twice — the two would drift
+    // the first time one grew a governance column the other lacked, and only the press-written plane is a plane a
+    // TextureSet can carry. What survives here is the model: the radiance law and its rows, which is the part no
+    // press could own.
+    // The closure crosses the host Vector3d the press subject declares and lifts to this page's WorldDirection at
+    // this ONE site — the confined [KERNEL_EDGE] the folder law admits, countable and retiring the day the press
+    // subject goes host-neutral. The sun normalizes ONCE, outside the closure, so a whole-dome sweep pays it once.
+    public static Func<Vector3d, RgbSpectrum> Radiance(SkyModel model, SkyAtmosphere atmosphere, WorldDirection sun) =>
+        sun.Normalize() switch {
+            var normalized => direction =>
+                model.Radiance(new WorldDirection(direction.X, direction.Y, direction.Z).Normalize(), normalized, atmosphere),
+        };
 }
 ```
 
 ## [03]-[ENVIRONMENT_MAP]
 
 - Owner: `EnvironmentMap` the admitted directional-radiance carrier over one `TexturePlane`; `MapLayout` the storage band; `Equirectangular`/`Cube`/`Octahedron` the three coordinate laws the rows bind.
-- Entry: `public static Fin<EnvironmentMap> Of(TexturePlane plane, MapLayout layout, UnitEvidence intensity, double rotation, Op key)` admits a decoded plane against its layout's aspect law, its transfer band, its HDR depth gate, and its layer congruence, lifting ONE scene-linear sampler PER LAYER; `public Fin<EnvironmentMap> Project(MapLayout target, Dimension edge, RenderBudget budget, Op key)` is the ONE layout relation — equirect to cube faces, cube faces to equirect, either to octahedral — because a direction-indexed field admits an exact inverse and a direction-named sibling converter pair is the rejected split; `Stored(direction, lod)`, `Radiance(direction, lod)`, and `Texel(layer, x, y)` are the three reads.
+- Entry: `public static Fin<EnvironmentMap> Of(TexturePlane plane, MapLayout layout, PhotometricQuantity quantity, double intensity, Enum unit, double rotation, Op key, Guid correlation)` and its already-admitted `UnitEvidence` sibling shape admit a decoded plane against its layout's aspect law, its transfer band, its HDR depth gate, and its layer congruence, lifting ONE scene-linear sampler PER LAYER; `public Fin<EnvironmentMap> Project(MapLayout target, Dimension edge, RenderBudget budget, Op key)` is the ONE layout relation — equirect to cube faces, cube faces to equirect, either to octahedral — because a direction-indexed field admits an exact inverse and a direction-named sibling converter pair is the rejected split; `Stored(direction, lod)`, `Radiance(direction, lod)`, and `Texel(layer, x, y)` are the three reads.
 - Law: STORED and WORLD are two frames on ONE field and the split is structural. `Stored` reads the plane as authored — no rotation, no intensity; `Radiance` un-applies the dome rotation and scales by intensity. Every PREFILTER product integrates `Stored`, so rotating or re-exposing a dome re-keys NOTHING: the SH vector, the specular level set, and the luminance guide are stored-frame blobs a rotation reads through rather than a policy baked into their bytes. Prefiltering over the world frame makes `EnvironmentLight.Rotation` a re-bake trigger while this owner's boundary law calls it read-time — that contradiction is what the split forecloses.
-- Law: the equirect correspondence is FROZEN and single-sourced here — `u = 0.5 + atan2(d.Y, d.X) / 2π`, `v = acos(clamp(d.Z, −1, 1)) / π`, `v = 0` at `+Z`, `u` increasing counter-clockwise viewed from `+Z` — so the sky sweep, the prefilter, the CDF, and the `EnvironmentLight` lookup all address one mapping and a consumer re-deriving it forks the seam this owner exists to hold. `WorldDirection` is the PRODUCER-OWNED world carrier of that basis — the same `+Z`-up convention the `bsdf#SHADING_FRAME` `LocalVector` tangent triple declares for its own frame, split into a DISTINCT type here so a tangent-frame vector cannot reach a dome read and the frame law needs no consumer-side prose; a Y-up runtime remaps the DIRECTION BASIS at its own read and never rewrites a plane.
+- Law: the equirect correspondence is FROZEN and single-sourced here — `u = 0.5 + atan2(d.Y, d.X) / 2π`, `v = acos(clamp(d.Z, −1, 1)) / π`, `v = 0` at `+Z`, `u` increasing counter-clockwise viewed from `+Z` — so the sky sweep, the prefilter, the CDF, and the `EnvironmentLight` lookup all address one mapping and a consumer re-deriving it forks the seam this owner exists to hold. `WorldDirection` is the PRODUCER-OWNED world carrier of that basis — the same `+Z`-up convention the `bsdf#SHADING_FRAME` `LocalVector<T>` tangent triple declares for its own frame, split into a DISTINCT type here so a tangent-frame vector cannot reach a dome read and the frame law needs no consumer-side prose; a Y-up runtime remaps the DIRECTION BASIS at its own read and never rewrites a plane.
 - Law: the sampler lift is PER LAYER. `Raster/plane#TEXTURE_PYRAMID` `AsImage` carries one layer by construction, so a six-face cube admitted as one sampler refuses the bridge and leaves the layered arms declared capability that cannot run. Each layer extracts as its own scene-linear plane, folds its own Kaiser pyramid, and lifts one `TextureSource.Image`; the map HOLDS each pyramid beside its sampler — the bridge's levels window the pyramid's arenas, so the chain releases at the map's own `Dispose` and a lift-time dispose reads freed memory on the first tap.
 - Growth: a new arrangement is one `MapLayout` row binding its layer count, `LayerLaw`, aspect, and the three coordinate delegates — the `Project` fold and the per-layer lift read all four off the row, so a dual-paraboloid or lat-long cube-cross lands as a row with zero new surface; a new admission gate is one predicate on `Of`.
-- Boundary: `EnvironmentMap` NEVER decodes a container — `Raster/codec#RASTER_CODEC` sniffs the magic and produces the plane, this owner admitting the decoded plane alone, so a Radiance `.hdr`, an OpenEXR half plane, and a synthesized sky reach ONE admission. `linear`, `pq`, and `hlg` are the ADMITTED transfers and this is the one surface in the corpus where the display-referred pair is legal; `srgb` and `raw` refuse, because an sRGB-encoded dome cannot carry a sun and a raw dome declares no light quantity at all. `Lift` lowers whatever admits to scene-linear ONCE through the arena's own `Read` rail, so every value this owner hands out is scene-referred and no consumer re-applies a transfer. Rotation and intensity are READ-TIME values — a re-oriented or re-exposed dome never re-keys a blob and never re-runs a prefilter — and a rotated dome is a coordinate change rather than a resampled plane. Intensity is an ADMITTED light magnitude, never a bare multiplier: every authored light quantity in this folder crosses `photometric#PHOTOMETRIC` `Photometric.Admit`, and this owner's exposure is the second of that gate's two sites beside the `[02]` `CieStandard` zenith level. The row carries the whole `UnitEvidence` receipt and every read scales by `RadiometricSi`, so a dome authored in `lux` and a dome authored as a dimensionless gain are distinguishable at the row rather than at a comment; the dimensionless case admits as `PhotometricQuantity.Radiance`, whose `Borrowed` coercion leaves `RadiometricSi == CanonicalValue`, so the unitless authoring costs one construction and no branch anywhere downstream. `MaterialFault` rails a wrong-aspect plane, a layer count contradicting the row, an integer-depth plane, a refused transfer, and an out-of-range read policy.
+- Boundary: `EnvironmentMap` NEVER decodes a container — `Raster/codec#RASTER_CODEC` sniffs the magic and produces the plane, this owner admitting the decoded plane alone, so a Radiance `.hdr`, an OpenEXR half plane, and a synthesized sky reach ONE admission. `linear`, `pq`, and `hlg` are the ADMITTED transfers and this is the one surface in the corpus where the display-referred pair is legal; `srgb` and `raw` refuse, because an sRGB-encoded dome cannot carry a sun and a raw dome declares no light quantity at all. `Lift` lowers whatever admits to scene-linear ONCE through the arena's own `Read` rail, so every value this owner hands out is scene-referred and no consumer re-applies a transfer. Rotation and intensity are READ-TIME values — a re-oriented or re-exposed dome never re-keys a blob and never re-runs a prefilter — and a rotated dome is a coordinate change rather than a resampled plane. Intensity is an ADMITTED light magnitude, never a bare multiplier: every authored light quantity in this folder crosses `photometric#PHOTOMETRIC` `Photometric.Admit`, and this owner's `Of` IS the second of that gate's two sites beside the `[02]` `SkyAtmosphere.Of` zenith level — the authored input shape composes the gate and the `UnitEvidence` input shape re-seats an already-admitted receipt, so the reprojection never double-coerces what admission already proved. The row carries the whole `UnitEvidence` receipt and every read scales by `RadiometricSi`, so a dome authored in `lux` and a dome authored as a dimensionless gain are distinguishable at the row rather than at a comment; the dimensionless case admits as `PhotometricQuantity.Radiance`, whose `Borrowed` coercion leaves `RadiometricSi == CanonicalValue`, so the unitless authoring costs one construction and no branch anywhere downstream. `MaterialFault` rails a wrong-aspect plane, a layer count contradicting the row, an integer-depth plane, a refused transfer, and an out-of-range read policy.
 
 ```csharp signature
 // --- [MODELS] ------------------------------------------------------------------------------
@@ -487,6 +761,17 @@ public sealed record EnvironmentMap(
     // Admitted rows the three transfers. pq and hlg are legal HERE and nowhere else in the corpus: an environment map
     // is the one display-referred ingest a scene-linear pipeline admits, and the per-layer lift lowers it once.
     static readonly Seq<PlaneTransfer> Admitted = Seq(PlaneTransfer.Linear, PlaneTransfer.Pq, PlaneTransfer.Hlg);
+
+    // ONE admission over TWO input shapes, discriminated by the value the caller holds rather than by a name: a
+    // caller holding an AUTHORED magnitude and its unit crosses Photometric.Admit here — the folder's second and
+    // last such site, so an HDRI authored in lux and one authored as a bare multiplier stay distinguishable at every
+    // read and on the wire mirror — while a caller holding already-admitted evidence (the Project re-seat) passes
+    // the receipt straight through. Re-admitting an admitted receipt would double the coercion; refusing the
+    // authored shape would leave the folder law with no fence behind it.
+    public static Fin<EnvironmentMap> Of(
+        TexturePlane plane, MapLayout layout, PhotometricQuantity quantity, double intensity, Enum unit,
+        double rotation, Op key, Guid correlation) =>
+        Photometric.Admit(quantity, intensity, unit, key, correlation).Bind(evidence => Of(plane, layout, evidence, rotation, key));
 
     public static Fin<EnvironmentMap> Of(TexturePlane plane, MapLayout layout, UnitEvidence intensity, double rotation, Op key) =>
         from _ in guard(plane.Layers.Value == layout.Layers,
@@ -567,16 +852,21 @@ public sealed record EnvironmentMap(
     // ONE layout relation carrying both directions: the target row supplies its own inverse, so equirect→cube,
     // cube→equirect, and either→octahedral are one resample and a direction-named sibling owner is deleted. The
     // resample reads the STORED frame and carries the read policy forward, so a projection is not a re-orientation.
+    // It is a WHOLE-FIELD sweep, so it consumes the budget's governance on the same seam and an
+    // abandoned reprojection releases its target arena before railing.
     public Fin<EnvironmentMap> Project(MapLayout target, Dimension edge, RenderBudget budget, Op key) {
         if (target.Key == Layout.Key) { return Fin.Succ(this); }
         (Dimension width, Dimension height) = target.Extent(edge);
         return TexturePlane.Of(PlaneFormat.Rgba32F, width, height, PlaneTransfer.Linear, AlphaMode.None, key,
                     layers: Some(Dimension.Create(target.Layers)))
-                .Map(plane => {
-                    ParallelHelper.For(0, height.Value * target.Layers, new ProjectSweep(this, target, plane), budget.Floor);
-                    return plane;
-                })
-                .Bind(plane => Of(plane, target, Intensity, Rotation, key));
+                .Bind(plane => budget
+                    .Sweep(height.Value * target.Layers, new ProjectSweep(this, target, plane))
+                    .Match(Succ: _ => Fin.Succ(plane),
+                           Fail: abandoned => { plane.Dispose(); return Fin.Fail<TexturePlane>(abandoned); }))
+                // The mint's own guards (aspect, layer law, transfer, HDR depth, read policy) each refuse, so the
+                // arena releases on that arm too — the sweep's abandonment path is not the only one that owns it.
+                .Bind(plane => Of(plane, target, Intensity, Rotation, key)
+                    .MapFail(fault => { plane.Dispose(); return fault; }));
     }
 
     public void Dispose() {
@@ -705,15 +995,16 @@ internal static class Octahedron {
 
 ## [04]-[IBL_PREFILTER]
 
-- Owner: `IblPrefilter` the reduction fold; `ShBand` the nine-row spherical-harmonic basis table; `Sh9` the twenty-seven-value irradiance carrier; `IblPolicy` the sampling-budget row; `IblProducts` the receipt; the kernel `Deterministic.Hammersley` the composed low-discrepancy draw.
-- Entry: `public static Fin<IblProducts> Prefilter(EnvironmentMap map, IblPolicy policy, RenderBudget budget, Op key, Option<PressDevice> device = default)` — ONE reduction producing every product, because the pyramid, the SH projection, and the CDF each sweep the same field and three entrypoints sweep it three times; `Sh9.Project(EnvironmentMap, RenderBudget, Op)` and `Sh9.Irradiance(WorldDirection)` are the projection and reconstruction halves of ONE correspondence on one owner; `IblProducts.SpecularLevel(UnitInterval)` maps a roughness onto the fractional mip the level set encodes.
+- Owner: `IblPrefilter` the reduction fold; `ShBand` the nine-row spherical-harmonic basis table; `Sh9` the twenty-seven-value irradiance carrier; `IblPolicy` the sampling-budget row; `IblProducts` the CPU receipt and `IblProduct` the lane-product split over it; the kernel `Deterministic.Hammersley` the composed low-discrepancy draw.
+- Entry: `public static Fin<IblProduct> Prefilter(EnvironmentMap map, IblPolicy policy, RenderBudget budget, Op key, Option<PressDevice> device = default)` — ONE reduction producing every product, because the pyramid, the SH projection, and the CDF each sweep the same field and three entrypoints sweep it three times; governance rides the budget's own `Governance` column rather than a token-and-sink tail, so the page's longest operation is abortable and watchable with no signature widened, the MIP LADDER is the reported unit (the policy's own declared level count, each level a whole-dome sweep), and an abandoned run disposes every level it already integrated before railing the kernel `Fault.Cancelled`; `Sh9.Project(EnvironmentMap, RenderBudget, Op)` and `Sh9.Irradiance(WorldDirection)` are the projection and reconstruction halves of ONE correspondence on one owner; `IblProducts.SpecularLevel(UnitInterval)` maps a roughness onto the fractional mip the level set encodes.
 - Law: every product integrates the map's STORED frame. Rotation and intensity apply at the `[05]` read, so a re-oriented or re-exposed dome reuses the same content-addressed blobs and a rotation is never a re-bake.
-- Law: the SH9 spelling is FROZEN and this table IS it — real orthonormal harmonics through `l = 2` in the right-handed `+Z`-up basis, band-major with RGB interleaved at index `i·3 + c`, carrying the Lambertian convolution constants `Â₀ = π`, `Â₁ = 2π/3`, `Â₂ = π/4`. `ShGolden.All` carries the two frozen vectors as an EVALUATED fixture roster and `ShGolden.Prove` runs them: `L(ω) = 1` yields `sh_0 = 3.5449077018110318` (`2√π`) with every other band zero and `E(n) = π` for all `n`; `L(ω) = ω·ẑ` yields `sh_2 = 2.046653415892977` with every other band zero and `E(+ẑ) = 2π/3` — a Y-up transcription places the axial energy at `sh_1` or `sh_3` and fails, and the reconstruction probe fails a wrong `Â` set the projection alone cannot see. The same proof sums each `MapLayout.SolidAngle` closed form to `4π` over its own grid. `Sh9.Of` refuses a channel-major layout and any length other than twenty-seven.
-- Law: every GGX integral here reads the `bsdf#MICROFACET_KERNEL` kernel — `Microfacet.SampleVisibleNormal` draws the half-vector, `Microfacet.VisibleNormalPdf` supplies the density, `Microfacet.MaskingShadowing` the Smith term — so the prefiltered dome and the shaded surface integrate the SAME distribution and a re-minted importance sampler is the deleted form. Sampling composes the kernel `Deterministic.Hammersley` equidistributed pair — the low-discrepancy member family the deterministic-draw owner carries BESIDE its splitmix64 stream, because splitmix64 clustering leaves visible prefilter noise at a bounded tap budget — so this page authors no sampling kernel of its own.
+- Law: the SH9 spelling is FROZEN and this table IS it — real orthonormal harmonics through `l = 2` in the right-handed `+Z`-up basis, band-major with RGB interleaved at index `i·3 + c`, carrying the Lambertian convolution constants `Â₀ = π`, `Â₁ = 2π/3`, `Â₂ = π/4`. The normalization constants DERIVE from `sqrt((2l+1)/4π)` folded with each polynomial's own factor rather than standing as nine transcribed decimals, so four expressions serve nine rows and the `Raster/gpu#WGSL_KERNEL` `irradianceSh` float literals are a DECLARED transcription of this primary — a shader constant cannot read a managed static, so the divergence is nameable at one site instead of being two hand-typed tables disagreeing. `ShGolden.All` carries the two frozen vectors as an EVALUATED fixture roster and `ShGolden.Prove` runs them: `L(ω) = 1` yields `sh_0 = √(4π)` with every other band zero and `E(n) = π` for all `n`; `L(ω) = ω·ẑ` yields `sh_2 = √(4π/3)` with every other band zero and `E(+ẑ) = 2π/3` — both expectations DERIVED from their own analytic projections, never transcribed — a Y-up transcription places the axial energy at `sh_1` or `sh_3` and fails, and the reconstruction probe fails a wrong `Â` set the projection alone cannot see. The same proof sums each `MapLayout.SolidAngle` closed form to `4π` over its own grid. `Sh9.Of` refuses a channel-major layout and any length other than twenty-seven.
+- Law: every GGX integral here reads the `bsdf#MICROFACET_KERNEL` kernel — `Microfacet<double>.SampleVisibleNormal` draws the half-vector, `Microfacet<double>.VisibleNormalPdf` supplies the density, `Microfacet<double>.MaskingShadowing` the Smith term — the generic kernel at this page's own instantiation — so the prefiltered dome and the shaded surface integrate the SAME distribution and a re-minted importance sampler is the deleted form. Sampling composes the kernel `Deterministic.Hammersley` equidistributed pair — the low-discrepancy member family the deterministic-draw owner carries BESIDE its splitmix64 stream, because splitmix64 clustering leaves visible prefilter noise at a bounded tap budget — so this page authors no sampling kernel of its own.
 - Law: the specular tap reads the SOURCE mip whose solid angle matches the sample density. That term is the firefly suppression a bounded tap budget requires and is a declared column rather than a hidden clamp: a blown highlight spreads across the taps it covers instead of being clipped out of the integral.
-- Law: every SOURCE-DOMAIN sweep partitions and reads by INDEX. `Sh9.Project` runs a commutative reduction, so each row accumulates its own band vector under `ParallelHelper.For` and one fold sums them; the luminance guide's per-row conditional mass is likewise independent, and only the marginal prefix over row masses is sequential. This law forecloses a serial full-plane sweep beside partitioned siblings — at a four-thousand-texel dome the two reductions are the campaign's heaviest single-threaded folds.
+- Law: the luminance guide resolves the DOME ALONE. The `[02]` synthesis keeps the disc out of the plane, so the guide never has to import-sample a source that spans one texel and out-shines its neighbours by four decades — the firefly no tap budget resolves and the quadrature error the SH would carry forever — and the `[05]` row prices the two arms against each other from the guide's own total and the disc's area-averaged radiance instead. An ingested HDRI with a baked sun carries that sun in its guide, which is exactly the arrangement the split is honest about: its disc is absent, its selection is zero, and the guide is the only structure there is.
+- Law: every SOURCE-DOMAIN sweep partitions and reads by INDEX. `Sh9.Project` runs a commutative reduction, so each row accumulates its own band vector under the budget's governed `Sweep` and one fold sums them; the luminance guide's per-row conditional mass is likewise independent, and only the marginal prefix over row masses is sequential. This law forecloses a serial full-plane sweep beside partitioned siblings — at a four-thousand-texel dome the two reductions are the campaign's heaviest single-threaded folds.
 - Growth: a new prefilter product is one column on `IblProducts` filled inside the one sweep; a new sampling budget is one `IblPolicy` column; a new execution lane is one `press#PRESS_PLAN` `PressBackend` row the policy already carries; a new mip ladder is a `MipPolicy` row on the pyramid owner. `BrdfLut` stays environment-INDEPENDENT and view-independent — a pure function of `(N·V, roughness)` — so it computes once per `IblPolicy` and a second environment reuses the same blob by content address.
-- Boundary: prefiltering NEVER writes a file; `IblProducts` carries planes and the egress name grammar belongs to `Raster/set#TEXTURE_SET`. Plane bytes are always CPU-minted, so a GPU prefilter arm is an accelerator whose output is never content-addressed — and that reservation now names a REACHABLE signature rather than an absent one: `IblPolicy` carries the `PressBackend` row and `Prefilter` takes the `Option<PressDevice>` the accelerator arm reads, so the lane is selected by data the plan already models and the arm's own refusal states its arming condition. Building the CDF refuses a degenerate all-black dome rather than returning a flat table that samples uniformly while claiming importance.
+- Boundary: prefiltering NEVER writes a file; `IblProducts` carries planes and the egress name grammar belongs to `Raster/set#TEXTURE_SET`. Plane bytes are always CPU-minted, so a GPU prefilter arm is an accelerator whose output is never content-addressed — and that is now STRUCTURAL rather than a reservation: `IblProduct` splits `Minted` from `Preview`, `EnvironmentBlobs` is reachable only from the minted case, and the accelerator lane fills the preview one, so a GPU product cannot be content-addressed rather than being refused by a rule. The preview case carries the SH vector and the specular ladder and omits the BRDF LUT and the luminance guide, which is honest rather than partial: the LUT is environment-independent and the guide's marginal prefix is the sequential step this page declares, so neither has a kernel row to fill it. `IblPolicy` carries the `PressBackend` row and `Prefilter` takes the `Option<PressDevice>` the arm reads, so the lane is selected by data the plan already models. Building the CDF refuses a degenerate all-black dome rather than returning a flat table that samples uniformly while claiming importance.
 - Boundary: a GPU prefilter arm writes the SAME equirect arrangement this fold does — an accelerator that changes the product's own layout is a second product, not a faster one. `Raster/gpu#WGSL_KERNEL` `prefilterSpecular` therefore inverts the frozen equirect correspondence per output texel and takes a plane extent, and `IblProducts.Specular` needs no arrangement column for a lane to fill it; the cube arrangement stays `equirectToCube`'s, the one kernel whose product IS a cube.
 
 ```csharp signature
@@ -723,15 +1014,27 @@ internal static class Octahedron {
 // normalization, and convolution can never disagree between the two directions.
 [SmartEnum<int>]
 public sealed partial class ShBand {
-    public static readonly ShBand Sh0 = new(key: 0, l: 0, m:  0, constant: 0.28209479177387814, basis: static d => 1.0,                       convolution: Math.PI);
-    public static readonly ShBand Sh1 = new(key: 1, l: 1, m: -1, constant: 0.4886025119029199,  basis: static d => d.Y,                       convolution: 2.0 * Math.PI / 3.0);
-    public static readonly ShBand Sh2 = new(key: 2, l: 1, m:  0, constant: 0.4886025119029199,  basis: static d => d.Z,                       convolution: 2.0 * Math.PI / 3.0);
-    public static readonly ShBand Sh3 = new(key: 3, l: 1, m:  1, constant: 0.4886025119029199,  basis: static d => d.X,                       convolution: 2.0 * Math.PI / 3.0);
-    public static readonly ShBand Sh4 = new(key: 4, l: 2, m: -2, constant: 1.0925484305920792,  basis: static d => d.X * d.Y,                 convolution: Math.PI / 4.0);
-    public static readonly ShBand Sh5 = new(key: 5, l: 2, m: -1, constant: 1.0925484305920792,  basis: static d => d.Y * d.Z,                 convolution: Math.PI / 4.0);
-    public static readonly ShBand Sh6 = new(key: 6, l: 2, m:  0, constant: 0.31539156525252005, basis: static d => (3.0 * d.Z * d.Z) - 1.0,   convolution: Math.PI / 4.0);
-    public static readonly ShBand Sh7 = new(key: 7, l: 2, m:  1, constant: 1.0925484305920792,  basis: static d => d.X * d.Z,                 convolution: Math.PI / 4.0);
-    public static readonly ShBand Sh8 = new(key: 8, l: 2, m:  2, constant: 0.5462742152960396,  basis: static d => (d.X * d.X) - (d.Y * d.Y), convolution: Math.PI / 4.0);
+    // The normalization constants DERIVE from their own closed form — sqrt((2l+1)/4π) folded with each polynomial's
+    // own factor — rather than standing as nine transcribed decimals nobody can check against the band they claim to
+    // normalize. Four distinct values serve nine rows, which is itself the reading a decimal table hides: the three
+    // l=1 rows share one constant and the l=2 rows share one up to the m=2 half and the m=0 form. The
+    // Raster/gpu#WGSL_KERNEL `irradianceSh` twin pins these as float literals because a shader constant cannot read a
+    // managed static — that is the declared transcription peer, and this expression is the primary it transcribes,
+    // so a divergence between them is nameable at one site instead of being two hand-typed tables' disagreement.
+    private const double Quarter = 1.0 / (4.0 * Math.PI), Sixteenth = 1.0 / (16.0 * Math.PI);
+    private static readonly double Band0 = Math.Sqrt(Quarter);
+    private static readonly double Band1 = Math.Sqrt(3.0 * Quarter);
+    private static readonly double Band2 = Math.Sqrt(15.0 * Quarter);
+
+    public static readonly ShBand Sh0 = new(key: 0, l: 0, m:  0, constant: Band0,       basis: static d => 1.0,                       convolution: Math.PI);
+    public static readonly ShBand Sh1 = new(key: 1, l: 1, m: -1, constant: Band1,       basis: static d => d.Y,                       convolution: 2.0 * Math.PI / 3.0);
+    public static readonly ShBand Sh2 = new(key: 2, l: 1, m:  0, constant: Band1,       basis: static d => d.Z,                       convolution: 2.0 * Math.PI / 3.0);
+    public static readonly ShBand Sh3 = new(key: 3, l: 1, m:  1, constant: Band1,       basis: static d => d.X,                       convolution: 2.0 * Math.PI / 3.0);
+    public static readonly ShBand Sh4 = new(key: 4, l: 2, m: -2, constant: Band2,       basis: static d => d.X * d.Y,                 convolution: Math.PI / 4.0);
+    public static readonly ShBand Sh5 = new(key: 5, l: 2, m: -1, constant: Band2,       basis: static d => d.Y * d.Z,                 convolution: Math.PI / 4.0);
+    public static readonly ShBand Sh6 = new(key: 6, l: 2, m:  0, constant: Math.Sqrt(5.0 * Sixteenth), basis: static d => (3.0 * d.Z * d.Z) - 1.0, convolution: Math.PI / 4.0);
+    public static readonly ShBand Sh7 = new(key: 7, l: 2, m:  1, constant: Band2,       basis: static d => d.X * d.Z,                 convolution: Math.PI / 4.0);
+    public static readonly ShBand Sh8 = new(key: 8, l: 2, m:  2, constant: 0.5 * Band2, basis: static d => (d.X * d.X) - (d.Y * d.Y), convolution: Math.PI / 4.0);
     public int L { get; }
     public int M { get; }
     public double Constant { get; }
@@ -754,6 +1057,19 @@ public sealed record Sh9(ReadOnlyMemory<double> Bands) {
             ? Fin.Succ(new Sh9(bands))
             : MaterialFault.Parameter(key, $"<sh9-layout:{bands.Length}!={Slots}>");
 
+    // Radiant answers the whole-sphere radiance integral the band-zero coefficient ALREADY carries: Y0 is the
+    // constant 1/(2√π), so the DC coefficient times 2√π IS that integral. The [05] arm split prices the dome
+    // against the disc through it, so the selection reads a number the projection already produced rather than
+    // re-reducing the field — and a dome with no luminance guide still prices, because the SH always projects.
+    public RgbSpectrum Radiant {
+        get {
+            ReadOnlySpan<double> bands = Bands.Span;
+            double scale = 2.0 * Math.Sqrt(Math.PI);
+            Span<double> channels = [bands[0] * scale, bands[1] * scale, bands[2] * scale];
+            return Finite.Spectrum(channels);
+        }
+    }
+
     // Cosine-convolved irradiance at a surface normal: E(n) = sum over bands of convolution · L_i · Y_i(n). The
     // Lambertian outgoing radiance a shading rail wants is albedo · E(n) / pi — that divide belongs to the lobe.
     public RgbSpectrum Irradiance(WorldDirection normal) {
@@ -775,12 +1091,13 @@ public sealed record Sh9(ReadOnlyMemory<double> Bands) {
     public static Fin<Sh9> Project(EnvironmentMap map, RenderBudget budget, Op key) {
         (int w, int h, int layers) = (map.Plane.Width.Value, map.Plane.Height.Value, map.Plane.Layers.Value);
         double[] rows = new double[h * layers * Slots];
-        ParallelHelper.For(0, h * layers, new ProjectSweep(map, rows, w, h), budget.Floor);
-        double[] bands = new double[Slots];
-        for (int row = 0; row < h * layers; row++) {
-            for (int slot = 0; slot < Slots; slot++) { bands[slot] += rows[(row * Slots) + slot]; }
-        }
-        return Of(bands, key);
+        return budget.Sweep(h * layers, new ProjectSweep(map, rows, w, h)).Bind(_ => {
+            double[] bands = new double[Slots];
+            for (int row = 0; row < h * layers; row++) {
+                for (int slot = 0; slot < Slots; slot++) { bands[slot] += rows[(row * Slots) + slot]; }
+            }
+            return Of(bands, key);
+        });
     }
 
     // Exemption: the projection kernel. The solid-angle measure comes from the layout's own inverse — the equirect
@@ -880,6 +1197,26 @@ public sealed record IblProducts(
         RoughnessPerMip.Count <= 1 ? 0.0 : roughness.Value * (RoughnessPerMip.Count - 1);
 }
 
+// IblProduct splits what a LANE may produce, mirroring the press#PRESS_RECEIPT PressProduct split at this owner's
+// grain. Minted carries the content-addressable receipt [05] hangs blob custody off; Preview carries the same
+// integrated planes with NO digest, NO key, and no BRDF LUT or luminance guide — the two products the accelerator
+// lane genuinely cannot produce, since the LUT is environment-independent and the guide's marginal prefix is
+// sequential. Because EnvironmentBlobs is reachable only from Minted, a GPU product is STRUCTURALLY unable to be
+// content-addressed rather than refused by a rule someone has to enforce, which is the same shape the folder's
+// CPU-minted-bytes law already takes at the press: f32 cannot reproduce the f64 fold, so a GPU-keyed plane would
+// fork the content key at its preimage.
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record IblProduct : IDisposable {
+    private IblProduct() { }
+
+    public sealed record Minted(IblProducts Products) : IblProduct;
+    public sealed record Preview(Sh9 Irradiance, Seq<TexturePlane> Specular, Seq<double> RoughnessPerMip) : IblProduct;
+
+    public void Dispose() => Switch(
+        minted:  static m => m.Products.Dispose(),
+        preview: static p => p.Specular.Iter(static level => level.Dispose()));
+}
+
 // --- [OPERATIONS] --------------------------------------------------------------------------
 public static class IblPrefilter {
     // ONE entry over BOTH lanes, splitting on the policy row exactly as TexturePress.Press does — the backend row
@@ -887,22 +1224,113 @@ public static class IblPrefilter {
     // device carries capability a policy value cannot reconstruct, so every (backend, device) pairing has a stated
     // outcome and none is silently ignored. A device handed to the authoritative lane refuses rather than going
     // unread, and the accelerator lane without one refuses before it integrates anything.
-    public static Fin<IblProducts> Prefilter(
+    public static Fin<IblProduct> Prefilter(
         EnvironmentMap map, IblPolicy policy, RenderBudget budget, Op key, Option<PressDevice> device = default) =>
         (policy.Backend.ContentAuthoritative, device.Case) switch {
-            (true, null) => Mint(map, policy, budget, key),
+            (true, null) => Mint(map, policy, budget, key).Map(static products => (IblProduct)new IblProduct.Minted(products)),
             (true, _) => MaterialFault.Parameter(key, $"<ibl-device-on-authoritative-backend:{policy.Backend.Key}>"),
-            // REACHABLE and REFUSING, which is the honest state of one DECISION rather than of the kernels:
-            // `gpu#WGSL_KERNEL` `prefilterSpecular` and `irradianceSh` are transcription-correct against the folds
-            // below and write this page's own equirect arrangement, while the BRDF LUT and the luminance guide
-            // correctly carry no kernel row — the LUT is environment-independent and the guide's marginal prefix is the
-            // sequential step this page declares. What is unsettled is the PRODUCT: `IblProducts` is what `[05]`
-            // hangs blob custody off, and a lane whose f32 cannot reproduce the f64 fold may not fill it, so the arm
-            // arms the moment a preview product lands beside it — the `press#PRESS_RECEIPT` `PressProduct.Preview`
-            // split at this owner's grain. The refusal names that condition rather than the kernels, so a reader
-            // never re-proves settled transcription, and the discarded lease is what proves the lane was reached.
-            (false, PressDevice _) => MaterialFault.Parameter(key, $"<ibl-preview-product-unshaped:{policy.Backend.Key}:{policy.Mips}>"),
+            // The accelerator lane ARMS: `gpu#WGSL_KERNEL` `prefilterSpecular` and `irradianceSh` write this page's
+            // own equirect arrangement, and the product they fill is the PREVIEW case — planes with no digest and no
+            // key — so the lane produces something real while remaining structurally unable to reach
+            // EnvironmentBlobs. The BRDF LUT and the luminance guide correctly carry no kernel row (the LUT is
+            // environment-independent and the guide's marginal prefix is sequential), which is exactly why the
+            // preview case omits both rather than filling them from a lane that cannot compute them.
+            (false, PressDevice lease) => Accelerate(map, policy, lease, key),
             (false, _) => MaterialFault.Parameter(key, $"<ibl-accelerator-without-device:{policy.Backend.Key}>"),
+        };
+
+    // The accelerator arm dispatches the two kernels that carry one and folds their receipts into the preview
+    // product. Every level lands EQUIRECT exactly as the CPU lane's does — an accelerator that changed the product's
+    // arrangement would be a second product rather than a faster one — and the roughness ladder is the policy's own,
+    // so a shading read addresses a preview level by the same `SpecularLevel` inverse it addresses a minted one by.
+    // The SH partials arrive already folded by the row's own `KernelReduce.PartialSum` reduction, so this owner
+    // re-derives no tail; the twenty-seven slots cross the same `Sh9.Of` gate the CPU projection crosses, which is
+    // what keeps one decode law over both lanes.
+    static Fin<IblProduct> Accelerate(EnvironmentMap map, IblPolicy policy, PressDevice device, Op key) =>
+        from irradiance in device.Dispatch(WgslKernel.IrradianceSh, ShBinding(map), key)
+            .Bind(receipt => Sh9.Of(Widen(receipt.Output), key))
+        from specular in toSeq(Enumerable.Range(0, policy.Mips))
+            .Fold(Fin.Succ(Seq<TexturePlane>()), (acc, mip) => acc.Bind(levels =>
+                device.Dispatch(WgslKernel.PrefilterSpecular, LevelBinding(map, policy, mip), key)
+                    .Bind(receipt => Decode(policy, mip, receipt.Output, key))
+                    .Map(level => levels.Add(level))
+                    .MapFail(fault => { levels.Iter(static held => held.Dispose()); return fault; })))
+        select (IblProduct)new IblProduct.Preview(irradiance, specular.Strict(),
+            toSeq(Enumerable.Range(0, policy.Mips).Select(policy.RoughnessAt)));
+
+    // The device returns f32 and every product on this page is f64: the widen is the ONE place that conversion
+    // happens, so a preview slot and a minted slot differ by their lane's precision alone rather than by where each
+    // one narrowed.
+    static ReadOnlyMemory<double> Widen(ReadOnlyMemory<float> output) =>
+        (ReadOnlyMemory<double>)[.. output.ToArray().Select(static lane => (double)lane)];
+
+    // Both bindings carry the SAME source: the map's base level as one flat RGBA run, the row's uniform words, and a
+    // write buffer sized to the product. The uniform block goes through the gpu page's OWN KernelUniform writer
+    // rather than a float array cast here, because that block interleaves f32 with u32 and a float-typed carrier
+    // writing an extent into a u32 slot hands the shader a billion.
+    // The uniform block mirrors the kernel's Params WORD FOR WORD — width, height, groups, pad — because `groups`
+    // is the grid-stride the accumulation loop divides the texel range by (a missing groups word is a zero stride),
+    // and the write buffer carries PER-WORKGROUP partials (groups x 27), never the folded 27 — the row's
+    // KernelReduce.PartialSum folds them host-side in workgroup-index order.
+    static KernelBinding ShBinding(EnvironmentMap map) =>
+        ((uint)Math.Max(1, ((map.Plane.Width.Value * map.Plane.Height.Value) + 63) / 64)) switch {
+            var groups => new KernelBinding(
+                Seq(KernelUniform.Empty.Extent(map.Plane.Width, map.Plane.Height).U32(groups).U32(0u).Block,
+                    new KernelBuffer.Read(Flatten(map)),
+                    new KernelBuffer.Write((int)groups * Sh9.Slots)),
+                GroupsX: groups, GroupsY: 1u, GroupsZ: 1u),
+        };
+
+    // Word-for-word against the kernel's Params — dest extent, then SOURCE extent, then roughness as f32, then the
+    // tap count as u32, then the two pad words. The uniform carries ROUGHNESS, never alpha: the kernel spells
+    // Microfacet.AlphaOf itself (its own 1e-4 floor), so a pre-applied alpha here would square the remap.
+    static KernelBinding LevelBinding(EnvironmentMap map, IblPolicy policy, int mip) =>
+        Extent(policy, mip) switch {
+            var (width, height) => new KernelBinding(
+                Seq(KernelUniform.Empty
+                        .Extent(Dimension.Create(width), Dimension.Create(height))
+                        .U32((uint)map.Plane.Width.Value)
+                        .U32((uint)map.Plane.Height.Value)
+                        .F32((float)policy.RoughnessAt(mip))
+                        .U32(policy.SpecularTaps)
+                        .U32(0u).U32(0u)
+                        .Block,
+                    new KernelBuffer.Read(Flatten(map)),
+                    new KernelBuffer.Write(width * height * 4)),
+                GroupsX: (uint)((width + 7) / 8), GroupsY: (uint)((height + 7) / 8), GroupsZ: 1u),
+        };
+
+    // The level ladder is the CPU lane's own — halved per mip off the policy edge at the frozen 2:1 equirect aspect —
+    // so a preview level and a minted level at one roughness address the same extent and the parity workload compares
+    // texel for texel rather than resampling one side first.
+    static (int Width, int Height) Extent(IblPolicy policy, int mip) =>
+        Math.Max(1, policy.SpecularEdge.Value >> mip) switch { var edge => (edge * 2, edge) };
+
+    static ReadOnlyMemory<float> Flatten(EnvironmentMap map) =>
+        (ReadOnlyMemory<float>)[.. Enumerable.Range(0, map.Plane.Height.Value)
+            .SelectMany(y => Enumerable.Range(0, map.Plane.Width.Value)
+                .SelectMany(x => map.Texel(0, x, y) switch {
+                    var texel => new[] { (float)texel.R, (float)texel.G, (float)texel.B, 1.0f },
+                }))];
+
+    // The device's flat f32 run lands through the arena's own Write rail, so the preview plane is a TexturePlane
+    // like every other and the transfer, the lane gather, and the disposal are the arena's rather than re-spelled.
+    static Fin<TexturePlane> Decode(IblPolicy policy, int mip, ReadOnlyMemory<float> output, Op key) =>
+        Extent(policy, mip) switch {
+            var (width, height) => TexturePlane.Of(PlaneFormat.Rgba32F, Dimension.Create(width), Dimension.Create(height),
+                    PlaneTransfer.Linear, AlphaMode.None, key)
+                .Map(plane => {
+                    using SpanOwner<ShadeVec4> field = SpanOwner<ShadeVec4>.Allocate(width, AllocationMode.Clear);
+                    ReadOnlySpan<float> lanes = output.Span;
+                    for (int y = 0; y < height; y++) {
+                        for (int x = 0; x < width; x++) {
+                            int lane = ((y * width) + x) * 4;
+                            field.Span[x] = new ShadeVec4(lanes[lane], lanes[lane + 1], lanes[lane + 2], 1.0);
+                        }
+                        plane.WriteShade(y, layer: 0, field.Span);
+                    }
+                    return plane;
+                }),
         };
 
     static Fin<IblProducts> Mint(EnvironmentMap map, IblPolicy policy, RenderBudget budget, Op key) =>
@@ -919,10 +1347,23 @@ public static class IblPrefilter {
 
     // Each mip integrates the dome against the VNDF at that mip's roughness with the view direction pinned to the
     // normal — the split-sum approximation's declared simplification, stated here rather than discovered downstream.
+    // THE MIP IS THE GOVERNANCE UNIT: the level count is the policy's own declared column and every level sweeps the
+    // whole dome, so the ladder is the one boundary whose fraction means something to a caller. The prefilter is the
+    // page's longest operation, so the sweep opens each level on the budget's publish-and-check seam and an abandoned
+    // run rails the kernel Fault.Cancelled BEFORE renting the next level's arena rather than after the whole ladder.
+    // A Traverse cannot short-circuit on a token, so the ladder folds — which is also what keeps the abandoned arm
+    // from holding every level it already integrated.
     static Fin<Seq<TexturePlane>> Specular(EnvironmentMap map, IblPolicy policy, RenderBudget budget, Op key) =>
         toSeq(Enumerable.Range(0, policy.Mips))
-            .Map(mip => Level(map, policy, mip, budget, key))
-            .Traverse(identity).As()
+            .Fold(Fin.Succ(Seq<TexturePlane>()), (acc, mip) => acc.Bind(levels =>
+                budget.Opened(mip, policy.Mips).Match(
+                    Some: abandoned => {
+                        levels.Iter(static level => level.Dispose());
+                        return Fin.Fail<Seq<TexturePlane>>(abandoned);
+                    },
+                    None: () => Level(map, policy, mip, budget, key)
+                        .Map(level => levels.Add(level))
+                        .MapFail(fault => { levels.Iter(static held => held.Dispose()); return fault; }))))
             .Map(static levels => levels.Strict());
 
     static Fin<TexturePlane> Level(EnvironmentMap map, IblPolicy policy, int mip, RenderBudget budget, Op key) {
@@ -930,11 +1371,10 @@ public static class IblPrefilter {
         double sourceSolidAngle = 4.0 * Math.PI / (map.Plane.Width.Value * map.Plane.Height.Value * map.Plane.Layers.Value);
         return TexturePlane.Of(PlaneFormat.Rgba32F, Dimension.Create(edge * 2), Dimension.Create(edge),
                 PlaneTransfer.Linear, AlphaMode.None, key)
-            .Map(plane => {
-                ParallelHelper.For(0, edge, new SpecularSweep(map, policy,
-                    Microfacet.AlphaOf(policy.RoughnessAt(mip)), sourceSolidAngle, plane), budget.Floor);
-                return plane;
-            });
+            .Bind(plane => budget
+                .Sweep(edge, new SpecularSweep(map, policy, Microfacet<double>.AlphaOf(policy.RoughnessAt(mip)), sourceSolidAngle, plane))
+                .Match(Succ: _ => Fin.Succ(plane),
+                       Fail: abandoned => { plane.Dispose(); return Fin.Fail<TexturePlane>(abandoned); }));
     }
 
     // Exemption: the tap loop is a measured kernel. The lod term is the filtered-importance-sampling mip selection —
@@ -952,12 +1392,12 @@ public static class IblPrefilter {
                 (double r, double g, double b, double weight) = (0.0, 0.0, 0.0, 0.0);
                 for (int i = 0; i < policy.SpecularTaps; i++) {
                     (double u0, double u1) = Deterministic.Hammersley(i, policy.SpecularTaps);
-                    LocalVector half = Microfacet.SampleVisibleNormal(LocalVector.Normal, alpha, alpha, u0, u1);
-                    LocalVector light = half.Scale(2.0 * half.CosTheta).Add(LocalVector.Normal.Scale(-1.0)).Normalize();
+                    LocalVector<double> half = Microfacet<double>.SampleVisibleNormal(LocalVector<double>.Normal, alpha, alpha, u0, u1);
+                    LocalVector<double> light = half.Scale(2.0 * half.CosTheta).Add(LocalVector<double>.Normal.Scale(-1.0)).Normalize();
                     if (light.CosTheta <= 0.0) { continue; }
-                    double pdf = Math.Max(1e-6, Microfacet.VisibleNormalPdf(LocalVector.Normal, half, alpha, alpha) / (4.0 * Math.Abs(half.CosTheta)));
+                    double pdf = Math.Max(1e-6, Microfacet<double>.VisibleNormalPdf(LocalVector<double>.Normal, half, alpha, alpha) / (4.0 * Math.Abs(half.CosTheta)));
                     double lod = 0.5 * Math.Log2(Math.Max(1e-12, 1.0 / (policy.SpecularTaps * pdf) / sourceSolidAngle));
-                    RgbSpectrum radiance = map.Stored(Oriented(n, light), Math.Max(0.0, lod));
+                    RgbSpectrum radiance = map.Stored(n.Oriented(light.X, light.Y, light.Z), Math.Max(0.0, lod));
                     (r, g, b, weight) = (r + (radiance.R * light.CosTheta), g + (radiance.G * light.CosTheta),
                                          b + (radiance.B * light.CosTheta), weight + light.CosTheta);
                 }
@@ -966,16 +1406,6 @@ public static class IblPrefilter {
             }
             plane.WriteShade(y, layer: 0, lanes);
         }
-
-        // The ONE tangent-to-world crossing on this page: an orthonormal completion per texel rotates every
-        // tangent-space Microfacet tap (a LocalVector by that kernel's own contract) onto the texel's WORLD
-        // normal — the explicit basis rotation the WorldDirection/LocalVector split makes mandatory.
-        static WorldDirection Oriented(WorldDirection n, LocalVector local) {
-            WorldDirection up = Math.Abs(n.Z) < 0.999 ? WorldDirection.Zenith : new WorldDirection(1.0, 0.0, 0.0);
-            WorldDirection t = new WorldDirection((up.Y * n.Z) - (up.Z * n.Y), (up.Z * n.X) - (up.X * n.Z), (up.X * n.Y) - (up.Y * n.X)).Normalize();
-            WorldDirection b = new((n.Y * t.Z) - (n.Z * t.Y), (n.Z * t.X) - (n.X * t.Z), (n.X * t.Y) - (n.Y * t.X));
-            return t.Scale(local.X).Add(b.Scale(local.Y)).Add(n.Scale(local.Z)).Normalize();
-        }
     }
 
     // BrdfLut integrates a pure function of (N·V, roughness), so one plane serves every environment and re-keys only
@@ -983,10 +1413,10 @@ public static class IblPrefilter {
     // storage, never an rgba plane wasting half its texels.
     static Fin<TexturePlane> BrdfLut(IblPolicy policy, RenderBudget budget, Op key) =>
         TexturePlane.Of(PlaneFormat.Rg16, policy.LutExtent, policy.LutExtent, PlaneTransfer.Raw, AlphaMode.None, key)
-            .Map(plane => {
-                ParallelHelper.For(0, policy.LutExtent.Value, new LutSweep(policy, plane), budget.Floor);
-                return plane;
-            });
+            .Bind(plane => budget
+                .Sweep(policy.LutExtent.Value, new LutSweep(policy, plane))
+                .Match(Succ: _ => Fin.Succ(plane),
+                       Fail: abandoned => { plane.Dispose(); return Fin.Fail<TexturePlane>(abandoned); }));
 
     // Exemption: the split-sum integration kernel. Under the VNDF sampler the per-tap estimator COLLAPSES to
     // G₂/G₁(view) — the D·(V·H)/(N·H·N·V) Karis weight belongs to D-proportional half-vector sampling and pairing it
@@ -998,18 +1428,18 @@ public static class IblPrefilter {
             int extent = plane.Width.Value;
             using SpanOwner<ShadeVec4> field = SpanOwner<ShadeVec4>.Allocate(extent, AllocationMode.Clear);
             Span<ShadeVec4> lanes = field.Span;
-            double alpha = Microfacet.AlphaOf((y + 0.5) / extent);
+            double alpha = Microfacet<double>.AlphaOf((y + 0.5) / extent);
             for (int x = 0; x < extent; x++) {
                 double cosView = Math.Max(1e-3, (x + 0.5) / extent);
-                LocalVector view = new(Math.Sqrt(Math.Max(0.0, 1.0 - (cosView * cosView))), 0.0, cosView);
+                LocalVector<double> view = new(Math.Sqrt(Math.Max(0.0, 1.0 - (cosView * cosView))), 0.0, cosView);
                 (double scale, double bias) = (0.0, 0.0);
                 for (int i = 0; i < policy.LutTaps; i++) {
                     (double u0, double u1) = Deterministic.Hammersley(i, policy.LutTaps);
-                    LocalVector half = Microfacet.SampleVisibleNormal(view, alpha, alpha, u0, u1);
-                    LocalVector light = half.Scale(2.0 * view.Dot(half)).Add(view.Scale(-1.0)).Normalize();
+                    LocalVector<double> half = Microfacet<double>.SampleVisibleNormal(view, alpha, alpha, u0, u1);
+                    LocalVector<double> light = half.Scale(2.0 * view.Dot(half)).Add(view.Scale(-1.0)).Normalize();
                     if (light.CosTheta <= 0.0) { continue; }
-                    double visibility = Microfacet.MaskingShadowing(view, light, alpha, alpha)
-                                      / Math.Max(1e-6, Microfacet.Masking(view, alpha, alpha));
+                    double visibility = Microfacet<double>.MaskingShadowing(view, light, alpha, alpha)
+                                      / Math.Max(1e-6, Microfacet<double>.Masking(view, alpha, alpha));
                     double fresnel = Math.Pow(1.0 - Math.Abs(view.Dot(half)), 5.0);
                     (scale, bias) = (scale + ((1.0 - fresnel) * visibility), bias + (fresnel * visibility));
                 }
@@ -1037,12 +1467,13 @@ public static class IblPrefilter {
     static Fin<LuminanceCdf> Accumulate(EnvironmentMap map, RenderBudget budget, Op key) {
         (int w, int h) = (map.Plane.Width.Value, map.Plane.Height.Value);
         double[] conditional = new double[h * w], marginal = new double[h];
-        ParallelHelper.For(0, h, new GuideSweep(map, conditional, marginal, w, h), budget.Floor);
-        double total = 0.0;
-        for (int y = 0; y < h; y++) { total += marginal[y]; marginal[y] = total; }
-        return total > 0.0
-            ? Fin.Succ(new LuminanceCdf(conditional, marginal, total, w, h))
-            : MaterialFault.Parameter(key, "<environment-zero-luminance>");
+        return budget.Sweep(h, new GuideSweep(map, conditional, marginal, w, h)).Bind(_ => {
+            double total = 0.0;
+            for (int y = 0; y < h; y++) { total += marginal[y]; marginal[y] = total; }
+            return total > 0.0
+                ? Fin.Succ(new LuminanceCdf(conditional, marginal, total, w, h))
+                : MaterialFault.Parameter(key, "<environment-zero-luminance>");
+        });
     }
 
     // Exemption: the running-mass accumulation is a measured kernel — the running form IS the searchable structure,
@@ -1074,9 +1505,13 @@ public sealed record ShGolden(string Name, Func<WorldDirection, double> Radiance
     public const double IrradianceTolerance = 1e-5;
     public const int ProofRows = 2048;
 
+    // Both expectations DERIVE from their own analytic projections and neither is a transcribed decimal: a uniform
+    // field projects onto Y0 as sqrt(4π), and an axial cosine projects onto Y1^0 as (4π/3)·sqrt(3/4π) = sqrt(4π/3).
+    // Writing them as expressions is what makes the fixture a PROOF rather than a second hand-typed table that could
+    // drift into agreement with a broken basis.
     public static readonly Seq<ShGolden> All = Seq(
-        new ShGolden("uniform", static _ => 1.0, Band: 0, Expected: 3.5449077018110318, IrradianceAtZenith: Math.PI),
-        new ShGolden("axial-cosine", static d => d.Z, Band: 2, Expected: 2.046653415892977, IrradianceAtZenith: 2.0 * Math.PI / 3.0));
+        new ShGolden("uniform", static _ => 1.0, Band: 0, Expected: Math.Sqrt(4.0 * Math.PI), IrradianceAtZenith: Math.PI),
+        new ShGolden("axial-cosine", static d => d.Z, Band: 2, Expected: Math.Sqrt(4.0 * Math.PI / 3.0), IrradianceAtZenith: 2.0 * Math.PI / 3.0));
 
     public static Fin<Unit> Prove(Op key) {
         foreach (MapLayout layout in MapLayout.Items) {
@@ -1141,11 +1576,12 @@ public sealed record ShGolden(string Name, Func<WorldDirection, double> Radiance
 
 ## [05]-[ENVIRONMENT_LIGHT]
 
-- Owner: `EnvironmentLight` the resolved row the render seam consumes, its admission gates, and the six reads it publishes.
-- Entry: `public static Fin<EnvironmentLight> Of(string lightKey, EnvironmentMap map, IblProducts products, EnvironmentBlobs blobs, Option<SkyModel> sky, Op key)` admits the resolved row once; `Radiance(WorldDirection)`, `Irradiance(WorldDirection)`, `Sample(u0, u1)`, `Pdf(WorldDirection)`, `SpecularLevel(UnitInterval)`, and `SplitSum(cosView, roughness)` are the reads a path-trace integrator and a raster shading pass share — every direction-typed read takes the producer's own `WorldDirection`, so a tangent-frame query is a compile error rather than a frame-law violation.
+- Owner: `EnvironmentLight` the resolved row the render seam consumes, its admission gates, and the reads it publishes; `SkySource` the synthesized-dome provenance; `EnvironmentSample` `[Union]` (`Dome` · `Sun`) the drawn direction with its arm.
+- Entry: `public static Fin<EnvironmentLight> Of(string lightKey, EnvironmentMap map, IblProducts products, EnvironmentBlobs blobs, Option<SkySource> sky, Op key)` admits the resolved row once and resolves the dome's `SolarDisc` from that provenance; `Radiance(WorldDirection)`, `Irradiance(WorldDirection)`, `Sample(u0, u1)`, `Pdf(WorldDirection)`, `SpecularLevel(UnitInterval)`, `SplitSum(cosView, roughness)`, and the `Sun` disc row are the reads a path-trace integrator and a raster shading pass share — every direction-typed read takes the producer's own `WorldDirection`, so a tangent-frame query is a compile error rather than a frame-law violation.
+- Law: the SUN is the row's own arm. `Radiance` composes the dome field with the disc so a camera ray through the sun is never black; `Sample` splits between the guided dome and a uniform cap draw on a power ratio DERIVED from the SH band-zero integral and the disc's own area-averaged radiance; every returned `Pdf` is the combined balance density, so an integrator MIS-weights the two arms and its own BSDF draw against one number and never learns the split exists. `SunSelection` is reachable for a receipt and decides nothing a caller passes.
 - Law: the products are STORED-frame and every read applies the dome's rotation and intensity HERE. `Irradiance` un-rotates the queried normal before reconstructing the SH; the guided draw rotates the sampled direction into world; the density reads the STORED luminance the guide's own total was built from, so a re-exposed dome does not skew a multiple-importance weight by its own intensity factor. One read policy, applied at one altitude, over blobs no policy edit re-keys.
-- Receipt: the row IS the receipt — every field of the frozen `EnvironmentLightWire` roster resolves here, so the wire projection at `interchange#TEXTURE_EGRESS` is a mechanical mirror with no derivation of its own. `SkyModelKey` carries the model key for a synthesized dome and empty for an ingested HDRI; `CoefficientKey` carries the Hosek-Wilkie asset digest, so a revised fit re-keys the light. `transfer` on that wire reads the SOURCE plane's declared transfer, which is why `pq` and `hlg` reach the wire while every value this row hands out is scene-linear.
-- Boundary: `Rasm.AppUi/Render/pathtrace#LIGHT_RIG` `LightSource.Environment` carries THIS row as its dome VALUE over the `[BOUNDARY]` seam — the render arm answers directional radiance, importance draw, SH irradiance, specular level, and split-sum on the owner that prefiltered the map, while Materials keeps the whole mapping, sampling, and prefilter algebra and the consumer re-derives no equirect correspondence, SH band order, or roughness ladder. `Sample` returns direction, radiance, and solid-angle density TOGETHER so a multiple-importance-sampling integrator balances against its BSDF density with no second query, and an absent CDF answers the uniform-dome density as a declared degradation the row states rather than a silent fallback.
+- Receipt: the row IS the receipt — every field of the frozen `EnvironmentLightWire` roster resolves here, so the wire projection at `interchange#TEXTURE_EGRESS` is a mechanical mirror with no derivation of its own. `SkyModelKey` carries the model key for a synthesized dome and empty for an ingested HDRI; `CoefficientKey` and `SolarKey` carry the Hosek-Wilkie diffuse and solar asset digests independently, so a revised fit on either re-keys the light and a reader tells which fit moved. `transfer` on that wire reads the SOURCE plane's declared transfer, which is why `pq` and `hlg` reach the wire while every value this row hands out is scene-linear.
+- Boundary: `Rasm.AppUi/Render/pathtrace#LIGHT_RIG` `LightSource.Environment` carries THIS row as its dome VALUE over the `[BOUNDARY]` seam — the render arm answers directional radiance, importance draw, SH irradiance, specular level, split-sum, and the SUN DISC (direction, cap, and radiance profile) on the owner that prefiltered the map, while Materials keeps the whole mapping, sampling, and prefilter algebra and the consumer re-derives no equirect correspondence, SH band order, roughness ladder, or solar geometry. `Sample` returns direction, radiance, combined density, and arm TOGETHER so a multiple-importance-sampling integrator balances with no second query, and an absent CDF answers the uniform-dome density as a declared degradation the row states rather than a silent fallback.
 
 ```csharp signature
 // --- [MODELS] ------------------------------------------------------------------------------
@@ -1153,16 +1589,38 @@ public sealed record ShGolden(string Name, Func<WorldDirection, double> Radiance
 // keys keeps the Of signature honest and makes a missing CDF a typed absence rather than an empty-string sentinel.
 public readonly record struct EnvironmentBlobs(ContentAddress Equirect, ContentAddress Specular, ContentAddress BrdfLut, Option<ContentAddress> LuminanceCdf);
 
-// One directional sample: the direction, its radiance, and its solid-angle density together, so a MIS integrator
-// balances against its BSDF density with no second query into this row.
-public readonly record struct EnvironmentSample(WorldDirection Direction, RgbSpectrum Radiance, double Pdf);
+// SkySource carries a SYNTHESIZED dome's whole provenance — the model, the atmosphere it distributed, and the sun
+// direction it was rendered at — because the light row needs all three to state a disc and only the model to state a
+// key. Passing the model alone left the row unable to resolve a sun at all, which is what made the direct beam
+// unreachable from the render seam; an ingested HDRI carries absence and answers with no disc.
+public readonly record struct SkySource(SkyModel Model, SkyAtmosphere Atmosphere, WorldDirection Sun);
+
+// One directional sample carrying the ARM that drew it. The two arms are distinct EVIDENCE shapes, not one shape
+// wearing a flag: a disc draw knows where on the disc it landed and a dome draw has no disc to be on, so the limb
+// profile a consumer re-reads is recoverable from the Sun case and unrepresentable on the Dome one. Pdf is the
+// COMBINED balance-heuristic density on both arms — the arm-selection probability times each arm's own density,
+// summed — so a MIS integrator weights against its BSDF density with no second query and no knowledge of the split.
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record EnvironmentSample {
+    private EnvironmentSample(WorldDirection direction, RgbSpectrum radiance, double pdf) =>
+        (Direction, Radiance, Pdf) = (direction, radiance, pdf);
+
+    public WorldDirection Direction { get; }
+    public RgbSpectrum Radiance { get; }
+    public double Pdf { get; }
+
+    public sealed record Dome(WorldDirection Direction, RgbSpectrum Radiance, double Pdf)
+        : EnvironmentSample(Direction, Radiance, Pdf);
+    public sealed record Sun(WorldDirection Direction, RgbSpectrum Radiance, double Pdf, UnitInterval DiscRadius)
+        : EnvironmentSample(Direction, Radiance, Pdf);
+}
 
 public sealed record EnvironmentLight(
     string LightKey, EnvironmentMap Map, IblProducts Products, EnvironmentBlobs Blobs,
-    string SkyModelKey, Option<ContentAddress> CoefficientKey) {
+    string SkyModelKey, Option<ContentAddress> CoefficientKey, Option<ContentAddress> SolarKey, Option<SolarDisc> Sun) {
 
     public static Fin<EnvironmentLight> Of(
-        string lightKey, EnvironmentMap map, IblProducts products, EnvironmentBlobs blobs, Option<SkyModel> sky, Op key) =>
+        string lightKey, EnvironmentMap map, IblProducts products, EnvironmentBlobs blobs, Option<SkySource> sky, Op key) =>
         from _ in guard(!string.IsNullOrWhiteSpace(lightKey), MaterialFault.Parameter(key, "<environment-light-key-blank>"))
         // The wire's equirectKey names an EQUIRECT plane and the freeze admits it 2:1: a cube or octahedral dome
         // projects through the map's own layout relation BEFORE this row resolves — the gate makes the conversion
@@ -1171,15 +1629,26 @@ public sealed record EnvironmentLight(
                 MaterialFault.Parameter(key, $"<environment-light-layout:{map.Layout.Key}>"))
         from __ in guard(products.RoughnessPerMip.Count == products.Specular.Count && products.Specular.Count > 0,
                 MaterialFault.Parameter(key, $"<environment-level-ladder:{products.Specular.Count}!={products.RoughnessPerMip.Count}>"))
-        from ___ in guard(products.RoughnessPerMip.Zip(products.RoughnessPerMip.Tail).ForAll(static pair => pair.Item1 <= pair.Item2),
+        from ___ in guard(products.RoughnessPerMip.Zip(products.RoughnessPerMip.Tail).ForAll(static pair => pair.First <= pair.Second),
                 MaterialFault.Parameter(key, "<environment-roughness-ladder-unordered>"))
         from ____ in guard(products.Cdf.Map(static cdf => cdf.Total > 0.0).IfNone(true),
                 MaterialFault.Parameter(key, "<environment-guide-zero-mass>"))
         select new EnvironmentLight(lightKey, map, products, blobs,
-            sky.Map(static s => s.WireKey).IfNone(string.Empty),
-            sky.Bind(static s => s is SkyModel.HosekWilkie fitted ? Some(fitted.Coefficients.Key) : None));
+            sky.Map(static s => s.Model.WireKey).IfNone(string.Empty),
+            sky.Bind(static s => s.Model is SkyModel.HosekWilkie fitted ? Some(fitted.Coefficients.Key) : None),
+            sky.Bind(static s => s.Model is SkyModel.HosekWilkie fitted ? Some(fitted.Solar.Key) : None),
+            sky.Map(static s => s.Model.Disc(s.Sun, s.Atmosphere)));
 
-    public RgbSpectrum Radiance(WorldDirection direction) => Map.Radiance(direction, lod: 0.0);
+    // Radiance at a WORLD direction is the dome field PLUS the disc wherever the direction lands on it. The [02] law
+    // keeps the sun OUT of the synthesized plane so a bounded guide never has to import-sample a half-degree source,
+    // which means a camera ray through the sun reads black unless the two terms compose HERE — one read, so no
+    // consumer assembles the beam from parts and no path double-counts it.
+    public RgbSpectrum Radiance(WorldDirection direction) =>
+        Map.Radiance(direction, lod: 0.0).Add(SunRadiance(direction.Normalize()));
+
+    RgbSpectrum SunRadiance(WorldDirection direction) =>
+        Sun.Map(disc => disc.Radiance(direction).Scale(Map.Intensity.RadiometricSi)).IfNone(RgbSpectrum.Black);
+
     public double SpecularLevel(UnitInterval roughness) => Products.SpecularLevel(roughness);
 
     // Irradiance at a WORLD normal. The SH vector is stored-frame, so the normal un-rotates before reconstruction
@@ -1197,38 +1666,88 @@ public sealed record EnvironmentLight(
 
     static readonly SamplerState LutSampler = new(AddressMode.Clamp, AddressMode.Clamp, FilterMode.Bilinear, UvFrame.Identity);
 
-    // Importance sample the dome through the guide: the marginal picks the row, that row's conditional picks the
-    // column, the texel lifts through the frozen equirect inverse, and the dome rotation carries it into world. The
-    // density reads the STORED luminance the guide's own mass was built from, so intensity never skews a MIS weight.
-    // With no guide the draw is the uniform sphere and the density SAYS SO — a declared degradation on the same
-    // return shape, never a silent fallback.
-    public EnvironmentSample Sample(UnitInterval u0, UnitInterval u1) =>
-        Products.Cdf.Match(
-            Some: guide => Guided(guide, u0, u1),
-            None: () => Uniform(UniformDirection(u0, u1)));
+    // SunSelection is the arm-selection probability, DERIVED from the two arms' own radiant power rather than
+    // authored: the dome's power is the SH band-zero integral the prefilter already produced, the disc's is its
+    // area-averaged radiance over the cap it subtends, and the split is the disc's share. A fixed split would
+    // under-sample a clear sky's sun by orders of magnitude and over-sample an overcast one's, and a guide-derived
+    // dome power would leave an unguided dome with no price at all.
+    public double SunSelection =>
+        (Products.Irradiance.Radiant.Luminance, SunPower) switch {
+            var (dome, sun) => sun + dome > 0.0 ? sun / (sun + dome) : 0.0,
+        };
 
-    // Pdf answers the paired density every MIS weight reads: the guide's own texel density at the queried direction, or
-    // uniform-sphere density when the guide is absent — one member, both arms, so a caller never branches on Option.
+    double SunPower =>
+        Sun.Map(static disc => disc.Mean.Luminance * disc.SolidAngle).IfNone(0.0)
+        * Map.Intensity.RadiometricSi;
+
+    // ONE draw over BOTH arms. The selection consumes u0 and RESCALES it back onto the unit interval, so the arm the
+    // draw lands in still receives a stratified pair and a two-dimensional sampler loses no dimension to the choice.
+    // Every returned Pdf is the COMBINED density, so a MIS integrator weights correctly without knowing a split
+    // exists — and the disc arm carries its own radius, which is what lets a limb-darkened sun answer at the point
+    // it was drawn rather than at its centre.
+    public EnvironmentSample Sample(UnitInterval u0, UnitInterval u1) =>
+        (Sun.Case, SunSelection) switch {
+            (SolarDisc disc, > 0.0 and var p) when u0.Value < p =>
+                Solar(disc, UnitInterval.Create(Math.Min(u0.Value / p, 1.0 - 1e-12)), u1),
+            (SolarDisc _, > 0.0 and var p) =>
+                Dome(UnitInterval.Create(Math.Min((u0.Value - p) / (1.0 - p), 1.0 - 1e-12)), u1),
+            _ => Dome(u0, u1),
+        };
+
+    // Pdf answers the density every MIS weight reads: the balance of both arms at the queried direction, so a BSDF
+    // draw that happens to land on the sun is weighted against the same combined density the light's own draw was.
+    // One member, both arms, so a caller never branches on Option and never learns the selection exists.
     public double Pdf(WorldDirection direction) =>
-        Products.Cdf.Match(
-            Some: guide => guide.Density(Map.Stored(EnvironmentMap.Rotated(direction.Normalize(), -Map.Rotation), lod: 0.0).Luminance),
-            None: static () => 1.0 / (4.0 * Math.PI));
+        direction.Normalize() switch {
+            var d => SunSelection switch {
+                var p => (p * SunDensity(d)) + ((1.0 - p) * DomeDensity(d)),
+            },
+        };
+
+    // A uniform draw over the disc's own cap has the reciprocal of that cap's solid angle as its density, and zero
+    // off the disc — the delta-free density that makes a half-degree source MIS-balanceable at all.
+    double SunDensity(WorldDirection direction) =>
+        Sun.Map(disc => disc.Contains(direction) && disc.SolidAngle > 0.0 ? 1.0 / disc.SolidAngle : 0.0).IfNone(0.0);
+
+    // The guide's own texel density at the STORED luminance its mass was built from, so intensity never skews a
+    // weight; with no guide the density is the uniform sphere and SAYS SO — a declared degradation, not a fallback.
+    double DomeDensity(WorldDirection direction) =>
+        Products.Cdf
+            .Map(guide => guide.Density(Map.Stored(EnvironmentMap.Rotated(direction, -Map.Rotation), lod: 0.0).Luminance))
+            .IfNone(1.0 / (4.0 * Math.PI));
+
+    // Solar draws uniformly over the cap: the zenith cosine is LINEAR in the draw between the rim cosine and one,
+    // which is the area-preserving parameterization on a sphere — a naive angle draw clusters at the centre and
+    // reads a limb-darkened rim as noise. The completion rotates the cap-local triple onto the sun's own direction
+    // through WorldDirection's one Oriented crossing.
+    EnvironmentSample Solar(SolarDisc disc, UnitInterval u0, UnitInterval u1) {
+        double cosTheta = 1.0 - (u0.Value * (1.0 - disc.CosHalfAngle));
+        double sinTheta = Math.Sqrt(Math.Max(0.0, 1.0 - (cosTheta * cosTheta))), phi = 2.0 * Math.PI * u1.Value;
+        WorldDirection direction = disc.Direction.Oriented(sinTheta * Math.Cos(phi), sinTheta * Math.Sin(phi), cosTheta);
+        UnitInterval radius = disc.Radius(direction);
+        return new EnvironmentSample.Sun(
+            direction, disc.Limb(radius).Scale(Map.Intensity.RadiometricSi), Pdf(direction), radius);
+    }
 
     // ONE guided draw. Every guide grid is equirect — a non-equirect dome projected before accumulation — so the drawn
     // texel lifts through the frozen equirect inverse and the radiance reads the SOURCE map BY DIRECTION, never by a
-    // texel index the guide's grid and the map's grid would have to share. Stored is read once and serves both the
-    // sample and its density, so answering one query never evaluates the field twice.
+    // texel index the guide's grid and the map's grid would have to share. With no guide the draw is the uniform
+    // sphere on the same return shape.
+    EnvironmentSample Dome(UnitInterval u0, UnitInterval u1) =>
+        Products.Cdf
+            .Map(guide => Guided(guide, u0, u1))
+            .IfNone(() => UniformDirection(u0, u1) switch {
+                var d => (EnvironmentSample)new EnvironmentSample.Dome(d, Map.Radiance(d, lod: 0.0), Pdf(d)),
+            });
+
     EnvironmentSample Guided(LuminanceCdf guide, UnitInterval u0, UnitInterval u1) {
         (int x, int y) = guide.Draw(u0, u1);
         WorldDirection local = MapLayout.Equirect.Inverse(
             UnitInterval.Create((x + 0.5) / guide.Width), UnitInterval.Create((y + 0.5) / guide.Height), layer: 0);
-        RgbSpectrum stored = Map.Stored(local, lod: 0.0);
-        return new EnvironmentSample(
-            EnvironmentMap.Rotated(local, Map.Rotation), stored.Scale(Map.Intensity.RadiometricSi), guide.Density(stored.Luminance));
+        WorldDirection world = EnvironmentMap.Rotated(local, Map.Rotation);
+        return new EnvironmentSample.Dome(
+            world, Map.Stored(local, lod: 0.0).Scale(Map.Intensity.RadiometricSi), Pdf(world));
     }
-
-    EnvironmentSample Uniform(WorldDirection direction) =>
-        new(direction, Radiance(direction), 1.0 / (4.0 * Math.PI));
 
     // UniformDirection draws area-preserving over the sphere: z is linear in u1 so the shell measure is uniform, which
     // a naive (theta, phi) grid draw is not — it clusters at the poles exactly where the equirect texels already do.
@@ -1241,4 +1760,4 @@ public sealed record EnvironmentLight(
 
 ## [06]-[RESEARCH]
 
-- [SKY_FIT_PRIMARIES]-[OPEN]: which RGB primaries is the three-channel Hosek-Wilkie block fitted against, and does the eleven-channel spectral block or the tristimulus block reach this owner's ACEScg working space without a chromatic re-base no `SkyCoefficients` column declares?; verify by integrating the spectral block against the CIE observer, comparing the result to the three-channel block under the candidate primaries, and — where they disagree — carrying the fit's own primaries as a declared `SkyCoefficients` column the `Fitted` arm re-bases through, since a block fitted on display primaries and read as AP1 radiance is a hue shift no downstream gate recovers.
+- (none)

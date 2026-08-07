@@ -20,170 +20,7 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic included; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Tasks state landing-grain work decomposing an idea.
 -->
 
-[WELD_DWELL_MS_EGRESS]-[QUEUED]: The weave dwell's second-to-millisecond crossing carries an adjudicated unit posture at its controller-word egress.
-- Capability: the controller-bound dwell word converts through a declared route — typed `UnitsNet.Duration` egress, or a stated frozen-wire bare multiply — instead of an unadjudicated `* 1000.0`.
-- Shape: one verdict at `Joining/weld.md:1503` (`(int)Math.Round(band.Weave.EdgeDwellS * 1000.0)`); the page already imports UnitsNet, so the typed form costs one expression if the integer-millisecond field is not a frozen controller wire.
-- Unlocks: the last undispositioned F2/F3 boundary site in the Joining family closes.
-- Anchors: the digest/wire freeze ruling at `[04]-[STRUCTURE]`; the controller word's own field declaration decides frozen-versus-typed.
-- Atomic: one site, one verdict.
-
-[CUTTING_DEPTH_RATIO_UNITS]-[QUEUED]: The cutting-data depth ratio proves its numerator unit before any typed conversion lands.
-- Capability: `depth * 1000.0 / TargetDepth.Millimeters` at `Tooling/cuttingdata.md:895`/`:905` either becomes a typed `Length` ratio or records the structural negative — the numerator's unit is proven at `Depth(...)`'s own definition, never assumed from the call sites.
-- Shape: prove the producer's output unit, then land the typed egress or the recorded negative at both sites.
-- Unlocks: the two remaining unproven scale literals in Tooling close under the R2 rule.
-- Anchors: the `Mass.FromGrams` precedent at `Tooling/magazine.md:762`; the proven-reading requirement (`ToolMeasure.Weight` grams proof pattern).
-- Atomic: one proof, two sites.
-
-[IMPLICIT_PROGRESS_THREAD]-[QUEUED]: The run fold's progress sink reaches the PicoGK egress legs through the slicing chain.
-- Capability: a fabrication run's `FabricationRuntime.Progress` sink reports the additive stack's longest legs — vectorize, CLI write, VDB convert — instead of going dark between the `Dispatched` and `Sealed` stage boundaries.
-- Shape: `Additive/slicing.md` `Layers` gains a defaulted `Option<IProgress<double>>` threaded through the `@implicit` arm's `Voxel` into the landed `Implicit.Cli(op, progress)` parameter; the dispatch chain from `Process/owner.md` passes `runtime.Progress` at its slicing call.
-- Unlocks: the three PicoGK `IProgress?` provider parameters already composed at `Additive/implicit.md` receive a live sink end to end.
-- Anchors: `FabricationRuntime.Progress` (`Process/owner.md:1508`); `Implicit.Cli(ImplicitOp, Option<IProgress<double>>)` (`Additive/implicit.md:784`); the `RunStage` band whose Dispatched-to-Sealed gap this fills.
-- Atomic: one defaulted parameter threaded through one chain.
-
-[PLINESEG_INTERSECTION_ADOPT]-[QUEUED]: Compose the newly catalogued arc-aware segment-intersection family where the toolpath pages hand-classify crossings.
-- Capability: segment crossings classify through the provider's own verdict vocabulary — overlapping arcs included — instead of a page-local classification.
-- Shape: the `Rasm.Fabrication/.planning/Toolpath` pages whose folds test segment crossings compose the `PlineSegIntersection.Intersect` family and its `PlineSegIntrKind` verdicts per the widened `api-cavaliercontours.md` rows.
-- Unlocks: the `OverlappingArcs` verdict a bool cannot spell reaches every crossing consumer, and a new crossing class is a provider verdict row, never a page predicate.
-- Anchors: `libs/csharp/Rasm.Fabrication/.api/api-cavaliercontours.md` intersection primitives with their producing facades and verdict enums (landed this pass); `Toolpath/link.md` the settled `PlineSegIntersection.Intersect` fence.
-
-[FIXTURE_FAULT_CASE_HOMING]-[QUEUED]: Seat the fixture-admission fault case on its union owner so the `[Union]` dispatch reaches it and its band code stays disjoint.
-- Capability: one `FabricationFault` type carries every case, so the generated `Switch`/`Map` is exhaustive over the whole family and each case's band offset is unique across the package.
-- Shape: `Process/faults.md` `[ERRORS]` gains the `FixtureInadmissible(FixturingWitness Witness)` case at the free offset 54, its prelude gains the witness namespace, and `Fixturing/workholding.md` drops the second `public abstract partial record FabricationFault` block whole; the witness-homing question — witnesses beside their fault owner, as `EquipmentWitness` and `DeriveWitness` already sit — settles in the same pass.
-- Unlocks: every `FabricationFault` consumer dispatches one exhaustive family, and the Fixturing pages' roughly forty-five `FabricationFault.FixtureInadmissible` construction sites bind a case that compiles.
-- Anchors: the partial seated at `Rasm.Fabrication.Fixturing` against the union's `Rasm.Fabrication.Process` home, so the two declarations are distinct types and the nested case's three-argument base call resolves against a constructor its enclosing type never declares; offset 53 already spent by `bend-search-budget-exceeded`, making 54 the free slot on a 54-case roster; `docs/laws/topology.md` `[01]` row [13] binds band disjointness; branch `RULINGS.md` `[02]` package-receipt-union row binds one kind vocabulary per union.
-- Atomic: one case relocation with its prelude row and one deleted block.
-
-[SPECIALIZED_ENVELOPE_ADMISSION]-[QUEUED]: Enforce `SpecializedToolpathEnvelope` admission at its owner and route every consumer through the admitted rail.
-- Capability: `SpecializedToolpathEnvelope` mints only through an admission factory that folds payload validity, so an invalid envelope is unrepresentable and the public primary constructor retires.
-- Shape: a private primary constructor with a static `Fin<SpecializedToolpathEnvelope>` admission factory on the owner; Toolpath `wire`, `bevel`, `link`, `motion`, Posting `program`, `dialect`, and Verify `simulate` construct through the factory and drop their local `payload.IsValid` revalidation branches.
-- Unlocks: one admission seam for every specialized-toolpath consumer, collapsing six duplicated advisory revalidations into the owner's single fold.
-- Anchors: the value-object admission pattern the corpus already carries; the `SpecializedToolpathEnvelope` owner in `Process/owner.md`; the consumer pages holding direct `new SpecializedToolpathEnvelope(...)` construction; IDEAS `[SPECIALIZED_TOOLPATH_EGRESS]`.
-
-[LOT_INSTANCE_CONTENTION]-[QUEUED]: Widen `PlannedStep` with `MachineInstance` identity so lot scheduling reserves real stations.
-- Capability: `PlannedStep` carries its assigned `MachineInstance`, and the `LotOf` fold emits per-instance reservations beside lead, critical-path, and slack evidence.
-- Shape: derivation consumes fleet availability windows per assigned instance; contention resolves inside the lap-phased fold, never a post-pass.
-- Unlocks: instance-true capacity routing, promise intervals, and dispatch order.
-- Anchors: `Process/derivation.md`, `Kinematics/fleet.md`, IDEAS `[FABRICATION_FINITE_CAPACITY]`.
-
-[FLEET_CALENDAR_RECURRENCE]-[QUEUED]: Pin fleet shift and maintenance recurrence on the NodaTime civil-calendar types.
-- Capability: `ShiftCalendar` recurrence and maintenance-exception rows carry `AnnualDate` yearly recurrences and `YearMonth` capacity horizons instead of raw month and day integers.
-- Shape: generated calendars and availability windows derive from the typed rows, and capacity-horizon evidence states its month identity.
-- Unlocks: unambiguous recurring windows feeding finite-capacity reservations.
-- Anchors: `Kinematics/fleet.md`, `libs/csharp/.api/api-nodatime.md` `YearMonth` and `AnnualDate`, IDEAS `[FABRICATION_FINITE_CAPACITY]`.
-- Atomic: two typed calendar rows on the fleet page.
-
-[TOOLCHANGE_ELAPSED_ROW]-[QUEUED]: Price magazine traverse as a typed per-change evidence row.
-- Capability: `ToolChange.Elapsed` derives from slot index distance and arm swing; estimation consumes the row and simulation advances its modal clock by the same value.
-- Shape: one derivation on the magazine owner, one estimation evidence row, one simulate clock consumption.
-- Unlocks: magazine-aware quoting and cycle truth.
-- Anchors: `Tooling/magazine.md`, `Verify/estimation.md`, `Verify/simulate.md`, IDEAS `[MAGAZINE_CHANGE_TIME_TO_ESTIMATION]`.
-- Atomic: one evidence row with two consumers.
-
-[STABILITY_WORD_INTERSECTION]-[QUEUED]: Intersect the chatter recommendation with controller and power limits at posting.
-- Capability: `StabilityReceipt.Recommend` selects the highest-margin stable spindle point; posting intersects it with dialect and power limits while motion carries it on `CutStrategy`.
-- Shape: one recommendation consumption row in motion and one intersection row in optimization, with refusal evidence when no stable point survives the limits.
-- Unlocks: stable emitted spindle words and physics-backed feed optimization.
-- Anchors: `Tooling/cuttingdata.md`, `Toolpath/motion.md`, `Posting/optimization.md`, IDEAS `[STABILITY_SPEED_SELECTION_IN_POSTING]`.
-
-[SHARED_EDGE_MEASURE]-[QUEUED]: Publish the collinear-overlap measure and score it during placement.
-- Capability: linking publishes its collinear-overlap measure as a reusable owner, and `NestObjective` gains one shared-edge weight and evidence field consuming it.
-- Shape: measure mints once in linking; placement scoring reads it without coupling owners.
-- Unlocks: lower pierce count and cut length at equal packing yield.
-- Anchors: `Nesting/linking.md`, `Nesting/nfp.md`, IDEAS `[COMMON_LINE_AFFINITY]`.
-
-[DISTORTION_SOURCE_FAMILY]-[QUEUED]: Close the distortion-source family behind one displacement receipt.
-- Capability: joining thermal load, preload, and fixture release fold as `DistortionSource` cases into a per-member displacement field receipt.
-- Shape: assembly tolerance chains and setup datum-transfer budgets consume the one receipt.
-- Unlocks: post-weld position error and fixture-release planning.
-- Anchors: `Joining/sequence.md`, `Fixturing/assembly.md`, `Fixturing/setups.md`, IDEAS `[FIXTURING_DISTORTION]`.
-
-[WELD_ARC_FIT_GATE]-[QUEUED]: Ledger the Joining-to-Geometry2D edge and land the circular-emission gate.
-- Capability: transported torch frames satisfying an arc-fit gate emit one circular move with rotation sense, and non-circular runs keep the linear chain.
-- Shape: ARCHITECTURE strata ledger gains the legal Joining-to-Geometry2D consumption edge before the arc-fit owner is consumed.
-- Unlocks: faithful circumferential deposits without chord-error dependence.
-- Anchors: `Joining/weld.md`, `Geometry2D/arcs.md`, `ARCHITECTURE.md` strata ledger, IDEAS `[ORBITAL_ARC_DEPOSIT_PATH]`.
-
-[CHAIN_CONTRIBUTION_ROWS]-[QUEUED]: Carry ranked stackup contribution onto failed characteristics.
-- Capability: quality evidence retains stack method and ranked `ChainReceipt` contribution rows, so a failed characteristic names its dominating feature variation.
-- Shape: one evidence widening on the quality record, no second vocabulary.
-- Unlocks: corrective-action routing and targeted capability studies.
-- Anchors: `Spec/tolerance.md`, `Documentation/report.md`, IDEAS `[STACKUP_CONTRIBUTION_ON_QUALITY_RECORDS]`.
-- Atomic: one evidence widening.
-
-[FRAME_SYMBOL_SEAM]-[BLOCKED]: Resolve the app-stratum drafting seam name carrying the frame symbols.
-- Capability: `FeatureFrameReceipt.Annotation` symbol rows feed drawings, travelers, exchange, and reports through one layout-free law once the receiving seam owner is named.
-- Shape: projection consumes the symbol rows while the render tier keeps layout, and the seam ledger names one APP-stratum owner.
-- Unlocks: `[GDT_ANNOTATION_AS_SPEC_EVIDENCE]` lands with its consumer seam pinned.
-- Anchors: `Spec/tolerance.md`, `Documentation/projection.md`, IDEAS `[GDT_ANNOTATION_AS_SPEC_EVIDENCE]`.
-- Arms: arm when one APP-stratum owner claims the annotation rows — the landed `HiddenLineResult` seam onto `Rasm.AppUi`, or an app shell outside `libs/csharp` the seam ledger then names.
-- Route: `libs/csharp/Rasm.AppUi/.planning/Render/drafting.md` for the drafting seam's declared consumption, then this folder's `ARCHITECTURE.md` seam ledger for the edge that claim obliges.
-
-[MOVE_ORIENTATION_PAYLOAD]-[QUEUED]: Widen the motion atom with continuous tool-frame and contact payload.
-- Capability: `Move` gains continuous orientation and contact; indexed 3+2 stays on `SurfaceFrame`, and the consumer census spans surface swarf, machine solve, posting, and swept guard.
-- Shape: one atom widening with per-consumer lowering rows; the dropped swept-solid guard ruling re-opens on landing with typed refusal for unsupported axes.
-- Unlocks: typed multi-axis motion through the CAM-to-post chain.
-- Anchors: `Process/owner.md`, `Toolpath/surface.md`, `Toolpath/guard.md`, IDEAS `[TOOLPATH_ORIENTED_MOTION_ATOM]`.
-
-[CUTTER_FORM_COMPOUND_ROWS]-[QUEUED]: Make compound cutter lowering total over explicit form evidence.
-- Capability: `CutterForm` carries compound family, major length, and secondary angle, and `OpenCamCutterKind` dispatches every catalogued constructor without inferring form from coincident dimensions.
-- Shape: one form widening and one dispatch-table completion.
-- Unlocks: faithful BullCone and compound cutter lowering.
-- Anchors: `Process/owner.md`, `Toolpath/surface.md`, IDEAS `[OPENCAM_COMPOUND_CUTTER_EVIDENCE]`.
-- Atomic: one form widening and dispatch completion.
-
-[DIRECTIVE_ATOM_LOWERING]-[QUEUED]: Admit dwell, oriented stop, and spindle sync as motion, never typed failure.
-- Capability: one directive payload on the motion atom lowers through turning and posting without a parallel command family.
-- Shape: turning directive rows become admitted motion, and dialect owns executable spelling or annotation.
-- Unlocks: controller-neutral directive generation.
-- Anchors: `Process/owner.md`, `Toolpath/turning.md`, `Posting/dialect.md`, IDEAS `[FABRICATION_MOTION_DIRECTIVE_ATOM]`.
-
-[EROSION_WIRE_ROUTING]-[QUEUED]: Route erosion boundary passes through the wire owner.
-- Capability: `EngagementPolicy` carries `WirePolicy`, and `Cam.Generate` sends erosion boundary passes into `WireEdm.Generate`, replacing cutter-radius compensation with spark-gap, overburn, taper-guide, and retention law.
-- Shape: one policy row and one dispatch rerouting with wire-specific refusal evidence.
-- Unlocks: total erosion routing.
-- Anchors: `Toolpath/motion.md`, `Toolpath/wire.md`, IDEAS `[EROSION_CONTOUR_ROUTES_WIRE_OWNER]`.
-- Atomic: one policy row and one dispatch arm.
-
-[PARTITION_DENSITY_MAP]-[QUEUED]: Derive partition policy from target areal density.
-- Capability: boundary area maps density to pitch, relaxation, and separation on `PartitionStrategy`, and retained cell areas with Lloyd residuals close the inverse.
-- Shape: one derivation fold replacing preset constants.
-- Unlocks: parameterized stipple and engrave generation.
-- Anchors: `Toolpath/partition.md`, IDEAS `[PARTITION_DENSITY_CLOSURE]`.
-- Atomic: one derivation fold on the partition page.
-
-[QUANTITY_ARROW_COLLAPSE]-[QUEUED]: Collapse folder-local length parsers onto the atoms quantity arrow.
-- Capability: one caller-fault-parameterized arrow converts unit-bearing text to canonical machining scalars, and the wire, link, and bevel parser sites collapse onto it.
-- Shape: one atom owner and three call-site collapses.
-- Unlocks: shared unit policy and new quantity families without wrappers.
-- Anchors: `Process/owner.md`, `Toolpath/wire.md`, `Toolpath/link.md`, `Toolpath/bevel.md`, IDEAS `[DIMENSIONAL_ADMISSION_ATOM]`.
-- Atomic: one arrow and three call-site collapses.
-
-[PRECEDENCE_SAFE_TWO_OPT]-[QUEUED]: Refine linked tours against routed transition cost.
-- Capability: a bounded two-opt or Or-opt stage reorders only swaps whose graph in-degrees stay satisfied, and `LinkReceipt` carries the improvement delta after re-routing swapped pairs.
-- Shape: one refinement stage after routing under a bounded swap budget.
-- Unlocks: tours optimized against routed geometry instead of Euclidean proxy cost.
-- Anchors: `Toolpath/link.md`, IDEAS `[LINK_TOUR_REFINEMENT]`.
-
-[HOLD_POINT_RELEASE]-[QUEUED]: Gate traveler advance on satisfied hold-point evidence.
-- Capability: a `HoldPoint` family over inspection stages carries release attestations for hold, witness, review, and surveillance points.
-- Shape: traveler step release consumes satisfied hold evidence, never rendered plan text.
-- Unlocks: customer and notified-body release gating before material advances.
-- Anchors: `Documentation/report.md`, `Documentation/traveler.md`, `Joining/procedure.md`, IDEAS `[INSPECTION_TEST_PLAN]`.
-
-[SCHEDULE_BAG_FOLDS]-[QUEUED]: Pin the schedule derivation folds over the realization bags.
-- Capability: bar-bending, weld-map, and stud-layout fold rows, each naming its realization-bag inputs and deliverable shape; the deliverable wire registers at the `Rasm.Materials` `[FABRICATION_SCHEDULE_WIRE]` counterpart in the same change — folds landed with the wire unregistered leave this task open.
-- Shape: fold rows on `libs/csharp/Rasm.Fabrication/.planning/Documentation/report.md`; projector-fact reads per `libs/csharp/Rasm.Fabrication/.planning/Process/derivation.md`.
-- Unlocks: `[SHOP_SCHEDULE_DERIVATION]` lands deliverable by deliverable.
-- Anchors: `DetailSchema.Realization` seam bags, `FabricationProjector`, IDEAS `[SHOP_SCHEDULE_DERIVATION]`.
-
-[BENCH_CASE_ROSTER]-[BLOCKED]: Mint accepted receipts for every solver benchmark row before a measured route consumes one.
-- Capability: branch cases produce durable receipts, AppHost judges them, and the accepted projection enters `ProbeRoute.Measured`.
-- Shape: `AcceptedBenchmarkClaim` closes the package boundary over the roster and durable receipt key.
-- Unlocks: measured clearance claims carry evidence instead of claim-key possibility.
-- Anchors: `Toolpath/guard.md#[02]-[GUARD]`, `Toolpath/guard.md#[03]-[RESEARCH]`, IDEAS `[SOLVER_BENCHMARK_CORPUS]`.
-- Arms: case producers and claim projection are absent; arm when `tests/csharp/_benchmarks` mints every case and `libs/csharp/Rasm.AppHost/.planning/Observability/benchmarks.md` projects accepted receipts.
-- Atomic: one case family and one claim adapter.
+(none)
 
 ## [02]-[CLOSED]
 
@@ -191,6 +28,9 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 [ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
+[SILENT_FACT_PRODUCERS]-[COMPLETE]: all four cases now fire where their receipt settles — `ToolWear` at the `Assess` fold under a tap threaded through `WearRequest`'s own switch, `ToolRefresh` at `ToolCatalog.Admit` so the receipt's `CatalogSource` decides projection rather than a caller picking the arm, `CuttingFit` at the fit binding AHEAD of the acceptance gate so a model refused for residual still publishes the residual that refused it, and `FleetMatch` inside `Match` where `MachinePerformance` presence is still in scope, since the measured-versus-declared evidence dimension is the one fact `MachineMatch` cannot carry; the fleet tap threads the run spine through `Derivation.Plan` and its request switch, so the derive lane emits without a caller opting in.
+[WITNESS_GATED_MINTS]-[COMPLETE]: every bypass routes through the gated mints — `Process/derivation` `Pairing` onto `FabricationFault.Pairing`, both `Toolpath/guard` robot-collision refusals onto `FabricationFault.Joint`, the eight `Ingress` sites (`profile` four, `solid` two, `steel` one, `element` one) onto `Sourced`/`Unavailable`, and the `Kinematics/machine` and `Tooling/magazine` sites were already gated when the census ran.
+[WELD_SHAPE_DERATE_TABLE]-[COMPLETE]: the tension resolved toward the projection, not a payload key — `PrepShape` is a `[SmartEnum<string>]` whose `Items` roster gives the table the totality proof `PassRole` and `WeldPosition` already carry, `JointPrep.Shape` projects it off the case with the single- and double-sided groove splitting into two rows because they conduct differently, and `WeldFactorTable` gained a third keyed `Map<PrepShape, ShapeFactor>` column with its own bounded admission beside the shop preset. A keyed policy row on `WeldRuleSet` was rejected: the shape derate is EN 1011-2 published data of exactly the kind the factor table already holds, and seating it on the rule set would have split one derate surface across two owners. The side flip is `WeldRuleSet.SideCrossoverFraction`, admitted open in `(0,1)`, so an unbalanced preparation states where its second side begins.
 [HATCH_EDGE_SPELLING]-[COMPLETE]: the route resolved on the assay rail — `Hatch.BoundaryPath` publishes `Edges : ObservableCollection<Edge>` over `Line`(`Start`/`End : XY`), `Arc`(`Center`/`Radius`/`StartAngle`/`EndAngle`/`CounterClockWise`), `Ellipse`(`MajorAxisEndPoint`/`RadiusRatio`), `Polyline`(`Vertices : List<XYZ>` carrying bulge in Z), and `Spline`, each answering `EdgeType` with `ToEntity()`/`PolygonalVertexes(int)`; the catalogue carries every row and the lowering arms already compose them.
 [OBSERVATION_PAGE_MINT]-[COMPLETE]: the arming condition landed at the branch tier — `libs/csharp/.api/api-mtconnect.md` carries both namespace partitions with `Rasm.AppHost` bound to CONNECTIVITY and this folder to the ISO-13399 CUTTING-TOOL slice, the dual-homed folder catalogue is deleted, and the README row moved to `## [03]-[SUBSTRATE_PACKAGES]` under `[MACHINE_CONNECTIVITY]`; AppHost already carries the decode adapter, its `MachineObservationWire` crossing, and the `machine.observations` instrument, so `Kinematics/observation.md` stays provider-neutral by design rather than by omission and the `[LOCAL_ADMISSION]` partition law forecloses this folder reaching the connectivity half.
 [DERIVATION_ROW_KEY_CUSTODY]-[COMPLETE]: `Process/derivation.md` mints every bag key through `Row`, its own one-line composition of the seam owner's `PropertyCategory.Fabrication.Row`, so the three call-site `PropertyName.Create(row.Key)` spellings are gone and this package's vocabulary lands inside a partition `Rasm.Element` blesses rather than in the shared key space; the Boundary states a bare `PropertyName.Create` at any write site as the deleted form.
@@ -207,3 +47,28 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 [DELIVERY_FACT_CASE]-[COMPLETE]: `ProgramDelivery` carries upload custody, `TravelerAmendment.Released` requires its verified receipt, and `Delivery.ProgramKind` avoids the polymorphic `kind` discriminator while its fan arm projects the roster row.
 [NFP_MEMO_KEYS]-[COMPLETE]: `PairMemo` memoizes pair polygons under `PairTable.Key` content identities through the runtime-carried `HybridCache`; hit and miss counts settle on `NestEvidence` and fan as engine rows.
 [FABRICATION_FACT_RAIL]-[COMPLETE]: `Process/telemetry.md` landed the fact union, instrument roster, contributor port, projection fan, and classification rows; `FabricationRuntime` carries the `FabricationTap` port and the AppHost seam is mirrored at `[03]-[SEAMS]`.
+[WELD_DWELL_MS_EGRESS]-[COMPLETE]: the verdict was that a fact carried at two precisions is the defect, not the multiply — `WeavePattern.EdgeDwellS` is the one dwell fact every heat computation and the digest read, and `EdgeDwellMs` derives at the controller word alone, so a rounded millisecond can no longer disagree with the seconds it was rounded from inside a content key.
+[CUTTING_DEPTH_RATIO_UNITS]-[COMPLETE]: the producer's unit proved out — `Depth` answers `Option<Length>` from the compliance-and-coefficient algebra, so the stability margin is a `Length`-over-`Length` ratio and both bare scale literals are gone rather than retyped.
+[IMPLICIT_PROGRESS_THREAD]-[COMPLETE]: `Slice.Layers` and `Slice.Solve` take the runtime's own `Option<IProgress<double>>` defaulted absent and thread it into `Implicit.Cli`, where vectorize and write report as two phases of one egress, so the run fold's sink no longer goes dark between the dispatched and sealed stage boundaries.
+[PLINESEG_INTERSECTION_ADOPT]-[COMPLETE]: `Toolpath/link` composes `PlineSegIntersection.Intersect` and reads the six-way `PlineSegIntrKind` verdict whole — a crossing blocks while a tangent touch and a collinear or arc overlap are an inflated keepout's own boundary — and the carve is that no other Toolpath page holds a crossing fold, so wire and bevel adopt nothing.
+[FIXTURE_FAULT_CASE_HOMING]-[COMPLETE]: the card's premise was stale and the correction is recorded — offset 55 was already settled law for the fixture refusal, so the defect was the second `FabricationFault` partial declared in the Fixturing namespace against the union's Process home, two distinct types whose nested base call could never resolve; the case now declares at `Process/faults` beside its `FixturingWitness` family and the folder block is gone.
+[SPECIALIZED_ENVELOPE_ADMISSION]-[COMPLETE]: `SpecializedToolpathEnvelope` mints only through a static `Fin` factory over a private constructor, folding row presence, duration finiteness, and kind correspondence in one applicative gate, so every specialized consumer dropped its advisory revalidation branch.
+[LOT_INSTANCE_CONTENTION]-[COMPLETE]: `PlannedStep.Instance` names the assigned physical station with `None` reading as an uncapped class, and the lap-phased `LotOf` fold seats effort against per-instance availability windows, resolving contention inside the fold rather than in a post-pass.
+[FLEET_CALENDAR_RECURRENCE]-[COMPLETE]: `CalendarSpan` closes dated and `AnnualDate`-recurrent windows, `MaintenanceRule` generates every hole, and `ShiftCalendar.Horizon` reports working duration per `YearMonth`, so a caller-supplied literal interval roster is the deleted form.
+[TOOLCHANGE_ELAPSED_ROW]-[COMPLETE]: `ToolChangeEvidence` carries traverse, arm swing, and their derived elapsed off the magazine layout's own index distance, an empty spindle measuring from `MagazineLayout.Park`; estimation consumes one row per change and simulation advances its modal clock by the same value.
+[STABILITY_WORD_INTERSECTION]-[COMPLETE]: `StabilityReceipt.Recommend` answers the highest-margin `StablePoint` at the requested depth, motion carries the option on `CutStrategy`, and optimization intersects it with dialect and power limits with typed refusal evidence when nothing survives.
+[SHARED_EDGE_MEASURE]-[COMPLETE]: the collinear-overlap measure mints once in `Nesting/linking` and `NestObjective` reads it as one weighted shared-edge term with its evidence column, so placement scoring consumes the measure without either owner depending on the other's internals.
+[DISTORTION_SOURCE_FAMILY]-[COMPLETE]: the union closed over three families but only thermal ever loaded, so the two remaining sources were landed rather than left declared — `ClampPreload` admits the gripped member, its force, and the release step that relaxes it, the clamped member enters the stiffness index whether or not the schedule welds it, dominance compares loads in the operator's own units, and a member moving only through its restraints answers `None` instead of a zero-magnitude release.
+[WELD_ARC_FIT_GATE]-[COMPLETE]: the gate landed and the ledger edit proved unearned — `ArcFit.Of` is self-contained circumcircle-and-residual value geometry on the weld owner reaching no `Geometry2D` member, so a Joining-to-Geometry2D consumption edge would have ledgered a dependency that does not exist.
+[CHAIN_CONTRIBUTION_ROWS]-[COMPLETE]: the quality record carries stack method with ranked `StackupContributionRow` shares and a `Dominant` read, projected from `ChainReceipt` — the ONE receipt the analytic combination and the correlated simulation both rank on, now that the contributor roster is bijective onto the chain's own terms — so no second stackup vocabulary lands on the documentation plane and the term keys read the same on either route.
+[FRAME_SYMBOL_SEAM]-[COMPLETE]: the arm was met and the seam resolved — the app drafting owner already composes this package's projection entry, so it is the APP-stratum claimant; its feature-control frame now reads the layout-free `FrameSymbolRow` compartments this package publishes and its second characteristic vocabulary is deleted.
+[MOVE_ORIENTATION_PAYLOAD]-[COMPLETE]: `Move` carries `MoveOrientation` — tool axis at both ends with an optional contact point — while indexed 3+2 stays on `SurfaceFrame`, and the dropped swept-solid ruling reopened on landing with the guard's typed refusal for an oriented move.
+[CUTTER_FORM_COMPOUND_ROWS]-[COMPLETE]: `CutterFamily.Compound` and the `MajorLength`/`SecondaryAngle` metric reads carry explicit form evidence, so the cutter-kind dispatch reaches every catalogued constructor and its relief correspondence without inferring compound form from coincident dimensions.
+[DIRECTIVE_ATOM_LOWERING]-[COMPLETE]: dwell over its `DwellBasis`, oriented stop, and spindle synchronization are `MotionDirective` cases, turning directive rows lower onto them as admitted motion, and the dialect owns executable spelling or annotation with no parallel command family.
+[EROSION_WIRE_ROUTING]-[COMPLETE]: `EngagementPolicy` carries `WirePolicy` and `Cam.Generate` dispatches erosion boundary passes into `WireEdm.Generate`, so the erosion lane answers on wire-specific refusal evidence instead of cutter-radius compensation it cannot honour.
+[PARTITION_DENSITY_MAP]-[COMPLETE]: `PartitionStrategy` derives pitch, relaxation, and separation from target areal density over the boundary area, and `PartitionDensity` closes the inverse against realized cell areas and the walk's Lloyd residual, retiring the preset constants.
+[QUANTITY_ARROW_COLLAPSE]-[COMPLETE]: `QuantityArrow` on the atoms floor is the one caller-fault-parameterized dimension-text arrow, `PhysicsQuantity.Parse` turned internal behind it, and the wire, link, and bevel parser entries collapsed onto the single boundary.
+[PRECEDENCE_SAFE_TWO_OPT]-[COMPLETE]: the tour refines under a bounded swap budget admitting only reorderings whose graph in-degrees stay satisfied, re-entering transition routing for each swapped pair, and `LinkReceipt` carries the improvement delta beside its solver evidence.
+[HOLD_POINT_RELEASE]-[COMPLETE]: the plan half was landed and the consuming half was not, so the wire is closed here — `InspectionTestPlan.Unreleased` publishes the open blocking-hold roster and `Released` is its verdict, the traveler corpus carries the `HoldRelease` attestations beside the procedure receipts that plan them, and `BindRoutes` refuses on that one read as a fifth accumulating class whose count rides `RouteWitness`.
+[SCHEDULE_BAG_FOLDS]-[COMPLETE]: `ScheduleKind` rows fold `DetailSchema.Realization` bags into bar-bending, weld-map, and stud-layout deliverables at the report owner, each naming its input rows and emitting only where every one is present; the `Rasm.Materials` counterpart is registered and actionable against the landed fold.
+[BENCH_CASE_ROSTER]-[COMPLETE]: the boundary landed here and the producer half routed to its real owner — `AcceptedBenchmarkClaim` binds an accepted result to the `HostEvidence` digest its pass was stamped over under an injected judgment seam, and the case-production work is carded at the branch tier that owns the test estate, since this folder holds no test-estate surface to mint them on.

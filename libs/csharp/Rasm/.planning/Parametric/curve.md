@@ -364,16 +364,16 @@ flowchart LR
 
 One owner per axis; capability is a case, row, or fold arm, never a sibling surface. Each `[RAIL]` names one return rail, and indexed notes state the collapse.
 
-| [INDEX] | [AXIS_CONCERN]     | [OWNER]                                      | [RAIL]                            | [CASES] |
-| :-----: | :----------------- | :------------------------------------------- | :-------------------------------- | :-----: |
-|  [01]   | Curve op algebra   | `ParametricOp` + `Parametric`                | `Apply → Fin<ParametricResult>`   |   12    |
-|  [02]   | Result carrier     | `ParametricResult`                           | carrier (drained at the consumer) |    9    |
-|  [03]   | Division rules     | `DivideRule`                                 | payload                           |    4    |
-|  [04]   | Measure address    | `MeasureProbe`                               | payload                           |    3    |
-|  [05]   | Crossing targets   | `IntersectTarget`                            | payload                           |    2    |
-|  [06]   | Planar primitives  | `PlanarPrimitive`                            | payload                           |    3    |
-|  [07]   | Policy rows        | `StationPlan`/`RefinePolicy` + `Refine.Fold` | values + the one driver           |    —    |
-|  [08]   | Region delegation  | `Parametric.Fill`                            | `Fill → Fin<ArrangementResult>`   |    —    |
+| [INDEX] | [AXIS_CONCERN]    | [OWNER]                                      | [RAIL]                            | [CASES] |
+| :-----: | :---------------- | :------------------------------------------- | :-------------------------------- | :-----: |
+|  [01]   | Curve op algebra  | `ParametricOp` + `Parametric`                | `Apply → Fin<ParametricResult>`   |   12    |
+|  [02]   | Result carrier    | `ParametricResult`                           | carrier (drained at the consumer) |    9    |
+|  [03]   | Division rules    | `DivideRule`                                 | payload                           |    4    |
+|  [04]   | Measure address   | `MeasureProbe`                               | payload                           |    3    |
+|  [05]   | Crossing targets  | `IntersectTarget`                            | payload                           |    2    |
+|  [06]   | Planar primitives | `PlanarPrimitive`                            | payload                           |    3    |
+|  [07]   | Policy rows       | `StationPlan`/`RefinePolicy` + `Refine.Fold` | values + the one driver           |    —    |
+|  [08]   | Region delegation | `Parametric.Fill`                            | `Fill → Fin<ArrangementResult>`   |    —    |
 
 - [01]-[CURVE_OP_ALGEBRA]: `[Union]` request cases folded by ONE `Apply`.
 - [02]-[RESULT_CARRIER]: `[Union]` typed results; `StationField` the SoA wire, `Offsets`/`Refit` evidence-bearing, `Outline` the planar run.

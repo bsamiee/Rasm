@@ -15,7 +15,7 @@ Rasm.Fabrication/
 │   └── Telemetry.cs         # FabricationFact union, rasm.fabrication.* instrument roster, projection fan, solver span scopes, descriptor pack
 ├── Tooling/                 # ISO-13399 tool intelligence, machinability, and wear
 │   ├── Magazine.cs          # Provider-detached ToolAssembly owner, correspondence tables, typed-shortfall kitting, and ordered life scheduling
-│   ├── CuttingData.cs       # Kienzle seeds, evidence-domain guard, power-law fit, and cutter-form projection on typed evidence rails
+│   ├── CuttingData.cs       # Kienzle seeds, evidence-domain guard, power-law fit, stability recommendation, cutter-form projection
 │   └── Wear.cs              # Taylor flank-wear, per-edge budgets, and condition-based remaining-life estimation
 ├── Geometry2D/              # 2D substrate: line, arc, and parametric-curve lanes
 │   ├── Algebra.cs           # Clipper2 line-space operation algebra: topology, open runs, morphology, inspection, and field planes
@@ -29,18 +29,18 @@ Rasm.Fabrication/
 ├── Toolpath/                # Subtractive CAM
 │   ├── Motion.cs            # ProcessModality and CutStrategy generator arms
 │   ├── Surface.cs           # OpenCAMLib cutter positioning over kernel on-mesh path layout
-│   ├── Partition.cs         # Seeded Voronoi cells with border, centroid, and Lloyd-residual evidence
+│   ├── Partition.cs         # Generative site field to boundary-clipped cells, density closure, bound-gated 3D complex
 │   ├── Guard.cs             # Scope-stamped planar, medial, voxel, and robot collision receipt
 │   ├── Skeleton.cs          # Per-component constant-engagement walk over the kernel clearance family
 │   ├── Turning.cs           # Controller-neutral lathe algebra: CutSide-owned sweep, plunge, axial, thread, knurl, transfer
 │   ├── Wire.cs              # Wire-EDM demand: closed cycle, registered guides, wire bow, retention, recovery, simultaneous blocks
-│   ├── Link.cs              # Precedence-aware closed tour, tool/setup-aware objective, volumetric keepouts, guarded segment routing
+│   ├── Link.cs              # Precedence-safe refined closed tour, tool/setup objective, volumetric keepouts, guarded routing
 │   └── Bevel.cs             # Station-varying section law, thermal/abrasive head compensation, coupled THC pass evidence
 ├── Kinematics/              # Motion topology, the decoded observation slice, and the fleet registry
-│   ├── Cell.cs              # Robot targets, placement optimization over one loaded cell, compilation, library, and controller boundaries
+│   ├── Cell.cs              # Robot targets, placement search, compilation, the planner timing census, library and controller boundaries
 │   ├── Machine.cs           # Parameterized machine-chain inverse by bounded least squares, TCP/RTCP, continuity, and motion dynamics
 │   ├── Observation.cs       # MachineObservation decoded-telemetry union, execution and condition vocabularies, and the machine-scoped window
-│   └── Fleet.cs             # Typed shop-capability, availability, tooling-state, and measured-performance registry
+│   └── Fleet.cs             # Typed shop-capability, generated availability, tooling state, measured performance, finite-capacity assignment
 ├── Additive/                # Production 3DP
 │   ├── Slicing.cs           # FFF/DED planar slicing and the deposition-seed modality roster
 │   ├── Implicit.cs          # PicoGK implicit voxel TPMS, lattice, VDB round-trip, and resin-powder lanes
@@ -64,8 +64,8 @@ Rasm.Fabrication/
 │   ├── Removal.cs           # PicoGK voxel material-removal verify into gouge/uncut/overcut receipts
 │   ├── Probing.cs           # In-process metrology: probe rows, ICP datum best-fit, conformance verdicts
 │   ├── Simulate.cs          # Modal-state execution walk over the parsed CutProgram
-│   ├── Estimation.cs        # Cost estimation from the fabrication result
-│   └── Audit.cs             # Additive-owned layer-stack pre-flight
+│   ├── Estimation.cs        # Cost and carbon estimation into parallel signed ledgers
+│   └── Audit.cs             # Layer-stack pre-flight over the additive raster census
 ├── Spec/                    # Production specs
 │   ├── Tolerance.cs         # ISO 286 limits, admitted GD&T frames, datum targets, composites, general classes, texture, and ranked stackup
 │   ├── Capability.cs        # Capability intervals, variables SPC, fitted dependence, correlated stackup, and history gates
@@ -73,35 +73,36 @@ Rasm.Fabrication/
 ├── Documentation/           # Shop documentation
 │   ├── Projection.cs        # Kernel multi-view projection — hidden-line, silhouette, outline, and section runs over a watertight source
 │   ├── Traveler.cs          # DAG-normalized content-keyed traveler over the typed receipt corpus
-│   └── Report.cs            # Sampled inspection, EN 10204, NDT reconciliation, NCR lifecycle, calibration recall, and signed passport egress
+│   └── Report.cs            # Sampled inspection, EN 10204, NDT, NCR lifecycle, calibration recall, shop schedules, signed passport egress
 ├── Forming/                 # Sheet forming
 │   ├── Sheet.cs             # One unfold owner
 │   ├── Brake.cs             # Best-first bend-sequence planning over the feasibility matrix
 │   └── Tube.cs              # Tube centerline fold, elongation carry, and cope development
 └── Joining/                 # Weld engineering
-    ├── Weld.cs              # Joint-by-prep composition over boundary-resolved groove facts
-    ├── Sequence.cs          # Distortion ordering: backstep, skip-weld, balanced, block
-    └── Procedure.cs         # WPS/PQR essential-variable rows and the heat-input compliance gate
+    ├── Weld.cs              # Joint-by-prep bead-lattice composition over boundary-resolved groove facts and the arc-fit gate
+    ├── Sequence.cs          # Distortion ordering and the inherent-strain displacement receipt its consumers share
+    └── Procedure.cs         # WPS/PQR essential variables, heat-input compliance, inspection scope, and the hold-point plan
 ```
 
-Sub-domain dependencies are acyclic. Split packages declare ledger nodes without splitting pages: `Process` places atoms at S0, terminal derivation at S4, and the telemetry fact fan at S5; `Kinematics` places motion at S1 and its consuming fleet at S3, and motion never reads fleet policy. Shared discriminants mint on atoms, while residual and verdict state flow forward as policy-case input. Per-flagship pipelines live on owning implementation pages.
+Sub-domain dependencies are acyclic. Split packages declare ledger nodes without splitting pages: `Process` places atoms at S0, terminal derivation at S4, and the telemetry fact fan at S5; `Kinematics` places motion at S1 and its consuming fleet at S3, and motion never reads fleet policy. Shared discriminants mint on atoms, while residual and verdict state flow forward as policy-case input. Atoms carrying a plane's payload name that plane's type and reach none of its behaviour — `FabricationPolicy` cases and `SpecializedToolpathRow` hold upper-plane rows this way, so the floor stays behaviourally acyclic without a parallel S0 vocabulary. Per-flagship pipelines live on owning implementation pages.
 
 ## [02]-[STRATA]
 
 Six strata order the sub-domains; split-package ledger nodes preserve one direction: `Process` places atoms at the floor and `Derivation` beside the CAM plane, while `Kinematics` places motion at S1 and its consuming fleet at S3. `Verify` parses the `CutProgram` AST `Posting` emits as a same-stratum fact; every cross-stratum consumption edge points down.
 
 - S0 `Process` atoms — the one vocabulary floor; every plane reads it, and it reads no sibling.
-- S0 atoms — `FabricationPolicy`, `FabricationResult`, `EgressKind`, `ContentKey`, `Move`, `MotionDirective`, `Loop`, `FabricationFault`.
-- S0 atoms — `SpecializedToolpathEnvelope`, `MaterialSpec`, `ProcessRange`, `EquipmentEnvelope`.
+- S0 run rail — `FabricationPolicy`, `FabricationResult`, `EgressKind`, `ContentKey`, and the `FabricationFault` refusal band.
+- S0 payload atoms — `Move` with `MoveOrientation`, `MotionDirective`, `SpecializedToolpathEnvelope` behind its admission factory, `Loop`.
+- S0 equipment axes — `MaterialSpec`, `ProcessRange`, `EquipmentEnvelope`, `MachineAxis`, beside `FabricationCanon` and `QuantityArrow`.
 - S1 `Geometry2D` — `PolygonAlgebra`, `ArcAlgebra`, and `CurveAlgebra`, substrate lanes over the atoms alone.
 - S1 `Ingress` — the `Ingress.Admit` fold and `AdmittedGeometry`.
-- S1 `Kinematics` motion and observation — `MachineTool`, `MachineKinematics`, `RobotProgram`, and the `MachineObservation` decoded slice; `Kinematics/cell` alone projects `Robots` evidence into the provider-free `MachineIngress.Robot` rows the S0 family admits.
+- S1 `Kinematics` — `MachineTool`, `MachineKinematics`, `RobotProgram`, `MachineObservation`; only `Kinematics/cell` reads `Robots`, provider-free.
 - S2 `Tooling` — `ToolAssembly`, `ToolSelection`, `CuttingData`, `PowerLawFit`, and `ToolWear`, capability owners over the 2D algebra.
 - S2 `Nesting` + `Additive` — `Nest`, `StockNest`, `NoFitPolygon`; `Slice`, `SupportPolicy`, `ScanPolicy`, `Audit`.
 - S3 planning — `Fixturing`: `Workholding`, `ExclusionZone`, `SetupSchedule`; `Forming`: `FlatPattern`, `TubeProgram`.
 - S3 planning — `Joining`: `Weld`, `JointPrep`, `Sequence`, `Procedure`; `Spec`: `Tolerance`, `Capability`, `Manufacturability`.
 - S3 planning — `Kinematics` fleet: `MachineInstance`, `ProcessEnvelope`, `Fleet`.
-- S4 `Toolpath` — the CAM plane composing tools, kinematics, and keep-outs: `Cam`, `MotionRun`, `Guard`, `BevelPass`.
+- S4 `Toolpath` — the CAM plane composing tools, kinematics, and keep-outs: `Cam`, `MotionRun`, `Guard`, `BevelPass`, `CutSide`, `SamplingField`.
 - S4 `Process/Derivation` — the `Derivation`/`FabricationProjector` terminal aggregator over the downstream plans.
 - S5 `Posting` + `Verify` — the `CutProgram` AST and `Dialect` emit; the `Removal`/`Probe`/`Simulate` verifiers.
 - S5 `Documentation` — the `Hlr`/`Traveler`/`QualityReport` shop documents.
@@ -152,15 +153,19 @@ flowchart TB
     end
     Verify e2@-->|"[IMPORT]: DatumReceipt"| Fixturing
     Verify e29@-->|"[IMPORT]: CellPosedStation"| Motion
+    Verify e32@-->|"[IMPORT]: SupportPlan, BuildReceipt"| Additive
+    Verify e33@-->|"[IMPORT]: ToolChangeEvidence, WearReceipt"| Tooling
+    Verify e34@-->|"[IMPORT]: MachineMatch"| Fleet
     Documentation e3@-->|"[IMPORT]: CapabilityReport"| Spec
     Toolpath e4@-->|"[IMPORT]: ToolAssembly"| Tooling
     Toolpath e5@-->|"[IMPORT]: MachineTool"| Motion
     Toolpath e6@-->|"[IMPORT]: ExclusionZone"| Fixturing
     Derivation e7@-->|"[IMPORT]: SetupSchedule"| Fixturing
     Derivation e8@-->|"[IMPORT]: Fleet, AvailabilityPlan.Finish"| Fleet
-    Derivation e30@-->|"[IMPORT]: FormedResult"| Forming
-    Fixturing e9@-->|"[IMPORT]: CuttingData"| Tooling
+    Derivation e30@-->|"[IMPORT]: FabricationResult.FormedResult"| Atoms
+    Fixturing e9@-->|"[IMPORT]: PolygonAlgebra"| Geometry2D
     Forming e31@-->|"[IMPORT]: PolygonAlgebra"| Geometry2D
+    Forming e35@-->|"[IMPORT]: Nest.Rings"| Nesting
     Spec e10@-->|"[IMPORT]: SupportPolicy"| Additive
     Joining e11@-->|"[IMPORT]: Move"| Atoms
     Tooling e12@-->|"[IMPORT]: PolygonAlgebra"| Geometry2D
@@ -170,7 +175,7 @@ flowchart TB
     Ingress e16@-->|"[IMPORT]: AdmittedComponent"| Atoms
     Motion e17@-->|"[IMPORT]: MachineAxis"| Atoms
     Fleet e18@-->|"[IMPORT]: SlotMap"| Tooling
-    Documentation e22@-->|"[IMPORT]: ProcedureReceipt"| Joining
+    Documentation e22@-->|"[IMPORT]: ProcedureReceipt, HoldRelease"| Joining
     Posting e23@-->|"[IMPORT]: WcsSlot"| Fixturing
     Posting e24@-->|"[IMPORT]: MotionDynamics"| Motion
     Telemetry e25@-->|"[IMPORT]: WearReceipt"| Tooling
@@ -183,6 +188,11 @@ flowchart TB
 ## [03]-[SEAMS]
 
 `Toolpath/guard` owns every PicoGK voxel lease, and `Kinematics/cell` owns every Rhino3dm robot adapter; downstream receipts carry evidence and no native handle.
+
+[KINEMATICS]:
+- `Kinematics/cell` publishes `CellTiming` — station-ordinal elapsed and the planner cycle — as the one timing crossing.
+- `Joining/sequence` keys that census onto its own `MotionKey` through `MotionTiming.Of`; neither end learns the other's key space.
+- `Verify/simulate` proves its posed ledger against `CellAnimation.Cycle`, so both consumers read the planner's own clock.
 
 [POSTING]:
 - `Posting/program` sends `CutProgram` and `EmitPolicy` to `Posting/dialect`; `PostImage` owns rendered records, bytes, and the emitted `ContentKey`.
@@ -218,8 +228,10 @@ flowchart LR
     Artifacts{{python:artifacts}}
     AppHost{{Rasm.AppHost}}
     Compute([Rasm.Compute])
-    Process e1@-->|"[PROJECTION]: FabricationProjector"| Element
+    Process e1@-->|"[PROJECTION]: GraphDelta"| Element
     Element e2@-->|"[SHAPE]: ElementGraph"| Ingress
+    Ingress e14@<-->|"[SHAPE]: MaterialComposition + MaterialPropertySet"| Element
+    Process e15@<-->|"[SHAPE]: DetailSchema + PropertyCategory"| Element
     Spec e8@-->|"[WIRE]: IToleranceEncoder bytes"| Artifacts
     Telemetry e9@-->|"[RECEIPT]: FabricationFact"| AppHost
     AppHost e10@-->|"[PORT]: TelemetryContributorPort"| Telemetry
@@ -258,9 +270,9 @@ flowchart LR
     Rasm e1@-->|"[SHAPE]: Predicate"| Process
     Rasm e2@-->|"[WIRE]: MeshSpace"| Ingress
     Rasm e3@-->|"[WIRE]: ParametricOp"| Geometry2D
-    Rasm e4@-->|"[WIRE]: CurveSkeleton"| Toolpath
+    Rasm e4@-->|"[WIRE]: CurveSkeleton, SkeletonGraph"| Toolpath
     Rasm e5@-->|"[WIRE]: SliceStack"| Additive
-    Rasm e6@-->|"[WIRE]: Development"| Forming
+    Rasm e6@-->|"[WIRE]: DevelopOp, DevelopmentResult"| Forming
     Rasm e7@-->|"[WIRE]: VectorIntent"| Kinematics
     Rasm e9@-->|"[PROJECTION]: ChartAtlas"| Nesting
     Rasm e10@-->|"[WIRE]: Stat"| Spec
@@ -273,14 +285,14 @@ flowchart LR
 
 ## [04]-[FAULT_REGISTRY]
 
-`FabricationFault` is one `[Union]` on the `FaultBand.Fabrication` band `Rasm.Element` owns. Each sub-domain folder owns its fault arms and lowers them onto the band; a folder producing no fault leaves its lane receipt-only, and projection routes the kernel geometry fault rather than minting its own. `Process/faults` owns the arm-to-code allocation and the band's free frontier; the arms preserving wire-code decode from before the folder partition retype in place, never reallocate.
+`FabricationFault` is one `[Union]` on the `FaultBand.Fabrication` band `Rasm.Element` owns, and every case is DECLARED at `Process/faults` — a same-named partial in a folder namespace is a distinct type the generated dispatch never reaches. Planes earn a case of their own only where the refusal carries evidence a caller acts on; every other refusal answers `PolicyInadmissible` threading the raising plane's concern. `Process/faults` owns the offset ledger and its free frontier, and a landed offset never reallocates.
 
-Every `FabricationFault` case declares its owning `FabConcern` and stratum, so receipts partition without a second table; degenerate fixture geometry routes through `GeometryFault.DegenerateInput`.
+Every case declares its owning `FabConcern`, whose row carries the plane's folder namespace and the stratum that plane occupies, so a split package states each of its planes truthfully and receipts partition without a second table. Degenerate geometry stays `GeometryFault.DegenerateInput` named by its real `Kind`; a policy, request, or parameter tuple failing its own admission gate is a contract failure and takes `PolicyInadmissible`, never a kernel-band borrow under a fabricated `Kind`.
 
 ## [05]-[BOUNDARIES]
 
 Seam edges carry which package exchanges which shape; the load-bearing cross-package invariants are:
-- The four `Analyze.Run` bindings (`Verify/probing`, `Kinematics/fleet`, `Spec/manufacturability` twice) freeze the kernel entry's two-type-parameter arity with query-first, subject-second ordering; `Analyze.Query` and `Analyze.In` are absent from the package, so a kernel `In`-to-`Scope` rename costs this boundary nothing.
+- `Analyze.Run` bindings freeze the kernel entry's two-type-parameter arity, query-first then subject; `Analyze.Query` and `Analyze.In` stay unbound.
 - Every machine-consumable egress mints its content key through the kernel `ContentHash.Of` seed-zero entry, with no second mint.
 - `EgressKind`, the local discriminant, federates to the Persistence `ArtifactKind` rows at the content-key boundary, never a type reference.
 - `Fabrication` realizes the one `FabricationProjector` registration; every quantity lowered back to the seam rides that projector.
@@ -293,10 +305,13 @@ Seam edges carry which package exchanges which shape; the load-bearing cross-pac
 - Runtime-carried `HybridCache` replays NFP pair polygons under `PairTable.Key` identities in process.
 - Durable memo tier federates at the Persistence cache seam beside the benchmark index.
 - Speed claims resolve against Persistence `BenchmarkRow` claims through the kernel `BenchClaim` keys `Toolpath/guard` mints.
-- `ProbeRoute.Measured` authorizes its parallel substrate only against a mintable claim key.
+- `AcceptedBenchmarkClaim` binds one result to the `HostEvidence` digest its pass stamped, taking judgment as an injected seam AppHost alone mints.
+- `ProbeRoute.Measured` authorizes its parallel substrate only against an accepted claim, never against a roster row alone.
 - Program delivery closes chain-of-custody by value: the cell drive receipt re-mints a content key from the exact controller-bound records.
 - `Posting/dialect` `ProgramDelivery` proves transfer integrity by digest equality; the delivery fact rides the tap onto the receipt rail.
 - Fabrication facts leave through the one `FabricationTap` port onto the AppHost receipt rail as `FabricationFact` envelopes.
+- Settled verify receipts fire their own fact through that tap, which defaults silent so a headless caller emits nothing and branches nowhere.
+- Money and carbon stay parallel dimensions on parallel instruments, and `ClockAttribution` names the clock's own source rather than a default.
 - `TelemetryContributorPort` carries the `rasm.fabrication.*` instrument roster and board pack inward at composition; the mounting root proves both.
 - `FabricationInstruments.Arms` kind-arm table merges onto the AppHost receipt fan beside its own arms.
 - Classification federates by value to the suite `DataClassification` taxonomy — never a type reference in either direction.

@@ -29,11 +29,12 @@ Rasm.Element/             # refs ../Rasm ONLY; no GeometryGym; no host geometry 
 ├── Geospatial/           # Georeferenced coverage and CRS
 │   ├── Coverage.cs       # By-ref raster-and-field coverage grid over the kernel CellLattice placement
 │   └── Reference.cs      # GeoReference record over the three-state projected-CRS identity
-└── Projection/           # Cross-stratum contracts, the content codec, the fault band, and the observability tap
+└── Projection/           # Cross-stratum contracts, the content codec, the fault band, the observability tap, and the model grade
     ├── Projection.cs     # Projector and constraint floors, the assemble composition, and the ImportedGeometry lane carrier
     ├── Address.cs        # Order-independent ContentAddress codec over the kernel seed-zero hash
     ├── Fault.cs          # Cross-federation FaultBand registry, the ElementFault union, and the AdmissionSlots slot algebra
-    └── Observe.cs        # ElementHookRail typed fact tap, its band-bracketed decorations, and the GraphInstrument projection
+    ├── Observe.cs        # ElementHookRail typed fact tap, its band-bracketed decorations, and the GraphInstrument projection
+    └── Audit.cs          # ModelAudit coverage-and-integrity grade over one frozen snapshot, carrying zero authority
 ```
 
 `Graph` is the spine every other sub-domain feeds: each owns a `Node` case payload or a cross-cutting value the one `ElementGraph` composes, and the `Graph/Element` `Bake` applies both the type→occurrence inheritance and the `Properties/Property` `InheritanceMode` bag merge. Seam identity re-mints nothing the kernel owns — the content-identity seed, the op-key, and the fault base are the kernel `XxHash128` seed-zero entry, `Op`, and `Expected`. Per-page declarations, the shared `Projection/Address` codec fan-in, and the inheritance merge rules live on the owning implementation pages.
@@ -42,7 +43,7 @@ Rasm.Element/             # refs ../Rasm ONLY; no GeometryGym; no host geometry 
 
 Interior is one strongly-connected component at folder grain — `Graph/Element` declares both the primitive `NodeId` every sibling keys and the aggregate `ElementGraph` that composes every sibling — so the ladder resolves member-first: five strata rank the owners, and each consumption edge points down.
 
-- S0 substrate — `ElementFault` and `FaultBand` with the `AdmissionSlots` accumulating-slot algebra (`Projection/Fault`), the `CanonicalWriter` fold (`Projection/Address`), the primitive `NodeId`.
+- S0 substrate — `ElementFault` and `FaultBand` with the `AdmissionSlots` accumulating-slot algebra, the `CanonicalWriter` fold, and `NodeId`.
 - S0 reach — every stratum rails and keys through the substrate.
 - S1 vocabulary — `Classification` and `Discipline`, the `MeasureValue`/`Dimension` quantity signature, and the `GeoReference` record.
 - S2 values — `PropertyValue` with `InheritanceMode`, `MaterialComposition` with `ProfileRef`, `CoverageGrid`.
@@ -54,6 +55,7 @@ Interior is one strongly-connected component at folder grain — `Graph/Element`
 - S4 observability — `ElementHookRail` and its `GraphInstrument` projection observe every lower stratum without entering one.
 - S4 corpus — `GraphForge` realizes whole graphs through the S3 admission rail it consumes.
 - S4 tabulation — `GraphTable` flattens the S3 snapshot into columnar row families and imports nothing above it.
+- S4 grade — `ModelAudit` folds the S3 snapshot through the S4 codec into a receipt, mutating nothing and minting no fault of its own.
 
 ```mermaid
 ---
@@ -74,6 +76,7 @@ flowchart TB
         Instrument[GraphInstrument]
         Forge[GraphForge]
         Table[GraphTable]
+        Audit[ModelAudit]
     end
     subgraph S3["S3 GRAPH"]
         ElementGraph[ElementGraph]
@@ -103,6 +106,7 @@ flowchart TB
     Instrument -->|"[IMPORT]: ElementFact"| HookRail
     Forge -->|"[IMPORT]: GraphDelta"| Delta
     Table -->|"[IMPORT]: ElementGraph"| ElementGraph
+    Audit -->|"[IMPORT]: ElementGraph"| ElementGraph
     Address -->|"[IMPORT]: NodeId"| NodeId
     ElementGraph -->|"[IMPORT]: PropertyValue"| Property
     ElementGraph -->|"[IMPORT]: MaterialComposition"| Composition
@@ -145,20 +149,29 @@ flowchart LR
     Persistence([Rasm.Persistence])
     Bim -->|"[PROJECTION]: GraphDelta"| Graph
     Materials -->|"[PROJECTION]: GraphDelta"| Graph
+    Graph -->|"[SHAPE]: ElementGraph"| Bim
     Graph -->|"[SHAPE]: ElementGraph"| Fabrication
     Graph -->|"[WIRE]: AnalyticsSchema"| Persistence
     Bim -->|"[PORT]: IGraphConstraint"| Projection
-    Fabrication -->|"[PROJECTION]: FabricationProjector"| Projection
+    Fabrication -->|"[PROJECTION]: GraphDelta"| Projection
     Projection -->|"[SHAPE]: IElementProjection"| Materials
+    Projection -->|"[SHAPE]: IElementProjection"| Bim
     Composition <-->|"[SHAPE]: MaterialComposition"| Bim
+    Composition <-->|"[SHAPE]: MaterialPropertySet"| Bim
+    Composition <-->|"[SHAPE]: ProfileRef"| Bim
     Composition <-->|"[SHAPE]: ProfileRef"| Materials
     Composition <-->|"[SHAPE]: MaterialPropertySet"| Materials
+    Composition <-->|"[SHAPE]: MaterialComposition + MaterialPropertySet"| Fabrication
     Materials -->|"[CONTENT_KEY]: AppearanceSummary"| Graph
     Bim -->|"[CONTENT_KEY]: AppearanceSummary"| Graph
     Properties <-->|"[SHAPE]: DetailSchema"| Bim
     Properties <-->|"[SHAPE]: DetailSchema"| Materials
+    Properties <-->|"[SHAPE]: DetailSchema + PropertyCategory"| Fabrication
+    Properties -->|"[SHAPE]: StructuralRows"| Bim
     Bim -->|"[PROJECTION]: GeoReference"| Geospatial
+    Geospatial <-->|"[SHAPE]: CoverageGrid"| Bim
     Projection -->|"[SHAPE]: ImportedGeometry"| Bim
+    Projection -->|"[SHAPE]: ModelAudit"| Bim
 ```
 
 ```mermaid
@@ -197,8 +210,10 @@ flowchart LR
     Graph <-->|"[CONTENT_KEY]: RepresentationContentHash"| Compute
     Composition -->|"[SHAPE]: AssemblyAggregator"| Compute
     Composition <-->|"[SHAPE]: MaterialPropertySet"| Compute
-    Properties <-->|"[SHAPE]: DimensionMonomial"| Compute
+    Properties -->|"[SHAPE]: Dimension"| Compute
     Assessment -->|"[SHAPE]: AssessmentPayload"| Compute
+    Assessment -->|"[SHAPE]: ObservationSeries"| Compute
+    Compute -->|"[PROJECTION]: GraphDelta"| Graph
     Graph -->|"[SHAPE]: ElementGraph"| Compute
     Projection -->|"[SHAPE]: ImportedGeometry"| Compute
     Graph <-->|"[WIRE]: GlbContentHash"| Geometry
@@ -214,6 +229,7 @@ Each provider mints its own `Object` identity under the owner-mints-its-identity
 - Every lane derives its typed `UInt128` through the `Projection/address` seed-zero entry over the one `CanonicalWriter` projection.
 - Content space is shared with the kernel `GeometryHash` and the Python and TypeScript peers; a second hasher or non-zero seed is the named drift.
 - `Graph/wire` carries every content key verbatim; `Graph/corpus` supplies deterministic snapshot fingerprints.
+- `GraphMembers.Advance` re-enters the full-state `ContentAddress.OfGraph(members)` fold, so per-event and recomputed addresses are byte-identical.
 - `Graph/corpus` terminal research row owns the exact parity-pin route until literal addresses exist.
 - `GlbContentHash` is the wire spelling of the `RepresentationContentHash` `Body` entry crossing the python:geometry GLB seam.
 - Non-rooted `NodeId` is the self-hash of the node's own canonical bytes.

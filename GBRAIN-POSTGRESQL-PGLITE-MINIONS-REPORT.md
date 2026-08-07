@@ -21,9 +21,16 @@ The more precise description is:
 
 ---
 
-## 1. The fundamental model
+## [01]-[THE_FUNDAMENTAL_MODEL]
 
 ```mermaid
+---
+config:
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+---
 flowchart LR
     Git["Git repository"]
     MD["Markdown + YAML frontmatter"]
@@ -55,10 +62,10 @@ flowchart LR
 
 There are two independent axes:
 
-| Axis | Choice | Meaning |
-|---|---|---|
-| Knowledge representation | Markdown/Git + database index | Two representations with different authority |
-| Database engine | PostgreSQL or PGLite | One active implementation of the same `BrainEngine` interface |
+| [INDEX] | [AXIS]                   | [CHOICE]                      | [MEANING]                                                     |
+| :-----: | :----------------------- | :---------------------------- | :------------------------------------------------------------ |
+|  [01]   | Knowledge representation | Markdown/Git + database index | Two representations with different authority                  |
+|  [02]   | Database engine          | PostgreSQL or PGLite          | One active implementation of the same `BrainEngine` interface |
 
 Therefore:
 
@@ -74,7 +81,7 @@ The engine choice is made in [engine-factory.ts](/Users/bardiasamiee/Documents/9
 
 # 2. Is it dual paradigm or unified?
 
-## Conceptually: unified
+## [02]-[CONCEPTUALLY_UNIFIED]
 
 A single `BrainEngine` contract owns page CRUD, chunks, search, graph traversal, facts, takes, files, configuration, migrations, raw SQL, and runtime state. Callers normally receive a `BrainEngine`; they do not implement separate application workflows for PostgreSQL and PGLite.
 
@@ -85,21 +92,21 @@ The two implementations are:
 
 They have deliberately parallel methods:
 
-| Operation | PostgreSQL | PGLite |
-|---|---:|---:|
-| Connect | `PostgresEngine.connect()` | `PGLiteEngine.connect()` |
-| Schema initialization | `initSchema()` | `initSchema()` |
-| Transactions | `transaction()` | `transaction()` |
-| Page upsert | `putPage()` | `putPage()` |
-| Keyword search | `searchKeyword()` | `searchKeyword()` |
-| Vector search | `searchVector()` | `searchVector()` |
-| Chunk replacement | `upsertChunks()` | `upsertChunks()` |
-| Raw SQL | `executeRaw()` | `executeRaw()` |
-| Queue lock SQL | `executeRawDirect()` | same as ordinary raw SQL |
+| [INDEX] | [OPERATION]           |               [POSTGRESQL] |                 [PGLITE] |
+| :-----: | :-------------------- | -------------------------: | -----------------------: |
+|  [01]   | Connect               | `PostgresEngine.connect()` | `PGLiteEngine.connect()` |
+|  [02]   | Schema initialization |             `initSchema()` |           `initSchema()` |
+|  [03]   | Transactions          |            `transaction()` |          `transaction()` |
+|  [04]   | Page upsert           |                `putPage()` |              `putPage()` |
+|  [05]   | Keyword search        |          `searchKeyword()` |        `searchKeyword()` |
+|  [06]   | Vector search         |           `searchVector()` |         `searchVector()` |
+|  [07]   | Chunk replacement     |           `upsertChunks()` |         `upsertChunks()` |
+|  [08]   | Raw SQL               |             `executeRaw()` |           `executeRaw()` |
+|  [09]   | Queue lock SQL        |       `executeRawDirect()` | same as ordinary raw SQL |
 
 There is a substantial cross-engine parity suite in [engine-parity.test.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/test/e2e/engine-parity.test.ts). I did not execute it; it is evidence of the intended contract.
 
-## Operationally: dual-plane
+## [03]-[OPERATIONALLY_DUAL_PLANE]
 
 Markdown/Git and the database are separate physical planes:
 
@@ -111,7 +118,7 @@ Markdown/Git and the database are separate physical planes:
 
 That classification is explicitly documented in [system-of-record.md](/Users/bardiasamiee/Documents/99.Github/gbrain/docs/architecture/system-of-record.md).
 
-## The important implementation tension
+## [04]-[THE_IMPORTANT_IMPLEMENTATION_TENSION]
 
 The documentation says:
 
@@ -145,7 +152,7 @@ It is therefore not two unrelated paradigms. It is one reconciliation system wit
 
 # 3. How Markdown/Git feeds PostgreSQL or PGLite
 
-## Incremental synchronization
+## [05]-[INCREMENTAL_SYNCHRONIZATION]
 
 The principal Git-facing path is [sync.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/commands/sync.ts).
 
@@ -189,7 +196,7 @@ sequenceDiagram
 
 Core path classification and slug formation are in [core/sync.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/sync.ts).
 
-## Full synchronization
+## [06]-[FULL_SYNCHRONIZATION]
 
 A full sync:
 
@@ -217,7 +224,7 @@ The central ingestion function is [importFromContent()](/Users/bardiasamiee/Docu
 
 The pipeline is:
 
-## 4.1 Parse
+## [07]-[PARSE]
 
 [markdown.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/markdown.ts:100) parses:
 
@@ -231,7 +238,7 @@ The pipeline is:
 
 The parser is built around `gray-matter`, while Markdown tokenization for fenced code extraction uses `marked`.
 
-## 4.2 Validate and classify
+## [08]-[VALIDATE_AND_CLASSIFY]
 
 Before database persistence, the importer applies:
 
@@ -244,7 +251,7 @@ Before database persistence, the importer applies:
 - Embedding suppression for quarantined or oversized material.
 - Duplicate checks by content hash and optional external frontmatter identity.
 
-## 4.3 Produce a stable content hash
+## [09]-[PRODUCE_A_STABLE_CONTENT_HASH]
 
 The hash covers meaningful page state:
 
@@ -259,7 +266,7 @@ Timestamp-like ingestion fields and gate-generated markers are removed from the 
 
 An identical hash normally short-circuits the import.
 
-## 4.4 Chunk
+## [10]-[CHUNK]
 
 Markdown is divided into chunks by [chunkers/recursive.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/chunkers/recursive.ts).
 
@@ -273,7 +280,7 @@ Fenced code is passed through language-aware code chunking. Actual source-code f
 
 Private facts and takes are removed from untrusted/search chunks by the fence/chunker layer, preventing private fence contents from entering embeddings.
 
-## 4.5 Embed outside the transaction
+## [11]-[EMBED_OUTSIDE_THE_TRANSACTION]
 
 Embedding is intentionally performed before opening the database transaction.
 
@@ -281,7 +288,7 @@ That avoids holding database locks or transaction-pool connections while waiting
 
 Vectors are then attached to `ChunkInput` records.
 
-## 4.6 Commit one page transaction
+## [12]-[COMMIT_ONE_PAGE_TRANSACTION]
 
 The transaction in [import-file.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/import-file.ts:770) performs:
 
@@ -308,7 +315,7 @@ After committing:
 - Its hash is checked.
 - The importer refuses to report success if the page is not immediately readable.
 
-## 4.7 Tag caveat
+## [13]-[TAG_CAVEAT]
 
 Current tag synchronization is add-only.
 
@@ -380,23 +387,23 @@ Consequently, wiping the database and rebuilding from Git restores the knowledge
 
 # 7. PostgreSQL versus PGLite
 
-| Property | PostgreSQL | PGLite |
-|---|---|---|
-| Process model | Server with concurrent clients | Embedded WASM database inside the Bun process |
-| Storage | External PostgreSQL/Supabase database | Local PGLite data directory |
-| Default locator | `database_url` | `database_path` |
-| Normal local path | N/A | `~/.gbrain/brain.pglite` |
-| Query driver | `postgres` / postgres.js | `@electric-sql/pglite` |
-| pgvector | Server extension | PGLite vector extension |
-| Trigram search | `pg_trgm` server extension | PGLite `pg_trgm` extension |
-| RLS | Supported; selectively enabled | Omitted |
-| Multi-process access | Supported | Explicitly prohibited for the same data directory |
-| Persistent worker daemon | Supported | Refused |
-| Parallel sync engines | Supported | Clamped to serial |
-| Long-lived remote service | Natural fit | Possible in one process, but blocks other local processes |
-| DDL pool | Dedicated direct pool when useful | Single embedded connection |
-| Queue claim/heartbeat pool | Direct session pool on Supabase topology | Same embedded connection |
-| Engine migration | Can be target/source | Can be target/source |
+| [INDEX] | [PROPERTY]                 | [POSTGRESQL]                             | [PGLITE]                                                  |
+| :-----: | :------------------------- | :--------------------------------------- | :-------------------------------------------------------- |
+|  [01]   | Process model              | Server with concurrent clients           | Embedded WASM database inside the Bun process             |
+|  [02]   | Storage                    | External PostgreSQL/Supabase database    | Local PGLite data directory                               |
+|  [03]   | Default locator            | `database_url`                           | `database_path`                                           |
+|  [04]   | Normal local path          | N/A                                      | `~/.gbrain/brain.pglite`                                  |
+|  [05]   | Query driver               | `postgres` / postgres.js                 | `@electric-sql/pglite`                                    |
+|  [06]   | pgvector                   | Server extension                         | PGLite vector extension                                   |
+|  [07]   | Trigram search             | `pg_trgm` server extension               | PGLite `pg_trgm` extension                                |
+|  [08]   | RLS                        | Supported; selectively enabled           | Omitted                                                   |
+|  [09]   | Multi-process access       | Supported                                | Explicitly prohibited for the same data directory         |
+|  [10]   | Persistent worker daemon   | Supported                                | Refused                                                   |
+|  [11]   | Parallel sync engines      | Supported                                | Clamped to serial                                         |
+|  [12]   | Long-lived remote service  | Natural fit                              | Possible in one process, but blocks other local processes |
+|  [13]   | DDL pool                   | Dedicated direct pool when useful        | Single embedded connection                                |
+|  [14]   | Queue claim/heartbeat pool | Direct session pool on Supabase topology | Same embedded connection                                  |
+|  [15]   | Engine migration           | Can be target/source                     | Can be target/source                                      |
 
 PGLite is not a separate schema philosophy. It is a local PostgreSQL runtime with a few topology limitations.
 
@@ -471,7 +478,7 @@ PGlite.create({
 })
 ```
 
-## PGLite locking
+## [14]-[PGLITE_LOCKING]
 
 [pglite-lock.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/pglite-lock.ts) creates a lock directory beside the PGLite store using atomic `mkdir`.
 
@@ -492,7 +499,7 @@ This has major operational consequences:
 - A persistent multi-process worker supervisor is refused.
 - Inline `--follow` job execution is supported because the temporary worker uses the already-open engine in the same process.
 
-## PGLite recovery
+## [15]-[PGLITE_RECOVERY]
 
 [reinit-pglite.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/commands/reinit-pglite.ts) provides the destructive recovery/model-dimension change path:
 
@@ -502,7 +509,7 @@ This has major operational consequences:
 
 This is especially important because changing pgvector column dimensions inside the embedded WASM environment is more constrained than performing an in-place PostgreSQL migration.
 
-## PGLite snapshot
+## [16]-[PGLITE_SNAPSHOT]
 
 [build-pglite-snapshot.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/scripts/build-pglite-snapshot.ts) creates a post-schema PGLite dump keyed by a hash of the schema and migrations.
 
@@ -526,7 +533,7 @@ Its “PostgreSQL provisioning” means:
 
 The Supabase wizard in [init.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/commands/init.ts:1368) detects the Supabase CLI and explains how to create a project, but it does not create one itself.
 
-## PostgreSQL initialization sequence
+## [17]-[POSTGRESQL_INITIALIZATION_SEQUENCE]
 
 [initPostgres()](/Users/bardiasamiee/Documents/99.Github/gbrain/src/commands/init.ts:1097) does the following:
 
@@ -540,7 +547,7 @@ The Supabase wizard in [init.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/
 8. Call `engine.initSchema()`.
 9. Save `engine: postgres` and `database_url` in configuration.
 
-## PostgreSQL driver
+## [18]-[POSTGRESQL_DRIVER]
 
 [db.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/db.ts:217) owns the module-level postgres.js connection.
 
@@ -558,11 +565,18 @@ Important connection behavior includes:
 - `GBRAIN_PREPARE` and URL query parameters can override detection.
 - Pool shutdown is wrapped in a hard bound so a wedged PgBouncer drain does not hang CLI teardown.
 
-## The Supabase dual-pool topology
+## [19]-[THE_SUPABASE_DUAL_POOL_TOPOLOGY]
 
 [connection-manager.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/connection-manager.ts) manages two logical pools when the primary URL looks like a Supabase transaction pooler:
 
 ```mermaid
+---
+config:
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+---
 flowchart TD
     App["PostgresEngine"]
     Read["Read/application pool<br/>Supavisor transaction mode :6543"]
@@ -614,7 +628,7 @@ CREATE EXTENSION IF NOT EXISTS pg_trgm;
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 ```
 
-## `vector`
+## [20]-[VECTOR]
 
 Used for:
 
@@ -637,7 +651,7 @@ If a selected dimension exceeds the supported HNSW limit, exact vector scans rem
 
 The same file detects and drops invalid “zombie” indexes left by failed concurrent PostgreSQL builds.
 
-## `pg_trgm`
+## [21]-[PG_TRGM]
 
 Used for:
 
@@ -646,7 +660,7 @@ Used for:
 - GIN trigram index over page titles.
 - PostgreSQL-like fuzzy behavior in PGLite.
 
-## `pgcrypto`
+## [22]-[PGCRYPTO]
 
 Used mainly as a compatibility source for functions such as `gen_random_uuid()` on older PostgreSQL versions.
 
@@ -656,7 +670,7 @@ PGLite explicitly registers `vector` and `pg_trgm` in JavaScript. Its schema doe
 
 # 12. Schema ownership and creation
 
-## Canonical PostgreSQL schema
+## [23]-[CANONICAL_POSTGRESQL_SCHEMA]
 
 [src/schema.sql](/Users/bardiasamiee/Documents/99.Github/gbrain/src/schema.sql) is the canonical fresh-install PostgreSQL schema.
 
@@ -668,7 +682,7 @@ At runtime, [getPostgresSchema()](/Users/bardiasamiee/Documents/99.Github/gbrain
 - Configured embedding model.
 - Dimension-dependent vector index policy.
 
-## PGLite schema
+## [24]-[PGLITE_SCHEMA]
 
 [pglite-schema.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/pglite-schema.ts) carries a parallel schema template.
 
@@ -682,7 +696,7 @@ Its intended differences are:
 
 This file is manually mirrored rather than generated directly from `schema.sql`. A drift test exists to detect divergence.
 
-## Schema initialization sequence
+## [25]-[SCHEMA_INITIALIZATION_SEQUENCE]
 
 `PostgresEngine.initSchema()` performs:
 
@@ -760,9 +774,9 @@ sources
        └── graph/code-edge projections
 ```
 
-## 14.1 Source and content spine
+## [26]-[SOURCE_AND_CONTENT_SPINE]
 
-### `sources`
+### [26.1]-[SOURCES]
 
 Logical multi-repository tenancy.
 
@@ -780,7 +794,7 @@ Key fields:
 
 One PostgreSQL database can therefore host multiple logical source repositories.
 
-### `pages`
+### [26.2]-[PAGES]
 
 Core content entity.
 
@@ -807,13 +821,13 @@ Important fields include:
 
 `source_id` cascades from `sources`.
 
-### `page_generation_clock`
+### [26.3]-[PAGE_GENERATION_CLOCK]
 
 Global mutation clock for query-cache invalidation.
 
 A sequence-backed statement trigger advances the global clock on page insert, update, or delete. Individual pages also maintain per-page generations, giving the cache both a fast global “anything changed?” check and a more precise page snapshot check.
 
-### `content_chunks`
+### [26.4]-[CONTENT_CHUNKS]
 
 The retrieval grain.
 
@@ -842,9 +856,9 @@ Indexes include:
 - Language/symbol indexes.
 - Stale-embedding work indexes.
 
-## 14.2 Graph and semantic structure
+## [27]-[GRAPH_AND_SEMANTIC_STRUCTURE]
 
-### `links`
+### [27.1]-[LINKS]
 
 Page-to-page graph edges:
 
@@ -857,31 +871,31 @@ Page-to-page graph edges:
 
 The engine exposes backlinks, paths, neighborhood traversal, and recursive graph queries.
 
-### `code_edges_chunk`
+### [27.2]-[CODE_EDGES_CHUNK]
 
 Resolved code edge from one chunk to another chunk.
 
-### `code_edges_symbol`
+### [27.3]-[CODE_EDGES_SYMBOL]
 
 Unresolved edge whose target is still a qualified symbol name.
 
 This split allows ingestion to record an unresolved reference immediately and resolve it later when the target source has been indexed.
 
-### `tags`
+### [27.4]-[TAGS]
 
 Normalized page-tag relation, unique by page and tag.
 
-### `timeline_entries`
+### [27.5]-[TIMELINE_ENTRIES]
 
 Structured dated events, with an optional reference to an event-shaped page.
 
-### `page_aliases` and `slug_aliases`
+### [27.6]-[PAGE_ALIASES_AND_SLUG_ALIASES]
 
 Migration-added lookup projections for alternate identifiers and normalized aliases.
 
-## 14.3 Canonical-fence projections
+## [28]-[CANONICAL_FENCE_PROJECTIONS]
 
-### `facts`
+### [28.1]-[FACTS]
 
 Structured fact rows reconstructed from Markdown fact fences.
 
@@ -895,23 +909,23 @@ Typical concerns include:
 - Provenance.
 - Consolidation state.
 
-### `takes`
+### [28.2]-[TAKES]
 
 Claims, beliefs, hunches, bets, and gradeable assertions reconstructed from Markdown take fences.
 
-### `synthesis_evidence`
+### [28.3]-[SYNTHESIS_EVIDENCE]
 
 Evidence relationships from synthesis content to source take rows.
 
-### `drift_decisions`, `take_proposals`, `take_grade_cache`, `take_nudge_log`
+### [28.4]-[DRIFT_DECISIONS_TAKE_PROPOSALS_TAKE_GRADE_CACHE_TAKE_NUDGE_LOG]
 
 Operational/calibration projections built around takes.
 
 These tables are not intended to replace the Markdown fence. Reconciliation phases parse the fence and rebuild the structured representation.
 
-## 14.4 Files and raw data
+## [29]-[FILES_AND_RAW_DATA]
 
-### `files`
+### [29.1]-[FILES]
 
 Metadata for file/image assets:
 
@@ -924,15 +938,15 @@ Metadata for file/image assets:
 
 Binary data normally remains on disk or external storage; the database indexes metadata and paths.
 
-### `file_migration_ledger`
+### [29.2]-[FILE_MIGRATION_LEDGER]
 
 Tracks file-storage migration work.
 
-### `raw_data`
+### [29.3]-[RAW_DATA]
 
 JSONB sidecars keyed to a page and source type.
 
-## 14.5 Runtime configuration and checkpoints
+## [30]-[RUNTIME_CONFIGURATION_AND_CHECKPOINTS]
 
 - `config`
 - `ingest_log`
@@ -941,7 +955,7 @@ JSONB sidecars keyed to a page and source type.
 - `context_volunteer_events`
 - `migration_impact_log`
 
-## 14.6 Authentication and audit
+## [31]-[AUTHENTICATION_AND_AUDIT]
 
 - `access_tokens`
 - `oauth_clients`
@@ -953,7 +967,7 @@ JSONB sidecars keyed to a page and source type.
 
 Secrets are not stored as plaintext bearer values where token hashing is expected.
 
-## 14.7 Search and retrieval caches
+## [32]-[SEARCH_AND_RETRIEVAL_CACHES]
 
 Migration-added runtime tables include:
 
@@ -965,7 +979,7 @@ Migration-added runtime tables include:
 
 These accelerate or observe retrieval but are not canonical knowledge.
 
-## 14.8 Evaluation and calibration
+## [33]-[EVALUATION_AND_CALIBRATION]
 
 - `eval_candidates`
 - `eval_capture_failures`
@@ -975,7 +989,7 @@ These accelerate or observe retrieval but are not canonical knowledge.
 - `calibration_profiles`
 - `think_ab_results`
 
-## 14.9 Minion and subagent runtime
+## [34]-[MINION_AND_SUBAGENT_RUNTIME]
 
 - `minion_jobs`
 - `minion_inbox`
@@ -990,7 +1004,7 @@ These accelerate or observe retrieval but are not canonical knowledge.
 
 # 15. Retrieval
 
-## Direct reads
+## [35]-[DIRECT_READS]
 
 Both engines expose methods for:
 
@@ -1021,7 +1035,7 @@ source_id = ANY($1::text[])
 
 Federated reads pass arrays of allowed source IDs.
 
-## Full-text search
+## [36]-[FULL_TEXT_SEARCH]
 
 Page and chunk full-text search use PostgreSQL `TSVECTOR`, GIN indexes, and `websearch_to_tsquery()`.
 
@@ -1035,7 +1049,7 @@ The important retrieval path is chunk-grain:
 
 Search language is configurable, and keyword SQL is shared conceptually across both engines.
 
-## Vector search
+## [37]-[VECTOR_SEARCH]
 
 Vector search:
 
@@ -1053,7 +1067,7 @@ Multiple embedding columns can coexist:
 - Unified multimodal embedding.
 - Additional registered embedding columns.
 
-## Title search
+## [38]-[TITLE_SEARCH]
 
 Exact and fuzzy title search uses:
 
@@ -1062,7 +1076,7 @@ Exact and fuzzy title search uses:
 - Title GIN trigram index.
 - Alias projection.
 
-## Hybrid search
+## [39]-[HYBRID_SEARCH]
 
 [hybrid.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/search/hybrid.ts:826) orchestrates retrieval.
 
@@ -1099,17 +1113,17 @@ The practical result is that PostgreSQL is not merely storage. It is the princip
 
 # 16. Mutation and deletion semantics
 
-## Page update
+## [40]-[PAGE_UPDATE]
 
 `putPage()` is an upsert. Existing content is replaced while selected provenance and effective-date fields are preserved when the caller omits them.
 
 Updating meaningful content increments page generation, invalidating affected search caches.
 
-## Version history
+## [41]-[VERSION_HISTORY]
 
 Before changing an existing page through import, the current content is copied into `page_versions`.
 
-## Soft deletion
+## [42]-[SOFT_DELETION]
 
 Public page deletion normally stamps:
 
@@ -1121,7 +1135,7 @@ Search and normal reads hide the page.
 
 A later purge phase hard-deletes pages after the configured recovery window, documented as 72 hours in the current schema.
 
-## Cascades
+## [43]-[CASCADES]
 
 Hard deletion of a page cascades to dependent content such as:
 
@@ -1132,7 +1146,7 @@ Hard deletion of a page cascades to dependent content such as:
 - Relevant links.
 - File/page references according to their FK action.
 
-## Forgetting facts
+## [44]-[FORGETTING_FACTS]
 
 Forgetting a fact is not primarily a database delete. The Markdown fact-fence row is rewritten with:
 
@@ -1259,7 +1273,7 @@ The actual schema status vocabulary includes:
 
 It provides:
 
-## Idempotency
+## [45]-[IDEMPOTENCY]
 
 A partial unique index enforces uniqueness for non-null `idempotency_key`.
 
@@ -1269,7 +1283,7 @@ If the same key is submitted again:
 - Dead/cancelled jobs release the key, permitting a fresh run.
 - A concurrent insert race is handled with `ON CONFLICT ... DO NOTHING`, followed by a read of the winner.
 
-## Backpressure
+## [46]-[BACKPRESSURE]
 
 Named jobs may set `maxWaiting`.
 
@@ -1281,7 +1295,7 @@ job name + queue + source
 
 It then counts waiting jobs and coalesces into an existing waiting job if the cap has been reached.
 
-## Parent/child enforcement
+## [47]-[PARENT_CHILD_ENFORCEMENT]
 
 When a child references a parent:
 
@@ -1343,13 +1357,13 @@ If a job was reclaimed by another worker, an old worker cannot complete, fail, o
 
 # 22. Lock renewal, stalls, retries, and completion
 
-## Heartbeat
+## [48]-[HEARTBEAT]
 
 `renewLock()` extends `lock_until`, but only while the token still matches.
 
 PostgreSQL/Supabase routes claim and renewal through `executeRawDirect()` so the transaction-mode pooler does not recycle the underlying session during a long job.
 
-## Stalled jobs
+## [49]-[STALLED_JOBS]
 
 The stall detector finds active jobs with expired locks using `FOR UPDATE SKIP LOCKED`.
 
@@ -1358,13 +1372,13 @@ It then atomically divides them into:
 - Requeued jobs, with an incremented stall count.
 - Dead jobs, when the maximum stall count is reached.
 
-## Timeouts
+## [50]-[TIMEOUTS]
 
 A claimed job stamps an absolute `timeout_at`.
 
 Timeout sweepers dead-letter jobs that remain active past this time. Workers also carry per-job `AbortController`s so cooperative handlers can stop promptly.
 
-## Failure and retry
+## [51]-[FAILURE_AND_RETRY]
 
 A retryable failure moves a job to `delayed` with backoff. The worker supports fixed or exponential backoff plus jitter.
 
@@ -1376,7 +1390,7 @@ Some infrastructure failures do not consume an attempt:
 
 These are treated as coordination/provider pressure rather than defects in the job payload.
 
-## Completion
+## [52]-[COMPLETION]
 
 Completion is one database transaction:
 
@@ -1459,6 +1473,13 @@ For PostgreSQL:
 The production process arrangement is:
 
 ```mermaid
+---
+config:
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+---
 flowchart TD
     PM["systemd / Fly / Render / Railway / Heroku"]
     Sup["gbrain jobs supervisor"]
@@ -1596,7 +1617,7 @@ filesystem repair/synthesis
 
 # 28. External libraries and languages
 
-## Languages
+## [53]-[LANGUAGES]
 
 - TypeScript: application, engine adapters, workers, migration handlers, sync, search.
 - SQL/PostgreSQL PL/pgSQL: schema, triggers, functions, queue operations, retrieval queries.
@@ -1606,7 +1627,7 @@ filesystem repair/synthesis
 
 Runtime is Bun.
 
-## Core database dependencies
+## [54]-[CORE_DATABASE_DEPENDENCIES]
 
 From [package.json](/Users/bardiasamiee/Documents/99.Github/gbrain/package.json):
 
@@ -1616,7 +1637,7 @@ From [package.json](/Users/bardiasamiee/Documents/99.Github/gbrain/package.json)
 - `@electric-sql/pglite/contrib/pg_trgm`: embedded trigram extension.
 - `pgvector`: pgvector JavaScript helpers/types.
 
-## Content/index dependencies
+## [55]-[CONTENT_INDEX_DEPENDENCIES]
 
 - `gray-matter`: frontmatter parsing.
 - `marked`: Markdown lexer, including fenced-code discovery.
@@ -1632,120 +1653,120 @@ No Redis queue library is involved in Minions.
 
 # 29. PostgreSQL/PGLite file map
 
-## Engine contract and configuration
+## [56]-[ENGINE_CONTRACT_AND_CONFIGURATION]
 
-| File | Purpose |
-|---|---|
-| [engine.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/engine.ts) | Full engine interface: lifecycle, CRUD, search, graph, facts, takes, raw SQL |
-| [types.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/types.ts) | Engine configuration, page/search/result types |
-| [engine-factory.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/engine-factory.ts) | Selects PostgreSQL or PGLite |
-| [config.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/config.ts) | Config file/env precedence and active gbrain home |
-| [engine-constants.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/engine-constants.ts) | Shared database-operation constants |
+| [INDEX] | [FILE]                                                                                             | [PURPOSE]                                                                    |
+| :-----: | :------------------------------------------------------------------------------------------------- | :--------------------------------------------------------------------------- |
+|  [01]   | [engine.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/engine.ts)                     | Full engine interface: lifecycle, CRUD, search, graph, facts, takes, raw SQL |
+|  [02]   | [types.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/types.ts)                       | Engine configuration, page/search/result types                               |
+|  [03]   | [engine-factory.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/engine-factory.ts)     | Selects PostgreSQL or PGLite                                                 |
+|  [04]   | [config.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/config.ts)                     | Config file/env precedence and active gbrain home                            |
+|  [05]   | [engine-constants.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/engine-constants.ts) | Shared database-operation constants                                          |
 
-## PostgreSQL engine
+## [57]-[POSTGRESQL_ENGINE]
 
-| File | Purpose |
-|---|---|
-| [postgres-engine.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/postgres-engine.ts) | PostgreSQL implementation of the complete engine contract |
-| [db.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/db.ts) | Module-level postgres.js pool, connection options, teardown, transaction helper |
-| [connection-manager.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/connection-manager.ts) | Read/direct pool routing and Supabase URL derivation |
-| [supabase-admin.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/supabase-admin.ts) | Supabase project/pooler discovery helpers |
-| [storage/supabase.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/storage/supabase.ts) | Optional Supabase-backed object-storage path |
+| [INDEX] | [FILE]                                                                                                 | [PURPOSE]                                                                       |
+| :-----: | :----------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------ |
+|  [01]   | [postgres-engine.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/postgres-engine.ts)       | PostgreSQL implementation of the complete engine contract                       |
+|  [02]   | [db.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/db.ts)                                 | Module-level postgres.js pool, connection options, teardown, transaction helper |
+|  [03]   | [connection-manager.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/connection-manager.ts) | Read/direct pool routing and Supabase URL derivation                            |
+|  [04]   | [supabase-admin.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/supabase-admin.ts)         | Supabase project/pooler discovery helpers                                       |
+|  [05]   | [storage/supabase.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/storage/supabase.ts)     | Optional Supabase-backed object-storage path                                    |
 
-## PGLite engine
+## [58]-[PGLITE_ENGINE]
 
-| File | Purpose |
-|---|---|
-| [pglite-engine.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/pglite-engine.ts) | Embedded implementation of the engine contract |
-| [pglite-schema.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/pglite-schema.ts) | PGLite-adapted schema |
-| [pglite-lock.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/pglite-lock.ts) | Cross-process exclusion for the PGLite data directory |
-| [build-pglite-snapshot.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/scripts/build-pglite-snapshot.ts) | Test/bootstrap snapshot generator |
+| [INDEX] | [FILE]                                                                                                      | [PURPOSE]                                             |
+| :-----: | :---------------------------------------------------------------------------------------------------------- | :---------------------------------------------------- |
+|  [01]   | [pglite-engine.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/pglite-engine.ts)                | Embedded implementation of the engine contract        |
+|  [02]   | [pglite-schema.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/pglite-schema.ts)                | PGLite-adapted schema                                 |
+|  [03]   | [pglite-lock.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/pglite-lock.ts)                    | Cross-process exclusion for the PGLite data directory |
+|  [04]   | [build-pglite-snapshot.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/scripts/build-pglite-snapshot.ts) | Test/bootstrap snapshot generator                     |
 
-## Schema and migrations
+## [59]-[SCHEMA_AND_MIGRATIONS]
 
-| File | Purpose |
-|---|---|
-| [schema.sql](/Users/bardiasamiee/Documents/99.Github/gbrain/src/schema.sql) | Canonical PostgreSQL fresh-install schema |
-| [schema-embedded.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/schema-embedded.ts) | Generated embedded schema constant |
-| [build-schema.sh](/Users/bardiasamiee/Documents/99.Github/gbrain/scripts/build-schema.sh) | Generates the embedded schema |
-| [migrate.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/migrate.ts) | Versioned migrations and migration runner |
-| [schema-verify.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/schema-verify.ts) | Post-migration schema verification/self-healing |
-| [vector-index.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/vector-index.ts) | HNSW policy, limits, and invalid-index cleanup |
-| [sql-query.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/sql-query.ts) | Parameterized raw/JSONB SQL helpers |
+| [INDEX] | [FILE]                                                                                           | [PURPOSE]                                       |
+| :-----: | :----------------------------------------------------------------------------------------------- | :---------------------------------------------- |
+|  [01]   | [schema.sql](/Users/bardiasamiee/Documents/99.Github/gbrain/src/schema.sql)                      | Canonical PostgreSQL fresh-install schema       |
+|  [02]   | [schema-embedded.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/schema-embedded.ts) | Generated embedded schema constant              |
+|  [03]   | [build-schema.sh](/Users/bardiasamiee/Documents/99.Github/gbrain/scripts/build-schema.sh)        | Generates the embedded schema                   |
+|  [04]   | [migrate.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/migrate.ts)                 | Versioned migrations and migration runner       |
+|  [05]   | [schema-verify.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/schema-verify.ts)     | Post-migration schema verification/self-healing |
+|  [06]   | [vector-index.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/vector-index.ts)       | HNSW policy, limits, and invalid-index cleanup  |
+|  [07]   | [sql-query.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/sql-query.ts)             | Parameterized raw/JSONB SQL helpers             |
 
-## Initialization and engine migration
+## [60]-[INITIALIZATION_AND_ENGINE_MIGRATION]
 
-| File | Purpose |
-|---|---|
-| [init.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/commands/init.ts) | PGLite/PostgreSQL initialization |
-| [apply-migrations.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/commands/apply-migrations.ts) | Operator migration workflow |
-| [migrate-engine.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/commands/migrate-engine.ts) | Copies sources, pages, chunks, tags, timeline, and raw data between engines |
-| [reinit-pglite.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/commands/reinit-pglite.ts) | Backup, rebuild, and resync PGLite |
+| [INDEX] | [FILE]                                                                                                 | [PURPOSE]                                                                   |
+| :-----: | :----------------------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------- |
+|  [01]   | [init.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/commands/init.ts)                         | PGLite/PostgreSQL initialization                                            |
+|  [02]   | [apply-migrations.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/commands/apply-migrations.ts) | Operator migration workflow                                                 |
+|  [03]   | [migrate-engine.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/commands/migrate-engine.ts)     | Copies sources, pages, chunks, tags, timeline, and raw data between engines |
+|  [04]   | [reinit-pglite.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/commands/reinit-pglite.ts)       | Backup, rebuild, and resync PGLite                                          |
 
-## Markdown/Git/database reconciliation
+## [61]-[MARKDOWN_GIT_DATABASE_RECONCILIATION]
 
-| File | Purpose |
-|---|---|
-| [markdown.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/markdown.ts) | Markdown parse/serialize and file-path resolution |
-| [import-file.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/import-file.ts) | Parse, hash, chunk, embed, transactional persistence |
-| [core/sync.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/sync.ts) | Path classification and slug mapping |
-| [commands/sync.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/commands/sync.ts) | Git diff, checkpoints, import orchestration, deletion reconciliation |
-| [write-through.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/write-through.ts) | Database-to-Markdown atomic projection |
-| [brain-repo-durability.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/brain-repo-durability.ts) | Git commit/push durability hardening |
-| [operations.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/operations.ts) | MCP/local operation layer and write-through call sites |
+| [INDEX] | [FILE]                                                                                                       | [PURPOSE]                                                            |
+| :-----: | :----------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------- |
+|  [01]   | [markdown.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/markdown.ts)                           | Markdown parse/serialize and file-path resolution                    |
+|  [02]   | [import-file.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/import-file.ts)                     | Parse, hash, chunk, embed, transactional persistence                 |
+|  [03]   | [core/sync.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/sync.ts)                              | Path classification and slug mapping                                 |
+|  [04]   | [commands/sync.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/commands/sync.ts)                      | Git diff, checkpoints, import orchestration, deletion reconciliation |
+|  [05]   | [write-through.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/write-through.ts)                 | Database-to-Markdown atomic projection                               |
+|  [06]   | [brain-repo-durability.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/brain-repo-durability.ts) | Git commit/push durability hardening                                 |
+|  [07]   | [operations.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/operations.ts)                       | MCP/local operation layer and write-through call sites               |
 
-## Retrieval
+## [62]-[RETRIEVAL]
 
-| File | Purpose |
-|---|---|
-| [search/hybrid.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/search/hybrid.ts) | Hybrid orchestration and RRF |
-| [search/query-cache.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/search/query-cache.ts) | Semantic query cache |
-| [search/relational-recall.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/search/relational-recall.ts) | Typed-edge recall arm |
-| [search/two-pass.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/search/two-pass.ts) | Graph expansion and chunk hydration |
-| [search/sql-ranking.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/search/sql-ranking.ts) | Shared ranking/filter SQL construction |
-| [embedding.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/embedding.ts) | Query/document embeddings |
+| [INDEX] | [FILE]                                                                                                             | [PURPOSE]                              |
+| :-----: | :----------------------------------------------------------------------------------------------------------------- | :------------------------------------- |
+|  [01]   | [search/hybrid.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/search/hybrid.ts)                       | Hybrid orchestration and RRF           |
+|  [02]   | [search/query-cache.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/search/query-cache.ts)             | Semantic query cache                   |
+|  [03]   | [search/relational-recall.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/search/relational-recall.ts) | Typed-edge recall arm                  |
+|  [04]   | [search/two-pass.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/search/two-pass.ts)                   | Graph expansion and chunk hydration    |
+|  [05]   | [search/sql-ranking.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/search/sql-ranking.ts)             | Shared ranking/filter SQL construction |
+|  [06]   | [embedding.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/embedding.ts)                               | Query/document embeddings              |
 
-## Minions and process control
+## [63]-[MINIONS_AND_PROCESS_CONTROL]
 
-| File | Purpose |
-|---|---|
-| [minions/types.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/minions/types.ts) | Job, handler, queue, worker types |
-| [minions/queue.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/minions/queue.ts) | Durable queue SQL and state transitions |
-| [minions/worker.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/minions/worker.ts) | Concurrent claim/dispatch/heartbeat runtime |
-| [minions/supervisor.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/minions/supervisor.ts) | Long-lived worker supervisor |
-| [minions/child-worker-supervisor.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/minions/child-worker-supervisor.ts) | Child spawn/restart/backoff |
-| [minions/lock-renewal-tick.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/minions/lock-renewal-tick.ts) | Bounded lock-renewal state machine |
-| [minions/rate-leases.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/minions/rate-leases.ts) | Provider concurrency leases |
-| [minions/budget-tracker.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/minions/budget-tracker.ts) | Parent/child spending reservations |
-| [minions/attachments.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/minions/attachments.ts) | Job attachment handling |
-| [minions/wait-for-completion.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/minions/wait-for-completion.ts) | Poll-until-terminal helper |
-| [commands/jobs.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/commands/jobs.ts) | Queue/worker/supervisor CLI and built-in handler registration |
-| [cycle.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/cycle.ts) | Shared maintenance cycle |
-| [autopilot.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/commands/autopilot.ts) | Scheduled durable maintenance daemon |
-| [autopilot-fanout.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/commands/autopilot-fanout.ts) | Per-source cycle job fan-out |
+| [INDEX] | [FILE]                                                                                                                           | [PURPOSE]                                                     |
+| :-----: | :------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------ |
+|  [01]   | [minions/types.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/minions/types.ts)                                     | Job, handler, queue, worker types                             |
+|  [02]   | [minions/queue.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/minions/queue.ts)                                     | Durable queue SQL and state transitions                       |
+|  [03]   | [minions/worker.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/minions/worker.ts)                                   | Concurrent claim/dispatch/heartbeat runtime                   |
+|  [04]   | [minions/supervisor.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/minions/supervisor.ts)                           | Long-lived worker supervisor                                  |
+|  [05]   | [minions/child-worker-supervisor.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/minions/child-worker-supervisor.ts) | Child spawn/restart/backoff                                   |
+|  [06]   | [minions/lock-renewal-tick.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/minions/lock-renewal-tick.ts)             | Bounded lock-renewal state machine                            |
+|  [07]   | [minions/rate-leases.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/minions/rate-leases.ts)                         | Provider concurrency leases                                   |
+|  [08]   | [minions/budget-tracker.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/minions/budget-tracker.ts)                   | Parent/child spending reservations                            |
+|  [09]   | [minions/attachments.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/minions/attachments.ts)                         | Job attachment handling                                       |
+|  [10]   | [minions/wait-for-completion.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/minions/wait-for-completion.ts)         | Poll-until-terminal helper                                    |
+|  [11]   | [commands/jobs.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/commands/jobs.ts)                                          | Queue/worker/supervisor CLI and built-in handler registration |
+|  [12]   | [cycle.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/cycle.ts)                                                     | Shared maintenance cycle                                      |
+|  [13]   | [autopilot.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/commands/autopilot.ts)                                         | Scheduled durable maintenance daemon                          |
+|  [14]   | [autopilot-fanout.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/commands/autopilot-fanout.ts)                           | Per-source cycle job fan-out                                  |
 
-## Coordination and pressure control
+## [64]-[COORDINATION_AND_PRESSURE_CONTROL]
 
-| File | Purpose |
-|---|---|
-| [db-lock.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/db-lock.ts) | PostgreSQL TTL locks for cycles/supervisors/sync |
-| [db-pacer.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/db-pacer.ts) | Cooperative PostgreSQL write pacing |
-| [worker-pool.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/worker-pool.ts) | Bounded in-process concurrency |
-| [retry.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/retry.ts) | Retry/backoff infrastructure |
-| [connection-audit.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/connection-audit.ts) | Connection pool event auditing |
+| [INDEX] | [FILE]                                                                                             | [PURPOSE]                                        |
+| :-----: | :------------------------------------------------------------------------------------------------- | :----------------------------------------------- |
+|  [01]   | [db-lock.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/db-lock.ts)                   | PostgreSQL TTL locks for cycles/supervisors/sync |
+|  [02]   | [db-pacer.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/db-pacer.ts)                 | Cooperative PostgreSQL write pacing              |
+|  [03]   | [worker-pool.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/worker-pool.ts)           | Bounded in-process concurrency                   |
+|  [04]   | [retry.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/retry.ts)                       | Retry/backoff infrastructure                     |
+|  [05]   | [connection-audit.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/src/core/connection-audit.ts) | Connection pool event auditing                   |
 
-## PostgreSQL test infrastructure
+## [65]-[POSTGRESQL_TEST_INFRASTRUCTURE]
 
-| File | Purpose |
-|---|---|
-| [docker-compose.test.yml](/Users/bardiasamiee/Documents/99.Github/gbrain/docker-compose.test.yml) | Single pgvector PostgreSQL test server |
-| [docker-compose.ci.yml](/Users/bardiasamiee/Documents/99.Github/gbrain/docker-compose.ci.yml) | Sharded PostgreSQL CI plus transaction-mode PgBouncer |
-| [postgres-bootstrap.test.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/test/e2e/postgres-bootstrap.test.ts) | PostgreSQL forward-bootstrap evidence |
-| [fresh-install-pglite.test.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/test/e2e/fresh-install-pglite.test.ts) | Fresh PGLite initialization evidence |
-| [engine-parity.test.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/test/e2e/engine-parity.test.ts) | Cross-engine behavior parity |
-| [postgres-engine-rls-scope.test.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/test/postgres-engine-rls-scope.test.ts) | Opt-in source-scope binding |
-| [migrate-extensions.test.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/test/migrate-extensions.test.ts) | Extension/migration behavior |
-| [pglite-workers-clamp.test.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/test/pglite-workers-clamp.test.ts) | PGLite serial-worker constraint |
+| [INDEX] | [FILE]                                                                                                                     | [PURPOSE]                                             |
+| :-----: | :------------------------------------------------------------------------------------------------------------------------- | :---------------------------------------------------- |
+|  [01]   | [docker-compose.test.yml](/Users/bardiasamiee/Documents/99.Github/gbrain/docker-compose.test.yml)                          | Single pgvector PostgreSQL test server                |
+|  [02]   | [docker-compose.ci.yml](/Users/bardiasamiee/Documents/99.Github/gbrain/docker-compose.ci.yml)                              | Sharded PostgreSQL CI plus transaction-mode PgBouncer |
+|  [03]   | [postgres-bootstrap.test.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/test/e2e/postgres-bootstrap.test.ts)           | PostgreSQL forward-bootstrap evidence                 |
+|  [04]   | [fresh-install-pglite.test.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/test/e2e/fresh-install-pglite.test.ts)       | Fresh PGLite initialization evidence                  |
+|  [05]   | [engine-parity.test.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/test/e2e/engine-parity.test.ts)                     | Cross-engine behavior parity                          |
+|  [06]   | [postgres-engine-rls-scope.test.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/test/postgres-engine-rls-scope.test.ts) | Opt-in source-scope binding                           |
+|  [07]   | [migrate-extensions.test.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/test/migrate-extensions.test.ts)               | Extension/migration behavior                          |
+|  [08]   | [pglite-workers-clamp.test.ts](/Users/bardiasamiee/Documents/99.Github/gbrain/test/pglite-workers-clamp.test.ts)           | PGLite serial-worker constraint                       |
 
 ---
 

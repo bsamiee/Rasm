@@ -2,19 +2,19 @@
 
 THE CONTAINER BOUNDARY AND THE BAND-2460 RAIL. One `RasterFormat` `[SmartEnum<string>]` roster closes the container family — each row carrying its extension, its magic claim, its canonical alpha association, whether it holds its own pyramid and its own layers, the depth ceiling it writes, and the `RasterEngine` case that reads and writes it — so `RasterCodec.Decode` takes NO declared format and `RasterCodec.Encode` takes exactly one row. One `RasterFault` `[Union]` on the `FaultBand.Raster` registry row carries every container, device, and synthesis failure the raster estate produces, and one internal `KtxGate` is the SOLE composer of the pre-1.0 block-compression engine, holding the provisioned `ktx` CLI as its encode floor beneath an in-process acceleration arm that yields rather than diverges.
 
-Container choice is DATA, not dispatch: a new container is one `RasterFormat` row naming an existing engine, and only a genuinely new reader-writer is a `RasterEngine` case. That split is what keeps four packages behind one entry — `SixLabors.ImageSharp` owns PNG, TIFF, WebP, QOI, and the JPEG ingest row; `TinyEXR.NET` owns OpenEXR whole — flat, tiled-and-mip-levelled, and deep alike, because the held ImageSharp major carries no EXR codec at all; `TextureCompressor.FileFormats.Hdr` owns Radiance RGBE ingest; and `TextureCompressor.FileFormats.Ktx` owns the KTX2 container behind the gate. Format identity resolves by INSTANCE against each package's own singleton, never by comparing a format name string: the sniff returns the package's `IImageFormat` and the row holds it, so a caller cannot fork on a spelling the package chose (`"Webp"`, not `"WEBP"`) and a package rename breaks at compile time rather than at a decode that silently claims nothing. `RasterCodec` and `KtxGate` compose the `plane#TEXTURE_PLANE` typed arena with its decoded row rails, its association gate, and its `PlanePrimaries` chromaticity axis, the `plane#TEXTURE_PYRAMID` chain every container-held pyramid maps onto, the kernel `Drawing/pack#ENCODING_CHANNEL` `ChannelDtype` depth roster, the seam `Rasm.Element` `FaultBand` registry, the kernel `Op` fault key and `Try` boundary funnel, and the four container packages — re-minting no header writer, no block encoder, no RGBE expander, no depth vocabulary, and no supercompressor.
+Container choice is DATA, not dispatch: a new container is one `RasterFormat` row naming an existing engine, and only a genuinely new reader-writer is a `RasterEngine` case. That split is what keeps five packages behind one entry — `SixLabors.ImageSharp` owns PNG, TIFF, WebP, QOI, and the JPEG ingest row; `TinyEXR.NET` owns OpenEXR whole — flat, tiled-and-mip-levelled, and deep alike, because the held ImageSharp major carries no EXR codec at all; `TextureCompressor.FileFormats.Hdr` owns Radiance RGBE ingest; `TextureCompressor.FileFormats.Ktx` owns the KTX2 container behind the gate; and `Magick.NET` owns the INGEST-ONLY breadth tier — AVIF, HEIF, JPEG XL, and the DPX and Cineon motion-picture plates — reached only where every other probe declines and carrying no encoder in either direction. Format identity resolves by INSTANCE against each package's own singleton, never by comparing a format name string: the sniff returns the package's `IImageFormat` and the row holds it, so a caller cannot fork on a spelling the package chose (`"Webp"`, not `"WEBP"`) and a package rename breaks at compile time rather than at a decode that silently claims nothing. `RasterCodec` and `KtxGate` compose the `plane#TEXTURE_PLANE` typed arena with its decoded row rails, its association gate, and its `PlanePrimaries` chromaticity axis, the `plane#TEXTURE_PYRAMID` chain every container-held pyramid maps onto, the kernel `Drawing/pack#ENCODING_CHANNEL` `ChannelDtype` depth roster, the seam `Rasm.Element` `FaultBand` registry, the kernel `Op` fault key and `Try` boundary funnel, and the four container packages — re-minting no header writer, no block encoder, no RGBE expander, no depth vocabulary, and no supercompressor.
 
 ## [01]-[INDEX]
 
 - [02]-[RASTER_FAULT]: `RasterFault` closes the `FaultBand.Raster` band-2460 `[Union]` over its four cases and splits against band 2450.
-- [03]-[RASTER_FORMAT]: `RasterEngine` families the reader-writers, the ten-row `RasterFormat` roster closes the containers, and `BlockFormat`/`KtxPayload`/`KtxArm` with the `EncodePolicy` row and its `PreviewPolicy` column carry the payload and egress vocabularies.
+- [03]-[RASTER_FORMAT]: `RasterEngine` families the reader-writers, the `RasterFormat` roster closes the containers, and `BlockFormat`/`KtxPayload`/`KtxArm` with the `EncodePolicy` row and its `PreviewPolicy` column carry the payload and egress vocabularies.
 - [04]-[RASTER_CODEC]: `RasterCodec` folds the magic claim, declares its untrusted-input caps, normalizes association, records declared primaries, dispatches the engine, and funnels every container exception.
 - [05]-[KTX_GATE]: `KtxGate` composes TextureCompressor alone, floors encode on the CLI beneath the in-process arm, writes the layered and cube container, and branches the transcodable payload.
 
 ## [02]-[RASTER_FAULT]
 
 - Owner: `RasterFault` the closed band-2460 fault family over the `Rasm.Element` `FaultBand.Raster` registry row.
-- Cases: `Decode`, `Encode`, `Device`, `Tile` — this page mints the two container cases, `gpu#PRESS_DEVICE` is the sole `Device` producer, and `tile#TILE_SYNTH` the sole `Tile` producer; the family homes here because the band is one registry row however many pages mint its cases.
+- Cases: `Decode`, `Encode`, `Device`, `Tile`, `Provision` — this page mints the two container cases and the provisioning case, `gpu#PRESS_DEVICE` is the sole `Device` producer, and `tile#TILE_SYNTH` the sole `Tile` producer; the family homes here because the band is one registry row however many pages mint its cases.
 - Law: the band is the REGISTRY ROW, never the literal `2460`. `FaultBand` is the `[SmartEnum<int>]` allocation registry whose disjointness is type-enforced at type initialization, so a duplicate band fails at class construction rather than at a telemetry reader attributing one folder's fault to another. Every site reads `FaultBand.Raster` and never the integer, keeping exactly the enforcement the registry exists to provide.
 - Law: the split against band 2450 is by CONCERN, not by location. `MaterialFault` rails every appearance-domain admission failure — a parameter out of range, a colour out of gamut, a graph that will not compile, a plane extent, chromaticity, or association a shape gate refuses — and `RasterFault` rails a raster-MECHANICAL failure at a container, a device, or a synthesizer. `plane#TEXTURE_PLANE` and `filter#PLANE_OP` therefore rail band 2450 for every shape gate and reach this band only through a codec, a device, or a tile boundary, so no shape refusal ever wears a raster code.
 - Law: a factory returns the TYPED CASE, never a pre-wrapped `Fin<A>`. `RasterFault` derives `Expected`, so a case lifts bare onto `Fin<T>` and `Validation<Error,T>`, satisfies `guard(condition, error)` and `Option<T>.ToFin(error)` at every call site, and needs no generic type argument the compiler cannot infer from a return position.
@@ -34,7 +34,7 @@ namespace Rasm.Materials.Raster;
 
 // --- [ERRORS] ------------------------------------------------------------------------------
 // RasterFault bands raster-mechanical failure. Code reads the registry row, so the integer lives in ONE place in the
-// federation and a collision fails at type initialization. Four cases share one carrier, so Message and Category are one Switch each.
+// federation and a collision fails at type initialization. Every case shares one carrier, so Message and Category are one Switch each.
 [Union]
 public abstract partial record RasterFault : Expected, IValidationError<RasterFault> {
     private RasterFault(Op key, string detail) { Key = key; Detail = detail; }
@@ -47,24 +47,32 @@ public abstract partial record RasterFault : Expected, IValidationError<RasterFa
     public sealed record EncodeCase(Op Key, string Detail) : RasterFault(Key, Detail);
     public sealed record DeviceCase(Op Key, string Detail) : RasterFault(Key, Detail);
     public sealed record TileCase(Op Key, string Detail) : RasterFault(Key, Detail);
+    // A tool the machine never provisioned is not a container that refused a payload: the bytes are fine, the
+    // ENVIRONMENT is short a binary, and the two demand different operator actions — one repairs a plane, the
+    // other repairs a machine. Folding an absent `ktx` into Encode makes every provisioning gap read as an
+    // encoder bug and buries the one refusal a provisioning probe can actually answer.
+    public sealed record ProvisionCase(Op Key, string Detail) : RasterFault(Key, Detail);
 
     public override string Category => Switch(
-        decodeCase: static _ => "Decode",
-        encodeCase: static _ => "Encode",
-        deviceCase: static _ => "Device",
-        tileCase:   static _ => "Tile");
+        decodeCase:    static _ => "Decode",
+        encodeCase:    static _ => "Encode",
+        deviceCase:    static _ => "Device",
+        tileCase:      static _ => "Tile",
+        provisionCase: static _ => "Provision");
 
     public override string Message => Switch(
         state: Detail,
-        decodeCase: static (detail, c) => $"Raster container decode failed under '{c.Key}': {detail}.",
-        encodeCase: static (detail, c) => $"Raster container encode failed under '{c.Key}': {detail}.",
-        deviceCase: static (detail, c) => $"Bake device failed under '{c.Key}': {detail}.",
-        tileCase:   static (detail, c) => $"Tile synthesis failed under '{c.Key}': {detail}.");
+        decodeCase:    static (detail, c) => $"Raster container decode failed under '{c.Key}': {detail}.",
+        encodeCase:    static (detail, c) => $"Raster container encode failed under '{c.Key}': {detail}.",
+        deviceCase:    static (detail, c) => $"Bake device failed under '{c.Key}': {detail}.",
+        tileCase:      static (detail, c) => $"Tile synthesis failed under '{c.Key}': {detail}.",
+        provisionCase: static (detail, c) => $"Provisioned tool unavailable under '{c.Key}': {detail}.");
 
     public static RasterFault Decode(Op key, string detail) => new DecodeCase(key, detail);
     public static RasterFault Encode(Op key, string detail) => new EncodeCase(key, detail);
     public static RasterFault Device(Op key, string detail) => new DeviceCase(key, detail);
     public static RasterFault Tile(Op key, string detail) => new TileCase(key, detail);
+    public static RasterFault Provision(Op key, string detail) => new ProvisionCase(key, detail);
     public static RasterFault Create(string message) => Decode(Admission, message);
 }
 ```
@@ -72,16 +80,17 @@ public abstract partial record RasterFault : Expected, IValidationError<RasterFa
 ## [03]-[RASTER_FORMAT]
 
 - Owner: `RasterEngine` the reader-writer family; `RasterFormat` the container roster; `BlockFormat` the block-layout roster over the composed `TextureFormat` values; `KtxPayload` the KTX2 payload-class roster carrying its wire legality, its supercompression scheme, and its 8-bit block-encode bound; `KtxArm` the composition posture; `PreviewPolicy` the display-egress row; `EncodePolicy` the per-encode row.
-- Cases: engine {`Managed`, `OpenExr`, `Radiance`, `Ktx`} · format {`png16`, `tiff16`, `webp`, `qoi`, `jpeg`, `exr`, `exrDeep`, `exrTiled`, `hdr`, `ktx2`} · block {`bc1`…`bc7`, `bc6h`, `none`} · payload {`rawBcn`, `uastc`, `etc1s`, `astc`, `none`} · arm {`cli`, `inProcess`}.
+- Cases: engine {`Managed`, `OpenExr`, `Radiance`, `Ktx`, `Breadth`} · format {`png16`, `tiff16`, `webp`, `qoi`, `jpeg`, `exr`, `exrDeep`, `exrTiled`, `hdr`, `ktx2`, `avif`, `heif`, `jxl`, `dpx`, `cineon`} · block {`bc1`…`bc7`, `bc6h`, `none`} · payload {`rawBcn`, `uastc`, `etc1s`, `astc`, `none`} · arm {`cli`, `inProcess`}.
 - Law: the DEPTH AXIS is the kernel `Drawing/pack#ENCODING_CHANNEL` `ChannelDtype` roster, the same one `plane#PLANE_FORMAT` seats its storage rows onto, so a container's ceiling and a plane's storage speak one vocabulary and no comparison crosses two rosters. `MaxDepth` is a ROW FACT the encode gate reads through `Admits`, and it is the honest ceiling rather than the advertised one. `Admits` compares ROWS through the plane page's own `Normalizes` discriminant, never byte widths — `Unorm16` and `Float16` share a width, so a width compare alone would pass an `rgba16f` plane through the `png16` ceiling and silently narrow it through the integer texel; a normalizing-ceiling row therefore admits only normalizing depths at or below its width, and a float-ceiling row admits every depth its width holds. `TiffBitsPerPixel` tops out below any float row and carries no 16-bit-plus-alpha row, so a four-lane 16-bit plane routed at `tiff16` drops its alpha lane rather than refusing — the row therefore declares `Unorm16` as its ceiling and the encoder states `BitsPerPixel` explicitly, because an unset depth knob is an INFERENCE and inference is what quietly ships an 8-bit channel.
 - Law: `qoi` is a fast lossless EIGHT-BIT row and `jpeg` a lossy eight-bit INGEST row. `qoi` admits for a preview or a thumbnail egress; `jpeg` is the container `Appearance/acquisition#ACQUISITION` and `set#SET_INGEST` receive a captured photograph on, `AlphaMode.None` its truth because JFIF carries no coverage. Neither reaches a channel plane, because an 8-bit intermediate on a texture path is a silent quantization no downstream consumer can recover: the `set#TEXTURE_SET` egress grammar admits only the frozen `<ext>` roster, which carries neither `qoi` nor `jpg`, so both rows are structurally unreachable from a set leaf and `Extension` stays the one `<ext>` source for every row the egress CAN reach.
 - Law: EXR is `TinyEXR.NET`'s WHOLE — the held ImageSharp major ships no EXR codec, so `exr`, `exrTiled`, and `exrDeep` are three rows of one engine case discriminating on the part type rather than three engines. Its tiled row is the estate's ONE float pyramid in a single file: `TileLevelMode.MipMap` holds every level under one header, so an HDR chain — the `environment#IBL_PREFILTER` specular level set, every solver-grade plane — takes a lossless `Compression.ZIP` home instead of the per-mip file series that was previously its only shape. Per-channel FILES stay the canonical cross-branch form; multipart, named-AOV, and tiled mip-levelled files are branch-local optimization, so no parity fixture depends on a leg one branch alone can write.
+- Law: `Breadth` is an INGEST-ONLY TIER and its one-directionality is STRUCTURAL. The case carries an identity value and no encoder column at all, so `[04]`'s encode dispatch has nothing to call and rails by construction — a produced texture cannot leave the estate through AVIF, HEIF, JPEG XL, DPX, or Cineon however a caller names the row, and every authored product still egresses a managed, EXR, or KTX2 leg. The five rows DECLARE LAST, so the ordered claim fold reaches the breadth probes only after every managed and container-native probe has declined: "reached only where no managed row matches" is roster ORDER rather than a guard each probe repeats. The tier is admitted on MEASURED delegate presence rather than on a package's advertised format list — the shipped osx-arm64 native links `heic`, `jxl`, `openexr`, `raw`, `webp`, and `jp2` statically, AVIF and JPEG XL round-trip and HEIC decodes read-only, and KTX has no coder in it at all, which is why the block container stays the KTX gate's and never crosses here.
 - Law: `hdr` is an INGEST row. Radiance stores three 8-bit mantissas under one shared exponent, so the expansion to float does not recover the quantization and every PRODUCED environment product egresses `exr`, `exrTiled`, or `ktx2`.
-- Law: `KtxPayload.WireLegal` is the gate `set#TEXTURE_SET` reads at egress. `rawBcn` and `astc` are desktop payloads no Basis-transcoding consumer reads, so neither appears on a manifest-borne channel row; `uastc`, `etc1s`, and `none` are the three the web wire admits, and each block row carries the supercompression scheme and the sRGB and linear `TextureFormat` values its encode names.
+- Law: `KtxPayload.WireLegal` is the gate `set#TEXTURE_SET` reads at egress. `rawBcn` and `astc` are desktop payloads no Basis-transcoding consumer reads, so neither appears on a manifest-borne channel row; `uastc`, `etc1s`, and `none` are the three the web wire admits. Every payload row carries its supercompression scheme; the sRGB and linear `TextureFormat` pair is carried only where the PAYLOAD CLASS names the target — the two Basis rows and the ASTC LDR row — while `rawBcn` resolves its format off the `BlockFormat` row the policy names and `none` off the plane's own depth, so both carry the pair as absence and `Resolve` is a row read rather than a fallback ladder.
 - Law: BLOCK COMPRESSION IS 8-BIT-INPUT-ONLY — the measured bound on both legs, carried as the `BlockCompressed` row fact. `ktx create --encode` admits only `R8*` formats and the in-process block coders refuse a deeper store, so a block encode STAGES its levels at `u8` in the encoded domain and a float or half plane — the HDR IBL pyramid, a solver-grade plane — takes `KtxPayload.None`: the uncompressed deep KTX2 whose `vk_format` is set, whose `needs_transcoding` is false, and whose depth ceiling is the container's own `Float32`. ASTC-HDR is unreachable on the provisioned toolchain, so `astc` composes only at LDR.
 - Entry: `RasterFormat.Items` is the ordered roster the claim fold walks; `Get`/`TryGet` resolve a wire key; `Extension` is the ONE `<ext>` source the `set#TEXTURE_SET` egress grammar reads, so no page carries a second extension table.
-- Packages: SixLabors.ImageSharp (composed — `PngFormat.Instance`/`TiffFormat.Instance`/`WebpFormat.Instance`/`QoiFormat.Instance`/`JpegFormat.Instance` the identity singletons each row holds, `PngEncoder`/`TiffEncoder`/`WebpEncoder`/`QoiEncoder`/`JpegEncoder` with `PngBitDepth`/`TiffBitsPerPixel` stated explicitly, `KnownQuantizers` and `IQuantizer` the preview row's palette value, `Size` the preview extent), TinyEXR.NET (composed — `ExrFile.IsExr` the magic probe, `Compression.ZIP` the durable row, `TileDescription`/`TileLevelMode.MipMap` the tiled row's own level mode), TextureCompressor (composed — `TextureFormats.Bc1Rgba`…`Bc7UNorm`/`Bc6HUFloat` and `TextureFormats.RgbaBasisUastcLdr4x4UNorm`/`RgbaBasisEtc1sSrgb`, the FIELD names a static reference spells), TextureCompressor.FileFormats.Ktx (composed — `KtxSupercompressionScheme`), TextureCompressor.FileFormats.Hdr (composed — `HdrCodec.HasRadianceHeader`), `Rasm.Drawing` (composed — `ChannelDtype.Unorm8`/`Unorm16`/`Float32` the depth ceilings and their `Width` column), `plane#PLANE_VOCABULARY` (composed — `AlphaMode`/`PlaneFormat.Normalizes`), Thinktecture.Runtime.Extensions.
-- Growth: a new container over an existing reader-writer is ONE `RasterFormat` row; a new block layout is one `BlockFormat` row naming its `TextureFormat` value; a new payload class is one `KtxPayload` row carrying its legality and scheme. Only a genuinely new reader-writer is a `RasterEngine` case, and adding one breaks the `[04]` dispatch totally rather than defaulting into a neighbour.
+- Packages: SixLabors.ImageSharp (composed — `PngFormat.Instance`/`TiffFormat.Instance`/`WebpFormat.Instance`/`QoiFormat.Instance`/`JpegFormat.Instance` the identity singletons each row holds, `PngEncoder`/`TiffEncoder`/`WebpEncoder`/`QoiEncoder`/`JpegEncoder` with `PngBitDepth`/`TiffBitsPerPixel` stated explicitly, `KnownQuantizers` and `IQuantizer` the preview row's palette value, `Size` the preview extent), TinyEXR.NET (composed — `ExrFile.IsExr` the magic probe, `Compression.ZIP` the durable row, `TileDescription`/`TileLevelMode.MipMap` the tiled row's own level mode), TextureCompressor (composed — `TextureFormats.Bc1Rgba`…`Bc7UNorm`/`Bc6HUFloat` and `TextureFormats.RgbaBasisUastcLdr4x4UNorm`/`RgbaBasisEtc1sSrgb`, the FIELD names a static reference spells), TextureCompressor.FileFormats.Ktx (composed — `KtxSupercompressionScheme`), TextureCompressor.FileFormats.Hdr (composed — `HdrCodec.HasRadianceHeader`), Magick.NET-Q16-HDRI-AnyCPU (composed — `MagickFormatInfo.Create(ReadOnlySpan<byte>) -> MagickFormatInfo` the span sniff every breadth probe reads through the one caught fold, `MagickFormatInfo.Format` its answer, `MagickFormat.Avif`/`Heic`/`Heif`/`Jxl`/`Dpx`/`Cin` the identity values the rows hold, `MagickException` the caught boundary), `Rasm.Drawing` (composed — `ChannelDtype.Unorm8`/`Unorm16`/`Float32` the depth ceilings and their `Width` column), `plane#PLANE_VOCABULARY` (composed — `AlphaMode`/`PlaneFormat.Normalizes`), Thinktecture.Runtime.Extensions.
+- Growth: a new container over an existing reader-writer is ONE `RasterFormat` row; a new block layout is one `BlockFormat` row naming its `TextureFormat` value; a new payload class is one `KtxPayload` row carrying its legality and scheme; a further ingest-only family the breadth native already links is one row at the roster's tail holding its `MagickFormat` value. Only a genuinely new reader-writer is a `RasterEngine` case, and adding one breaks the `[04]` dispatch totally rather than defaulting into a neighbour.
 - Boundary: a row declares CARRIAGE and never policy. Quality, block choice, payload class, composition arm, and the preview egress ride `EncodePolicy`, which the `set#TEXTURE_SET` channel row resolves — so the same container serves a colour channel at one payload and a normal channel at another without a second format row, and a caller never selects a block format the container cannot hold.
 
 ```csharp signature
@@ -96,6 +105,7 @@ using SixLabors.ImageSharp.Formats.Qoi;
 using SixLabors.ImageSharp.Formats.Tiff;
 using SixLabors.ImageSharp.Formats.Tiff.Constants;
 using SixLabors.ImageSharp.Formats.Webp;
+using ImageMagick;                                // MagickFormat, MagickFormatInfo, MagickException — the breadth rows' identity and sniff
 using SixLabors.ImageSharp.Processing;            // IQuantizer, KnownQuantizers — the preview row's palette value
 using TextureCompressor.FileFormats.Hdr;          // HdrCodec
 using TextureCompressor.FileFormats.Ktx;          // KtxSupercompressionScheme
@@ -115,10 +125,19 @@ namespace Rasm.Materials.Raster;
 public abstract partial record RasterEngine {
     private RasterEngine() { }
 
-    public sealed record Managed(IImageFormat Identity, Func<ChannelDtype, IImageEncoder> Encoder) : RasterEngine;
+    // Encoder takes the DEPTH and the POLICY because both are things a caller states and neither is carriage: the
+    // depth selects the row's own bit width and the policy carries every quality, palette, and payload decision. A
+    // row baking a quality literal into its encoder is a policy the boundary law puts on EncodePolicy, spelled at a
+    // site no caller can reach.
+    public sealed record Managed(IImageFormat Identity, Func<ChannelDtype, EncodePolicy, IImageEncoder> Encoder) : RasterEngine;
     public sealed record OpenExr(bool Deep, bool Tiled) : RasterEngine;
     public sealed record Radiance : RasterEngine;
     public sealed record Ktx : RasterEngine;
+    // Breadth is the INGEST-ONLY tier over the container families no managed engine reaches. Identity is the
+    // package's own format value the row claims against, exactly as Managed holds an IImageFormat singleton, so the
+    // discriminant is a value comparison and never a spelling. The case carries NO encoder column at all, which is
+    // what makes "every authored product egresses managed" a shape rather than a rule a reviewer enforces.
+    public sealed record Breadth(MagickFormat Identity) : RasterEngine;
 }
 
 // RasterFormat rosters the containers. Claim is the row's own magic probe, so the sniff is a fold over Items and no
@@ -127,29 +146,36 @@ public abstract partial record RasterEngine {
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class RasterFormat {
     public static readonly RasterFormat Png16 = new("png16", "png", AlphaMode.Straight, ChannelDtype.Unorm16,
-        new RasterEngine.Managed(PngFormat.Instance, static depth => new PngEncoder {
+        new RasterEngine.Managed(PngFormat.Instance, static (depth, _) => new PngEncoder {
             BitDepth = depth == ChannelDtype.Unorm8 ? PngBitDepth.Bit8 : PngBitDepth.Bit16, ColorType = PngColorType.RgbWithAlpha }),
         static payload => Sniff(payload) == PngFormat.Instance);
 
     public static readonly RasterFormat Tiff16 = new("tiff16", "tif", AlphaMode.Straight, ChannelDtype.Unorm16,
-        new RasterEngine.Managed(TiffFormat.Instance, static _ => new TiffEncoder {
+        new RasterEngine.Managed(TiffFormat.Instance, static (_, _) => new TiffEncoder {
             BitsPerPixel = TiffBitsPerPixel.Bit48, PhotometricInterpretation = TiffPhotometricInterpretation.Rgb }),
         static payload => Sniff(payload) == TiffFormat.Instance);
 
     public static readonly RasterFormat WebP = new("webp", "webp", AlphaMode.Straight, ChannelDtype.Unorm8,
-        new RasterEngine.Managed(WebpFormat.Instance, static _ => new WebpEncoder { FileFormat = WebpFileFormatType.Lossless }),
+        new RasterEngine.Managed(WebpFormat.Instance, static (_, _) => new WebpEncoder { FileFormat = WebpFileFormatType.Lossless }),
         static payload => Sniff(payload) == WebpFormat.Instance);
 
     public static readonly RasterFormat Qoi = new("qoi", "qoi", AlphaMode.Straight, ChannelDtype.Unorm8,
-        new RasterEngine.Managed(QoiFormat.Instance, static _ => new QoiEncoder()),
+        new RasterEngine.Managed(QoiFormat.Instance, static (_, _) => new QoiEncoder()),
         static payload => Sniff(payload) == QoiFormat.Instance);
 
     // Jpeg is the INGEST row the photo-to-PBR path arrives on: baseline and progressive, eight-bit, lossy. It never reaches a
     // set leaf — the egress grammar carries no `jpg` — so a captured photograph decodes here and every produced
     // channel egresses through a lossless row.
     public static readonly RasterFormat Jpeg = new("jpeg", "jpg", AlphaMode.None, ChannelDtype.Unorm8,
-        new RasterEngine.Managed(JpegFormat.Instance, static _ => new JpegEncoder { Quality = 95 }),
+        new RasterEngine.Managed(JpegFormat.Instance,
+            static (_, policy) => new JpegEncoder { Quality = Math.Clamp(policy.Quality, JpegFloor, JpegCeiling) }),
         static payload => Sniff(payload) == JpegFormat.Instance);
+
+    // The one lossy row's quality band. `EncodePolicy.Quality` is ONE scalar every quality-bearing consumer clamps
+    // into its OWN declared band — the Basis `--qlevel` row clamps to its 1-255 scale at `[05]`, this row to JFIF's
+    // 1-100 — so a caller states quality once and no site re-scales it by hand or hides a literal in an encoder.
+    private const int JpegFloor = 1;
+    private const int JpegCeiling = 100;
 
     // ONE managed sniff shared by the five Managed probes. The held major's Image.DetectFormat THROWS
     // UnknownImageFormatException on foreign bytes, so a per-row bare call would tear the claim fold down on
@@ -193,6 +219,37 @@ public sealed partial class RasterFormat {
     // rather than an allocated array — the probe runs on every decode and allocates nothing.
     private static ReadOnlySpan<byte> Ktx2Magic => [0xAB, 0x4B, 0x54, 0x58, 0x20, 0x32, 0x30, 0xBB, 0x0D, 0x0A, 0x1A, 0x0A];
 
+    // --- [BREADTH_ROWS]
+    // The breadth rows DECLARE LAST, so the ordered claim fold reaches them only after every managed, EXR, Radiance,
+    // and KTX2 probe has declined — which is exactly the card's "reached only where the sniffed container matches no
+    // managed row" as a roster ORDER rather than as a guard each probe repeats. Each ceilings at the depth its
+    // container genuinely carries, and each is unreachable from encode by its engine case rather than by a column.
+    public static readonly RasterFormat Avif = new("avif", "avif", AlphaMode.Straight, ChannelDtype.Unorm16,
+        new RasterEngine.Breadth(MagickFormat.Avif), static payload => Breadth(payload) == MagickFormat.Avif);
+
+    public static readonly RasterFormat Heif = new("heif", "heif", AlphaMode.Straight, ChannelDtype.Unorm16,
+        new RasterEngine.Breadth(MagickFormat.Heic), static payload => Breadth(payload) is MagickFormat.Heic or MagickFormat.Heif);
+
+    public static readonly RasterFormat Jxl = new("jxl", "jxl", AlphaMode.Straight, ChannelDtype.Float32,
+        new RasterEngine.Breadth(MagickFormat.Jxl), static payload => Breadth(payload) == MagickFormat.Jxl);
+
+    // The two motion-picture plates: DPX carries 10-bit log or linear film scans and Cineon its printing-density
+    // predecessor. Neither carries coverage, so both declare none and the four-lane widening seats opaque.
+    public static readonly RasterFormat Dpx = new("dpx", "dpx", AlphaMode.None, ChannelDtype.Unorm16,
+        new RasterEngine.Breadth(MagickFormat.Dpx), static payload => Breadth(payload) == MagickFormat.Dpx);
+
+    public static readonly RasterFormat Cineon = new("cineon", "cin", AlphaMode.None, ChannelDtype.Unorm16,
+        new RasterEngine.Breadth(MagickFormat.Cin), static payload => Breadth(payload) == MagickFormat.Cin);
+
+    // ONE breadth sniff shared by the five probes, mirroring the managed Sniff exactly: the package resolves the
+    // container off the leading bytes and answers with its OWN format value, so no magic-byte table is transcribed
+    // here for five ISOBMFF-and-plate families whose brands the package already discriminates. A payload it does not
+    // recognize is the typed no-claim the probes compare against.
+    private static MagickFormat? Breadth(ReadOnlySpan<byte> payload) {
+        try { return MagickFormatInfo.Create(payload)?.Format; }
+        catch (MagickException) { return null; }
+    }
+
     public string Extension { get; }
     public AlphaMode CanonicalAlpha { get; }
     public ChannelDtype MaxDepth { get; }
@@ -204,12 +261,14 @@ public sealed partial class RasterFormat {
     public bool HoldsPyramid => Engine is RasterEngine.Ktx or RasterEngine.OpenExr { Tiled: true };
     public bool HoldsLayers => Engine is RasterEngine.Ktx;
 
-    // Tiles carries the tiled EXR level mode. Sixty-four-texel tiles are the container's own working granularity, and MipMap is
-    // what makes one file hold the chain; the flat and deep rows carry no description at all.
-    public Option<TileDescription> Tiles =>
-        Engine is RasterEngine.OpenExr { Tiled: true }
-            ? Some(new TileDescription(64u, 64u, TileLevelMode.MipMap, TileRoundingMode.RoundDown))
-            : None;
+    // MipTiles is the ONE TileDescription in the estate. Sixty-four-texel tiles are the container's own working
+    // granularity and MipMap is what makes one file hold the chain, so the header a writer declares, the tile grid it
+    // fans, and the clipped span each buffer carries all derive from THIS value — three spellings of one description
+    // drift the fan away from the header the moment any of the four arguments moves.
+    public static readonly TileDescription MipTiles = new(64u, 64u, TileLevelMode.MipMap, TileRoundingMode.RoundDown);
+
+    // Tiles carries the tiled EXR level mode; the flat and deep rows carry no description at all.
+    public Option<TileDescription> Tiles => Engine is RasterEngine.OpenExr { Tiled: true } ? Some(MipTiles) : None;
 
     // Depth admission compares ROWS through the plane page's own normalization discriminant, never widths alone:
     // Unorm16 and Float16 share two bytes, so a width compare would narrow an rgba16f plane through the png16
@@ -298,8 +357,10 @@ public sealed record PreviewPolicy(Size Size, IQuantizer Palette) {
 // or quantize float data, so a content-keyed or solver-grade plane takes ZIP and a lossy row never reaches a keyed
 // plane. The two HTJ2K rows are refused on EVERY float plane rather than only on a keyed one — their small-extent
 // decode is NaN, not approximate, and a pyramid folding to 1x1 crosses that range on every set.
-// Block resolves the raw-BCn arm's own TextureFormat; Quality is the etc1s CLI `--qlevel` scale — the
-// in-process arm resolves its coders internally and carries no level knob, which is the acceleration row's stated
+// Block resolves the raw-BCn arm's own TextureFormat; Quality is the ONE quality scalar, and each consuming row
+// clamps it into that row's own declared band — the JFIF 1-100 scale on the lossy managed row, the Basis `--qlevel`
+// 1-255 scale on the etc1s create row — so quality is stated once and never re-spelled per encoder. The in-process
+// KTX arm resolves its coders internally and carries no level knob at all, which is the acceleration row's stated
 // trade. Preview is ABSENT on every keyed encode by construction: it is the one column that changes what the bytes
 // depict rather than how they are stored.
 public sealed record EncodePolicy(
@@ -321,13 +382,14 @@ public sealed record EncodePolicy(
 - Law: the claim is a FOLD over `RasterFormat.Items` reading each row's own probe, first match wins, and an unclaimed payload rails `Decode`. `Decode` takes no declared format: a caller who must name the container has already read the magic bytes, and a caller who names the wrong one gets a misparse rather than a refusal.
 - Law: `Decode` is the ONE path a THIRD-PARTY file crosses — `set#SET_INGEST` classifies a vendor library and `environment#ENVIRONMENT_MAP` admits a downloaded dome — so the reader's caps are DECLARED here rather than inherited: the package's defaults bound a trusted producer, and a header claiming a two-billion-texel edge must refuse before any rental. Writer caps bound what this estate itself emits, which is the strictly narrower posture. Every cap states the estate fact it derives from, so a raised bake extent moves one declaration rather than a scatter of literals.
 - Law: decode TAGS what the file DECLARED and converts nothing. Canonical association rides the row — EXR is associated, PNG, TIFF, WebP, QOI, JPEG, and KTX2 are straight, Radiance carries none — and the declared CHROMATICITY rides the container's own metadata: an EXR header's `Chromaticities` attribute and an ImageSharp `CicpProfile`'s primaries each resolve to a `PlanePrimaries` row or to `unknown`, and a container that declares neither yields `unknown` rather than the working space. A row DECLARED without a reconciliation endpoint is a third reachable state, not a gap: a P3-D65 file tags `p3d65` and keeps its own label through the key and the container write while `ToPrimaries` off it refuses, where resolving it to `unknown` discarded a declaration the file genuinely made. Its DECLARING consumer then normalizes to the plane's declared `AlphaMode` through the `plane#TEXTURE_PLANE` `ToAlpha` gate and to its working gamut through `ToPrimaries`, which is where the frozen decode-normalizes direction lives: `Decode(payload, key)` carries no declaration, so the canonical tag is the honest intermediate and `set#SET_INGEST`'s per-role declaration is the one normalization site. Encode CONVERTS the plane's association into the format's canonical one through the same gate, so the 16-bit floor on a premultiply-state crossing is enforced once for the whole estate. Neither direction is a caller knob; the bridge itself moves ENCODED STORAGE lanes and never premultiplies, decodes, unpacks, or rebases, because those are plane declarations applied at `Read` and a bridge running them would double-apply every curve the file already carries.
+- Law: the MANAGED leg is asymmetric in ARITY and the asymmetry is the package's own. Decode lands four lanes on every managed row because the pixel type the package decodes into is four-lane and the arena's texel structs are not ImageSharp pixel types — so a greyscale plate replicates across RGB and an alpha-less container reads opaque, both from the package's expansion rather than from a fabrication here. Encode is arity-honest in the other direction: `WriteManaged` seats the plane's own lane stride, so a one-lane height plane egresses grey rather than reading past its rental. Narrowing a widened decode is `set#SET_INGEST`'s, because the ROLE decides which lanes carry meaning and a codec has no role to read. The EXR and KTX legs carry the container's real arity, so this widening is the managed leg's alone and never a page-wide law.
 - Law: encode REFUSES a plane whose depth the row's `Admits` denies rather than narrowing it. `Admits` exists to name exactly that silent narrow — a float plane on a normalizing-ceiling row included — and the caller either states an admitted plane or picks a row that holds the depth.
 - Law: every composed container throws on a malformed payload — `ImageFormatException`, `UnknownImageFormatException`, the reader's typed limit exceptions, and the block engine's own — so every package call crosses the `Try.lift(...).Run()` funnel and lowers with the foreign message preserved inside the `Detail` discriminant. `Funnel` catches every container exception at the boundary and carries the foreign message verbatim, so nothing escapes and no re-wrap erases it, and the declared caps therefore need no rail of their own.
 - Law: the ImageSharp leg crosses through ONE staging copy each way and the pixel-type conversion rides the package's own BULK converter. `CopyPixelDataTo` drains the decoded image into the pooled pixel run, `PixelOperations<Rgba64>.Instance.ToVector4`/`FromVector4Destructive` convert the whole run under `PixelConversionModifiers.None`, and `LoadPixelData<TPixel>(Configuration, ReadOnlySpan<TPixel>, int, int)` mints the encode image — so the estate's only managed decode and encode pay the package's vectorized path rather than a per-texel scalar round trip. This modifier is stated because `Rgba64`'s scaled projection IS its plain vector projection: `None` is byte-identical to the per-texel spelling it replaces, while `Scale` or `SRgbCompand` would rescale or linearize what the arena already holds encoded. Zero-copy `WrapMemory` binding is unreachable because the arena's texel structs are not ImageSharp pixel types, and a `MemoryMarshal` reinterpretation across that seam is exactly the stride fork the bridge law forbids.
 - Law: a `Preview` column is the ONE Processing site in this estate. It runs on bytes the encode already staged as an `Image`, it is legal only on a row whose `MaxDepth` is `Unorm8`, and it never reaches a chain a `set#TEXTURE_SET` leaf addresses — the egress grammar carries no `qoi`, no `webp`, and no `jpg` extension, which is what keeps a resampled and palette-collapsed plane structurally unreachable from a keyed set. Its caller is `press#PRESS_RECEIPT`'s `Preview` arm, whose planes carry no set and therefore no key, which is exactly the subject an 8-bit display egress may take.
-- Packages: SixLabors.ImageSharp (composed — `Image.DetectFormat(ReadOnlySpan<byte>)` the throw-only sniff each row's probe reads through the one caught fold, `Image.Load<TPixel>(DecoderOptions, ReadOnlySpan<byte>)` naming the demanded depth so the file never decides the arena — the `Configuration` threads through `DecoderOptions`, no bare `(Configuration, span)` overload exists, `Image<TPixel>.CopyPixelDataTo(Span<TPixel>)` the decode drain, `PixelOperations<Rgba64>.Instance.ToVector4`/`FromVector4Destructive(Configuration, …, PixelConversionModifiers)` the bulk pixel-conversion rail, `Image.LoadPixelData<TPixel>(Configuration, ReadOnlySpan<TPixel>, int, int)` the encode mint, `Image.Mutate(Action<IImageProcessingContext>)` with `Resize(ResizeOptions)` + `Quantize(IQuantizer)` and `KnownResamplers.Lanczos3` at the preview site alone, `ImageMetadata.CicpProfile`/`CicpProfile.ColorPrimaries` the declared-primaries read, `Image.Save(Stream, IImageEncoder)`), TinyEXR.NET (composed — `ExrFile.LoadFromMemory`/`SaveToMemory` over `ReaderResult<Image>`/`WriterResult<byte[]>` under declared `ReaderOptions`/`WriterOptions` and their `ReaderLimits`/`WriterLimits`, `Image.Parts`/`Part.Levels` the part-level walk, `Header.Chromaticities` the declared-primaries read, `PartConversion.IsLuminanceChroma`/`LuminanceChromaToRgbaFloat`/`ToInterleavedFloat`/`FromInterleavedFloat` the planar-interleaved bridge and its luminance-chroma arm, `ExrWriter.OpenSink`/`AddPart`/`Begin`/`WriteTile`/`End` over `StreamDataSink` the tiled mip writer, `Header(PartType, Box2i, IEnumerable<Channel>, Compression, …)` with its `tiles` tail + `DeepLevel(int, int, Box2i, ReadOnlySpan<int>, IEnumerable<ChannelBuffer>)` + `ChannelBuffer(string, PixelType, ReadOnlySpan<byte>)` the deep and tiled authoring surface, `DeepLevel.SampleCounts` the deep read fold, `PartLevel.Channels`/`Region` the per-level interleave, `ExrResult.WouldBlock` resumed rather than failed), TextureCompressor.FileFormats.Hdr (composed — `HdrCodec.Decode(ReadOnlySpan<byte>)`, `HdrCodec.Encode<TPixel>(IBitmap<TPixel>, HdrEncodingOptions?) -> byte[]` the byte-returning overload the decompile grounds), `plane#TEXTURE_PLANE` (composed — `TexturePlane.Of` over both modalities, `Read`/`Write`/`ToAlpha`/`ToPrimaries`, `PlanePrimaries.Of`, `TexturePyramid.Of`/`Levels`/`Base`), `Rasm.Domain` (`Op`, the `Try` boundary funnel), `Rasm.Numerics` (`Dimension`), LanguageExt.Core.
+- Packages: SixLabors.ImageSharp (composed — `Image.DetectFormat(ReadOnlySpan<byte>)` the throw-only sniff each row's probe reads through the one caught fold, `Image.Load<TPixel>(DecoderOptions, ReadOnlySpan<byte>)` naming the demanded depth so the file never decides the arena — the `Configuration` threads through `DecoderOptions`, no bare `(Configuration, span)` overload exists, `Image<TPixel>.CopyPixelDataTo(Span<TPixel>)` the decode drain, `PixelOperations<Rgba64>.Instance.ToVector4`/`FromVector4Destructive(Configuration, …, PixelConversionModifiers)` the bulk pixel-conversion rail, `Image.LoadPixelData<TPixel>(Configuration, ReadOnlySpan<TPixel>, int, int)` the encode mint, `Image.Mutate(Action<IImageProcessingContext>)` with `Resize(ResizeOptions)` + `Quantize(IQuantizer)` and `KnownResamplers.Lanczos3` at the preview site alone, `ImageMetadata.CicpProfile`/`CicpProfile.ColorPrimaries` the declared-primaries read, `Image.Save(Stream, IImageEncoder)`), TinyEXR.NET (composed — `ExrFile.LoadFromMemory`/`SaveToMemory` over `ReaderResult<Image>`/`WriterResult<byte[]>` under declared `ReaderOptions`/`WriterOptions` and their `ReaderLimits`/`WriterLimits`, `Image.Parts`/`Part.Levels` the part-level walk, `Header.Chromaticities` the declared-primaries read, `PartConversion.IsLuminanceChroma`/`LuminanceChromaToRgbaFloat`/`ToInterleavedFloat`/`FromInterleavedFloat` the planar-interleaved bridge and its luminance-chroma arm, `ExrWriter.OpenSink`/`AddPart`/`Begin`/`WriteTile`/`End` over `StreamDataSink` the tiled mip writer, `Header(PartType, Box2i, IEnumerable<Channel>, Compression, …)` with its `tiles` tail + `DeepLevel(int, int, Box2i, ReadOnlySpan<int>, IEnumerable<ChannelBuffer>)` + `ChannelBuffer(string, PixelType, ReadOnlySpan<byte>)` the deep and tiled authoring surface, `DeepLevel.SampleCounts` the deep read fold, `PartLevel.Channels`/`Region` the per-level interleave, `ReaderResult<T>.Status`/`WriterResult<T>.Status` the reason a refusal spells), TextureCompressor.FileFormats.Hdr (composed — `HdrCodec.Decode(ReadOnlySpan<byte>)`, `HdrCodec.Encode<TPixel>(IBitmap<TPixel>, HdrEncodingOptions?) -> byte[]` the byte-returning overload the decompile grounds), Magick.NET-Q16-HDRI-AnyCPU (composed — `new MagickImage(ReadOnlySpan<byte>)` the span-admitting decode, `MagickImage.Width`/`Height`/`ChannelCount`/`Depth` as `uint` and `HasAlpha`/`ColorSpace` the container's own declarations, `IPixelCollection<float> MagickImage.GetPixels()` — the HDRI build's quantum is FLOAT managed-side, so no integer round trip exists — `IPixelCollection<float>.GetReadOnlyArea(int, int, uint, uint) -> ReadOnlySpan<float>` the zero-copy row window, `Quantum.Max` the float quantum ceiling the unit normalization divides by), `plane#TEXTURE_PLANE` (composed — `TexturePlane.Of` over both modalities, `Read`/`Write`/`ToAlpha`/`ToPrimaries`, `PlanePrimaries.Of`, `TexturePyramid.Of`/`Levels`/`Base`), `Rasm.Domain` (`Op`, the `Try` boundary funnel), `Rasm.Numerics` (`Dimension`), LanguageExt.Core.
 - Growth: a container added as a `RasterFormat` row reaches decode and encode with zero edits here, because both fold over the row's engine. `RasterEngine` grows by one case, which adds one arm to each of the two `Switch` folds and breaks the generated dispatch totally until both land.
-- Boundary: this page owns CONTAINERS and never pixels. Transfer, primaries, association, range, and the decode ladder are `plane#PLANE_VOCABULARY`'s, resampling and derivation are `filter#PLANE_OP`'s, and channel semantics are `set#TEXTURE_CHANNEL`'s — so a codec never decides what a plane MEANS and never applies a colour transform a decode did not carry. `ReaderResult`/`WriterResult` values carry `Status` beside `IsSuccess`, and `ExrResult.WouldBlock` is a PROTOCOL state naming the byte range the reader wants, resumed by feeding exactly that window; classing it as failure stalls a healthy incremental read.
+- Boundary: this page owns CONTAINERS and never pixels. Transfer, primaries, association, range, and the decode ladder are `plane#PLANE_VOCABULARY`'s, resampling and derivation are `filter#PLANE_OP`'s, and channel semantics are `set#TEXTURE_CHANNEL`'s — so a codec never decides what a plane MEANS and never applies a colour transform a decode did not carry. Every EXR read on this page is a WHOLE-MEMORY read — `Decode` receives the complete payload and hands it to `LoadFromMemory` — so the container's incremental protocol never engages and no resumable state is reachable here. `ReaderResult`/`WriterResult` therefore carry `Status` purely as a REASON the discriminant spells beside the `IsSuccess` verdict, and a non-success is terminal: the page has no window to feed back and no partial read to continue.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
@@ -337,8 +399,10 @@ using System.Numerics;                            // Vector4 — the pixel ladde
 using System.Runtime.InteropServices;             // MemoryMarshal — the ONE reinterpretation at the staging bridge
 using CommunityToolkit.HighPerformance;           // Memory2D — the storage folds' view
 using CommunityToolkit.HighPerformance.Buffers;
+using ImageMagick;                                // MagickImage, IPixelCollection, Quantum — the breadth leg; ColorSpace qualifies at its site
 using LanguageExt;
 using Rasm.Domain;                                // Op
+using Rasm.Drawing;                               // ChannelDtype — the breadth leg's declared-depth map
 using Rasm.Numerics;                              // Dimension
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;          // Rgba64, PixelOperations, PixelConversionModifiers
@@ -372,18 +436,19 @@ public static partial class RasterCodec {
     // ceiling can back, so a payload no plane could hold never allocates; the part cap is the estate's named-AOV
     // posture; and the deep cap follows the front-sample fold, which reads one sample per texel. Emit is strictly
     // narrower because it bounds what this estate itself writes.
-    private static readonly ReaderOptions Ingest = new(new ReaderLimits {
-        MaximumDimension = 1 << 16,
-        MaximumMaterializedByteCount = (long)Array.MaxLength * sizeof(float),
-        MaximumParts = 64,
-        MaximumDeepSampleCount = Array.MaxLength,
-    });
+    // Both limit carriers publish get-only properties over one fully-defaulted positional ctor, so the named
+    // arguments ARE the surface — an object initializer binds nothing. WriterLimits carries no materialized-byte
+    // ceiling at all: the writer bounds what this estate emits, never what it is handed.
+    private static readonly ReaderOptions Ingest = new(new ReaderLimits(
+        maximumParts: 64,
+        maximumDimension: 1 << 16,
+        maximumMaterializedByteCount: (long)Array.MaxLength * sizeof(float),
+        maximumDeepSampleCount: Array.MaxLength));
 
-    private static readonly WriterOptions Emit = new(new WriterLimits {
-        MaximumDimension = 1 << 16,
-        MaximumParts = 64,
-        MaximumDeepSampleCount = Array.MaxLength,
-    });
+    private static readonly WriterOptions Emit = new(new WriterLimits(
+        maximumParts: 64,
+        maximumDimension: 1 << 16,
+        maximumDeepSampleCount: Array.MaxLength));
 
     // No declared format: the row's own probe claims the bytes. First match wins over the ordered roster, and an
     // unclaimed payload is a typed refusal rather than a guess. Every engine arm — the block container included —
@@ -396,17 +461,32 @@ public static partial class RasterCodec {
                 managed:  arm => Funnel(() => ReadManaged(payload.Span, format, key), key, decoding: true),
                 openExr:  arm => Funnel(() => Exr(payload, arm, key), key, decoding: true),
                 radiance: _   => Funnel(() => Radiance(payload.Span, key), key, decoding: true),
-                ktx:      _   => Funnel(() => KtxGate.Decode(payload, key), key, decoding: true)));
+                ktx:      _   => Funnel(() => KtxGate.Decode(payload, key), key, decoding: true),
+                breadth:  _   => Funnel(() => ReadBreadth(payload.Span, key), key, decoding: true)));
 
     public static Fin<ReadOnlyMemory<byte>> Encode(TexturePyramid subject, RasterFormat format, EncodePolicy policy, Op key) =>
         !format.Admits(subject.Base.Format.Depth)
-            ? RasterFault.Encode(key, $"<raster-depth:{subject.Base.Format.Depth.Key}>{format.MaxDepth.Key}@{format.Key}>")
+            ? RasterFault.Encode(key, $"<raster-depth:{subject.Base.Format.Depth.Key}:{format.MaxDepth.Key}@{format.Key}>")
             : Associate(subject, subject.Base.Alpha, format.CanonicalAlpha, key)
-                .Bind(normalized => format.Engine.Switch(
+                .Bind(normalized => Bracketed(subject, normalized, () => format.Engine.Switch(
                     managed:  arm => Funnel(() => WriteManaged(normalized, arm, policy, key), key, decoding: false),
                     openExr:  arm => Funnel(() => WriteExr(normalized, arm, format, policy, key), key, decoding: false),
                     radiance: _   => Funnel(() => WriteRadiance(normalized, key), key, decoding: false),
-                    ktx:      _   => Funnel(() => KtxGate.Encode(normalized, policy, key), key, decoding: false)));
+                    ktx:      _   => Funnel(() => KtxGate.Encode(normalized, policy, key), key, decoding: false),
+                    // The breadth tier is INGEST-ONLY and the refusal is the case's, not a column's: it carries no
+                    // encoder to reach, so an authored product cannot leave through it however a caller names the row.
+                    breadth:  arm => Fin.Fail<ReadOnlyMemory<byte>>(
+                                 RasterFault.Encode(key, $"<raster-ingest-only:{format.Key}:{arm.Identity}>")))));
+
+    // RELEASE BRACKETS ACQUISITION over the WHOLE converted chain. Associate rents a fresh level per crossing, and
+    // the write that follows fails on any engine arm — so the converted chain retires here, on both outcomes,
+    // where the in-fold disposal alone covered a refusal DURING conversion and leaked every level a completed
+    // conversion handed to a failing write. The caller's own chain is never touched: Associate returns the SAME
+    // reference when the crossing is a no-op, and that identity is exactly what tells a rental from a borrow.
+    private static Fin<T> Bracketed<T>(TexturePyramid subject, TexturePyramid converted, Func<Fin<T>> write) {
+        if (ReferenceEquals(subject, converted)) { return write(); }
+        try { return write(); } finally { converted.Dispose(); }
+    }
 
     private static Option<RasterFormat> Claim(ReadOnlySpan<byte> payload) {
         foreach (RasterFormat row in RasterFormat.Items) { if (row.Claim(payload)) { return Some(row); } }
@@ -420,10 +500,12 @@ public static partial class RasterCodec {
         from == to
             ? Fin.Succ(chain)
             : chain.Levels
+                // Custody rides the rail's own Rollback extension — a per-site MapFail-dispose block is the
+                // deleted form, and Rollback appends every disposer fault beside the primary instead of masking it.
                 .Fold(Fin.Succ(Seq<TexturePlane>()), (state, level) => state.Bind(converted =>
                     level.ToAlpha(to, key)
                         .Map(converted.Add)
-                        .MapFail(fault => { converted.Iter(static plane => plane.Dispose()); return fault; })))
+                        .Rollback([.. converted])))
                 .Map(levels => chain with { Levels = levels });
 
     // Funnel is the one exception boundary. Every composed container throws on a malformed payload, so the foreign
@@ -447,6 +529,13 @@ public static partial class RasterCodec {
 namespace Rasm.Materials.Raster;
 
 public static partial class RasterCodec {
+    // ReadManaged WIDENS to four lanes and the asymmetry with encode is the package's, not a choice: ImageSharp's
+    // decode is generic over ITS pixel types and the arena's texel structs are not among them, so a managed read
+    // lands `Rgba64` whatever arity the file carried — a greyscale PNG replicates its one lane across RGB and a
+    // container with no coverage reads opaque, both from the package's own pixel expansion. Encode is arity-honest
+    // in the other direction because `WriteManaged` seats the plane's OWN lane stride into the four-lane run, so a
+    // decode-edit-encode round trip through a one-lane plane narrows back rather than shipping three copied lanes.
+    // Narrowing HERE is `set#SET_INGEST`'s: it declares the role, and the role is what says which lanes carry meaning.
     // ReadManaged mints ONE level at MipPolicy.None because the flat container held no pyramid. The Rgba64 run
     // converts through the package's own BULK vector rail under PixelConversionModifiers.None — Rgba64's scaled
     // projection IS its plain vector projection, so the modifier is byte-identical to the per-texel spelling and an
@@ -470,6 +559,38 @@ public static partial class RasterCodec {
             format.MaxDepth == ChannelDtype.Unorm8 ? PlaneFormat.Rgba8 : PlaneFormat.Rgba16, PlaneTransfer.Srgb,
             Declared(image.Metadata), format.CanonicalAlpha, PlaneRange.Unit, key);
     }
+
+    // ReadBreadth is the ingest-only tier and it is ARITY-HONEST where the managed leg is not: the package reports the
+    // container's own channel census and coverage, so a three-channel plate lands three lanes and a four-channel AVIF
+    // lands four, rather than every file widening to a fixed pixel type. Lanes drain per ROW through the collection's
+    // zero-copy area window — one span per row, no whole-image array behind a quarter-billion-texel plate — and
+    // normalize by the build's own quantum ceiling, which is the encoded-unit domain this bridge speaks and the one
+    // that lets an HDRI value above the ceiling ride through unclamped instead of saturating at white.
+    // Storage follows the container's DECLARED depth rather than the quantum: a ten- or twelve-bit plate takes the
+    // 16-bit row it fits inside, an 8-bit AVIF takes the byte row, and a float-carrying JPEG XL takes Float32. The
+    // transfer tag reads the declared colour space and the primaries stay ABSENT, because this tier publishes no
+    // chromaticity read and inventing one is the exact fabrication the primaries axis exists to refuse.
+    private static Fin<TexturePyramid> ReadBreadth(ReadOnlySpan<byte> payload, Op key) {
+        using MagickImage image = new(payload);
+        int width = checked((int)image.Width), height = checked((int)image.Height), lanes = checked((int)image.ChannelCount);
+        using MemoryOwner<float> staging = MemoryOwner<float>.Allocate(width * height * lanes);
+        IPixelCollection<float> pixels = image.GetPixels();
+        for (int y = 0; y < height; y++) {
+            ReadOnlySpan<float> row = pixels.GetReadOnlyArea(0, y, image.Width, 1);
+            for (int i = 0; i < width * lanes; i++) { staging.Span[(y * width * lanes) + i] = row[i] / Quantum.Max; }
+        }
+        return Fill(staging.Span, width, height, lanes,
+            PlaneFormat.For(lanes, BreadthDepth(image.Depth)).IfNone(PlaneFormat.Rgba32F),
+            // Two composed packages spell ColorSpace, so the breadth read qualifies its own — the EXR package's row
+            // is what PlanePrimaries binds and an unqualified name here would resolve ambiguously at compile.
+            image.ColorSpace == ImageMagick.ColorSpace.sRGB ? PlaneTransfer.Srgb : PlaneTransfer.Linear,
+            PlanePrimaries.Unknown, image.HasAlpha ? AlphaMode.Straight : AlphaMode.None, PlaneRange.Unit, key);
+    }
+
+    // The container's declared bit depth maps onto the narrowest storage row that holds it without loss, so a
+    // ten-bit log plate and a twelve-bit AVIF share the 16-bit row and only a genuinely wider declaration reaches float.
+    private static ChannelDtype BreadthDepth(uint declared) =>
+        declared <= 8 ? ChannelDtype.Unorm8 : declared <= 16 ? ChannelDtype.Unorm16 : ChannelDtype.Float32;
 
     // Declared reads the chromaticity off the container's own CICP block. Nothing is what an absent block declares, which is the
     // honest row — a file carrying no primaries statement is not a file carrying the working space.
@@ -503,7 +624,7 @@ public static partial class RasterCodec {
             .Resize(new ResizeOptions { Size = preview.Size, Sampler = KnownResamplers.Lanczos3 })
             .Quantize(preview.Palette)));
         using MemoryStream sink = new();
-        image.Save(sink, arm.Encoder(plane.Format.Depth));
+        image.Save(sink, arm.Encoder(plane.Format.Depth, policy));
         return Fin.Succ((ReadOnlyMemory<byte>)sink.ToArray());
     }
 
@@ -551,7 +672,7 @@ public static partial class RasterCodec {
     // ONE per-level interleave over a part level's planar channel buffers — the shape the deep fold and the tiled
     // fold share, because PartConversion flattens a PART and a level is what a chain reads.
     private static Fin<TexturePlane> Level(PartLevel level, Header header, Op key) {
-        int width = level.Region.MaxX - level.Region.MinX + 1, height = level.Region.MaxY - level.Region.MinY + 1;
+        int width = checked((int)level.Width), height = checked((int)level.Height);
         int channels = Math.Min(4, level.Channels.Count);
         using MemoryOwner<float> staging = MemoryOwner<float>.Allocate(width * height * channels, AllocationMode.Clear);
         for (int c = 0; c < channels; c++) {
@@ -624,10 +745,14 @@ public static partial class RasterCodec {
         Box2i window = new(0, 0, width - 1, height - 1);
         using MemoryOwner<int> counts = MemoryOwner<int>.Allocate(width * height);
         counts.Span.Fill(1);
+        // ONE lane scratch serves every channel: the ChannelBuffer constructor COPIES its span (it delegates to the
+        // private array constructor through data.ToArray()), so a rented buffer re-filled per channel hands each
+        // ChannelBuffer its own bytes and a per-channel array would allocate the same copy twice.
+        string[] names = Names(plane.Format);
         using MemoryOwner<float> lane = MemoryOwner<float>.Allocate(width * height);
-        Seq<ChannelBuffer> buffers = toSeq(Enumerable.Range(0, Math.Min(lanes, Names(lanes).Length)).Select(c => {
+        Seq<ChannelBuffer> buffers = toSeq(Enumerable.Range(0, Math.Min(lanes, names.Length)).Select(c => {
             for (int texel = 0; texel < width * height; texel++) { lane.Span[texel] = staging.Span[(texel * lanes) + c]; }
-            return new ChannelBuffer(Names(lanes)[c], PixelType.Float, MemoryMarshal.AsBytes(lane.Span[..(width * height)]));
+            return new ChannelBuffer(names[c], PixelType.Float, MemoryMarshal.AsBytes(lane.Span[..(width * height)]));
         }).ToList());
         Header header = new(PartType.DeepScanline, window,
             buffers.Map(static buffer => new Channel(buffer.Name, PixelType.Float)), policy.Compression);
@@ -646,62 +771,81 @@ public static partial class RasterCodec {
     private static Fin<ReadOnlyMemory<byte>> WriteTiled(TexturePyramid chain, RasterFormat format, EncodePolicy policy, Op key) {
         TexturePlane basePlane = chain.Base;
         int lanes = basePlane.Lanes;
-        string[] names = Names(lanes);
+        string[] names = Names(basePlane.Format);
         using MemoryStream sink = new();
         using ExrWriter writer = ExrWriter.OpenSink(new StreamDataSink(sink), Emit);
         Header header = new(PartType.Tiled, new Box2i(0, 0, basePlane.Width.Value - 1, basePlane.Height.Value - 1),
             toSeq(names).Take(Math.Min(lanes, names.Length)).Map(static name => new Channel(name, PixelType.Float)),
-            policy.Compression, tiles: format.Tiles.IfNone(() => new TileDescription(64u, 64u, TileLevelMode.MipMap, TileRoundingMode.RoundDown)));
+            policy.Compression, tiles: format.Tiles.IfNone(RasterFormat.MipTiles));
         int part = writer.AddPart(header);
-        return Sealed(writer.Begin(), key, "<exr-tiled-begin>")
+        return Sealed(writer.Begin(), key, "exr-tiled-begin")
             .Bind(_ => toSeq(chain.Levels.Select((level, index) => (Level: level, Index: index)))
                 .Fold(Fin.Succ(unit), (state, slot) => state.Bind(_ =>
                     WriteLevelTiles(writer, part, slot.Index, slot.Level, format, names, key))))
-            .Bind(_ => Sealed(writer.End(), key, "<exr-tiled-end>"))
+            .Bind(_ => Sealed(writer.End(), key, "exr-tiled-end"))
             .Map(_ => (ReadOnlyMemory<byte>)sink.ToArray());
     }
 
     // One level's tile fan. Each tile drains its own window out of the level's staged run into per-channel planar
     // buffers, so the writer receives exactly the channel set the header declared and the tile grid derives from the
-    // description rather than from a caller count.
+    // description rather than from a caller count. Every buffer is sized at the tile's CLIPPED region rather than at
+    // the full tile: the writer CLIPS a border tile's block region to the level extent — the block layout takes the
+    // minimum of the remaining extent and the tile size on each axis — and then validates each channel's byte length
+    // against that clipped region, a sample count times the pixel-type width, refusing any other length by name. So a
+    // border tile padded out to the full description is a hard refusal, not a zero-filled remainder the file absorbs,
+    // and the spanX/spanY clamp below IS the writer's own region arithmetic rather than a guess about it. The two
+    // scratches are rented ONCE and re-filled per tile and per channel, because the ChannelBuffer
+    // constructor copies its span into its own array, so no caller-side allocation buys a lifetime it already has.
     private static Fin<Unit> WriteLevelTiles(
         ExrWriter writer, int part, int index, TexturePlane level, RasterFormat format, string[] names, Op key) {
-        TileDescription tiles = format.Tiles.IfNone(() => new TileDescription(64u, 64u, TileLevelMode.MipMap, TileRoundingMode.RoundDown));
+        TileDescription tiles = format.Tiles.IfNone(RasterFormat.MipTiles);
         int tw = checked((int)tiles.TileSizeX), th = checked((int)tiles.TileSizeY);
         int channels = Math.Min(level.Lanes, names.Length);
         int across = ((level.Width.Value + tw) - 1) / tw, down = ((level.Height.Value + th) - 1) / th;
         using MemoryOwner<float> staging = Drain(level);
-        using MemoryOwner<float> tile = MemoryOwner<float>.Allocate(tw * th * channels, AllocationMode.Clear);
+        using MemoryOwner<float> tile = MemoryOwner<float>.Allocate(tw * th * channels);
+        using MemoryOwner<float> planar = MemoryOwner<float>.Allocate(tw * th);
         return toSeq(Enumerable.Range(0, across * down))
             .Fold(Fin.Succ(unit), (state, slot) => state.Bind(_ => {
                 (int tx, int ty) = (slot % across, slot / across);
-                tile.Span.Clear();
-                for (int y = 0; y < th; y++) {
-                    for (int x = 0; x < tw; x++) {
-                        int sx = (tx * tw) + x, sy = (ty * th) + y;
-                        if (sx >= level.Width.Value || sy >= level.Height.Value) { continue; }
-                        for (int c = 0; c < channels; c++) {
-                            tile.Span[(((y * tw) + x) * channels) + c] =
-                                staging.Span[((((sy * level.Width.Value) + sx) * level.Lanes)) + c];
-                        }
+                int spanX = Math.Min(tw, level.Width.Value - (tx * tw));
+                int spanY = Math.Min(th, level.Height.Value - (ty * th));
+                for (int y = 0; y < spanY; y++) {
+                    for (int x = 0; x < spanX; x++) {
+                        int source = ((((ty * th) + y) * level.Width.Value) + (tx * tw) + x) * level.Lanes;
+                        for (int c = 0; c < channels; c++) { tile.Span[(((y * spanX) + x) * channels) + c] = staging.Span[source + c]; }
                     }
                 }
+                int texels = spanX * spanY;
                 Seq<ChannelBuffer> buffers = toSeq(Enumerable.Range(0, channels).Select(c => {
-                    float[] plane = new float[tw * th];
-                    for (int texel = 0; texel < tw * th; texel++) { plane[texel] = tile.Span[(texel * channels) + c]; }
-                    return new ChannelBuffer(names[c], PixelType.Float, MemoryMarshal.AsBytes(plane.AsSpan()));
+                    for (int texel = 0; texel < texels; texel++) { planar.Span[texel] = tile.Span[(texel * channels) + c]; }
+                    return new ChannelBuffer(names[c], PixelType.Float, MemoryMarshal.AsBytes(planar.Span[..texels]));
                 }).ToList());
-                return Sealed(writer.WriteTile(part, tx, ty, index, index, buffers), key, $"<exr-tile:{index}:{tx}:{ty}>");
+                return Sealed(writer.WriteTile(part, tx, ty, index, index, buffers), key, $"exr-tile:{index}:{tx}:{ty}");
             }));
     }
 
     // Every writer phase carries its own result value rather than throwing, so one lowering serves Begin, WriteTile,
     // and End and a partial write never reads as a sealed file.
+    // The ONE lowering owns the angle brackets, so a phase name never arrives pre-bracketed and the detail
+    // discriminant stays the single <kind:value> shape the fault band declares.
     private static Fin<Unit> Sealed(WriterResult result, Op key, string at) =>
-        result.IsSuccess ? Fin.Succ(unit) : RasterFault.Encode(key, $"{at}:{result.Status}>");
+        result.IsSuccess ? Fin.Succ(unit) : RasterFault.Encode(key, $"<{at}:{result.Status}>");
 
-    // Names rosters the channel names a lane count resolves to — one spelling for the deep and tiled authoring legs alike.
-    private static string[] Names(int lanes) => lanes is 1 ? ["Y"] : lanes is 2 ? ["R", "G"] : ["R", "G", "B", "A"];
+    // The EXR channel roster DERIVES from the plane's own format row, never from a bare lane count: the row states
+    // its colour arity and whether it carries coverage, so a two-lane RG plane and a one-lane-plus-alpha plane are
+    // distinguishable where a count ladder answered "R","G" for both and wrote a coverage lane under a colour
+    // name. Colour lanes take the OpenEXR luminance name at arity one and the RGB prefix above it, and the
+    // coverage lane appends as "A" last, matching the interleaved lane order every Drain produces.
+    private static string[] Names(PlaneFormat format) {
+        int colour = format.Components - (format.Alpha.Carries ? 1 : 0);
+        string[] names = new string[format.Components];
+        if (colour is 1) { names[0] = "Y"; } else { for (int lane = 0; lane < colour; lane++) { names[lane] = Rgb[lane]; } }
+        if (format.Alpha.Carries) { names[format.Components - 1] = "A"; }
+        return names;
+    }
+
+    private static readonly string[] Rgb = ["R", "G", "B"];
 
     // Radiance lands the float texel directly — the only depth the RGBE expansion fills without loss — so the ingest
     // path never passes through an 8-bit step and the decoded plane is already BC6H's own texel type. RGBE declares
@@ -787,9 +931,10 @@ internal readonly ref struct ProjectRows(Span<float> staging, int lanes) : IPlan
 
 - Owner: `KtxGate` — the ONE composer of `TextureCompressor` and its KTX container leg anywhere in the estate.
 - Entry: `Decode(payload, key)` and `Encode(chain, policy, key)`, both internal. Nothing outside this section names a coder, a registry, a container option, a subresource, or a block format value, so the whole pre-1.0 surface has one call site and a version bump re-verifies one gate.
-- Law: the provisioned `ktx` CLI is the encode FLOOR in every branch: the python estate spawns the same binary, and the TypeScript estate CONSUMES the produced bytes and spawns nothing — two spawning branches, one consuming. `KtxArm.InProcess` is an ACCELERATION row that yields to the floor rather than diverging from it: every in-process encode runs the floor's own `ktx validate --format mini-json` over its bytes before yielding — the verdict reads the report's `valid` field, never the process status, and `--gltf-basisu` spells exactly where the payload transcodes — and a refused validation falls to the CLI arm where the payload row has one, so a set never carries bytes one branch can write and another cannot read. `astc` and `rawBcn` have NO CLI arm — `ktx create --encode` speaks only the Basis pair — so their validation refusal rails rather than falling back, which is exactly the branch-local posture their wire illegality declares. Every create spells the frozen color-assignment pair — `--assign-tf` with `--assign-primaries` — under `--fail-on-color-conversions`, so a relabel is total and an implicit conversion is a tool refusal rather than a silently re-tagged plane.
+- Law: the provisioned `ktx` CLI is the encode FLOOR in every branch: the python estate spawns the same binary, and the TypeScript estate CONSUMES the produced bytes and spawns nothing — two spawning branches, one consuming. `KtxArm.InProcess` is an ACCELERATION row that yields to the floor rather than diverging from it: every in-process encode runs the floor's own `ktx validate --format mini-json` over its bytes before yielding — the verdict reads the report's `valid` field, never the process status, and `--gltf-basisu` spells exactly where the payload transcodes — and a refused validation falls to the CLI arm where the payload row has one, so a set never carries bytes one branch can write and another cannot read. `astc` and `rawBcn` have NO CLI arm — `ktx create --encode` speaks only the Basis pair — so their validation refusal rails rather than falling back, which is exactly the branch-local posture their wire illegality declares. Every create spells the frozen color-assignment pair — `--assign-tf` with `--assign-primaries` — under `--fail-on-color-conversions`, so a relabel is total and an implicit conversion is a tool refusal rather than a silently re-tagged plane. `none` is a real `--assign-primaries` enumerator beside the named gamuts, which is what lets an undeclared plane write its own absence rather than borrow a label; it is also the one value under which `--convert-primaries` is refused outright, so absence forecloses conversion at the tool exactly as `PlanePrimaries.Matrix` forecloses it in process.
 - Law: the layered and cube container is the block row's OWN shape, so `HoldsLayers` is true at the row and true at the encoder. Every layered chain drains per `(level, layer)` through the same staging every flat level takes, encodes into a `TextureFormat.GetByteCount`-sized window through the bake-scoped coder, and mints one `TextureSubresource` per slot; the fold then hands one `KtxTexture` carrying the whole subresource list to `KtxCodec.Write`, which resolves NO coder and therefore never reaches the process-global registry the mip-chain facade does. Face count reads the chain's own layer census against the six-face cube law, so a six-face dome is one blob a `wgpu` upload binds directly rather than a six-file fan whose faces carry six content addresses and no container relation. Its CLI arm carries no layer leg — `ktx create` takes a per-layer file fan this estate does not stage — so a layered chain that falls out of the in-process arm rails rather than silently writing layer zero under a whole-chain name.
 - Law: a reader branches on the parsed PAYLOAD CLASS, never on the header's Vulkan token. Supercompression leaves a KTX2 declaring an undefined Vulkan format until a transcode runs, so that token reads undefined for every wire-legal UASTC and ETC1S file — a reader branching on it classes the entire wire-legal population as malformed. `KtxPayload.Transcodable` is the branch: a container whose parse resolves a coder decodes per level in process, and one whose supercompressed payload no in-process coder serves crosses the CLI's own `ktx transcode` into a coder-servable file first — the tool's default target family, so no unverified flag spelling rides the spawn.
+- Law: the FLOOR COSTS A PROCESS and the cost is bounded PER CONTAINER, never per level or per texel. One encoded blob spawns `ktx` exactly once on the CLI arm (`create`) and exactly once on the in-process arm (`validate`), twice only where a validation refusal falls back — so an N-channel set pays N to 2N spawns and a fifteen-level chain pays the same as a single level, because every level rides one invocation as a sidecar fan. That bound is what makes the floor affordable at set scale and it is also the whole ceiling on the acceleration arm's advantage: `InProcess` buys the encode and still pays the spawn to prove it, so the row earns its place on encode throughput alone. A decode spawns nothing unless the payload is supercompressed past every in-process coder, which the hop budget caps at one.
 - Law: the container version is a WRITE decision defaulting to KTX1, so every wire-bound encode sets version 2 EXPLICITLY. `KtxEncodingOptions` is mutable, so `InProcess` mints one fresh per encode: one instance carried across profiles silently re-versions a later payload.
 - Law: the coder registry is a process-static global in the composed engine — `TextureCoderManager.Global` — so this gate binds its OWN `TextureCoderManager` per bake: `TryGetCoder` creates the built-in coder for a standard format lazily ON THE INSTANCE, so the bake-scoped manager needs no registration call for decode, and an encode wanting a compression level registers the family coder itself with `TextureCompressionOptions` — the engine's own registration factory is INTERNAL and unreachable, so the per-family coder constructors are the public spelling of the same ladder.
 - Law: the engine's convenience facade is `Rgba8UNorm`-bound at the SIGNATURE, and the measured block-encode bound makes that the CORRECT staging depth for every block class: a block encode stages `Unorm8` in the ENCODED domain — the quantization is the payload class's own, stated at the stage rather than smuggled by a facade — while the `none` deep store and the BC6H raw row stage `Rgba32Float` at the plane's own depth.
@@ -804,6 +949,7 @@ using System.IO;                                  // Path, File, Directory — t
 using System.Linq;
 using System.Runtime.InteropServices;             // MemoryMarshal — the Rgba32Float lane cast
 using System.Text.Json;                           // JsonDocument — the validate verdict reads the mini-json `valid` field
+using System.Threading.Tasks;                     // Task — the stderr drain that runs beside the inline stdout read
 using CommunityToolkit.HighPerformance.Buffers;   // MemoryOwner — the encoded staging rental
 using LanguageExt;
 using Rasm.Domain;                                // Op
@@ -824,12 +970,23 @@ internal static class KtxGate {
     // PARSED payload's coder resolution: a format the bake-scoped manager serves decodes per level in process, and a
     // supercompressed payload no coder serves crosses the floor's own `ktx transcode` into a servable file first — the
     // tool's default target family, so no unverified flag spelling rides the spawn.
-    internal static Fin<TexturePyramid> Decode(ReadOnlyMemory<byte> payload, Op key) {
+    internal static Fin<TexturePyramid> Decode(ReadOnlyMemory<byte> payload, Op key) => Read(payload, TranscodeHops, key);
+
+    // A transcode may run ONCE per materialize. The floor's transcode targets a coder-servable family, so a second
+    // miss is the tool answering with a payload the in-process coders still do not serve — a terminal refusal, not a
+    // step toward one — and re-entering the gate would spawn the tool forever over a file that never converges. The
+    // budget is a HOP COUNT rather than a visited-set or a boolean, so a future two-stage transcode ladder is a value
+    // change here and nothing else on the page moves.
+    private const int TranscodeHops = 1;
+
+    private static Fin<TexturePyramid> Read(ReadOnlyMemory<byte> payload, int hops, Op key) {
         KtxTexture container = KtxCodec.Read(payload.Span);
         TextureCoderManager coders = new();
         return coders.TryGetCoder(container.Texture.Format, out ITextureCoder? coder) && coder is not null
             ? Materialize(container, coder, key)
-            : Transcoded(payload, key);
+            : hops > 0
+                ? Transcoded(payload, hops - 1, key)
+                : RasterFault.Decode(key, $"<ktx-unservable-payload:{container.Texture.Format}>");
     }
 
     // Materialize maps the container's OWN pyramid onto the plane chain: a KTX2 holds its mip levels, so each level decodes off
@@ -838,9 +995,12 @@ internal static class KtxGate {
     // here would silently replace the encoder's own filter. The recorded policy is the estate's box assumption over a
     // FOREIGN fold: an ingested chain's levels adopt verbatim and are never re-derived from the policy row, so the
     // assumption steers only a later re-fold decision. Rgba32Float staging is the non-quantizing decode path; the
-    // srgb-ness of the declared format decides the transfer tag, the float rows land at the plane's own Float32, and the
-    // primaries stay ABSENT because the container's parsed carrier publishes its format tokens and no data-format
-    // descriptor read (see `[06]`).
+    // srgb-ness of the declared format decides the transfer tag, and the float rows land at the plane's own Float32.
+    // Primaries stay ABSENT and that absence is STRUCTURAL, not a gap: the parsed carrier publishes its six format
+    // tokens and nothing else, its assembly's only data-format-descriptor type is private, and that type skips the
+    // colorPrimaries byte outright — so no in-process read of a KTX2's declared gamut exists at any depth. The CLI's
+    // own `ktx info --format json` report is the one primaries read the estate has, and it is an INGEST-side probe
+    // rather than a decode step, so PlanePrimaries.Unknown here is the honest declaration the axis exists to carry.
     private static Fin<TexturePyramid> Materialize(KtxTexture container, ITextureCoder coder, Op key) {
         TextureFormat declared = container.Texture.Format;
         PlaneTransfer transfer = SrgbDeclared(declared) ? PlaneTransfer.Srgb : PlaneTransfer.Linear;
@@ -874,16 +1034,17 @@ internal static class KtxGate {
     }
 
     // Transcoded is the supercompressed fallback: the floor's own `ktx transcode` at its DEFAULT target family lands a file the
-    // in-process coders serve, and the re-read takes the ordinary path. Only a Basis payload reaches here, so the
-    // default 8-bit target is depth-faithful to the LDR content it holds.
-    private static Fin<TexturePyramid> Transcoded(ReadOnlyMemory<byte> payload, Op key) {
+    // in-process coders serve, and the re-read takes the ordinary path carrying the SPENT hop budget, so the tool
+    // answering with a still-unservable payload rails instead of re-entering. Only a Basis payload reaches here, so
+    // the default 8-bit target is depth-faithful to the LDR content it holds.
+    private static Fin<TexturePyramid> Transcoded(ReadOnlyMemory<byte> payload, int hops, Op key) {
         string stage = Path.Combine(Path.GetTempPath(), $"rasm-ktx-{Guid.NewGuid():N}");
         Directory.CreateDirectory(stage);
         try {
             string source = Path.Combine(stage, "in.ktx2"), sink = Path.Combine(stage, "out.ktx2");
             File.WriteAllBytes(source, payload.Span);
             return Run(["transcode", source, sink], key)
-                .Bind(_ => Decode(File.ReadAllBytes(sink), key));
+                .Bind(_ => Read(File.ReadAllBytes(sink), hops, key));
         } finally { Directory.Delete(stage, recursive: true); }
     }
 
@@ -1029,17 +1190,17 @@ internal static class KtxGate {
         try {
             string candidate = Path.Combine(stage, "candidate.ktx2");
             File.WriteAllBytes(candidate, bytes.Span);
-            KtxRun run = Spawn(Seq("validate", "--format", "mini-json")
-                + (policy.Payload.Transcodable ? Seq1("--gltf-basisu") : Seq<string>())
-                + Seq1(candidate));
-            return Try.lift(() => {
-                    using JsonDocument report = JsonDocument.Parse(run.Stdout);
-                    return report.RootElement.GetProperty("valid").GetBoolean();
-                }).Run().Match(
-                    Succ: valid => valid
-                        ? Fin.Succ(bytes)
-                        : Fin.Fail<ReadOnlyMemory<byte>>(RasterFault.Encode(key, $"<ktx-validate:{policy.Payload.Key}:{run.Stdout}>")),
-                    Fail: _ => Fin.Fail<ReadOnlyMemory<byte>>(RasterFault.Encode(key, $"<ktx-validate-report:{run.ExitCode}:{run.Stderr}>")));
+            return Spawn(Seq("validate", "--format", "mini-json")
+                    + (policy.Payload.Transcodable ? Seq("--gltf-basisu") : Seq<string>())
+                    + Seq(candidate), key)
+                .Bind(run => Try.lift(() => {
+                        using JsonDocument report = JsonDocument.Parse(run.Stdout);
+                        return report.RootElement.GetProperty("valid").GetBoolean();
+                    }).Run().Match(
+                        Succ: valid => valid
+                            ? Fin.Succ(bytes)
+                            : Fin.Fail<ReadOnlyMemory<byte>>(RasterFault.Encode(key, $"<ktx-validate:{policy.Payload.Key}:{run.Stdout}>")),
+                        Fail: _ => Fin.Fail<ReadOnlyMemory<byte>>(RasterFault.Encode(key, $"<ktx-validate-report:{run.ExitCode}:{run.Stderr}>"))));
         } finally { Directory.Delete(stage, recursive: true); }
     }
 
@@ -1056,7 +1217,7 @@ internal static class KtxGate {
             string sink = Path.Combine(stage, "out.ktx2");
             return toSeq(chain.Levels.Select((level, index) => (Level: level, Index: index)))
                 .Fold(Fin.Succ(Seq<string>()), (state, slot) => state.Bind(leaves =>
-                    RasterCodec.Encode(new TexturePyramid(Seq1(slot.Level), MipPolicy.None, Coupled: false),
+                    RasterCodec.Encode(new TexturePyramid(Seq(slot.Level), MipPolicy.None, Coupled: false),
                             RasterFormat.Exr, policy, key)
                         .Map(bytes => {
                             string leaf = Path.Combine(stage, $"level{slot.Index:D2}.exr");
@@ -1080,23 +1241,46 @@ internal static class KtxGate {
     // honest absence a transfer-derived label would have overwritten. Raw rides `linear` on `--assign-tf` BY LAW: the
     // identity transfer is the only tf token a parameter plane can wear, the python leg's proven spelling.
     private static Seq<string> CreateArgs(TexturePyramid chain, EncodePolicy policy, Seq<string> leaves, string sink) {
-        bool srgb = chain.Base.Transfer == PlaneTransfer.Srgb;
-        Seq<string> format = policy.Payload.BlockCompressed
-            ? Seq("--format", srgb ? "R8G8B8A8_SRGB" : "R8G8B8A8_UNORM")
-            : Seq("--format", chain.Base.Format.Depth == ChannelDtype.Float16 ? "R16G16B16A16_SFLOAT" : "R32G32B32A32_SFLOAT");
-        Seq<string> encode = policy.Payload == KtxPayload.Etc1s
-            ? Seq("--encode", "basis-lz", "--qlevel", Math.Clamp(policy.Quality, 1, 255).ToString(CultureInfo.InvariantCulture))
-            : policy.Payload == KtxPayload.Uastc
-                ? Seq("--encode", "uastc", "--zstd", "18")
-                : Seq<string>();
-        Seq<string> levels = chain.Levels.Count > 1
-            ? Seq("--levels", chain.Levels.Count.ToString(CultureInfo.InvariantCulture))
-            : Seq<string>();
-        return Seq1("create") + format + encode + levels
-            + Seq("--assign-tf", srgb ? "srgb" : "linear")
+        CreateRow row = CreateRow.For(policy.Payload, chain.Base.Transfer == PlaneTransfer.Srgb, chain.Base.Format.Depth);
+        return Seq("create")
+            + Seq("--format", row.VkFormat)
+            + row.Encode.Match(Some: arm => Seq("--encode", arm), None: static () => Seq<string>())
+            + row.Quality.Match(Some: q => Seq("--qlevel", q(policy).ToString(CultureInfo.InvariantCulture)), None: static () => Seq<string>())
+            + row.Zstd.Match(Some: static level => Seq("--zstd", level.Level.ToString(CultureInfo.InvariantCulture)), None: static () => Seq<string>())
+            + (chain.Levels.Count > 1 ? Seq("--levels", chain.Levels.Count.ToString(CultureInfo.InvariantCulture)) : Seq<string>())
+            + Seq("--assign-tf", chain.Base.Transfer == PlaneTransfer.Srgb ? "srgb" : "linear")
             + Seq("--assign-primaries", chain.Base.Primaries.Assign)
-            + Seq1("--fail-on-color-conversions")
-            + leaves + Seq1(sink);
+            + Seq("--fail-on-color-conversions")
+            + leaves + Seq(sink);
+    }
+
+    // --- [CREATE_ROW]
+    // The `ktx create` argument set as a TYPED ROW rather than as nested ternaries: one row per payload with the
+    // container format token, the encode arm, the quality projection the arm reads off the policy, and the
+    // supercompression level as a NAMED policy value. A stringly-spelled "18" beside a stringly-spelled "basis-lz"
+    // hides which flags belong to which payload and which numbers are policy — the row makes both readable, and a
+    // new payload is one row rather than a fourth arm in three separate ternaries. The etc1s arm's clamp is the
+    // generalized shape: every numeric flag traces to a named policy projection, never to a literal at the call.
+    private readonly record struct ZstdLevel(int Level) {
+        // Durable-plane supercompression: the highest level whose decode cost stays a memcpy-class read, and the
+        // one the python branch's own KTX2 writes already carry, so both branches produce byte-comparable files.
+        internal static readonly ZstdLevel Durable = new(18);
+    }
+
+    private readonly record struct CreateRow(string VkFormat, Option<string> Encode, Option<Func<EncodePolicy, int>> Quality, Option<ZstdLevel> Zstd) {
+        // Basis-LZ reads the policy's own quality column clamped to the tool's declared band; UASTC carries no
+        // quality flag and takes supercompression instead; a deep store carries the plane's float family with
+        // neither, because a block encoder over a float parameter plane is the quantization the payload refuses.
+        internal static CreateRow For(KtxPayload payload, bool srgb, ChannelDtype depth) =>
+            payload == KtxPayload.Etc1s
+                ? new(srgb ? "R8G8B8A8_SRGB" : "R8G8B8A8_UNORM", Some("basis-lz"),
+                      Some((Func<EncodePolicy, int>)(static p => Math.Clamp(p.Quality, QualityFloor, QualityCeiling))), None)
+                : payload == KtxPayload.Uastc
+                    ? new(srgb ? "R8G8B8A8_SRGB" : "R8G8B8A8_UNORM", Some("uastc"), None, Some(ZstdLevel.Durable))
+                    : new(depth == ChannelDtype.Float16 ? "R16G16B16A16_SFLOAT" : "R32G32B32A32_SFLOAT", None, None, None);
+
+        const int QualityFloor = 1;
+        const int QualityCeiling = 255;
     }
 
     // ONE spawn shape for create, transcode, and validate: ArgumentList rows, both streams captured. Each verb then
@@ -1107,28 +1291,40 @@ internal static class KtxGate {
     // correct provisioning.
     private sealed record KtxRun(int ExitCode, string Stdout, string Stderr);
 
-    private static KtxRun Spawn(Seq<string> args) {
+    // Start is GUARDED on both of its failure shapes and BOTH rail as PROVISIONING rather than as encoding: a
+    // false return means the launch reused an already-running process object, and a throw means the OS could not
+    // resolve or execute `ktx` at all — an unprovisioned machine, never a malformed payload. Ignoring the answer
+    // read a default ExitCode of zero off a process that never ran and reported the missing tool as a clean
+    // encode. Stderr drains ASYNCHRONOUSLY while stdout drains inline, because two sequential ReadToEnd calls
+    // deadlock the moment the second stream fills its pipe buffer while the first is still being read — the
+    // validate leg's mini-json report is large enough to reach that buffer on a failing container.
+    private static Fin<KtxRun> Spawn(Seq<string> args, Op key) {
         using System.Diagnostics.Process ktx = new() {
             StartInfo = new System.Diagnostics.ProcessStartInfo("ktx") {
                 RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false },
         };
         args.Iter(arg => ktx.StartInfo.ArgumentList.Add(arg));
-        ktx.Start();
+        return Try.lift(ktx.Start).Run().Match(
+            Succ: started => started
+                ? Fin.Succ(Drain(ktx))
+                : Fin.Fail<KtxRun>(RasterFault.Provision(key, $"<ktx-not-launched:{args.Head}>")),
+            Fail: error => Fin.Fail<KtxRun>(RasterFault.Provision(key, $"<ktx-unavailable:{error.Message}>")));
+    }
+
+    private static KtxRun Drain(System.Diagnostics.Process ktx) {
+        Task<string> errors = ktx.StandardError.ReadToEndAsync();
         string stdout = ktx.StandardOutput.ReadToEnd();
-        string stderr = ktx.StandardError.ReadToEnd();
         ktx.WaitForExit();
-        return new KtxRun(ktx.ExitCode, stdout, stderr);
+        return new KtxRun(ktx.ExitCode, stdout, errors.GetAwaiter().GetResult());
     }
 
     private static Fin<Unit> Run(Seq<string> args, Op key) =>
-        Spawn(args) switch {
-            { ExitCode: 0 } => Fin.Succ(Unit.Default),
-            var run => RasterFault.Encode(key, $"<ktx-{args.Head}:{run.ExitCode}:{run.Stderr}>"),
-        };
+        Spawn(args, key).Bind(run => run.ExitCode is 0
+            ? Fin.Succ(unit)
+            : Fin.Fail<Unit>(RasterFault.Encode(key, $"<ktx-{args.Head}:{run.ExitCode}:{run.Stderr}>")));
 }
 ```
 
 ## [06]-[RESEARCH]
 
-- [EXR_TILE_BUFFER_EXTENT]-[OPEN]: does `ExrWriter.WriteTile` size each `ChannelBuffer` at the full `TileSizeX x TileSizeY` with the out-of-extent remainder zero-filled, as `[04]` writes it, or at the clipped region a border tile covers; route: `uv run python -m tools.assay api query TinyEXR.V3.ExrWriter --key TinyEXR.NET` beside `TinyEXR.V3.ChannelBuffer`, reading whether `SampleCount` validates against the tile description
-- [KTX_DATA_FORMAT_PRIMARIES]-[OPEN]: does `KtxTexture` publish any read of the Khronos data-format descriptor a KTX2 declares its colour primaries in, given it exposes `VkFormat` and the four `Gl*` tokens alone and `[05]` `Materialize` therefore records `PlanePrimaries.Unknown`; route: `uv run python -m tools.assay api query TextureCompressor.FileFormats.Ktx.KtxTexture --key TextureCompressor.FileFormats.Ktx`, falling back to the CLI's own `ktx info --format json` report as the ingest read
+(none)

@@ -134,8 +134,9 @@
 - `UseCount`, `InUse`, `GetReferences`, `GetContainers`, `UsesDefinition`, `UsesLayer`, and `UsesLinetype` resolve the dependency topology before any delete or purge.
 
 [STACKING]:
-- `LanguageExt.Core`(`api-languageext`): table `bool` and index outcomes project to `Fin<Unit>` and `Fin<int>`; nullable definition reads lift to `Option<InstanceDefinition>`; roster and reference arrays land as `Seq<A>`/`Arr<A>`; explode outputs prove equal cardinality before indexing and fold into detached placed-piece records with failure-branch release.
-- `Thinktecture.Runtime.Extensions`(`api-thinktecture-runtime-extensions`): the closed mutation and read vocabularies ride generated unions and smart enums that own total dispatch and closed policy rows.
+- `RhinoCommon` value substrate(`libs/csharp/.api/api-rhinocommon.md`): the `Point3d`/`Transform` carriers this boundary threads cross the wire from the substrate; it composes them and re-derives none.
+- `LanguageExt.Core`(`libs/csharp/.api/api-languageext.md`): table `bool` and index outcomes project to `Fin<Unit>` and `Fin<int>`; nullable definition reads lift to `Option<InstanceDefinition>`; roster and reference arrays land as `Seq<A>`/`Arr<A>`; explode outputs prove equal cardinality before indexing and fold into detached placed-piece records with failure-branch release.
+- `Thinktecture.Runtime.Extensions`(`libs/csharp/.api/api-thinktecture-runtime-extensions.md`): the closed mutation and read vocabularies ride generated unions and smart enums that own total dispatch and closed policy rows.
 - `Rasm` kernel: placement transforms, base points, and unit scaling for exploded pieces and previews compose the kernel numeric owners; a host `InstanceAttributeField` projects into a detached key/prompt/default-value record before leaving the document grant.
 
 [LOCAL_ADMISSION]:

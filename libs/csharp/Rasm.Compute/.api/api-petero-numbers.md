@@ -15,14 +15,14 @@
 
 [PUBLIC_TYPE_SCOPE]: arbitrary-precision number carriers
 
-| [INDEX] | [SYMBOL]    | [TYPE_FAMILY] | [CAPABILITY]                                                                                  |
-| :-----: | :---------- | :------------ | :-------------------------------------------------------------------------------------------- |
-|  [01]   | `ERational` | class         | exact rational — arbitrary-precision numerator/denominator, the ℚ⁷ dimension-exponent carrier |
-|  [02]   | `EDecimal`  | class         | arbitrary-precision decimal — the AngouriMath `Entity.Number.Real` leaf carrier               |
-|  [03]   | `EInteger`  | class         | arbitrary-precision integer — `ERational.Numerator`/`Denominator` component type              |
-|  [04]   | `EFloat`    | class         | arbitrary-precision binary float — the `CompareToBinary` binary-radix peer                    |
-|  [05]   | `EContext`  | class         | precision/rounding context the `ToEDecimal(EContext)` egress consumes                         |
-|  [06]   | `ERounding` | enum          | rounding-mode vocabulary an `EContext` carries                                                |
+| [INDEX] | [SYMBOL]    | [TYPE_FAMILY] | [CAPABILITY]                                                                                          |
+| :-----: | :---------- | :------------ | :---------------------------------------------------------------------------------------------------- |
+|  [01]   | `ERational` | class         | exact rational — arbitrary-precision numerator/denominator, the ℚ⁷ dimension-exponent carrier         |
+|  [02]   | `EDecimal`  | class         | arbitrary-precision decimal — the AngouriMath `Entity.Number.Real` leaf carrier                       |
+|  [03]   | `EInteger`  | class         | arbitrary-precision integer — `ERational.Numerator`/`Denominator` component type                      |
+|  [04]   | `EFloat`    | class         | arbitrary-precision binary float — the `CompareToBinary` peer and the exact criterion-sum accumulator |
+|  [05]   | `EContext`  | class         | precision/rounding context the `ToEDecimal(EContext)` egress consumes                                 |
+|  [06]   | `ERounding` | enum          | rounding-mode vocabulary an `EContext` carries                                                        |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -42,12 +42,24 @@
 |  [10]   | `ToEDecimal(EContext)` / `ToDouble()`            | instance | lossy egress under an explicit context                                |
 |  [11]   | `IsNaN()` / `IsInfinity()` / `IsFinite`          | instance | special-value probes — specials reject at admission                   |
 
+[ENTRYPOINT_SCOPE]: exact binary accumulation — the large-n criterion-sum lane
+
+| [INDEX] | [SURFACE]                           | [SHAPE]  | [CAPABILITY]                                                           |
+| :-----: | :---------------------------------- | :------- | :--------------------------------------------------------------------- |
+|  [01]   | `EFloat.Zero`                       | static   | accumulator seed                                                       |
+|  [02]   | `EFloat.FromDouble(double)`         | factory  | exact lift — every per-sample log-likelihood term enters here          |
+|  [03]   | `EFloat.Add(EFloat)`                | instance | exact unbounded-precision fold — no intermediate rounding              |
+|  [04]   | `EFloat.RoundToPrecision(EContext)` | instance | the ONE terminal rounding under an explicit context                    |
+|  [05]   | `EFloat.ToDouble()`                 | instance | lossy egress after the terminal rounding                               |
+|  [06]   | `EContext.Binary64` / `Unlimited`   | static   | IEEE-double terminal context beside the unbounded accumulation context |
+
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - `ERational` is the sole dimension-exponent carrier; dimensional consistency decides by exact equality, and a rounded `double`/`decimal` exponent silently admits an inconsistent formula.
 - Lossy egress (`ToDouble`, `ToEDecimal(EContext)`) runs only at a render or diagnostic edge, never inside the exponent group algebra.
 - `NaN`/infinity specials never enter a `DimensionMonomial`; admission lifts finite sources through `FromInt32`/`FromEDecimal`.
+- Arithmetic NEVER reduces: `+`, `-`, `*`, `/`, and `Pow` return an unreduced numerator/denominator pair, and `Equals` compares those components EXACTLY, so `1/2` and `2/4` are distinct values under equality while `CompareTo` reads them equal. Canonicalizing through `ToLowestTerms()` at a carrier's one mint is what keeps an exponent-vector dictionary key single-valued; without it one physical dimension keys two slots depending on the operation order that produced it.
 - Every equality read spells `Equals` and every ordering read `CompareTo`; the type ships no `==`/`<` operators, so a phantom operator spelling fails at compile and generated structural equality composes `Equals`/`GetHashCode`.
 
 [STACKING]:
@@ -56,7 +68,7 @@
 - `Thinktecture.Runtime.Extensions`(`libs/csharp/.api/api-thinktecture-runtime-extensions.md`): `[ValueObject<Seq<ERational>>]` structural equality rides `ERational.Equals`, making the monomial a comparer-free dictionary key.
 
 [LOCAL_ADMISSION]:
-- `Symbolic` owns consumption through its dimensional-proof lane; `Rasm` admits the package for its own folder-local seam and carries its own catalog.
+- `Symbolic` owns the ℚ⁷ dimensional-proof lane and `Stats/estimator` the `EFloat` criterion-accumulation lane; `Rasm` admits the package for its own folder-local seam and carries its own catalog.
 
 [RAIL_LAW]:
 - Package: `PeterO.Numbers`

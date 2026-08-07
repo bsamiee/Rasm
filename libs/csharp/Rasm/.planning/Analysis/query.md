@@ -217,9 +217,9 @@ public static partial class Analyze {
 
 ## [03]-[OPERATION_RUNTIME]
 
-- Owner: `Env` `[BoundaryAdapter]` is the `Eff` reader runtime, its record shape host-frozen — the Grasshopper binding constructs it positionally and the telemetry sink is the defaulted trailing field, so every frozen construction spelling survives a new runtime field. `Operation<TGeometry, TOut>` is the operation algebra behind a private `Body` `[Union]` (`Rejected`/`PerItem`/`Aggregate`/`Service`) with one constructor per case, a `Prepare` gate ahead of every evaluator, and one `Apply` fold over the `Body` `Switch` opening a `CostMark` before the fold and charging the `OpCost` capsule through the `Env` tap on both exits, the fail exit also publishing the fault. `Analyze` is the one facade — `Scope` binding context, progress, cancellation, and sink; `From(RhinoDoc)` the one doc adapter; host-neutral `In` scope builders; `Query` closing three arities and static `Run` four overloads over `Validation<Error, Seq<TOut>>`. `AnalysisOutput<TOut>` `[BoundaryAdapter]` is the typed projection gate admitting every value through `Op.AcceptValue`, the one oracle.
+- Owner: `Env` `[BoundaryAdapter]` is the `Eff` reader runtime, its record shape host-frozen — the Grasshopper binding constructs it positionally and the telemetry sink is the defaulted trailing field, so every frozen construction spelling survives a new runtime field. `Operation<TGeometry, TOut>` is the operation algebra behind a private `Body` `[Union]` (`Rejected`/`PerItem`/`Aggregate`/`Service`) with one constructor per case, a `Prepare` gate ahead of every input-bearing evaluator and that gate's own cancellation read ahead of the input-free one, and one `Apply` fold over the `Body` `Switch` opening a `CostMark` before the fold and charging the `OpCost` capsule through the `Env` tap on both exits, the fail exit also publishing the fault. `Analyze` is the one facade — `Scope` binding context, progress, cancellation, and sink; `From(RhinoDoc)` the one doc adapter; host-neutral `In` scope builders; `Query` closing three arities and static `Run` four overloads over `Validation<Error, Seq<TOut>>`. `AnalysisOutput<TOut>` `[BoundaryAdapter]` is the typed projection gate admitting every value through `Op.AcceptValue`, the one oracle.
 - Entry: `Analyze.Run<…>` closes single-query, pair-query, service-query, and already-built-operation inputs onto `Validation<Error, Seq<TOut>>` — one entry family discriminated by query and input shape, no `RunMany`/`RunPair`/`RunService` verb siblings; scoped execution threads `Analyze.In(…).With(progress).With(cancel).Run(operation, input)`.
-- Auto: `Prepare` folds cancellation first (`Fault.Cancelled`), null admission second (`Fault.MissingGeometry`), then the `Requirement` matrix — an empty requirement still routes `GeometryBase` values through the validity-oracle admission so no geometry reaches an evaluator unvetted, while non-geometry service payloads pass untouched; scope-less `Run` fails `Fault.MissingContext` when an operation `NeedsContext` and otherwise defaults to `Context.Of(units: UnitSystem.Millimeters)`; `Apply` flattens per-item chunks, feeds aggregates the whole prepared `Seq`, and lifts a `Rejected` body's fault onto the effect rail, rejection staying data until execution.
+- Auto: `Prepare` folds cancellation first (`Fault.Cancelled`), null admission second (`Fault.MissingGeometry`), then the `Requirement` matrix — an empty requirement still routes `GeometryBase` values through the validity-oracle admission so no geometry reaches an evaluator unvetted, while non-geometry service payloads pass untouched; a `Service` body carries no input and so reaches none of that fold, and reads the ambient cancellation ahead of its evaluator instead, so all four bodies refuse a cancelled run on the one `Fault.Cancelled` arm the advertised `With(cancel)` surface promises; scope-less `Run` fails `Fault.MissingContext` when an operation `NeedsContext` and otherwise defaults to `Context.Of(units: UnitSystem.Millimeters)`; `Apply` flattens per-item chunks, feeds aggregates the whole prepared `Seq`, and lifts a `Rejected` body's fault onto the effect rail, rejection staying data until execution — per-item evaluation distributes over input concatenation on the VALUE channel alone, because `Apply`'s cost capsule is an aggregation seam billing one `OpCost` per call.
 - Receipt: `Validation<Error, Seq<TOut>>` is the public result carrier with no dedicated receipt rail; faults accumulate the `Domain/rails` `Fault` union, `Fault.Unsupported` the host probe discriminant.
 - Packages: LanguageExt.Core (the `Validation`/`Fin` rails and `TraverseM`), Thinktecture.Runtime.Extensions (the `Body` `[Union]` and generated `Switch`), `Rasm.Domain` (`Context.Of` builders, `Requirement.Apply`, the `Op`/`Fault` rail), RhinoCommon (`RhinoDoc` at the one `From` adapter, `UnitSystem`).
 - Growth: a new execution modality is one `Body` case with one constructor on the same owner, never a second operation class; a new scope source is one `In`/`From` overload minting a `Context`; a new runtime capability is one field on `Env` threaded by the reader with zero operation edits.
@@ -312,8 +312,19 @@ public sealed partial record Operation<TGeometry, TOut> where TGeometry : notnul
     }
     internal static Operation<TGeometry, TOut> Reject(Op key, Error fault) =>
         new(key: key, requirement: Requirement.None, requiresContext: false, body: new Body.Rejected(Fault: fault));
+    // A service body admits no input, so `Prepare` has nothing to gate — but `Prepare` is also where cancellation
+    // enters, and a body that never reads the token turns `Analyze.In(…).With(cancel)` into an advertised surface one
+    // of the four bodies ignores. The ambient read leads the evaluator, so all four bodies refuse a cancelled run on
+    // the one `Fault.Cancelled` arm and a service evaluator owning its own token is the forked gate this deletes.
     internal static Operation<TGeometry, TOut> Service<TState>(Op key, TState state, Func<TState, Eff<Env, Seq<TOut>>> evaluate, bool requiresContext = false) =>
-        new(key: key, requirement: Requirement.None, requiresContext: requiresContext, body: new Body.Service(Evaluate: () => evaluate(arg: state)));
+        new(key: key, requirement: Requirement.None, requiresContext: requiresContext, body: new Body.Service(Evaluate: () =>
+            from runtime in Env.EnvAsks
+            from _ in (runtime.Cancellation.IsCancellationRequested switch {
+                true => Fin.Fail<Unit>(new Fault.Cancelled()),
+                false => Fin.Succ(unit),
+            }).ToEff()
+            from result in evaluate(arg: state)
+            select result));
     // Cost capsule: CostMark spans Prepare and the fold; both exits charge through the Env tap, the fail exit publishing the fault; absent sink, zero cost.
     public Eff<Env, Seq<TOut>> Apply(Seq<TGeometry> geometry) =>
         from runtime in Env.EnvAsks
@@ -326,6 +337,12 @@ public sealed partial record Operation<TGeometry, TOut> where TGeometry : notnul
         Execution.Switch(
             state: geometry,
             rejected: static (_, r) => Fin.Fail<Seq<TOut>>(r.Fault).ToEff(),
+            // Distribution is a law of THIS arm and the value channel alone: `TraverseM` over a concatenation yields
+            // the concatenation of the per-element results and the outer `Bind` flattens associatively, so a pure
+            // `PerItem` satisfies `Folded(a + b) == Folded(a) + Folded(b)`. `Apply` deliberately breaks it — its cost
+            // capsule is an AGGREGATION seam billing one `OpCost` per call with the whole input's item count, so two
+            // folded halves publish two facts and two spans where one call publishes one, and a harness reading the
+            // telemetry tap would refute the equation stated over `Apply`.
             perItem: static (items, i) => items.TraverseM(i.Evaluate).As().Map(static chunks => chunks.Bind(static chunk => chunk)),
             aggregate: static (items, a) => a.Evaluate(arg: items),
             service: static (_, s) => s.Evaluate());
@@ -474,7 +491,4 @@ Each concern homes at one owner returning on the rail its row names.
 [SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
-- [REQUEST_UNIFICATION]-[OPEN]: does each absorbed factory produce the same `Key`, `Requirement`, output gate, and operation as its band case with wrong-arity `Single`/`Pair` calls routing `Fault.Unsupported`; verify through the bridge scenario rail.
-- [OPERATION_MONAD]-[OPEN]: does `Operation` admit every input through `Prepare` before evaluation and preserve per-item distribution (`Apply(a ++ b) == Apply(a) ++ Apply(b)` for a pure `PerItem`); verify through the bridge scenario rail.
-- [ONE_ORACLE]-[OPEN]: does `Op.AcceptValue` succeed exactly when a receipt's `IValidityEvidence.IsValid` holds and reject through `Fault.InvalidResult` otherwise; verify against the `Domain/validation` oracle.
-- [HOST_CONTRACT_FREEZE]-[OPEN]: do the frozen spellings `Analyze.Query<object, TOut>`, `Analyze.In(context:)` to `Analyze.Scope`, and `Analyze.Run<object, BoundingBox>` still serve the Grasshopper binding, Rhino command context, and overlay probe; verify through a live-document bridge scenario.
+(none)

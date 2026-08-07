@@ -86,15 +86,15 @@ Every surface is a static method on `Meshopt` in two forms. The MANAGED form pin
 
 [ENTRYPOINT_SCOPE]: LOD simplification — forms lead with `(Span<uint> dst, ReadOnlySpan<uint> idx, ReadOnlySpan<float> pos, nuint stride, …)`, mostly end in `(nuint targetIdxCount, float targetError, SimplificationOptions opts, out float error)` returning the reduced `nuint` count; attribute forms insert `(attrs, attrStride, attrWeights, attrCount)` + optional `ReadOnlySpan<byte> vertexLock` (`1` = locked, shared across the attribute-aware simplifiers)
 
-| [INDEX] | [SURFACE]                                                                                         | [CAPABILITY]                          |
-| :-----: | :------------------------------------------------------------------------------------------------ | :------------------------------------ |
-|  [01]   | `Simplify`                                                                                        | error-bounded quadric simplify        |
-|  [02]   | `SimplifyWithAttributes` (+ attrs, opt `vertexLock`)                                              | attribute-weighted quadric simplify   |
-|  [03]   | `SimplifyWithUpdate(Span<uint> idx, …)` (+ attrs, `vertexLock`)                                   | in-place simplify (mutates `idx`)     |
-|  [04]   | `SimplifySloppy(…[, byte* vertexLock])` (no opts)                                                 | topology-ignoring aggressive simplify |
-|  [05]   | `SimplifyPrune(…, float targetError)`                                                             | drops components under threshold      |
-|  [06]   | `SimplifyPoints(dst, pos, stride, colors, colorStride, float colorWeight, nuint targetVertCount)` | color-weighted point-cloud decimation |
-|  [07]   | `SimplifyScale(pos, stride) -> float`                                                             | world-space error-scale factor        |
+| [INDEX] | [SURFACE]                                                                          | [CAPABILITY]                          |
+| :-----: | :--------------------------------------------------------------------------------- | :------------------------------------ |
+|  [01]   | `Simplify`                                                                         | error-bounded quadric simplify        |
+|  [02]   | `SimplifyWithAttributes` (+ attrs, opt `vertexLock`)                               | attribute-weighted quadric simplify   |
+|  [03]   | `SimplifyWithUpdate(Span<uint> idx, …)` (+ attrs, `vertexLock`)                    | in-place simplify (mutates `idx`)     |
+|  [04]   | `SimplifySloppy(…[, byte* vertexLock])` (no opts)                                  | topology-ignoring aggressive simplify |
+|  [05]   | `SimplifyPrune(…, float targetError)`                                              | drops components under threshold      |
+|  [06]   | `SimplifyPoints(…, colors, colorStride, float colorWeight, nuint targetVertCount)` | color-weighted point-cloud decimation |
+|  [07]   | `SimplifyScale(pos, stride) -> float`                                              | world-space error-scale factor        |
 
 [ENTRYPOINT_SCOPE]: meshlets, bounds and spatial clustering — meshlet builds fill `(Span<Meshlet>, Span<uint> meshletVerts, Span<byte> meshletTris, …)` and return the `nuint` meshlet count; bounds return `Bounds` by value
 

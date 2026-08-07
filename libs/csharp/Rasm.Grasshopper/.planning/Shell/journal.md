@@ -148,8 +148,8 @@ public sealed class SessionJournal : IDisposable {
                    JournalLedger held = ledger.Value;
                    Seq<JournalRow> rows = document.Match(
                        Some: partition => held.Partitions.Find(partition).IfNone(Seq<JournalRow>()),
-                       None: () => toSeq(toSeq(held.Partitions.Values).Bind(static rows => rows)
-                           .OrderBy(static row => row.Sequence).AsIterable()));
+                       None: () => toSeq(held.Partitions.Values.Bind(static rows => rows)
+                           .OrderBy(static row => row.Sequence)));
                    return Fin.Succ(new JournalExport(
                        Rows: rows.Strict(), Appended: held.Appended, Shed: held.Shed, Captured: stamp));
                })
@@ -202,12 +202,12 @@ flowchart LR
 
 ## [04]-[DENSITY_BAR]
 
-| [INDEX] | [CONCERN]         | [OWNER]                      | [RAIL]                                      | [CASES] |
-| :-----: | :---------------- | :--------------------------- | :------------------------------------------ | :-----: |
-|  [01]   | fact admission    | `JournalFact` + `JournalRow` | closed union → stamped row evidence         |    2    |
-|  [02]   | bounded fold      | `JournalLedger`              | `Append → Fin<JournalRow>`, one CAS commit  |    1    |
-|  [03]   | drain consumption | `SessionJournal.Mount`       | `Fin<Lease<SessionJournal>>`                |    1    |
-|  [04]   | export projection | `JournalExport`              | `Export → Fin<JournalExport>`               |    1    |
+| [INDEX] | [CONCERN]         | [OWNER]                      | [RAIL]                                     | [CASES] |
+| :-----: | :---------------- | :--------------------------- | :----------------------------------------- | :-----: |
+|  [01]   | fact admission    | `JournalFact` + `JournalRow` | closed union → stamped row evidence        |    2    |
+|  [02]   | bounded fold      | `JournalLedger`              | `Append → Fin<JournalRow>`, one CAS commit |    1    |
+|  [03]   | drain consumption | `SessionJournal.Mount`       | `Fin<Lease<SessionJournal>>`               |    1    |
+|  [04]   | export projection | `JournalExport`              | `Export → Fin<JournalExport>`              |    1    |
 
 `Op`, `Lease<T>`, `MonotonicTimeline`, `EvidenceDrain`, `UiEvent`, and `GhEvidence` are composed upstream owners; retention, serialization, and upload policy compose at the app root over the detached export.
 

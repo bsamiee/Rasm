@@ -44,22 +44,22 @@
 [ENUM_ROSTERS]:
 - `DimensionStyle.ArrowType` — `None` `UserBlock` `SolidTriangle` `Dot` `Tick` `ShortTriangle` `OpenArrow` `Rectangle` `LongTriangle` `LongerTriangle` `SolidDatumTriangle` (0..10).
 - `DimensionStyle.ClippingArrowType` — `None` `Triangle` `OffsetTriangle` `Arrow` `OffsetArrow` `OpenArrow` `Rectangle` `Ribbon` `Line` (0..8).
-- `DimensionStyle.MaskType : byte` — `BackgroundColor` `MaskColor`.
-- `DimensionStyle.MaskFrame : byte` — `NoFrame` `RectFrame` `CapsuleFrame` `CircleFrame` `SquareFrame` `DiamondFrame` `TriangleFrame` `HexagonFrame` `HexagonCapsuleFrame` `RoundRectFrame`.
+- `DimensionStyle.MaskType -> byte` — `BackgroundColor` `MaskColor`.
+- `DimensionStyle.MaskFrame -> byte` — `NoFrame` `RectFrame` `CapsuleFrame` `CircleFrame` `SquareFrame` `DiamondFrame` `TriangleFrame` `HexagonFrame` `HexagonCapsuleFrame` `RoundRectFrame`.
 - `DimensionStyle.LengthDisplay` — `ModelUnits=0` `InchesFractional=1` `FeetAndInches=2` `Millmeters=3` `Centimeters=4` `Meters=5` `Kilometers=6` `InchesDecimal=7` `FeetDecimal=8` `Miles=9`; host declares them out of value order, so a `[SmartEnum]` keys on the explicit value, never declaration position (`Millmeters` is the host spelling).
-- `DimensionStyle.ToleranceDisplayFormat : byte` — `None` `Symmetrical` `Deviation` `Limits`.
-- `DimensionStyle.LeaderContentAngleStyle : byte` — `Horizontal` `Aligned` `Rotated`.
-- `DimensionStyle.LeaderCurveStyle : byte` — `None` `Polyline` `Spline`.
-- `DimensionStyle.AngleDisplayFormat : byte` — `DecimalDegrees` `DegMinSec` `Radians` `Grads`.
-- `DimensionStyle.TextLocation : byte` — `AboveDimLine` `InDimLine` `BelowDimLine`.
-- `DimensionStyle.ZeroSuppression : byte` — `None=0` `SuppressLeading=1` `SuppressTrailing=2` `SuppressLeadingAndTrailing=3` `SuppressZeroFeet=4` `SuppressZeroInches=8` `SuppressZeroFeetAndZeroInches=12` (bit flags).
-- `DimensionStyle.StackDisplayFormat : byte` — `None` `StackHorizontal` `StackDiagonal`.
-- `DimensionStyle.CenterMarkStyle : byte` — `None` `Mark` `MarkAndLines`.
-- `DimensionStyle.ArrowFit : byte` — `Auto` `ArrowsInside` `ArrowsOutside`.
-- `DimensionStyle.TextFit : byte` — `Auto` `TextInside` `TextRight` `TextLeft` `TextHintRight` `TextHintLeft`.
+- `DimensionStyle.ToleranceDisplayFormat -> byte` — `None` `Symmetrical` `Deviation` `Limits`.
+- `DimensionStyle.LeaderContentAngleStyle -> byte` — `Horizontal` `Aligned` `Rotated`.
+- `DimensionStyle.LeaderCurveStyle -> byte` — `None` `Polyline` `Spline`.
+- `DimensionStyle.AngleDisplayFormat -> byte` — `DecimalDegrees` `DegMinSec` `Radians` `Grads`.
+- `DimensionStyle.TextLocation -> byte` — `AboveDimLine` `InDimLine` `BelowDimLine`.
+- `DimensionStyle.ZeroSuppression -> byte` — `None=0` `SuppressLeading=1` `SuppressTrailing=2` `SuppressLeadingAndTrailing=3` `SuppressZeroFeet=4` `SuppressZeroInches=8` `SuppressZeroFeetAndZeroInches=12` (bit flags).
+- `DimensionStyle.StackDisplayFormat -> byte` — `None` `StackHorizontal` `StackDiagonal`.
+- `DimensionStyle.CenterMarkStyle -> byte` — `None` `Mark` `MarkAndLines`.
+- `DimensionStyle.ArrowFit -> byte` — `Auto` `ArrowsInside` `ArrowsOutside`.
+- `DimensionStyle.TextFit -> byte` — `Auto` `TextInside` `TextRight` `TextLeft` `TextHintRight` `TextHintLeft`.
 - `DimensionStyle.Field` — field-identifier vocabulary keyed by the override algebra: 117 members `Unset=0` through `Count=120`, non-contiguous (values `19`, `74`, `107`, `108` skipped). Most name one config property (`Arrowsize=5`, `TextHeight=9`, `LengthFactor=16`, `DimensionScale=59`, `ArrowType1=78`, `ClippingArrowSize=119`, peers); the color/plot group (`ExtLineColorSource=28` through `DimLinePlotWeight_mm=47`), `MaskFlags=92`, `SignedOrdinate=97`, and `UnitSystem=98` carry no CLR property and exist only as override-marking vocabulary; `Name=1`/`Index=2` cannot inherit from a parent.
 - `Dimension.ForceArrow` — `Auto` `Inside` `Outside`.
-- `OrdinateDimension.MeasuredDirection : byte` — `Unset` `Xaxis` `Yaxis`.
+- `OrdinateDimension.MeasuredDirection -> byte` — `Unset` `Xaxis` `Yaxis`.
 - `Rhino.Geometry.AnnotationType : byte` — `Unset` `Aligned` `Angular` `Diameter` `Radius` `Rotated` `Ordinate` `ArcLen` `CenterMark` `Text` `Leader` `Angular3pt` (0..11); the discriminant `LinearDimension.Create` and `RadialDimension.Create` accept (`AlignedDimension` has no type — aligned is `LinearDimension` + `AnnotationType.Aligned`).
 - `Rhino.DocObjects.Tables.ModifyType` — `Modify` `Override` `NotSaved`; `DimStyleTable.Modify(DimensionStyle, AnnotationBase)` outcome.
 - Edge-mapped external owners: `Rhino.DocObjects.TextOrientation`, `TextVerticalAlignment`, `TextHorizontalAlignment`, `TextJustification` carry text placement `DimensionStyle`/`AnnotationBase`/`Dimension` reference.
@@ -77,7 +77,7 @@
 |  [05]   | `FindIndex(int)`                         | instance | resolve by runtime index                  |
 |  [06]   | `FindRoot(Guid, bool)`                   | instance | walk parents to inheritance root          |
 |  [07]   | `BuiltInStyles`                          | property | built-in style roster                     |
-|  [08]   | `GetUnusedStyleName(string)`             | instance | mint an unused style name                 |
+|  [08]   | `GetUnusedStyleName()` / `(string)`      | instance | mint an unused style name, rooted or not  |
 
 [STYLE_AUTHORING]: `DimStyleTable` writes.
 
@@ -102,7 +102,6 @@
 |  [07]   | `ScaleLengthValues(double)`                              | instance | scale all length fields            |
 |  [08]   | `DimensionLengthDisplayUnit(uint) -> UnitSystem`         | instance | rendered unit under a model        |
 |  [09]   | `CreatePreviewBitmap(int, int, bool) -> Bitmap`          | instance | render a style swatch              |
-|  [10]   | `SetUserString(string, string)`                          | instance | user-string bag (Get/Delete/All)   |
 
 [STYLE_CONFIG]: `DimensionStyle` exposes ~96 get/set config properties, each backed by a `Field` case whose setter marks the field overridden; the color/plot-source `Field` group carries no property counterpart.
 
@@ -111,7 +110,7 @@
 [LENGTH]: `LengthFactor` `AlternateLengthFactor` `LengthResolution` `AlternateLengthResolution` `AngleResolution` `DimensionLengthDisplay` `AlternateDimensionLengthDisplay` `AngleFormat` `Roundoff` `AlternateRoundoff` `AngularRoundoff` `Prefix` `Suffix` `AlternatePrefix` `AlternateSuffix` `DecimalSeparator` `StackFractionFormat` `StackHeightScale` `AlternateUnitsDisplay` `AlternateBelowLine`
 [TOLERANCE]: `ToleranceFormat` `ToleranceResolution` `AlternateToleranceResolution` `ToleranceHeightScale` `ToleranceUpperValue` `ToleranceLowerValue` `ZeroSuppress` `AlternateZeroSuppress` `AngleZeroSuppress`
 [MASK]: `DrawTextMask` `MaskColor` `MaskColorSource` `MaskFrameType` `MaskOffset`
-[LAYOUT]: `BaselineSpacing` `DimensionScale` `DimensionScaleValue` `ScaleLeftLengthMillimeters` `ScaleRightLengthMillimeters` `CentermarkSize` `CenterMarkType` `ExtensionLineExtension` `ExtensionLineOffset` `DimensionLineExtension` `SuppressExtension1` `SuppressExtension2` `FixedExtensionOn` `FixedExtensionLength` `TextMoveLeader` `ArcLengthSymbol` `ForceDimensionLineBetweenExtensionLines` `UserStringCount`
+[LAYOUT]: `BaselineSpacing` `DimensionScale` `DimensionScaleValue` `ScaleLeftLengthMillimeters` `ScaleRightLengthMillimeters` `CentermarkSize` `CenterMarkType` `ExtensionLineExtension` `ExtensionLineOffset` `DimensionLineExtension` `SuppressExtension1` `SuppressExtension2` `FixedExtensionOn` `FixedExtensionLength` `TextMoveLeader` `ArcLengthSymbol` `ForceDimensionLineBetweenExtensionLines`
 [LEADER]: `LeaderHasLanding` `LeaderLandingLength` `LeaderContentAngleType` `LeaderCurveType` `LeaderTextVerticalAlignment` `LeaderTextHorizontalAlignment` `LeaderTextRotationRadians` `LeaderTextRotationDegrees`
 - `DimensionStyle.ToleranceZeroSuppress` is an inert stub — constant `ZeroSuppression.None` getter, empty setter, no `Field` pairing.
 - `Field.LeaderContentAngle` backs both `LeaderContentAngleType` (`GetInt`/`SetInt`) and `LeaderTextRotationRadians`/`Degrees` (`GetDouble`/`SetDouble`); `Field.LeaderContentAngleStyle` binds no accessor.
@@ -177,20 +176,20 @@
 
 [TEXT_FIELDS]: `TextFields` evaluators.
 
-| [INDEX] | [SURFACE]                                                                   | [SHAPE] | [CAPABILITY]                               |
-| :-----: | :-------------------------------------------------------------------------- | :------ | :----------------------------------------- |
-|  [01]   | `TryFormat(string, RhinoDoc, out string)`                                   | static  | evaluate a field string; `TryParse` splits |
-|  [02]   | `Area` / `Volume` / `CurveLength`                                           | static  | geometry measures by id, unit-aware        |
-|  [03]   | `Date` / `FileName` / `Notes` / `ModelUnits` / `DocumentText`               | static  | document fields                            |
-|  [04]   | `PageNumber` / `PageName` / `PaperName` / `DetailScale` / `LayoutUserText`  | static  | layout fields                              |
-|  [05]   | `ObjectName` / `ObjectLayer` / `LayerName` / `PointCoordinate` / `UserText` | static  | object fields                              |
-|  [06]   | `BlockName` / `BlockDescription` / `BlockInstanceCount`                     | static  | block fields                               |
-|  [07]   | `DateModified()` / `(string)` / `(string, string)`                          | static  | last-write stamp, format and language      |
-|  [08]   | `NumPages() : int` / `PageWidth() : double` / `PageHeight() : double`       | static  | layout page count and paper extent         |
-|  [09]   | `ObjectPageName(string) : string` / `ObjectPageNumber(string) : int`        | static  | the page an object lives on, by id         |
-|  [10]   | `BlockInsertionCoordinate(string blockId, string axis) : string`            | static  | one insertion-point axis of a block        |
-|  [11]   | `GetInstanceAttributeFields(string)` / `(TextObject)` / `(InstanceDefinition)` | static | `InstanceAttributeField[]` census          |
-|  [12]   | `DimValue(string)` / `(string, string)`                                     | static  | a dimension's measured text                |
+| [INDEX] | [SURFACE]                                                                      | [SHAPE] | [CAPABILITY]                               |
+| :-----: | :----------------------------------------------------------------------------- | :------ | :----------------------------------------- |
+|  [01]   | `TryFormat(string, RhinoDoc, out string)`                                      | static  | evaluate a field string; `TryParse` splits |
+|  [02]   | `Area` / `Volume` / `CurveLength`                                              | static  | geometry measures by id, unit-aware        |
+|  [03]   | `Date` / `FileName` / `Notes` / `ModelUnits` / `DocumentText`                  | static  | document fields                            |
+|  [04]   | `PageNumber` / `PageName` / `PaperName` / `DetailScale` / `LayoutUserText`     | static  | layout fields                              |
+|  [05]   | `ObjectName` / `ObjectLayer` / `LayerName` / `PointCoordinate` / `UserText`    | static  | object fields                              |
+|  [06]   | `BlockName` / `BlockDescription` / `BlockInstanceCount`                        | static  | block fields                               |
+|  [07]   | `DateModified()` / `(string)` / `(string, string)`                             | static  | last-write stamp, format and language      |
+|  [08]   | `NumPages() -> int` / `PageWidth() -> double` / `PageHeight() -> double`       | static  | layout page count and paper extent         |
+|  [09]   | `ObjectPageName(string) -> string` / `ObjectPageNumber(string) -> int`         | static  | the page an object lives on, by id         |
+|  [10]   | `BlockInsertionCoordinate(string blockId, string axis) -> string`              | static  | one insertion-point axis of a block        |
+|  [11]   | `GetInstanceAttributeFields(string)` / `(TextObject)` / `(InstanceDefinition)` | static  | `InstanceAttributeField[]` census          |
+|  [12]   | `DimValue(string)` / `(string, string)`                                        | static  | a dimension's measured text                |
 
 - `TryFormat`/`TryParse` are the only document-explicit members; every evaluator resolves against the ambient document, so composed tokens evaluate through `TryFormat`, never direct evaluator calls.
 - No decoration member exists on `AnnotationBase` — `SetRunsFontAttribute` is `internal`, `FirstCharProperties` is documented obsolete in favour of `FirstCharFont`, and the first-run underline reads `FirstCharFont.Underlined`; a `FirstCharUnderlined` property is a phantom.
@@ -227,7 +226,7 @@
 |  [07]   | `OrdinateDimension.Create(DimensionStyle, Plane, MeasuredDirection, Point3d×3, double×2)`    | static   | x/y ordinate + kink offsets  |
 |  [08]   | `Centermark.Create(DimensionStyle, Plane, Point3d, double)`                                  | static   | from center and radius       |
 |  [09]   | `new AngularDimension(Arc arc, double offset)`                                               | ctor     | arc-and-offset angular mint  |
-|  [10]   | `AngularDimension.GetAngleDisplayText(DimensionStyle) : string`                              | instance | formatted angle measurement  |
+|  [10]   | `AngularDimension.GetAngleDisplayText(DimensionStyle) -> string`                             | instance | formatted angle measurement  |
 
 - `LinearDimension.FromPoints` builds a default-style linear; `AngularDimension.Create` adds id, two-extension-point, and line-pair overloads; `Centermark.Create(…, Curve, double)` builds from a curve point.
 - `RadialDimension`/`OrdinateDimension` mirror the linear `AdjustFromPoints`/`Get3dPoints`/`GetDisplayLines`/`GetTextRectangle`/`GetDistanceDisplayText` set; `Centermark` carries only `AdjustFromPoints` and `Radius`, no display-line or point readers.
@@ -252,10 +251,11 @@
 - `Dimension` extends `AnnotationBase` with ~52 per-instance overrides and the measured value; the six kinds differ only in construction geometry and display-line resolution, so one override surface and one doc-object accessor pattern serve all. Text-to-geometry outlining is one parameterized family over four egress shapes, each with a flat and a per-glyph `...Grouped` sibling; `height` selects extruded solids over planar faces.
 
 [STACKING]:
-- `LanguageExt.Core`(`../../.api/api-languageext.md`): table `bool`/`int` and `Modify`'s `ModifyType` project to `Fin<Unit>`/`Fin<int>`; nullable `Find*` reads lift to `Option<DimensionStyle>`; `Get3dPoints`/`GetDisplayLines`/`GetTextRectangle` `out` results fold into `Fin<A>` carrying geometry only on `true`; roster and outline arrays land as `Seq<A>`; `TextFields.TryFormat`/`TryParse` become `Fin<string>`/`Fin<Seq<string>>`.
-- `Thinktecture.Runtime.Extensions`(`../../.api/api-thinktecture-runtime-extensions.md`): every `DimensionStyle` nested enum and `AnnotationType`/`ModifyType`/`MeasuredDirection`/`ForceArrow` maps at the edge to a `[SmartEnum]`, a style/annotation `Guid` to a `[ValueObject<Guid>]`, and `Field` to a `[SmartEnum]` whose cases own their config-property projection so the override algebra dispatches over closed cases.
+- `RhinoCommon` value substrate(`libs/csharp/.api/api-rhinocommon.md`): the `Point3d`/`Vector3d`/`Plane`/`Line`/`Transform`/`BoundingBox` carriers this boundary threads cross the wire from the substrate; it composes them and re-derives none.
+- `LanguageExt.Core`(`libs/csharp/.api/api-languageext.md`): table `bool`/`int` and `Modify`'s `ModifyType` project to `Fin<Unit>`/`Fin<int>`; nullable `Find*` reads lift to `Option<DimensionStyle>`; `Get3dPoints`/`GetDisplayLines`/`GetTextRectangle` `out` results fold into `Fin<A>` carrying geometry only on `true`; roster and outline arrays land as `Seq<A>`; `TextFields.TryFormat`/`TryParse` become `Fin<string>`/`Fin<Seq<string>>`.
+- `Thinktecture.Runtime.Extensions`(`libs/csharp/.api/api-thinktecture-runtime-extensions.md`): every `DimensionStyle` nested enum and `AnnotationType`/`ModifyType`/`MeasuredDirection`/`ForceArrow` maps at the edge to a `[SmartEnum]`, a style/annotation `Guid` to a `[ValueObject<Guid>]`, and `Field` to a `[SmartEnum]` whose cases own their config-property projection so the override algebra dispatches over closed cases.
 - `Rasm` kernel: planes, base points, kink offsets, text transforms, unit scaling, and `DimensionScaleValue` compose the kernel numeric and unit owners; `Color`-valued mask and tolerance fields compose the kernel color rail, never a host channel average.
-- `api-rhinocommon-drafting-resources.md`: a style's `Font`, arrow-block ids, and any linetype/hatch a section references resolve through that catalog; `api-rhinocommon-display.md` draws `TextEntity`/`AnnotationBase`/`Hatch` through the pipeline.
+- `libs/csharp/Rasm.Rhino/.api/api-rhinocommon-drafting-resources.md`: a style's `Font`, arrow-block ids, and any linetype/hatch a section references resolve through that catalog; `libs/csharp/Rasm.Rhino/.api/api-rhinocommon-display.md` draws `TextEntity`/`AnnotationBase`/`Hatch` through the pipeline.
 
 [LOCAL_ADMISSION]:
 - A style enters through `DimStyleTable.Add`/`Modify`; per-object overrides enter through `AnnotationBase.SetOverrideDimStyle` after the differing fields are marked, never by mutating a shared style in place. `DimStyleTable.Modify(style, annotation)` is the sole reverse-projection from a live annotation to a style, its `ModifyType` inspected before the write is treated as durable.

@@ -58,6 +58,7 @@ public abstract partial record VectorIntent {
     public sealed record RelationCase(Vector3d A, Vector3d B) : VectorIntent;
     public sealed record BounceCase(Direction Incident, SupportSpace Target, Point3d Query, BouncePolicy Policy) : VectorIntent;
     public sealed record StreamlineCase : VectorIntent { internal StreamlineCase(VectorField source, Point3d seed, PositiveMagnitude initialStep, FieldIntegrator integrator, Termination termination) { Source = source; Seed = seed; InitialStep = initialStep; Integrator = integrator; Termination = termination; } public VectorField Source { get; } public Point3d Seed { get; } public PositiveMagnitude InitialStep { get; } public FieldIntegrator Integrator { get; } public Termination Termination { get; } }
+    public sealed record AtlasCase : VectorIntent { internal AtlasCase(VectorField source, FlowPartition partition, PositiveMagnitude initialStep, FieldIntegrator integrator, TopologyPolicy policy) { Source = source; Partition = partition; InitialStep = initialStep; Integrator = integrator; Policy = policy; } public VectorField Source { get; } public FlowPartition Partition { get; } public PositiveMagnitude InitialStep { get; } public FieldIntegrator Integrator { get; } public TopologyPolicy Policy { get; } }
     public sealed record LerpCase(Vector3d A, Vector3d B, UnitInterval Parameter) : VectorIntent;
     public sealed record SlerpCase(Direction A, Direction B, UnitInterval Parameter) : VectorIntent;
     public sealed record ProjectOntoCase(Vector3d Value, Plane Target) : VectorIntent;
@@ -66,6 +67,7 @@ public abstract partial record VectorIntent {
     public sealed record PoseCase(Plane From, Plane To, UnitInterval Parameter, MotionInterpolation Mode) : VectorIntent;
     public sealed record FlattenCase : VectorIntent { internal FlattenCase(MeshSpace space) => Space = space; public MeshSpace Space { get; } }
     public sealed record HullCase : VectorIntent { internal HullCase(VectorCloud source, CloudHullKind kind, CloudHullPolicy policy) { Source = source; Kind = kind; Policy = policy; } public VectorCloud Source { get; } public CloudHullKind Kind { get; } public CloudHullPolicy Policy { get; } }
+    public sealed record VoronoiCase : VectorIntent { internal VoronoiCase(VectorCloud.ClusterCase source, CloudHullPolicy policy) { Source = source; Policy = policy; } public VectorCloud.ClusterCase Source { get; } public CloudHullPolicy Policy { get; } }
     public sealed record SampleCase : VectorIntent { internal SampleCase(ExtractionDomain domain, SampleKind kind) { Domain = domain; Kind = kind; } public ExtractionDomain Domain { get; } public SampleKind Kind { get; } }
     public sealed record AlignCase : VectorIntent { internal AlignCase(VectorCloud source, VectorCloud target, AlignKind kind, AlignmentPolicy policy) { Source = source; Target = target; Kind = kind; Policy = policy; } public VectorCloud Source { get; } public VectorCloud Target { get; } public AlignKind Kind { get; } public AlignmentPolicy Policy { get; } }
     public sealed record RemeshCase : VectorIntent { internal RemeshCase(MeshSpace space, RemeshKind kind) { Space = space; Kind = kind; } public MeshSpace Space { get; } public RemeshKind Kind { get; } }
@@ -146,6 +148,17 @@ public abstract partial record VectorIntent {
                from validIntegrator in FieldIntegrator.AdmitOrFixed(value: integrator, key: op)
                select (VectorIntent)new StreamlineCase(source: validField, seed: validSeed, initialStep: h, integrator: validIntegrator, termination: validStop);
     }
+    // The topology twin of Streamline over the same field and stepper: FlowPartition and TopologyPolicy arrive
+    // admitted from their own Of, so this factory gates their presence and admits the raw step and integrator alone.
+    public static Fin<VectorIntent> Atlas(VectorField field, FlowPartition partition, double initialStep, TopologyPolicy policy, FieldIntegrator? integrator = null, Op? key = null) {
+        Op op = key.OrDefault();
+        return from validField in Admit.NotNull(value: field, key: op)
+               from validPartition in Admit.NotNull(value: partition, key: op)
+               from validPolicy in Admit.NotNull(value: policy, key: op)
+               from h in op.AcceptValidated<PositiveMagnitude>(candidate: initialStep)
+               from validIntegrator in FieldIntegrator.AdmitOrFixed(value: integrator, key: op)
+               select (VectorIntent)new AtlasCase(source: validField, partition: validPartition, initialStep: h, integrator: validIntegrator, policy: validPolicy);
+    }
     public static Fin<VectorIntent> Lerp(Vector3d a, Vector3d b, double t, Op? key = null) =>
         key.OrDefault().AcceptValidated<UnitInterval>(candidate: t).Map(unit => (VectorIntent)new LerpCase(A: a, B: b, Parameter: unit));
     public static Fin<VectorIntent> Slerp(Direction a, Direction b, double t, Op? key = null) {
@@ -182,6 +195,15 @@ public abstract partial record VectorIntent {
                    : Fin.Fail<VectorCloud.ClusterCase>(op.Unsupported(geometryType: validSource.GetType(), outputType: typeof(CloudHullResult)))
                from validPolicy in CloudHullPolicy.AdmitOrDefault(policy: policy, context: cluster.Tolerance, key: op)
                select (VectorIntent)new HullCase(source: cluster, kind: validKind, policy: validPolicy);
+    }
+    public static Fin<VectorIntent> Voronoi(VectorCloud source, Option<CloudHullPolicy> policy = default, Op? key = null) {
+        Op op = key.OrDefault();
+        return from validSource in Admit.NotNull(value: source, key: op)
+               from cluster in validSource is VectorCloud.ClusterCase c
+                   ? Fin.Succ(c)
+                   : Fin.Fail<VectorCloud.ClusterCase>(op.Unsupported(geometryType: validSource.GetType(), outputType: typeof(CloudVoronoiResult)))
+               from validPolicy in CloudHullPolicy.AdmitOrDefault(policy: policy, context: cluster.Tolerance, key: op)
+               select (VectorIntent)new VoronoiCase(source: cluster, policy: validPolicy);
     }
     public static Fin<VectorIntent> Sample(ExtractionDomain domain, SampleKind kind, Op? key = null) {
         Op op = key.OrDefault();
@@ -300,6 +322,10 @@ public abstract partial record VectorIntent {
             from output in reflected.Project<TOut>(key: state.Key)
             select output,
         streamlineCase: static (state, intent) => FlowKernel.Trace<TOut>(source: intent.Source, seed: intent.Seed, initialStep: intent.InitialStep, integrator: intent.Integrator, termination: intent.Termination, context: state.Context, key: state.Key),
+        atlasCase: static (state, intent) =>
+            from atlas in MorseAtlas.Of(source: intent.Source, partition: intent.Partition, initialStep: intent.InitialStep, integrator: intent.Integrator, policy: intent.Policy, context: state.Context, key: state.Key)
+            from output in atlas.Project<TOut>(key: state.Key)
+            select output,
         // Lerp/projectOnto/mirror: ONE native affine/Transform expression each, admitted through Direction.Of.
         lerpCase: static (state, intent) =>
             from direction in Numerics.Direction.Of(value: ((1.0 - intent.Parameter.Value) * intent.A) + (intent.Parameter.Value * intent.B), context: state.Context, key: state.Key)
@@ -330,6 +356,10 @@ public abstract partial record VectorIntent {
             select output,
         hullCase: static (state, intent) =>
             from result in CloudKernel.ComputeHullDetailed(source: intent.Source, kind: intent.Kind, policy: intent.Policy, key: state.Key)
+            from output in result.Project<TOut>(context: state.Context, key: state.Key)
+            select output,
+        voronoiCase: static (state, intent) =>
+            from result in CloudKernel.ComputeVoronoiDetailed(cluster: intent.Source, policy: intent.Policy, key: state.Key)
             from output in result.Project<TOut>(context: state.Context, key: state.Key)
             select output,
         sampleCase: static (state, intent) => intent.Kind.Project<TOut>(domain: intent.Domain, context: state.Context, key: state.Key),

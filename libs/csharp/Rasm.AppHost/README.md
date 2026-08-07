@@ -120,7 +120,6 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 - `Grpc.AspNetCore.HealthChecks`
 - `Grpc.HealthCheck` — transitive `grpc.health.v1` serving-status surface under `Grpc.AspNetCore.HealthChecks`, never a direct reference.
 - `Grpc.AspNetCore.Web` — `Runtime/ports` `[WIRE_CONTRACT]` defers it: no browser reaches the local UDS hop, so grpc-web lands only cross-origin.
-- `Grpc.Core.Api`
 - `Microsoft.AspNetCore.App` — shared-framework capability (no manifest row) serving `CoHostedAssets` through `UseStaticFiles(StaticFileOptions)`
 
 [CAPABILITY_AGENT]:
@@ -193,6 +192,7 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 [WIRE_CODEGEN]:
 - `Grpc.Net.Client`
 - `Grpc.AspNetCore`
+- `Grpc.Core.Api` — `ControlService` descriptors, marshallers, and the per-call context the control rail binds.
 - `Microsoft.AspNetCore.JsonPatch.SystemTextJson`
 
 [RUNTIME_INBOX]:

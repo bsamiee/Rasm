@@ -8,14 +8,22 @@ Rasm.Compute solver discretization: one volumetric `MeshKernel` owner generating
 
 ## [02]-[DISCRETIZATION_MESH]
 
-- Owner: `ElementClass` `[SmartEnum<string>]` element-topology rows carrying a `ShapeFamily` discriminant, the reference-node natural-coordinate table, the `Monomial` polynomial-space basis, the corner/edge/face topology tables, and the kernel `ReferenceElement` reference domain beside the integration order that elects its rule, all driving one isoparametric `Sample` returning shape values, physical gradients, and the Jacobian determinant; `MeshAlgorithm` `[SmartEnum<string>]` generation-strategy rows carrying a `MeshStrategy` core selector, a `PointSource` interior-seed column, and a conforming flag; `MeshMetric` `[SmartEnum<string>]` closed Verdict quality vocabulary (scaled-Jacobian, aspect-ratio, skewness, min-dihedral, condition) reading the real corner/edge/face topology; `FieldStation` `[SmartEnum<string>]` nodal/integration-point/cell/boundary rows carrying their count derivation; `MeshKernel` static surface generating a `DiscreteMesh` from a boundary `BoundaryShell` then refining it adaptively; `DiscreteMesh` the conforming/non-conforming volumetric mesh carrier; `FieldSpace` the integration-point/nodal scalar/vector/tensor field the solve writes; `BoundaryShell` the boundary-triangulation carrier with the ray-cast inclusion test; `Aabb`/`Monomial`/`ShapeSample` the value types.
-- Cases: `ElementClass` rows tet4 · tet10 · hex8 · hex20 · hex27 · wedge6 · wedge18 · pyramid5 · tri3 · tri6 · quad4 · quad8 · beam2-euler · beam2-timoshenko over four `ShapeFamily` arms (Polynomial via the Vandermonde monomial mechanism, Reduced via the explicit serendipity corner/midside formulas, Pyramid via the rational apex basis, Frame via the closed-form 12-DOF `Member` stiffness the solve contract scatters — releases/offsets/semi-rigid springs as row behavior, the `Shear` column selecting the Timoshenko Φ terms); `MeshAlgorithm` rows delaunay · frontal-delaunay · advancing-front · octree · sweep · boundary-layer over four `MeshStrategy` cores (Delaunay/Octree/Sweep/Inflation) and four `PointSource` seeds (boundary/lattice/frontal/front); `MeshMetric` rows scaled-jacobian · aspect-ratio · skewness · min-dihedral · condition; `FieldStation` rows nodal · integration-point · cell · boundary; `FieldSpace` rank rows scalar · vector · tensor over `FieldStation` positions.
-- Entry: `public static Fin<DiscreteMesh> Discretize(BoundaryShell boundary, MeshPolicy policy, IClock clock)` — `BoundaryShell.Validate` rejects malformed buffers, invalid indices, degenerate triangles, open edges, and inconsistent winding before generation; `MeshPolicy.Validate` rejects incoherent strategy/element and numeric policy values; `Fin<T>` then aborts on generation failure or an element failing the metric's directional quality threshold through `MeshMetric.Admits`; `Refine(DiscreteMesh, MeshPolicy, ReadOnlySpan<double> cellError, IClock)` re-meshes the Dörfler-marked cell set by the keyless `RefineKind` `H` (red subdivision), `P` (order elevation), or `Hp` (graded) axis returning the adapted mesh and the carried error estimator; `Quality(DiscreteMesh, MeshMetric)` reads the per-element metric once; `ElementClass.Sample((double, double, double) natural, ReadOnlySpan<double> nodalXyz)` is the isoparametric evaluation the assembly consumes and `ShapeGrad` is its gradient projection.
-- Auto: `Discretize` routes the `MeshStrategy` core by the algorithm row — a closed manifold solid routes the Bowyer-Watson `Delaunay` tetrahedralization over the boundary surface nodes with the `PointSource` interior seeds, a feature-graded fill routes the `Octree` hex recursion, a sweepable prism routes `Sweep` extrusion of an `Encloses`-filtered XY lattice section along Z (the section is the rasterized in-boundary lattice at the target edge length, never a recovered boundary polygon), and a floor-walled domain routes `Inflation` Z-graded hex layers growing from the low-Z wall under first-layer thickness × growth ratio (grading is global-Z, never per-facet wall-normal); every core filters cells by the `BoundaryShell.Encloses` ray-cast and packs the conforming `DiscreteMesh`; `Sample` evaluates the `ShapeFamily` arm — Polynomial reads the lazily-memoized per-class Vandermonde coefficient matrix `(N_i = Σ_m C[m,i]·P_m(ξ))` and its monomial derivatives, Reduced reads the explicit serendipity corner/midside formulas, Pyramid the rational apex basis — then maps reference derivatives through the inline `dim×dim` Jacobian inverse to physical `∂N/∂x` and the determinant; `Refine` reads the per-cell error estimator and marks the cells whose estimator exceeds the policy fraction by the Dörfler bulk criterion, then either red-subdivides (h) the marked set expanded to its edge-conforming closure — any cell sharing a split edge joins the set to a fixpoint unless the mortar column carries the hanging node — or globally order-elevates (p) the element order — the marked set drives the hp routing decision while a uniform-order mesh elevates wholesale — through the shared edge-midpoint map so the interior stays conforming and a hanging node rides the mortar column only when the policy sets it; `Quality` folds the requested `MeshMetric` over the element set through the element class's `Metric` delegate, never a per-call recompute.
+- Owner: `ShellIndex` the per-generation inclusion index every core probes; `ElementClass` `[SmartEnum<string>]` element-topology rows carrying a `ShapeFamily` discriminant, the reference-node natural-coordinate table, the `Monomial` polynomial-space basis, the corner/edge/face topology tables, and the kernel `ReferenceElement` reference domain beside the integration order that elects its rule, all driving one isoparametric `Sample` returning shape values, physical gradients, and the Jacobian determinant; `MeshAlgorithm` `[SmartEnum<string>]` generation-strategy rows carrying a `MeshStrategy` core selector, a `PointSource` interior-seed column, and a conforming flag; `MeshMetric` `[SmartEnum<string>]` closed Verdict quality vocabulary (scaled-Jacobian, aspect-ratio, skewness, min-dihedral, condition) reading the real corner/edge/face topology; `FieldStation` `[SmartEnum<string>]` nodal/integration-point/cell/boundary rows carrying their count derivation; `MeshKernel` static surface generating a `DiscreteMesh` from a boundary `BoundaryShell` then refining it adaptively; `DiscreteMesh` the conforming/non-conforming volumetric mesh carrier; `FieldSpace` the integration-point/nodal scalar/vector/tensor field the solve writes; `BoundaryShell` the boundary-triangulation carrier with the ray-cast inclusion test; `Aabb`/`Monomial`/`ShapeSample` the value types.
+- Cases: `ElementClass` rows tet4 · tet10 · hex8 · hex20 · hex27 · wedge6 · wedge18 · pyramid5 · tri3 · tri6 · quad4 · quad8 · beam2-euler · beam2-timoshenko over four `ShapeFamily` arms (Polynomial via the Vandermonde monomial mechanism, Reduced via the explicit serendipity corner/midside formulas, Pyramid via the rational apex basis, Frame via the closed-form 12-DOF `Member` stiffness the solve contract scatters — releases/offsets/semi-rigid springs as row behavior, the `Shear` column selecting the Timoshenko Φ terms); `MeshAlgorithm` rows delaunay · frontal-delaunay · advancing-front · octree · sweep · boundary-layer over four `MeshStrategy` cores (Delaunay/Octree/Sweep/Inflation), each row carrying its own base element, and `PointSource` seeds uniform · frontal · front; `MeshMetric` rows scaled-jacobian · aspect-ratio · skewness · min-dihedral · condition; `FieldStation` rows nodal · integration-point · cell · boundary; `FieldSpace` rank rows scalar · vector · tensor over `FieldStation` positions.
+- Entry: `public static Fin<DiscreteMesh> Discretize(BoundaryShell boundary, MeshPolicy policy, IClock clock)` — `BoundaryShell.Validate` rejects malformed buffers, invalid indices, degenerate triangles, open edges, and inconsistent winding before generation; `MeshPolicy.Validate` rejects incoherent strategy/element and numeric policy values; `ShellIndex.Of` then builds the one inclusion index every core probes, and `Fin<T>` aborts on generation failure, on a measured hanging-node set no mortar column carries, or on an element failing the metric's directional quality threshold through `MeshMetric.Admits`; `Refine(DiscreteMesh, MeshPolicy, ReadOnlySpan<double> cellError, IClock)` re-meshes the Dörfler-marked cell set by the keyless `RefineKind` `H` (red subdivision), `P` (order elevation), or `Hp` (graded) axis returning the adapted mesh and the carried error estimator; `Quality(DiscreteMesh, MeshMetric)` reads the per-element metric once; `ElementClass.Sample((double, double, double) natural, ReadOnlySpan<double> nodalXyz)` is the isoparametric evaluation the assembly consumes and `ShapeGrad` is its gradient projection.
+- Auto: `Discretize` builds ONE `ShellIndex` and routes the `MeshStrategy` core by the algorithm row — a closed manifold solid routes the Bowyer-Watson `Delaunay` tetrahedralization over the boundary surface nodes with the `PointSource` interior seeds, a feature-graded fill routes the `Octree` hex recursion under origin-relative double-precision welding, a sweepable prism routes `Sweep` extrusion of the constrained 2-D Delaunay footprint section into one prism per section triangle per layer, and a floor-walled domain routes `Inflation` prism layers offset along PER-NODE averaged wall normals under first-layer thickness × growth ratio; every core filters cells by the indexed `Encloses` parity ray and packs the `DiscreteMesh` whose conformity the build MEASURED; `Sample` evaluates the `ShapeFamily` arm — Polynomial reads the lazily-memoized per-class Vandermonde coefficient matrix `(N_i = Σ_m C[m,i]·P_m(ξ))` and its monomial derivatives, Reduced reads the explicit serendipity corner/midside formulas, Pyramid the rational apex basis — then maps reference derivatives through the inline `dim×dim` Jacobian inverse to physical `∂N/∂x` and the determinant; `Refine` reads the per-cell error estimator and marks the cells whose estimator exceeds the policy fraction by the Dörfler bulk criterion, then either red-subdivides (h) the marked set expanded to its edge-conforming closure — any cell sharing a split edge joins the set to a fixpoint unless the mortar column carries the hanging node — or globally order-elevates (p) the element order — the marked set drives the hp routing decision while a uniform-order mesh elevates wholesale — through the shared edge-midpoint map so the interior stays conforming and a hanging node rides the mortar column only when the policy sets it; `Quality` folds the requested `MeshMetric` over the element set through the element class's `Metric` delegate, never a per-call recompute.
 - Receipt: the `Discretization` `ComputeReceipt` case carries the algorithm key, element-class key, node and element counts, the boundary-layer count, the worst-element quality scalar, the chosen metric key, and elapsed; `Refine` stamps the refinement level, the marked-cell count, the marking fraction, and the post-refine error estimator on the same case so an adaptive sweep is one receipt chain by correlation.
 - Packages: Rasm (project), MathNet.Numerics, CommunityToolkit.HighPerformance, System.Numerics.Tensors, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
-- Growth: a new element topology is one `ElementClass` row carrying its `ShapeFamily`, reference-node table, monomial space, corner/edge/face tables, and its `(ReferenceElement, IntegrationOrder)` pair; a new generation strategy is one `MeshAlgorithm` row carrying its `MeshStrategy`/`PointSource` columns and its core; a new quality measure is one `MeshMetric` row carrying its per-element delegate; a new field rank is one `FieldSpace` rank row; a higher-order Gauss rule is one entry on the kernel `ReferenceElement` ladder and lifts every element declaring that order with zero edits here; zero new surface.
-- Boundary: the mesher is the volumetric discretization owner the FEA/CFD solve consumes — the boundary triangulation enters as the `BoundaryShell` triangle soup the host `Mesh.CreateFromBrep(brep, MeshingParameters)` tessellation produces — wrapped through the `Rasm.Meshing` `MeshSpace.Of(Mesh, Context)` owner (the `Brep` coerced via the `Rasm` `Domain` `GeometryRequest.BrepForm` owner) and flattened to the `Vertices`/`Triangles` soup at the boundary through `DuplicateNative().Vertices.ToFloatArray()` and `DuplicateNative().Faces.ToIntArray(asTriangles: true)` — and the inclusion test is the owned ray-cast, so this kernel never re-derives a surface mesher and never leaks a host geometry type into a solve signature; the element shape functions and `B`-matrix are the `ElementClass.Sample` isoparametric evaluation dispatching on `ShapeFamily` — the Polynomial arm collapses tet4/tet10/hex8/hex27/wedge6/wedge18/tri3/tri6/quad4 onto one Vandermonde monomial mechanism keyed by the per-row reference-node table and `Monomial` space (a singular per-element shape-function reimplementation is the deleted form, and the prior single trilinear stencil reused across every curvilinear topology is the named illusory defect), the Reduced arm carries the explicit quad8/hex20 serendipity corner/midside formulas, and the Pyramid arm the rational apex basis whose `(1−ζ)` denominator the conical quadrature avoids; the element owns its integration scaling — `Sample.DetJ` is the Jacobian determinant the assembly weights each Gauss point by, never a centroid-volume approximation; the quadrature is the kernel `ReferenceElement` row's own symmetric/tensor table (triangle/tet area-volume coordinates, `[-1,1]` cube tensor Gauss, triangle⊗line prism, conical pyramid), reached by declaring the reference domain and the integration ORDER rather than naming a rule constant, so a 2-D element can never index a 3-D rule (the row family is closed over its own dimension), a per-element runtime `GaussLegendreRule(−1, 1, order)` construction has no site, and a full-versus-reduced integration decision is one column edit on the element row instead of a second table; the rule memoizes per class beside the Vandermonde coefficients because `Quadrature.Points` is read once per cell per Gauss point in the assembly fold; the quality measure is the closed Verdict `MeshMetric` SmartEnum read once through the element class's `Metric` delegate over the real corner-Jacobian, edge-length, face-angle, and dihedral topology, never a per-call recompute, never the first-four-nodes slice, and never a parallel quality type; the generation strategy is real per row — Bowyer-Watson incremental Delaunay with the orientation-robust in-sphere predicate, graded octree recursion, boundary-cross-section sweep extrusion, and wall-normal anisotropic inflation — so the prior bounding-box voxelization masquerading as six unstructured meshers is the deleted form; adaptive refinement is conforming red subdivision through the shared edge-midpoint map by default and non-conforming only when the policy mortar column is set, a hanging node without a constraint row is the rejected form, and the prior cell-duplication subdivision is the named fake; the mesh is solve-native raw SI `double` (the typed `MeasureValue`/`Dimension` vocabulary lives at the `Rasm.Element/Properties/quantity#MEASURE_VALUE` seam and is admitted once upstream, never threaded through this hot numeric kernel); the metric reductions ride the `Tensor/dispatch#KERNEL_DISPATCH` `TensorPrimitives.Min`/`Max` SIMD folds over the flat per-element span, MathNet factors only the cold per-class Vandermonde inverse, the in-sphere/orientation SIGN DECISIONS route the kernel `Rasm/Numerics/predicates` coordinate-level exact cores (`Predicate.Orient3D`/`Predicate.InSphere` over raw double tuples with the `Sign.Times` orientation-normalization fold — near-coplanar/cocircular building geometry decides exactly, and the float `Orient`/`InSphere`/`Det4` sign path is the deleted re-owned-kernel-geometry defect), the local boundary carrier is `BoundaryShell` — named OFF the kernel Vectors `MeshSpace` it flattens from (a re-declared soup carrier under a frozen kernel type's name is the deleted form) — and the inline `dim×dim` Jacobian inverse is this page's named kernel exemption.
+- Growth: a new element topology is one `ElementClass` row carrying its `ShapeFamily`, reference-node table, monomial space, corner/edge/face tables, and its `(ReferenceElement, IntegrationOrder)` pair; a new generation strategy is one `MeshAlgorithm` row carrying its `MeshStrategy`/`PointSource`/base-element columns and its core; a new quality measure is one `MeshMetric` row carrying its per-element delegate; a new field rank is one `FieldSpace` rank row; a higher-order Gauss rule is one entry on the kernel `ReferenceElement` ladder and lifts every element declaring that order with zero edits here; zero new surface.
+- Boundary: the mesher is the volumetric discretization owner the FEA/CFD solve consumes — the boundary triangulation enters as the `BoundaryShell` triangle soup the host `Mesh.CreateFromBrep(brep, MeshingParameters)` tessellation produces — wrapped through the `Rasm.Meshing` `MeshSpace.Of(Mesh, Context)` owner (the `Brep` coerced via the `Rasm` `Domain` `GeometryRequest.BrepForm` owner) and flattened to the `Vertices`/`Triangles` soup at the boundary through `DuplicateNative().Vertices.ToFloatArray()` and `DuplicateNative().Faces.ToIntArray(asTriangles: true)` — and the inclusion test is the owned ray-cast, so this kernel never re-derives a surface mesher and never leaks a host geometry type into a solve signature.
+- Boundary: inclusion is ONE `ShellIndex` per `Discretize`, threaded to every core: the shell is immutable across a generation while seeding, octree recursion, and section rasterization each drive millions of probes, so a per-probe scan over the whole triangle soup makes generation quadratic in the boundary it meshes. `BoundaryShell.Validate` proves the soup closed, manifold, and consistently wound before the index builds, which is what makes an odd crossing count interiority rather than a heuristic. `ShellIndex` stays this page's owner by query shape, never package availability — the `Solver/clash#CLASH_AND_TWIN` `AccelerationStructure` answers boolean occlusion over admitted host-typed scenes while generation needs a parity-crossing COUNT over its own shell facets, and widening the clash surface to serve one sibling's interior couples two lanes the strata keep separate; the two-owner split mirrors the folder's standing two-funnel adjudications.
+- Boundary: conformity is MEASURED on the built mesh, never inherited from an algorithm row's declared intent — the octree weld counts the nodes sitting mid-edge of a coarser neighbour and the entry refuses a mesh carrying them unless the mortar column does, because a hanging node without a constraint row is a solve whose interface equations are silently absent. Weld keys quantize in double precision relative to the shell's own origin, so a model in a site coordinate system welds by its extent instead of losing the deciding bits to coordinate magnitude.
+- Boundary: the element shape functions and `B`-matrix are the `ElementClass.Sample` isoparametric evaluation dispatching on `ShapeFamily` — the Polynomial arm collapses tet4/tet10/hex8/hex27/wedge6/wedge18/tri3/tri6/quad4 onto one Vandermonde monomial mechanism keyed by the per-row reference-node table and `Monomial` space (a singular per-element shape-function reimplementation is the deleted form, and the prior single trilinear stencil reused across every curvilinear topology is the named illusory defect), the Reduced arm carries the explicit quad8/hex20 serendipity corner/midside formulas, and the Pyramid arm the rational apex basis whose `(1−ζ)` denominator the conical quadrature avoids.
+- Boundary: the element owns its integration scaling — `Sample.DetJ` is the Jacobian determinant the assembly weights each Gauss point by, never a centroid-volume approximation; the quadrature is the kernel `ReferenceElement` row's own symmetric/tensor table (triangle/tet area-volume coordinates, `[-1,1]` cube tensor Gauss, triangle⊗line prism, conical pyramid), reached by declaring the reference domain and the integration ORDER rather than naming a rule constant, so a 2-D element can never index a 3-D rule (the row family is closed over its own dimension), a per-element runtime `GaussLegendreRule(−1, 1, order)` construction has no site, and a full-versus-reduced integration decision is one column edit on the element row instead of a second table; the rule memoizes per class beside the Vandermonde coefficients because `Quadrature.Points` is read once per cell per Gauss point in the assembly fold — both memos are row-keyed concurrent tables, since a row is one process-wide static the PARALLEL cell assembly reads from many threads and a null-coalescing field there publishes a half-built table to whichever thread lost the race.
+- Boundary: the quality measure is the closed Verdict `MeshMetric` SmartEnum read once through the element class's `Metric` delegate over the real corner-Jacobian, edge-length, face-angle, and dihedral topology, never a per-call recompute, never the first-four-nodes slice, and never a parallel quality type. The quality gate runs over the WHOLE element set before any sample is taken, so the corner frame reads the incident edges its own topology table declares and neither Jacobian inverse substitutes a floor for a vanishing determinant — a substituted pivot under a named refusal can only launder a mesh that never admitted.
+- Boundary: the generation strategy is real per row — Bowyer-Watson incremental Delaunay with the orientation-robust in-sphere predicate, graded octree recursion, boundary-cross-section sweep extrusion, and wall-normal anisotropic inflation — so the prior bounding-box voxelization masquerading as six unstructured meshers is the deleted form, and the sweep and inflation sections are the shell's own triangulated footprint and wall facets rather than a lattice that coincides with the boundary only for a box; adaptive refinement is conforming red subdivision through the shared edge-midpoint map by default and non-conforming only when the policy mortar column is set, a hanging node without a constraint row is the rejected form, and the prior cell-duplication subdivision is the named fake. The edge-conforming closure walks a dirty-cell worklist over an edge→cells incidence map so each cell enters once, and p-refinement elevates one declared order per row while a row already at its highest carries unchanged — a terminal row elevating to itself is how a fully-elevated mesh stays a mesh instead of failing.
+- Boundary: the mesh is solve-native raw SI `double` (the typed `MeasureValue`/`Dimension` vocabulary lives at the `Rasm.Element/Properties/quantity#MEASURE_VALUE` seam and is admitted once upstream, never threaded through this hot numeric kernel); the metric reductions ride the `Tensor/dispatch#KERNEL_DISPATCH` `TensorPrimitives.Min`/`Max` SIMD folds over the flat per-element span, MathNet factors only the cold per-class Vandermonde inverse, the in-sphere/orientation SIGN DECISIONS route the kernel `Rasm/Numerics/predicates` coordinate-level exact cores (`Predicate.Orient3D`/`Predicate.InSphere` over raw double tuples with the `Sign.Times` orientation-normalization fold — near-coplanar/cocircular building geometry decides exactly, and the float `Orient`/`InSphere`/`Det4` sign path is the deleted re-owned-kernel-geometry defect), the local boundary carrier is `BoundaryShell` — named OFF the kernel Vectors `MeshSpace` it flattens from (a re-declared soup carrier under a frozen kernel type's name is the deleted form) — and the inline `dim×dim` Jacobian inverse is this page's named kernel exemption. The planar section decides through the SAME exact core: its orientation lifts the query point off the triangle's plane and its in-circle test is a 3-D orientation on the paraboloid, so no second sign path enters the page.
+- Boundary: hot-path allocation is bounded where the fold is per cell — the nodal gather writes a per-thread scratch buffer live until that thread's next gather, and face identity is a packed sorted-node-id key rather than a formatted string, which the boundary fold and the refinement midpoint map both read. A string key allocates twice per face per cell and compares character by character where the packed key compares in registers.
 
 ```csharp signature
 // --- [TYPES] ----------------------------------------------------------------------------
@@ -32,24 +40,25 @@ public sealed partial class ShapeFamily {
     public partial ShapeSample Sample(ElementClass element, (double X, double Y, double Z) natural, ReadOnlySpan<double> nodalXyz);
 }
 
+// Every core reads the ONE inclusion index the entry built, so no fill re-derives the shell's interior test.
 [SmartEnum]
 public sealed partial class MeshStrategy {
-    public static readonly MeshStrategy Delaunay = new(static (boundary, policy) => DelaunayCore.Fill(boundary, policy));
-    public static readonly MeshStrategy Octree = new(static (boundary, policy) => OctreeCore.Fill(boundary, policy));
-    public static readonly MeshStrategy Sweep = new(static (boundary, policy) => SweepCore.Fill(boundary, policy));
-    public static readonly MeshStrategy Inflation = new(static (boundary, policy) => InflationCore.Fill(boundary, policy));
+    public static readonly MeshStrategy Delaunay = new(static (boundary, index, policy) => DelaunayCore.Fill(boundary, index, policy));
+    public static readonly MeshStrategy Octree = new(static (boundary, index, policy) => OctreeCore.Fill(boundary, index, policy));
+    public static readonly MeshStrategy Sweep = new(static (boundary, index, policy) => SweepCore.Fill(boundary, index, policy));
+    public static readonly MeshStrategy Inflation = new(static (boundary, index, policy) => InflationCore.Fill(boundary, index, policy));
 
     [UseDelegateFromConstructor]
-    public partial MeshBuild Fill(BoundaryShell boundary, MeshPolicy policy);
+    public partial MeshBuild Fill(BoundaryShell boundary, ShellIndex index, MeshPolicy policy);
 }
 
 // PointSource rows are SEEDING-DENSITY gradations of the ONE Bowyer-Watson fill — `Frontal` densifies to
 // 0.75× spacing and `Front` grades by ratio; neither row evolves a front, queues local features, or recovers
-// boundary facets, and the MeshAlgorithm rows binding them state exactly that.
+// boundary facets, and the MeshAlgorithm rows binding them state exactly that. `Uniform` is the single row for
+// every seed that takes the target spacing unchanged — two rows carrying one identity delegate are one row.
 [SmartEnum]
 public sealed partial class PointSource {
-    public static readonly PointSource Boundary = new(static (target, _) => target);
-    public static readonly PointSource Lattice = new(static (target, _) => target);
+    public static readonly PointSource Uniform = new(static (target, _) => target);
     public static readonly PointSource Frontal = new(static (target, _) => target * 0.75);
     public static readonly PointSource Front = new(static (target, grading) => target * grading);
 
@@ -145,14 +154,19 @@ public sealed partial class ElementClass {
 
     public int Nodes => Reference.Length;
     public ElementClass Elevate => elevate();
-    // Memoized beside the Vandermonde inverse: the assembly fold reads Points once per cell per Gauss point,
-    // so the election runs once per class rather than once per read.
-    public QuadratureRule Quadrature => quadrature ??= ReferenceDomain.Rule(order: IntegrationOrder);
+    // Row-keyed memo tables, co-located with the rows they serve: the assembly fold reads the rule and the
+    // coefficient matrix once per cell per Gauss point, so each derivation runs once per class rather than once per
+    // read. A row is one process-wide static the PARALLEL cell assembly reads from many threads at once, and a
+    // null-coalescing mutable field there publishes a half-built table to whichever thread lost the race — both
+    // derivations are pure functions of the row, so a concurrent double-build costs one wasted table and publishes
+    // exactly one.
+    static readonly ConcurrentDictionary<ElementClass, QuadratureRule> Rules = new();
+    static readonly ConcurrentDictionary<ElementClass, double[,]> Vandermondes = new();
+
+    public QuadratureRule Quadrature => Rules.GetOrAdd(this, static row => row.ReferenceDomain.Rule(order: row.IntegrationOrder));
 
     private readonly Func<ElementClass> elevate;
-    private QuadratureRule? quadrature;
-    private double[,]? coefficients;
-    private double[,] Coefficients => coefficients ??= Topology.Vandermonde(Reference, Basis);
+    private double[,] Coefficients => Vandermondes.GetOrAdd(this, static row => Topology.Vandermonde(row.Reference, row.Basis));
 
     public ShapeSample Sample((double X, double Y, double Z) natural, ReadOnlySpan<double> nodalXyz) => Family.Sample(this, natural, nodalXyz);
 
@@ -337,18 +351,21 @@ public sealed partial class MeshAlgorithm {
     // `frontal-delaunay` and `advancing-front` are density presets over the one Delaunay core — front-quality
     // seeding, honest about carrying no front-evolution machinery; a true cavity-scheduled front is a new
     // MeshStrategy core, never a rename of these rows.
-    public static readonly MeshAlgorithm Delaunay = new("delaunay", conforming: true, MeshStrategy.Delaunay, PointSource.Lattice);
-    public static readonly MeshAlgorithm FrontalDelaunay = new("frontal-delaunay", conforming: true, MeshStrategy.Delaunay, PointSource.Frontal);
-    public static readonly MeshAlgorithm AdvancingFront = new("advancing-front", conforming: true, MeshStrategy.Delaunay, PointSource.Front);
-    public static readonly MeshAlgorithm Octree = new("octree", conforming: false, MeshStrategy.Octree, PointSource.Boundary);
-    public static readonly MeshAlgorithm Sweep = new("sweep", conforming: true, MeshStrategy.Sweep, PointSource.Boundary);
-    public static readonly MeshAlgorithm BoundaryLayer = new("boundary-layer", conforming: true, MeshStrategy.Inflation, PointSource.Boundary);
+    public static readonly MeshAlgorithm Delaunay = new("delaunay", conforming: true, MeshStrategy.Delaunay, PointSource.Uniform, ElementClass.Tet4);
+    public static readonly MeshAlgorithm FrontalDelaunay = new("frontal-delaunay", conforming: true, MeshStrategy.Delaunay, PointSource.Frontal, ElementClass.Tet4);
+    public static readonly MeshAlgorithm AdvancingFront = new("advancing-front", conforming: true, MeshStrategy.Delaunay, PointSource.Front, ElementClass.Tet4);
+    public static readonly MeshAlgorithm Octree = new("octree", conforming: false, MeshStrategy.Octree, PointSource.Uniform, ElementClass.Hex8);
+    // Sweep and inflation both extrude the ONE triangulated section, so both emit prisms; a hex row over those
+    // cores would demand a quadrangulated section neither core builds.
+    public static readonly MeshAlgorithm Sweep = new("sweep", conforming: true, MeshStrategy.Sweep, PointSource.Uniform, ElementClass.Wedge6);
+    public static readonly MeshAlgorithm BoundaryLayer = new("boundary-layer", conforming: true, MeshStrategy.Inflation, PointSource.Uniform, ElementClass.Wedge6);
 
     public bool Conforming { get; }
     public MeshStrategy Strategy { get; }
     public PointSource Seed { get; }
-
-    public ElementClass BaseElement => Strategy == MeshStrategy.Delaunay ? ElementClass.Tet4 : ElementClass.Hex8;
+    // The base element is the ROW's own column: two rows sharing a core can still emit different topologies, and
+    // deriving the element from the core forces every such row to lie about one of them.
+    public ElementClass BaseElement { get; }
 }
 
 [SmartEnum<string>]
@@ -426,12 +443,68 @@ public sealed record BoundaryShell(ReadOnlyMemory<float> Vertices, ReadOnlyMemor
         }
     }
 
+}
+
+// ONE inclusion index per Discretize call, threaded to every core. The parity ray runs along +X, so a triangle can
+// only be crossed by probes whose (Y, Z) lies inside that triangle's own (Y, Z) extent: the index bins each triangle
+// into the YZ cells it spans and a probe tests one cell's candidates. Seeding, octree recursion, and section
+// rasterization each drive millions of probes against one shell, so a per-probe scan over every triangle makes
+// generation quadratic in the boundary it is meshing — the cost the index exists to remove, not a micro-optimization.
+public sealed class ShellIndex {
+    readonly BoundaryShell shell;
+    readonly int[] cellStart;
+    readonly int[] cellTriangles;
+    readonly int rows, columns;
+    readonly float originY, originZ, cellY, cellZ;
+
+    ShellIndex(BoundaryShell shell, int rows, int columns, float originY, float originZ, float cellY, float cellZ, int[] cellStart, int[] cellTriangles) {
+        this.shell = shell; this.rows = rows; this.columns = columns;
+        this.originY = originY; this.originZ = originZ; this.cellY = cellY; this.cellZ = cellZ;
+        this.cellStart = cellStart; this.cellTriangles = cellTriangles;
+    }
+
+    // Counting-sort bin fill: one pass counts each triangle's cell span, the prefix sum lays the ranges out, and the
+    // second pass writes ids — so the index is two passes and one flat pair of arrays rather than a list per cell.
+    public static ShellIndex Of(BoundaryShell shell) {
+        Aabb box = shell.Bounds;
+        int side = Math.Max(1, (int)Math.Ceiling(Math.Sqrt(shell.TriangleCount)));
+        float cellY = Math.Max(box.Span.Y, 1e-6f) / side, cellZ = Math.Max(box.Span.Z, 1e-6f) / side;
+        int[] start = new int[side * side + 1];
+        for (int triangle = 0; triangle < shell.TriangleCount; triangle++) {
+            (int loRow, int hiRow, int loColumn, int hiColumn) = Cells(shell, triangle, box, cellY, cellZ, side);
+            for (int row = loRow; row <= hiRow; row++)
+                for (int column = loColumn; column <= hiColumn; column++) { start[row * side + column + 1]++; }
+        }
+        for (int cell = 0; cell < side * side; cell++) { start[cell + 1] += start[cell]; }
+        int[] cursor = (int[])start.Clone();
+        int[] ids = new int[start[^1]];
+        for (int triangle = 0; triangle < shell.TriangleCount; triangle++) {
+            (int loRow, int hiRow, int loColumn, int hiColumn) = Cells(shell, triangle, box, cellY, cellZ, side);
+            for (int row = loRow; row <= hiRow; row++)
+                for (int column = loColumn; column <= hiColumn; column++) { ids[cursor[row * side + column]++] = triangle; }
+        }
+        return new(shell, side, side, box.Lo.Y, box.Lo.Z, cellY, cellZ, start, ids);
+    }
+
+    static (int LoRow, int HiRow, int LoColumn, int HiColumn) Cells(BoundaryShell shell, int triangle, Aabb box, float cellY, float cellZ, int side) {
+        ReadOnlySpan<int> triangles = shell.Triangles.Span;
+        Vector3 a = shell.Vertex(triangles[triangle * 3]), b = shell.Vertex(triangles[triangle * 3 + 1]), c = shell.Vertex(triangles[triangle * 3 + 2]);
+        (int loRow, int hiRow) = Range(Math.Min(a.Z, Math.Min(b.Z, c.Z)), Math.Max(a.Z, Math.Max(b.Z, c.Z)), box.Lo.Z, cellZ, side);
+        (int loColumn, int hiColumn) = Range(Math.Min(a.Y, Math.Min(b.Y, c.Y)), Math.Max(a.Y, Math.Max(b.Y, c.Y)), box.Lo.Y, cellY, side);
+        return (loRow, hiRow, loColumn, hiColumn);
+    }
+
+    // Ray parity along +X over one bin's candidates. `BoundaryShell.Validate` proved the soup closed, manifold, and
+    // consistently wound before any index built, so an odd crossing count IS interiority.
     public bool Encloses(Vector3 p) {
-        ReadOnlySpan<int> tri = Triangles.Span;
+        int row = Cell(p.Z, originZ, cellZ, rows), column = Cell(p.Y, originY, cellY, columns);
+        if (row < 0 || column < 0) { return false; }
+        ReadOnlySpan<int> triangles = shell.Triangles.Span;
         Vector3 dir = Vector3.UnitX;
-        int crossings = 0;
-        for (int t = 0; t < tri.Length; t += 3) {
-            Vector3 a = Vertex(tri[t]), e1 = Vertex(tri[t + 1]) - a, e2 = Vertex(tri[t + 2]) - a, h = Vector3.Cross(dir, e2);
+        int crossings = 0, cell = row * columns + column;
+        for (int slot = cellStart[cell]; slot < cellStart[cell + 1]; slot++) {
+            int t = cellTriangles[slot] * 3;
+            Vector3 a = shell.Vertex(triangles[t]), e1 = shell.Vertex(triangles[t + 1]) - a, e2 = shell.Vertex(triangles[t + 2]) - a, h = Vector3.Cross(dir, e2);
             float det = Vector3.Dot(e1, h);
             if (Math.Abs(det) < 1e-9f) { continue; }
             float inv = 1f / det;
@@ -442,6 +515,14 @@ public sealed record BoundaryShell(ReadOnlyMemory<float> Vertices, ReadOnlyMemor
             if (Vector3.Dot(e2, q) * inv > 1e-9f) { crossings++; }
         }
         return (crossings & 1) == 1;
+    }
+
+    static (int Lo, int Hi) Range(float lo, float hi, float origin, float size, int side) =>
+        (Math.Clamp((int)((lo - origin) / size), 0, side - 1), Math.Clamp((int)((hi - origin) / size), 0, side - 1));
+
+    static int Cell(float value, float origin, float size, int side) {
+        int index = (int)((value - origin) / size);
+        return index >= 0 && index < side ? index : index < 0 ? -1 : side - 1;
     }
 }
 
@@ -484,15 +565,20 @@ public sealed record MeshPolicy(
         TargetEdgeLength: 0.05, GradingRatio: 1.4, BoundaryLayerCount: 0, BoundaryLayerGrowth: 1.2,
         FirstLayerThickness: 0.001, RefineFraction: 0.1, RefineAxis: RefineKind.H, MaxRefineLevel: 4, QualityFloor: 0.02, Mortar: false);
     public static readonly MeshPolicy CanonicalViscous = CanonicalTet with {
-        Algorithm = MeshAlgorithm.BoundaryLayer, Element = ElementClass.Hex8, BoundaryLayerCount = 12 };
+        Algorithm = MeshAlgorithm.BoundaryLayer, Element = ElementClass.Wedge6, BoundaryLayerCount = 12 };
     public static readonly MeshPolicy CanonicalHp = CanonicalTet with { RefineAxis = RefineKind.Hp, Metric = MeshMetric.Condition, QualityFloor = 50.0 };
 
+    // The refusal names the AXIS that failed and the key it was handed, never the roster sizes: a count tells the
+    // caller nothing it can act on and turns every admitted row into an edit to this message.
     public static Fin<MeshPolicy> OfKeys(MeshPolicy template, string algorithm, string element, string metric) {
-        if (!MeshAlgorithm.TryGet(algorithm, out MeshAlgorithm resolvedAlgorithm)
-            || !ElementClass.TryGet(element, out ElementClass resolvedElement)
-            || !MeshMetric.TryGet(metric, out MeshMetric resolvedMetric)) {
-            return Fin.Fail<MeshPolicy>(new ComputeFault.ModelRejected(
-                $"<mesh-vocabulary-key:{algorithm}/{element}/{metric}:algorithms={MeshAlgorithm.Items.Count}:elements={ElementClass.Items.Count}:metrics={MeshMetric.Items.Count}>"));
+        if (!MeshAlgorithm.TryGet(algorithm, out MeshAlgorithm resolvedAlgorithm)) {
+            return Fin.Fail<MeshPolicy>(new ComputeFault.ModelRejected($"<mesh-vocabulary-key:algorithm:{algorithm}>"));
+        }
+        if (!ElementClass.TryGet(element, out ElementClass resolvedElement)) {
+            return Fin.Fail<MeshPolicy>(new ComputeFault.ModelRejected($"<mesh-vocabulary-key:element:{element}>"));
+        }
+        if (!MeshMetric.TryGet(metric, out MeshMetric resolvedMetric)) {
+            return Fin.Fail<MeshPolicy>(new ComputeFault.ModelRejected($"<mesh-vocabulary-key:metric:{metric}>"));
         }
         MeshPolicy resolved = template with { Algorithm = resolvedAlgorithm, Element = resolvedElement, Metric = resolvedMetric };
         return resolved.Validate().Map(_ => resolved);
@@ -535,16 +621,23 @@ public sealed record DiscreteMesh(
     public ReadOnlySpan<float> Coordinates => Nodes.Span;
     public ReadOnlySpan<long> Indices => Connectivity.Span;
 
+    // The gather writes into a PER-THREAD scratch buffer: the assembly, the metric fold, and the inertia scatter each
+    // call this once per cell over a parallel range, so a fresh array per call is one allocation per cell per pass.
+    // The returned span is live only until this thread's next gather — every consumer reads it inside the same cell
+    // iteration, which is exactly the contract that makes the buffer reusable.
+    [ThreadStatic]
+    static double[]? scratch;
+
     public ReadOnlySpan<double> NodalXyz(long element) {
         ReadOnlySpan<long> conn = Indices;
         ReadOnlySpan<float> pos = Coordinates;
         int per = Element.Nodes;
-        double[] xyz = new double[per * 3];
+        double[] xyz = scratch is { } held && held.Length >= per * 3 ? held : scratch = new double[per * 3];
         for (int v = 0; v < per; v++) {
             long node = conn[(int)(element * per + v)];
             xyz[v * 3] = pos[(int)node * 3]; xyz[v * 3 + 1] = pos[(int)node * 3 + 1]; xyz[v * 3 + 2] = pos[(int)node * 3 + 2];
         }
-        return xyz;
+        return xyz.AsSpan(0, per * 3);
     }
 
     static int Components(int rank, int dim) => rank switch { 0 => 1, 1 => dim, _ => dim * dim };
@@ -556,8 +649,16 @@ public static class MeshKernel {
     public static Fin<DiscreteMesh> Discretize(BoundaryShell boundary, MeshPolicy policy, IClock clock) =>
         from boundaryValid in boundary.Validate()
         from policyValid in policy.Validate()
-        from built in Try.lift(() => Generate(boundary, policy)).Run()
+        // The index builds ONCE and every core probes it — the shell is immutable across the whole generation, so a
+        // core building its own would pay the same fill per strategy leg.
+        from built in Try.lift(() => Generate(boundary, ShellIndex.Of(boundary), policy)).Run()
             .MapFail(static error => (Error)new ComputeFault.ModelRejected($"<mesh-generation-failed:{error.Message}>"))
+        // Conformity is MEASURED on the built mesh, never inherited from the algorithm row's intent: a graded fill
+        // leaves hanging nodes wherever depth changes, and a mesh carrying them without a mortar constraint row is
+        // a solve whose interface equations are silently absent.
+        from conforming in built.Conforming || policy.Mortar
+            ? Fin.Succ(built)
+            : Fin.Fail<MeshBuild>(new ComputeFault.ModelRejected($"<mesh-hanging-nodes:{policy.Algorithm.Key}:{built.HangingNodes}>"))
         from admitted in policy.Metric.Admits(built.Quality, policy.QualityFloor)
             ? Fin.Succ(Pack(built, policy, refineLevel: 0, None, clock.GetCurrentInstant()))
             : Fin.Fail<DiscreteMesh>(new ComputeFault.ModelRejected($"<mesh-quality-rejected:{policy.Element.Key}:q={built.Quality:e3}>"))
@@ -600,7 +701,7 @@ public static class MeshKernel {
             Scope = new ReceiptScope.Execution(correlation, WorkLane.Background, Substrate.CpuTensor, AllocationClass.PooledMemory, elapsed),
         };
 
-    static MeshBuild Generate(BoundaryShell boundary, MeshPolicy policy) => policy.Algorithm.Strategy.Fill(boundary, policy);
+    static MeshBuild Generate(BoundaryShell boundary, ShellIndex index, MeshPolicy policy) => policy.Algorithm.Strategy.Fill(boundary, index, policy);
 
     static double DorflerThreshold(ReadOnlySpan<double> cellError, double bulkFraction) {
         if (cellError.Length == 0) { return double.MaxValue; }
@@ -659,50 +760,52 @@ public static class MeshKernel {
         return new(mesh.Element, refine.Nodes(), cells, cells.Count / per, refine.Count, mesh.BoundaryLayers).Scored(policy.Metric);
     }
 
+    // Edge-conforming closure as a DIRTY-CELL worklist over an edge→cells incidence map: splitting a cell's edges
+    // enqueues exactly the cells sharing them, and each cell enters the queue once. The rescan form re-walked every
+    // cell in the mesh per fixpoint round, so one deep propagation chain cost rounds × cells edge tests on a mesh
+    // where the marked set is a fraction of a percent.
     static Seq<int> Closed(DiscreteMesh mesh, Seq<int> marked) {
         ReadOnlySpan<long> conn = mesh.Indices;
-        int per = mesh.Element.Nodes;
-        HashSet<int> active = [.. marked];
-        HashSet<(long Lo, long Hi)> split = [];
-        foreach (int cell in marked) {
+        int per = mesh.Element.Nodes, cells = checked((int)mesh.ElementCount);
+        Dictionary<(long Lo, long Hi), List<int>> incident = new(cells * mesh.Element.Edges.Length);
+        for (int cell = 0; cell < cells; cell++) {
             foreach ((int a, int b) in mesh.Element.Edges) {
-                long lo = conn[cell * per + a], hi = conn[cell * per + b];
-                split.Add(lo < hi ? (lo, hi) : (hi, lo));
+                (long Lo, long Hi) edge = Edge(conn[cell * per + a], conn[cell * per + b]);
+                if (!incident.TryGetValue(edge, out List<int>? sharing)) { incident[edge] = sharing = new(2); }
+                sharing.Add(cell);
             }
         }
-        for (bool grew = true; grew;) {
-            grew = false;
-            for (int cell = 0; cell < mesh.ElementCount; cell++) {
-                if (active.Contains(cell)) { continue; }
-                foreach ((int a, int b) in mesh.Element.Edges) {
-                    long lo = conn[cell * per + a], hi = conn[cell * per + b];
-                    if (!split.Contains(lo < hi ? (lo, hi) : (hi, lo))) { continue; }
-                    active.Add(cell);
-                    foreach ((int c, int d) in mesh.Element.Edges) {
-                        long fromNode = conn[cell * per + c], toNode = conn[cell * per + d];
-                        split.Add(fromNode < toNode ? (fromNode, toNode) : (toNode, fromNode));
-                    }
-                    grew = true;
-                    break;
+        HashSet<int> active = [.. marked];
+        HashSet<(long Lo, long Hi)> split = [];
+        Queue<int> dirty = new(active);
+        while (dirty.Count > 0) {
+            int cell = dirty.Dequeue();
+            foreach ((int a, int b) in mesh.Element.Edges) {
+                (long Lo, long Hi) edge = Edge(conn[cell * per + a], conn[cell * per + b]);
+                if (!split.Add(edge)) { continue; }
+                foreach (int neighbour in incident[edge]) {
+                    if (active.Add(neighbour)) { dirty.Enqueue(neighbour); }
                 }
             }
         }
         return toSeq(active.OrderBy(static cell => cell));
     }
 
+    static (long Lo, long Hi) Edge(long a, long b) => a < b ? (a, b) : (b, a);
+
     static MeshBuild Carry(DiscreteMesh mesh, MeshPolicy policy) =>
         new(mesh.Element, [.. mesh.Coordinates], [.. mesh.Indices], mesh.ElementCount, mesh.NodeCount, mesh.BoundaryLayers).Scored(policy.Metric);
 }
 
 public static class DelaunayCore {
-    public static MeshBuild Fill(BoundaryShell boundary, MeshPolicy policy) {
-        List<Vector3> points = Seed(boundary, policy);
+    public static MeshBuild Fill(BoundaryShell boundary, ShellIndex index, MeshPolicy policy) {
+        List<Vector3> points = Seed(boundary, index, policy);
         List<(int A, int B, int C, int D)> tets = Triangulate(points);
         List<long> kept = new(tets.Count * 4);
         int cells = 0;
         foreach ((int a, int b, int c, int d) in tets) {
             Vector3 centroid = (points[a] + points[b] + points[c] + points[d]) * 0.25f;
-            if (!boundary.Encloses(centroid)) { continue; }
+            if (!index.Encloses(centroid)) { continue; }
             (int x, int y) = Topology.Orient(points[a], points[b], points[c], points[d]) ? (b, c) : (c, b);
             kept.AddRange([a, x, y, d]); cells++;
         }
@@ -711,7 +814,7 @@ public static class DelaunayCore {
         return new(policy.Element, flat, kept, cells, points.Count, 0).Scored(policy.Metric);
     }
 
-    static List<Vector3> Seed(BoundaryShell boundary, MeshPolicy policy) {
+    static List<Vector3> Seed(BoundaryShell boundary, ShellIndex index, MeshPolicy policy) {
         List<Vector3> points = new(boundary.VertexCount);
         for (int v = 0; v < boundary.VertexCount; v++) { points.Add(boundary.Vertex(v)); }
         Aabb box = boundary.Bounds;
@@ -720,9 +823,62 @@ public static class DelaunayCore {
             for (float y = box.Lo.Y + (float)edge; y < box.Hi.Y; y += (float)edge)
                 for (float x = box.Lo.X + (float)edge; x < box.Hi.X; x += (float)edge) {
                     Vector3 p = new(x, y, z);
-                    if (boundary.Encloses(p)) { points.Add(p); }
+                    if (index.Encloses(p)) { points.Add(p); }
                 }
         return points;
+    }
+
+    // The 2-D specialization of the SAME Bowyer-Watson core the volumetric fill runs: one super-triangle, one
+    // in-circle test per insertion, the cavity's single-count boundary edges re-fanned to the inserted point. The
+    // section is CONSTRAINED by centroid inclusion — a triangle whose centre lies outside the footprint is dropped,
+    // so a re-entrant footprint loses the triangles spanning its concavity rather than recovering the edge; genuine
+    // edge recovery is a new core, never a rename of this one.
+    public static (List<Vector2> Points, List<(int A, int B, int C)> Triangles) Section(BoundaryShell boundary, ShellIndex index, MeshPolicy policy, float z) {
+        Aabb box = boundary.Bounds;
+        float edge = (float)policy.Seed.Spacing(policy.TargetEdgeLength, policy.GradingRatio);
+        List<Vector2> points = [];
+        for (int v = 0; v < boundary.VertexCount; v++) {
+            Vector3 vertex = boundary.Vertex(v);
+            if (index.Encloses(new(vertex.X, vertex.Y, z)) || Math.Abs(vertex.Z - z) <= edge) { points.Add(new(vertex.X, vertex.Y)); }
+        }
+        for (float y = box.Lo.Y + edge * 0.5f; y < box.Hi.Y; y += edge)
+            for (float x = box.Lo.X + edge * 0.5f; x < box.Hi.X; x += edge) {
+                if (index.Encloses(new(x, y, z))) { points.Add(new(x, y)); }
+            }
+        List<(int A, int B, int C)> triangles = Triangulate(points);
+        triangles.RemoveAll(t => !index.Encloses(Centroid(points, t, z)));
+        return (points, triangles);
+    }
+
+    static Vector3 Centroid(List<Vector2> points, (int A, int B, int C) t, float z) {
+        Vector2 centre = (points[t.A] + points[t.B] + points[t.C]) / 3f;
+        return new(centre.X, centre.Y, z);
+    }
+
+    static List<(int A, int B, int C)> Triangulate(List<Vector2> points) {
+        int n = points.Count;
+        Vector2 lo = new(float.MaxValue), hi = new(float.MinValue);
+        foreach (Vector2 p in points) { lo = Vector2.Min(lo, p); hi = Vector2.Max(hi, p); }
+        Vector2 mid = (lo + hi) * 0.5f;
+        float span = Math.Max(hi.X - lo.X, hi.Y - lo.Y) * 8f + 1f;
+        points.Add(mid + new Vector2(-span, -span)); points.Add(mid + new Vector2(span * 3, 0)); points.Add(mid + new Vector2(0, span * 3));
+        List<(int A, int B, int C)> triangles = [(n, n + 1, n + 2)];
+        for (int p = 0; p < n; p++) {
+            Dictionary<(int Lo, int Hi), int> edges = [];
+            triangles.RemoveAll(t => {
+                if (!Topology.InCircle(points[t.A], points[t.B], points[t.C], points[p])) { return false; }
+                foreach ((int Lo, int Hi) edge in Topology.TriangleEdgePairs(t)) {
+                    edges[edge] = edges.TryGetValue(edge, out int count) ? count + 1 : 1;
+                }
+                return true;
+            });
+            foreach (KeyValuePair<(int Lo, int Hi), int> edge in edges) {
+                if (edge.Value == 1) { triangles.Add(Topology.OrientedTriangle(points, edge.Key, p)); }
+            }
+        }
+        triangles.RemoveAll(t => t.A >= n || t.B >= n || t.C >= n);
+        points.RemoveRange(n, 3);
+        return triangles;
     }
 
     static List<(int A, int B, int C, int D)> Triangulate(List<Vector3> points) {
@@ -755,107 +911,202 @@ public static class DelaunayCore {
 }
 
 public static class OctreeCore {
-    public static MeshBuild Fill(BoundaryShell boundary, MeshPolicy policy) {
-        Dictionary<(int, int, int), int> nodes = [];
+    public static MeshBuild Fill(BoundaryShell boundary, ShellIndex index, MeshPolicy policy) {
+        Weld weld = new(boundary.Bounds.Lo, (float)policy.TargetEdgeLength);
         List<long> cells = [];
-        List<Vector3> verts = [];
-        int count = Recurse(boundary, boundary.Bounds, policy, nodes, verts, cells, depth: 0);
-        float[] flat = new float[verts.Count * 3];
-        for (int i = 0; i < verts.Count; i++) { flat[i * 3] = verts[i].X; flat[i * 3 + 1] = verts[i].Y; flat[i * 3 + 2] = verts[i].Z; }
-        return new(policy.Element, flat, cells, count, verts.Count, 0).Scored(policy.Metric);
+        int count = Recurse(boundary, index, boundary.Bounds, policy, weld, cells, depth: 0);
+        int hanging = weld.Hanging(cells, policy.Element);
+        return new MeshBuild(policy.Element, weld.Flat(), cells, count, weld.Count, 0) {
+            Conforming = hanging == 0,
+            HangingNodes = hanging,
+        }.Scored(policy.Metric);
     }
 
-    static int Recurse(BoundaryShell boundary, Aabb box, MeshPolicy policy, Dictionary<(int, int, int), int> nodes, List<Vector3> verts, List<long> cells, int depth) {
+    static int Recurse(BoundaryShell boundary, ShellIndex index, Aabb box, MeshPolicy policy, Weld weld, List<long> cells, int depth) {
         float size = Math.Max(box.Span.X, Math.Max(box.Span.Y, box.Span.Z));
-        bool straddles = boundary.Encloses(box.Center) ^ boundary.Encloses(box.Lo);
+        bool straddles = index.Encloses(box.Center) ^ index.Encloses(box.Lo);
         if (size > policy.TargetEdgeLength && depth < policy.MaxRefineLevel + 6 && (straddles || size > policy.TargetEdgeLength * policy.GradingRatio)) {
             Vector3 c = box.Center; int emitted = 0;
-            foreach (Aabb child in Topology.OctreeChildren(box, c)) { emitted += Recurse(boundary, child, policy, nodes, verts, cells, depth + 1); }
+            foreach (Aabb child in Topology.OctreeChildren(box, c)) { emitted += Recurse(boundary, index, child, policy, weld, cells, depth + 1); }
             return emitted;
         }
-        if (!boundary.Encloses(box.Center)) { return 0; }
-        foreach ((float X, float Y, float Z) corner in Topology.HexCorners(box)) { cells.Add(Node(corner, nodes, verts)); }
+        if (!index.Encloses(box.Center)) { return 0; }
+        foreach ((float X, float Y, float Z) corner in Topology.HexCorners(box)) { cells.Add(weld.Node(corner)); }
         return 1;
     }
 
-    static long Node((float X, float Y, float Z) p, Dictionary<(int, int, int), int> nodes, List<Vector3> verts) {
-        (int, int, int) key = ((int)MathF.Round(p.X * 1e5f), (int)MathF.Round(p.Y * 1e5f), (int)MathF.Round(p.Z * 1e5f));
-        if (nodes.TryGetValue(key, out int id)) { return id; }
-        id = verts.Count; nodes[key] = id; verts.Add(new(p.X, p.Y, p.Z));
-        return id;
+    // Weld keys quantize in DOUBLE precision relative to the shell's own origin, so a model far from the world
+    // origin welds by its own extent rather than by absolute coordinate magnitude — a float multiply against a fixed
+    // scale loses the low bits exactly where a building sits in a site coordinate system, and two corners that must
+    // weld then land in different buckets and tear the mesh. The quantum is a fraction of the target edge, so
+    // corners meeting at any recursion depth share a key while distinct corners never collide.
+    sealed class Weld(Vector3 origin, float targetEdge) {
+        readonly Dictionary<(long X, long Y, long Z), long> ids = [];
+        readonly List<float> nodes = [];
+        readonly double quantum = Math.Max(targetEdge, 1e-6f) / 1024.0;
+
+        public long Count => ids.Count;
+
+        public long Node((float X, float Y, float Z) p) {
+            (long X, long Y, long Z) key = (Key(p.X, origin.X), Key(p.Y, origin.Y), Key(p.Z, origin.Z));
+            if (ids.TryGetValue(key, out long held)) { return held; }
+            long id = ids.Count;
+            ids[key] = id;
+            nodes.Add(p.X); nodes.Add(p.Y); nodes.Add(p.Z);
+            return id;
+        }
+
+        // A hanging node is a welded node sitting at the midpoint of another cell's edge: the finer neighbour minted
+        // it and the coarser cell carries no equation for it, so the count IS the conformity measure the entry gates
+        // on rather than the algorithm row's declared intent.
+        public int Hanging(List<long> cells, ElementClass element) {
+            HashSet<(long X, long Y, long Z)> minted = [.. ids.Keys];
+            HashSet<long> hanging = [];
+            int per = element.Nodes;
+            for (int cell = 0; cell * per < cells.Count; cell++) {
+                foreach ((int a, int b) in element.Edges) {
+                    long lo = cells[cell * per + a], hi = cells[cell * per + b];
+                    (long X, long Y, long Z) mid = (
+                        (Coordinate(lo, 0) + Coordinate(hi, 0)) / 2,
+                        (Coordinate(lo, 1) + Coordinate(hi, 1)) / 2,
+                        (Coordinate(lo, 2) + Coordinate(hi, 2)) / 2);
+                    if (minted.Contains(mid) && ids[mid] != lo && ids[mid] != hi) { hanging.Add(ids[mid]); }
+                }
+            }
+            return hanging.Count;
+        }
+
+        public float[] Flat() => [.. nodes];
+
+        long Key(double value, double from) => (long)Math.Round((value - from) / quantum);
+        long Coordinate(long node, int axis) => Key(nodes[(int)node * 3 + axis], axis == 0 ? origin.X : axis == 1 ? origin.Y : origin.Z);
     }
 }
 
 public static class SweepCore {
-    public static MeshBuild Fill(BoundaryShell boundary, MeshPolicy policy) {
+    // A sweep extrudes the shell's OWN triangulated footprint section, so a non-rectangular plan meshes as its plan
+    // rather than as its bounding box with the outside cells dropped. The section is one constrained 2-D Delaunay at
+    // mid-height — the height where a prismatic solid's section is unambiguous — and each triangle extrudes to one
+    // prism per layer.
+    public static MeshBuild Fill(BoundaryShell boundary, ShellIndex index, MeshPolicy policy) {
         Aabb box = boundary.Bounds;
         int layers = Math.Max(1, (int)Math.Ceiling((box.Hi.Z - box.Lo.Z) / policy.TargetEdgeLength));
-        (int nx, int ny, List<(float X, float Y)> plane) = BasePlane(boundary, policy, box);
+        (List<Vector2> plane, List<(int A, int B, int C)> section) = DelaunayCore.Section(boundary, index, policy, (box.Lo.Z + box.Hi.Z) * 0.5f);
         List<Vector3> verts = new((layers + 1) * plane.Count);
         for (int l = 0; l <= layers; l++) {
             float z = box.Lo.Z + (box.Hi.Z - box.Lo.Z) * l / layers;
-            foreach ((float X, float Y) point in plane) { verts.Add(new(point.X, point.Y, z)); }
+            foreach (Vector2 point in plane) { verts.Add(new(point.X, point.Y, z)); }
         }
         List<long> cells = [];
         int count = 0, stride = plane.Count;
         for (int l = 0; l < layers; l++)
-            for (int j = 0; j < ny - 1; j++)
-                for (int i = 0; i < nx - 1; i++) {
-                    int b0 = l * stride + j * nx + i, t0 = b0 + stride;
-                    Vector3 mid = (verts[b0] + verts[t0 + nx + 1]) * 0.5f;
-                    if (!boundary.Encloses(mid)) { continue; }
-                    cells.AddRange([b0, b0 + 1, b0 + nx + 1, b0 + nx, t0, t0 + 1, t0 + nx + 1, t0 + nx]); count++;
-                }
-        float[] flat = new float[verts.Count * 3];
-        for (int v = 0; v < verts.Count; v++) { flat[v * 3] = verts[v].X; flat[v * 3 + 1] = verts[v].Y; flat[v * 3 + 2] = verts[v].Z; }
-        return new(policy.Element, flat, cells, count, verts.Count, layers).Scored(policy.Metric);
+            foreach ((int a, int b, int c) in section) {
+                int bottom = l * stride, top = bottom + stride;
+                Vector3 centre = (verts[bottom + a] + verts[bottom + b] + verts[bottom + c] + verts[top + a] + verts[top + b] + verts[top + c]) / 6f;
+                if (!index.Encloses(centre)) { continue; }
+                cells.AddRange([bottom + a, bottom + b, bottom + c, top + a, top + b, top + c]); count++;
+            }
+        return new MeshBuild(policy.Element, Flatten(verts), cells, count, verts.Count, layers).Scored(policy.Metric);
     }
 
-    public static (int Nx, int Ny, List<(float X, float Y)> Plane) BasePlane(BoundaryShell boundary, MeshPolicy policy, Aabb box) {
-        int nx = Math.Max(2, (int)Math.Ceiling((box.Hi.X - box.Lo.X) / policy.TargetEdgeLength) + 1);
-        int ny = Math.Max(2, (int)Math.Ceiling((box.Hi.Y - box.Lo.Y) / policy.TargetEdgeLength) + 1);
-        List<(float, float)> plane = new(nx * ny);
-        for (int j = 0; j < ny; j++) for (int i = 0; i < nx; i++) { plane.Add((box.Lo.X + (box.Hi.X - box.Lo.X) * i / (nx - 1), box.Lo.Y + (box.Hi.Y - box.Lo.Y) * j / (ny - 1))); }
-        return (nx, ny, plane);
+    public static float[] Flatten(List<Vector3> verts) {
+        float[] flat = new float[verts.Count * 3];
+        for (int v = 0; v < verts.Count; v++) { flat[v * 3] = verts[v].X; flat[v * 3 + 1] = verts[v].Y; flat[v * 3 + 2] = verts[v].Z; }
+        return flat;
     }
 }
 
 public static class InflationCore {
-    public static MeshBuild Fill(BoundaryShell boundary, MeshPolicy policy) {
-        Aabb box = boundary.Bounds;
-        List<float> levels = WallNormal(box, policy);
-        (int nx, int ny, List<(float X, float Y)> plane) = SweepCore.BasePlane(boundary, policy, box);
-        List<Vector3> verts = new(levels.Count * plane.Count);
-        foreach (float z in levels) foreach ((float X, float Y) point in plane) { verts.Add(new(point.X, point.Y, z)); }
+    // The boundary layer is built ON the shell's own wall facets, and every wall NODE grows along the area-weighted
+    // average of its incident wall-facet normals. A global-Z grading lays the same first-layer thickness on a sloped
+    // wall as on a flat one — the layer then resolves nothing exactly where the wall turns, which is the region a
+    // boundary layer exists for — and it cannot follow a wall at all once the wall stops being a floor.
+    public static MeshBuild Fill(BoundaryShell boundary, ShellIndex index, MeshPolicy policy) {
+        (List<int> facets, List<Vector3> anchors, List<Vector3> normals) = Wall(boundary);
+        float[] offsets = Offsets(boundary.Bounds, policy);
+        List<Vector3> verts = new(offsets.Length * anchors.Count);
+        foreach (float offset in offsets) {
+            for (int node = 0; node < anchors.Count; node++) { verts.Add(anchors[node] + normals[node] * offset); }
+        }
         List<long> cells = [];
-        int count = 0, stride = plane.Count;
-        for (int l = 0; l < levels.Count - 1; l++)
-            for (int j = 0; j < ny - 1; j++)
-                for (int i = 0; i < nx - 1; i++) {
-                    int b0 = l * stride + j * nx + i, t0 = b0 + stride;
-                    if (!boundary.Encloses((verts[b0] + verts[t0 + nx + 1]) * 0.5f)) { continue; }
-                    cells.AddRange([b0, b0 + 1, b0 + nx + 1, b0 + nx, t0, t0 + 1, t0 + nx + 1, t0 + nx]); count++;
-                }
-        float[] flat = new float[verts.Count * 3];
-        for (int v = 0; v < verts.Count; v++) { flat[v * 3] = verts[v].X; flat[v * 3 + 1] = verts[v].Y; flat[v * 3 + 2] = verts[v].Z; }
-        return new(policy.Element, flat, cells, count, verts.Count, policy.BoundaryLayerCount).Scored(policy.Metric);
+        int count = 0, stride = anchors.Count;
+        for (int layer = 0; layer + 1 < offsets.Length; layer++)
+            for (int facet = 0; facet < facets.Count; facet += 3) {
+                int bottom = layer * stride, top = bottom + stride;
+                int a = facets[facet], b = facets[facet + 1], c = facets[facet + 2];
+                Vector3 centre = (verts[bottom + a] + verts[bottom + b] + verts[bottom + c] + verts[top + a] + verts[top + b] + verts[top + c]) / 6f;
+                if (!index.Encloses(centre)) { continue; }
+                cells.AddRange([bottom + a, bottom + b, bottom + c, top + a, top + b, top + c]); count++;
+            }
+        return new MeshBuild(policy.Element, SweepCore.Flatten(verts), cells, count, verts.Count, policy.BoundaryLayerCount).Scored(policy.Metric);
     }
 
-    static List<float> WallNormal(Aabb box, MeshPolicy policy) {
-        List<float> levels = [box.Lo.Z];
-        float z = box.Lo.Z, thickness = (float)policy.FirstLayerThickness;
-        for (int layer = 0; layer < policy.BoundaryLayerCount && z < box.Hi.Z; layer++) {
-            z += thickness; levels.Add(Math.Min(z, box.Hi.Z)); thickness *= (float)policy.BoundaryLayerGrowth;
+    // The wall is the shell's downward-facing facet set — outward normals point out of a closed solid, so a facet
+    // whose normal points down is a floor. Node normals accumulate UNNORMALIZED facet normals, which weights each
+    // contribution by twice its facet area, then normalize once: an unweighted average lets a sliver facet steer the
+    // growth direction as strongly as the facet carrying the wall.
+    static (List<int> Facets, List<Vector3> Anchors, List<Vector3> Normals) Wall(BoundaryShell boundary) {
+        Dictionary<int, int> local = [];
+        List<int> facets = [];
+        List<Vector3> anchors = [], normals = [];
+        ReadOnlySpan<int> triangles = boundary.Triangles.Span;
+        for (int t = 0; t < triangles.Length; t += 3) {
+            Vector3 a = boundary.Vertex(triangles[t]), b = boundary.Vertex(triangles[t + 1]), c = boundary.Vertex(triangles[t + 2]);
+            Vector3 normal = Vector3.Cross(b - a, c - a);
+            if (normal.LengthSquared() <= 0f || Vector3.Normalize(normal).Z > -0.5f) { continue; }
+            for (int corner = 0; corner < 3; corner++) {
+                int vertex = triangles[t + corner];
+                if (!local.TryGetValue(vertex, out int id)) {
+                    id = anchors.Count;
+                    local[vertex] = id;
+                    anchors.Add(boundary.Vertex(vertex));
+                    normals.Add(Vector3.Zero);
+                }
+                normals[id] -= normal;
+                facets.Add(id);
+            }
         }
-        for (z = levels[^1] + (float)policy.TargetEdgeLength; z < box.Hi.Z; z += (float)policy.TargetEdgeLength) { levels.Add(z); }
-        levels.Add(box.Hi.Z);
-        return levels;
+        for (int node = 0; node < normals.Count; node++) {
+            normals[node] = normals[node].LengthSquared() > 0f ? Vector3.Normalize(normals[node]) : Vector3.UnitZ;
+        }
+        return (facets, anchors, normals);
+    }
+
+    // Graded layers first at their declared thickness and growth, then uniform target-edge steps until the stack
+    // spans the shell; cells whose centre leaves the shell drop, so the stack bounds itself on the geometry.
+    static float[] Offsets(Aabb box, MeshPolicy policy) {
+        List<float> offsets = [0f];
+        float thickness = (float)policy.FirstLayerThickness, reach = box.Span.Length();
+        for (int layer = 0; layer < policy.BoundaryLayerCount; layer++) {
+            offsets.Add(offsets[^1] + thickness);
+            thickness *= (float)policy.BoundaryLayerGrowth;
+        }
+        for (float offset = offsets[^1] + (float)policy.TargetEdgeLength; offset < reach; offset += (float)policy.TargetEdgeLength) { offsets.Add(offset); }
+        return [.. offsets];
+    }
+}
+
+// A face is keyed by its SORTED node ids packed into a value struct: a face of a supported element carries at most
+// four nodes, so the key is four longs compared by value. Formatting the ids into a string allocates one string and
+// one char buffer per face per cell — the fold visits every face of every cell twice — and the parse-free packed key
+// compares in registers where the string compares character by character.
+public readonly record struct FaceKey(long A, long B, long C, long D) {
+    public static FaceKey Of(ReadOnlySpan<long> nodes) {
+        Span<long> sorted = stackalloc long[4];
+        sorted.Fill(long.MinValue);
+        nodes.CopyTo(sorted);
+        sorted[..nodes.Length].Sort();
+        return new(sorted[0], sorted[1], sorted[2], sorted[3]);
     }
 }
 
 public sealed record MeshBuild(ElementClass Element, float[] Nodes, List<long> Cells, long ElementCount, long NodeCount, int Layers) {
     public long BoundaryCount { get; init; }
     public double Quality { get; init; } = 1.0;
+    // Conformity is a MEASURED column, not the algorithm row's declared intent: only a core that can leave hanging
+    // nodes reports otherwise, and it reports how many.
+    public bool Conforming { get; init; } = true;
+    public int HangingNodes { get; init; }
 
     public MeshBuild Scored(MeshMetric metric) {
         if (ElementCount == 0) { return this with { Quality = 0.0, BoundaryCount = BoundaryFold() }; }
@@ -870,19 +1121,18 @@ public sealed record MeshBuild(ElementClass Element, float[] Nodes, List<long> C
     }
 
     long BoundaryFold() {
-        Dictionary<string, (int Count, long[] Nodes)> faceCount = [];
+        Dictionary<FaceKey, (int Count, long[] Nodes)> faceCount = [];
         int per = Element.Nodes;
         for (int cell = 0; cell < ElementCount; cell++)
             foreach (ImmutableArray<int> face in Element.Faces) {
                 if (face.Length < 3) { continue; }
                 long[] ids = new long[face.Length];
                 for (int i = 0; i < face.Length; i++) { ids[i] = Cells[cell * per + face[i]]; }
-                long[] sorted = (long[])ids.Clone(); Array.Sort(sorted);
-                string key = string.Join(',', sorted);
+                FaceKey key = FaceKey.Of(ids);
                 faceCount[key] = faceCount.TryGetValue(key, out (int Count, long[] Nodes) entry) ? (entry.Count + 1, entry.Nodes) : (1, ids);
             }
         HashSet<long> hull = [];
-        foreach (KeyValuePair<string, (int Count, long[] Nodes)> face in faceCount) {
+        foreach (KeyValuePair<FaceKey, (int Count, long[] Nodes)> face in faceCount) {
             if (face.Value.Count == 1) foreach (long node in face.Value.Nodes) { hull.Add(node); }
         }
         return hull.Count;
@@ -892,7 +1142,7 @@ public sealed record MeshBuild(ElementClass Element, float[] Nodes, List<long> C
 public sealed class Refinement {
     readonly List<float> nodes;
     readonly Dictionary<(long, long), long> edgeMid = [];
-    readonly Dictionary<string, long> faceMid = [];
+    readonly Dictionary<FaceKey, long> faceMid = [];
     long count;
 
     public Refinement(ReadOnlySpan<float> seed, long seedCount) { nodes = [.. seed.ToArray()]; count = seedCount; }
@@ -921,10 +1171,9 @@ public sealed class Refinement {
     }
 
     long FaceMid(ReadOnlySpan<long> corners, ImmutableArray<int> face) {
-        long[] ids = new long[face.Length];
+        Span<long> ids = stackalloc long[face.Length];
         for (int i = 0; i < face.Length; i++) { ids[i] = corners[face[i]]; }
-        long[] sorted = (long[])ids.Clone(); Array.Sort(sorted);
-        string key = string.Join(',', sorted);
+        FaceKey key = FaceKey.Of(ids);
         if (faceMid.TryGetValue(key, out long mid)) { return mid; }
         mid = count++;
         Span<float> acc = stackalloc float[3];
@@ -1010,14 +1259,17 @@ public static class Topology {
         return new(shape, grad, det);
     }
 
+    // Neither inverse substitutes a floor for a vanishing determinant: an element whose Jacobian degenerates was
+    // already refused BY NAME at the quality gate, which runs over the whole element set before any sample is taken,
+    // so a substituted pivot here can only launder a mesh that never admitted.
     static (double, double[,]) Invert2(double[,] j) {
-        double det = j[0, 0] * j[1, 1] - j[0, 1] * j[1, 0], inv = 1.0 / (Math.Abs(det) < 1e-300 ? 1e-300 : det);
+        double det = j[0, 0] * j[1, 1] - j[0, 1] * j[1, 0], inv = 1.0 / det;
         return (det, new[,] { { j[1, 1] * inv, -j[0, 1] * inv }, { -j[1, 0] * inv, j[0, 0] * inv } });
     }
 
     static (double, double[,]) Invert3(double[,] j) {
         double c00 = j[1, 1] * j[2, 2] - j[1, 2] * j[2, 1], c01 = j[1, 2] * j[2, 0] - j[1, 0] * j[2, 2], c02 = j[1, 0] * j[2, 1] - j[1, 1] * j[2, 0];
-        double det = j[0, 0] * c00 + j[0, 1] * c01 + j[0, 2] * c02, inv = 1.0 / (Math.Abs(det) < 1e-300 ? 1e-300 : det);
+        double det = j[0, 0] * c00 + j[0, 1] * c01 + j[0, 2] * c02, inv = 1.0 / det;
         double[,] m = {
             { c00 * inv, (j[0, 2] * j[2, 1] - j[0, 1] * j[2, 2]) * inv, (j[0, 1] * j[1, 2] - j[0, 2] * j[1, 1]) * inv },
             { c01 * inv, (j[0, 0] * j[2, 2] - j[0, 2] * j[2, 0]) * inv, (j[0, 2] * j[1, 0] - j[0, 0] * j[1, 2]) * inv },
@@ -1027,11 +1279,21 @@ public static class Topology {
 
     public static Vector3 Node(ReadOnlySpan<double> xyz, int index) => new((float)xyz[index * 3], (float)xyz[index * 3 + 1], (float)xyz[index * 3 + 2]);
 
+    // Every declared corner carries at least `Dim` incident edges in its OWN topology table — two in the plane,
+    // three in a volume — so the frame reads them directly and a planar corner's third axis is the edge cross
+    // product. Repeating an edge as the missing axis makes the corner determinant identically zero, which reads as a
+    // degenerate element for a perfectly good triangle; a line row has no corner frame at all, so its unfilled axes
+    // stay zero and the quality floor refuses the model by name rather than a fallback inventing a frame.
     public static (Vector3 E1, Vector3 E2, Vector3 E3) CornerFrame(ElementClass element, int corner, ReadOnlySpan<double> xyz) {
         Vector3 o = Node(xyz, corner);
-        List<Vector3> incident = new(3);
-        foreach ((int a, int b) in element.Edges) { if (a == corner) { incident.Add(Node(xyz, b) - o); } else if (b == corner) { incident.Add(Node(xyz, a) - o); } }
-        return (incident[0], incident.Count > 1 ? incident[1] : incident[0], incident.Count > 2 ? incident[2] : Vector3.Cross(incident[0], incident.Count > 1 ? incident[1] : Vector3.UnitZ));
+        Span<Vector3> incident = stackalloc Vector3[3];
+        int found = 0;
+        foreach ((int a, int b) in element.Edges) {
+            if (found == 3) { break; }
+            if (a == corner) { incident[found++] = Node(xyz, b) - o; }
+            else if (b == corner) { incident[found++] = Node(xyz, a) - o; }
+        }
+        return element.Dim == 3 ? (incident[0], incident[1], incident[2]) : (incident[0], incident[1], Vector3.Cross(incident[0], incident[1]));
     }
 
     public static ImmutableArray<ImmutableArray<int>> FacesOnEdge(ElementClass element, int a, int b) =>
@@ -1046,6 +1308,28 @@ public static class Topology {
     public static bool InSphere(Vector3 a, Vector3 b, Vector3 c, Vector3 d, Vector3 p) =>
         Predicate.Orient3D(a.X, a.Y, a.Z, b.X, b.Y, b.Z, c.X, c.Y, c.Z, d.X, d.Y, d.Z)
             .Times(Predicate.InSphere(a.X, a.Y, a.Z, b.X, b.Y, b.Z, c.X, c.Y, c.Z, d.X, d.Y, d.Z, p.X, p.Y, p.Z)) == Sign.Positive;
+
+    // 2-D orientation and in-circle both route the SAME exact `Orient3D` core the volumetric cavity uses: the planar
+    // orientation lifts the query point one unit off the triangle's plane, and the in-circle test IS a 3-D
+    // orientation on the paraboloid `(x, y, x²+y²)`. A float determinant in the section decides near-cocircular
+    // footprint points by round-off, which is precisely where a plan's own grid lines put them.
+    public static Sign Orient2D(Vector2 a, Vector2 b, Vector2 c) =>
+        Predicate.Orient3D(a.X, a.Y, 0.0, b.X, b.Y, 0.0, c.X, c.Y, 0.0, c.X, c.Y, 1.0);
+
+    public static bool InCircle(Vector2 a, Vector2 b, Vector2 c, Vector2 p) =>
+        Orient2D(a, b, c).Times(Predicate.Orient3D(a.X, a.Y, Lift(a), b.X, b.Y, Lift(b), c.X, c.Y, Lift(c), p.X, p.Y, Lift(p))) == Sign.Positive;
+
+    static double Lift(Vector2 v) => ((double)v.X * v.X) + ((double)v.Y * v.Y);
+
+    public static IEnumerable<(int Lo, int Hi)> TriangleEdgePairs((int A, int B, int C) t) {
+        yield return Pair(t.A, t.B); yield return Pair(t.B, t.C); yield return Pair(t.C, t.A);
+    }
+
+    public static (int Lo, int Hi) Pair(int a, int b) => a < b ? (a, b) : (b, a);
+
+    public static (int A, int B, int C) OrientedTriangle(List<Vector2> points, (int Lo, int Hi) edge, int apex) =>
+        Orient2D(points[edge.Lo], points[edge.Hi], points[apex]) == Sign.Positive
+            ? (edge.Lo, edge.Hi, apex) : (edge.Hi, edge.Lo, apex);
 
     public static IEnumerable<(int, int, int)> TetFaceTriples((int A, int B, int C, int D) t) {
         yield return (t.A, t.B, t.C); yield return (t.A, t.B, t.D); yield return (t.A, t.C, t.D); yield return (t.B, t.C, t.D);

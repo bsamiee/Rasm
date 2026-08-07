@@ -2,11 +2,29 @@
 
 `CommandFlow<TState>.Drive` interprets one admitted, bounded command program over immutable state. Host lifecycle enters once through `RasmCommand<TSelf,TState>`, while acquisition and mutation remain calls into their owning rails.
 
-## [01]-[TERMINAL_POLICY]
+## [01]-[INDEX]
 
-`CommandVerdict` preserves every native terminal in both directions. `CommandPolicy` admits the session demand, replay behavior, and stage budget as one value before a flow starts.
+- [02]-[TERMINAL_POLICY]: `CommandVerdict`, `ScriptEcho`, `ReplayHook`, `HistoryOwner`, `FaultNotice`, and `CommandPolicy`.
+- [03]-[PROGRAM]: `StageKey`, `Stage<TState>`, `FlowStep<TState>`, `CommandTurn<TState>`, and `CommandFlow<TState>`.
+- [04]-[HOST_ADAPTER]: `CommandFaults` and the one `RasmCommand<TSelf,TState>` derivation.
+- [05]-[REGISTRY_AND_EVENTS]: `CommandQuery`/`CommandAnswer`, the `CommandFact` family, `CommandObserver`, `CommandPulse`, and `CommandRegistry`.
+- [06]-[SCRIPT]: `ScriptOp` and the `Scripting` run/proxy pair.
+- [07]-[RESEARCH]: open verification rows.
+
+## [02]-[TERMINAL_POLICY]
+
+`CommandVerdict` preserves every native terminal in both directions. `CommandPolicy` admits the session demand, replay behavior, and stage budget as one value before a flow starts. `ReplayHook` and `HistoryOwner` are the two seam values `Objects/history.md` composes upward — the regrowth body and the command identity a history record keys on.
 
 ```csharp signature
+// --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
+using System.Linq;
+using Rasm.Domain;
+using Rasm.Rhino.Document;
+using Rhino;
+using Rhino.Commands;
+
+namespace Rasm.Rhino.Commands;
+
 // --- [TYPES] -----------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class CommandVerdict : IDetachedDocumentResult {
@@ -32,26 +50,85 @@ public sealed partial class ScriptEcho {
     public bool Echo { get; }
 }
 
+// The replay seam is a VALUE at this stratum, not a bare delegate slot: the host's `ReplayHistoryData` is the only
+// shape the override can take, so the admission that a hook exists and is non-null belongs to the type. The one
+// producer is `Objects/history.md`'s `ReplayProgram`, which composes this owner downward — `Commands` is S1 and
+// `Objects` is S2, so the seam type seats HERE and the compiler cannot admit the upward reference.
+[ComplexValueObject]
+public sealed partial class ReplayHook {
+    public Func<ReplayHistoryData, bool> Regrow { get; }
+
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref Func<ReplayHistoryData, bool> regrow) =>
+        validationError = regrow is null
+            ? new ValidationError(message: "replay hook carries no regrowth body")
+            : validationError;
+}
+
+// Command identity as a VALUE at this stratum, seated beside `ReplayHook` for the same reason: `HistoryRecord`
+// keys on `Command.Id` and reads nothing else, so history authoring needs the OWNER, not the host subclass, and
+// `Objects` is S2 while `Commands` is S1 — the seam type seats HERE and `Objects/history.md`'s `HistoryScript`
+// composes it upward, so no Objects signature names `Rhino.Commands.Command`. A command is a process-lifetime
+// plug-in singleton with no document affinity, so one seat admitted at `RunCommand` outlives every grant it
+// mints into; `RasmCommand` supplies `HistoryOwner.Of(this)` and nothing else can construct one.
+public sealed class HistoryOwner {
+    private readonly Command owner;
+
+    private HistoryOwner(Command owner, Guid id) => (this.owner, Id) = (owner, id);
+
+    public Guid Id { get; }
+
+    public static Fin<HistoryOwner> Of(Command owner, Op? key = null) {
+        Op op = key.OrDefault(name: nameof(HistoryOwner));
+        return from admitted in op.Need(owner)
+               from _ in guard(admitted.Id != Guid.Empty, op.InvalidInput()).ToFin()
+               select new HistoryOwner(owner: admitted, id: admitted.Id);
+    }
+
+    internal Fin<Rhino.DocObjects.HistoryRecord> Mint(int version, Op key) =>
+        key.Catch(() => Optional(new Rhino.DocObjects.HistoryRecord(command: owner, version: version))
+            .ToFin(Fail: key.InvalidResult()));
+}
+
+// The console line is a PRESENTATION leg the caller chooses, never a fixed effect the ledger performs: a headless
+// run, a test host, and a scripted lane each want a different one, and a hardcoded `RhinoApp.WriteLine` inside the
+// sink writes to a console that may not exist and cannot be silenced without deleting the ledger entry too.
+[SmartEnum<int>]
+public sealed partial class FaultNotice {
+    public static readonly FaultNotice Announce = new(key: 0, report: static message => RhinoApp.WriteLine(message: message));
+    public static readonly FaultNotice Silent = new(key: 1, report: static _ => { });
+
+    [UseDelegateFromConstructor]
+    internal partial void Report(string message);
+}
+
 [ComplexValueObject]
 public sealed partial class CommandPolicy {
     public Seq<SessionNeed> Needs { get; }
-    public Option<Func<ReplayHistoryData, bool>> Replay { get; }
+    public Option<ReplayHook> Replay { get; }
+    public FaultNotice Notice { get; }
     public int StageBudget { get; }
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Seq<SessionNeed> needs,
-        ref Option<Func<ReplayHistoryData, bool>> replay,
+        ref Option<ReplayHook> replay,
+        ref FaultNotice notice,
         ref int stageBudget) {
-        validationError = needs.IsEmpty || stageBudget <= 0 || stageBudget > 65536
+        validationError = needs.IsEmpty
+            || notice is null
+            || stageBudget <= 0
+            || stageBudget > 65536
             ? new ValidationError(message: "command policy is incomplete")
             : validationError;
     }
 }
 ```
 
-## [02]-[PROGRAM]
+## [03]-[PROGRAM]
 
 `Stage<TState>` is the closed transition family. Its manual generic hierarchy keeps `TState` free of the source generator's `allows ref struct` propagation. Closure is private constructors, which the compiler cannot prove across a record hierarchy, so every switch over `Stage<TState>` or `FlowStep<TState>` carries a terminal refusal arm — the discard is the exhaustiveness proof CS8509 demands, never a swallowed case, because an unreachable arm on a privately-closed family can only be reached by a case the family does not admit.
 
@@ -157,15 +234,21 @@ public sealed record CommandFlow<TState> {
                select new CommandFlow<TState>(rows: toHashMap(table), entry: admittedEntry);
     }
 
+    // The budget bounds the walk; the PREDICATE ends it. A monadic fold over the whole range answers on the first
+    // terminal and then re-enters its own no-op arm for every remaining budget unit — up to 65535 closure calls
+    // after the command is already decided — so the fold carries the rail as its state and stops on a settled
+    // verdict or a failed rail, and exhausting the range without a verdict is the budget refusal.
     public Fin<(CommandVerdict Verdict, TState State)> Drive(DocumentSession session, TState seed, CommandPolicy policy) {
         Op op = Op.Of();
         return op.Catch(() =>
-            from active in Optional(policy).ToFin(Fail: op.InvalidInput())
+            from active in op.Need(policy)
             from cursor in toSeq(Enumerable.Range(start: 0, count: active.StageBudget))
-                .FoldM<Fin, FlowCursor<TState>>(
-                    state: new FlowCursor<TState>(Key: Entry, State: seed, Trail: [], Verdict: None),
-                    folder: (held, _) => held.Verdict.IsSome ? Fin.Succ(held) : Step(session: session, held: held, op: op))
-                .As()
+                .FoldWhile(
+                    Fin.Succ(value: new FlowCursor<TState>(Key: Entry, State: seed, Trail: [], Verdict: None)),
+                    (held, _) => held.Bind(cursor => Step(session: session, held: cursor, op: op)),
+                    static pair => pair.State.Match(
+                        Succ: static cursor => cursor.Verdict.IsNone,
+                        Fail: static _ => false))
             from verdict in cursor.Verdict.ToFin(Fail: op.InvalidResult(detail: nameof(CommandPolicy.StageBudget)))
             select (verdict, cursor.State));
     }
@@ -201,7 +284,7 @@ public sealed record CommandFlow<TState> {
     private static Fin<(StageKey Key, Stage<TState> Stage)> AdmitRow(
         (StageKey Key, Stage<TState> Stage) row,
         Op op) =>
-        from stage in Optional(row.Stage).ToFin(Fail: op.InvalidInput())
+        from stage in op.Need(row.Stage)
         from key in AdmitKey(row.Key, op)
         from _ in stage.Admit(op)
         from __ in Successors(stage).TraverseM(next => AdmitKey(next, op)).As()
@@ -209,7 +292,7 @@ public sealed record CommandFlow<TState> {
 }
 ```
 
-## [03]-[HOST_ADAPTER]
+## [04]-[HOST_ADAPTER]
 
 `RasmCommand<TSelf,TState>` owns the only `Command` derivation. Session admission, deterministic release, flow execution, and native projection occur in the sealed callback; replay never escapes its host-owned callback window.
 
@@ -217,14 +300,30 @@ Both host overrides collapse a typed rail into a bare native verdict, so both pe
 
 ```csharp signature
 // --- [BOUNDARIES] -------------------------------------------------------------------------
+// A process-lifetime ledger with no cap is a leak with a getter: every refused command in a long session accretes
+// an `Error` with its whole exception graph and nothing ever drops one. The bound is the events page's
+// `ReceiptJournal` shape verbatim — a capacity, oldest-first eviction, and a retained loss count that surfaces as
+// its own entry, so a reader learns that entries were dropped rather than silently reading a truncated ledger.
+public sealed record FaultLedger(Seq<Error> Entries, long Lost) {
+    internal const int Capacity = 256;
+
+    internal static readonly FaultLedger Empty = new(Entries: Seq<Error>(), Lost: 0L);
+
+    internal FaultLedger Post(Error error) => Entries.Count < Capacity
+        ? this with { Entries = Entries.Add(value: error) }
+        : new FaultLedger(Entries: Entries.Tail.Add(value: error), Lost: checked(Lost + 1L));
+}
+
 public static class CommandFaults {
-    private static readonly Atom<Seq<Error>> Refusals = Atom(Seq<Error>());
+    private static readonly Atom<FaultLedger> Refusals = Atom(value: FaultLedger.Empty);
 
-    public static Seq<Error> Faults => Refusals.Value;
+    public static FaultLedger Ledger => Refusals.Value;
 
-    internal static TNative Refused<TNative>(Error error, TNative native) {
-        _ = Refusals.Swap(held => held.Add(value: error));
-        RhinoApp.WriteLine(message: error.Message);
+    public static Seq<Error> Faults => Ledger.Entries;
+
+    internal static TNative Refused<TNative>(Error error, FaultNotice notice, TNative native) {
+        _ = Refusals.Swap(f: held => held.Post(error: error));
+        notice.Report(message: error.Message);
         return native;
     }
 }
@@ -239,7 +338,7 @@ public abstract class RasmCommand<TSelf, TState> : Command
         Op op = Op.Of(name: typeof(TSelf).Name);
         Fin<CommandVerdict> outcome = op.Catch(() =>
             from _ in guard(RhinoApp.IsOnMainThread, op.InvalidContext())
-            from policy in Optional(Policy).ToFin(Fail: op.InvalidInput())
+            from policy in op.Need(Policy)
             from flow in Flow
             from lane in SessionMode.OfRunMode(mode: mode, key: op)
             from session in DocumentSession.Of(source: new SessionSource.Live(Document: doc), mode: lane, needs: policy.Needs.ToArray())
@@ -248,26 +347,33 @@ public abstract class RasmCommand<TSelf, TState> : Command
                 return flow.Drive(session: active, seed: Seed, policy: policy).Map(static receipt => receipt.Verdict);
             })
             select verdict);
+        FaultNotice notice = Optional(Policy).Map(static policy => policy.Notice).IfNone(FaultNotice.Announce);
         return outcome.Match(
             Succ: static verdict => verdict.Native,
-            Fail: static error => CommandFaults.Refused(error: error, native: Result.Failure));
+            Fail: error => CommandFaults.Refused(error: error, notice: notice, native: Result.Failure));
     }
 
     protected sealed override bool ReplayHistory(ReplayHistoryData replayData) {
         Op op = Op.Of(name: nameof(ReplayHistory));
-        return op.Catch(() => Fin.Succ(Optional(Policy).Bind(static policy => policy.Replay).Match(
-                Some: replay => replay(arg: replayData),
+        Option<CommandPolicy> policy = Optional(Policy);
+        FaultNotice notice = policy.Map(static row => row.Notice).IfNone(FaultNotice.Announce);
+        return op.Catch(() => Fin.Succ(policy.Bind(static row => row.Replay).Match(
+                Some: hook => hook.Regrow(arg: replayData),
                 None: static () => false)))
             .Match(
                 Succ: static accepted => accepted,
-                Fail: static error => CommandFaults.Refused(error: error, native: false));
+                Fail: error => CommandFaults.Refused(error: error, notice: notice, native: false));
     }
 }
 ```
 
-## [04]-[REGISTRY_AND_EVENTS]
+## [05]-[REGISTRY_AND_EVENTS]
 
-`CommandRegistry.Ask` re-admits each query payload before any live existence, identity, roster, stack, state, or prompt read. `CommandPulse` detaches lifecycle and prompt callbacks into the evidence-bearing `CommandFact` family, while one observation entry composes any distinct pulse set under one subscription.
+`CommandRegistry.Ask` re-admits each query payload before any live existence, identity, roster, stack, state, or prompt read. `CommandPulse` detaches lifecycle, prompt, and escape callbacks into the evidence-bearing `CommandFact` family, while one observation entry composes any distinct pulse set under one subscription.
+
+- Law: escape has ONE arming seat and it is a `CommandPulse` row. Escape answers on EVERY cancellable command, not only on a metered one, so arming it inside a progress lease or a pacing carrier reaches exactly the commands that happen to report progress and silently drops the rest; the pulse row arms once per observer and every command lane reads the same fact.
+- Law: the escape handler is a per-lease closure, never a static method group — the host keys `+=`/`-=` on delegate IDENTITY, so one shared instance makes the second lease's attach a no-op and its detach a theft of the first lease's hook. Every other pulse row already closes over its observer; escape is the row where the mistake is invisible, because a bare `EventHandler` signature admits a static group the generic rows do not.
+- Law: both fault ledgers are BOUNDED — the process-wide `CommandFaults` and the per-observer `CommandObserver` share `FaultLedger`, whose capacity, oldest-first eviction, and retained loss count mirror the events page's `ReceiptJournal`. An unbounded process-lifetime `Seq<Error>` retains every refused command's whole exception graph for the session and has no reader that can drain it.
 
 ```csharp signature
 // --- [TYPES] -----------------------------------------------------------------------------
@@ -284,14 +390,25 @@ public abstract partial record CommandQuery {
     public sealed record State : CommandQuery;
     public sealed record Prompt : CommandQuery;
 
-    internal Fin<CommandQuery> Admit(Op op) => this switch {
-        Exists ask => guard(!string.IsNullOrWhiteSpace(ask.Name), op.InvalidInput()).ToFin().Map(_ => this),
-        Valid ask => guard(!string.IsNullOrWhiteSpace(ask.Name), op.InvalidInput()).ToFin().Map(_ => this),
-        Resolve ask => guard(!string.IsNullOrWhiteSpace(ask.Name) && ask.Language is not null, op.InvalidInput()).ToFin().Map(_ => this),
-        Name ask => guard(ask.Id != Guid.Empty && ask.Language is not null, op.InvalidInput()).ToFin().Map(_ => this),
-        Names ask => guard(ask.Language is not null && ask.Roster is not null, op.InvalidInput()).ToFin().Map(_ => this),
-        _ => Fin.Succ(this),
-    };
+    internal Fin<CommandQuery> Admit(Op op) => Switch(
+        state: op,
+        exists: static (key, ask) => key.AcceptText(value: ask.Name).Map(_ => (CommandQuery)ask),
+        valid: static (key, ask) => key.AcceptText(value: ask.Name).Map(_ => (CommandQuery)ask),
+        resolve: static (key, ask) => from _ in key.AcceptText(value: ask.Name)
+                                      from __ in key.Need(ask.Language)
+                                      select (CommandQuery)ask,
+        name: static (key, ask) => from _ in guard(ask.Id != Guid.Empty, key.InvalidInput()).ToFin()
+                                   from __ in key.Need(ask.Language)
+                                   select (CommandQuery)ask,
+        names: static (key, ask) => from _ in key.Need(ask.Language)
+                                    from __ in key.Need(ask.Roster)
+                                    select (CommandQuery)ask,
+        // The four parameterless asks carry nothing to admit and each says so; a catch-all here silently admits
+        // the next case that DOES carry a payload.
+        recent: static (_, ask) => Fin.Succ<CommandQuery>(value: ask),
+        stack: static (_, ask) => Fin.Succ<CommandQuery>(value: ask),
+        state: static (_, ask) => Fin.Succ<CommandQuery>(value: ask),
+        prompt: static (_, ask) => Fin.Succ<CommandQuery>(value: ask));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -314,12 +431,21 @@ public abstract partial record CommandFact {
     public sealed record Ended(CommandEvent Value) : CommandFact;
     public sealed record Undo(UndoEvent Value) : CommandFact;
     public sealed record PromptChanged(PromptEvent Value) : CommandFact;
+    public sealed record Escaped(EscapeEvent Value) : CommandFact;
     public sealed record Rejected(Error Value) : CommandFact;
 }
 
 public sealed record CommandEvent(Guid Id, string English, string Local, string Help, string Plugin, CommandVerdict Verdict, uint DocumentSerial);
 public sealed record UndoEvent(uint DocumentSerial, Guid CommandId, uint UndoSerial, UndoMoment Moment);
 public sealed record PromptEvent(string Prompt, string Default, Seq<CommandOptionEvent> Options);
+
+// Escape is a bare host signal — no args, no document, no command identity — so the fact carries the two things
+// the signal MEANS on this rail rather than an empty marker: the verdict a cancellable command answers with, and
+// the capability the interruption spends. A consumer folds it onto its own terminal without re-deriving either.
+public sealed record EscapeEvent(CommandVerdict Verdict, SessionNeed Need) {
+    internal static EscapeEvent Signalled { get; } =
+        new(Verdict: CommandVerdict.Cancelled, Need: SessionNeed.Interrupt);
+}
 public sealed record RecentCommand(string Display, string Macro);
 public sealed record CommandOptionEvent(
     int Index,
@@ -332,11 +458,14 @@ public sealed record CommandOptionEvent(
 
 [ComplexValueObject]
 public sealed partial class CommandObserver {
-    private readonly Atom<Seq<Error>> faults = Atom(Seq<Error>());
+    // Bounded for the same reason the process ledger is: an observer outlives every command it watches, and a
+    // misbehaving sink faults once per pulse. Same capacity, same oldest-first eviction, same retained loss count.
+    private readonly Atom<FaultLedger> faults = Atom(value: FaultLedger.Empty);
 
     public Func<CommandFact, Fin<Unit>> Deliver { get; }
     public Func<Error, Unit> Reject { get; }
-    public Seq<Error> Faults => faults.Value;
+    public FaultLedger Ledger => faults.Value;
+    public Seq<Error> Faults => Ledger.Entries;
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
@@ -356,7 +485,7 @@ public sealed partial class CommandObserver {
                 Error retained = op.Catch(() => Fin.Succ(value: Reject(primary))).Match(
                     Succ: _ => primary,
                     Fail: secondary => primary + secondary);
-                _ = faults.Swap(rows => rows.Add(retained));
+                _ = faults.Swap(f: held => held.Post(error: retained));
                 return unit;
             });
     }
@@ -414,6 +543,15 @@ public sealed partial class CommandPulse {
         subscribe: static (EventHandler<CommandPromptChangedEventArgs> handler) => RhinoApp.CommandPromptChanged += handler,
         unsubscribe: static handler => RhinoApp.CommandPromptChanged -= handler,
         handler: (_, args) => observer.Guard(project: () => Project(args))));
+    // ONE arming seat for escape, and the handler is a per-lease CLOSURE over its observer. `EscapeKeyPressed` is a
+    // bare `EventHandler`, so a static method group would produce the SAME delegate instance for every lease: the
+    // host's `-=` removes by delegate identity, so the second lease's detach would silently unhook the first, and
+    // its `+=` would be a no-op the first lease already satisfied. Closing over `observer` makes each lease's
+    // delegate distinct, which is what makes attach and detach pair one-to-one.
+    public static readonly CommandPulse Escape = new(key: 4, attach: static observer => Subscription.Attach(
+        subscribe: static (EventHandler handler) => RhinoApp.EscapeKeyPressed += handler,
+        unsubscribe: static handler => RhinoApp.EscapeKeyPressed -= handler,
+        handler: (_, _) => observer.Guard(project: static () => new CommandFact.Escaped(Value: EscapeEvent.Signalled))));
 
     [UseDelegateFromConstructor]
     internal partial Fin<Subscription> Attach(CommandObserver observer);
@@ -424,7 +562,7 @@ public sealed partial class CommandPulse {
     public static Fin<Subscription> Observe(CommandObserver observer, params ReadOnlySpan<CommandPulse> pulses) {
         Op op = Op.Of(name: nameof(CommandPulse));
         Seq<CommandPulse> candidates = toSeq(pulses.ToArray());
-        return from active in Optional(observer).ToFin(Fail: op.InvalidInput())
+        return from active in op.Need(observer)
                from _ in guard(!candidates.IsEmpty && candidates.ForAll(static pulse => pulse is not null), op.InvalidInput())
                from attached in Subscription.AttachAll(candidates.Distinct().Map(pulse =>
                    (Func<Fin<Subscription>>)(() => pulse.Attach(active))))
@@ -475,7 +613,7 @@ public sealed partial class CommandPulse {
 public static class CommandRegistry {
     public static Fin<CommandAnswer> Ask(CommandQuery query) {
         Op op = Op.Of();
-        return Optional(query).ToFin(Fail: op.InvalidInput()).Bind(request => request.Admit(op)).Bind(request => op.Catch(() => Fin.Succ(request.Switch(
+        return op.Need(query).Bind(request => request.Admit(op)).Bind(request => op.Catch(() => Fin.Succ(request.Switch(
             exists: static ask => (CommandAnswer)new CommandAnswer.Flag(Value: Command.IsCommand(name: ask.Name)),
             valid: static ask => new CommandAnswer.Flag(Value: Command.IsValidCommandName(name: ask.Name)),
             resolve: static ask => new CommandAnswer.Id(Value: Optional(Command.LookupCommandId(
@@ -488,12 +626,12 @@ public static class CommandRegistry {
                 .Map(static row => new RecentCommand(Display: row.DisplayString, Macro: row.Macro))),
             stack: static _ => new CommandAnswer.StackSet(Value: toSeq(Command.GetCommandStack())),
             state: static _ => new CommandAnswer.Activity(InCommand: Command.InCommand(), InScript: Command.InScriptRunnerCommand()),
-            prompt: static _ => new CommandAnswer.PromptValue(Value: RhinoApp.CommandPrompt))));
+            prompt: static _ => new CommandAnswer.PromptValue(Value: RhinoApp.CommandPrompt)))));
     }
 }
 ```
 
-## [05]-[SCRIPT]
+## [06]-[SCRIPT]
 
 `Scripting.Run` targets the admitted session document and preserves the native terminal. `Scripting.Proxy` dispatches one proxy inside the same document and thread grant: the caller supplies a typed body over the admitted `DocumentSession`, the re-closed `SessionMode`, and its own payload type, and the host `RunCommandDelegate`, `RhinoDoc`, `RunMode`, and `object data` stay inside the adapter. Script text, echo, and MRU display are case evidence; named dispatch validates registry membership before execution.
 
@@ -510,8 +648,8 @@ public abstract partial record ScriptOp {
 public static class Scripting {
     public static Fin<CommandVerdict> Run(DocumentSession session, ScriptOp script) {
         Op op = Op.Of();
-        return from request in Optional(script).ToFin(Fail: op.InvalidInput())
-               from target in Optional(session).ToFin(Fail: op.InvalidInput())
+        return from request in op.Need(script)
+               from target in op.Need(session)
                from _ in guard(RhinoApp.IsOnMainThread, op.InvalidContext())
                from verdict in target.Demand(
                    use: document => request.Switch(
@@ -541,9 +679,9 @@ public static class Scripting {
         TPayload payload)
         where TPayload : notnull {
         Op op = Op.Of();
-        return from target in Optional(session).ToFin(Fail: op.InvalidInput())
-               from run in Optional(body).ToFin(Fail: op.InvalidInput())
-               from data in Optional(payload).ToFin(Fail: op.InvalidInput())
+        return from target in op.Need(session)
+               from run in op.Need(body)
+               from data in op.Need(payload)
                from _ in guard(RhinoApp.IsOnMainThread, op.InvalidContext())
                from dispatched in target.Demand(
                    use: document => op.Catch(() => {
@@ -552,7 +690,12 @@ public static class Scripting {
                                .Bind(lane => run(arg1: target, arg2: lane, arg3: data))
                                .Match(
                                    Succ: static verdict => verdict.Native,
-                                   Fail: static error => CommandFaults.Refused(error: error, native: Result.Failure)),
+                                   // The proxy callback is host-invoked and carries no policy of its own, so it
+                                   // announces: a refused proxy that reported nowhere is a silent host no-op.
+                                   Fail: error => CommandFaults.Refused(
+                                       error: error,
+                                       notice: FaultNotice.Announce,
+                                       native: Result.Failure)),
                            doc: document,
                            data: data);
                        return Fin.Succ(unit);
@@ -564,7 +707,7 @@ public static class Scripting {
 }
 ```
 
-## [06]-[RESEARCH]
+## [07]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.

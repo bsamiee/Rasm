@@ -1,11 +1,11 @@
 # [UI_TOKEN]
 
-The design-token authority as TWO exports: `Theme` — OKLCH color computed in `colorjs.io` (perceptually-even ramps, gamut-fit, APCA contrast-gated at decode), the closed semantic tone vocabulary and its `Palette` resolution plane, the dimension vocabulary as its `Scale` sub-plane (one `--spacing` multiplier, a modular type scale with paired line-heights, radius/easing/shadow/z/breakpoint rows), and the theme stamp seam — plus `cn`, the folder's one class rail (`extendTailwindMerge` taught every custom group, over the `clsx` fold). Every token emits as Tailwind v4 `@theme` namespace rows through one CSS fold whose head is a policy row, so the light plane and its `data-theme` dark override derive from the same table. Semantic tone is one closed set here and a KEY everywhere else: `Theme.Tone` is the vocabulary and `Theme.Palette` resolves a tone into themed color through the same OKLCH authority, so a surface `_tone` table carries keys and no palette. Theme selection is a `data-theme` attribute the `@custom-variant` selectors read; no component branches on theme in JS, hardcodes a color, writes a raw pixel, mints a local tone union, or imports `clsx`/`twMerge` beside the one rail. The decoded color object feeds two sinks — the CSS custom-property plane here and the viewer render space through `Theme.linear` — so token color and rendered color are one color-space artifact. Motion class-row vocabulary lives at `system/act#MOTION_ROWS`; this page teaches the motion class GROUPS to the one merge table as data so those rows resolve conflicts deterministically. The module is `ui/src/system/token.ts`.
+The design-token authority as TWO exports: `Theme` — the appearance-seed contract both product heads render one visual identity from, OKLCH color computed in `colorjs.io` (perceptually-even ramps, gamut-fit, APCA contrast-gated at decode), the closed semantic tone vocabulary and its `Palette` resolution plane, the dimension vocabulary as its `Scale` sub-plane (one `--spacing` multiplier, a modular type scale with paired line-heights, radius/easing/shadow/z/breakpoint rows), and the theme stamp seam — plus `cn`, the folder's one class rail (`extendTailwindMerge` taught every custom group, over the `clsx` fold). Every token emits as Tailwind v4 `@theme` namespace rows through one CSS fold whose head is a policy row, so the base plane and its `data-theme` overrides derive from the same table. Semantic tone is one closed set here and a KEY everywhere else: `Theme.Tone` is the vocabulary and `Theme.Palette` resolves a tone into themed color through the same OKLCH authority, so a surface `_tone` table carries keys and no palette. Theme selection is a `data-theme` attribute the `@custom-variant` selectors read; no component branches on theme in JS, hardcodes a color, writes a raw pixel, mints a local tone union, or imports `clsx`/`twMerge` beside the one rail. The decoded color object feeds two sinks — the CSS custom-property plane here and the viewer render space through `Theme.linear` — so token color and rendered color are one color-space artifact. Motion class-row vocabulary lives at `system/act#MOTION_ROWS`; this page teaches the motion class GROUPS to the one merge table as data so those rows resolve conflicts deterministically. The module is `ui/src/system/token.ts`.
 
 ## [01]-[INDEX]
 
 - [02]-[COLOR_AUTHORITY]: the `Theme.Color` decode brand, ramp/contrast algebra, and the head-parameterized CSS fold; `Theme`.
-- [03]-[TONE_VOCABULARY]: the closed tone set, the slot ladder, and `Theme.Palette` resolving tone to themed color; `Theme`.
+- [03]-[TONE_VOCABULARY]: the appearance-seed contract, the closed tone set, the slot ladder, the plane projections, and `Theme.Palette` resolving tone to themed color; `Theme`.
 - [04]-[CLASS_RAIL]: the one `cn` composer — `extendTailwindMerge` over `clsx`, group table as data; `cn`.
 - [05]-[SCALE_TABLES]: `Theme.Scale` — spacing/text/radius/ease/shadow/z/breakpoint rows and emission; `Theme`.
 - [06]-[THEME_SWITCH]: the theme vocabulary, the `data-theme` stamp seam, and the persisted-theme law; `Theme`.
@@ -16,11 +16,11 @@ The design-token authority as TWO exports: `Theme` — OKLCH color computed in `
 - Owner: `Theme` — one assembled owner: the `Color` transform (CSS color string ⇄ `PlainColorObject`, non-throwing via `tryColor`, `ParseError` on a malformed token), the interior `_pair` refinement factory (foreground/background pairs APCA-gated at decode, floor a policy row) the tone plane composes, the `linear` projection (the render-space triple the viewer material plane ingests), and the `css` emission fold turning any token row table into declaration text under a keyed head.
 - Packages: `colorjs.io/fn` + `colorjs.io/spaces` (browser lane — `sRGB`/`sRGB_Linear`/`P3`/`OKLCH`/`OKLab` registered explicitly, never the full registry); `effect` (`Schema`, `ParseResult`, `Array`, `Option`, `Record`); `tailwindcss` is the emission sink — one declaration line per token, each generating its variable and utility family.
 - Entry: `Theme.css(rows, emit)` is the one emission fold every token plane reuses — `Theme.Scale.css` and `Theme.Palette.css` fold through it and a viewer probe table emits through it; the perceptual generator rides `[03]` because it reads the tone rows.
-- Law: the emission head is a keyed policy row, never a literal at a call site — `_HEADS.theme` writes the Tailwind `@theme` block and `_HEADS.dark` the `:root[data-theme="dark"]` override the stamp seam's `@custom-variant` selector reads, so a light row set and its dark counterpart are two folds of one table and a hand-authored override block is the named defect; a new emission scope is one `_HEADS` row.
+- Law: the emission head is a keyed policy row, never a literal at a call site — `_HEADS.theme` writes the Tailwind `@theme` block and every other row writes the `:root[data-theme="…"]` override its `@custom-variant` selector reads, so a base row set and each of its counterparts are folds of one table and a hand-authored override block is the named defect; a new emission scope is one `_HEADS` row beside the `[03]` projection row that generates its values.
 - Law: contrast is structural, never disciplinary — a `Theme.Palette.pair` that fails its APCA floor rejects at decode carrying the floor in the refusal; no component re-checks contrast at render, and the refinement factory stays interior because every gated pair in the folder is a tone resolution.
 - Law: the decoded interior is `PlainColorObject`, the encoded wire shape the `oklch(...)` string; `serialize` emits `inGamut: true`, and gamut fit is `toGamutCSS` (CSS Color 4 OKLCH chroma reduction) selected once here.
 - Boundary: the `to("srgb-linear")` conversion feeding three `ColorManagement` leaves through `Theme.linear` — srgb-linear coords are a fixed 3-tuple, so the marked adapter asserts the bound rather than fabricating a fallback coordinate; the `@import "tailwindcss"` entry stylesheet and `@custom-variant` declarations are app stylesheet data, not module code.
-- Growth: a new hue is one tone row emitting its whole slot ladder; a new contrast tier is one `_APCA` row — never a second color engine or a per-component color literal.
+- Growth: a new identity is one seed value; a new semantic is one tone row naming its seed anchor; a new contrast tier is one `_APCA` row — never a second color engine or a per-component color literal.
 
 ```typescript
 import { ColorSpace, contrastAPCA, type PlainColorObject, serialize, steps, to, toGamutCSS, tryColor } from "colorjs.io/fn"
@@ -33,7 +33,8 @@ ColorSpace.register(P3)
 ColorSpace.register(OKLCH)
 ColorSpace.register(OKLab)
 
-const _APCA = { body: 75, large: 60, muted: 45 } as const
+// the tier ladder every gated pair reads; `high` is the lifted tier a high-contrast projection raises every pair to
+const _APCA = { body: 75, large: 60, muted: 45, high: 90 } as const
 
 const _Plain = Schema.declare(
   (input: unknown): input is PlainColorObject =>
@@ -63,9 +64,16 @@ const _linear = (color: Schema.Schema.Type<typeof _Color>): readonly [number, nu
   return [coords[0], coords[1], coords[2]] as const
 }
 
-// the emission scope is a keyed row, so the dark plane is a second fold of one table rather than a hand-authored
-// override block; the selector matches the stamp seam's `@custom-variant` so custom properties inherit from :root
-const _HEADS = { theme: "@theme", dark: ':root[data-theme="dark"]' } as const
+// the perceptual read the seed plane derives every ramp from: lightness, chroma, hue off an admitted pigment
+const _oklch = (color: Schema.Schema.Type<typeof _Color>): readonly [number, number, number] => {
+  // BOUNDARY ADAPTER
+  const coords = to(color, "oklch").coords as [number, number, number]
+  return [coords[0], coords[1], coords[2]] as const
+}
+
+// the emission scope is a keyed row, so every override plane is a second fold of one table rather than a
+// hand-authored block; each selector matches the stamp seam's `@custom-variant` so custom properties inherit from :root
+const _HEADS = { theme: "@theme", dark: ':root[data-theme="dark"]', contrast: ':root[data-theme="contrast"]' } as const
 
 const _css = (rows: Record.ReadonlyRecord<string, string>, emit: Theme.Emit): string =>
   `${_HEADS[emit.head]} {\n${
@@ -76,36 +84,115 @@ const _css = (rows: Record.ReadonlyRecord<string, string>, emit: Theme.Emit): st
 ## [03]-[TONE_VOCABULARY]
 
 [TONE_VOCABULARY]:
-- Owner: `Theme.Palette` — the semantic plane over `[02]`'s decode: `_tones` is the closed roster and `_TONES` its row table (one OKLCH hue and one base chroma per semantic — every slot derives, so a tone is exactly two numbers), `_LADDER` is the one perceptual ramp policy every tone walks, `Theme.ramp` generates a tone's rungs through `steps` and gamut-fits each, `_SLOTS` maps each slot to the rung it reads, `_PAIRS` declares every readable pairing with its APCA floor, and `Theme.Palette.css(plane)` folds the whole tone × slot cross product into `--color-*` rows through `[02]`'s one emission on the parse rail.
-- Packages: `colorjs.io/fn` (`steps` over the registered `OKLCH` space — the perceptually-even generator; `toGamutCSS` fits each rung; `serialize` renders the rung the pair schema re-admits); `effect` (`Array`, `Effect`, `Record`, `Schema`).
-- Entry: `Theme.Palette.css(plane)` per emission plane; `Theme.ramp(tone)` is the generator a probe or a contrast audit reads, and no other surface computes a color.
+- Owner: `Theme.Seed` — the appearance-seed contract both heads render one identity from: six pigments, four surface postures, and the three tone ladders with their cast chroma; `Theme.Palette` is the semantic plane expanding it over `[02]`'s decode — `_tones` the closed roster, `_TONES` each semantic's seed ANCHOR plus its bounded hue shift, `_PROJECTIONS` the per-plane variant projection, `Theme.ramp(seed, plane, tone)` the rung generator over `steps`, `_SLOTS` each slot's rank, `_PAIRS` every readable pairing with its APCA floor, `_postured` the posture and scrim rows, and `Theme.Palette.css(seed, plane)` folding the whole tone × slot cross product plus the posture plane into `--color-*` rows through `[02]`'s one emission on the parse rail.
+- Packages: `colorjs.io/fn` (`steps` over the registered `OKLCH` space — the perceptually-even generator; `to` reads a pigment's perceptual coordinates; `toGamutCSS` fits each rung; `serialize` renders the rung the pair schema re-admits); `effect` (`Array`, `Effect`, `Option`, `Record`, `Schema`).
+- Entry: `Theme.Palette.css(seed, plane)` per emission plane; `Theme.ramp(seed, plane, tone)` is the generator a probe or a contrast audit reads, and no other surface computes a color.
+- Law: the SEED is the whole authored identity and it crosses as COMPOSITION DATA, never as a wire family — the composing root hands this authority the same seed its desktop peer resolves, both heads expand it through their own perceptual machinery under their own contrast gate, and a re-seed re-tints both from one edit; `Theme.seed` is the shipped floor a standalone head runs on, so a composed seed always wins and a head attached to a host never renders its own identity. Parity is seed-level by construction: pinning resolved values would couple two gamut and gate policies that legitimately land on different pixels.
+- Law: a semantic names its ANCHOR, never its own colour — `_TONES` carries the seed anchor each tone derives from plus the bounded hue shift keeping it legible beside its neighbour, so hue and chroma both read off the seed pigment and a hand-authored hue here would fork the identity the seed owns the moment either side moves.
 - Law: tone is a KEY everywhere but here — a surface's `_tone` table maps its own closed axis (a grade, a lifecycle status, a binding phase, a verdict, a change kind) onto `Theme.Tone` and carries no color, no hue, and no class string, so restyling every surface is one row edit here; a surface-local tone union, a hex literal, or a second palette is the fork this roster exists to foreclose.
 - Law: the roster is closed and semantic, never chromatic — two tones may resolve to neighbouring hues (`added` beside `success`, `removed` beside `danger`) because the row carries the MEANING and the hue is its current derivation; collapsing them onto one row would key a diff board to a grade vocabulary and freeze the two apart forever.
-- Law: the slot ladder is one ramp read at rungs, never five authored colors — `_SLOTS` names each slot's rank on the shared ladder and the dark plane reads the SAME ladder from the far end (`_rung` reverses the rank), so a light row and its dark counterpart are one derivation and a hand-authored dark palette is the named defect.
-- Law: every readable pairing is gated at generation — `_PAIRS` is the closed pairing table and each row decodes through `[02]`'s `_pair(floor)` refinement, so a hue whose ramp cannot clear its floor refuses at emission carrying the floor in the refusal; the emission therefore rides `Effect` while `Theme.Scale.css` stays pure, because a dimension carries no contrast invariant and a color does.
+- Law: the ladder ENVELOPE is the seed's and the resolution is this head's — an anchor's ramp spans the extremes of that anchor's own seed tone list at this head's own rung count, so the two heads agree on how dark a surface plane goes and how luminous an accent sits while neither borrows the other's step count; enumerating the producer's rungs verbatim would import a generation whose interaction semantics this head does not run.
+- Law: every plane is one PROJECTION of one generation — `_PROJECTIONS` carries the ladder direction, the chroma scale, and the floor lift per plane exactly as the producer's variant row does, so the base plane reads the ladder forward, the dark plane reads the SAME ladder from the far end, and the high-contrast plane scales near-neutral chroma toward zero and raises every pair to its lifted tier; a per-plane colour column is the drift three hand-authored blocks make inevitable.
+- Law: every readable pairing is gated at generation — `_PAIRS` is the closed pairing table and each row decodes through `[02]`'s `_pair(floor)` refinement under the plane's own lift, so a seed whose ramp cannot clear its floor refuses at emission carrying the floor in the refusal; the emission therefore rides `Effect` while `Theme.Scale.css` stays pure, because a dimension carries no contrast invariant and a color does.
 - Law: `Theme.Palette.pair` is generation-time, never render-time — the gate proves the emitted variables, components consume the generated `bg-*`/`text-*`/`border-*` utilities through `cn`, and a component resolving a pair at render re-runs a proof the stylesheet already carries.
-- Boundary: which semantic a surface's axis maps to is that surface's law (`system/vital` grades, `system/primitive` recipe and note rows, `viewer/mark` lifecycle, `viewer/panel` phase, `viewer/probe` verdict, the review plane's change kinds); this page owns the roster, the ramp, and the gate alone.
-- Growth: a new semantic is one `_TONES` row emitting its whole slot ladder; a new slot is one `_SLOTS` rank plus the `_PAIRS` rows it participates in; a new contrast tier is one `_APCA` row — never a second color engine, a per-surface union, or a hand-written dark block.
+- Law: a posture is a surface CLASS, not a ninth tone — the four seed postures shift the neutral base by their own tone offset under their own chroma ceiling and emit as their own colour rows, and the overlay posture's coverage is the one scrim weight, so a panel, a raised card, a well, and an overlay read one identity at four depths with no tone row spent on any of them.
+- Boundary: which semantic a surface's axis maps to is that surface's law (`system/vital` grades, `system/primitive` recipe and note rows, `viewer/mark` lifecycle, `viewer/panel` phase, `viewer/probe` verdict, the review plane's change kinds); this page owns the seed contract, the roster, the ramp, and the gate alone, and the seed VALUES a deployment runs on are the composing root's.
+- Growth: a new appearance identity is one seed value; a new semantic is one `_TONES` row naming its anchor; a new slot is one `_SLOTS` rank plus the `_PAIRS` rows it participates in; a new plane is one `_HEADS` row beside its `_PROJECTIONS` row; a new contrast tier is one `_APCA` row — never a second color engine, a per-surface union, or a hand-written override block.
 
 ```typescript
+import { Option } from "effect"
+
 const _tones = ["neutral", "accent", "success", "caution", "danger", "added", "removed", "changed"] as const
+const _anchors = ["surface", "accent", "error", "warning", "success", "info"] as const
+const _postures = ["panel", "raised", "well", "overlay"] as const
 
-// two numbers per semantic: the whole slot ladder derives, so restyling a tone never touches a consumer
+// Posture is the per-surface-class offset a depth plane requests: the tone shift moves the surface away from the
+// canvas, the chroma ceiling keeps it near-neutral under a tinted seed, and the coverage is the veil weight a
+// scrim over that posture takes.
+const _Posture = Schema.Struct({
+  toneShift: Schema.Number.pipe(Schema.between(-1, 1)),
+  chromaCeiling: Schema.Number.pipe(Schema.between(0, 1)),
+  coverage: Schema.Number.pipe(Schema.between(0, 1)),
+})
+
+const _Unit = Schema.Number.pipe(Schema.between(0, 1))
+
+// The seed contract: every pigment admits through `[02]`'s decode, so a malformed identity refuses where every
+// other colour in this folder refuses rather than reaching a ramp as text no parser admits.
+const _Seed = Schema.Struct({
+  surface: _Color,
+  accent: _Color,
+  status: Schema.Record({ key: Schema.Literal("error", "warning", "success", "info"), value: _Color }),
+  postures: Schema.Record({ key: Schema.Literal(..._postures), value: _Posture }),
+  ramp: Schema.Struct({
+    surfaceTones: Schema.NonEmptyArray(_Unit),
+    accentTones: Schema.NonEmptyArray(_Unit),
+    statusTones: Schema.NonEmptyArray(_Unit),
+    castChroma: _Unit,
+  }),
+})
+
+// The shipped floor: the reference identity — a near-neutral cool grey band and a restrained desaturated cool
+// accent, because a saturated brand accent spent on chrome leaves no headroom for the status inks that must
+// out-read it. A composed seed replaces it whole; nothing here is a per-value default a caller overrides.
+const _SEED: Schema.Schema.Encoded<typeof _Seed> = {
+  surface: "#17191d",
+  accent: "#3d7eaa",
+  status: { error: "#c5484d", warning: "#c08a2e", success: "#4a9a5b", info: "#4c86b8" },
+  postures: {
+    panel: { toneShift: 0.06, chromaCeiling: 0.04, coverage: 0 },
+    raised: { toneShift: 0.11, chromaCeiling: 0.04, coverage: 0 },
+    well: { toneShift: -0.04, chromaCeiling: 0.03, coverage: 0 },
+    overlay: { toneShift: 0.15, chromaCeiling: 0.05, coverage: 0.62 },
+  },
+  ramp: {
+    surfaceTones: [0.1, 0.14, 0.19, 0.25, 0.32],
+    accentTones: [0.58, 0.66, 0.5, 0.74, 0.4],
+    statusTones: [0.56, 0.64, 0.46, 0.72],
+    castChroma: 0.04,
+  },
+}
+
+// each semantic names the seed anchor it derives from; the two structural anchors carry a direct pigment and every
+// status anchor reads its own row, exactly as the seed declares them
 const _TONES = {
-  neutral: { hue: 262, chroma: 0.014 },
-  accent: { hue: 258, chroma: 0.152 },
-  success: { hue: 152, chroma: 0.138 },
-  caution: { hue: 76, chroma: 0.148 },
-  danger: { hue: 27, chroma: 0.178 },
-  added: { hue: 146, chroma: 0.132 },
-  removed: { hue: 14, chroma: 0.162 },
-  changed: { hue: 96, chroma: 0.128 },
-} as const
+  neutral: { anchor: "surface", hueShift: 0 },
+  accent: { anchor: "accent", hueShift: 0 },
+  success: { anchor: "success", hueShift: 0 },
+  caution: { anchor: "warning", hueShift: 0 },
+  danger: { anchor: "error", hueShift: 0 },
+  added: { anchor: "success", hueShift: -6 },
+  removed: { anchor: "error", hueShift: -13 },
+  changed: { anchor: "warning", hueShift: 20 },
+} as const satisfies Record<Theme.Tone, { readonly anchor: Theme.Anchor; readonly hueShift: number }>
 
-// one ramp policy every tone walks: near-white head washed of chroma, near-black foot carrying it
-const _LADDER = { rungs: 9, head: 0.985, foot: 0.22, wash: 0.12, deep: 0.85 } as const
+// the anchor's own ladder, exactly as the seed's ramp policy assigns it
+const _LADDERS = {
+  surface: (ramp: Theme.Ramp) => ramp.surfaceTones,
+  accent: (ramp: Theme.Ramp) => ramp.accentTones,
+  error: (ramp: Theme.Ramp) => ramp.statusTones,
+  warning: (ramp: Theme.Ramp) => ramp.statusTones,
+  success: (ramp: Theme.Ramp) => ramp.statusTones,
+  info: (ramp: Theme.Ramp) => ramp.statusTones,
+} as const satisfies Record<Theme.Anchor, (ramp: Theme.Ramp) => Schema.Schema.Type<typeof _Seed>["ramp"]["surfaceTones"]>
 
-// each slot reads one rank of the shared ladder; the dark plane reads the same ladder from the far end
+// this head's own perceptual resolution over the seed's envelope: the rung count and the chroma wash at the light
+// end are the generator's, the extremes are the seed's
+const _RUNGS = 9
+const _WASH = 0.12
+
+// the variant projection as data — ladder direction, near-neutral chroma scale, and the floor every gated pair
+// lifts to on this plane
+const _PROJECTIONS = {
+  theme: { ascending: true, chromaScale: 1, lift: Option.none<Theme.Floor>() },
+  dark: { ascending: false, chromaScale: 1, lift: Option.none<Theme.Floor>() },
+  contrast: { ascending: false, chromaScale: 0.15, lift: Option.some<Theme.Floor>("high") },
+} as const satisfies Record<
+  Theme.Plane,
+  { readonly ascending: boolean; readonly chromaScale: number; readonly lift: Option.Option<Theme.Floor> }
+>
+
+// each slot reads one rank of the shared ladder; a plane reading descending takes the same ladder from the far end
 const _SLOTS = { on: 0, surface: 1, border: 3, solid: 5, text: 7 } as const
 
 // the closed pairing table: every pair a surface can read is generated and gated, none is left to discipline
@@ -115,20 +202,34 @@ const _PAIRS = [
   { bg: "surface", fg: "border", floor: "muted" },
 ] as const satisfies ReadonlyArray<{ readonly bg: Theme.Slot; readonly fg: Theme.Slot; readonly floor: Theme.Floor }>
 
-const _ramp = (tone: Theme.Tone): ReadonlyArray<string> =>
-  Array.map(
-    steps(
-      { space: OKLCH, coords: [_LADDER.head, _TONES[tone].chroma * _LADDER.wash, _TONES[tone].hue], alpha: 1 },
-      { space: OKLCH, coords: [_LADDER.foot, _TONES[tone].chroma * _LADDER.deep, _TONES[tone].hue], alpha: 1 },
-      { space: OKLCH, steps: _LADDER.rungs },
-    ),
-    (rung) => serialize(toGamutCSS(rung, { space: sRGB }), { inGamut: true }),
-  )
+const _pigment = (seed: Theme.Seed, anchor: Theme.Anchor): Schema.Schema.Type<typeof _Color> =>
+  anchor === "surface" ? seed.surface : anchor === "accent" ? seed.accent : seed.status[anchor]
 
-const _rung = (plane: Theme.Plane, rank: number): number => (plane === "dark" ? _LADDER.rungs - 1 - rank : rank)
+const _rendered = (rung: PlainColorObject): string => serialize(toGamutCSS(rung, { space: sRGB }), { inGamut: true })
+
+const _ramp = (seed: Theme.Seed, plane: Theme.Plane, tone: Theme.Tone): ReadonlyArray<string> => {
+  const row = _TONES[tone]
+  const [, chroma, hue] = _oklch(_pigment(seed, row.anchor))
+  const tones = _LADDERS[row.anchor](seed.ramp)
+  const scaled = chroma * _PROJECTIONS[plane].chromaScale
+  const shifted = hue + row.hueShift
+  return Array.map(
+    steps(
+      // the reducers are spelled as lambdas: passing `Math.max` itself hands `reduce` the index and the array as
+      // extra arguments and the whole envelope collapses to NaN
+      { space: OKLCH, coords: [tones.reduce((a, b) => Math.max(a, b)), scaled * _WASH, shifted], alpha: 1 },
+      { space: OKLCH, coords: [tones.reduce((a, b) => Math.min(a, b)), scaled, shifted], alpha: 1 },
+      { space: OKLCH, steps: _RUNGS },
+    ),
+    _rendered,
+  )
+}
+
+const _rung = (plane: Theme.Plane, rank: number): number =>
+  _PROJECTIONS[plane].ascending ? rank : _RUNGS - 1 - rank
 
 // the ladder projects onto the slot record in one pass; a rank the ladder cannot serve is a construction defect
-// between _LADDER and _SLOTS that no consumer arm could act on, so the miss escalates rather than joining a channel
+// between _RUNGS and _SLOTS that no consumer arm could act on, so the miss escalates rather than joining a channel
 const _slotted = (ladder: ReadonlyArray<string>, plane: Theme.Plane): Effect.Effect<Record.ReadonlyRecord<Theme.Slot, string>> =>
   Effect.orDie(
     Effect.map(
@@ -138,44 +239,85 @@ const _slotted = (ladder: ReadonlyArray<string>, plane: Theme.Plane): Effect.Eff
     ),
   )
 
-// the gate runs over the SERIALIZED rungs, so a generated pair re-enters through the same decode a token string does
-const _pairOf = (plane: Theme.Plane, tone: Theme.Tone, row: Theme.PairRow): Effect.Effect<Theme.Pair, ParseResult.ParseError> =>
-  Effect.flatMap(_slotted(_ramp(tone), plane), (slots) =>
-    Schema.decodeUnknown(_pair(row.floor))({ bg: slots[row.bg], fg: slots[row.fg] }))
+// the plane's lift wins over a row's authored floor, so raising contrast is one projection column rather than a
+// second pairing table
+const _floor = (plane: Theme.Plane, row: Theme.PairRow): Theme.Floor =>
+  Option.getOrElse(_PROJECTIONS[plane].lift, () => row.floor)
 
-const _toned = (plane: Theme.Plane, tone: Theme.Tone): Effect.Effect<Theme.Rows, ParseResult.ParseError> =>
+// the gate runs over the SERIALIZED rungs, so a generated pair re-enters through the same decode a token string does
+const _pairOf = (
+  seed: Theme.Seed,
+  plane: Theme.Plane,
+  tone: Theme.Tone,
+  row: Theme.PairRow,
+): Effect.Effect<Theme.Pair, ParseResult.ParseError> =>
+  Effect.flatMap(_slotted(_ramp(seed, plane, tone), plane), (slots) =>
+    Schema.decodeUnknown(_pair(_floor(plane, row)))({ bg: slots[row.bg], fg: slots[row.fg] }))
+
+const _toned = (seed: Theme.Seed, plane: Theme.Plane, tone: Theme.Tone): Effect.Effect<Theme.Rows, ParseResult.ParseError> =>
   Effect.gen(function* () {
-    const slots = yield* _slotted(_ramp(tone), plane)
+    const slots = yield* _slotted(_ramp(seed, plane, tone), plane)
     yield* Effect.forEach(_PAIRS, (row) =>
-      Schema.decodeUnknown(_pair(row.floor))({ bg: slots[row.bg], fg: slots[row.fg] }))
+      Schema.decodeUnknown(_pair(_floor(plane, row)))({ bg: slots[row.bg], fg: slots[row.fg] }))
     return Record.fromEntries(Record.collect(slots, (name, value) => [`${tone}-${name}`, value] as const))
   })
 
+// the depth plane: each posture shifts the neutral base by its own offset under its own chroma ceiling, and the
+// overlay posture's coverage is the one scrim weight the whole folder veils with
+const _postured = (seed: Theme.Seed, plane: Theme.Plane): Theme.Rows => {
+  const [lightness, chroma, hue] = _oklch(_pigment(seed, "surface"))
+  const direction = _PROJECTIONS[plane].ascending ? 1 : -1
+  const rows = Record.map(seed.postures, (posture) =>
+    _rendered({
+      space: OKLCH,
+      coords: [
+        lightness + direction * posture.toneShift,
+        Math.min(chroma * _PROJECTIONS[plane].chromaScale, posture.chromaCeiling),
+        hue,
+      ],
+      alpha: 1,
+    }))
+  return { ...rows, scrim: _rendered({ space: OKLCH, coords: [lightness, 0, hue], alpha: seed.postures.overlay.coverage }) }
+}
+
 const _Palette: {
   readonly tones: typeof _tones
+  readonly anchors: typeof _anchors
+  readonly postures: typeof _postures
   readonly rows: typeof _TONES
   readonly slots: typeof _SLOTS
   readonly pairs: typeof _PAIRS
+  readonly projections: typeof _PROJECTIONS
   readonly ramp: typeof _ramp
   readonly pair: typeof _pairOf
-  readonly css: (plane: Theme.Plane) => Effect.Effect<string, ParseResult.ParseError>
+  readonly css: (seed: Theme.Seed, plane: Theme.Plane) => Effect.Effect<string, ParseResult.ParseError>
 } = {
   tones: _tones,
+  anchors: _anchors,
+  postures: _postures,
   rows: _TONES,
   slots: _SLOTS,
   pairs: _PAIRS,
+  projections: _PROJECTIONS,
   ramp: _ramp,
   pair: _pairOf,
-  css: (plane) =>
+  css: (seed, plane) =>
     Effect.map(
-      Effect.forEach(_tones, (tone) => _toned(plane, tone)),
-      (toned) => _css(Record.fromEntries(Array.flatMap(toned, Record.toEntries)), { head: plane, namespace: "color" }),
+      Effect.forEach(_tones, (tone) => _toned(seed, plane, tone)),
+      (toned) =>
+        _css(
+          { ...Record.fromEntries(Array.flatMap(toned, Record.toEntries)), ..._postured(seed, plane) },
+          { head: plane, namespace: "color" },
+        ),
     ),
 }
 
 // every emitted key is a custom color-scale value the one merge instance must know, so the group list DERIVES
-const _paletteKeys: ReadonlyArray<string> = Array.flatMap(_tones, (tone) =>
-  Array.map(Record.keys(_SLOTS), (slot) => `${tone}-${slot}`))
+const _paletteKeys: ReadonlyArray<string> = [
+  ...Array.flatMap(_tones, (tone) => Array.map(Record.keys(_SLOTS), (slot) => `${tone}-${slot}`)),
+  ..._postures,
+  "scrim",
+]
 ```
 
 ## [04]-[CLASS_RAIL]
@@ -307,24 +449,37 @@ const _Scale: {
 ## [06]-[THEME_SWITCH]
 
 [THEME_SWITCH]:
-- Owner: the theme vocabulary and its stamp seam riding `Theme`: `Theme.kinds` (the closed `as const` tuple — `light`, `dark`, `system`), `Theme.Kind` derived from it, and `Theme.stamp(kind)` — the one `documentElement.dataset` write, an `Effect.sync` boundary row resolving `system` through the `prefers-color-scheme` media query at stamp time.
-- Law: theme is CSS-selected, never JS-branched — `@custom-variant dark (&:where([data-theme=dark] *))` in the token stylesheet reads the stamped attribute; a component styles with `dark:` variants through `cn`, and a `kind === "dark"` conditional in render is the named defect.
+- Owner: the theme vocabulary and its stamp seam riding `Theme`: `Theme.kinds` (the closed `as const` tuple — `light`, `dark`, `contrast`, `system`), `Theme.Kind` derived from it, and `Theme.stamp(kind)` — the one `documentElement.dataset` write, an `Effect.sync` boundary row resolving `system` through the host contrast and scheme queries at stamp time.
+- Law: the elected kind resolves to an EMISSION PLANE, so the attribute a stamp writes is exactly the plane `[03]` generated rows under and a kind whose plane no `_HEADS` row serves is unspellable; the base plane clears the attribute rather than stamping a name no selector matches, because its rows live in the `@theme` block every override inherits from.
+- Law: theme is CSS-selected, never JS-branched — `@custom-variant dark (&:where([data-theme=dark] *))` and its contrast sibling in the token stylesheet read the stamped attribute; a component styles with those variants through `cn`, and a `kind === "dark"` conditional in render is the named defect.
 - Law: persistence rides the one binding — the theme atom is `Atom.kvs` with `Schema.Literal(...Theme.kinds)` as codec (`system/atom#STORE_ROOT`'s persisted row), and a `useAtomSubscribe` on it runs `Theme.stamp` so the attribute tracks the store without re-render.
 - Boundary: the media-query read and the dataset write are this page's platform-forced seam; the atom mechanics are `system/atom`'s; the `@custom-variant` declaration is stylesheet data beside `@plugin "tailwindcss-react-aria-components"`.
 
 ```typescript
 import { Effect } from "effect"
 
-const _kinds = ["light", "dark", "system"] as const
+const _kinds = ["light", "dark", "contrast", "system"] as const
 
-const _resolved = (kind: (typeof _kinds)[number]): "light" | "dark" =>
-  kind === "system"
-    ? globalThis.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"
-    : kind
+// `system` resolves both host axes at stamp time, contrast outranking scheme because a stated contrast need is a
+// requirement where a scheme preference is a taste
+const _resolved = (kind: (typeof _kinds)[number]): Theme.Plane =>
+  kind !== "system"
+    ? kind === "light" ? "theme" : kind
+    : globalThis.matchMedia("(prefers-contrast: more)").matches
+    ? "contrast"
+    : globalThis.matchMedia("(prefers-color-scheme: dark)").matches
+    ? "dark"
+    : "theme"
 
+// the base plane carries no attribute: its rows live in the `@theme` block every override inherits from
 const _stamp = (kind: (typeof _kinds)[number]): Effect.Effect<void> =>
   Effect.sync(() => {
-    globalThis.document.documentElement.dataset["theme"] = _resolved(kind)
+    const plane = _resolved(kind)
+    if (plane === "theme") {
+      delete globalThis.document.documentElement.dataset["theme"]
+      return
+    }
+    globalThis.document.documentElement.dataset["theme"] = plane
   })
 
 declare namespace Theme {
@@ -335,9 +490,13 @@ declare namespace Theme {
   type Plane = keyof typeof _HEADS
   type Emit = { readonly head: Theme.Plane; readonly namespace: string }
   type Tone = (typeof _tones)[number]
+  type Anchor = (typeof _anchors)[number]
+  type Posture = (typeof _postures)[number]
+  type Seed = Schema.Schema.Type<typeof _Seed>
+  type Ramp = Theme.Seed["ramp"]
   type Slot = keyof typeof _SLOTS
   type PairRow = (typeof _PAIRS)[number]
-  type _Tones<T extends Record<Theme.Tone, { readonly hue: number; readonly chroma: number }> = typeof _TONES> = T
+  type _Tones<T extends Record<Theme.Tone, { readonly anchor: Theme.Anchor; readonly hueShift: number }> = typeof _TONES> = T
   type Kind = (typeof _kinds)[number]
   type Step = (typeof _steps)[number]
   type Radius = keyof typeof _radius
@@ -346,6 +505,8 @@ declare namespace Theme {
   type Layer = keyof typeof _z
   type Shape = Types.Simplify<{
     readonly Color: typeof _Color
+    readonly Seed: typeof _Seed
+    readonly seed: typeof _SEED
     readonly Palette: typeof _Palette
     readonly Scale: typeof _Scale
     readonly kinds: typeof _kinds
@@ -357,6 +518,8 @@ declare namespace Theme {
 
 const Theme: Theme.Shape = {
   Color: _Color,
+  Seed: _Seed,
+  seed: _SEED,
   Palette: _Palette,
   Scale: _Scale,
   kinds: _kinds,

@@ -235,8 +235,8 @@ public static class ContractComposition {
     // enumeration order decide — capability rows on their whole record, because a lane, requirement, rank, or
     // restart-class disagreement is the same fork as a byte disagreement.
     public static Fin<SchemaContract> Merge(ContractKey contract, Seq<SchemaContract> contributions) {
-        Seq<ArtifactWire> artifacts = contributions.Bind(static one => one.Wire.Artifacts.ToSeq());
-        Seq<CapabilityWire> capabilities = contributions.Bind(static one => one.Wire.Capabilities.ToSeq());
+        Seq<ArtifactWire> artifacts = contributions.Bind(static one => toSeq(one.Wire.Artifacts));
+        Seq<CapabilityWire> capabilities = contributions.Bind(static one => toSeq(one.Wire.Capabilities));
 
         Option<ContractFault> onArtifacts = Collided(artifacts, static row => row.Key, static row => row.Content);
         return (onArtifacts.IsSome
@@ -432,15 +432,13 @@ public abstract partial record BackendVerdict {
 
 public static class BackendAdmission {
     public static BackendVerdict Admit(SchemaContract expected, BackendObservation observed) {
-        Seq<string> requiredCapabilities = expected.Wire.Capabilities
+        Seq<string> requiredCapabilities = toSeq(expected.Wire.Capabilities
             .Where(static row => row.FailureRank == FailureRank.Required.Key)
             .Select(static row => row.Key)
-            .Where(key => !observed.HeldCapabilities.Contains(key))
-            .ToSeq();
-        Seq<string> requiredArtifacts = expected.Wire.Artifacts
+            .Where(key => !observed.HeldCapabilities.Contains(key)));
+        Seq<string> requiredArtifacts = toSeq(expected.Wire.Artifacts
             .Select(static row => row.Key)
-            .Where(key => !observed.HeldArtifacts.Contains(key))
-            .ToSeq();
+            .Where(key => !observed.HeldArtifacts.Contains(key)));
 
         return observed.Generation != expected.Generation
             ? new BackendVerdict.GenerationDrift(expected.Generation, observed.Generation)

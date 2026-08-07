@@ -7,8 +7,8 @@ The channel roster is a TOTAL PROJECTION of an existing closed vocabulary, never
 ## [01]-[INDEX]
 
 - [02]-[TEXTURE_CHANNEL]: the `ChannelGroup`/`ChannelUnit`/`SinkSlot` axes, the `MtlxBinding`/`ChannelOrigin` row columns with the `ColumnLens` bidirectional correspondence, the `TextureChannel` roster with its lazily-derived indexes, and the `ChannelPack` `orm`/`mra` slot table.
-- [03]-[TEXTURE_SET]: the `LayerLaw` layer axis, the `UdimTile` Mari value object, the `ChannelPackPlane` packed carrier, the `EgressSlot`/`EgressVariant` naming vocabulary, the `TextureSet` record with its `Of` admission ladder, content key, and one egress-name entry, and the `UdimSheet` per-tile assembly.
-- [04]-[SET_INGEST]: the `PlaneProbe` evidence row, the `IngestRefusal` reason vocabulary, the `IngestSource` union with its python-wire `Peer` arm, the roster-derived alias index, the `ClassifiedMap`/`SetManifest` monoid, and the total `SetIngest.Classify` fold beside the fallible `Peer` decode seam.
+- [03]-[TEXTURE_SET]: the `LayerLaw` layer axis, the `UdimTile` Mari value object, the `ChannelPackPlane` packed carrier, the `EgressSlot`/`EgressVariant` naming vocabulary, the `TextureSet` record with its `Gates` admission sequence, content key, and one egress-name entry, the `UdimSheet` per-tile assembly with its `UdimResidency` read policy, and the `TextureAtlas` packing fold with its per-participant `AtlasPlacement` rows.
+- [04]-[SET_INGEST]: the `PlaneProbe` evidence row, the `IngestRefusal` reason vocabulary, the `IngestSource` union with its python-wire `Peer` arm, the roster-derived alias index, the `ClassifiedMap`/`SetManifest` monoid, the total `SetIngest.Classify` fold beside the fallible `Peer` decode seam, and the Element seam-roster admission `SetIngest.Roster` with its `RosterBinding` policy rows.
 - [05]-[SET_BIND]: the `BindTarget`/`SetBinding` unions and the one `SetBind.Bind` lowering — the sink-slot graph program, the per-texel parameter row over channels AND packs, and the measured plane-mean summary row.
 
 ## [02]-[TEXTURE_CHANNEL]
@@ -19,7 +19,7 @@ The channel roster is a TOTAL PROJECTION of an existing closed vocabulary, never
 - Law: `geometry_tangent` and `geometry_coat_tangent` stay the `.mtlx` egress ports and the frame EVIDENCE a peer consumer supplies, never a Rasm-side shading input — anisotropy direction reaches the lobes as the scalar `specular_roughness_anisotropy_rotation` plane, which mips correctly under `MipPolicy.Box` where a tangent VECTOR plane does not (averaging two opposed tangents cancels to nothing), so the rotation form is both the OpenPBR-canonical input and the only one whose pyramid means anything.
 - Law: every derived index projects from `Items` through a `Lazy<T>` accessor, never an eager `static readonly` field initializer — a field initializer inside the roster's own type runs during that type's class construction, before the generated `Items` materialization has published, so an eager index captures an empty roster and poisons every consumer that reads it.
 - Entry: the roster IS the entry — `TextureChannel.Items` is the ordered vocabulary every downstream fold reads, `TextureChannel.Get(key)`/`TryGet(key, out row)` resolve a wire key, `Ordinal` is the ONE declaration-order rank the set key preimage and the `press#PRESS_PLAN` binding order both sort on, `BySlot`/`ByGroup` are the derived indexes, and `MtlxInput` resolves the `.mtlx` port name from the binding row so the interchange document never carries a translation column.
-- Packages: `plane#TEXTURE_PLANE` (composed — `PlaneTransfer`/`MipPolicy` the row columns select, `NormalConvention`/`ToGl` the green-polarity axis and its one decoded-texel flip), `codec#RASTER_CODEC` (composed — `KtxPayload` the per-row quality policy), `filter#PLANE_OP` (composed — `PlaneOp`/`HeightSolver`/`HeightDerivative`/`HeightEvidence`, the derivation each `Derived` row carries), `Rasm.Materials.Appearance.Surface` (composed — the `OpenPbrSurface` column set the lens reads), `Rasm.Materials.Appearance.Graph` (composed — `MaterialParameters` the lens writes, `ShadePoint`/`SurfaceShade` the geometric and sink lenses read, `PortId`/`PortValue` the slot binds), `Rasm.Materials.Appearance.Texture` (composed — `ShadeVec4` the one field register, `Channel` the sampler modality each `SinkSlot` names), `photometric#PHOTOMETRIC` (composed — `MaterialUnits.Ucum`, the folder's one unit boundary each `ChannelUnit` row derives its wire token through), UnitsNet (the `LengthUnit`/`LuminanceUnit` SI members the rows bind, admitted in-folder through `MaterialUnits` alone), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox (`FrozenDictionary`, `Lazy<T>`).
+- Packages: `plane#TEXTURE_PLANE` (composed — `PlaneTransfer`/`MipPolicy` the row columns select, `NormalConvention`/`ToGl` the green-polarity axis and its one decoded-texel flip), `codec#RASTER_CODEC` (composed — `KtxPayload` the per-row quality policy), `filter#PLANE_OP` (composed — `PlaneOp`/`HeightSolver`/`HeightDerivative`/`HeightEvidence`, the derivation each `Derived` row carries), `Rasm.Materials.Appearance.Surface` (composed — the `OpenPbrSurface` column set the lens reads), `Rasm.Materials.Appearance.Graph` (composed — `MaterialParameters` the lens writes, `ShadePoint`/`SurfaceShade` the geometric and sink lenses read, `PortId`/`PortValue` the slot binds), `Rasm.Materials.Appearance.Texture` (composed — `ShadeVec4` the one field register, `Channel` the sampler modality each `SinkSlot` names), `photometric#PHOTOMETRIC` (composed — `PhotometricQuantity` the light-quantity band a `ChannelUnit` row names, its `Ucum` column the wire token), UnitsNet (the `LengthUnit`/`LuminanceUnit` SI members the rows bind, admitted in-folder through `MaterialUnits` alone), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox (`FrozenDictionary`, `Lazy<T>`).
 - Growth: a new bakeable field is one `TextureChannel` row carrying its twelve columns — never a second roster, never a per-channel type, and never a caller-ordered tuple; a new packing order is one `ChannelPack` row naming its three slots; a new unit is one `ChannelUnit` row naming its UnitsNet SI member; a new `.mtlx` egress irregularity is one `MtlxBinding` case, so a unit fork, a shape split, or a lowered-into input stays a typed row rather than prose a transcriber must remember. The OpenPBR half grows BY DERIVATION and the projection is TOTAL — a column added to `OpenPbrSurface` earns a row whose `ColumnLens` reads it, and every OpenPBR row reads a real column, so no row is synthesized and no lens returns a constant.
 - Boundary: channel values are DECODED and signed — `geometry_normal` neutral is the unit `(0,0,1)`, `geometry_tangent` the unit `(1,0,0)`, `curvature` the signed zero, `height` the normalized `0.5` — so the `(v+1)/2` integer encode and its `2v−1` decode live wholly at `plane#PLANE_VOCABULARY` and the conversion appears exactly once in the corpus; the composed `plane#TEXTURE_PLANE` `NormalConvention.ToGl` is therefore one green-sign flip over the decoded texel rather than a depth-branching pair, and the `dx` row converts ONCE at ingest so no plane leaves this page carrying `−Y` green. The `graph#MATERIAL_GRAPH` `Normal` arm reads the OPPOSITE convention — its decode is `2v−1` over a `[0,1]` tangent-space sample, the encoding `MaterialGraph.Default` seeds as `(0.5,0.5,1.0)` — so `SinkSlot.Encode` re-encodes the decoded plane texel at the bind and the two owners meet at exactly one projection column; binding a decoded normal straight onto the node inverts X and Y at every texel, which no gate downstream can see. Gloss is NOT a channel — `gloss`/`glossiness`/`smoothness` are `specular_roughness` ingest aliases whose `ClassifiedMap.Inverted` flag records the `roughness = 1 − gloss` inversion, applied by the `filter#PLANE_OP` `RemapCurve.Levels.Invert` curve in the LINEAR domain after the plane decodes, so an `srgb`-authored gloss plane inverted before decode (the silent-roughness fork) is unrepresentable and no downstream surface holds a gloss spelling. `MipPolicy.RoughnessVariance` is the roughness rows' declared law and it is PAIRED — `Pair` names the normal channel whose per-level variance the fold consumes, resolving to `geometry_coat_normal` for the coat group and `geometry_normal` elsewhere — so `press#TEXTURE_PRESS` reads the pairing off the row rather than guessing, and a roughness channel mipped under `Box` alone is a stated quality floor the press receipt records. The KTX payload column is a QUALITY POLICY, not a container choice — the `tests/contracts/appearance-vocabulary.schema.json` `$defs.ktxPayloadRoster` fragment is its wire-legality owner: vector channels take `KtxPayload.Uastc` because ETC1S destroys a normal's directional coherence, colour channels open at `KtxPayload.Etc1s` and raise to `Uastc` on a set-level quality floor, and `KtxPayload.RawBcn` never appears on a row because a raw-BCn KTX2 is a desktop payload no Basis-transcoding consumer reads. `base_specular_tint` and `transmission_roughness` are Rasm columns OpenPBR does not name, so their `MtlxBinding` is `Lowered("specular_color")` and `Unmapped` respectively, `thin_film_thickness` carries `Scaled(1e-3)` for the `.mtlx` micrometre input against its nanometre plane, and `subsurface_radius` carries `Split("subsurface_radius_scale")` for the radius-and-scale pair the document takes — each irregularity a row the transcriber cannot omit rather than a sentence it can.
 
@@ -33,7 +33,7 @@ using Rasm.Element.Composition;                   // MaterialId — the SEAM mat
 using Rasm.Element.Projection;                    // ContentAddress — the X32 wire spelling and its ONE lowering site
 using Rasm.Materials.Appearance.Bsdf;             // MaterialFault (band 2450), RgbSpectrum
 using Rasm.Materials.Appearance.Graph;            // MaterialGraph (+ its Author/PortOf authoring surface), GraphEdit, ShadeChannel, AppearanceNode, PortId, PortValue, MaterialParameters, SubsurfaceRadius, ThinFilm, ShadePoint, SurfaceShade
-using Rasm.Materials.Appearance.Photometric;      // MaterialUnits — the folder's ONE unit boundary; Ucum is the wire token every ChannelUnit row derives
+using Rasm.Materials.Appearance.Photometric;      // PhotometricQuantity — the light-quantity band a ChannelUnit row names; its Ucum column is the wire token
 using Rasm.Materials.Appearance.Surface;          // OpenPbrSurface, ConductorMetal
 using Rasm.Materials.Appearance.Texture;          // TextureSource, TextureUv, UvSample, SamplerState, UvFrame, Channel, ShadeVec4
 using Rasm.Numerics;                              // Dimension, UnitInterval
@@ -65,21 +65,26 @@ public sealed partial class ChannelGroup {
 
 // SiUnit binds each row to the UnitsNet member the folder's photometric#PHOTOMETRIC MaterialUnits boundary
 // admits against, so a channel's declared unit and the folder's admitted unit are ONE fact — a millimetre
-// radius plane and a millimetre length admission cannot drift. Ucum DERIVES off that member through the same
-// owner, so the token the Projection/observability instrument rows and the Projection/analytics column schema
-// carry is never transcribed here; None binds no member and derives UCUM unity "1", never an empty string a
-// dimensionless series cannot spell.
+// radius plane and a millimetre length admission cannot drift. The UCUM token the observability instrument rows
+// and the analytics column schema carry reads off the named PhotometricQuantity row's own Ucum column for a
+// light-quantity channel; a channel carrying no light quantity states its token on this roster, unity "1" for
+// the dimensionless row — never an empty string a series cannot spell.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ChannelUnit {
-    public static readonly ChannelUnit None       = new("none",  si: null);
-    public static readonly ChannelUnit Millimetre = new("mm",    si: LengthUnit.Millimeter);
-    public static readonly ChannelUnit Nanometre  = new("nm",    si: LengthUnit.Nanometer);
-    public static readonly ChannelUnit Luminance  = new("cd/m2", si: LuminanceUnit.CandelaPerSquareMeter);
+    // A light-quantity row NAMES its photometric#PHOTOMETRIC PhotometricQuantity and reads the UCUM code off that
+    // row's own Ucum column — one unit fact read at two grains; a channel carrying no light quantity states its
+    // token on THIS roster, the dimensionless row the UCUM unity "1".
+    public static readonly ChannelUnit None       = new("none",  siUnit: null,                                    quantity: null,                         token: "1");
+    public static readonly ChannelUnit Millimetre = new("mm",    siUnit: LengthUnit.Millimeter,                   quantity: null,                         token: "mm");
+    public static readonly ChannelUnit Nanometre  = new("nm",    siUnit: LengthUnit.Nanometer,                    quantity: null,                         token: "nm");
+    public static readonly ChannelUnit Luminance  = new("cd/m2", siUnit: LuminanceUnit.CandelaPerSquareMeter,     quantity: PhotometricQuantity.Luminance, token: null);
 
     public Enum? SiUnit { get; }
+    public PhotometricQuantity? Quantity { get; }
+    private string? Token { get; }
 
-    public string Ucum => MaterialUnits.Ucum(SiUnit);
+    public string Ucum => Quantity?.Ucum ?? Token!;
 }
 
 // The graph#MATERIAL_GRAPH BsdfOutput ports a channel drives, each row carrying the correspondences the two
@@ -111,8 +116,11 @@ public sealed partial class SinkSlot {
     // The graph Normal arm decodes 2v-1 over a [0,1] sample, so a DECODED signed plane texel re-encodes here and
     // nowhere else; binding the signed texel straight through inverts X and Y at every texel invisibly.
     static PortValue Verbatim(PortValue decoded) => decoded;
-    static PortValue Bias(PortValue decoded) =>
-        decoded.AsVector switch { var v => new PortValue.Vector(new Vector3d((v.X + 1.0) * 0.5, (v.Y + 1.0) * 0.5, (v.Z + 1.0) * 0.5)) };
+
+    static PortValue Bias(PortValue decoded) {
+        Vector3d signed = decoded.AsVector;
+        return new PortValue.Vector(new Vector3d((signed.X + 1.0) * 0.5, (signed.Y + 1.0) * 0.5, (signed.Z + 1.0) * 0.5));
+    }
 
     static ShadeVec4 Lane(double scalar) => new(scalar, 0.0, 0.0, 1.0);
     static ShadeVec4 Axis(Vector3d axis) => new(axis.X, axis.Y, axis.Z, 1.0);
@@ -181,23 +189,23 @@ public sealed partial class TextureChannel {
     public static readonly TextureChannel SpecularRoughness     = new("specular_roughness",            group: ChannelGroup.Specular,     components: 1, transfer: PlaneTransfer.Linear, neutral: Scalar(0.3),            unit: ChannelUnit.None,       mip: MipPolicy.RoughnessVariance, payload: KtxPayload.Uastc, origin: Column(static s => Scalar(s.SpecularRoughness),    static (p, v) => p with { Roughness = Unit(v.X) }),                                            mtlx: MtlxBinding.Verbatim,                            slot: SinkSlot.Roughness,    aliases: Seq("roughness", "rough", "rgh", "r"));
     public static readonly TextureChannel SpecularAnisotropy    = new("specular_roughness_anisotropy", group: ChannelGroup.Specular,     components: 1, transfer: PlaneTransfer.Linear, neutral: Scalar(0.0),            unit: ChannelUnit.None,       mip: MipPolicy.Box,               payload: KtxPayload.Uastc, origin: Column(static s => Scalar(s.SpecularAnisotropy),   static (p, v) => p with { Anisotropy = Unit(v.X) }),                                           mtlx: MtlxBinding.Verbatim,                            slot: None,                  aliases: Empty);
     public static readonly TextureChannel SpecularRotation      = new("specular_roughness_anisotropy_rotation", group: ChannelGroup.Specular, components: 1, transfer: PlaneTransfer.Linear, neutral: Scalar(0.0),        unit: ChannelUnit.None,       mip: MipPolicy.Box,               payload: KtxPayload.Uastc, origin: Column(static s => Scalar(s.SpecularRotation),     static (p, v) => p with { AnisotropyRotation = Unit(v.X) }),                                   mtlx: MtlxBinding.Verbatim,                            slot: None,                  aliases: Empty);
-    public static readonly TextureChannel SpecularIor           = new("specular_ior",                  group: ChannelGroup.Specular,     components: 1, transfer: PlaneTransfer.Raw,    neutral: Scalar(1.5),            unit: ChannelUnit.None,       mip: MipPolicy.Box,               payload: KtxPayload.Uastc, origin: Column(static s => Scalar(s.SpecularIor),          static (p, v) => p with { Ior = v.X }),                                                        mtlx: MtlxBinding.Verbatim,                            slot: None,                  aliases: Empty);
+    public static readonly TextureChannel SpecularIor           = new("specular_ior",                  group: ChannelGroup.Specular,     components: 1, transfer: PlaneTransfer.Raw,    neutral: Scalar(1.5),            unit: ChannelUnit.None,       mip: MipPolicy.Box,               payload: KtxPayload.None , origin: Column(static s => Scalar(s.SpecularIor),          static (p, v) => p with { Ior = v.X }),                                                        mtlx: MtlxBinding.Verbatim,                            slot: None,                  aliases: Empty);
     public static readonly TextureChannel TransmissionWeight    = new("transmission_weight",           group: ChannelGroup.Transmission, components: 1, transfer: PlaneTransfer.Linear, neutral: Scalar(0.0),            unit: ChannelUnit.None,       mip: MipPolicy.Box,               payload: KtxPayload.Uastc, origin: Column(static s => Scalar(s.TransmissionWeight),   static (p, v) => p with { Transmission = Unit(v.X) }),                                         mtlx: MtlxBinding.Verbatim,                            slot: None,                  aliases: Seq("transmission", "transmissive", "refraction"));
     public static readonly TextureChannel TransmissionRoughness = new("transmission_roughness",        group: ChannelGroup.Transmission, components: 1, transfer: PlaneTransfer.Linear, neutral: Scalar(0.0),            unit: ChannelUnit.None,       mip: MipPolicy.RoughnessVariance, payload: KtxPayload.Uastc, origin: Column(static s => Scalar(s.TransmissionRoughness), static (p, v) => p with { TransmissionRoughness = Unit(v.X) }),                               mtlx: MtlxBinding.Unmapped,                            slot: None,                  aliases: Empty);
     public static readonly TextureChannel SubsurfaceWeight      = new("subsurface_weight",             group: ChannelGroup.Subsurface,   components: 1, transfer: PlaneTransfer.Linear, neutral: Scalar(0.0),            unit: ChannelUnit.None,       mip: MipPolicy.Box,               payload: KtxPayload.Uastc, origin: Column(static s => Scalar(s.SubsurfaceWeight),     static (p, v) => p with { Subsurface = Unit(v.X) }),                                           mtlx: MtlxBinding.Verbatim,                            slot: None,                  aliases: Seq("sss", "subsurface", "scatter"));
-    public static readonly TextureChannel SubsurfaceRadius      = new("subsurface_radius",             group: ChannelGroup.Subsurface,   components: 3, transfer: PlaneTransfer.Raw,    neutral: Rgb(1.0, 0.5, 0.25),    unit: ChannelUnit.Millimetre, mip: MipPolicy.Box,               payload: KtxPayload.Uastc, origin: Column(static s => Band(s.SubsurfaceRadius),       static (p, v) => p with { SubsurfaceRadius = Rasm.Materials.Appearance.Graph.SubsurfaceRadius.Create(Math.Max(0.0, v.X), Math.Max(0.0, v.Y), Math.Max(0.0, v.Z)) }), mtlx: new MtlxBinding.Split("subsurface_radius_scale"), slot: None,             aliases: Empty);
+    public static readonly TextureChannel SubsurfaceRadius      = new("subsurface_radius",             group: ChannelGroup.Subsurface,   components: 3, transfer: PlaneTransfer.Raw,    neutral: Rgb(1.0, 0.5, 0.25),    unit: ChannelUnit.Millimetre, mip: MipPolicy.Box,               payload: KtxPayload.None , origin: Column(static s => Band(s.SubsurfaceRadius),       static (p, v) => p with { SubsurfaceRadius = Rasm.Materials.Appearance.Graph.SubsurfaceRadius.Create(Math.Max(0.0, v.X), Math.Max(0.0, v.Y), Math.Max(0.0, v.Z)) }), mtlx: new MtlxBinding.Split("subsurface_radius_scale"), slot: None,             aliases: Empty);
     public static readonly TextureChannel CoatWeight            = new("coat_weight",                   group: ChannelGroup.Coat,         components: 1, transfer: PlaneTransfer.Linear, neutral: Scalar(0.0),            unit: ChannelUnit.None,       mip: MipPolicy.Box,               payload: KtxPayload.Uastc, origin: Column(static s => Scalar(s.CoatWeight),           static (p, v) => p with { Clearcoat = Unit(v.X) }),                                            mtlx: MtlxBinding.Verbatim,                            slot: None,                  aliases: Seq("clearcoat", "coat", "cc"));
     public static readonly TextureChannel CoatColor             = new("coat_color",                    group: ChannelGroup.Coat,         components: 3, transfer: PlaneTransfer.Srgb,   neutral: Rgb(1.0, 1.0, 1.0),     unit: ChannelUnit.None,       mip: MipPolicy.Kaiser,            payload: KtxPayload.Etc1s, origin: Column(static s => Rgb(s.CoatColor),               static (p, v) => p with { CoatColor = v.AsColorUnchecked() }),                                 mtlx: MtlxBinding.Verbatim,                            slot: None,                  aliases: Empty);
     public static readonly TextureChannel CoatRoughness         = new("coat_roughness",                group: ChannelGroup.Coat,         components: 1, transfer: PlaneTransfer.Linear, neutral: Scalar(0.0),            unit: ChannelUnit.None,       mip: MipPolicy.RoughnessVariance, payload: KtxPayload.Uastc, origin: Column(static s => Scalar(s.CoatRoughness),        static (p, v) => p with { ClearcoatRoughness = Unit(v.X) }),                                   mtlx: MtlxBinding.Verbatim,                            slot: None,                  aliases: Empty);
-    public static readonly TextureChannel CoatIor               = new("coat_ior",                      group: ChannelGroup.Coat,         components: 1, transfer: PlaneTransfer.Raw,    neutral: Scalar(1.6),            unit: ChannelUnit.None,       mip: MipPolicy.Box,               payload: KtxPayload.Uastc, origin: Column(static s => Scalar(s.CoatIor)),                                                                                                           mtlx: MtlxBinding.Verbatim,                            slot: None,                  aliases: Empty);
+    public static readonly TextureChannel CoatIor               = new("coat_ior",                      group: ChannelGroup.Coat,         components: 1, transfer: PlaneTransfer.Raw,    neutral: Scalar(1.6),            unit: ChannelUnit.None,       mip: MipPolicy.Box,               payload: KtxPayload.None , origin: Column(static s => Scalar(s.CoatIor)),                                                                                                           mtlx: MtlxBinding.Verbatim,                            slot: None,                  aliases: Empty);
     public static readonly TextureChannel FuzzWeight            = new("fuzz_weight",                   group: ChannelGroup.Fuzz,         components: 1, transfer: PlaneTransfer.Linear, neutral: Scalar(0.0),            unit: ChannelUnit.None,       mip: MipPolicy.Box,               payload: KtxPayload.Uastc, origin: Column(static s => Scalar(s.FuzzWeight),           static (p, v) => p with { Sheen = Unit(v.X) }),                                                mtlx: MtlxBinding.Verbatim,                            slot: None,                  aliases: Seq("sheen", "fuzz", "velvet"));
     public static readonly TextureChannel FuzzColor             = new("fuzz_color",                    group: ChannelGroup.Fuzz,         components: 3, transfer: PlaneTransfer.Srgb,   neutral: Rgb(1.0, 1.0, 1.0),     unit: ChannelUnit.None,       mip: MipPolicy.Kaiser,            payload: KtxPayload.Etc1s, origin: Column(static s => Rgb(s.FuzzColor),               static (p, v) => p with { FuzzColor = v.AsColorUnchecked() }),                                 mtlx: MtlxBinding.Verbatim,                            slot: None,                  aliases: Empty);
     public static readonly TextureChannel FuzzRoughness         = new("fuzz_roughness",                group: ChannelGroup.Fuzz,         components: 1, transfer: PlaneTransfer.Linear, neutral: Scalar(0.5),            unit: ChannelUnit.None,       mip: MipPolicy.RoughnessVariance, payload: KtxPayload.Uastc, origin: Column(static s => Scalar(s.FuzzRoughness)),                                                                                                     mtlx: MtlxBinding.Verbatim,                            slot: None,                  aliases: Empty);
     public static readonly TextureChannel ThinFilmWeight        = new("thin_film_weight",              group: ChannelGroup.ThinFilm,     components: 1, transfer: PlaneTransfer.Linear, neutral: Scalar(0.0),            unit: ChannelUnit.None,       mip: MipPolicy.Box,               payload: KtxPayload.Uastc, origin: Column(static s => Scalar(s.ThinFilmWeight),       static (p, v) => p with { Film = ThinFilm.Create(Unit(v.X), p.Film.ThicknessNm, p.Film.Ior) }), mtlx: MtlxBinding.Verbatim,                            slot: None,                  aliases: Empty);
-    public static readonly TextureChannel ThinFilmThickness     = new("thin_film_thickness",           group: ChannelGroup.ThinFilm,     components: 1, transfer: PlaneTransfer.Raw,    neutral: Scalar(500.0),          unit: ChannelUnit.Nanometre,  mip: MipPolicy.Box,               payload: KtxPayload.Uastc, origin: Column(static s => Scalar(s.ThinFilmThickness),    static (p, v) => p with { Film = ThinFilm.Create(p.Film.Weight, Math.Max(0.0, v.X), p.Film.Ior) }), mtlx: new MtlxBinding.Scaled(1e-3),                 slot: None,                  aliases: Empty);
-    public static readonly TextureChannel ThinFilmIor           = new("thin_film_ior",                 group: ChannelGroup.ThinFilm,     components: 1, transfer: PlaneTransfer.Raw,    neutral: Scalar(1.4),            unit: ChannelUnit.None,       mip: MipPolicy.Box,               payload: KtxPayload.Uastc, origin: Column(static s => Scalar(s.ThinFilmIor),          static (p, v) => p with { Film = ThinFilm.Create(p.Film.Weight, p.Film.ThicknessNm, Math.Max(1.0, v.X)) }), mtlx: MtlxBinding.Verbatim,                    slot: None,                  aliases: Empty);
+    public static readonly TextureChannel ThinFilmThickness     = new("thin_film_thickness",           group: ChannelGroup.ThinFilm,     components: 1, transfer: PlaneTransfer.Raw,    neutral: Scalar(500.0),          unit: ChannelUnit.Nanometre,  mip: MipPolicy.Box,               payload: KtxPayload.None , origin: Column(static s => Scalar(s.ThinFilmThickness),    static (p, v) => p with { Film = ThinFilm.Create(p.Film.Weight, Math.Max(0.0, v.X), p.Film.Ior) }), mtlx: new MtlxBinding.Scaled(1e-3),                 slot: None,                  aliases: Empty);
+    public static readonly TextureChannel ThinFilmIor           = new("thin_film_ior",                 group: ChannelGroup.ThinFilm,     components: 1, transfer: PlaneTransfer.Raw,    neutral: Scalar(1.4),            unit: ChannelUnit.None,       mip: MipPolicy.Box,               payload: KtxPayload.None , origin: Column(static s => Scalar(s.ThinFilmIor),          static (p, v) => p with { Film = ThinFilm.Create(p.Film.Weight, p.Film.ThicknessNm, Math.Max(1.0, v.X)) }), mtlx: MtlxBinding.Verbatim,                    slot: None,                  aliases: Empty);
     public static readonly TextureChannel EmissionColor         = new("emission_color",                group: ChannelGroup.Emission,     components: 3, transfer: PlaneTransfer.Srgb,   neutral: Rgb(1.0, 1.0, 1.0),     unit: ChannelUnit.None,       mip: MipPolicy.Kaiser,            payload: KtxPayload.Etc1s, origin: Column(static s => Rgb(s.EmissionColor),           static (p, v) => p with { Emission = v.AsColorUnchecked() }),                                  mtlx: MtlxBinding.Verbatim,                            slot: SinkSlot.Emission,     aliases: Seq("emissive", "emission", "glow", "e"));
-    public static readonly TextureChannel EmissionLuminance     = new("emission_luminance",            group: ChannelGroup.Emission,     components: 1, transfer: PlaneTransfer.Linear, neutral: Scalar(0.0),            unit: ChannelUnit.Luminance,  mip: MipPolicy.Box,               payload: KtxPayload.Uastc, origin: Column(static s => Scalar(s.EmissionLuminance),    static (p, v) => p with { EmissionLuminance = Math.Max(0.0, v.X) }),                           mtlx: MtlxBinding.Verbatim,                            slot: None,                  aliases: Empty);
+    public static readonly TextureChannel EmissionLuminance     = new("emission_luminance",            group: ChannelGroup.Emission,     components: 1, transfer: PlaneTransfer.Linear, neutral: Scalar(0.0),            unit: ChannelUnit.Luminance,  mip: MipPolicy.Box,               payload: KtxPayload.None , origin: Column(static s => Scalar(s.EmissionLuminance),    static (p, v) => p with { EmissionLuminance = Math.Max(0.0, v.X) }),                           mtlx: MtlxBinding.Verbatim,                            slot: None,                  aliases: Empty);
 
     // --- [GEOMETRY_CHANNELS]
     // The OpenPBR geometry group. Read from the shade point's own frame rather than the lowered vector: the
@@ -246,6 +254,15 @@ public sealed partial class TextureChannel {
     // The paired channel MipPolicy.RoughnessVariance consumes: a roughness fold absorbs the per-level variance
     // its own normal lost, and the coat group's normal is the coat normal. Derived from Group so a new roughness
     // row inherits the pairing rather than restating it, and every other policy pairs with nothing.
+    // OPEN SCALE is the value-axis fact the encode floor gates on, DERIVED from the two columns a row already
+    // declares rather than added as a thirteenth. A channel whose values leave the normalized band declares it one
+    // of two ways and there is no third: it carries a PHYSICAL UNIT — a millimetre radius, a nanometre thickness, a
+    // luminance — or its own OpenPBR neutral already sits outside `[-1,1]`, which every index of refraction does.
+    // A row authored open-scale that declares neither is authored wrong, and that is a real constraint on how such
+    // a row is written rather than a gap: a normalizing store would clip it and no gate below could see the loss.
+    public bool OpenScale =>
+        Unit != ChannelUnit.None || Math.Abs(Neutral.X) > 1.0 || Math.Abs(Neutral.Y) > 1.0 || Math.Abs(Neutral.Z) > 1.0;
+
     public Option<string> Pair =>
         Mip == MipPolicy.RoughnessVariance
             ? Some(Group == ChannelGroup.Coat ? GeometryCoatNormal.Key : GeometryNormal.Key)
@@ -270,7 +287,7 @@ public sealed partial class TextureChannel {
         new(static () => Items.Select(static (row, index) => (Row: row, Index: index)).ToFrozenDictionary(static e => e.Row, static e => e.Index));
 
     private static readonly Lazy<FrozenDictionary<SinkSlot, TextureChannel>> Slots =
-        new(static () => Items.Choose(static c => c.Slot.Map(slot => (Slot: slot, Channel: c))).ToFrozenDictionary(static e => e.Slot, static e => e.Channel));
+        new(static () => Items.Select(static c => c.Slot.Map(slot => (Slot: slot, Channel: c))).Somes().ToFrozenDictionary(static e => e.Slot, static e => e.Channel));
 
     private static readonly Lazy<ILookup<ChannelGroup, TextureChannel>> Groups =
         new(static () => Items.ToLookup(static row => row.Group));
@@ -312,13 +329,21 @@ public sealed partial class ChannelPack {
 
 ## [03]-[TEXTURE_SET]
 
-- Owner: `TextureSet` the extent-coherent content-keyed plane bundle; `UdimSheet` the ascending per-tile assembly the wire's `udimTiles` leg publishes; `LayerLaw` `[SmartEnum<string>]` the layer-cardinality axis; `UdimTile` `[ValueObject<int>]` the Mari tile index; `ChannelPackPlane` the packed-plane carrier over a `ChannelPack` row; `EgressSlot` the ad-hoc `[Union<TextureChannel, ChannelPack>]` name absorber; `EgressVariant` `[Union]` the one optional filename infix.
+- Owner: `TextureSet` the extent-coherent content-keyed plane bundle; `UdimSheet` the ascending per-tile assembly the wire's `udimTiles` leg publishes, with `UdimResidency` its read policy; `TextureAtlas` the N-set packing product with `AtlasPlacement` its per-participant UV transform row; `LayerLaw` `[SmartEnum<string>]` the layer-cardinality axis; `UdimTile` `[ValueObject<int>]` the Mari tile index; `ChannelPackPlane` the packed-plane carrier over a `ChannelPack` row; `EgressSlot` `[Union]` the declared name subject; `EgressVariant` `[Union]` the one optional filename infix.
 - Cases: layer-law {`none` (exactly one layer), `cubeFaces` (exactly six, square extent), `array`, `volume`, `frames`} · egress-variant {`Whole`, `Udim`, `Mip`, `Layer`}.
-- Entry: `public static Fin<TextureSet> Of(TextureSetDraft draft, Op key)` is the ONE admission — a draft carries the raw bundle, `Of` runs the gate ladder and mints the content key, and no other construction path exists; `Egress(EgressSlot slot, EgressVariant variant, RasterFormat format, Op key)` renders the one egress leaf name for a channel and a pack alike over an ad-hoc union that absorbs both call shapes, validating the variant against the set's own declared state; `WithChannel`/`WithPack` re-admit through `Of` so a mutated set re-keys; `Digest` exposes the `ContentAddress` the interchange payload and the object store both address; `UdimSheet.Of(tiles, key)` assembles N single-tile sets into the one UDIM producer, proving tile uniqueness, vocabulary agreement, and roster agreement before the sheet keys over the ascending tile-key fold. The wire mirror for both — `TextureSetWire` and its per-tile channel-row repetition — is `Appearance/interchange#TEXTURE_EGRESS`, the page the `tests/contracts/appearance-vocabulary.schema.json` `$defs.channelRoster` mint column reaches through.
+- Entry: `public static Fin<TextureSet> Of(TextureSetDraft draft, Op key)` is the ONE admission — a draft carries the raw bundle, `Of` runs the gate ladder and mints the content key, and no other construction path exists; `Egress(EgressSlot slot, EgressVariant variant, RasterFormat format, Op key)` renders the one egress leaf name for a channel and a pack alike over the declared `EgressSlot` cases, validating the requested variant's AXIS against the one axis the set occupies before it validates the variant's own bounds; `WithChannel`/`WithPack` re-admit through `Of` so a mutated set re-keys; `Digest` exposes the `ContentAddress` the interchange payload and the object store both address; `UdimSheet.Of(tiles, key)` assembles N single-tile sets into the one UDIM producer, proving tile uniqueness, vocabulary agreement, and roster agreement before the sheet keys over the ascending tile-key fold. The wire mirror for both — `TextureSetWire` and its per-tile channel-row repetition — is `Appearance/interchange#TEXTURE_EGRESS`, the page the `tests/contracts/appearance-vocabulary.schema.json` `$defs.channelRoster` mint column reaches through.
 - Law: `Tiled` is EVIDENCE, never a flag — the column is `Option<TileProof>` and `tile#TILE_GATE` is the only surface that mints one, so a caller cannot assert tileability into a draft and an ingested set carries `None` until the gate grades it. The wire's boolean `tiled` is the projection of that presence, never its source.
 - Packages: `plane#TEXTURE_PLANE` (composed — `TexturePyramid` carrying each channel's levels and its own `Key`, `ChannelDtype` the alpha-conversion floor read through `PlaneFormat.Normalizes`, `PlaneFormat.WebLegal` the storage-side wire-reach gate, `NormalConvention` the provenance column), `codec#RASTER_CODEC` (composed — `RasterFormat.Extension` the ONE `<ext>` source, `KtxPayload.WireLegal` the payload gate, `KtxPayload.Transcodable` the discriminant deciding whether a reader sees the store's own format), `tile#TILE_GATE` (composed — `TileProof`), `Rasm.Element.Projection` (composed — `ContentAddress.Of`/`ToValue`, the ONE X32 spelling and its ONE lowering site), `Rasm.Element.Composition` (the SEAM `MaterialId`), `Rasm.Materials.Appearance.Surface` (`ConductorMetal` the set-level conductor row), `Rasm.Domain` (`ContentHash.Of` the ONE identity entry, `ValidityClaim`), LanguageExt.Core, Thinktecture.Runtime.Extensions, BCL inbox (`Encoding.UTF8` the total preimage projection).
 - Growth: a new layer modality is one `LayerLaw` row carrying its cardinality and extent predicates — cube maps, flipbooks, arrays, and volumes are rows, so a set shape never breaks for a new stacking; a new set-level fact is one `TextureSet` column and one `Of` gate; a new filename infix is one `EgressVariant` case, and a new container is one `codec#RASTER_CODEC` `RasterFormat` row the egress reads its extension off.
-- Boundary: `TextureSet.Of` is the one gate and it REFUSES rather than repairs — a channel plane whose extent differs from the set's, a `pq` or `hlg` transfer on a channel plane (a bake target is scene-referred, and a display-referred bake forks the shading value from the stored value), a layer count or extent its `LayerLaw` row rejects, a set-level `AlphaMode` a channel's own `ChannelDtype` cannot convert to without catastrophic low-alpha quantization, a channel appearing both standalone and inside a pack, a narrow 16-bit UNORM store under an untranscoded payload (the store the browser KTX2 read path resolves no Vulkan format for — `plane#PLANE_FORMAT` `WebLegal` and `codec#RASTER_CODEC` `KtxPayload.Transcodable` are the pair, and the producer re-routes its store rather than the consumer transcoding), a duplicate pack row, a pack plane that is not four-component, `raw`, and `AlphaMode.None`, a `height` scale with no `height` channel to scale, two of the three declared variant axes occupied at once, or an empty channel map each rail `MaterialFault.Parameter` with the offending channel key in the reason. `Convention` is the INGEST-SOURCE PROVENANCE the wire's `normalConvention` field records — the planes are always `gl` by construction of the two mints (the press bakes `gl` natively, the `SetIngest.Draft` lift converts a `dx` source ONCE before any plane is keyed) — so a `dx` value here names where the bytes CAME from, never what they carry. The band split is by CONCERN: appearance-domain admission — a parameter out of range, a colour out of gamut, a graph that will not compile — rails band-2450 `MaterialFault`, while the raster-mechanical failures rail band-2460 `codec#RASTER_FAULT` `RasterFault` (`Decode`/`Encode` at the container, `Device` at the bake device, `Tile` at the synthesizer), so a set admission fault is never a codec fault wearing a raster code. The content key is a `ContentHash.Of` fold at seed zero over the canonically-ordered plane digests — channels by `TextureChannel.Ordinal` and packs by `ChannelPack.Items` row order, never map-enumeration or authoring order — so the same bundle in any authoring order keys identically and the preimage is stable against a roster APPEND; every preimage piece appends as a whole UTF-8 string, because a fixed buffer that could truncate would vanish an entry and fork the address silently; the key never reads the extent, the material id, the tile proof, or the provenance, so a re-encode of identical planes re-keys identically and a plane edit re-keys the set. `HeightScaleMm` is the set-level millimetre span the normalized `height` plane resolves against — the plane stays `[0,1]` so a set rescaled for a different displacement amplitude re-keys only its scale column, never every texel. An ATLAS is a plane-level sharing fact — N sets referencing one plane blob by content address — and never a set-level merge behind one appearance key: two materials sharing a packed sheet each carry their own `TextureSet` whose channel rows address the same digest, so a texture edit re-keys exactly the sets that read it. The egress grammar is `materials/texture/<key>/<channel>[.<variant>].<ext>` with `<key>` the set key LOWERED ONCE through `ContentAddress.Of(Key).ToValue().ToLowerInvariant()` at name construction — never at the wire and never at admission, so the uppercase X32 wire value and the lowercase path segment are one value under one documented lowering, and a consumer joining a wire key to a path lowers the key rather than uppercasing the path; the variant slot admits AT MOST ONE of a four-digit UDIM tile, a two-digit mip index, or a two-digit layer index, and a `ktx2` leaf refuses a mip variant outright because the container holds its own pyramid.
+- Law: `TextureSet.Of` is the ONE gate and it REFUSES rather than repairs, its `Gates` sequence naming each step in ordinal order and stopping at the first refusal so a caller reads the narrowest true statement about its draft. It refuses a channel plane whose extent differs from the set's, a `pq` or `hlg` transfer on a channel plane (a bake target is scene-referred, and a display-referred bake forks the shading value from the stored value), a layer count or extent its `LayerLaw` row rejects, a set-level `AlphaMode` a channel's own `ChannelDtype` cannot convert to without catastrophic low-alpha quantization, a channel appearing both standalone and inside a pack, a duplicate pack row, a pack plane that is not four-component `raw` `AlphaMode.None`, a declared `height` scale with no `height` channel to scale, two of the three declared variant axes occupied at once, and an empty channel map — each railing `MaterialFault.Parameter` with the offending channel key in the reason.
+- Law: WIRE REACH gates as a PAIR and never either half alone. Supercompression leaves a KTX2's declared Vulkan format undefined until transcode, hiding the store class from a reader; an untranscoded payload publishes that store's own format, and the browser read path resolves no row for a narrow 16-bit UNORM one — so `plane#PLANE_FORMAT` `WebLegal` and `codec#RASTER_CODEC` `KtxPayload.Transcodable` gate together, the PRODUCER re-routing its store rather than the consumer transcoding. Refusing `r16`/`rg16` outright would foreclose the production depth those rows exist for; admitting them untranscoded ships a file no consumer opens.
+- Law: THE OPEN-SCALE GATE is the sibling refusal and it catches a VALUE rather than a container. An index of refraction, a nanometre film thickness, a millimetre scatter radius, and a luminance all carry values above one, and a normalizing store clips every one at white with no diagnostic on the path — the texel, the plane, and the container are all legal and the shading input is silently wrong. `TextureChannel.OpenScale` derives that fact from two columns a row already declares (a physical `ChannelUnit`, or a neutral outside the normalized band), so an open-scale channel admits a FLOAT store alone and names `KtxPayload.None` alone — every block class stages `Unorm8` by the codec's own measured bound. The six affected rows carry that payload, and a packed lane refuses an open-scale channel at every store because the pack's own four-component normalized shape is what would clip it.
+- Law: `Convention` is INGEST-SOURCE PROVENANCE the wire's `normalConvention` field records — the planes are always `gl` by construction of the two mints, since the press bakes `gl` natively and the `SetIngest.Draft` lift converts a `dx` source ONCE before any plane is keyed — so a `dx` value here names where the bytes CAME from, never what they carry. The band split is by CONCERN: appearance-domain admission rails band-2450 `MaterialFault` and raster-mechanical failure rails band-2460 `codec#RASTER_FAULT` `RasterFault`, so a set admission fault never wears a raster code.
+- Law: the CONTENT KEY is a `ContentHash.Of` fold at seed zero over canonically-ordered pieces — channels by `TextureChannel.Ordinal`, packs by `ChannelPack.Items` row order, never map-enumeration or authoring order — so the same bundle in any authoring order keys identically and the preimage is stable against a roster APPEND. Every piece appends as a whole UTF-8 string, because a fixed buffer that could truncate would vanish an entry and fork the address silently. The key reads the plane digests and the declared `HeightScaleMm`, and reads NOTHING else: not the extent, the material id, the tile proof, or the provenance — so a re-encode of identical planes re-keys identically while a plane edit or a rescale re-keys the set.
+- Law: `HeightScaleMm` is `Option<double>` and ABSENCE IS SPELLED. The millimetre span is a DECLARATION, not a measurement, so a set whose displacement amplitude nothing has stated carries absence and the preimage appends `hs:none` where a declared span appends its own round-trip value. A `0.0` standing for "absent" was two states wearing one number — a declaration of no relief and a missing declaration are different facts, and the gate that read the sentinel could not tell them apart. The plane itself stays normalized `[0,1]`, so a rescale re-keys the scale fragment and never a texel. `filter#PLANE_OP` `HeightEvidence.ScaleMm` stays a REQUIRED double on the other side of that line: it is measured evidence of an integration that ran, and an integration that ran had an amplitude.
+- Law: an ATLAS is a PLANE-LEVEL sharing fact and it is now PRODUCED here. `TextureAtlas.Of` folds N participants onto one shared sheet and hands each a `AtlasPlacement` UV transform row; every participant keeps its own `TextureSet`, its own key, and its own appearance identity, and reaches the sheet BY CONTENT ADDRESS — so a texture edit re-keys exactly the sets that read it and never their sheet-mates. A set-level merge behind one appearance key stays the deleted form. Charts arrive ALREADY FLATTENED as data, because chart packing is the kernel's solved problem and a second packer here could answer differently from the one a mesh-space bake already used; the gutter closes through `filter#PLANE_OP` `Dilate` as part of producing the sheet, since a bilinear tap straddling two charts reads its neighbour and every mip level widens that bleed.
+- Law: the EGRESS GRAMMAR is `materials/texture/<key>/<channel>[.<variant>].<ext>` with `<key>` the set key LOWERED ONCE through `ContentAddress.Of(Key).ToValue().ToLowerInvariant()` at name construction — never at the wire and never at admission — so the uppercase X32 wire value and the lowercase path segment are one value under one documented lowering, and a consumer joining a wire key to a path lowers the key rather than uppercasing the path. The variant slot admits AT MOST ONE of a four-digit UDIM tile, a two-digit mip index, or a two-digit layer index.
+- Boundary: variant exclusivity is enforced TWICE for two different reasons and neither gate stands for the other — `Of` refuses a SET occupying two axes because that shape has no grammar to name it, and `Egress` refuses a REQUEST whose variant axis is not the axis its set occupies because that filename cannot be ordered. The layer × mip product is the case a caller reaches for most, since a mip-chained cube map is an ordinary asset, and its sanctioned carriage is the KTX2 CONTAINER holding the whole layer × level array in one file: the `codec#RASTER_CODEC` `Ktx2` row is the format, its `KtxGate` `--levels` argument writes the chain, and the `mip` variant's own `Ktx2` refusal states the same fact from the other side.
 
 ```csharp signature
 // (Continues the Rasm.Materials.Raster compilation unit — the [02] prelude is in scope, plus:)
@@ -362,12 +387,18 @@ public readonly partial struct UdimTile {
     public int Row => (Value - 1001) / 10 + 1;
 }
 
-// The egress name's subject: a standalone channel or a packed sheet. The ad-hoc union is a PARAMETER ABSORBER
-// — one Egress entry binds both call shapes through the implicit conversions — so no direction-named overload
-// pair exists and a third subject is a slot on this union rather than a third method.
-[Union<TextureChannel, ChannelPack>(T1Name = "Channel", T2Name = "Pack")]
-public readonly partial struct EgressSlot {
-    public string Name => Switch(channel: static c => c.Key, pack: static p => p.Key);
+// The egress name's subject: a standalone channel or a packed sheet, as DECLARED cases. One Egress entry serves
+// both, so no direction-named overload pair exists and a third subject is one case rather than a third method.
+// The ad-hoc pair this replaces absorbed both call shapes through implicit conversions, which is exactly what
+// made a TextureChannel and a ChannelPack interchangeable at every call site that took one — a slot is a NAMED
+// subject with room for its own columns, not a coincidence of two convertible types.
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record EgressSlot {
+    private EgressSlot() { }
+    public sealed record Channel(TextureChannel Row) : EgressSlot;
+    public sealed record Pack(ChannelPack Row) : EgressSlot;
+
+    public string Name => Switch(channel: static c => c.Row.Key, pack: static p => p.Row.Key);
 }
 
 // The ONE optional filename infix. A set occupies at most one of the three, which is what makes the grammar
@@ -381,6 +412,14 @@ public abstract partial record EgressVariant {
     public sealed record Layer(int Index) : EgressVariant;
 
     public static readonly EgressVariant Single = new Whole();
+
+    // The variant's AXIS, so the exclusivity gate compares two tokens instead of re-deriving each case's meaning
+    // at the gate. `Whole` occupies none, which is what makes it the only legal variant for a plain set.
+    public Option<string> Axis => Switch(
+        whole: static _ => Option<string>.None,
+        udim:  static _ => Some("udim"),
+        mip:   static _ => Some("mip"),
+        layer: static _ => Some("layer"));
 
     // Four-digit Mari, two-digit zero-padded mip and layer — the frozen widths, spelled once.
     public string Infix => Switch(
@@ -405,13 +444,13 @@ public sealed record ChannelPackPlane(ChannelPack Pack, TexturePyramid Plane, Se
 // draft by construction: only tile#TILE_GATE mints the proof a set carries.
 public sealed record TextureSetDraft(
     Dimension Width, Dimension Height, Dimension Layers, LayerLaw Law,
-    NormalConvention Convention, AlphaMode Alpha, double HeightScaleMm, Option<TileProof> Tiled,
+    NormalConvention Convention, AlphaMode Alpha, Option<double> HeightScaleMm, Option<TileProof> Tiled,
     Seq<UdimTile> Udim, HashMap<TextureChannel, TexturePyramid> Channels, Seq<ChannelPackPlane> Packs,
     Option<ConductorMetal> Conductor, Option<MaterialId> Material);
 
 public sealed record TextureSet(
     Dimension Width, Dimension Height, Dimension Layers, LayerLaw Law,
-    NormalConvention Convention, AlphaMode Alpha, double HeightScaleMm, Option<TileProof> Tiled,
+    NormalConvention Convention, AlphaMode Alpha, Option<double> HeightScaleMm, Option<TileProof> Tiled,
     Seq<UdimTile> Udim, HashMap<TextureChannel, TexturePyramid> Channels, Seq<ChannelPackPlane> Packs,
     Option<ConductorMetal> Conductor, Option<MaterialId> Material, UInt128 Key) : IValidityEvidence {
 
@@ -421,25 +460,40 @@ public sealed record TextureSet(
     // always gl by construction of the two mints (the press bakes gl natively, the ingest lift converts once),
     // so no gate here re-litigates a fact no gate can see in the texels.
     public static Fin<TextureSet> Of(TextureSetDraft draft, Op key) =>
-        from _ in guard(!draft.Channels.IsEmpty || !draft.Packs.IsEmpty, MaterialFault.Parameter(key, "<texture-set-empty>"))
-        from __ in guard(draft.Law.Admits(draft.Layers.Value), MaterialFault.Parameter(key, $"<layer-law-rejects:{draft.Law.Key}:{draft.Layers.Value}>"))
-        from ___ in guard(!draft.Law.Square || draft.Width == draft.Height, MaterialFault.Parameter(key, $"<layer-law-needs-square:{draft.Law.Key}:{draft.Width.Value}x{draft.Height.Value}>"))
-        // The frozen variant law: at most ONE of {UDIM tile, mip index, layer index} may occupy the filename
-        // infix, and the three axes are DECLARED facts of the draft — tiles present, any multi-level pyramid,
-        // layers above one — so a two-axis set refuses here rather than at the egress that cannot name it.
-        from ____ in guard(
-            ((draft.Udim.IsEmpty ? 0 : 1)
-                + (draft.Layers.Value is 1 ? 0 : 1)
-                + (draft.Channels.Values.Exists(static p => p.Levels.Count > 1) || draft.Packs.Exists(static p => p.Plane.Levels.Count > 1) ? 1 : 0)) <= 1,
-            MaterialFault.Parameter(key, "<variant-slot-double-occupied>"))
-        from _____ in guard(draft.Packs.Map(static p => p.Pack).Distinct().Count() == draft.Packs.Count, MaterialFault.Parameter(key, "<pack-duplicate-row>"))
-        from ______ in guard(double.IsFinite(draft.HeightScaleMm) && draft.HeightScaleMm >= 0.0, MaterialFault.Parameter(key, $"<height-scale-invalid:{draft.HeightScaleMm:R}>"))
-        from _______ in guard(draft.HeightScaleMm is 0.0 || draft.Channels.ContainsKey(TextureChannel.Height), MaterialFault.Parameter(key, "<height-scale-without-height-channel>"))
-        from ________ in draft.Channels.Fold(Fin.Succ(unit), (acc, pair) => acc.Bind(_ => AdmitChannel(draft, pair.Key, pair.Value, key)))
-        from _________ in draft.Packs.Fold(Fin.Succ(unit), (acc, pack) => acc.Bind(_ => AdmitPack(draft, pack, key)))
-        select new TextureSet(draft.Width, draft.Height, draft.Layers, draft.Law, draft.Convention, draft.Alpha,
-            draft.HeightScaleMm, draft.Tiled, toSeq(draft.Udim.OrderBy(static t => t.Value)), draft.Channels,
-            draft.Packs, draft.Conductor, draft.Material, Mint(draft));
+        Gates(draft, key)
+            .Fold(Fin.Succ(unit), static (admitted, gate) => admitted.Bind(_ => gate()))
+            .Map(_ => new TextureSet(draft.Width, draft.Height, draft.Layers, draft.Law, draft.Convention, draft.Alpha,
+                draft.HeightScaleMm, draft.Tiled, toSeq(draft.Udim.OrderBy(static t => t.Value)), draft.Channels,
+                draft.Packs, draft.Conductor, draft.Material, Mint(draft)));
+
+    // --- [SET_ADMISSION]
+    // The gates in ORDINAL order — the sequence IS the ordinal and the fold stops at the first refusal, so a caller
+    // always reads the narrowest true statement about its draft. Order is earned: structural shape first, then the
+    // declared set-level facts, then the per-plane walks. A new gate is one row at the position its specificity
+    // earns; the positional bind ladder it replaces numbered its discards instead of naming its steps.
+    static Seq<Func<Fin<Unit>>> Gates(TextureSetDraft draft, Op key) =>
+        Seq<Func<Fin<Unit>>>(
+            () => guard(!draft.Channels.IsEmpty || !draft.Packs.IsEmpty, MaterialFault.Parameter(key, "<texture-set-empty>")),
+            () => guard(draft.Law.Admits(draft.Layers.Value), MaterialFault.Parameter(key, $"<layer-law-rejects:{draft.Law.Key}:{draft.Layers.Value}>")),
+            () => guard(!draft.Law.Square || draft.Width == draft.Height, MaterialFault.Parameter(key, $"<layer-law-needs-square:{draft.Law.Key}:{draft.Width.Value}x{draft.Height.Value}>")),
+            // The frozen variant law: at most ONE of {UDIM tile, mip index, layer index} may occupy the filename
+            // infix, and the three axes are DECLARED facts of the draft — tiles present, any multi-level pyramid,
+            // layers above one — so a two-axis set refuses here rather than at the egress that cannot name it.
+            () => guard(
+                ((draft.Udim.IsEmpty ? 0 : 1)
+                    + (draft.Layers.Value is 1 ? 0 : 1)
+                    + (draft.Channels.Values.Exists(static p => p.Levels.Count > 1) || draft.Packs.Exists(static p => p.Plane.Levels.Count > 1) ? 1 : 0)) <= 1,
+                MaterialFault.Parameter(key, "<variant-slot-double-occupied>")),
+            () => guard(draft.Packs.Map(static p => p.Pack).Distinct().Count() == draft.Packs.Count, MaterialFault.Parameter(key, "<pack-duplicate-row>")),
+            // A DECLARED scale is a positive finite millimetre span; absence is the honest state for a set whose
+            // displacement amplitude nothing has stated, and a zero is neither — it is a declaration of no relief
+            // wearing the shape of a missing one, which is exactly the forged-zero the Option deletes.
+            () => guard(draft.HeightScaleMm.ForAll(static mm => double.IsFinite(mm) && mm > 0.0),
+                MaterialFault.Parameter(key, $"<height-scale-invalid:{draft.HeightScaleMm.Map(static mm => mm.ToString("R", CultureInfo.InvariantCulture)).IfNone("none")}>")),
+            () => guard(draft.HeightScaleMm.IsNone || draft.Channels.ContainsKey(TextureChannel.Height),
+                MaterialFault.Parameter(key, "<height-scale-without-height-channel>")),
+            () => toSeq(draft.Channels.AsIterable()).Fold(Fin.Succ(unit), (acc, pair) => acc.Bind(_ => AdmitChannel(draft, pair.Key, pair.Value, key))),
+            () => draft.Packs.Fold(Fin.Succ(unit), (acc, pack) => acc.Bind(_ => AdmitPack(draft, pack, key))));
 
     // Convertible is the plane owner's own crossing predicate: a PREMULTIPLYING crossing at or below u8
     // multiplies away low-alpha colour precision and refuses there, while a None-sourced or no-premultiply
@@ -461,6 +515,18 @@ public sealed record TextureSet(
         // depth those rows exist for, and admitting them untranscoded ships a file no consumer opens.
         from _______ in guard(channel.Payload.Transcodable || pyramid.Base.Format.WebLegal, MaterialFault.Parameter(key, $"<channel-store-unreachable-on-wire:{channel.Key}:{pyramid.Base.Format.Key}>"))
         from ________ in guard(!draft.Packs.Exists(p => p.Present.Contains(channel)), MaterialFault.Parameter(key, $"<channel-both-packed-and-standalone:{channel.Key}>"))
+        // THE OPEN-SCALE GATE, the sibling of the wire-reach pair above and the one refusal that catches a value
+        // rather than a container. An index of refraction, a nanometre film thickness, a millimetre scatter radius,
+        // and a luminance all carry values above one, and a NORMALIZING store clips every one of them at white with
+        // no diagnostic anywhere on the path: the texel is legal, the plane is legal, the container is legal, and
+        // the shading input is silently wrong — an IOR of 1.5 arrives as 1.0 and the surface stops refracting. So an
+        // open-scale channel admits a FLOAT store alone, and its payload must be one that carries that store to a
+        // reader: every block-compressed class stages Unorm8 by the codec's own measured bound, so `none` is the
+        // only payload such a channel may name and the two gates are two halves of one refusal.
+        from _________ in guard(!channel.OpenScale || !PlaneFormat.Normalizes(pyramid.Base.Format.Depth),
+            MaterialFault.Parameter(key, $"<open-scale-channel-normalizing-store:{channel.Key}:{pyramid.Base.Format.Key}>"))
+        from __________ in guard(!channel.OpenScale || !channel.Payload.BlockCompressed,
+            MaterialFault.Parameter(key, $"<open-scale-channel-block-payload:{channel.Key}:{channel.Payload.Key}>"))
         select unit;
 
     static Fin<Unit> AdmitPack(TextureSetDraft draft, ChannelPackPlane pack, Op key) =>
@@ -470,6 +536,9 @@ public sealed record TextureSet(
         from ____ in guard(pack.Plane.Base.Alpha == AlphaMode.None, MaterialFault.Parameter(key, $"<pack-plane-carries-alpha:{pack.Pack.Key}>"))
         from _____ in guard(!pack.Present.IsEmpty, MaterialFault.Parameter(key, $"<pack-plane-no-present-slot:{pack.Pack.Key}>"))
         from ______ in guard(pack.Present.ForAll(pack.Pack.Slots.Contains), MaterialFault.Parameter(key, $"<pack-slot-foreign-channel:{pack.Pack.Key}>"))
+        // A packed lane is a normalized eighth of a four-component sheet, so an open-scale channel cannot ride one
+        // at any store: the pack's own raw four-component shape is what would clip it, not the container beneath.
+        from _______ in guard(pack.Present.ForAll(static c => !c.OpenScale), MaterialFault.Parameter(key, $"<pack-slot-open-scale-channel:{pack.Pack.Key}>"))
         select unit;
 
     // The preimage through the ONE kernel identity entry: CANONICAL order end to end — channels by roster
@@ -483,6 +552,13 @@ public sealed record TextureSet(
     // lowercase lowering.
     static UInt128 Mint(TextureSetDraft draft) =>
         ContentHash.Of(draft, static (source, digest) => {
+            // The millimetre span enters the preimage as its OWN framed fragment and ABSENCE HAS A SPELLING: a set
+            // that declares no displacement amplitude appends `hs:none` where one declaring 12.5 appends `hs:12.5`,
+            // so the two are distinguishable in the address rather than colliding on a zero that meant both. The
+            // scale rides the key because rescaling a set's relief produces a different asset from identical
+            // texels — the planes are unchanged and the product is not.
+            digest.Append(Encoding.UTF8.GetBytes(string.Create(CultureInfo.InvariantCulture,
+                $"hs:{source.HeightScaleMm.Map(static mm => mm.ToString("R", CultureInfo.InvariantCulture)).IfNone("none")}")));
             foreach (TextureChannel channel in TextureChannel.Items) {
                 source.Channels.Find(channel).Iter(pyramid =>
                     digest.Append(Encoding.UTF8.GetBytes(string.Create(CultureInfo.InvariantCulture, $"{channel.Key}|{pyramid.Key.ToString("X32")}"))));
@@ -496,7 +572,7 @@ public sealed record TextureSet(
     public ContentAddress Digest => ContentAddress.Of(Key);
     public bool IsValid => ValidityClaim.All(
         ValidityClaim.CountAtLeast(Channels.Count + Packs.Count, 1),
-        ValidityClaim.Nonnegative(HeightScaleMm),
+        ValidityClaim.Of(HeightScaleMm.ForAll(static mm => double.IsFinite(mm) && mm > 0.0)),
         ValidityClaim.Of(Law.Admits(Layers.Value)),
         ValidityClaim.Evidence(Tiled));
 
@@ -507,7 +583,19 @@ public sealed record TextureSet(
     // real pyramid and a container that does not hold its own (ktx2 does), a layer index needs layers above
     // one — so a caller cannot name a file the set does not contain.
     public Fin<string> Egress(EgressSlot slot, EgressVariant variant, RasterFormat format, Op key) =>
-        from _ in variant.Switch(
+        // EXCLUSIVITY FIRST, as one comparison against the set's own occupied axis. The filename grammar admits
+        // at most ONE infix, so a leaf carrying both a layer index and a mip index has no reader that can order
+        // the two — and the layer x mip product is the case a caller reaches for most, because a mip-chained
+        // cube map is an ordinary asset. The sanctioned carriage for it is the KTX2 CONTAINER, which holds its
+        // whole layer x level array in one file: `codec#RASTER_CODEC`'s `Ktx2` row is the format, its `KtxGate`
+        // `--levels` argument writes the chain, and the `mip` case below refuses that variant against `Ktx2`
+        // for the same reason. Refusing here rather than at the container keeps a caller from writing half a
+        // cube map's levels as loose leaves before discovering the grammar cannot name the other half.
+        from _ in variant.Axis.Match(
+            Some: axis => guard(Occupied == Some(axis),
+                MaterialFault.Parameter(key, $"<egress-variant-axis:{slot.Name}:{axis}:{Occupied.IfNone("none")}>")),
+            None: () => guard(Occupied.IsNone, MaterialFault.Parameter(key, $"<egress-whole-on-variant-set:{slot.Name}:{Occupied.IfNone("none")}>")))
+        from __ in variant.Switch(
             whole: _ => Fin.Succ(unit),
             udim:  u => guard(Udim.Exists(tile => tile == u.Tile), MaterialFault.Parameter(key, $"<egress-udim-foreign-tile:{slot.Name}:{u.Tile.Value}>")),
             mip:   m => format == RasterFormat.Ktx2
@@ -515,6 +603,15 @@ public sealed record TextureSet(
                 : guard(Channels.Values.Exists(static p => p.Levels.Count > 1) || Packs.Exists(static p => p.Plane.Levels.Count > 1), MaterialFault.Parameter(key, $"<egress-mip-on-flat-set:{slot.Name}:{m.Level}>")),
             layer: l => guard(Layers.Value > 1 && l.Index < Layers.Value, MaterialFault.Parameter(key, $"<egress-layer-out-of-range:{slot.Name}:{l.Index}>")))
         select $"materials/texture/{Digest.ToValue().ToLowerInvariant()}/{slot.Name}{variant.Infix}.{format.Extension}";
+
+    // The ONE variant axis this set occupies, derived from its own declared state rather than asserted. `Of`
+    // already refuses a set occupying two, so this answers at most one, and absence is a plain set whose only
+    // legal leaf carries no infix at all.
+    Option<string> Occupied =>
+        !Udim.IsEmpty ? Some("udim")
+        : Layers.Value > 1 ? Some("layer")
+        : Channels.Values.Exists(static p => p.Levels.Count > 1) || Packs.Exists(static p => p.Plane.Levels.Count > 1) ? Some("mip")
+        : Option<string>.None;
 
     public Fin<TextureSet> WithChannel(TextureChannel channel, TexturePyramid pyramid, Op key) =>
         Of(new TextureSetDraft(Width, Height, Layers, Law, Convention, Alpha, HeightScaleMm, Tiled, Udim,
@@ -533,7 +630,22 @@ public sealed record TextureSet(
 // folds the per-tile set keys in ascending-tile order, so tile membership and tile content both re-key it.
 // The wire projection repeats each channel row per tile under the Udim variant leaf at the mirror owner,
 // Appearance/interchange#TEXTURE_EGRESS.
-public sealed record UdimSheet(Seq<(UdimTile Tile, TextureSet Set)> Tiles, UInt128 Key) {
+// RESIDENCY is a READ POLICY and never a key input. `Whole` keeps every declared tile seated, `PerTile` seats what a
+// read reaches and evicts the rest under the `plane#PLANE_RESIDENCY` rank the column names — and the SHEET KEY folds
+// the FULL DECLARED tile roster either way, so a hundred-tile asset read one tile at a time and the same asset read
+// whole address one blob. That resolution is the card's own tension answered: making the key a function of what is
+// resident would give two views of one asset two addresses, which is the defect a streaming set exists to avoid.
+public sealed record UdimResidency(ResidencyPolicy Policy, long TexelBudget) {
+    public static readonly UdimResidency Whole = new(ResidencyPolicy.Retain, long.MaxValue);
+    public bool Streams => Policy.Evicts;
+}
+
+// Declared is the FULL tile roster and Tiles the SEATED subset — one grid, two populations. `Of` admits with every
+// declared tile seated, which is the only state in which the key can be minted at all, and `Streaming` then narrows
+// the seated set while CARRYING that key forward. So the key is a fact about the declared grid, minted once from
+// complete evidence, and a sheet that has evicted ninety-nine tiles still addresses the asset it described.
+public sealed record UdimSheet(
+    Seq<UdimTile> Declared, Seq<(UdimTile Tile, TextureSet Set)> Tiles, UInt128 Key, UdimResidency Residency) {
     public static Fin<UdimSheet> Of(Seq<(UdimTile Tile, TextureSet Set)> tiles, Op key) =>
         from _ in guard(!tiles.IsEmpty, MaterialFault.Parameter(key, "<udim-sheet-empty>"))
         from __ in guard(tiles.Map(static t => t.Tile.Value).Distinct().Count() == tiles.Count, MaterialFault.Parameter(key, "<udim-sheet-duplicate-tile>"))
@@ -541,10 +653,51 @@ public sealed record UdimSheet(Seq<(UdimTile Tile, TextureSet Set)> Tiles, UInt1
         from ____ in guard(tiles.Map(static t => (t.Set.Convention, t.Set.Alpha, t.Set.Law)).Distinct().Count() is 1, MaterialFault.Parameter(key, "<udim-sheet-vocabulary-divergent>"))
         from _____ in guard(tiles.Map(Roster).Distinct().Count() is 1, MaterialFault.Parameter(key, "<udim-sheet-roster-divergent>"))
         let ordered = toSeq(tiles.OrderBy(static t => t.Tile.Value))
-        select new UdimSheet(ordered, Mint(ordered));
+        select new UdimSheet(ordered.Map(static t => t.Tile), ordered, Mint(ordered), UdimResidency.Whole);
 
-    public Seq<UdimTile> Indices => Tiles.Map(static t => t.Tile);
     public ContentAddress Digest => ContentAddress.Of(Key);
+    public Seq<UdimTile> Resident => Tiles.Map(static t => t.Tile);
+
+    // Residency is a WITH, not an `Of` argument: a sheet re-declared for streaming is the SAME asset read
+    // differently, so the column moves without re-minting a key and `Of` keeps its one admission ladder. Narrowing
+    // drops the seated sets and keeps the declared roster, which is what makes the transition free rather than a
+    // second assembly — the tiles come back through `Resolve` as a view needs them.
+    public UdimSheet Streaming(UdimResidency residency) =>
+        this with { Residency = residency, Tiles = residency.Streams ? Seq<(UdimTile, TextureSet)>() : Tiles };
+
+    // ONE per-tile resolution over both residencies. A seated tile answers directly; an unseated DECLARED tile mints
+    // through the caller's own thunk and seats, so a bind reaching one tile decodes one tile and the ninety-nine it
+    // never reached never enter the arena. Membership is checked against DECLARED, so a foreign tile refuses
+    // identically whichever residency the sheet carries — membership is a key fact and residency is not. Eviction
+    // rides the same texel-budget rank `plane#PLANE_RESIDENCY` states, one grain up: the sheet drops whole tiles
+    // where that window drops whole chains, and both dispose what they release.
+    public Fin<(UdimSheet Sheet, TextureSet Set)> Resolve(UdimTile tile, Func<UdimTile, Fin<TextureSet>> mint, Op key) =>
+        Tiles.Find(row => row.Tile == tile).Match(
+            Some: row => Fin.Succ((this, row.Set)),
+            None: () => Declared.Exists(row => row == tile)
+                ? mint(tile).Map(seated => (Seat(tile, seated), seated))
+                : MaterialFault.Parameter(key, $"<udim-sheet-foreign-tile:{tile.Value}>"));
+
+    // Seating evicts by the policy's own rank until the newly seated tile fits the budget. `Retain` ranks nothing
+    // and therefore evicts nothing, which is the whole-grid modality stated as a policy row rather than as a second
+    // sheet type — exactly the arrangement the plane-grain window takes.
+    UdimSheet Seat(UdimTile tile, TextureSet seated) =>
+        Residency.Policy.Evicts
+            ? this with { Tiles = Retained(Cost(seated)).Add((tile, seated)) }
+            : this with { Tiles = Tiles.Add((tile, seated)) };
+
+    // The retained PREFIX in one ranked pass: tiles order by ascending Mari index — the sheet's own declared
+    // sequence, so eviction is deterministic and replayable — and accumulate while the running census fits the
+    // headroom the new tile leaves.
+    Seq<(UdimTile Tile, TextureSet Set)> Retained(long incoming) =>
+        Tiles.Fold((Held: 0L, Kept: Seq<(UdimTile, TextureSet)>()), (state, row) =>
+            state.Held + Cost(row.Set) + incoming > Residency.TexelBudget
+                ? state
+                : (state.Held + Cost(row.Set), state.Kept.Add(row))).Kept;
+
+    static long Cost(TextureSet set) =>
+        set.Channels.Values.Fold(0L, static (sum, chain) => sum + chain.Texels)
+        + set.Packs.Fold(0L, static (sum, pack) => sum + pack.Plane.Texels);
 
     static string Roster((UdimTile Tile, TextureSet Set) tile) =>
         string.Join('|', TextureChannel.Items.Where(c => tile.Set.Channels.ContainsKey(c)).Select(static c => c.Key)
@@ -554,22 +707,62 @@ public sealed record UdimSheet(Seq<(UdimTile Tile, TextureSet Set)> Tiles, UInt1
         ContentHash.Of(ordered, static (tiles, digest) => tiles.Iter(tile =>
             digest.Append(Encoding.UTF8.GetBytes(string.Create(CultureInfo.InvariantCulture, $"{tile.Tile.Value:D4}|{tile.Set.Key.ToString("X32")}")))));
 }
+
+// --- [ATLAS]
+// THE ATLAS IS A PLANE-LEVEL SHARING FACT, produced rather than ingested. A packing folds N sets onto one shared
+// plane per channel and hands each participant a UV TRANSFORM ROW; every set keeps its own key, its own appearance
+// identity, and its own channel roster, and the sheet it shares is reached BY CONTENT ADDRESS — so a texture edit
+// re-keys exactly the sets that read it and never the ones that merely share a sheet with them. A set-level merge
+// behind one appearance key is the deleted form the folder ruling already names.
+public readonly record struct AtlasPlacement(UInt128 SetKey, UnitInterval OffsetU, UnitInterval OffsetV, UnitInterval ScaleU, UnitInterval ScaleV) {
+    // The transform a consumer applies to its own (u,v) before it samples the shared sheet. It is exactly the shape
+    // `texture#TEXTURE_UV` `SamplerState.Frame` already carries, so a placement lowers to a `UvFrame` at the bind
+    // and this owner mints no second transform vocabulary.
+    public UvFrame Frame => new(OffsetU.Value, OffsetV.Value, ScaleU.Value, ScaleV.Value, Rotation: 0.0);
+}
+
+// The produced artefact: the shared planes and the row per participant. Sheet is a TextureSet in its own right —
+// it admits through the same gate, keys the same way, and egresses under the same grammar — so an atlas is not a
+// third carrier beside a set and a pack, it is a set whose consumers each read a window of it.
+public sealed record TextureAtlas(TextureSet Sheet, Seq<AtlasPlacement> Placements) {
+    // The pack. Charts arrive ALREADY FLATTENED as the kernel `Processing/flatten` `ChartAtlas` product crossing as
+    // DATA — this owner packs planes, never geometry — and the caller supplies the placement each participant
+    // occupies, because chart packing is the kernel's own solved problem and re-solving it here would mint a second
+    // packer whose answer could disagree with the one a mesh-space bake already used.
+    // Each shared plane composes its participants' planes at their placements and then DILATES the gutter: a
+    // bilinear tap straddling two charts otherwise reads its neighbour, and every mip level widens that bleed, so
+    // the gutter close is part of producing the sheet rather than a repair a consumer applies.
+    public static Fin<TextureAtlas> Of(
+        Seq<(TextureSet Set, AtlasPlacement Placement)> participants, TextureSetDraft sheet, int gutterRings, Op key) =>
+        from _ in guard(!participants.IsEmpty, MaterialFault.Parameter(key, "<atlas-no-participants>"))
+        from __ in guard(participants.Map(static p => p.Placement.SetKey).Distinct().Count() == participants.Count,
+            MaterialFault.Parameter(key, "<atlas-duplicate-participant>"))
+        // Every participant must declare the placement that names it: a row whose SetKey is not its own set's key
+        // is a transform pointing at a window some other set occupies, and no downstream read could detect it.
+        from ___ in guard(participants.ForAll(static p => p.Placement.SetKey == p.Set.Key),
+            MaterialFault.Parameter(key, "<atlas-placement-key-mismatch>"))
+        from ____ in guard(gutterRings > 0, MaterialFault.Parameter(key, $"<atlas-gutter-rings:{gutterRings}>"))
+        from bound in TextureSet.Of(sheet, key)
+        select new TextureAtlas(bound, participants.Map(static p => p.Placement));
+}
 ```
 
 ## [04]-[SET_INGEST]
 
-- Owner: `SetIngest` the classification fold, the python-wire decode seam, AND the draft lift; `PlaneProbe` the per-file evidence row; `IngestRefusal` `[SmartEnum<string>]` the closed reason axis every unresolved stem carries; `IngestSource` `[Union]` the classification input (directory probes · C#-side manifest · decoded python `AssetSetManifest`); `ClassifiedMap` the resolved row; `SetManifest` the accumulating result and its monoid.
-- Cases: ingest-source {`Stems` (a scanned directory's probes), `Declared` (a C#-side manifest re-admitted through the same alias law), `Peer` (the decoded python-minted `AssetSetManifest` — the `tests/contracts/MANIFEST.md` `[02.18]` classification-input consumer arm)} · refusal {`conventionDivergent`, `peerRoleDivergent`, `peerRowVocabulary`, `peerPackVocabulary`, `packPlaneNarrow`, `componentsRefuted`, `unclaimed`}.
-- Entry: `public static SetManifest Classify(IngestSource source)` is TOTAL and PURE — it never reads a file, never faults, and never infers; every unclaimed stem accumulates into `Unresolved` as a TYPED `(IngestRefusal Reason, string Detail)` pair, and the caller decides whether an incomplete manifest is admissible for its purpose. `public static Fin<IngestSource> Peer(ReadOnlyMemory<byte> wire, Op key)` is the ONE python-manifest decode seam — it parses the `rasm/channels.proto` `AssetSetManifest` bytes through the generated `Parser`, refuses a non-`pbr_set` kind (an `hdri`/`ibl` manifest is product-borne per the `tests/contracts/appearance-vocabulary.schema.json` `$defs.aliasTable` shadowing law and is never a classification input), and lifts the message into the `Peer` case `Classify` folds. `public static Fin<Seq<(Option<UdimTile> Tile, TextureSetDraft Draft)>> Draft(SetManifest manifest, HashMap<string, TexturePyramid> planes, IngestIntent intent, Op key)` is the ONE ingest lift — it groups the classified maps per tile, runs the `dx`→`gl` conversion and the gloss inversion EXACTLY ONCE before any plane is keyed, records the source convention as draft provenance, and hands per-tile drafts to `TextureSet.Of` (one tile) or `UdimSheet.Of` (a tile family).
-- Packages: LanguageExt.Core (`Seq`/`Option`/`Fold` and the `SetManifest` monoid `Combine`), Google.Protobuf (composed — the generated `Rasm.Channels.AssetSetManifest` `Parser`, the `tests/contracts/MANIFEST.md` `[02.18]` document's one C#-side decode; `rasm/channels.proto` pins `option csharp_namespace = "Rasm.Channels"`), `filter#PLANE_OP` (composed — `PlaneOp.Remap` over `RemapCurve.Levels.Invert`, the gloss arithmetic this page flags and never re-derives), `plane#TEXTURE_PLANE` (composed — the `ReadShade`/`WriteShade` row rail the convention flip rides, `NormalConvention.ToGl` the flip itself, `PlanePrimaries` the source's declared working space the probe carries), CommunityToolkit.HighPerformance (`SpanOwner<T>` the flip's row scratch), BCL inbox (`FrozenDictionary`/`FrozenSet` behind `Lazy<T>` accessors, `StringComparer.OrdinalIgnoreCase`, `Path` the leaf-stem projection).
+- Owner: `SetIngest` the classification fold, the python-wire decode seam, the Element seam-roster admission, AND the draft lift; `PlaneProbe` the per-file evidence row; `IngestRefusal` `[SmartEnum<string>]` the closed reason axis every unresolved stem carries; `IngestSource` `[Union]` the classification input (directory probes · declared manifest · decoded python `AssetSetManifest`); `ClassifiedMap` the resolved row; `RosterBinding` the per-channel binding-policy row the seam roster lifts; `SetManifest` the accumulating result and its monoid.
+- Cases: ingest-source {`Stems` (a scanned directory's probes — the INFERENCE arm), `Declared` (a manifest of already-resolved rows — the VALIDATION arm: a C#-side re-admission or the `SetIngest.Roster` product), `Peer` (the decoded python-minted `AssetSetManifest` — the `tests/contracts/MANIFEST.md` `[02.18]` classification-input consumer arm)} · refusal {`conventionDivergent`, `peerRoleDivergent`, `peerRowVocabulary`, `peerPackVocabulary`, `packPlaneNarrow`, `componentsRefuted`, `unclaimed`}.
+- Entry: `public static SetManifest Classify(IngestSource source)` is TOTAL and PURE — it never reads a file, never faults, and never infers past its arm's law; every unclaimed stem accumulates into `Unresolved` as a TYPED `(IngestRefusal Reason, string Detail)` pair, and the caller decides whether an incomplete manifest is admissible for its purpose. `public static (IngestSource Source, Seq<RosterBinding> Binding) Roster(TextureRoster roster, Seq<PlaneProbe> probes)` is the Element seam-roster admission — TOTAL and PURE like `Classify` (probes arrive filled by the app-root header scan; this fold reads no file): each candidate's DECLARED canonical channel token resolves through the SAME roster-derived index a stem would, a pack token resolves its whole `ChannelPack` row, the reference stem marries its supplied probe, the candidate's own inversion bit rides the map, and an unresolvable token or a probe-less reference accumulates typed so the operator reads WHICH declared map never resolved or never arrived; the neutral frame, repeat, and coordinate-set columns lift onto `RosterBinding` rows BESIDE the manifest, and the returned source enters `Classify` through the `Declared` validation arm. `public static Fin<IngestSource> Peer(ReadOnlyMemory<byte> wire, Op key)` is the ONE python-manifest decode seam — it parses the `rasm/channels.proto` `AssetSetManifest` bytes through the generated `Parser`, refuses a non-`pbr_set` kind (an `hdri`/`ibl` manifest is product-borne per the `tests/contracts/appearance-vocabulary.schema.json` `$defs.aliasTable` shadowing law and is never a classification input), and lifts the message into the `Peer` case `Classify` folds. `public static Fin<Seq<(Option<UdimTile> Tile, TextureSetDraft Draft)>> Draft(SetManifest manifest, HashMap<string, TexturePyramid> planes, IngestIntent intent, Op key)` is the ONE ingest lift — it groups the classified maps per tile, runs the `dx`→`gl` conversion and the gloss inversion EXACTLY ONCE before any plane is keyed, records the source convention as draft provenance, and hands per-tile drafts to `TextureSet.Of` (one tile) or `UdimSheet.Of` (a tile family).
+- Packages: LanguageExt.Core (`Seq`/`Option`/`Fold` and the `SetManifest` monoid `Combine`), Google.Protobuf (composed — the generated `Rasm.Channels.AssetSetManifest` `Parser`, the `tests/contracts/MANIFEST.md` `[02.18]` document's one C#-side decode; `rasm/channels.proto` pins `option csharp_namespace = "Rasm.Channels"`), `filter#PLANE_OP` (composed — `PlaneOp.Remap` over `RemapCurve.Levels.Invert`, the gloss arithmetic this page flags and never re-derives), `plane#TEXTURE_PLANE` (composed — `TexturePyramid` and its levels, `PlanePrimaries` the source's declared working space the probe carries), `filter#PLANE_OP` (composed — `PlaneOp.Swizzle` over `SwizzleLane.FlipGreen`, the ONE decoded-lane green-sign site the corpus holds), BCL inbox (`FrozenDictionary`/`FrozenSet` behind `Lazy<T>` accessors, `StringComparer.OrdinalIgnoreCase`, `Path` the leaf-stem projection).
 - Growth: a new alias is one entry on its channel's `Aliases` column — the resolver index DERIVES from `TextureChannel.Items`, so no second table exists to drift; a new packing token is one `ChannelPack` row; a new variant grammar is one token predicate in `Tokenize`; a new refusal shape is one `IngestRefusal` row and the mint site that hands it, so the reason axis stays bounded where a formatted token was unbounded; a new ingest-time repair is one arm in the lift's per-map conversion, never a second lift.
-- Law: the UV frame is a BINDING-time consumer fact and never a set payload. `texture#TEXTURE_UV` `SamplerState.Frame` carries it as a `UvFrame`, applied once inside `TextureUv.Sample`, so no `ClassifiedMap` column, no `TextureSet` column, and no wire field receives an offset, a scale, or a rotation — a per-tiling column inside the set forks the content key per consumer and destroys exactly the plane-level dedup the atlas boundary buys. `Rasm.Bim`'s `UvTransform` is NOT a `STRATA_TWIN` of `UvFrame`: it carries the `IfcCartesianTransformationOperator2D` decode Materials must never see, so it stays the IFC-side ingest carrier and lowers to `UvFrame` at the seam, which is where the two owners meet and the only place either name crosses.
-- Boundary: classification is ALIAS-DRIVEN and the probe is EVIDENCE, never an inference source. A stem resolves by its tokens: separators `-`, `_`, `.`, and space all fold to one boundary, matching is case-insensitive, and the canonical key, its separator-stripped token form, and every row alias index into one `FrozenDictionary` derived from the roster behind a `Lazy` accessor — an eager index over another type's `Items` is the materialization race the accessor forecloses. Every refusal carries its `IngestRefusal` ROW beside the detail the mint site already builds, so the reason is a bounded dimension an operator series keys on while the stem, the role, and the format stay the unbounded detail text — a formatted token alone gives a counter file-name cardinality, and a `claimed`/`unresolved` boolean loses the whole operator answer, which is WHY a vendor library's maps did not classify. A stem carrying NEITHER a `gl` nor a `dx` token leaves `Convention` UNRESOLVED — the probe's green statistics are recorded on the row and never promoted to a default, because a defaulted convention is the silent-lighting-inversion defect that survives every downstream check and only surfaces as wrongly-lit geometry. `gloss`, `glossiness`, and `smoothness` resolve to `specular_roughness` with `Inverted` set, and the `filter#PLANE_OP` `RemapCurve.Levels.Invert` curve applies that inversion in the LINEAR domain — this page holds the FLAG and never the arithmetic; `arm` is an `orm` alias (identical slot order) and `mra` the reversed pack, so a packed stem resolves to a `ChannelPack` row carrying EVERY slot channel it covers rather than one arbitrary member, because a pack resolved to a single channel silently drops two thirds of the plane; a four-digit token at 1001 or above claims the UDIM variant slot. The probe REFUTES rather than proposes: a stem claiming a three-component channel over a single-component plane, or a claimed pack over a plane narrower than four components, drops to `Unresolved` with the contradiction recorded — a classification that survives its own evidence is the only one this fold emits. The two DECLARED columns the source file itself carries — its colour primaries and its EXIF orientation — refute the same way and promote nothing: a declared working space contradicts a role's assumed one and a declared rotation contradicts a set's assumed axis, each landing in `Unresolved`, neither defaulting, exactly as an unresolved `NormalConvention` never defaults; they arrive filled by the app-root scan through a header read that decodes no plane, so `Classify` gains evidence without gaining a file read and stays TOTAL and PURE. The `Declared` and `Peer` arms re-run every alias, pack, and UDIM law over a foreign manifest rather than trusting its rows, so a peer manifest is an input to classification and never a substitute for it; a peer's `tiled` declaration reaches no `TextureSet` from here, since tileability is `tile#TILE_GATE` evidence a set earns by grading; the peer wire's `height_scale` and `alpha_mode` are caller facts the app root lifts into `IngestIntent` beside the fetched plane bytes, so the lift's arity holds and no wire field bypasses the intent record. The LIFT is the one ingest mint and the one CONVERSION SITE: a `dx` source flips green through `NormalConvention.ToGl` over every level of every normal-convention plane — per-texel and linear, so each level stays its own fold — and an `Inverted` gloss map runs `filter#PLANE_OP` `RemapCurve.Levels.Invert` per level, BEFORE any plane is keyed, so the wire's frozen always-`gl` law holds by construction and the draft's `Convention` column records the SOURCE as provenance; per tile, every classified plane must agree on extent (the probe evidence re-enters here), a classified stem with no supplied plane faults by name, and the tile grouping hands one draft per tile so a UDIM directory lifts into the `UdimSheet.Of` assembly rather than collapsing onto one tile.
+- Law: PROVENANCE AND LICENCE are INGEST EVIDENCE, carried on `SetManifest` and `IngestIntent` as an `IngestProvenance` row and interpreted nowhere on this page. A licence class is the `Appearance/neural` `ModelCard.LicenseClass` band's vocabulary and this stratum names no frontier type, so the DECLARED token crosses UP and the frontier bands it — the same posture the primaries axis takes toward a container's declared chromaticity, recorded and never converted. Absence is honest and never a grant. It folds by FIRST evidence exactly as the convention does, and it never enters a set key: two providers shipping byte-identical planes address ONE blob, and their grants are facts about the acquisition rather than about the bytes. That is also the whole estate-side landing a text-to-material SERVICE product needs — the existing `Stems` and `Declared` arms already accept a service's files under the same alias law, so no service-source `IngestSource` case exists and none is owed.
+- Law: the UV frame is a BINDING-time consumer fact and never a set payload. `texture#TEXTURE_UV` `SamplerState.Frame` carries it as a `UvFrame`, applied once inside `TextureUv.Sample`, so no `ClassifiedMap` column, no `TextureSet` column, and no wire field receives an offset, a scale, or a rotation — a per-tiling column inside the set forks the content key per consumer and destroys exactly the plane-level dedup the atlas boundary buys. `Rasm.Bim`'s `UvTransform` is NOT a `STRATA_TWIN` of `UvFrame`: it carries the `IfcCartesianTransformationOperator2D` decode Materials must never see, so it lowers onto the Element `TextureRoster` seam row's neutral frame columns at the Bim mint, and `SetIngest.Roster` lifts those columns onto `RosterBinding` rows BESIDE the manifest — binding policy the caller hands `SamplerState`, never a manifest or set column — so the Element row is the one place the two owners meet and neither package's transform name crosses the other.
+- Boundary: classification is ALIAS-DRIVEN and the probe is EVIDENCE, never an inference source. A stem resolves by its tokens: separators `-`, `_`, `.`, and space all fold to one boundary, matching is case-insensitive, and the canonical key, its separator-stripped token form, and every row alias index into one `FrozenDictionary` derived from the roster behind a `Lazy` accessor — an eager index over another type's `Items` is the materialization race the accessor forecloses. Every refusal carries its `IngestRefusal` ROW beside the detail the mint site already builds, so the reason is a bounded dimension an operator series keys on while the stem, the role, and the format stay the unbounded detail text — a formatted token alone gives a counter file-name cardinality, and a `claimed`/`unresolved` boolean loses the whole operator answer, which is WHY a vendor library's maps did not classify. A stem carrying NEITHER a `gl` nor a `dx` token leaves `Convention` UNRESOLVED — the probe's green statistics are recorded on the row and never promoted to a default, because a defaulted convention is the silent-lighting-inversion defect that survives every downstream check and only surfaces as wrongly-lit geometry. `gloss`, `glossiness`, and `smoothness` resolve to `specular_roughness` with `Inverted` set, and the `filter#PLANE_OP` `RemapCurve.Levels.Invert` curve applies that inversion in the LINEAR domain — this page holds the FLAG and never the arithmetic; `arm` is an `orm` alias (identical slot order) and `mra` the reversed pack, so a packed stem resolves to a `ChannelPack` row carrying EVERY slot channel it covers rather than one arbitrary member, because a pack resolved to a single channel silently drops two thirds of the plane; a four-digit token at 1001 or above claims the UDIM variant slot. The probe REFUTES rather than proposes: a stem claiming a three-component channel over a single-component plane, or a claimed pack over a plane narrower than four components, drops to `Unresolved` with the contradiction recorded — a classification that survives its own evidence is the only one this fold emits. The two DECLARED columns the source file itself carries — its colour primaries and its EXIF orientation — refute the same way and promote nothing: a declared working space contradicts a role's assumed one and a declared rotation contradicts a set's assumed axis, each landing in `Unresolved`, neither defaulting, exactly as an unresolved `NormalConvention` never defaults; they arrive filled by the app-root scan through a header read that decodes no plane, so `Classify` gains evidence without gaining a file read and stays TOTAL and PURE. The `Peer` arm re-runs every alias, pack, and UDIM law over the foreign manifest rather than trusting its rows, and the `Declared` arm VALIDATES its already-resolved rows rather than re-inferring from stems — each map's channel keys re-resolve through the same roster-derived index (idempotence is the check, a retired key accumulates typed) and every probe refutation re-runs (a channel wider than its plane, a pack over a narrow plane), because a declared row's channel identity is its producer's bounded vocabulary while a stem is a filename guess, and re-inferring a filename would silently discard the declaration the arm exists to carry — so a declared manifest and a peer manifest are both inputs to classification and never substitutes for it; a peer's `tiled` declaration reaches no `TextureSet` from here, since tileability is `tile#TILE_GATE` evidence a set earns by grading; the peer wire's `height_scale` and `alpha_mode` are caller facts the app root lifts into `IngestIntent` beside the fetched plane bytes, so the lift's arity holds and no wire field bypasses the intent record. The LIFT is the one ingest mint and the one CONVERSION SITE: a `dx` source flips green through `NormalConvention.ToGl` over every level of every normal-convention plane — per-texel and linear, so each level stays its own fold — and an `Inverted` gloss map runs `filter#PLANE_OP` `RemapCurve.Levels.Invert` per level, BEFORE any plane is keyed, so the wire's frozen always-`gl` law holds by construction and the draft's `Convention` column records the SOURCE as provenance; per tile, every classified plane must agree on extent (the probe evidence re-enters here), a classified stem with no supplied plane faults by name, and the tile grouping hands one draft per tile so a UDIM directory lifts into the `UdimSheet.Of` assembly rather than collapsing onto one tile.
 
 ```csharp signature
 // (Continues the Rasm.Materials.Raster compilation unit, plus:)
-using System.IO;                                  // Path — the peer leaf's stem projection
-using CommunityToolkit.HighPerformance.Buffers;   // SpanOwner — the convention flip's row scratch
+using System.IO;                                  // Path — the peer leaf's stem projection and the roster reference's
+using Rasm.Element.Projection;                    // TextureRoster/TextureCandidate — the Element seam rows the Bim styling produces
+using Rasm.Materials.Raster;                      // PlaneOp, SwizzleLane, RemapCurve — the two ingest repairs, composed not re-derived
 
 // --- [TYPES] -------------------------------------------------------------------------------
 // The closed reason axis every unresolved stem carries. Keyed on the token a counter has FILE-NAME cardinality
@@ -610,24 +803,38 @@ public abstract partial record IngestSource {
 }
 
 // Channels carries EVERY channel the stem's plane covers: one entry for a standalone map, three for a packed
-// sheet in the pack's own slot order. Inverted records the gloss-to-roughness inversion filter#PLANE_OP applies
-// AFTER the plane decodes; inverting an srgb-encoded value is the silent-roughness fork the flag prevents.
+// sheet in the pack's own slot order. Inverted records a DECLARED linear-domain value inversion filter#PLANE_OP
+// applies AFTER the plane decodes — the gloss-to-roughness alias resolution and the seam roster's declared
+// polarity (an IFC SHININESS or TRANSPARENCYMAP mode) both set it; inverting an srgb-encoded value is the
+// silent-roughness fork the flag prevents.
 public sealed record ClassifiedMap(
     Seq<TextureChannel> Channels, string Stem, Option<UdimTile> Tile, Option<ChannelPack> Pack,
     bool Inverted, PlaneProbe Probe);
 
+// The per-channel binding-policy row the seam roster lifts BESIDE the manifest: the neutral frame the producer
+// lowered at its mint, the repeat pair, and the coordinate set — the caller's SamplerState composes these at bind,
+// and no manifest, set, or wire column ever carries them.
+public sealed record RosterBinding(TextureChannel Channel, UvFrame Frame, bool RepeatU, bool RepeatV, int CoordinateSet);
+
 // The monoid: Empty is the identity, Combine is associative, and Classify is a fold. Convention resolves by
 // FIRST evidence and a later divergent token lands in Unresolved rather than overwriting — a set declaring
 // two conventions has no single answer, and picking one silently is the fork this refuses.
+// Provenance folds by FIRST evidence exactly as the convention does — a scan and a peer manifest each declare at
+// most one origin, and a later divergent declaration is a set assembled from two acquisitions rather than a fact to
+// overwrite. It rides the manifest rather than the set because it is evidence of the INGEST: the frontier that mints
+// a material off a classified manifest attaches the grant to that material, and the content-keyed planes stay
+// provenance-free so two providers shipping identical bytes still address one blob.
 public sealed record SetManifest(
-    Seq<ClassifiedMap> Maps, Seq<(IngestRefusal Reason, string Detail)> Unresolved, Option<NormalConvention> Convention, Seq<UdimTile> Udim) {
+    Seq<ClassifiedMap> Maps, Seq<(IngestRefusal Reason, string Detail)> Unresolved, Option<NormalConvention> Convention,
+    Seq<UdimTile> Udim, Option<IngestProvenance> Provenance = default) {
     public static readonly SetManifest Empty = new(Seq<ClassifiedMap>(), Seq<(IngestRefusal, string)>(), Option<NormalConvention>.None, Seq<UdimTile>());
 
     public SetManifest Combine(SetManifest other) =>
         new(Maps + other.Maps,
             Unresolved + other.Unresolved + Conflict(other),
             Convention.IsNone ? other.Convention : Convention,
-            toSeq((Udim + other.Udim).Distinct().OrderBy(static t => t.Value)));
+            toSeq((Udim + other.Udim).Distinct().OrderBy(static t => t.Value)),
+            Provenance.IsNone ? other.Provenance : Provenance);
 
     Seq<(IngestRefusal Reason, string Detail)> Conflict(SetManifest other) =>
         Convention.IsSome && other.Convention.IsSome && Convention != other.Convention
@@ -663,8 +870,15 @@ public static class SetIngest {
     public static SetManifest Classify(IngestSource source) =>
         source.Switch(
             stems:    static s => s.Probes.Fold(SetManifest.Empty, static (acc, probe) => acc.Combine(One(probe))),
-            declared: static d => d.Manifest.Maps.Fold(SetManifest.Empty, static (acc, map) => acc.Combine(One(map.Probe))).Combine(
-                          SetManifest.Empty with { Unresolved = d.Manifest.Unresolved }),
+            // The VALIDATION arm: a declared manifest's rows carry resolved channel identity (a C#-side
+            // re-admission or the seam-roster product), so re-inferring each stem would discard the declaration —
+            // Validate re-resolves every channel key through the same index (idempotence the check) and re-runs
+            // every probe refutation, then the manifest's own non-map columns carry forward under the monoid.
+            declared: static d => d.Manifest.Maps.Fold(SetManifest.Empty, static (acc, map) => acc.Combine(Validate(map))).Combine(
+                          SetManifest.Empty with {
+                              Unresolved = d.Manifest.Unresolved, Convention = d.Manifest.Convention,
+                              Udim = d.Manifest.Udim, Provenance = d.Manifest.Provenance,
+                          }),
             // The python wire re-enters the SAME alias, pack, UDIM, and refutation law: every MapEntry and
             // PackEntry lowers to a PlaneProbe and folds through One, the manifest's own unresolved accumulation
             // carries forward verbatim, and the wire's normal_convention seats as first evidence where no stem
@@ -703,6 +917,54 @@ public static class SetIngest {
         }
     }
 
+    // The declared-row validation: re-resolve each channel key through the roster-derived index (a retired or
+    // foreign key accumulates typed — the vocabulary moved under the manifest) and re-run the probe refutations a
+    // scan-shaped classification runs, so a declared map survives only on its own evidence.
+    static SetManifest Validate(ClassifiedMap map) =>
+        toSeq(map.Channels.Filter(static c => !Index.Value.ContainsKey(c.Key)).Map(static c => c.Key)) is { IsEmpty: false } retired
+            ? SetManifest.Empty with { Unresolved = Seq((IngestRefusal.Unclaimed, $"<declared-channel-unindexed:{string.Join(',', retired)}:{map.Stem}>")) }
+            : Refuted(map).Match(
+                Some: refusal => SetManifest.Empty with { Unresolved = Seq(refusal) },
+                None: () => SetManifest.Empty with { Maps = Seq(map) });
+
+    static Option<(IngestRefusal Reason, string Detail)> Refuted(ClassifiedMap map);
+    // The SAME component and pack-width refutations One runs, factored so inference and validation cannot drift:
+    // a channel wider than its probe's plane answers ComponentsRefuted, a pack over a plane narrower than four
+    // components answers PackPlaneNarrow, agreement answers None.
+
+    // The Element seam-roster admission — the TextureRoster consumer half (Rasm.Bim's RosterOf the producer; the
+    // two packages meet at the Element row alone). Candidates resolve by their DECLARED canonical token through
+    // the same index law, marry the reference stem's probe, and carry their own inversion bit; misses accumulate
+    // typed. The frame/repeat/coordinate-set columns lift onto RosterBinding rows and never touch the manifest.
+    public static (IngestSource Source, Seq<RosterBinding> Binding) Roster(TextureRoster roster, Seq<PlaneProbe> probes) {
+        FrozenDictionary<string, PlaneProbe> byStem = probes
+            .Map(static p => KeyValuePair.Create(p.Stem, p))
+            .ToFrozenDictionary(StringComparer.OrdinalIgnoreCase);
+        (SetManifest manifest, Seq<RosterBinding> binding) = roster.Textures.Fold(
+            (SetManifest.Empty, Seq<RosterBinding>()),
+            (acc, candidate) => Candidate(acc.Item1, acc.Item2, candidate, byStem));
+        return (new IngestSource.Declared(manifest), binding);
+    }
+
+    static (SetManifest, Seq<RosterBinding>) Candidate(
+        SetManifest acc, Seq<RosterBinding> binding, TextureCandidate candidate, FrozenDictionary<string, PlaneProbe> byStem) {
+        if (!byStem.TryGetValue(Path.GetFileNameWithoutExtension(candidate.Reference), out PlaneProbe probe)) {
+            return (acc.Combine(SetManifest.Empty with {
+                Unresolved = Seq((IngestRefusal.Unclaimed, $"<roster-probe-missing:{candidate.Channel}:{candidate.Reference}>")) }), binding);
+        }
+        (Seq<TextureChannel> channels, Option<ChannelPack> pack) =
+            Packs.Value.TryGetValue(candidate.Channel, out ChannelPack? sheet) ? (sheet.Slots, Some(sheet))
+            : Index.Value.TryGetValue(candidate.Channel, out TextureChannel? row) ? (Seq(row), Option<ChannelPack>.None)
+            : (Seq<TextureChannel>(), Option<ChannelPack>.None);
+        if (channels.IsEmpty) {
+            return (acc.Combine(SetManifest.Empty with {
+                Unresolved = Seq((IngestRefusal.Unclaimed, $"<roster-token-unindexed:{candidate.Channel}:{candidate.Reference}>")) }), binding);
+        }
+        UvFrame frame = new(candidate.OffsetU, candidate.OffsetV, candidate.ScaleU, candidate.ScaleV, candidate.Rotation);
+        return (acc.Combine(Validate(new ClassifiedMap(channels, probe.Stem, Option<UdimTile>.None, pack, candidate.Inverted, probe))),
+            binding + channels.Map(c => new RosterBinding(c, frame, candidate.RepeatU, candidate.RepeatV, candidate.CoordinateSet)));
+    }
+
     // The sampled-companion containers the producer's _SAMPLED_DEPTH twin law can emit — the manifest's container
     // column carries the producer's DeepFormat key verbatim, and the RENDER twin takes exactly the integer->png16
     // or float->tiff_f32 row — so the (role, container) select prefers the plane this reader's raster codec
@@ -724,20 +986,21 @@ public static class SetIngest {
     // carry zero, evidence that refutes nothing rather than fabricated moments. The declared role never SEATS a
     // channel; it CROSS-CHECKS the stem's classification, and a divergent pair lands in Unresolved with both
     // names — trusting either side alone is the fork the refutation law forecloses.
-    static SetManifest PeerMap(Rasm.Channels.AssetSetManifest manifest, Rasm.Channels.MapEntry entry) =>
-        PeerDepth.TryGetValue(entry.Depth, out ChannelDtype? depth)
-        && PlaneTransfer.TryGet(entry.ColorSpace, out PlaneTransfer? transfer)
-        && PlaneFormat.For(entry.Channels, depth!).Case is PlaneFormat format
-            ? One(new PlaneProbe(Path.GetFileNameWithoutExtension(entry.File), format, transfer!,
-                  Dimension.Create(manifest.Width), Dimension.Create(manifest.Height), default, default,
-                  Option<PlanePrimaries>.None, Option<int>.None)) switch {
-                  var one => one.Maps.Head.Match(
-                      Some: map => map.Pack.IsSome || map.Channels.Exists(c => c.Key == entry.Role)
-                          ? one
-                          : SetManifest.Empty with { Unresolved = Seq((IngestRefusal.PeerRoleDivergent, $"{entry.Role}:{map.Stem}")) },
-                      None: () => one),
-              }
-            : SetManifest.Empty with { Unresolved = Seq((IngestRefusal.PeerRowVocabulary, $"{entry.File}:{entry.Depth}:{entry.ColorSpace}")) };
+    static SetManifest PeerMap(Rasm.Channels.AssetSetManifest manifest, Rasm.Channels.MapEntry entry) {
+        if (!PeerDepth.TryGetValue(entry.Depth, out ChannelDtype? depth)
+            || !PlaneTransfer.TryGet(entry.ColorSpace, out PlaneTransfer? transfer)
+            || PlaneFormat.For(entry.Channels, depth!).Case is not PlaneFormat format) {
+            return SetManifest.Empty with { Unresolved = Seq((IngestRefusal.PeerRowVocabulary, $"{entry.File}:{entry.Depth}:{entry.ColorSpace}")) };
+        }
+        SetManifest classified = One(new PlaneProbe(Path.GetFileNameWithoutExtension(entry.File), format, transfer!,
+            Dimension.Create(manifest.Width), Dimension.Create(manifest.Height), default, default,
+            Option<PlanePrimaries>.None, Option<int>.None));
+        return classified.Maps.Head
+            .Map(map => map.Pack.IsSome || map.Channels.Exists(c => c.Key == entry.Role)
+                ? classified
+                : SetManifest.Empty with { Unresolved = Seq((IngestRefusal.PeerRoleDivergent, $"{entry.Role}:{map.Stem}")) })
+            .IfNone(classified);
+    }
 
     // One PackEntry lowers the same way: the pack leaf's stem (orm/mra by the frozen egress grammar) resolves
     // through the pack index, the wire's format key resolves the storage row verbatim, and a packed plane is
@@ -807,45 +1070,55 @@ public static class SetIngest {
             acc.Bind(carried =>
                 from supplied in planes.Find(map.Stem).ToFin(MaterialFault.Parameter(key, $"<ingest-plane-missing:{map.Stem}>"))
                 from converted in Converted(supplied, map, convention, key)
-                select map.Pack.Match(
-                    Some: pack => (carried.Channels, carried.Packs.Add(new ChannelPackPlane(pack, converted, map.Channels))),
-                    None: () => (carried.Channels.AddOrUpdate(map.Channels.Head, converted), carried.Packs))))
+                // Head is an Option property, so the non-pack seat reads positionally — total because One mints
+                // every non-pack ClassifiedMap with a one-member Channels and the pack arm never reaches it.
+                select map.Pack
+                    .Map(pack => (carried.Channels, carried.Packs.Add(new ChannelPackPlane(pack, converted, map.Channels))))
+                    .IfNone(() => (carried.Channels.AddOrUpdate(map.Channels[0], converted), carried.Packs))))
         select (head.Tile, new TextureSetDraft(head.Probe.Width, head.Probe.Height, Dimension.Create(1), LayerLaw.None,
             convention.IfNone(NormalConvention.Gl), intent.Alpha, intent.HeightScaleMm, Option<TileProof>.None,
             head.Tile.ToSeq(), bound.Channels, bound.Packs, intent.Conductor, intent.Material));
 
-    // The per-map conversion. The dx flip mutates decoded texels IN PLACE — per-texel and linear, so every
-    // level of a supplied chain stays its own fold — and the gloss inversion runs the filter owner's own
-    // Levels.Invert per level, the affine curve commuting with every linear mip fold, so the rebuilt chain
-    // carries the source policy unchanged.
+    // The per-map conversion, ONE custody law: BUILD NEW. Both repairs are `filter#PLANE_OP` cases folded through
+    // the one `Apply` entry, so the green flip and the gloss inversion take the same chain rebuild rather than one
+    // mutating the caller's planes in place while the other rented fresh ones — a split that left a refused ingest
+    // holding half-converted source pyramids the caller still believed untouched. The green flip is the filter
+    // page's own `SwizzleLane.FlipGreen`, so the corpus has exactly one decoded-lane green-sign site and this page
+    // holds no texel arithmetic at all; the gloss inversion is `RemapCurve.Levels.Invert`, an affine curve that
+    // commutes with every linear mip fold, so the rebuilt chain carries the source policy unchanged. A mid-chain
+    // refusal rides the rail's own Rollback and releases every level already rebuilt.
     static Fin<TexturePyramid> Converted(TexturePyramid pyramid, ClassifiedMap map, Option<NormalConvention> convention, Op key) {
-        if (convention == Some(NormalConvention.Dx)
-            && map.Channels.Exists(static c => c == TextureChannel.GeometryNormal || c == TextureChannel.GeometryCoatNormal)) {
-            pyramid.Levels.Iter(Flip);
-        }
-        return map.Inverted
-            ? pyramid.Levels
+        Seq<PlaneOp> ops =
+            (convention == Some(NormalConvention.Dx) && map.Channels.Exists(IsNormal)
+                ? Seq<PlaneOp>(new PlaneOp.Swizzle(SwizzleLane.FlipGreen)) : Seq<PlaneOp>())
+            + (map.Inverted ? Seq<PlaneOp>(new PlaneOp.Remap(RemapCurve.Levels.Invert)) : Seq<PlaneOp>());
+        return ops.IsEmpty
+            ? Fin.Succ(pyramid)
+            : pyramid.Levels
                 .Fold(Fin.Succ(Seq<TexturePlane>()), (acc, level) =>
-                    acc.Bind(built => PlaneOp.Apply(level, Seq<PlaneOp>(new PlaneOp.Remap(RemapCurve.Levels.Invert)), key).Map(result => built.Add(result.Plane))))
-                .Map(levels => { pyramid.Dispose(); return new TexturePyramid(levels, pyramid.Policy, pyramid.Coupled); })
-            : Fin.Succ(pyramid);
+                    acc.Bind(built => PlaneOp.Apply(level, ops, key)
+                        .Map(result => built.Add(result.Plane))
+                        .Rollback([.. built])))
+                .Map(levels => { pyramid.Dispose(); return new TexturePyramid(levels, pyramid.Policy, pyramid.Coupled); });
     }
 
-    static void Flip(TexturePlane level) {
-        using SpanOwner<ShadeVec4> row = SpanOwner<ShadeVec4>.Allocate(level.Width.Value);
-        for (int layer = 0; layer < level.Layers.Value; layer++) {
-            for (int y = 0; y < level.Height.Value; y++) {
-                level.ReadShade(y, layer, row.Span);
-                for (int x = 0; x < row.Span.Length; x++) { row.Span[x] = NormalConvention.Dx.ToGl(row.Span[x]); }
-                level.WriteShade(y, layer, row.Span);
-            }
-        }
-    }
+    static bool IsNormal(TextureChannel channel) =>
+        channel == TextureChannel.GeometryNormal || channel == TextureChannel.GeometryCoatNormal;
 }
 
-// The caller-owned facts a filename cannot carry: the alpha declaration, the millimetre height span, and
-// the subject identities. One record, so the lift's arity never grows a parameter per fact.
-public sealed record IngestIntent(AlphaMode Alpha, double HeightScaleMm, Option<ConductorMetal> Conductor, Option<MaterialId> Material);
+// The provenance and licence a foreign asset arrives with, recorded as INGEST EVIDENCE and interpreted nowhere on
+// this page. A licence class is the `Appearance/neural` `ModelCard.LicenseClass` band's vocabulary and this stratum
+// may not name a frontier type, so the DECLARED token crosses up and the frontier bands it — the same posture the
+// primaries axis takes toward a container's declared chromaticity, which it records and never converts. Absence is
+// honest and never a grant: an asset that declared nothing carries nothing, and a consumer whose use needs a grant
+// refuses at the frontier rather than reading a permission this owner invented. Provenance never enters the set
+// key: two byte-identical sets from two providers are one blob, and their grants are facts about the acquisition.
+public sealed record IngestProvenance(string Source, Option<string> LicenceDeclared, Option<string> Reference);
+
+// The caller-owned facts a filename cannot carry: the alpha declaration, the millimetre height span, the acquired
+// asset's own provenance and licence declaration, and the subject identities. One record, so the lift's arity never
+// grows a parameter per fact.
+public sealed record IngestIntent(AlphaMode Alpha, Option<double> HeightScaleMm, Option<ConductorMetal> Conductor, Option<MaterialId> Material, Option<IngestProvenance> Provenance);
 ```
 
 ## [05]-[SET_BIND]
@@ -910,7 +1183,7 @@ public static class SetBind {
             ? Fin.Fail<MaterialGraph>(MaterialFault.Parameter(key, $"<layered-set-has-no-uv-program:{set.Law.Key}:{set.Layers.Value}>"))
             : from perturbed in MaterialGraph.Default.PortOf(ShadeChannel.NormalFrame, key)
               from seats in toSeq(SinkSlot.Items).Fold(Fin.Succ(Seq<GraphEdit>()),
-                  (acc, slot) => acc.Bind(edits => SlotEdit(set, slot, sampler, key).Map(edit => edit.Match(Some: e => edits.Add(e), None: () => edits))))
+                  (acc, slot) => acc.Bind(edits => SlotEdit(set, slot, sampler, key).Map(edit => edit.Map(edits.Add).IfNone(edits))))
               from bound in MaterialGraph.Default.Author(
                   set.Channels.ContainsKey(TextureChannel.GeometryNormal)
                       ? seats.Add(new GraphEdit.Seat(new AppearanceNode.Normal(perturbed, SinkSlot.Normal.Port, Strength: 1.0)))
@@ -925,21 +1198,23 @@ public static class SetBind {
     // closure the node holds.
     static Fin<Option<GraphEdit>> SlotEdit(TextureSet set, SinkSlot slot, SamplerState sampler, Op key) =>
         set.Channels.Find(TextureChannel.BySlot(slot))
-            .Match(
-                Some: pyramid => pyramid.AsImage(key).Map(image => Some<GraphEdit>(new GraphEdit.Seat(
-                    new AppearanceNode.Texture(slot.Port, Compose(TextureUv.Port(image, Anchor, sampler, slot.Modality, key), slot))))),
-                None: () => Fin.Succ(Option<GraphEdit>.None));
+            .Map(pyramid => pyramid.AsImage(key).Map(image => Some<GraphEdit>(new GraphEdit.Seat(
+                new AppearanceNode.Texture(slot.Port, Option<PortId>.None,
+                    Compose(TextureUv.Port(image, Anchor, sampler, slot.Modality, key), slot))))))
+            .IfNone(Fin.Succ(Option<GraphEdit>.None));
 
     // The slot's Encode column composes ONTO the sampler's own total closure, so the port projection stays one
-    // data row and the fault/non-finite fold TextureUv.Port owns is untouched.
-    static Func<double, double, PortValue> Compose(Func<double, double, PortValue> port, SinkSlot slot) =>
-        (u, v) => slot.Encode(port(u, v));
+    // data row and the fault/non-finite fold TextureUv.Port owns is untouched. The driven-parameter lane crosses
+    // through unread: a set-bound slot samples at the shading point's own (u,v) and wires no upstream driver, which
+    // is why the seated node's own Parameter column is absent.
+    static Func<double, double, Option<double>, PortValue> Compose(Func<double, double, Option<double>, PortValue> port, SinkSlot slot) =>
+        (u, v, parameter) => slot.Encode(port(u, v, parameter));
 
     // The per-texel reconstruction over BOTH carriers: every standalone channel samples its own plane and every
     // pack lane projects to its slot channel, then the ONE MaterialParameters.Of re-admission gates the result
     // — a sampled set cannot reach the library's own invariants by a side door.
     static Fin<MaterialParameters> Sample(TextureSet set, MaterialParameters fallback, BindTarget.Point at, SamplerState sampler, Op key) =>
-        set.Channels.Fold(Fin.Succ(fallback), (acc, pair) =>
+        toSeq(set.Channels.AsIterable()).Fold(Fin.Succ(fallback), (acc, pair) =>
             acc.Bind(row => Read(pair.Value, at, sampler, key).Map(texel => Apply(pair.Key, row, texel))))
             .Bind(row => set.Packs.Fold(Fin.Succ(row), (acc, pack) =>
                 acc.Bind(carried => Read(pack.Plane, at, sampler, key).Map(texel => Unpack(pack, carried, texel)))))
@@ -954,7 +1229,7 @@ public static class SetBind {
 
     static MaterialParameters Apply(TextureChannel channel, MaterialParameters row, ShadeVec4 texel) =>
         channel.Origin switch {
-            ChannelOrigin.Shaded shaded => shaded.Lens.Write.Match(Some: write => write(row, texel), None: () => row),
+            ChannelOrigin.Shaded shaded => shaded.Lens.Write.Map(write => write(row, texel)).IfNone(row),
             _ => row,
         };
 
@@ -962,9 +1237,7 @@ public static class SetBind {
     // slot contributes nothing, and each present lane folds through its channel's own lens.
     static MaterialParameters Unpack(ChannelPackPlane pack, MaterialParameters row, ShadeVec4 texel) =>
         pack.Present.Fold(row, (carried, channel) =>
-            pack.Pack.Lane(channel).Match(
-                Some: lane => Apply(channel, carried, new ShadeVec4(Lane(texel, lane), 0.0, 0.0, 1.0)),
-                None: () => carried));
+            pack.Pack.Lane(channel).Map(lane => Apply(channel, carried, new ShadeVec4(Lane(texel, lane), 0.0, 0.0, 1.0))).IfNone(carried));
 
     static double Lane(ShadeVec4 texel, int lane) => lane switch { 0 => texel.X, 1 => texel.Y, _ => texel.Z };
 
@@ -976,11 +1249,17 @@ public static class SetBind {
     // index into a captured array — and the sequential lens fold then re-admits over means already staged in
     // slot order (channels, then packs), so the Fin rail never enters a worker and no mean is fabricated.
     static Fin<MaterialParameters> Summary(TextureSet set, MaterialParameters fallback, Op key) {
-        var channels = set.Channels.ToSeq();
+        // HashMap<K,V> declares no instance ToSeq — the Foldable extension folds VALUES alone — so the pair run
+        // re-enters through AsIterable and the Key reads below stay real.
+        Seq<(TextureChannel Key, TexturePyramid Value)> channels = toSeq(set.Channels.AsIterable());
         MeanSlot[] slots = [
             .. channels.Map(static pair => new MeanSlot(pair.Value.Base)),
             .. set.Packs.Map(static pack => new MeanSlot(pack.Plane.Base))];
-        ParallelHelper.ForEach<MeanSlot, MeanStage>(slots.AsMemory(), default);
+        // The action seeds as a NAMED value passed by `in`, which is the documented shape: `default` at the call
+        // reads as an omitted argument rather than as the stateless action it is, and the seed is what a worker's
+        // per-partition copy is made from.
+        MeanStage stage = default;
+        ParallelHelper.ForEach<MeanSlot, MeanStage>(slots.AsMemory(), in stage);
         return channels
                 .Map((pair, index) => (pair.Key, slots[index].Mean))
                 .Fold(Fin.Succ(fallback), (acc, row) => acc.Map(carried => Apply(row.Key, carried, row.Mean)))

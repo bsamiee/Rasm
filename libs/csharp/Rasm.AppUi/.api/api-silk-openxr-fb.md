@@ -48,54 +48,54 @@
 [PUBLIC_TYPE_SCOPE]: passthrough native handles, descriptor carriers, flags — all declared in `Silk.NET.OpenXR` core, pointer-passed into the `FBPassthrough` root
 - rail: viewport
 
-| [INDEX] | [SYMBOL]                        | [KIND]        | [RAIL]                                  |
-| :-----: | :------------------------------ | :------------ | :-------------------------------------- |
-|  [01]   | `PassthroughFB`                 | native handle | passthrough feature handle              |
-|  [02]   | `PassthroughLayerFB`            | native handle | passthrough composition layer           |
-|  [03]   | `GeometryInstanceFB`            | native handle | passthrough-on-mesh projection instance |
-|  [04]   | `PassthroughCreateInfoFB`       | descriptor    | passthrough create (flags)              |
-|  [05]   | `PassthroughLayerCreateInfoFB`  | descriptor    | layer create (purpose, flags)           |
-|  [06]   | `GeometryInstanceCreateInfoFB`  | descriptor    | mesh + base-space projection            |
-|  [07]   | `GeometryInstanceTransformFB`   | descriptor    | per-frame instance pose/scale           |
-|  [08]   | `CompositionLayerPassthroughFB` | struct        | composition layer the frame submits     |
-|  [09]   | `PassthroughStyleFB`            | descriptor    | `TextureOpacityFactor` + `Color4f EdgeColor` |
+| [INDEX] | [SYMBOL]                        | [KIND]        | [RAIL]                                         |
+| :-----: | :------------------------------ | :------------ | :--------------------------------------------- |
+|  [01]   | `PassthroughFB`                 | native handle | passthrough feature handle                     |
+|  [02]   | `PassthroughLayerFB`            | native handle | passthrough composition layer                  |
+|  [03]   | `GeometryInstanceFB`            | native handle | passthrough-on-mesh projection instance        |
+|  [04]   | `PassthroughCreateInfoFB`       | descriptor    | passthrough create (flags)                     |
+|  [05]   | `PassthroughLayerCreateInfoFB`  | descriptor    | layer create (purpose, flags)                  |
+|  [06]   | `GeometryInstanceCreateInfoFB`  | descriptor    | mesh + base-space projection                   |
+|  [07]   | `GeometryInstanceTransformFB`   | descriptor    | per-frame instance pose/scale                  |
+|  [08]   | `CompositionLayerPassthroughFB` | struct        | composition layer the frame submits            |
+|  [09]   | `PassthroughStyleFB`            | descriptor    | `TextureOpacityFactor` + `Color4f EdgeColor`   |
 |  [10]   | `PassthroughFlagsFB`            | enum (flags)  | `IsRunningATCreationBitFB` / `LayerDepthBitFB` |
-|  [11]   | `PassthroughLayerPurposeFB`     | enum          | `ReconstructionFB` / `ProjectedFB`      |
+|  [11]   | `PassthroughLayerPurposeFB`     | enum          | `ReconstructionFB` / `ProjectedFB`             |
 
 [PUBLIC_TYPE_SCOPE]: async-completion event carriers — every `FB` verb answering with a `ulong` request id retires through one of these on the core `PollEvent` drain
 - rail: viewport
 
-| [INDEX] | [SYMBOL]                                  | [KIND] | [PAYLOAD]                                          |
-| :-----: | :---------------------------------------- | :----- | :-------------------------------------------------- |
-|  [01]   | `EventDataSpatialAnchorCreateCompleteFB`  | struct | `RequestId`, `Result`, `Space`, `UuidEXT`          |
-|  [02]   | `EventDataSpaceSetStatusCompleteFB`       | struct | `RequestId`, `Result`, `Space`, `UuidEXT`, `ComponentType`, `Enabled` |
-|  [03]   | `EventDataSpaceSaveCompleteFB`            | struct | `RequestId`, `Result`, `Space`, `UuidEXT`, `Location` |
-|  [04]   | `EventDataSpaceEraseCompleteFB`           | struct | `RequestId`, `Result`, `Space`, `UuidEXT`, `Location` |
-|  [05]   | `EventDataSpaceQueryResultsAvailableFB`   | struct | `RequestId` alone — signals `RetrieveSpaceQueryResultsFB`, retires nothing |
-|  [06]   | `EventDataSpaceQueryCompleteFB`           | struct | `RequestId`, `Result`                              |
-|  [07]   | `EventDataSpaceShareCompleteFB`           | struct | `RequestId`, `Result`                              |
-|  [08]   | `EventDataSceneCaptureCompleteFB`         | struct | `RequestId`, `Result`                              |
-|  [09]   | `EventDataDisplayRefreshRateChangedFB`    | struct | `FromDisplayRefreshRate`, `ToDisplayRefreshRate`   |
-|  [10]   | `SpaceQueryResultFB`                      | struct | `Space` + `UuidEXT` row the retrieve call fills    |
+| [INDEX] | [SYMBOL]                                 | [KIND] | [PAYLOAD]                                                                  |
+| :-----: | :--------------------------------------- | :----- | :------------------------------------------------------------------------- |
+|  [01]   | `EventDataSpatialAnchorCreateCompleteFB` | struct | `RequestId`, `Result`, `Space`, `UuidEXT`                                  |
+|  [02]   | `EventDataSpaceSetStatusCompleteFB`      | struct | `RequestId`, `Result`, `Space`, `UuidEXT`, `ComponentType`, `Enabled`      |
+|  [03]   | `EventDataSpaceSaveCompleteFB`           | struct | `RequestId`, `Result`, `Space`, `UuidEXT`, `Location`                      |
+|  [04]   | `EventDataSpaceEraseCompleteFB`          | struct | `RequestId`, `Result`, `Space`, `UuidEXT`, `Location`                      |
+|  [05]   | `EventDataSpaceQueryResultsAvailableFB`  | struct | `RequestId` alone — signals `RetrieveSpaceQueryResultsFB`, retires nothing |
+|  [06]   | `EventDataSpaceQueryCompleteFB`          | struct | `RequestId`, `Result`                                                      |
+|  [07]   | `EventDataSpaceShareCompleteFB`          | struct | `RequestId`, `Result`                                                      |
+|  [08]   | `EventDataSceneCaptureCompleteFB`        | struct | `RequestId`, `Result`                                                      |
+|  [09]   | `EventDataDisplayRefreshRateChangedFB`   | struct | `FromDisplayRefreshRate`, `ToDisplayRefreshRate`                           |
+|  [10]   | `SpaceQueryResultFB`                     | struct | `Space` + `UuidEXT` row the retrieve call fills                            |
 
 [PUBLIC_TYPE_SCOPE]: spatial-entity + scene carriers — core-declared, the anchor/scene-understanding surface the on-site review reads
 - rail: viewport
 
-| [INDEX] | [SYMBOL]                               | [KIND]     | [RAIL]                                 |
-| :-----: | :------------------------------------- | :--------- | :------------------------------------- |
-|  [01]   | `SpatialAnchorCreateInfoFB`            | descriptor | anchor create at a `Posef` in a space  |
-|  [02]   | `SpaceComponentTypeFB`                 | enum       | locatable/storable/sharable component  |
-|  [03]   | `SpaceComponentStatusFB`               | struct     | enabled/change-pending component state |
-|  [04]   | `SpaceQueryInfoFB`                     | descriptor | `SpaceQueryActionFB` + max results + filter pair |
-|  [05]   | `SpaceQueryResultsFB` / `SpaceQueryResultFB` | struct | capacity-then-fill result set; each row is `Space` + `UuidEXT` |
-|  [06]   | `SpaceQueryActionFB`                   | enum       | `LoadFB` — the one query action the extension carries |
-|  [07]   | `SpaceSaveInfoFB` / `SpaceEraseInfoFB` | descriptor | `Space` + `SpaceStorageLocationFB` (+ `SpacePersistenceModeFB` on save) |
-|  [08]   | `SpaceStorageLocationFB` / `SpacePersistenceModeFB` | enum | `LocalFB`/`CloudFB`; `IndefiniteFB`   |
-|  [09]   | `SceneCaptureRequestInfoFB`            | descriptor | `RequestByteCount` + opaque request bytes |
-|  [10]   | `RoomLayoutFB`                         | struct     | floor/ceiling uuid + capacity-then-fill wall uuids |
-|  [11]   | `SemanticLabelsFB`                     | struct     | capacity-then-fill per-surface label buffer |
-|  [12]   | `Rect3DfFB` / `Rect2Df` / `Boundary2DFB` | struct   | 3D box and 2D surface boundary polygon |
-|  [13]   | `SpaceUserFB`                          | native handle | share-target user the `ShareSpacesFB` set names |
+| [INDEX] | [SYMBOL]                                            | [KIND]        | [RAIL]                                                           |
+| :-----: | :-------------------------------------------------- | :------------ | :--------------------------------------------------------------- |
+|  [01]   | `SpatialAnchorCreateInfoFB`                         | descriptor    | anchor create at a `Posef` in a space                            |
+|  [02]   | `SpaceComponentTypeFB`                              | enum          | locatable/storable/sharable component                            |
+|  [03]   | `SpaceComponentStatusFB`                            | struct        | enabled/change-pending component state                           |
+|  [04]   | `SpaceQueryInfoFB`                                  | descriptor    | `SpaceQueryActionFB` + max results + filter pair                 |
+|  [05]   | `SpaceQueryResultsFB` / `SpaceQueryResultFB`        | struct        | capacity-then-fill result set; each row is `Space` + `UuidEXT`   |
+|  [06]   | `SpaceQueryActionFB`                                | enum          | `LoadFB` — the one query action the extension carries            |
+|  [07]   | `SpaceSaveInfoFB` / `SpaceEraseInfoFB`              | descriptor    | `Space` + `SpaceStorageLocationFB`; save adds a persistence mode |
+|  [08]   | `SpaceStorageLocationFB` / `SpacePersistenceModeFB` | enum          | `LocalFB`/`CloudFB`; `IndefiniteFB`                              |
+|  [09]   | `SceneCaptureRequestInfoFB`                         | descriptor    | `RequestByteCount` + opaque request bytes                        |
+|  [10]   | `RoomLayoutFB`                                      | struct        | floor/ceiling uuid + capacity-then-fill wall uuids               |
+|  [11]   | `SemanticLabelsFB`                                  | struct        | capacity-then-fill per-surface label buffer                      |
+|  [12]   | `Rect3DfFB` / `Rect2Df` / `Boundary2DFB`            | struct        | 3D box and 2D surface boundary polygon                           |
+|  [13]   | `SpaceUserFB`                                       | native handle | share-target user the `ShareSpacesFB` set names                  |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -149,29 +149,29 @@
 [ENTRYPOINT_SCOPE]: render-comfort and device surfaces — refresh rate, foveation, color space, render models, hand/body tracking
 - rail: viewport
 
-| [INDEX] | [SURFACE]                        | [SURFACE_ROOT]           | [OPERATION]               |
-| :-----: | :------------------------------- | :----------------------- | :------------------------ |
-|  [01]   | `EnumerateDisplayRefreshRatesFB` | `FBDisplayRefreshRate`   | enumerate refresh rates   |
-|  [02]   | `GetDisplayRefreshRateFB`        | `FBDisplayRefreshRate`   | read refresh rate         |
-|  [03]   | `RequestDisplayRefreshRateFB`    | `FBDisplayRefreshRate`   | request refresh rate      |
-|  [04]   | `CreateFoveationProfileFB`       | `FBFoveation`            | create foveation profile  |
-|  [05]   | `DestroyFoveationProfileFB`      | `FBFoveation`            | release foveation profile |
+| [INDEX] | [SURFACE]                        | [SURFACE_ROOT]           | [OPERATION]                |
+| :-----: | :------------------------------- | :----------------------- | :------------------------- |
+|  [01]   | `EnumerateDisplayRefreshRatesFB` | `FBDisplayRefreshRate`   | enumerate refresh rates    |
+|  [02]   | `GetDisplayRefreshRateFB`        | `FBDisplayRefreshRate`   | read refresh rate          |
+|  [03]   | `RequestDisplayRefreshRateFB`    | `FBDisplayRefreshRate`   | request refresh rate       |
+|  [04]   | `CreateFoveationProfileFB`       | `FBFoveation`            | create foveation profile   |
+|  [05]   | `DestroyFoveationProfileFB`      | `FBFoveation`            | release foveation profile  |
 |  [06]   | `UpdateSwapchainFB`              | `FBSwapchainUpdateState` | apply state to a swapchain |
-|  [07]   | `GetSwapchainStateFB`            | `FBSwapchainUpdateState` | read swapchain state      |
-|  [08]   | `EnumerateColorSpacesFB`         | `FBColorSpace`           | enumerate color spaces    |
-|  [09]   | `SetColorSpaceFB`                | `FBColorSpace`           | set output color space    |
-|  [10]   | `EnumerateRenderModelPathsFB`    | `FBRenderModel`          | enumerate model paths     |
-|  [11]   | `GetRenderModelPropertiesFB`     | `FBRenderModel`          | read model properties     |
-|  [12]   | `LoadRenderModelFB`              | `FBRenderModel`          | load controller model     |
-|  [13]   | `GetHandMeshFB`                  | `FBHandTrackingMesh`     | read skinned hand mesh    |
-|  [14]   | `CreateBodyTrackerFB`            | `FBBodyTracking`         | create body tracker       |
-|  [15]   | `LocateBodyJointsFB`             | `FBBodyTracking`         | locate body joints        |
-|  [16]   | `GetBodySkeletonFB`              | `FBBodyTracking`         | read body skeleton        |
-|  [17]   | `DestroyBodyTrackerFB`           | `FBBodyTracking`         | release body tracker      |
-|  [18]   | `CreateTriangleMeshFB`           | `FBTriangleMesh`         | create mutable mesh       |
-|  [19]   | `TriangleMeshGetVertexBufferFB`  | `FBTriangleMesh`         | access vertex buffer      |
-|  [20]   | `TriangleMeshBeginUpdateFB`      | `FBTriangleMesh`         | begin mesh update         |
-|  [21]   | `…EndUpdateFB`                   | `FBTriangleMesh`         | complete mesh update      |
+|  [07]   | `GetSwapchainStateFB`            | `FBSwapchainUpdateState` | read swapchain state       |
+|  [08]   | `EnumerateColorSpacesFB`         | `FBColorSpace`           | enumerate color spaces     |
+|  [09]   | `SetColorSpaceFB`                | `FBColorSpace`           | set output color space     |
+|  [10]   | `EnumerateRenderModelPathsFB`    | `FBRenderModel`          | enumerate model paths      |
+|  [11]   | `GetRenderModelPropertiesFB`     | `FBRenderModel`          | read model properties      |
+|  [12]   | `LoadRenderModelFB`              | `FBRenderModel`          | load controller model      |
+|  [13]   | `GetHandMeshFB`                  | `FBHandTrackingMesh`     | read skinned hand mesh     |
+|  [14]   | `CreateBodyTrackerFB`            | `FBBodyTracking`         | create body tracker        |
+|  [15]   | `LocateBodyJointsFB`             | `FBBodyTracking`         | locate body joints         |
+|  [16]   | `GetBodySkeletonFB`              | `FBBodyTracking`         | read body skeleton         |
+|  [17]   | `DestroyBodyTrackerFB`           | `FBBodyTracking`         | release body tracker       |
+|  [18]   | `CreateTriangleMeshFB`           | `FBTriangleMesh`         | create mutable mesh        |
+|  [19]   | `TriangleMeshGetVertexBufferFB`  | `FBTriangleMesh`         | access vertex buffer       |
+|  [20]   | `TriangleMeshBeginUpdateFB`      | `FBTriangleMesh`         | begin mesh update          |
+|  [21]   | `…EndUpdateFB`                   | `FBTriangleMesh`         | complete mesh update       |
 
 [SIGNATURES]:
 - `CreateFoveationProfileFB`: `Result CreateFoveationProfileFB(Session, FoveationProfileCreateInfoFB*, FoveationProfileFB*)` — the level rides the `FoveationLevelProfileCreateInfoFB` (`Level`/`VerticalOffset`/`Dynamic`) chained on `Next`

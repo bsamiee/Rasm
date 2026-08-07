@@ -16,18 +16,18 @@
 
 [FEATURE_AND_PROVIDER_TYPES]: the drawable NTS feature and the `IProvider` family — `Mapsui.Nts` / `Mapsui.Nts.Providers`
 
-| [INDEX] | [SYMBOL]                                | [TYPE_FAMILY] | [CAPABILITY]                   |
-| :-----: | :-------------------------------------- | :------------ | :----------------------------- |
-|  [01]   | `GeometryFeature`                       | NTS feature   | NTS geometry as a feature      |
-|  [02]   | `IndexedMemoryProvider`                 | provider      | envelope-indexed feature set   |
-|  [03]   | `GeometryIntersectionProvider`          | decorator     | viewport clip per fetch        |
-|  [04]   | `GeometrySimplifyProvider`              | decorator     | resolution-driven decimation   |
-|  [05]   | `GeometrySimplifyAndClippingProvider`   | decorator     | fused clip-and-decimate        |
-|  [06]   | `ObservableCollectionProvider<T>`       | provider      | live feature collection        |
-|  [07]   | `GeoJsonProvider`                       | provider      | GeoJSON string source          |
-|  [08]   | `ShapeFile`                             | provider      | ESRI shapefile source          |
-|  [09]   | `DbaseReader`                           | reader        | shapefile attribute table      |
-|  [10]   | `WFSProvider`                           | provider      | OGC WFS feature source         |
+| [INDEX] | [SYMBOL]                              | [TYPE_FAMILY] | [CAPABILITY]                 |
+| :-----: | :------------------------------------ | :------------ | :--------------------------- |
+|  [01]   | `GeometryFeature`                     | NTS feature   | NTS geometry as a feature    |
+|  [02]   | `IndexedMemoryProvider`               | provider      | envelope-indexed feature set |
+|  [03]   | `GeometryIntersectionProvider`        | decorator     | viewport clip per fetch      |
+|  [04]   | `GeometrySimplifyProvider`            | decorator     | resolution-driven decimation |
+|  [05]   | `GeometrySimplifyAndClippingProvider` | decorator     | fused clip-and-decimate      |
+|  [06]   | `ObservableCollectionProvider<T>`     | provider      | live feature collection      |
+|  [07]   | `GeoJsonProvider`                     | provider      | GeoJSON string source        |
+|  [08]   | `ShapeFile`                           | provider      | ESRI shapefile source        |
+|  [09]   | `DbaseReader`                         | reader        | shapefile attribute table    |
+|  [10]   | `WFSProvider`                         | provider      | OGC WFS feature source       |
 
 - `GeometryFeature` : `BaseFeature`, `IFeature`, `ICloneable`; its `Geometry?` member is the settable NTS payload and `Extent` projects the geometry envelope as an `MRect?`.
 - Every provider is an `IProvider` carrying `CRS`, `GetExtent() -> MRect?`, and `GetFeaturesAsync(FetchInfo) -> Task<IEnumerable<IFeature>>`; the three decorators and `GeoJsonProvider` also carry `IProviderExtended` (`Id`, a `FeatureKeyCreator<T>` cache key).
@@ -35,18 +35,18 @@
 
 [EDITING_TYPES]: the interactive authoring session — `Mapsui.Nts.Editing` / `Mapsui.Nts.Widgets`
 
-| [INDEX] | [SYMBOL]           | [TYPE_FAMILY]  | [CAPABILITY]                    |
-| :-----: | :----------------- | :------------- | :------------------------------ |
-|  [01]   | `EditManager`      | session        | vertex authoring state machine  |
-|  [02]   | `EditMode`         | enum           | nine-member session vocabulary  |
-|  [03]   | `EditManipulation` | static class   | pointer-event to session verbs  |
-|  [04]   | `EditingWidget`    | widget         | session bound to map input      |
-|  [05]   | `EditHelper`       | static class   | segment-insert hit test         |
-|  [06]   | `Geomorpher`       | static class   | in-place rotate and scale       |
-|  [07]   | `AddInfo`          | session state  | in-progress add geometry        |
-|  [08]   | `DragInfo`         | session state  | in-progress drag vertex         |
-|  [09]   | `RotateInfo`       | session state  | in-progress rotation centre     |
-|  [10]   | `ScaleInfo`        | session state  | in-progress scale centre        |
+| [INDEX] | [SYMBOL]           | [TYPE_FAMILY] | [CAPABILITY]                   |
+| :-----: | :----------------- | :------------ | :----------------------------- |
+|  [01]   | `EditManager`      | session       | vertex authoring state machine |
+|  [02]   | `EditMode`         | enum          | nine-member session vocabulary |
+|  [03]   | `EditManipulation` | static class  | pointer-event to session verbs |
+|  [04]   | `EditingWidget`    | widget        | session bound to map input     |
+|  [05]   | `EditHelper`       | static class  | segment-insert hit test        |
+|  [06]   | `Geomorpher`       | static class  | in-place rotate and scale      |
+|  [07]   | `AddInfo`          | session state | in-progress add geometry       |
+|  [08]   | `DragInfo`         | session state | in-progress drag vertex        |
+|  [09]   | `RotateInfo`       | session state | in-progress rotation centre    |
+|  [10]   | `ScaleInfo`        | session state | in-progress scale centre       |
 
 - `EditMode`: `None` `AddPoint` `AddLine` `DrawingLine` `AddPolygon` `DrawingPolygon` `Modify` `Rotate` `Scale` — `None` ends a session and each `Drawing*` member is the transient state its `Add*` peer enters mid-stroke.
 - `EditingWidget` : `InputOnlyWidget`; it takes one `EditManager` at construction, re-exposes `EditMode`/`SelectMode`/`Layer` off it, and forwards `OnPointerPressed`/`OnPointerMoved`/`OnPointerReleased`/`OnTapped` into `EditManipulation`.
@@ -54,16 +54,16 @@
 
 [CONVERSION_TYPES]: the Mapsui-to-NTS primitive bridge — `Mapsui.Nts.Extensions`
 
-| [INDEX] | [SYMBOL]                | [TYPE_FAMILY] | [CAPABILITY]                  |
-| :-----: | :---------------------- | :------------ | :---------------------------- |
-|  [01]   | `GeometryExtensions`    | static class  | geometry to feature, vertices |
-|  [02]   | `CoordinateExtensions`  | static class  | coordinate to point and ring  |
-|  [03]   | `MPointExtensions`      | static class  | `MPoint` to NTS               |
-|  [04]   | `PointExtensions`       | static class  | NTS `Point` to `MPoint`       |
-|  [05]   | `MRectExtensions`       | static class  | `MRect` to envelope, polygon  |
-|  [06]   | `EnvelopeExtensions`    | static class  | envelope to `MRect`           |
-|  [07]   | `LineStringExtensions`  | static class  | line to linear ring           |
-|  [08]   | `TupleExtensions`       | static class  | `(x, y)` tuple to coordinate  |
+| [INDEX] | [SYMBOL]               | [TYPE_FAMILY] | [CAPABILITY]                  |
+| :-----: | :--------------------- | :------------ | :---------------------------- |
+|  [01]   | `GeometryExtensions`   | static class  | geometry to feature, vertices |
+|  [02]   | `CoordinateExtensions` | static class  | coordinate to point and ring  |
+|  [03]   | `MPointExtensions`     | static class  | `MPoint` to NTS               |
+|  [04]   | `PointExtensions`      | static class  | NTS `Point` to `MPoint`       |
+|  [05]   | `MRectExtensions`      | static class  | `MRect` to envelope, polygon  |
+|  [06]   | `EnvelopeExtensions`   | static class  | envelope to `MRect`           |
+|  [07]   | `LineStringExtensions` | static class  | line to linear ring           |
+|  [08]   | `TupleExtensions`      | static class  | `(x, y)` tuple to coordinate  |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -115,37 +115,37 @@
 
 [EDIT_INPUT]: the widget and the pointer-event bridge
 
-| [INDEX] | [SURFACE]                                                                       | [SHAPE] | [CAPABILITY]                        |
-| :-----: | :------------------------------------------------------------------------------ | :------ | :---------------------------------- |
-|  [01]   | `new EditingWidget(EditManager)`                                                | ctor    | session mounted on `Map.Widgets`    |
-|  [02]   | `EditManipulation.OnPointerPressed(WidgetEventArgs, EditManager) -> bool`       | static  | press to add, drag, rotate, scale   |
-|  [03]   | `EditManipulation.OnPointerMoved(WidgetEventArgs, EditManager) -> bool`         | static  | move to hover, drag, rotate, scale  |
-|  [04]   | `EditManipulation.OnPointerReleased(EditManager) -> bool`                       | static  | release to stop every manipulation  |
-|  [05]   | `EditManipulation.OnTapped(WidgetEventArgs, EditManager) -> bool`               | static  | tap to insert, delete, end a stroke |
-|  [06]   | `EditHelper.ShouldInsert(MPoint, double, List<Coordinate>, double, out int)`    | static  | segment index under the pointer     |
-|  [07]   | `Geomorpher.Rotate(Geometry, double, Point)`                                    | static  | rotates geometry in place           |
-|  [08]   | `Geomorpher.Scale(Geometry, double, Point)`                                     | static  | scales geometry in place            |
+| [INDEX] | [SURFACE]                                                                    | [SHAPE] | [CAPABILITY]                        |
+| :-----: | :--------------------------------------------------------------------------- | :------ | :---------------------------------- |
+|  [01]   | `new EditingWidget(EditManager)`                                             | ctor    | session mounted on `Map.Widgets`    |
+|  [02]   | `EditManipulation.OnPointerPressed(WidgetEventArgs, EditManager) -> bool`    | static  | press to add, drag, rotate, scale   |
+|  [03]   | `EditManipulation.OnPointerMoved(WidgetEventArgs, EditManager) -> bool`      | static  | move to hover, drag, rotate, scale  |
+|  [04]   | `EditManipulation.OnPointerReleased(EditManager) -> bool`                    | static  | release to stop every manipulation  |
+|  [05]   | `EditManipulation.OnTapped(WidgetEventArgs, EditManager) -> bool`            | static  | tap to insert, delete, end a stroke |
+|  [06]   | `EditHelper.ShouldInsert(MPoint, double, List<Coordinate>, double, out int)` | static  | segment index under the pointer     |
+|  [07]   | `Geomorpher.Rotate(Geometry, double, Point)`                                 | static  | rotates geometry in place           |
+|  [08]   | `Geomorpher.Scale(Geometry, double, Point)`                                  | static  | scales geometry in place            |
 
 [GEOMETRY_BRIDGE]: the conversion extensions
 
-| [INDEX] | [SURFACE]                                                                     | [SHAPE] | [CAPABILITY]                       |
-| :-----: | :---------------------------------------------------------------------------- | :------ | :--------------------------------- |
-|  [01]   | `Geometry.ToFeature() -> GeometryFeature`                                     | static  | one geometry as one feature        |
-|  [02]   | `IEnumerable<Geometry>.ToFeatures() -> IEnumerable<GeometryFeature>`          | static  | a geometry set as features         |
-|  [03]   | `Geometry.GetVertexLists() -> IList<IList<Coordinate>>`                       | static  | per-ring editable vertex lists     |
-|  [04]   | `Geometry.MainCoordinates() -> List<Coordinate>`                              | static  | the primary ring or line vertices  |
-|  [05]   | `Geometry?.InsertCoordinate(Coordinate, int) -> Geometry?`                    | static  | rebuilds with a split segment      |
-|  [06]   | `Geometry.DeleteCoordinate(int) -> Geometry?`                                 | static  | rebuilds without one vertex        |
-|  [07]   | `Coordinate.ToMPoint() -> MPoint` / `Coordinate.ToPoint() -> Point`           | static  | coordinate lift                    |
-|  [08]   | `IEnumerable<Coordinate>.ToLineString()` / `.ToLinearRing()`                  | static  | vertex set to line or ring         |
-|  [09]   | `IEnumerable<Coordinate>.ToPolygon(IEnumerable<IEnumerable<Coordinate>>?)`    | static  | shell plus holes to a polygon      |
-|  [10]   | `Coordinate?.SetXY(Coordinate?)` / `Coordinate?.SetXY(MPoint?)`               | static  | in-place vertex write              |
-|  [11]   | `MPoint?.ToPoint() -> Point?` / `MPoint?.ToCoordinate() -> Coordinate?`       | static  | world point to NTS                 |
-|  [12]   | `Point.ToMPoint() -> MPoint`                                                  | static  | NTS point to world point           |
-|  [13]   | `MRect.ToEnvelope() -> Envelope` / `MRect.ToPolygon() -> Polygon`             | static  | world rectangle to NTS             |
-|  [14]   | `Envelope.ToMRect() -> MRect?`                                                | static  | NTS envelope to world rectangle    |
-|  [15]   | `LineString.ToLinearRing() -> LinearRing`                                     | static  | closes a line into a ring          |
-|  [16]   | `(double x, double y).ToCoordinate() -> Coordinate`                           | static  | tuple lift                         |
+| [INDEX] | [SURFACE]                                                                  | [SHAPE] | [CAPABILITY]                      |
+| :-----: | :------------------------------------------------------------------------- | :------ | :-------------------------------- |
+|  [01]   | `Geometry.ToFeature() -> GeometryFeature`                                  | static  | one geometry as one feature       |
+|  [02]   | `IEnumerable<Geometry>.ToFeatures() -> IEnumerable<GeometryFeature>`       | static  | a geometry set as features        |
+|  [03]   | `Geometry.GetVertexLists() -> IList<IList<Coordinate>>`                    | static  | per-ring editable vertex lists    |
+|  [04]   | `Geometry.MainCoordinates() -> List<Coordinate>`                           | static  | the primary ring or line vertices |
+|  [05]   | `Geometry?.InsertCoordinate(Coordinate, int) -> Geometry?`                 | static  | rebuilds with a split segment     |
+|  [06]   | `Geometry.DeleteCoordinate(int) -> Geometry?`                              | static  | rebuilds without one vertex       |
+|  [07]   | `Coordinate.ToMPoint() -> MPoint` / `Coordinate.ToPoint() -> Point`        | static  | coordinate lift                   |
+|  [08]   | `IEnumerable<Coordinate>.ToLineString()` / `.ToLinearRing()`               | static  | vertex set to line or ring        |
+|  [09]   | `IEnumerable<Coordinate>.ToPolygon(IEnumerable<IEnumerable<Coordinate>>?)` | static  | shell plus holes to a polygon     |
+|  [10]   | `Coordinate?.SetXY(Coordinate?)` / `Coordinate?.SetXY(MPoint?)`            | static  | in-place vertex write             |
+|  [11]   | `MPoint?.ToPoint() -> Point?` / `MPoint?.ToCoordinate() -> Coordinate?`    | static  | world point to NTS                |
+|  [12]   | `Point.ToMPoint() -> MPoint`                                               | static  | NTS point to world point          |
+|  [13]   | `MRect.ToEnvelope() -> Envelope` / `MRect.ToPolygon() -> Polygon`          | static  | world rectangle to NTS            |
+|  [14]   | `Envelope.ToMRect() -> MRect?`                                             | static  | NTS envelope to world rectangle   |
+|  [15]   | `LineString.ToLinearRing() -> LinearRing`                                  | static  | closes a line into a ring         |
+|  [16]   | `(double x, double y).ToCoordinate() -> Coordinate`                        | static  | tuple lift                        |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

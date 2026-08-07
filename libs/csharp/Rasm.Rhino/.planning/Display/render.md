@@ -6,19 +6,21 @@
 
 ## [01]-[INDEX]
 
-- [02]-[BATCH_SESSION]: `RenderRun`, `RenderRequest`, `RenderChannel`, `ChannelFact`, `PixelBlock`, `GammaValue`/`DitherMethod`, `RenderJob` with its job-lifetime `PostEffectGate`, and the `AsyncProgram`/`JobAsync` detached-thread modality over `AsyncRenderContext`.
+- [02]-[BATCH_SESSION]: `RenderRun`, `RenderRequest`, `RenderChannel`, `ChannelOrder`, `ChannelFact`, `PixelBlock`, `GammaValue`, `WindowOp` with its `WindowYield` egress family, `RenderJob` with its job-lifetime `PostEffectGate`, and the `AsyncProgram`/`JobAsync` detached-thread modality over `AsyncRenderContext`.
 - [03]-[REALTIME]: `RealtimeProgram` hooks, `RealtimePassPolicy`, the host-constructed `RealtimeEngine`/`RealtimeEngineInfo` adapter pair over `RealtimeDisplayMode` with the `RealtimeEngines` registry, and the `LightAuthorities` custom-light authority over `LightManagerSupport`.
 - [04]-[POST_AND_TEXTURE]: `PostEffectOp` configuration rows over `RenderSettings.PostEffects`, `BuiltinEffect` identity, the `EffectProgram`/`EffectHost`/`EffectPass` authoring half with its `ChannelView` and `GpuHandle` ports, `PostEffectGate` execution control, and the `TextureBake` evaluation rows.
 - [05]-[CHANGEQUEUE]: `SceneDelta`, `SceneBatch`, `QueuePolicy`, and the `SceneQueue` adapter over the host change queue with the channel hand-off seam.
 
 ## [02]-[BATCH_SESSION]
 
-- Owner: `RenderRun` closes full-frame and region execution; `WindowScope` closes pipeline, viewport-target, and detached window acquisition; `WindowOp` closes framebuffer widening, channel census, pixel writes, and gamma/dither adjustment.
+- Owner: `RenderRun` closes full-frame and region execution; `WindowScope` closes pipeline, viewport-target, and detached window acquisition; `WindowOp` closes framebuffer widening, channel census, pixel writes, gamma/dither adjustment, component reads, raster snapshot, and file egress, each answering one `WindowYield` case.
 - Entry: `RenderJob.Open(DocumentSession, PlugIn, Size2i, ChannelSet, RenderProgram, Option<AsyncProgram>, Option<Func<EffectId, Fin<bool>>>, Op?) : Fin<RenderJob>` admits the plan; every `Configure` re-resolves the document, proves request-owned needs, and binds the matching pipeline inside that demand.
 - Law: one lifecycle gate excludes disposal across a complete configuration demand; a document-serial change retires the prior pipeline before the current demand mints its replacement.
 - Law: every `GetRenderWindow*` call remains inside private `WithWindow`; `WindowOp` is the only public operation vocabulary.
 - Law: batch and realtime never merge — a `RenderJob` produces a finished window, a `RealtimeEngine` participates per frame; one owner claiming both is the collapsed form the host API's own split forecloses.
-- Law: the framebuffer roster is a job-level fact, not a per-borrow one — `Add` widens it through `AddChannel` with a `bool`-confirmed receipt, `Census` reads availability, roster visibility, and post-effect demand back as `ChannelFact` rows, and per-pixel access is `PixelBlock` through `SetRGBAChannelColors` or, inside a post-effect execute body, `[04]`'s `ChannelView`. A raw buffer pointer is unrepresentable, the framebuffer publishes no GPU-channel opener at all, and an `OpenChannel` borrow with no read, write, or receipt is the deleted form it replaced.
+- Law: the framebuffer roster is a job-level fact, not a per-borrow one — `Add` widens it through `AddChannel` with a `bool`-confirmed receipt and `Census` reads availability, roster visibility, and post-effect demand back as `ChannelFact` rows. Per-pixel write is `PixelBlock` through `SetRGBAChannelColors`; per-pixel READ is `Read`, whose `OpenChannel` cursor lives exactly one arm and fills a caller-owned component buffer through `GetValues`, so a raw buffer pointer stays unrepresentable and no native pixel port outlives the borrow. Inside a post-effect execute body the reader is `[04]`'s `ChannelView` instead, and the framebuffer publishes no GPU-channel opener at all.
+- Law: framebuffer egress is a `WindowOp` arm, never a caller reaching the window — `Snapshot` answers the host bitmap as a `CaptureArtifact` under the same custody a viewport capture takes, and `SaveAs` settles its destination through the Exchange rail's `OutputPolicy.Resolve` before writing directly, because both host file writers dispatch on the destination extension and a staged `.partial` name forks that dispatch. The staging kernel is therefore the wrong seam here and the Exchange rail says so itself; the settled path crosses out as evidence.
+- Law: `DitherMethod` is `Rasm.Rhino.Render`'s, composed by name — the framebuffer adjust and the document dither state name one owner, so a mode admitted for one is the mode the other reads.
 - Law: the post-effect gate is a JOB-lifetime policy, never a window operation. Registration transfers the native control to the window and leaves the host holding only a weak reference, so the job registers once per pipeline against the session-lifetime framebuffer, roots the instance for its own lifetime, and releases by dropping that root — a gate registered inside a per-batch window borrow is consulted by no render, and an unrooted one silently refuses every effect.
 - Law: `Adjust` is read-modify-write because `RenderWindow.ImageAdjust` carries an internal constructor — the arm reads `GetAdjust`, writes both settable axes onto that instance, and returns it through `SetAdjust`; a freshly constructed adjust value is unspellable, and a partial write leaves the unwritten axis at whatever the prior render left.
 - Law: the detached-thread modality is `Option<AsyncProgram>` on `Open`, never a sibling job type — when present, `JobPipeline` binds one `JobAsync : AsyncRenderContext` at construction, `OnRenderBegin` launches the engine thread after the program's `Begin`, and a failed launch fails the begin so no orphan thread survives the rail.
@@ -38,6 +40,7 @@ using Rasm.Meshing;
 using Rasm.Numerics;
 using Rasm.Parametric;
 using Rasm.Rhino.Document;
+using Rasm.Rhino.Exchange;
 using Rasm.Rhino.HostUi;
 using Rasm.Rhino.Render;
 using Rasm.Rhino.Viewport;
@@ -119,11 +122,40 @@ public readonly partial struct GammaValue {
             : new ValidationError(message: "Framebuffer gamma is not a positive finite value.");
 }
 
-[SmartEnum<Dithering.Methods>]
-public sealed partial class DitherMethod {
-    public static readonly DitherMethod None = new(key: Dithering.Methods.None);
-    public static readonly DitherMethod FloydSteinberg = new(key: Dithering.Methods.FloydSteinberg);
-    public static readonly DitherMethod SimpleNoise = new(key: Dithering.Methods.SimpleNoise);
+// Host truth: `ComponentOrders` is an ALIASED enum — `XYZ` is `RGB` and `ZYX` is `BGR` — so the roster carries one row
+// per distinct order under the enum's own primary spelling, and `Components` is what sizes the read buffer: the two
+// three-component orders read three floats per pixel even out of the four-component RGBA channel, and a single-value
+// channel reads one. A row per alias would seat orders no host read could tell apart.
+[SmartEnum<int>]
+public sealed partial class ChannelOrder {
+    public static readonly ChannelOrder Single = new(0, ComponentOrders.Irrelevant, 1);
+    public static readonly ChannelOrder Rgba = new(1, ComponentOrders.RGBA, 4);
+    public static readonly ChannelOrder Argb = new(2, ComponentOrders.ARGB, 4);
+    public static readonly ChannelOrder Rgb = new(3, ComponentOrders.RGB, 3);
+    public static readonly ChannelOrder Bgr = new(4, ComponentOrders.BGR, 3);
+    public static readonly ChannelOrder Abgr = new(5, ComponentOrders.ABGR, 4);
+    public static readonly ChannelOrder Bgra = new(6, ComponentOrders.BGRA, 4);
+
+    internal ComponentOrders Native { get; }
+    internal int Components { get; }
+}
+
+// Host truth: both framebuffer file writers DISPATCH on the destination extension, so each row names the writer and the
+// alpha policy it carries rather than a caller-side format string the host would re-parse.
+[SmartEnum<int>]
+public sealed partial class ImageEgress {
+    public static readonly ImageEgress Dib = new(
+        key: 0,
+        write: static (window, path) => Op.Side(() => window.SaveDibAsBitmap(filename: path.Value)));
+    public static readonly ImageEgress Opaque = new(
+        key: 1,
+        write: static (window, path) => Op.Side(() => window.SaveRenderImageAs(filename: path.Value, saveAlpha: false)));
+    public static readonly ImageEgress Alpha = new(
+        key: 2,
+        write: static (window, path) => Op.Side(() => window.SaveRenderImageAs(filename: path.Value, saveAlpha: true)));
+
+    [UseDelegateFromConstructor]
+    internal partial Unit Write(RenderWindow window, DocumentPath path);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -143,6 +175,19 @@ public abstract partial record RenderRun {
 // The census fact per channel: availability, roster visibility, and whether the post-effect pipeline asked for it.
 public readonly record struct ChannelFact(RenderChannel Channel, bool Available, bool Shown, bool Requested);
 
+// Egress is a CASE, never a second return type: widening, writing, and adjusting answer nothing, a census answers
+// channel rows, a read answers a component block, a snapshot a raster artifact, and a save the settled destination —
+// so one yield union carries every arm and a batch receipt holds the sequence rather than one privileged payload.
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record WindowYield {
+    private WindowYield() { }
+    public sealed record SilentCase : WindowYield;
+    public sealed record ChannelsCase(Seq<ChannelFact> Rows) : WindowYield;
+    public sealed record ValuesCase(RenderChannel Channel, Offset2i Origin, Size2i Extent, ChannelOrder Order, ReadOnlyMemory<float> Values) : WindowYield;
+    public sealed record RasterCase(CaptureArtifact Artifact) : WindowYield;
+    public sealed record SavedCase(DocumentPath Target, ImageEgress Egress) : WindowYield;
+}
+
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record WindowOp {
     private WindowOp() { }
@@ -150,33 +195,70 @@ public abstract partial record WindowOp {
     public sealed record Census(ChannelSet Channels) : WindowOp;
     public sealed record Write(PixelBlock Block) : WindowOp;
     public sealed record Adjust(GammaValue Gamma, DitherMethod Dither) : WindowOp;
+    public sealed record Read(RenderChannel Channel, Offset2i Origin, Size2i Extent, ChannelOrder Order) : WindowOp;
+    public sealed record Snapshot : WindowOp;
+    public sealed record SaveAs(DocumentPath Target, OutputPolicy Output, ImageEgress Egress) : WindowOp;
 
     internal bool Valid => Switch(
         add: static row => row.Channels is not null,
         census: static row => row.Channels is not null,
         write: static row => row.Block is not null,
-        adjust: static row => row.Dither is not null);
+        adjust: static row => row.Dither is not null,
+        read: static row => row.Channel is not null
+            && row.Order is not null
+            && row.Extent.Width > 0
+            && row.Extent.Height > 0,
+        snapshot: static _ => true,
+        saveAs: static row => row.Output is not null && row.Egress is not null);
 
-    // A census reads the framebuffer roster; every other arm widens or writes it, so the need set derives from the case.
+    // A census, a read, a snapshot, and a save all leave the framebuffer as they found it — a save writes a FILE, which
+    // the document session does not own — so only the widening and pixel-writing arms carry a mutation need.
     internal bool Mutates => Switch(
         add: static _ => true,
         census: static _ => false,
         write: static _ => true,
-        adjust: static _ => true);
+        adjust: static _ => true,
+        read: static _ => false,
+        snapshot: static _ => false,
+        saveAs: static _ => false);
 
-    internal Fin<Seq<ChannelFact>> Apply(RenderWindow window, Op key) => Switch(
+    internal Fin<WindowYield> Apply(RenderWindow window, Op key) => Switch(
         (Window: window, Op: key),
-        add: static (ctx, row) => row.Channels.AddTo(ctx.Window, ctx.Op).Map(static _ => Seq<ChannelFact>()),
-        census: static (ctx, row) => row.Channels.CensusOn(ctx.Window, ctx.Op),
-        write: static (ctx, row) => row.Block.Blit(ctx.Window, ctx.Op).Map(static _ => Seq<ChannelFact>()),
+        add: static (ctx, row) => row.Channels.AddTo(ctx.Window, ctx.Op).Map(static _ => (WindowYield)new WindowYield.SilentCase()),
+        census: static (ctx, row) => row.Channels.CensusOn(ctx.Window, ctx.Op).Map(static rows => (WindowYield)new WindowYield.ChannelsCase(rows)),
+        write: static (ctx, row) => row.Block.Blit(ctx.Window, ctx.Op).Map(static _ => (WindowYield)new WindowYield.SilentCase()),
         adjust: static (ctx, row) => ctx.Op.Catch(() =>
             // Host truth: `ImageAdjust`'s constructor is internal, so the read is the only way to obtain the carrier.
             Optional(ctx.Window.GetAdjust()).ToFin(ctx.Op.InvalidResult()).Map(held => {
                 held.Gamma = row.Gamma.Value;
-                held.Dither = row.Dither.Key;
+                held.Dither = row.Dither.Native;
                 ctx.Window.SetAdjust(imageAdjust: held);
-                return Seq<ChannelFact>();
-            })));
+                return (WindowYield)new WindowYield.SilentCase();
+            })),
+        // The channel borrow is the read: `OpenChannel` vends a disposable cursor, `GetValues` fills a caller-owned
+        // component buffer over the requested rectangle, and the cursor closes on the way out — the buffer is the only
+        // thing that crosses, so no native pixel port outlives the borrow.
+        read: static (ctx, row) => ctx.Op.Catch(() => {
+            using RenderWindow.Channel channel = ctx.Window.OpenChannel(id: row.Channel.Native);
+            return Optional(channel).ToFin(Fail: ctx.Op.InvalidResult()).Bind(open => ctx.Op.Catch(() => {
+                float[] values = new float[checked(row.Extent.Width * row.Extent.Height * row.Order.Components)];
+                open.GetValues(
+                    rectangle: row.Origin.Window(extent: row.Extent),
+                    stride: row.Extent.Width,
+                    componentOrder: row.Order.Native,
+                    values: ref values);
+                return Fin.Succ<WindowYield>(new WindowYield.ValuesCase(row.Channel, row.Origin, row.Extent, row.Order, values));
+            }));
+        }),
+        snapshot: static (ctx, _) => ctx.Op.Catch(() => Optional(ctx.Window.GetBitmap()).ToFin(Fail: ctx.Op.InvalidResult()))
+            .Bind(bitmap => CaptureArtifact.Raster(bitmap: bitmap, key: ctx.Op))
+            .Map(static artifact => (WindowYield)new WindowYield.RasterCase(artifact)),
+        // Host truth: both framebuffer writers DISPATCH on the destination extension, so the egress settles its path
+        // through `OutputPolicy.Resolve` and writes it directly — the Exchange rail's own carve for extension-dispatching
+        // host writers, whose `.partial` staging name would fork the format the host is about to choose.
+        saveAs: static (ctx, row) => row.Output.Resolve(target: row.Target, key: ctx.Op)
+            .Bind(settled => ctx.Op.Catch(() => Fin.Succ((row.Egress.Write(ctx.Window, settled), settled).Item2)))
+            .Map(settled => (WindowYield)new WindowYield.SavedCase(settled, row.Egress)));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -213,7 +295,7 @@ public abstract partial record RenderReceipt : IDetachedDocumentResult {
     public sealed record Ran(RenderRun Scope) : RenderReceipt;
     public sealed record Paused : RenderReceipt;
     public sealed record Resumed : RenderReceipt;
-    public sealed record Windowed(int Operations, Seq<ChannelFact> Channels) : RenderReceipt;
+    public sealed record Windowed(int Operations, Seq<WindowYield> Yields) : RenderReceipt;
 
     // `HostUi` reads this neutral carrier for its completion-notice row, so no render type crosses that seam.
     // `RunOutcome` spells terminals only — a pause is not a cancellation and a resume is not a completion, so both mid-run
@@ -231,7 +313,7 @@ public abstract partial record RenderReceipt : IDetachedDocumentResult {
             Label: text,
             Scale: new Dictionary<string, string>(StringComparer.Ordinal) {
                 [nameof(RenderReceipt.Windowed.Operations)] = row.Operations.ToString(CultureInfo.InvariantCulture),
-                [nameof(RenderReceipt.Windowed.Channels)] = row.Channels.Count.ToString(CultureInfo.InvariantCulture),
+                [nameof(RenderReceipt.Windowed.Yields)] = row.Yields.Count.ToString(CultureInfo.InvariantCulture),
             }.ToFrozenDictionary(StringComparer.Ordinal))));
 
     private static FrozenDictionary<string, string> Scaled(RenderRun scope) => scope.Switch(
@@ -471,8 +553,8 @@ public sealed class RenderJob : IDisposable, IDetachedDocumentResult {
     public static Fin<RenderJob> Open(DocumentSession session, PlugIn owner, Size2i extent, ChannelSet channels, RenderProgram program, Option<AsyncProgram> render = default, Option<Func<EffectId, Fin<bool>>> gate = default, Op? key = null) {
         Op op = key.OrDefault();
         return from documentSession in Optional(session).ToFin(Fail: op.MissingContext())
-               from plugin in Optional(owner).ToFin(Fail: op.InvalidInput())
-               from channelSet in Optional(channels).ToFin(Fail: op.InvalidInput())
+               from plugin in op.Need(owner)
+               from channelSet in op.Need(channels)
                from plan in Optional(program).Filter(static value => value.Valid).ToFin(Fail: op.InvalidInput())
                from _ in guard(extent.Width > 0 && extent.Height > 0, op.InvalidInput())
                from __ in guard(render.Match(
@@ -506,9 +588,7 @@ public sealed class RenderJob : IDisposable, IDetachedDocumentResult {
             .Map(static _ => (RenderReceipt)new RenderReceipt.Resumed()),
         window: static (ctx, row) => ctx.Job.WithWindow(ctx.Pipeline, row.Scope, window => row.Operations
             .TraverseM(operation => operation.Apply(window, ctx.Op)).As()
-            .Map(done => (RenderReceipt)new RenderReceipt.Windowed(
-                Operations: done.Count,
-                Channels: done.Bind(static facts => facts).Strict())), ctx.Op));
+            .Map(done => (RenderReceipt)new RenderReceipt.Windowed(Operations: done.Count, Yields: done.Strict())), ctx.Op));
 
     private Fin<JobPipeline> Current(RhinoDoc document, Op op) =>
         pipeline is { } current && documentSerial == document.RuntimeSerialNumber
@@ -549,10 +629,9 @@ public sealed class RenderJob : IDisposable, IDetachedDocumentResult {
         None: static () => Fin.Succ(unit));
 
     private Fin<Unit> Run(JobPipeline current, RenderRun scope, Op key) {
-        Op op = key.OrDefault();
         RenderJob self = this;
         return scope.Switch(
-            state: (Job: self, Pipeline: current, Op: op),
+            state: (Job: self, Pipeline: current, Op: key),
             frame: static (ctx, _) => ctx.Op.Catch(() =>
                 ctx.Op.Confirm(success: ctx.Pipeline.Render() == RenderPipeline.RenderReturnCode.Ok)),
             region: static (ctx, request) =>
@@ -633,22 +712,49 @@ public sealed class RenderJob : IDisposable, IDetachedDocumentResult {
 - Entry: `RealtimeEngines.Register(Guid, RealtimeEnginePlan, PlugIn, Op?)` seats the plan and then drives the host scan; `RealtimeEngine` and `RealtimeEngineInfo` are the two abstract adapters a consumer derives, each supplying only its engine identity.
 - Law: both registered host families are HOST-CONSTRUCTED — `RegisterDisplayModes` and `RegisterLightManager` reflect over the plug-in's exported types and activate each through a public parameterless constructor — so an adapter takes no program at construction and resolves it from the registry instead: the engine at `PostConstruct`, the light manager at `RenderEngineId`, and a registered plan is the prerequisite the registration entry seats first.
 - Law: a descriptor never restates its engine — `RealtimeEngineInfo.Name` and `.DrawOpenGl` derive from the registered `RealtimeEnginePlan`, so a class-info and the engine it names cannot disagree.
+- Law: the HUD binds the roster the host actually publishes — nine controls carrying a press and three click gestures, less the two post-effect toggles that publish no press — so `HudSignal.TouchCase` carries control and gesture as columns and `Wire` subscribes one row per real event; a verb-per-button union bound four of thirty-four events and named members the assembly does not declare.
 - Law: framebuffer and middleground hooks project `Seq<Mark>`; the adapter alone receives `DisplayPipeline`, reads viewport identity off the pipeline's own live viewport, stamps the seam's honest `ConduitPhase` row, and renders through `Marks.Render`.
 - Law: `RealtimePort` exposes only `PixelBlock.Write`, remains live for the progressive session, and closes before `Shutdown`; the engine alone controls its lifetime and never exports `RenderWindow`.
 - Law: the registered authority is the one source of truth for engine-owned lights — document lights stay on the Objects lights rail, a parallel light registry beside the authority is rejected, and every authority hook receives the detached `DocKey`, never the live document.
+- Law: an authority registration is TOKENED and retires WHOLE — `Register` hands back the `AuthorityToken` its claim carries and `Unregister` drops the program row and the `RenderEngineId`-seated host row together, because a surviving host answers `Notify` for a retired program and a surviving program answers host callbacks for a retired engine.
+- Law: every realtime ledger is capacity-bounded by the page's one `DisplayRetention` cap over the Render rail's `FailureLedger<T>` — the registry, an activated engine, and a light authority all outlive any single render, so each sheds retained failures under `RetentionOverflow` count-and-fault evidence rather than growing per faulted frame.
 - Law: engine registration claims one keyed slot atomically; an occupied engine refuses before the host scan, and a scan that returns no matching descriptor releases the claim.
 - Law: `LightChange` closes the host custom-event vocabulary and `LightAuthorities.Notify(DocumentSession, Guid, LightChange, Op?)` is the one egress announcing an engine-light mutation back to the host light manager, keyed on the engine exactly as `Answer` is; solo behavior is an `Option<LightSolo>` row whose absence leaves the host's own solo storage standing.
 - Boundary: callback failures accumulate in `Faults`; no event handler swallows a failed rail.
 
 ```csharp signature
 // --- [TYPES] --------------------------------------------------------------------------------
+// Host truth: the HUD publishes a CONTROL and a GESTURE, not a flat verb roster — the four transport buttons and the
+// three text fields each publish a press plus left, right, and double click, and the two post-effect toggles publish the
+// three clicks with no press. A case per control collapsed thirty-four host events into four, so the gesture is a column
+// and a consumer that only wants a left click filters on it rather than losing the right click entirely.
+[SmartEnum<int>]
+public sealed partial class HudControl {
+    public static readonly HudControl Play = new(0, pressable: true);
+    public static readonly HudControl Pause = new(1, pressable: true);
+    public static readonly HudControl Lock = new(2, pressable: true);
+    public static readonly HudControl Unlock = new(3, pressable: true);
+    public static readonly HudControl ProductName = new(4, pressable: true);
+    public static readonly HudControl StatusText = new(5, pressable: true);
+    public static readonly HudControl Time = new(6, pressable: true);
+    public static readonly HudControl PostEffectsOn = new(7, pressable: false);
+    public static readonly HudControl PostEffectsOff = new(8, pressable: false);
+
+    internal bool Pressable { get; }
+}
+
+[SmartEnum<int>]
+public sealed partial class HudGesture {
+    public static readonly HudGesture Pressed = new(0);
+    public static readonly HudGesture LeftClicked = new(1);
+    public static readonly HudGesture RightClicked = new(2);
+    public static readonly HudGesture DoubleClicked = new(3);
+}
+
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record HudSignal {
     private HudSignal() { }
-    public sealed record PlayCase : HudSignal;
-    public sealed record PauseCase : HudSignal;
-    public sealed record LockCase : HudSignal;
-    public sealed record UnlockCase : HudSignal;
+    public sealed record TouchCase(HudControl Control, HudGesture Gesture) : HudSignal;
     public sealed record MaxPassesCase(int Passes) : HudSignal;
 }
 
@@ -779,10 +885,10 @@ public sealed record RealtimeEnginePlan(RealtimeProgram Program, RealtimePassPol
 // `Name` and `DrawOpenGl` derive from the plan rather than restating it.
 public static class RealtimeEngines {
     private static readonly Atom<HashMap<Guid, RealtimeEnginePlan>> Plans = Atom(HashMap<Guid, RealtimeEnginePlan>());
-    private static readonly Atom<Seq<Error>> Failures = Atom(Seq<Error>());
+    private static readonly Atom<FailureLedger<Error>> Failures = Atom(FailureLedger<Error>.Empty);
     private static readonly Op Key = Op.Of(name: nameof(RealtimeEngines));
 
-    public static Seq<Error> Faults => Failures.Value;
+    public static FailureLedger<Error> Faults => Failures.Value;
 
     public static Fin<Seq<Guid>> Register(Guid engine, RealtimeEnginePlan plan, PlugIn owner, Op? key = null) {
         Op op = key.OrDefault();
@@ -809,7 +915,7 @@ public static class RealtimeEngines {
 
     internal static Option<RealtimeEnginePlan> Plan(Guid engine) => Plans.Value.Find(engine);
 
-    internal static Unit Observe(Error failure) => ignore(Failures.Swap(rows => rows.Add(failure)));
+    internal static Unit Observe(Error failure) => ignore(Failures.Swap(held => DisplayRetention.Admit(held, failure)));
 
     internal static Op Anchor => Key;
 }
@@ -832,7 +938,7 @@ public abstract class RealtimeEngineInfo : RealtimeDisplayModeClassInfo {
 
 public abstract class RealtimeEngine : RealtimeDisplayMode {
     private readonly Atom<bool> framebufferReady = Atom(false);
-    private readonly Atom<Seq<Error>> faults = Atom(Seq<Error>());
+    private readonly Atom<FailureLedger<Error>> faults = Atom(FailureLedger<Error>.Empty);
     private readonly Lock lifecycleGate = new();
     private readonly Op key = Op.Of(name: nameof(RealtimeEngine));
     private RealtimeLifecycle lifecycle = new RealtimeLifecycle.Idle();
@@ -864,13 +970,49 @@ public abstract class RealtimeEngine : RealtimeDisplayMode {
             _ = Observe(RenderMarks(frame, plan.Program.DrawMiddleground));
         };
         OnDisplayPipelineSettingsChanged += (_, _) => _ = Observe(key.Catch(plan.Program.SettingsChanged));
-        return ignore(plan.Program.Hud.Iter(signal => {
-            HudPlayButtonPressed += (_, _) => ignore(Observe(key.Catch(() => signal(new HudSignal.PlayCase()))));
-            HudPauseButtonPressed += (_, _) => ignore(Observe(key.Catch(() => signal(new HudSignal.PauseCase()))));
-            HudLockButtonPressed += (_, _) => ignore(Observe(key.Catch(() => signal(new HudSignal.LockCase()))));
-            HudUnlockButtonPressed += (_, _) => ignore(Observe(key.Catch(() => signal(new HudSignal.UnlockCase()))));
-            MaxPassesChanged += (_, e) => ignore(Observe(key.Catch(() => signal(new HudSignal.MaxPassesCase(Passes: e.MaxPasses)))));
-        }));
+        return ignore(plan.Program.Hud.Iter(WireHud));
+    }
+
+    // One row per HUD control, each handing over the subscription its host events publish. The host's own spelling is
+    // IRREGULAR — the four transport buttons carry a `Button` infix the three text fields do not, and the post-effect
+    // toggles publish no press — so binding is a row table over the real events, never a name fold that would subscribe
+    // to members the assembly does not declare. A control's `Pressable` column and its press row agree by construction.
+    private Unit WireHud(Func<HudSignal, Fin<Unit>> signal) {
+        Unit Bind(HudControl control, HudGesture gesture, Action<EventHandler> subscribe) => Op.Side(() => subscribe(
+            (_, _) => ignore(Observe(key.Catch(() => signal(new HudSignal.TouchCase(control, gesture)))))));
+
+        Unit Control(
+            HudControl control,
+            Option<Action<EventHandler>> pressed,
+            Action<EventHandler> left,
+            Action<EventHandler> right,
+            Action<EventHandler> doubled) {
+            _ = pressed.Iter(subscribe => Bind(control, HudGesture.Pressed, subscribe));
+            _ = Bind(control, HudGesture.LeftClicked, left);
+            _ = Bind(control, HudGesture.RightClicked, right);
+            return Bind(control, HudGesture.DoubleClicked, doubled);
+        }
+
+        _ = Control(HudControl.Play, Some<Action<EventHandler>>(h => HudPlayButtonPressed += h),
+            h => HudPlayButtonLeftClicked += h, h => HudPlayButtonRightClicked += h, h => HudPlayButtonDoubleClicked += h);
+        _ = Control(HudControl.Pause, Some<Action<EventHandler>>(h => HudPauseButtonPressed += h),
+            h => HudPauseButtonLeftClicked += h, h => HudPauseButtonRightClicked += h, h => HudPauseButtonDoubleClicked += h);
+        _ = Control(HudControl.Lock, Some<Action<EventHandler>>(h => HudLockButtonPressed += h),
+            h => HudLockButtonLeftClicked += h, h => HudLockButtonRightClicked += h, h => HudLockButtonDoubleClicked += h);
+        _ = Control(HudControl.Unlock, Some<Action<EventHandler>>(h => HudUnlockButtonPressed += h),
+            h => HudUnlockButtonLeftClicked += h, h => HudUnlockButtonRightClicked += h, h => HudUnlockButtonDoubleClicked += h);
+        _ = Control(HudControl.ProductName, Some<Action<EventHandler>>(h => HudProductNamePressed += h),
+            h => HudProductNameLeftClicked += h, h => HudProductNameRightClicked += h, h => HudProductNameDoubleClicked += h);
+        _ = Control(HudControl.StatusText, Some<Action<EventHandler>>(h => HudStatusTextPressed += h),
+            h => HudStatusTextLeftClicked += h, h => HudStatusTextRightClicked += h, h => HudStatusTextDoubleClicked += h);
+        _ = Control(HudControl.Time, Some<Action<EventHandler>>(h => HudTimePressed += h),
+            h => HudTimeLeftClicked += h, h => HudTimeRightClicked += h, h => HudTimeDoubleClicked += h);
+        _ = Control(HudControl.PostEffectsOn, None,
+            h => HudPostEffectsOnButtonLeftClicked += h, h => HudPostEffectsOnButtonRightClicked += h, h => HudPostEffectsOnButtonDoubleClicked += h);
+        _ = Control(HudControl.PostEffectsOff, None,
+            h => HudPostEffectsOffButtonLeftClicked += h, h => HudPostEffectsOffButtonRightClicked += h, h => HudPostEffectsOffButtonDoubleClicked += h);
+        MaxPassesChanged += (_, e) => ignore(Observe(key.Catch(() => signal(new HudSignal.MaxPassesCase(Passes: e.MaxPasses)))));
+        return unit;
     }
 
     // Every host override binds the plan through one rail, so an engine the host activated but never bound answers its
@@ -881,7 +1023,7 @@ public abstract class RealtimeEngine : RealtimeDisplayMode {
     private TOut Chrome<TOut>(Func<RealtimeChrome, TOut> read, TOut fallback) =>
         bound.Map(plan => read(plan.Chrome)).IfNone(() => (Observe(key.MissingContext<Unit>()), fallback).Item2);
 
-    public Seq<Error> Faults => faults.Value;
+    public FailureLedger<Error> Faults => faults.Value;
 
     public override void GetRenderSize(out int width, out int height) {
         Size2i extent = Observe(Bound(static program => Fin.Succ(program.RenderSize())), default(Size2i));
@@ -992,13 +1134,13 @@ public abstract class RealtimeEngine : RealtimeDisplayMode {
     }
 
     private Fin<T> Observe<T>(Fin<T> result) {
-        _ = result.IfFail(failure => ignore(faults.Swap(rows => rows.Add(failure))));
+        _ = result.IfFail(failure => ignore(faults.Swap(held => DisplayRetention.Admit(held, failure))));
         return result;
     }
 
     private T Observe<T>(Fin<T> result, T fallback) => result.Match(
         Succ: static value => value,
-        Fail: failure => { _ = faults.Swap(rows => rows.Add(failure)); return fallback; });
+        Fail: failure => { _ = faults.Swap(held => DisplayRetention.Admit(held, failure)); return fallback; });
 
     // The realtime hooks hand out a bare `DisplayPipeline`, so viewport identity comes off the pipeline's own live
     // viewport, and each seam stamps the phase it actually occupies rather than borrowing a conduit phase's name.
@@ -1006,23 +1148,32 @@ public abstract class RealtimeEngine : RealtimeDisplayMode {
         ConduitFrame.Of(pipeline, pipeline.Viewport, phase);
 }
 
+// The claim token an engine's authority holds: `Register` mints it and hands it back, `Unregister` proves ownership with
+// it, so a second registrant cannot retire a seat it never claimed and a stale holder cannot retire the current one.
+[ValueObject<Guid>(ConversionToKeyMemberType = ConversionOperatorsGeneration.Implicit)]
+public readonly partial struct AuthorityToken {
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Guid value) =>
+        validationError = value == Guid.Empty ? new ValidationError(message: "Authority token is empty.") : null;
+}
+
 public static class LightAuthorities {
-    private static readonly Atom<HashMap<Guid, (Guid Token, LightAuthorityProgram Program)>> Programs =
-        Atom(HashMap<Guid, (Guid Token, LightAuthorityProgram Program)>());
-    // The host activates the manager itself and keeps every instance in a private serial-keyed table, so the only way to
-    // reach the live one is for the host to seat itself here from a member registration is guaranteed to call.
+    private static readonly Atom<HashMap<Guid, (AuthorityToken Token, LightAuthorityProgram Program)>> Programs =
+        Atom(HashMap<Guid, (AuthorityToken Token, LightAuthorityProgram Program)>());
+    // The host activates the manager itself and keeps every instance in a private serial-keyed table, so the live one is
+    // unreachable from here — `RenderEngineId` is the one member registration is guaranteed to call on the instance it
+    // activated, and it seats that instance here, which is why `Notify` can find a host at all.
     private static readonly Atom<HashMap<Guid, LightAuthorityHost>> Hosts = Atom(HashMap<Guid, LightAuthorityHost>());
-    private static readonly Atom<Seq<Error>> Failures = Atom(Seq<Error>());
+    private static readonly Atom<FailureLedger<Error>> Failures = Atom(FailureLedger<Error>.Empty);
     private static readonly Op Key = Op.Of(name: nameof(LightAuthorities));
 
-    public static Seq<Error> Faults => Failures.Value;
+    public static FailureLedger<Error> Faults => Failures.Value;
 
     internal static Unit Seat(Guid engine, LightAuthorityHost host) =>
         ignore(Hosts.Swap(rows => rows.AddOrUpdate(engine, host)));
 
-    public static Fin<Unit> Register(Guid engine, LightAuthorityProgram program, PlugIn owner, Op? key = null) {
+    public static Fin<AuthorityToken> Register(Guid engine, LightAuthorityProgram program, PlugIn owner, Op? key = null) {
         Op op = key.OrDefault();
-        Guid token = Guid.NewGuid();
+        AuthorityToken token = AuthorityToken.Create(Guid.NewGuid());
         return from _ in guard(engine != Guid.Empty && program is not null && owner is not null, op.InvalidInput()).ToFin()
                from claimed in guard(
                    Programs.Swap(rows => rows.TryAdd(engine, (token, program)))
@@ -1033,14 +1184,25 @@ public static class LightAuthorities {
                from registered in op.Catch(() => {
                    LightManagerSupport.RegisterLightManager(owner);
                    return Fin.Succ(value: unit);
-               }).BindFail(failure => (
-                   Programs.Swap(rows => rows.Find(engine)
-                       .Filter(row => row.Token == token)
-                       .Map(_ => rows.Remove(engine))
-                       .IfNone(rows)),
-                   Fin.Fail<Unit>(failure)).Item2)
-               select unit;
+               }).BindFail(failure => (Release(engine, token), Fin.Fail<Unit>(failure)).Item2)
+               select token;
     }
+
+    // Retirement drops BOTH rows the engine seated — the program the token claims and the host `RenderEngineId` seated
+    // beside it — because a surviving host row answers `Notify` for a program that no longer exists, and a surviving
+    // program answers host callbacks for an engine that has retired. The host publishes no light-manager unregister, so
+    // the seat is what retires, and a token that no longer holds the claim refuses rather than retiring a stranger's.
+    public static Fin<Unit> Unregister(Guid engine, AuthorityToken token, Op? key = null) {
+        Op op = key.OrDefault();
+        return from _ in guard(engine != Guid.Empty, op.InvalidInput()).ToFin()
+               from held in Programs.Value.Find(engine).ToFin(Fail: op.MissingContext())
+               from owned in guard(held.Token == token, op.InvalidContext()).ToFin()
+               select Release(engine, token);
+    }
+
+    private static Unit Release(Guid engine, AuthorityToken token) => ignore((
+        Programs.Swap(rows => rows.Find(engine).Filter(row => row.Token == token).Map(_ => rows.Remove(engine)).IfNone(rows)),
+        Hosts.Swap(rows => rows.Remove(engine))));
 
     // Keyed on the engine exactly as `Answer` is, so the one egress needs no instance the corpus cannot supply. Host truth:
     // `OnCustomLightEvent` forwards only the document serial and the event selector to native and never reads the `ref
@@ -1048,7 +1210,7 @@ public static class LightAuthorities {
     public static Fin<Unit> Notify(DocumentSession session, Guid engine, LightChange change, Op? key = null) {
         Op op = key.OrDefault();
         return from source in Optional(session).ToFin(Fail: op.MissingContext())
-               from move in Optional(change).ToFin(Fail: op.InvalidInput())
+               from move in op.Need(change)
                from host in Hosts.Value.Find(engine).ToFin(Fail: op.MissingContext())
                from _ in source.Demand(
                    use: document => op.Catch(() => {
@@ -1067,7 +1229,7 @@ public static class LightAuthorities {
          from result in Key.Catch(() => body(program, key))
          select result).Match(
             Succ: static value => value,
-            Fail: failure => (Failures.Swap(rows => rows.Add(failure)), fallback).Item2);
+            Fail: failure => (Failures.Swap(held => DisplayRetention.Admit(held, failure)), fallback).Item2);
 }
 
 public abstract class LightAuthorityHost : LightManagerSupport {
@@ -1336,7 +1498,7 @@ public sealed record EffectProgram(
 public static class Effects {
     public static Fin<EffectRegistry> Register(EffectSource source, Op? key = null) {
         Op op = key.OrDefault();
-        return from active in Optional(source).ToFin(Fail: op.InvalidInput())
+        return from active in op.Need(source)
                from types in active.Install(op)
                select new EffectRegistry(Registered: types.Strict());
     }
@@ -1619,7 +1781,7 @@ public abstract class EffectHost : PostEffects.PostEffect {
     }
 
     public override bool SetParam(string param, object v) => Accept(key.AcceptText(value: param)
-        .Bind(named => Optional(v).ToFin(Fail: key.InvalidInput()).Map(value => (Named: named, Value: value)))
+        .Bind(named => key.Need(v).Map(value => (Named: named, Value: value)))
         .Bind(row => key.Catch(() => program.Tune(row.Named, row.Value)))
         .Map(static _ => true));
 
@@ -1940,11 +2102,11 @@ public sealed class SceneQueue : Cq.ChangeQueue {
         TimeProvider clock,
         Op? key = null) {
         Op op = key.OrDefault();
-        return from shape in Optional(source).ToFin(Fail: op.InvalidInput())
-               from plugin in Optional(owner).ToFin(Fail: op.InvalidInput())
-               from plan in Optional(policy).ToFin(Fail: op.InvalidInput())
-               from ambient in Optional(context).ToFin(Fail: op.InvalidInput())
-               from ticks in Optional(clock).ToFin(Fail: op.InvalidInput())
+        return from shape in op.Need(source)
+               from plugin in op.Need(owner)
+               from plan in op.Need(policy)
+               from ambient in op.Need(context)
+               from ticks in op.Need(clock)
                from timeline in MonotonicTimeline.Of(provider: ticks, key: op)
                from queue in shape.Switch(
                    (Plugin: plugin, Plan: plan, Timeline: timeline, Context: ambient, Op: op),
@@ -2086,9 +2248,7 @@ public sealed class SceneQueue : Cq.ChangeQueue {
         StageBatch(
             source: toSeq(lightChanges),
             detach: payload =>
-                from change in LightMotion.TryGet(payload.ChangeType, out LightMotion? motion) && motion is { } admitted
-                    ? Fin.Succ(admitted)
-                    : Fin.Fail<LightMotion>(error: key.InvalidResult())
+                from change in key.Row<Cq.Light.Event, LightMotion>(payload.ChangeType)
                 from data in key.Catch(() => Fin.Succ(new Lease<Light>.Owned(Value: (Light)payload.Data.Duplicate())))
                 select new LightDelta(Id: payload.Id, Crc: payload.IdCrc, Change: change, Data: data),
             release: static delta => delta.Data.Dispose(),

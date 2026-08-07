@@ -292,8 +292,10 @@ internal readonly ref struct CanvasLens {
                        at, includeGrips: row.Grips, includeForeground: row.Foreground,
                        includeBackground: row.Background, includeWires: row.Wires, recursive: row.Recursive)))
                    .Bind(active => key.Need(value: active))
+               // The host may snap or round the resolved point, so the RESULT point is evidence the receipt
+               // carries — an exact-equality gate against the request point turns every host adjustment into
+               // a typed failure over a successful pick.
                from origin in Optional(result.Point).ToFin(Fail: key.InvalidResult())
-               from _aligned in guard(origin.X == at.X && origin.Y == at.Y, key.InvalidResult()).ToFin()
                from hit in PickHit.Of(result: result, key: key)
                from receipt in key.AcceptValue(value: new PickReceipt(
                    At: origin,
@@ -575,7 +577,9 @@ public sealed record CanvasReceipt : IValidityEvidence {
     public bool IsValid => ValidityClaim.All(
         ValidityClaim.Evidence(evidence: Entered),
         ValidityClaim.Evidence(evidence: Settled),
-        ValidityClaim.Of(holds: Order < 0),
+        // Non-regression like the sibling receipts: settlement never precedes entry, and two captures inside
+        // one tick legitimately share a stamp — a strict-precedence claim fails every fastest command.
+        ValidityClaim.Of(holds: Order <= 0),
         ValidityClaim.Nonnegative(value: Latency.TotalSeconds));
 
     internal static Fin<CanvasReceipt> Of(

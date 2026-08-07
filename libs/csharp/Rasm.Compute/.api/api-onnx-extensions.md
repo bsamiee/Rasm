@@ -9,7 +9,8 @@
 - assembly: none — no managed public assembly, no `lib/` directory
 - namespace: none — the managed entry `SessionOptions.RegisterOrtExtensions` is `Microsoft.ML.OnnxRuntime` surface
 - asset: native custom-operator runtime assets (`libortextensions`/`ortextensions`) and per-TFM MSBuild build targets
-- build TFM: a `net10.0` non-mobile consumer binds the `netstandard2.0` `build`/`buildTransitive` targets; no `net8.0`/`net9.0` build folder ships, the remaining targets are mobile and legacy TFMs
+- build TFM: the package ships no `net8.0`/`net9.0` build folder, so a `net10.0` non-mobile consumer binds the `netstandard2.0` `build`/`buildTransitive` targets
+- floor: `SessionOptions.RegisterOrtExtensions()` is the one registration into the ORT host, so this package admits only against the `Microsoft.ML.OnnxRuntime` pin its native asset loads under — extensions `0.14.0` against ONNX Runtime `1.28.0` is the composition-proven pairing
 - rail: model
 - verification: no managed assembly ships, so the decompile rail is inapplicable by construction and every claim here verifies against the package's own MSBuild targets and the `Microsoft.ML.OnnxRuntime` entry that loads the asset
 
@@ -36,7 +37,6 @@
 | :-----: | :------------------------------------------ | :------------- | :---------------------------------------------------------- |
 |  [01]   | `build/netstandard2.0/*.props` / `.targets` | MSBuild import | declares and copies native assets; `net10.0` binds this TFM |
 |  [02]   | `buildTransitive/netstandard2.0/*.targets`  | MSBuild import | flows native assets transitively through a referencer       |
-|  [03]   | `build/<mobile-tfm>/*.targets`              | MSBuild import | mobile and legacy TFM variants                              |
 
 ## [03]-[ENTRYPOINTS]
 

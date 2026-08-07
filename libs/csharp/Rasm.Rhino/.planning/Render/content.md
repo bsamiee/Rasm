@@ -74,16 +74,14 @@ public sealed partial class ContentKind {
     internal partial Seq<RenderContent> Roster(RhinoDoc document);
 
     public static Fin<ContentKind> Of(RenderContent? content, Op key) =>
-        Optional(content).ToFin(Fail: key.InvalidInput()).Bind(active =>
+        key.Need(content).Bind(active =>
             toSeq(Items)
                 .Filter(row => row.Carrier.IsInstanceOfType(active))
                 .Head
                 .ToFin(Fail: key.InvalidResult(detail: active.GetType().Name)));
 
     internal static Fin<ContentKind> Of(RenderContentKind native, Op key) =>
-        TryGet((int)native, out ContentKind? row)
-            ? Fin.Succ(value: row!)
-            : Fin.Fail<ContentKind>(error: key.InvalidResult(detail: native.ToString()));
+        key.Row<int, ContentKind>((int)native);
 }
 
 [SmartEnum<int>]
@@ -102,9 +100,7 @@ public sealed partial class ChangeReason {
     internal RenderContent.ChangeContexts Native => (RenderContent.ChangeContexts)Key;
 
     internal static Fin<ChangeReason> Of(RenderContent.ChangeContexts native, Op key) =>
-        TryGet((int)native, out ChangeReason? row)
-            ? Fin.Succ(value: row!)
-            : Fin.Fail<ChangeReason>(error: key.InvalidResult(detail: native.ToString()));
+        key.Row<int, ChangeReason>((int)native);
 }
 
 [SmartEnum<int>]
@@ -123,12 +119,17 @@ public sealed partial class ContentStyle {
 
     internal RenderContentStyles Native => (RenderContentStyles)Key;
 
+    // `Items` fills in the generated static constructor, so the known-bit mask reads it once behind a lazy cell rather
+    // than a static field initializer whose order against the generated partial is unspecified.
+    private static readonly Lazy<int> KnownBits = new(
+        static () => toSeq(Items).Fold(0, static (known, row) => known | row.Key),
+        LazyThreadSafetyMode.ExecutionAndPublication);
+
     internal static Fin<Seq<ContentStyle>> Of(RenderContentStyles native, Op key) {
-        int mask = toSeq(Items).Fold(0, static (known, row) => known | row.Key);
-        int value = (int)native;
-        return (value & ~mask) == 0
-            ? Fin.Succ(value: toSeq(Items).Filter(row => (value & row.Key) == row.Key))
-            : Fin.Fail<Seq<ContentStyle>>(error: key.InvalidResult(detail: $"unknown RenderContentStyles bits: 0x{value & ~mask:X}"));
+        int unknown = (int)native & ~KnownBits.Value;
+        return unknown == 0
+            ? Fin.Succ(value: toSeq(Items).Filter(row => ((int)native & row.Key) == row.Key))
+            : Fin.Fail<Seq<ContentStyle>>(error: key.InvalidResult(detail: $"unknown RenderContentStyles bits: 0x{unknown:X}"));
     }
 }
 
@@ -140,9 +141,7 @@ public sealed partial class ProxyKind {
     public static readonly ProxyKind Texture = new(key: (int)ProxyTypes.Texture);
 
     internal static Fin<ProxyKind> Of(ProxyTypes native, Op key) =>
-        TryGet((int)native, out ProxyKind? proxy)
-            ? Fin.Succ(value: proxy)
-            : Fin.Fail<ProxyKind>(error: key.InvalidResult(detail: native.ToString()));
+        key.Row<int, ProxyKind>((int)native);
 }
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
@@ -299,7 +298,7 @@ public sealed record ContentSnapshot(
     Seq<SlotState> Slots,
     int UseCount) : IDetachedDocumentResult {
     public static Fin<ContentSnapshot> Of(RenderContent content, Op key) =>
-        Optional(content).ToFin(Fail: key.InvalidInput()).Bind(active => key.Catch(() =>
+        key.Need(content).Bind(active => key.Catch(() =>
             from kind in ContentKind.Of(content: active, key: key)
             from styles in ContentStyle.Of(native: active.Styles, key: key)
             from proxy in ProxyKind.Of(native: active.ProxyType, key: key)
@@ -312,9 +311,9 @@ public sealed record ContentSnapshot(
                 DisplayName: active.DisplayName,
                 TypeName: active.TypeName,
                 TypeDescription: active.TypeDescription,
-                Notes: Optional(active.Notes).Filter(static text => text.Length > 0),
-                Tags: Optional(active.Tags).Filter(static text => text.Length > 0),
-                Category: Optional(active.Category).Filter(static text => text.Length > 0),
+                Notes: Op.Text(active.Notes),
+                Tags: Op.Text(active.Tags),
+                Category: Op.Text(active.Category),
                 Styles: styles,
                 Proxy: proxy,
                 Units: active.ModelUnits,
@@ -329,24 +328,28 @@ public sealed record ContentSnapshot(
                 DocumentOwner: Optional(active.DocumentOwner).Map(static document => document.RuntimeSerialNumber),
                 DocumentAssociation: Optional(active.DocumentAssoc).Map(static document => document.RuntimeSerialNumber),
                 Parent: Optional(active.Parent).Map(static parent => parent.Id),
-                SlotInParent: Optional(active.ChildSlotName).Filter(static slot => slot.Length > 0),
+                SlotInParent: Op.Text(active.ChildSlotName),
                 Slots: SlotsOf(parent: active),
                 UseCount: active.UseCount())));
 
-    private static Seq<SlotState> SlotsOf(RenderContent parent) {
-        Seq<SlotState> Read(Option<RenderContent> cursor, Seq<SlotState> state) =>
-            cursor.Case switch {
-                RenderContent child => Read(
-                    cursor: Optional(child.NextSibling),
-                    state: state.Add(value: new SlotState(
-                        Name: child.ChildSlotName,
-                        DisplayName: child.ChildSlotDisplayName,
-                        Child: child.Id,
-                        On: parent.ChildSlotOn(child.ChildSlotName),
-                        Amount: parent.ChildSlotAmount(child.ChildSlotName)))),
-                _ => state,
-            };
-        return Read(cursor: Optional(parent.FirstChild), state: Seq<SlotState>());
+    private static Seq<SlotState> SlotsOf(RenderContent parent) =>
+        toSeq(Siblings(cursor: Optional(parent.FirstChild)))
+            .Map(child => new SlotState(
+                Name: child.ChildSlotName,
+                DisplayName: child.ChildSlotDisplayName,
+                Child: child.Id,
+                On: parent.ChildSlotOn(child.ChildSlotName),
+                Amount: parent.ChildSlotAmount(child.ChildSlotName)))
+            .Strict();
+
+    // The host publishes children as a `FirstChild`/`NextSibling` cursor, so the walk is one unfold the projection
+    // consumes once; the enumerable reads live host state, so the caller strictifies inside its demand window.
+    private static IEnumerable<RenderContent> Siblings(Option<RenderContent> cursor) {
+        Option<RenderContent> node = cursor;
+        while (node.Case is RenderContent child) {
+            yield return child;
+            node = Optional(child.NextSibling);
+        }
     }
 }
 ```
@@ -384,17 +387,16 @@ public abstract partial record ContentIo {
 
 ## [06]-[SURFACE_LEDGER]
 
-| [INDEX] | [CONCERN]          | [OWNER]           | [FORM]                                                 | [ENTRY]                       |
-| :-----: | :----------------- | :---------------- | :----------------------------------------------------- | :---------------------------- |
-|  [01]   | kind axis          | `ContentKind`     | rows whose key is native, table behavior as columns    | `Of` / table columns          |
-|  [02]   | change vocabulary  | `ChangeReason`    | rows carrying the native `ChangeContexts` value        | `Of(native, key)` / `Native`  |
-|  [03]   | write bracket      | `ChangeScope`     | begin/body/end on every exit                           | `Write(content, reason, ...)` |
-|  [04]   | commit envelope    | `DocumentCommit`  | Document-owned suppress/seal/restore/flush composition | `Sealed(document, ...)`       |
-|  [05]   | shared projections | `Seam`            | row/lease/color folds onto the rail                    | `Row`/`Leased`/`Quantized`    |
-|  [06]   | content address    | `ContentRef`      | one union: id, slot path                               | `Of` / `Resolve`              |
-|  [07]   | content state      | `ContentSnapshot` | one-pass identity and topology read                    | `Of(content, key)`            |
-|  [08]   | render-hash read   | `HashProbe`       | admitted exclusions, workflow posture, `HashWitness`   | `Excluding` / `Read`          |
-|  [09]   | serialized ingress | `ContentIo`       | admitted XML/file mint leased until custody transfer   | `Xml` / `Archive` / `Mint`    |
+| [INDEX] | [CONCERN]          | [OWNER]           | [FORM]                                               | [ENTRY]                       |
+| :-----: | :----------------- | :---------------- | :--------------------------------------------------- | :---------------------------- |
+|  [01]   | kind axis          | `ContentKind`     | rows whose key is native, table behavior as columns  | `Of` / table columns          |
+|  [02]   | change vocabulary  | `ChangeReason`    | rows carrying the native `ChangeContexts` value      | `Of(native, key)` / `Native`  |
+|  [03]   | write bracket      | `ChangeScope`     | begin/body/end on every exit                         | `Write(content, reason, ...)` |
+|  [04]   | shared projections | `Seam`            | row/lease/color folds onto the rail                  | `Row`/`Leased`/`Quantized`    |
+|  [05]   | content address    | `ContentRef`      | one union: id, slot path                             | `Of` / `Resolve`              |
+|  [06]   | content state      | `ContentSnapshot` | one-pass identity and topology read                  | `Of(content, key)`            |
+|  [07]   | render-hash read   | `HashProbe`       | admitted exclusions, workflow posture, `HashWitness` | `Excluding` / `Read`          |
+|  [08]   | serialized ingress | `ContentIo`       | admitted XML/file mint leased until custody transfer | `Xml` / `Archive` / `Mint`    |
 
 ## [07]-[RESEARCH]
 

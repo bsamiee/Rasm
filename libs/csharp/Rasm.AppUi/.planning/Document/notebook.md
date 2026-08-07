@@ -8,15 +8,16 @@ Reproducible computational documents ride the notebook rail: `NotebookCell` is t
 - [03]-[RECOMPUTE_PROJECTION]: `RecomputeGraph` composed per-cell against the AppHost port; the node map and the derived cell-state overlay.
 - [04]-[CRDT_COEDIT]: Intent lens over the one `IntentApply` register through the one commit rail.
 - [05]-[REPLAY_BUNDLE]: Export-to-replay artifact with pinned capabilities and inputs.
+- [06]-[CELL_CHROME]: Per-cell toolbar and execution state, drag-reorder with drop indicators, output collapse, insertion affordances, and the document outline.
 
 ## [02]-[CELL_MODEL]
 
-- Owner: `CapabilityPin` the pinned-capability fingerprint; `NotebookCell` `[Union]` the cell-kind family; `CellOutput` `[Union]` the materialized output; `Notebook` the cell sequence.
-- Cases: `NotebookCell` = Code | Markdown | Chart | Render | Viewpoint | Parameter | Evidence under the locked kind literals; `CellOutput` = Receipt | Rows | Image | Timeline | Log | Error | Empty under the locked kind literals — every output case has a producing cell arm: the `Timeline` producer is the `Evidence` cell querying the diagnostics evidence join over the correlation the notebook already carries, the `Log` producer is a code cell's captured line stream, and the `Error` producer is a failed evaluation materialized AS OUTPUT so a failed cell renders its failure in place instead of vanishing from the document.
+- Owner: `CapabilityPin` the pinned-capability fingerprint; `CellKind` `[SmartEnum<string>]` the kind vocabulary the union projects into and every kind-keyed surface reads; `NotebookCell` `[Union]` the cell-kind family; `CellOutput` `[Union]` the materialized output; `Notebook` the cell sequence.
+- Cases: `NotebookCell` = Code | Markdown | Chart | Render | Viewpoint | Parameter | Evidence under the locked `CellKind` rows; `CellOutput` = Receipt | Rows | Image | Timeline | Log | Error | Empty under the locked kind literals — every output case has a producing cell arm: the `Timeline` producer is the `Evidence` cell querying the diagnostics evidence join over the correlation the notebook already carries, the `Log` producer is a code cell's captured line stream, and the `Error` producer is a failed evaluation materialized AS OUTPUT so a failed cell renders its failure in place instead of vanishing from the document.
 - Entry: `public IO<CellOutput> Evaluate(NotebookRuntime runtime, HashMap<string, CellOutput> upstream)` — a code cell is DATA (source, pin, inputs) executed through the runtime `Execute` delegate keyed by its capability pin, so a process-local closure never rides a cell and a persisted notebook reconstructs execution from the pin alone; the rail aborts on an unpinned capability, and an evidence cell runs the runtime `Timeline` delegate against the `Diagnostics/evidence#CORRELATION_JOIN` correlation surface.
 - Auto: every code and chart cell carries a `CapabilityPin` composing the AppHost `DeterminismContext`/`EnvFingerprint` as its environment identity beside the Compute capability key and the model-or-kernel checksum — so a cell records exactly the determinism context (seed, float mode, host fingerprint) and the capability version it ran against, and a re-run under a drifted environment or capability is a detectable mismatch through `DeterminismKernel.Reproduces`, never a notebook-local checksum tuple and never a silent re-result; the notebook reproducibility-proof is one owner with the runtime determinism kernel — the pin's environment identity is the `EnvFingerprint.Digest` and a notebook-local environment hash is the deleted form; markdown cells project through the typography `MarkdownProjection` so a documentation cell rides the one markdown vocabulary; chart and render cells bind their output to the chart and visual owners so a notebook output cell mints no second chart; parameter cells expose a typed binding the downstream cells read so a notebook is a live parameterized document; evidence cells bind the runtime `Timeline` delegate to the diagnostics evidence-join correlation query, so the `CellOutput.Timeline` case has exactly one producer and the notebook documents its own diagnostic story without a second evidence surface.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm.Compute (project), Rasm.AppHost (project)
-- Growth: a new cell kind is one `NotebookCell` case; a new output kind is one `CellOutput` case; a new pin field is one `CapabilityPin` member; zero new surface.
+- Growth: a new cell kind is one `NotebookCell` case beside its `CellKind` row, which reaches the insertion menu, the co-edit insert arm, and the chrome column with no edit at any of them; a new output kind is one `CellOutput` case; a new pin field is one `CapabilityPin` member; zero new surface.
 - Boundary: the capability pin is the reproducibility law — a code or chart cell with no pin faults at evaluate so an unpinned cell can never enter the document, and the pin composes the `Rasm.AppHost/Runtime/determinism#DETERMINISM_KERNEL` `DeterminismContext`/`EnvFingerprint` as its environment identity beside the Compute model-or-kernel checksum, so the notebook reproducibility rides the settled runtime determinism kernel rather than a notebook-local hash — the `CapabilityPin.Matches` composes `DeterminismKernel.Reproduces` so a re-run under a divergent environment is detected before it produces a wrong result, and a parallel notebook-local checksum tuple is the rejected form; markdown cells route to the typography projection and chart/render cells to the chart and visual owners so the notebook composes existing output owners and a notebook-local renderer is the deleted form; code cells edit through the AvaloniaEdit `CodePane` so the notebook mints no second editor; a code cell is DATA — a captured execution delegate riding a cell is the rejected form, because a persisted or exported notebook must reconstruct execution from the pin and source alone; the cell output is the typed `CellOutput` union and a stringly-typed output blob is the rejected form.
 
 ```csharp signature
@@ -35,6 +36,24 @@ public readonly record struct CapabilityPin(
         && Checksum == other.Checksum
         && Substrate == other.Substrate
         && Rasm.AppHost.Runtime.DeterminismKernel.Reproduces(Context, other.Context);
+}
+
+// The cell-kind vocabulary. The union's own `Kind` answers a ROW rather than a literal, so the locked kind
+// strings the co-edit register writes, the insertion menu's roster, and the chrome's kind column are one
+// declaration read three ways — a bare string projection left the insertion affordance taking its roster from
+// a caller, which is a second enumeration of this family that a new case cannot break and nothing keeps in
+// step, and a kind spelled at an insert site is a row the decode delegate then fails to admit.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class CellKind {
+    public static readonly CellKind Code = new("code");
+    public static readonly CellKind Markdown = new("markdown");
+    public static readonly CellKind Chart = new("chart");
+    public static readonly CellKind Render = new("render");
+    public static readonly CellKind Viewpoint = new("viewpoint");
+    public static readonly CellKind Parameter = new("parameter");
+    public static readonly CellKind Evidence = new("evidence");
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -63,9 +82,10 @@ public abstract partial record NotebookCell(string Id, Seq<string> Inputs, Optio
     public sealed record Parameter(string Id, string Key, JsonElement Value) : NotebookCell(Id, [], None);
     public sealed record Evidence(string Id, string Query, Seq<string> Inputs) : NotebookCell(Id, Inputs, None);
 
-    public string Kind => Switch(
-        code: static _ => "code", markdown: static _ => "markdown", chart: static _ => "chart", render: static _ => "render",
-        viewpoint: static _ => "viewpoint", parameter: static _ => "parameter", evidence: static _ => "evidence");
+    public CellKind Kind => Switch(
+        code: static _ => CellKind.Code, markdown: static _ => CellKind.Markdown, chart: static _ => CellKind.Chart,
+        render: static _ => CellKind.Render, viewpoint: static _ => CellKind.Viewpoint,
+        parameter: static _ => CellKind.Parameter, evidence: static _ => CellKind.Evidence);
 
     public IO<CellOutput> Evaluate(NotebookRuntime runtime, HashMap<string, CellOutput> upstream) => Switch(
         state: (Runtime: runtime, Upstream: upstream),
@@ -229,7 +249,7 @@ public sealed record NotebookRecompute(
 ## [04]-[CRDT_COEDIT]
 
 - Owner: `NotebookCoedit` the notebook LENS over the one `Collab/sync#DOCUMENT_OWNER` `CollabDoc` merge authority and the one `Collab/sync#DURABLE_INTENT` commit rail — it owns NO container write of its own.
-- Entry: co-edit verbs commit `CellInsert`/`CellMove`/`CellDelete`/`CellEdit`/`TextRun` through the shared intent rail; `Materialize` decodes each canonical row into its typed cell and `CellMetadata`, then derives both the ordered cell sequence and metadata index from that one pass.
+- Entry: co-edit verbs commit `CellInsert`/`CellMove`/`CellDelete`/`CellEdit`/`TextRun` through the shared intent rail, the insert arm naming its `CellKind` row so the kind a peer decodes is the kind the union declares; `Materialize` decodes each canonical row into its typed cell and `CellMetadata`, then derives both the ordered cell sequence and metadata index from that one pass.
 - Auto: the notebook holds NO replicated-op vocabulary, no last-writer-wins register, no fractional-index math, no tombstone set, and — the load-bearing collapse — NO SECOND CONTAINER MAP: the register is exactly the one `IntentApply` writes, addressed through the one `Collab/sync#DOCUMENT_OWNER` `CollabAddress`/`CollabPath` owner — the `CollabRoot.Cells` movable-list of stable cell-id strings beside the `CollabRoot.Meta` map whose per-cell `Key(cellId)` hop is a mergeable map whose `CollabColumn.Source` column is that cell's mergeable text container, so the live co-edit path and the durable replay path are ONE dispatch and one register shape by construction, and two replicas that imported the same deltas or replayed the same ledger window hold the same notebook; the cell reorder is the movable-list `Mov` through the `CellMove` arm so identity survives concurrent moves; concurrent same-cell source edits resolve character-granular through the engine's text CRDT via the `TextRun` arm rather than whole-cell last-writer-wins.
 - Packages: LoroCs, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm.Persistence (project)
 - Growth: a new co-edited notebook concern is one `EditIntent` case with its `IntentApply` arm, never a lens-local container write; zero new surface.
@@ -244,8 +264,10 @@ public sealed record NotebookCoedit(CollabDoc Document, IntentLedger Ledger) {
 
     // Every verb is one EditIntent row through the ONE commit rail — durable-first, live apply through the
     // same IntentApply dispatch replay uses, so lens and replay share one register by construction.
-    public IO<Fin<Unit>> Insert(string cellId, string afterId, string kind) =>
-        Ledger.Commit(Document, new EditIntent.CellInsert(Document.Key, cellId, afterId, kind), CoeditOrigin);
+    // The kind crosses as the vocabulary ROW's own key, so an insert can only ever name a case the decode
+    // delegate admits and a spelling reconstructed at a call site is unrepresentable.
+    public IO<Fin<Unit>> Insert(string cellId, string afterId, CellKind kind) =>
+        Ledger.Commit(Document, new EditIntent.CellInsert(Document.Key, cellId, afterId, kind.Key), CoeditOrigin);
 
     public IO<Fin<Unit>> Move(string cellId, string afterId) =>
         Ledger.Commit(Document, new EditIntent.CellMove(Document.Key, cellId, afterId), CoeditOrigin);
@@ -389,6 +411,192 @@ public static class NotebookReplay {
 }
 ```
 
+## [06]-[CELL_CHROME]
+
+- Owner: `CellVerb` `[SmartEnum<string>]` the per-cell action roster carrying its command key, its affected-cell projection, and its emphasis; `CellRun` the live execution reading — state, elapsed, and the fault a failed cell peeks; `CellChrome` the per-cell presentation row; `DropIndicator` the reorder feedback; `OutputCeiling` the collapse policy; `NotebookOutline` the heading-anchor tree; `NotebookChrome` the fold producing every row.
+- Cases: `CellVerb` = run · run-above · run-below · duplicate · delete · insert-above · insert-below.
+- Entry: `public static Seq<CellChrome> Rows(Notebook notebook, CellStateOverlay overlay, HashMap<string, Instant> started, HashMap<string, CellOutput> outputs, HashMap<string, double> measured, OutputCeiling ceiling, ClockPolicy clocks)` — the one chrome projection; `public static Fin<Seq<string>> Affected(CellVerb verb, Notebook notebook, string cellId)` — the cells a verb touches; `public static IO<Fin<Unit>> Reorder(NotebookCoedit coedit, string cellId, Option<string> afterId)` — the drag commit through the settled intent; `public static Option<DropIndicator> Indicate(Seq<(string CellId, double Top, double Height)> extents, double pointerY)` — the drop feedback off the measured extents alone; `public static NotebookOutline Outline(Notebook notebook)` — the heading tree through the markdown owner's anchor-only projection; `public static Seq<CellVerb> Verbs(NotebookCell cell)` — the per-kind verb narrowing every row reads; `public static Seq<ControlIntent> Insertions(Seq<string> kinds, string anchorCellId)` and `public static Seq<ControlIntent> Toolbar(CellChrome row)` — the insertion menu and the per-cell toolbar as intent rows the one control factory materializes.
+- Auto: the toolbar is a VERB ROSTER, so run, run-above, run-below, duplicate, delete, and the two insertion affordances are rows carrying their own command key and their own affected-cell projection — a run-above whose cell set was computed at the button is exactly how a toolbar and a keyboard shortcut come to disagree about what "above" means. Execution state is the settled `[03]` `CellStateOverlay` reading, so a cell's queued, running, sealed, and failed presentation is the same fold the recompute produces and no second state machine exists; elapsed derives from the recompute's own start mark against the clock, so a running cell counts up from when the fold actually reached it, and a failed cell peeks the `CellOutput.Error` fault the evaluation already materialized rather than a caught exception the chrome re-classified. Reordering commits `NotebookCoedit.Move`, so a drag is an `EditIntent.CellMove` on the durable rail and a dropped cell converges with every peer through the movable-list `Mov` the co-edit register already owns — a chrome-local reorder that rewrote the cell sequence would be a second register. Output collapse is a HEIGHT CEILING with an expand affordance rather than a boolean: an output under the ceiling shows whole with no affordance at all, and one above shows its first band with the overflow measured, so a user always knows how much is hidden. Insertion affordances render between rows carrying the cell kinds the union admits, so a new cell kind reaches the insertion menu with no chrome edit. The outline is the `Document/media#MARKDOWN_BLOCKS` ANCHOR-ONLY projection over every markdown cell, so a notebook's headings and a prose document's headings produce one outline shape, navigating to one rides the settled `SearchOpen.ProsePane` request, and recomputing the tree materializes no control and opens no editor session the outline caller could never release.
+- Packages: Avalonia, NodaTime, Thinktecture.Runtime.Extensions, LanguageExt.Core
+- Growth: a new cell action is one `CellVerb` row carrying its key and its affected projection; a new execution reading is one `CellRun` column off the settled overlay; a new cell kind reaches both the insertion menu and the chrome fold through its own `CellKind` row with zero rows here; zero new surface.
+- Boundary: the chrome is PRESENTATION over the settled cell graph, replay, and co-editing machinery — a chrome-local execution state, a chrome-local reorder, a chrome-local run scheduler, and a chrome-local outline model are the four deleted forms. Verbs are COMMAND KEYS the `Shell/commands` deck raises, so a toolbar button, a context menu, and a keyboard shortcut invoke one intent and the receipt rides the deck's own stream — a chrome-local command registry is rejected, and so is a toolbar row that binds NO command: a control carrying only a key resolves nothing, passes every availability read, and is the one failure a running screen cannot report. The verb's boot-frozen intent is the command and the CELL is the payload, because the deck freezes before any cell exists and a per-cell command key is a row nothing can have registered; the per-cell string survives only as the control's own identity, which is what keeps two cells' toolbars from colliding at the factory. The affected-cell projection reads the notebook's ORDER, not the recompute graph's dependency closure: run-above means the cells above in document order, which is what a user pointing at a cell means, while the dependency closure is what `RecomputeGraph` decides once the run starts — conflating them would make a run-above skip an independent cell the user could see sitting above. Drop indication is a POSITION between rows rather than a highlighted target row, because a drag that lands "on" a cell has no defined meaning in an ordered sequence and the ambiguity shows up as cells landing one slot off. The cell list windows through the ONE `Shell/virtualization#WINDOW_OWNER` fabric, so a thousand-cell notebook realizes exactly its viewport and a notebook-local list is rejected.
+
+```csharp signature
+// --- [TYPES] ----------------------------------------------------------------------------
+
+// The per-cell action roster. Each row carries its command key and its affected-cell projection, so a
+// toolbar press, a context menu, and a shortcut compute the same cell set — a projection written at the
+// button is how "run above" comes to mean two different things on two surfaces.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class CellVerb {
+    public static readonly CellVerb Run = new("run", "notebook.cell.run", ControlEmphasis.Primary,
+        static (cells, at) => Seq(cells[at].Id));
+    public static readonly CellVerb RunAbove = new("run-above", "notebook.cell.run.above", ControlEmphasis.Secondary,
+        static (cells, at) => cells.Take(at).Map(static cell => cell.Id));
+    public static readonly CellVerb RunBelow = new("run-below", "notebook.cell.run.below", ControlEmphasis.Secondary,
+        static (cells, at) => cells.Skip(at).Map(static cell => cell.Id));
+    public static readonly CellVerb Duplicate = new("duplicate", "notebook.cell.duplicate", ControlEmphasis.Quiet,
+        static (cells, at) => Seq(cells[at].Id));
+    public static readonly CellVerb Delete = new("delete", "notebook.cell.delete", ControlEmphasis.Danger,
+        static (cells, at) => Seq(cells[at].Id));
+    public static readonly CellVerb InsertAbove = new("insert-above", "notebook.cell.insert.above", ControlEmphasis.Quiet,
+        static (cells, at) => Seq(cells[at].Id));
+    public static readonly CellVerb InsertBelow = new("insert-below", "notebook.cell.insert.below", ControlEmphasis.Quiet,
+        static (cells, at) => Seq(cells[at].Id));
+
+    public string Intent { get; }
+
+    public ControlEmphasis Emphasis { get; }
+
+    // The projection reads DOCUMENT ORDER rather than the dependency closure: "above" is what the user can
+    // see above, and what the recompute then decides to re-run is the graph's own answer once the run starts.
+    [UseDelegateFromConstructor]
+    public partial Seq<string> Touches(Seq<NotebookCell> cells, int ordinal);
+}
+
+// --- [MODELS] ---------------------------------------------------------------------------
+
+// The live execution reading. Elapsed is present only while the cell is RUNNING, because a settled cell's
+// duration is a receipt fact rather than a ticking value, and the fault is present only on a failure — two
+// optionals over one state rather than a state enum beside two nullable columns that can contradict it.
+public readonly record struct CellRun(CellState State, Option<Duration> Elapsed, Option<NotebookFault> Fault) {
+    public static CellRun Of(CellState state, Option<Instant> startedAt, Option<CellOutput> output, ClockPolicy clocks) =>
+        new(state,
+            state == CellState.Running ? startedAt.Map(mark => clocks.Now - mark) : None,
+            output.Bind(static value => value is CellOutput.Error error ? Some(error.Fault) : None));
+}
+
+// One cell's presentation. `Overflow` is the measured excess past the ceiling rather than a collapsed flag,
+// so a user reads how much is hidden and a fitting output carries no affordance at all.
+public readonly record struct CellChrome(
+    string CellId, CellKind Kind, int Ordinal, CellRun Run, Seq<CellVerb> Verbs, bool Collapsed, double Overflow);
+
+// The reorder feedback: a position BETWEEN rows, because dropping "on" a cell has no meaning in an ordered
+// sequence and the ambiguity lands as cells one slot off. `After` is None at the head, which is the one
+// insertion point no cell id can name.
+public readonly record struct DropIndicator(Option<string> After, double Y);
+
+// Collapse is a height CEILING with a band the collapsed form shows, so an output slightly over the ceiling
+// still reads and a hugely over one is bounded — a boolean collapse hides a two-line overflow entirely.
+public readonly record struct OutputCeiling(double MaxHeight, double CollapsedBand) {
+    public static OutputCeiling Default { get; } = new(MaxHeight: 480d, CollapsedBand: 160d);
+
+    public double Overflow(double measured) => Math.Max(0d, measured - MaxHeight);
+}
+
+// The heading tree over every markdown cell, carrying the cell each anchor lives in so a click both scrolls
+// the list and reveals inside the cell.
+public readonly record struct OutlineNode(string CellId, MarkdownAnchor Anchor);
+
+public readonly record struct NotebookOutline(Seq<OutlineNode> Nodes) {
+    // Navigation rides the SETTLED prose request, so a notebook heading and a document heading reach their
+    // surfaces through one navigator and this page mints no second anchor grammar.
+    public Option<SearchOpen> Open(string notebookKey, string cellId) =>
+        Nodes.Find(node => node.CellId == cellId).Bind(node => node.Anchor.Open(notebookKey));
+}
+
+// --- [OPERATIONS] -----------------------------------------------------------------------
+
+public static class NotebookChrome {
+    // One row per cell, every reading derived: state from the settled overlay, elapsed from the recompute's
+    // own start mark, the fault from the output the evaluation already materialized, and the verb roster
+    // narrowed by what the cell can actually do — a markdown cell offers no run.
+    public static Seq<CellChrome> Rows(
+        Notebook notebook,
+        CellStateOverlay overlay,
+        HashMap<string, Instant> started,
+        HashMap<string, CellOutput> outputs,
+        HashMap<string, double> measured,
+        OutputCeiling ceiling,
+        ClockPolicy clocks) =>
+        notebook.Cells.Map((cell, ordinal) => new CellChrome(
+            cell.Id,
+            cell.Kind,
+            ordinal,
+            CellRun.Of(overlay.StateOf(cell.Id), started.Find(cell.Id), outputs.Find(cell.Id), clocks),
+            Verbs(cell),
+            notebook.Metadata.Find(cell.Id).Map(static row => row.Collapsed).IfNone(false),
+            ceiling.Overflow(measured.Find(cell.Id).IfNone(0d))));
+
+    // A cell offers the verbs it can honour: only an evaluating kind runs, and every kind can be duplicated,
+    // deleted, or have a neighbour inserted — so a disabled run button never renders on a markdown cell.
+    public static Seq<CellVerb> Verbs(NotebookCell cell) =>
+        (cell is NotebookCell.Code or NotebookCell.Chart or NotebookCell.Render or NotebookCell.Evidence
+            ? Seq(CellVerb.Run, CellVerb.RunAbove, CellVerb.RunBelow)
+            : Seq<CellVerb>())
+        + Seq(CellVerb.Duplicate, CellVerb.Delete, CellVerb.InsertAbove, CellVerb.InsertBelow);
+
+    // The affected set resolves through the ROW's own projection against the cell's ordinal, so the toolbar,
+    // the menu, and the shortcut all ask the same question of the same authority.
+    public static Fin<Seq<string>> Affected(CellVerb verb, Notebook notebook, string cellId) =>
+        notebook.Cells.Map(static (cell, ordinal) => (Cell: cell, Ordinal: ordinal))
+            .Find(row => row.Cell.Id == cellId)
+            .ToFin(new NotebookFault.MissingUpstream($"chrome/cell-absent: {cellId}"))
+            .Map(row => verb.Touches(notebook.Cells, row.Ordinal));
+
+    // A drag commits the SETTLED move intent, so the durable rail and the live apply are the co-edit
+    // register's one dispatch and a chrome-local sequence rewrite cannot exist to diverge from it. An empty
+    // `afterId` is the head position, which the intent's own contract already spells.
+    public static IO<Fin<Unit>> Reorder(NotebookCoedit coedit, string cellId, Option<string> afterId) =>
+        coedit.Move(cellId, afterId.IfNone(string.Empty));
+
+    // The indicator is the GAP the pointer is nearest: each row contributes its own trailing edge, the head
+    // gap carries no predecessor, and the nearest wins — so a drag between two cells reads unambiguously and
+    // a drop lands exactly where the line was drawn. The MEASURED extents are the whole input, because a gap
+    // is a geometry fact and the chrome rows carry no geometry — a chrome roster beside them answered nothing
+    // this fold reads and made the two orderings a caller had to keep in step.
+    public static Option<DropIndicator> Indicate(Seq<(string CellId, double Top, double Height)> extents, double pointerY) =>
+        toSeq((Seq(new DropIndicator(None, extents.Head.Map(static row => row.Top).IfNone(0d)))
+                + extents.Map(static row => new DropIndicator(Some(row.CellId), row.Top + row.Height)))
+            .OrderBy(gap => Math.Abs(gap.Y - pointerY)))
+            .Head;
+
+    // The outline over every markdown cell, in document order, through the markdown owner's ANCHOR-ONLY
+    // projection — so a notebook heading and a prose heading are the same anchor value, one navigator serves
+    // both, and an outline costs no controls and no lifetimes. Reading it off a full render instead
+    // materialized a control tree and opened one live `CodeSession` per fence, per markdown cell, on a plane
+    // that recomputes its outline whenever a cell's source changes and has nowhere to release what it opened.
+    public static NotebookOutline Outline(Notebook notebook) =>
+        new(notebook.Cells.Bind(static cell => cell.Switch(
+            code: static _ => Seq<OutlineNode>(),
+            markdown: static m => MarkdownRenderer
+                .Anchors(MarkdownProjection.Project(m.Source))
+                .Map(anchor => new OutlineNode(m.Id, anchor)),
+            chart: static _ => Seq<OutlineNode>(),
+            render: static _ => Seq<OutlineNode>(),
+            viewpoint: static _ => Seq<OutlineNode>(),
+            parameter: static _ => Seq<OutlineNode>(),
+            evidence: static _ => Seq<OutlineNode>())));
+
+    // The insertion menu IS the kind vocabulary's own roster, so a new cell kind reaches the affordance with
+    // no edit here and an insertion can never offer a kind the union cannot construct — a caller-supplied
+    // kind list was that same roster enumerated a second time, and the second enumeration is what a new case
+    // silently misses.
+    public static Seq<ControlIntent> Insertions(string anchorCellId) =>
+        Seq<ControlIntent>(new ControlIntent.Segmented(
+            $"notebook.insert.{anchorCellId}", SegmentPosture.Command,
+            toSeq(CellKind.Items).Map(static kind =>
+                new OptionRow(kind.Key, LocaleStrings.Key(nameof(CellKind), kind.Key), None, None)),
+            IntentBinding.Of(PaintRole.Panel)));
+
+    // The toolbar as intent rows the one control factory materializes, so the chrome constructs no control
+    // and every verb reaches the deck through its own key. The control key is per-CELL because two cells
+    // render two toolbars and the factory keys on identity, while the COMMAND is the verb's own boot-frozen
+    // intent with the cell riding the payload — a per-cell command key is a row the deck froze without and a
+    // chip that bound no command at all rendered a toolbar whose every button resolved nothing. The emphasis
+    // the row declares carries through to the binding, so a delete reads as danger without a second column.
+    public static Seq<ControlIntent> Toolbar(CellChrome row) =>
+        row.Verbs.Map(verb => (ControlIntent)new ControlIntent.Button(
+            $"{verb.Intent}.{row.CellId}",
+            LocaleStrings.Key(nameof(CellVerb), verb.Key),
+            IntentBinding.Of(
+                verb.Emphasis == ControlEmphasis.Danger ? PaintRole.Error : PaintRole.Panel,
+                verb.Emphasis) with { Command = Some(verb.Intent) }));
+}
+```
+
 ```mermaid
 ---
 config:
@@ -398,19 +606,25 @@ config:
     padding: 25
 ---
 flowchart LR
-    accTitle: Notebook cell, recompute, and replay planes
-    accDescr: A notebook owning capability-pinned cells, a recompute plane reading the host graph decode-only, a co-edit plane lowering edit intents through the ledger onto the collaboration document, and a replay bundle driving deterministic replay.
+    accTitle: Notebook cell, recompute, co-edit, replay, and chrome planes
+    accDescr: A notebook owning capability-pinned cells, a recompute plane reading the host graph decode-only, a co-edit plane lowering edit intents through the ledger onto the collaboration document, a replay bundle driving deterministic replay, and a chrome fold projecting the settled state overlay into per-cell verb rows, reorder intents, and the markdown outline.
     Notebook --> NotebookCell
     NotebookCell --> CapabilityPin
     Notebook --> NotebookRecompute
     NotebookRecompute -->|decode-only port| RecomputeGraph["AppHost RecomputeGraph"]
+    NotebookRecompute --> CellStateOverlay
     Notebook --> NotebookCoedit
     NotebookCoedit -->|EditIntent rows| IntentLedger
     IntentLedger -->|IntentApply| CollabDoc
     Notebook --> ReplayBundle
     ReplayBundle --> NotebookReplay
+    Notebook --> NotebookChrome
+    NotebookChrome --> CellVerb
+    CellStateOverlay --> NotebookChrome
+    NotebookChrome -->|Reorder| NotebookCoedit
+    NotebookChrome -->|Outline| MarkdownRenderer
 ```
 
-## [06]-[RESEARCH]
+## [07]-[RESEARCH]
 
 (none)

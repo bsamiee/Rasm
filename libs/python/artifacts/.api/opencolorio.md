@@ -106,7 +106,7 @@ Boundaries against the estate's other color owners run on AUTHORITY, not on the 
 |  [01]   | `Config.getProcessor(src, dst)`                                  | colorspace to colorspace; thirteen overloads cover every pair  |
 |  [02]   | `Config.getProcessor(transform, direction)`                      | an ad-hoc transform compiled against the config                |
 |  [03]   | `Processor.getDefaultCPUProcessor()`                             | CPU executor at `OPTIMIZATION_DEFAULT`                         |
-|  [04]   | `Processor.getOptimizedCPUProcessor(inBD, outBD, flags)`         | CPU executor with explicit bit depths; a named non-F32 depth makes `PackedImageDesc` demand its full stride triple |
+|  [04]   | `Processor.getOptimizedCPUProcessor(inBD, outBD, flags)`         | CPU executor with explicit bit depths                          |
 |  [05]   | `CPUProcessor.applyRGB(arr)` and `applyRGBA(arr)`                | apply IN PLACE over a contiguous float32 array                 |
 |  [06]   | `CPUProcessor.apply(imageDesc)`                                  | apply over a packed or planar `ImageDesc` view                 |
 |  [07]   | `CPUProcessor.isNoOp()`, `isIdentity()`, `hasChannelCrosstalk()` | skip an identity chain; crosstalk decides per-channel legality |
@@ -114,7 +114,10 @@ Boundaries against the estate's other color owners run on AUTHORITY, not on the 
 |  [09]   | `GpuShaderDesc.CreateShaderDesc(language=…)`                     | the shader descriptor; `GPU_LANGUAGE_MSL_2_0` is the Metal row |
 |  [10]   | `GPUProcessor.extractGpuShaderInfo(desc)`                        | fills shader text, function name, uniforms, and LUT textures   |
 |  [11]   | `Processor.createGroupTransform()` and `getCacheID()`            | the flattened op list, and the identity a receipt records      |
-|  [12]   | `Baker.setInputSpace/setTargetSpace/setFormat` then `bake()`     | LUT egress; the display-view leg is `setDisplayView(display, view)`, the shaper leg `setShaperSpace`/`setShaperSize`; `Baker.getFormats()` lists every writable format |
+|  [12]   | `Baker.setInputSpace/setTargetSpace/setFormat` then `bake()`     | LUT egress                                                     |
+
+- `Processor.getOptimizedCPUProcessor`: naming a non-F32 depth makes `PackedImageDesc` demand its full stride triple.
+- `Baker`: `setDisplayView(display, view)` drives the display-view leg, `setShaperSpace`/`setShaperSize` the shaper leg, and `getFormats()` lists every writable format.
 
 ## [04]-[IMPLEMENTATION_LAW]
 

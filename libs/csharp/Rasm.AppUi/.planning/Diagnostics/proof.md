@@ -6,17 +6,18 @@ Rasm.AppUi proof derives capture, check, variant-density, benchmark, and replay 
 
 - [02]-[CAPTURE_LANES]: Host-agnostic frame capture rows; render-hash regression proof.
 - [03]-[HEADLESS_DERIVATION]: Catalog-derived proof matrix and benchmark lanes; deterministic command-journal replay.
-- [04]-[PROOF_LAW]: Law-matrix fence — FrameHash equality, deterministic capture, replay determinism, the instrument fold, the frame-bench gate, the bundle-tree pin.
+- [04]-[PROOF_LAW]: Law-matrix fence — FrameHash equality, deterministic capture, replay determinism, the instrument fold, the frame-bench gate, the bundle-tree pin, the shipped-roster conformance fold.
+- [05]-[GUARD_REGISTRY]: The committed-golden roster and the cross-package skew guards with their witnessed verdicts.
 
 ## [02]-[CAPTURE_LANES]
 
-- Owner: `ProofFault` — the typed proof rail; `FrameGrab` — the one grab shape returning the rasterized frame beside its optional sealed record; `CaptureRow` — the admitted per-surface capture row carrying scale, gamut, and tick policy; `Captures` — the shot-and-regression surface.
+- Owner: `ProofFault` — the typed proof rail; `FrameGrab` — the one grab shape returning the rasterized frame beside its optional sealed record; `CaptureRow` — the admitted per-surface capture row carrying scale, gamut, text posture, and tick policy; `Captures` — the shot-and-regression surface.
 - Entry: `public static IO<RenderReceipt> Shot(VisualRuntime runtime, CaptureRow row)` — `IO` rail through the settled encode fold with one PNG artifact and one render receipt per shot.
-- Auto: `CaptureRow.Key` is the complete artifact-cell identity supplied by `RenderHashLane.Cell`, so `Captures.Shot` prefixes it once and never re-appends scale or gamut; the `Scale` and `Gamut` columns enter the grab delegate together, pinning render scaling through `SetRenderScaling` and color policy through the exact `VisualCodec.ColorPolicy` row; the `Ticks` column enters `ProofEngine.Advance`, the one forced-frame operation capture and benchmark lanes share, so a single-frame baseline pins `Ticks: 1` and an animation-settled or multi-frame capture pins its own count as data and never wall time; the receipt's `FrameHash` rides the suite content-hash identity row (the kernel `ContentHash.Of` delegate the capture runtime binds), and a grab that recorded its ops hands the sealed `SKPicture` back beside the frame so the encode owner folds its `Serialize` bytes onto the receipt's `DrawHash` column.
+- Auto: `CaptureRow.Key` is the complete artifact-cell identity supplied by `RenderHashLane.Cell`, so `Captures.Shot` prefixes it once and never re-appends scale, gamut, or posture; the `Scale`, `Gamut`, and `Posture` columns enter the grab delegate together, pinning render scaling through `SetRenderScaling`, color policy through the exact `VisualCodec.ColorPolicy` row, and text rasterization through the exact `Theme/typography#SHAPING_RAIL` `RenderPosture` row — so edging, hinting, subpixel positioning, and metric linearity are all cell data and a golden reproduces on any machine rather than diffing on the panel it was taken over; the `Ticks` column enters `ProofEngine.Advance`, the one forced-frame operation capture and benchmark lanes share, so a single-frame baseline pins `Ticks: 1` and an animation-settled or multi-frame capture pins its own count as data and never wall time; the receipt's `FrameHash` rides the suite content-hash identity row (the kernel `ContentHash.Of` delegate the capture runtime binds), and a grab that recorded its ops hands the sealed `SKPicture` back beside the frame so the encode owner folds its `Serialize` bytes onto the receipt's `DrawHash` column.
 - Receipt: a regression divergence is a typed `ProofFault` whose `Code` derives through `AppUiFaultBand.Proof` and whose CASE carries the attribution — `RasterDiverged` where draw ops held while pixels moved, `DrawDiverged` where the ops themselves moved, `HashDiverged` where either side carries no draw hash and the break stays unattributed; a bare `Error.New` on this rail is the deleted form.
 - Packages: SkiaSharp, Avalonia.Headless, Avalonia.Skia, Thinktecture.Runtime.Extensions, LanguageExt.Core
-- Growth: one capture row absorbs a new surface lane; one `Scale` value on a row absorbs a new DPI baseline; one `ProofFault` case is one `detail` ordinal under the 6700 row; a widened grab is one edit on `FrameGrab`; zero new surface.
-- Boundary: grab delegates bind at composition per surface row and no capture member is named outside its own row — the headless lane rides the `WriteableBitmap? CaptureRenderedFrame(this TopLevel)` and `WriteableBitmap? GetLastRenderedFrame(this TopLevel)` extensions whose `WriteableBitmap` pixels enter the hash fold through `Lock()` over the `ILockedFramebuffer` (`Address`, `RowBytes`, `Size`, `Format`), an un-shown top-level returning a null frame folds to an absent grab rather than a throw, with `UseHeadlessDrawing` false selecting the Skia backend on every hash lane and `SetRenderScaling(this TopLevel, double)` pinning the device scale before the grab (it throws `ArgumentOutOfRangeException` on a non-positive scale, so the row `Scale` stays positive) so the render-hash is scale-attributable; the custom-visual lane packs ONCE and replays twice — `CustomVisual.Record` seals the op list, `Materialize` replays it into `IO<Fin<(RenderReceipt, VisualRecord)>>` with the encode and both hashes inside and HANDS THE SEALED RECORD BACK — releasing it there would force a live-plus-twin pair to pack twice, the exact double run the recording deletes — and `CustomVisual.RenderTwin` takes that same `VisualRecord`, so the twin's grab replays rather than re-packs and the caller owns the one release once both frames are sealed, the cell keys by `key@scale×gamut` under its `ColorSpaceAxis` cell (the keyed projection of `VisualCodec.ColorPolicy`), and a second layout run behind a parallel grab contract is the deleted duplicate, a wide-gamut custom tile hashes its float or ICC-tagged pixels and never a quantized sRGB shadow, and the render-hash regression attributes a custom-tile pixel drift to the exact kind, scale, and gamut cell; the rhino lane rides the settled host viewport capture port; the desktop in-tree lane renders through `RenderTargetBitmap.Render(Visual)` with `CopyPixels(PixelRect, nint, int, int)` as its pixel projection, or evaluates a live visual onto a leased Skia canvas through `DrawingContextHelper.RenderAsync` where the in-tree row already holds a render lease so the capture composes the visual into the encode fold without a second offscreen surface; `ForceRenderTimerTick` is the only frame-advance verb on the deterministic lane — a debounce or animation that fails under forced ticks has smuggled wall time, and the tick count is a row column so a multi-frame capture is data; `Regression` compares `FrameHash` values from the settled receipt family and reads `DrawHash` only to NAME the divergence, so pixel equality stays the single pass condition and a per-spec screenshot helper is the deleted form while a second baseline store beside the blob lane is the rejected form.
+- Growth: one capture row absorbs a new surface lane; one `Scale` value on a row absorbs a new DPI baseline; one `Posture` value absorbs a new surface-class text reading; one `ProofFault` case is one `detail` ordinal under the 6700 row; a widened grab is one edit on `FrameGrab`; zero new surface.
+- Boundary: grab delegates bind at composition per surface row and no capture member is named outside its own row — the headless lane rides the `WriteableBitmap? CaptureRenderedFrame(this TopLevel)` and `WriteableBitmap? GetLastRenderedFrame(this TopLevel)` extensions whose `WriteableBitmap` pixels enter the hash fold through `Lock()` over the `ILockedFramebuffer` (`Address`, `RowBytes`, `Size`, `Format`), an un-shown top-level returning a null frame folds to an absent grab rather than a throw, with `UseHeadlessDrawing` false selecting the Skia backend on every hash lane and `SetRenderScaling(this TopLevel, double)` pinning the device scale before the grab (it throws `ArgumentOutOfRangeException` on a non-positive scale, so the row `Scale` stays positive) so the render-hash is scale-attributable; the custom-visual lane packs ONCE and replays twice — `CustomVisual.Record` seals the op list, `Materialize` replays it into `IO<Fin<(RenderReceipt, VisualRecord)>>` with the encode and both hashes inside and HANDS THE SEALED RECORD BACK — releasing it there would force a live-plus-twin pair to pack twice, the exact double run the recording deletes — and `CustomVisual.RenderTwin` takes that same `VisualRecord`, so the twin's grab replays rather than re-packs and the caller owns the one release once both frames are sealed, the cell key spells scale, gamut, and posture under its `ColorSpaceAxis` cell (the keyed projection of `VisualCodec.ColorPolicy`), and a second layout run behind a parallel grab contract is the deleted duplicate, a wide-gamut custom tile hashes its float or ICC-tagged pixels and never a quantized sRGB shadow, and the render-hash regression attributes a custom-tile pixel drift to the exact kind, scale, and gamut cell; the rhino lane rides the settled host viewport capture port; the desktop in-tree lane renders through `RenderTargetBitmap.Render(Visual)` with `CopyPixels(PixelRect, nint, int, int)` as its pixel projection, or evaluates a live visual onto a leased Skia canvas through `DrawingContextHelper.RenderAsync` where the in-tree row already holds a render lease so the capture composes the visual into the encode fold without a second offscreen surface; `ForceRenderTimerTick` is the only frame-advance verb on the deterministic lane — a debounce or animation that fails under forced ticks has smuggled wall time, and the tick count is a row column so a multi-frame capture is data; `Regression` compares `FrameHash` values from the settled receipt family and reads `DrawHash` only to NAME the divergence, so pixel equality stays the single pass condition and a per-spec screenshot helper is the deleted form while a second baseline store beside the blob lane is the rejected form.
 
 ```csharp signature
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -44,52 +45,60 @@ public abstract partial record ProofFault : Expected, IValidationError<ProofFaul
     public sealed record BudgetInvalid(string ScreenId, int Samples, int Ticks)
         : ProofFault($"proof/frame-budget: a screen id and positive samples and ticks are required, received {ScreenId}:{Samples}x{Ticks}", AppUiFaultBand.Proof.Code(8));
     public sealed record CaptureInvalid(string Cell, double Scale, int Ticks)
-        : ProofFault($"proof/capture-budget: a cell, gamut, grab, positive scale, and positive tick count are required, received {Cell}:{Scale}x{Ticks}", AppUiFaultBand.Proof.Code(9));
+        : ProofFault($"proof/capture-budget: a cell, gamut, posture, grab, positive scale, and positive tick count are required, received {Cell}:{Scale}x{Ticks}", AppUiFaultBand.Proof.Code(9));
     public sealed record RasterDiverged(string Cell, string Actual, string Baseline)
         : ProofFault($"proof/raster: {Cell} draw ops held while pixels moved {Actual} != {Baseline} — a rasterizer or driver change", AppUiFaultBand.Proof.Code(10));
     public sealed record DrawDiverged(string Cell, string Actual, string Baseline)
         : ProofFault($"proof/draw: {Cell} draw ops moved {Actual} != {Baseline} — a content change", AppUiFaultBand.Proof.Code(11));
 }
 
-// One capture-grab shape: render scale, gamut policy, and the forced-tick advance enter; the rasterized
-// frame comes back beside the sealed op list where the source recorded one. A named delegate replaces
-// the four-arity generic every lane, twin, and law entry otherwise re-spells, so widening the grab is
-// one edit here and never a sweep across eight signatures.
+// One capture-grab shape: render scale, gamut policy, text posture, and the forced-tick advance enter; the
+// rasterized frame comes back beside the sealed op list where the source recorded one. A named delegate
+// replaces the five-arity generic every lane, twin, and law entry otherwise re-spells, so widening the grab
+// is one edit here and never a sweep across eight signatures.
 public delegate IO<(SKImage Image, Option<SKPicture> Record)> FrameGrab(
     double scale,
     VisualCodec.ColorPolicy gamut,
+    RenderPosture posture,
     Func<IO<Unit>> advance);
 
 public sealed record CaptureRow {
-    private CaptureRow(string key, double scale, VisualCodec.ColorPolicy gamut, int ticks, FrameGrab grab) =>
-        (Key, Scale, Gamut, Ticks, Grab) = (key, scale, gamut, ticks, grab);
+    private CaptureRow(string key, double scale, VisualCodec.ColorPolicy gamut, RenderPosture posture, int ticks, FrameGrab grab) =>
+        (Key, Scale, Gamut, Posture, Ticks, Grab) = (key, scale, gamut, posture, ticks, grab);
 
     public string Key { get; }
     public double Scale { get; }
     public VisualCodec.ColorPolicy Gamut { get; }
+    // The declared `Theme/typography#SHAPING_RAIL` posture the grab pins onto the shaping surface. Text is the
+    // one raster input a golden cannot leave to the host: subpixel coverage carries the panel's own RGB stripe
+    // order and hinted outlines carry the platform's rasterizer, so a capture that admitted the live posture
+    // diffs on the machine rather than on the change. Posture is a COLUMN rather than a constant because the
+    // paged-export lane must pin its own linear-metric reading, and a golden proving screen text against page
+    // text proves neither.
+    public RenderPosture Posture { get; }
     public int Ticks { get; }
     public FrameGrab Grab { get; }
 
-    public static Fin<CaptureRow> Of(string key, double scale, VisualCodec.ColorPolicy gamut, int ticks, FrameGrab grab) =>
-        !string.IsNullOrWhiteSpace(key) && scale > 0d && gamut is not null && ticks > 0 && grab is not null
-            ? Fin.Succ(new CaptureRow(key, scale, gamut, ticks, grab))
+    public static Fin<CaptureRow> Of(string key, double scale, VisualCodec.ColorPolicy gamut, RenderPosture posture, int ticks, FrameGrab grab) =>
+        !string.IsNullOrWhiteSpace(key) && scale > 0d && gamut is not null && posture is not null && ticks > 0 && grab is not null
+            ? Fin.Succ(new CaptureRow(key, scale, gamut, posture, ticks, grab))
             : Fin.Fail<CaptureRow>(new ProofFault.CaptureInvalid(key, scale, ticks));
 
-    public IO<(SKImage Image, Option<SKPicture> Record)> Shoot() => Grab(Scale, Gamut, () => ProofEngine.Advance(Ticks));
+    public IO<(SKImage Image, Option<SKPicture> Record)> Shoot() => Grab(Scale, Gamut, Posture, () => ProofEngine.Advance(Ticks));
 }
 
 public static class Captures {
     public const string Kind = "capture";
 
-    // Records ride straight into the encode owner, which folds their op bytes onto the receipt's
-    // draw-hash column; this scope releases the record after the encode borrows it.
+    // Records ride straight into the encode owner, which folds their op bytes onto the receipt's draw-hash
+    // column, and the BRACKET releases the record on both exits. A release seated in the success `Map` never
+    // runs on the encode's failure arm, so every refused capture would strand a native op list — and the
+    // regression lanes shoot the same cell repeatedly under a property generator, which turns one leaked
+    // picture into a leak per sample precisely on the runs that are already failing.
     public static IO<RenderReceipt> Shot(VisualRuntime runtime, CaptureRow row) =>
-        row.Shoot().Bind(frame =>
-            VisualCodec.Encode(runtime, frame.Image, VisualCodec.Png, Kind, $"captures/{row.Key}.png", frame.Record)
-                .Map(receipt => {
-                    frame.Record.Iter(static record => record.Dispose());
-                    return receipt;
-                }));
+        row.Shoot().Bracket(
+            frame => VisualCodec.Encode(runtime, frame.Image, VisualCodec.Png, Kind, $"captures/{row.Key}.png", frame.Record),
+            frame => IO.lift(() => frame.Record.Iter(static record => record.Dispose())));
 
     // RenderHashLane.Cell is the custom-twin key@variant-density lane identity, never the family Kind
     // constant — same-family failures stay attributable to their exact cell. A break ATTRIBUTES: draw
@@ -112,14 +121,14 @@ public static class Captures {
 
 ## [03]-[HEADLESS_DERIVATION]
 
-- Owner: `ComparerAccessors.StringOrdinal` accessor; `ProofCheck` — the ten-row check vocabulary; `ProofSpec` — the derived spec row; `ProofEngine` — the derivation and replay surface; `RenderHashLane` — the `key@scale×gamut` render-hash cell; `BenchLane` — the catalog-derived frame-benchmark cell.
-- Cases: activation, render-hash, focus-walk, variant-sweep, density-sweep, disposal-leak, pointer-walk, drag-drop, contrast-audit, frame-cost — the two input-proof rows drive the headless synthetic-input verbs, the contrast-audit row sweeps the `Shell/accessibility.md` WCAG luminance gate over every variant-density cell so an inaccessible pairing fails the matrix like a pixel drift, and the frame-cost row proves per-pass render cost against the `FrameBudget` so a pass that doubles its cost fails the matrix like a pass that changes its pixels.
+- Owner: `ComparerAccessors.StringOrdinal` accessor; `ProofCheck` — the ten-row check vocabulary; `ProofSpec` — the derived spec row; `ProofEngine` — the derivation and replay surface; `RenderHashLane` — the scale-gamut-posture-keyed render-hash cell; `BenchLane` — the catalog-derived frame-benchmark cell.
+- Cases: activation, render-hash, focus-walk, variant-sweep, density-sweep, disposal-leak, pointer-walk, drag-drop, contrast-audit, semi-conformance, frame-cost — the two input-proof rows drive the headless synthetic-input verbs, the contrast-audit row sweeps the `Shell/accessibility.md` WCAG luminance gate over every variant-density cell so an inaccessible pairing fails the matrix like a pixel drift, the semi-conformance row rides that same live application to walk the shipped theme roster and fold `Theme/tokens.md` slot coverage against it, and the frame-cost row proves per-pass render cost against the `FrameBudget` so a pass that doubles its cost fails the matrix like a pass that changes its pixels.
 - Entry: `public static Seq<ProofSpec> Derive(ScreenCatalog catalog, Seq<(ThemeVariantRow Variant, DensityRow Density)> grid, Func<ScreenCatalogRow, ProofCheck, bool> applies, Func<ScreenCatalogRow, ProofCheck, ThemeVariantRow, DensityRow, Func<IO<EvidenceReceipt>>> probe)` — each headless row crosses only the checks its composition-bound applicability relation admits, then spans every variant-density cell. `ProofEngine.Bench` admits positive sample and tick budgets before constructing any benchmark lane.
 - Auto: derived specs execute on the shared `HeadlessUnitTestSession` through `GetOrStartForAssembly` once per assembly and `Dispatch` per spec, so every spec runs on the one UI thread without a per-spec session boot, and `[AvaloniaFact]` dispatch under the xunit.v3 MTP runner rides the same session; `FakeTimeProvider` time travel fills the headless row's virtual-time slot; `Replay` drives the journal through the one remote-invocation route on the frozen deck, so journal replay, deep links, and interactive execution seal the same receipt family; the snapshot store rehydrates screen state before the first journal entry, so replay is deterministic end to end; the pointer-walk and drag-drop checks drive synthetic input on the session top-level through `HeadlessWindowExtensions.MouseDown(this TopLevel, Point, MouseButton, RawInputModifiers)`/`MouseMove(this TopLevel, Point, RawInputModifiers)`/`MouseUp(this TopLevel, Point, MouseButton, RawInputModifiers)`/`MouseWheel(this TopLevel, Point, Vector, RawInputModifiers)` between `ForceRenderTimerTick` advances, the drag-drop check driving `DragDrop(this TopLevel, Point, RawDragEventType, IDataTransfer, DragDropEffects, RawInputModifiers)` (void return) in the load-bearing `DragEnter` → `DragOver` → `Drop` sequence (`RawDragEventType` from `Avalonia.Input.Raw`) because a `DragOver` without a prior `DragEnter` seeds no drop context and raises no routed handler, the resulting effect read from `DragEventArgs.DragEffects` inside the handler and never a return value, so a pointer-interaction or drop-target proof is a deterministic frame sequence and never wall-time hover timing; benchmark lanes derive from the same `HeadlessLane` the proof matrix crosses — `ProofEngine.Bench` traverses one `BenchLane.Of` admission per headless row, so a screen added to the catalog gains its frame benchmark with zero roster edit, invalid budgets refuse as `ProofFault.BudgetInvalid`, and `FrameBench` consumes admitted values without clamping.
 - Receipt: every executed spec seals its `EvidenceReceipt` through the `Diagnostics/evidence.md` union — disposal-leak audits ride the Disposal case and render checks ride the Render case.
 - Packages: Avalonia.Headless, Avalonia.Headless.XUnit, Avalonia.Skia, Verify.XunitV3, CsCheck (testkit), Microsoft.Extensions.TimeProvider.Testing (FakeTimeProvider), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
 - Growth: one check row sweeps every headless screen, one grid cell sweeps every check, one `RenderHashLane` cell sweeps every key×scale×gamut combination, and one `BenchLane` cell sweeps every headless row at its sample and tick budget; zero new surface.
-- Boundary: the derivation engine deletes hand-written per-screen smoke specs — a bespoke screen spec beside the engine is the named defect; the engine owns execution and capture while sibling audit folds declare their own row shapes over it; the render-hash and capture lanes run on the Skia render-proof builder the surface-hosts headless row binds (`UseSkia` then `UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false })` then `SetupWithoutStarting`) because `HeadlessUnitTestSession.StartNew` force-applies `UseHeadlessDrawing = true` and never `UseSkia`, so a frame captured under the session alone is the stub-drawing form, while the activation, focus-walk, pointer-walk, drag-drop, and disposal-leak checks ride the shared `HeadlessUnitTestSession` where stub drawing is acceptable; host-bound screens exit the matrix structurally through the catalog's headless lane, never through skipped specs.
+- Boundary: the derivation engine deletes hand-written per-screen smoke specs — a bespoke screen spec beside the engine is the named defect; the engine owns execution and capture while sibling audit folds declare their own row shapes over it; every lane rides the ONE shared session, pixel-bearing or not, because `StartNew` composes the assembly's `[AvaloniaTestApplication]` entry point through `AppBuilder.Configure` and only DEFAULTS the headless WINDOWING subsystem where that entry point selected none, never touching the rendering subsystem at all — so the entry point's own `UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false })` and `UseSkia` selections both survive into the session the render-hash and capture lanes draw under, and the stub render interface reaches a frame only where the entry point asked for it; a second render-proof `AppBuilder` and its own `SetupWithoutStarting` beside that session is therefore the rejected form twice — it proves nothing the session does not already carry and the `Shell/hosts#HOST_AXIS` one-setup guard throws process-wide on the second admission; host-bound screens exit the matrix structurally through the catalog's headless lane, never through skipped specs.
 
 ```csharp signature
 [SmartEnum<string>]
@@ -135,6 +144,7 @@ public sealed partial class ProofCheck {
     public static readonly ProofCheck PointerWalk = new("pointer-walk");
     public static readonly ProofCheck DragDrop = new("drag-drop");
     public static readonly ProofCheck ContrastAudit = new("contrast-audit");
+    public static readonly ProofCheck SemiConformance = new("semi-conformance");
     public static readonly ProofCheck FrameCost = new("frame-cost");
 }
 
@@ -197,18 +207,21 @@ public static class ProofEngine {
 
 ## [04]-[PROOF_LAW]
 
-- Owner: `ProofLaw` — the law-matrix fence surface composing `ProofEngine` with CsCheck property generators, `Verify.XunitV3` FrameHash equality, the `MetricCollector<T>` instrument lane, the frame-bench gate minting estate `BenchmarkReceipt` evidence, the bundle-tree pin, and the `VerifyChecks`/`DanglingSnapshots` suite-hygiene gates.
+- Owner: `ProofLaw` — the law-matrix fence surface composing `ProofEngine` with CsCheck property generators, `Verify.XunitV3` FrameHash equality, the `MetricCollector<T>` instrument lane, the frame-bench gate minting estate `BenchmarkReceipt` evidence, the bundle-tree pin, the `Theme/tokens.md` shipped-roster conformance fold over the live application, and the `VerifyChecks`/`DanglingSnapshots` suite-hygiene gates.
 - Entry: `public static IO<Seq<EvidenceReceipt>> ProofMatrix(...)` — the one entrypoint that owns the singular-cell and full-matrix run by input shape so a per-spec screenshot helper is the deleted form.
-- Auto: `RenderHashGrid` generates cells from the live headless catalog crossed with admitted scale and `VisualCodec.ColorPolicy` data, so a new screen or gamut expands proof without a named roster edit; `ProofLaw.FrameHashEquality` seals one generated cell through `Captures.Shot` then `Verifier.Verify`; `ProofLaw.ReplayDeterminism` restores the same snapshot before each journal run, resets virtual time, rejects unequal receipt counts before pairing, and verifies the complete digest sequence; `ProofLaw.FrameCost` requires a baseline for every pass and compares it against both variance and `FrameBudget`, so a missing baseline cannot bless a new pass implicitly; `ProofLaw.InstrumentFold` receives the composition `LevelCells`, mounts contributions whose level readers close over that instance, and hands the mounted set to `EvidenceFan.Fan`, so writes and observable-gauge reads share one cell family and a refused measurement fails the fold's own rail rather than reading as a zero sum, with the envelope set and the named `Instrument<long>` admitted on that rail ahead of the collector so an empty run and a wrongly-measured name each refuse by name; `ProofLaw.FrameBench` samples a `BenchLane` between forced ticks and hands ONE ascending nanosecond array to `SortedArrayStatistics`, whose `Median` is the exact central-or-two-central-mean fold and whose `QuantileCustom` under `QuantileDefinition.R1` (`EmpiricalInvCDF`) is the exact ceiling nearest-rank order statistic the branch ruling pins — `R3` (`Nearest`) rounds half to even and lands off that rank wherever the 0.95 rank carries a half fraction, and admitted positive `Samples` keeps the array non-empty so neither read returns `NaN`, while `InterquartileRange(sorted)` is the third order statistic off that same array — the `UpperQuartile - LowerQuartile` spread making a bench whose median holds while its distribution widens readable, one O(1) pair rather than a second pass — beside the precise allocation delta, mints one corpus-bearing Unjudged `BenchmarkReceipt` under `HostEvidence.Current()`, composes `BenchmarkGate.Gate` over the held claim and sink, and collapses its verdict onto the public `IO` rail; `ProofLaw.Divergence` buckets the fresh-versus-held median ratio under `Buckets.DivergenceRatio` so regression magnitude reads on the shared advice axis; `ProofLaw.BundleShape` pins the exported support archive as two goldens — the zip entry roster and the extracted tree.
+- Auto: `RenderHashGrid` generates cells from the live headless catalog crossed with admitted scale, `VisualCodec.ColorPolicy`, and `RenderPosture` data, so a new screen, gamut, or surface-class text reading expands proof without a named roster edit; `ProofLaw.FrameHashEquality` seals one generated cell through `Captures.Shot` then `Verifier.Verify`; `ProofLaw.ReplayDeterminism` restores the same snapshot before each journal run, resets virtual time, rejects unequal receipt counts before pairing, and verifies the complete digest sequence; `ProofLaw.FrameCost` requires a baseline for every pass and compares it against both variance and `FrameBudget`, so a missing baseline cannot bless a new pass implicitly; `ProofLaw.InstrumentFold` receives the composition `LevelCells`, mounts contributions whose level readers close over that instance, and hands the mounted set to `EvidenceFan.Fan`, so writes and observable-gauge reads share one cell family and a refused measurement fails the fold's own rail rather than reading as a zero sum, with the envelope set and the named `Instrument<long>` admitted on that rail ahead of the collector so an empty run and a wrongly-measured name each refuse by name; `ProofLaw.FrameBench` samples a `BenchLane` between forced ticks and hands ONE ascending nanosecond array to `SortedArrayStatistics`, whose `Median` is the exact central-or-two-central-mean fold and whose `QuantileCustom` under `QuantileDefinition.R1` (`EmpiricalInvCDF`) is the exact ceiling nearest-rank order statistic the branch ruling pins — `R3` (`Nearest`) rounds half to even and lands off that rank wherever the 0.95 rank carries a half fraction, and admitted positive `Samples` keeps the array non-empty so neither read returns `NaN`, while `InterquartileRange(sorted)` is the third order statistic off that same array — the `UpperQuartile - LowerQuartile` spread making a bench whose median holds while its distribution widens readable, one O(1) pair rather than a second pass — beside the precise allocation delta, mints one corpus-bearing Unjudged `BenchmarkReceipt` under `HostEvidence.Current()`, composes `BenchmarkGate.Gate` over the held claim and sink, and collapses its verdict onto the public `IO` rail; `ProofLaw.Divergence` buckets the fresh-versus-held median ratio under `Buckets.DivergenceRatio` so regression magnitude reads on the shared advice axis; `ProofLaw.BundleShape` pins the exported support archive as two goldens — the zip entry roster and the extracted tree.
 - Packages: Verify.XunitV3, CsCheck, Avalonia.Headless, Microsoft.Extensions.Diagnostics.Testing, MathNet.Numerics (`SortedArrayStatistics`, `QuantileDefinition`), Rasm.AppHost (project, seam types), NodaTime, LanguageExt.Core
 - Growth: one lane cell absorbs a new golden; one benchmark claim is one held `BenchmarkReceipt` value; zero new surface.
-- Boundary: the `RenderHashGrid` FrameHash golden bytes derive under the `tests/contracts/MANIFEST.md` `CANONICAL_BYTE_IDENTITY` framing and seed law and stay a C#-tree snapshot no peer runtime binds — the render-hash lane is the one host golden producer, never a second golden store; the headless capture lanes are the parity oracle for every `[V6]` fence repair — a repaired fence proves itself here before the campaign closes; gamut cells key by `ColorPolicy` rows (the `Render/capture.md` one gamut/transfer family); the proof fence is a terminal edge with the CATALOG-TRUE collapse law — `IO<A>.Run()` returns `A` and `RunAsync()` returns `ValueTask<A>`, both THROWING the typed `Error` on failure (only `Eff.Run` lands `Fin`) — so a failing disposition composes BEFORE the terminal: the awaited `RunAsync` throw carries the registry-coded `ProofFault` the runner reports loudly, a property that must survive failure composes `| @catch` to its verdict value before its one `Run()`, and a `ThrowIfFail`/`IfFail` shim applied to the terminal result is the phantom spelling that does not compile; the frame-bench lane composes the AppHost benchmark rail as settled vocabulary — `BenchmarkReceipt`, `HostEvidence`, `BenchmarkGate.Gate`, and `GatePolicy.Canonical` mint and judge, the held claim arrives as a value off the Persistence reuse index, and the judged receipt fans through the sink under the AppHost benchmark kind, so the dashboards benchmark layout ingests it off the HLC-ordered envelope stream and an AppUi-local benchmark receipt family is the deleted form; `VerifyZip`/`VerifyDirectory` pin support-bundle roster and tree completeness, while content-hash manifest proof remains blocked until AppHost `SupportManifest.Entry` carries its post-redaction key.
+- Boundary: the `RenderHashGrid` FrameHash golden bytes derive under the `tests/contracts/MANIFEST.md` `CANONICAL_BYTE_IDENTITY` framing and seed law and stay a C#-tree snapshot no peer runtime binds — the render-hash lane is the one host golden producer, never a second golden store; the headless capture lanes are the parity oracle for every `[V6]` fence repair — a repaired fence proves itself here before the campaign closes; gamut cells key by `ColorPolicy` rows (the `Render/capture.md` one gamut/transfer family); the proof fence is a terminal edge with the CATALOG-TRUE collapse law — `IO<A>.Run()` returns `A` and `RunAsync()` returns `ValueTask<A>`, both THROWING the typed `Error` on failure (only `Eff.Run` lands `Fin`) — so a failing disposition composes BEFORE the terminal: the awaited `RunAsync` throw carries the registry-coded `ProofFault` the runner reports loudly, a property that must survive failure composes `| @catch` to its verdict value before its one `Run()`, and a `ThrowIfFail`/`IfFail` shim applied to the terminal result is the phantom spelling that does not compile; the frame-bench lane composes the AppHost benchmark rail as settled vocabulary — `BenchmarkReceipt`, `HostEvidence`, `BenchmarkGate.Gate`, and `GatePolicy.Canonical` mint and judge, the held claim arrives as a value off the Persistence reuse index, and the judged receipt fans through the sink under the AppHost benchmark kind, so the dashboards benchmark layout ingests it off the HLC-ordered envelope stream and an AppUi-local benchmark receipt family is the deleted form; `VerifyZip`/`VerifyDirectory` pin support-bundle roster and tree completeness, and the extracted `manifest.json` carries the AppHost `SupportManifest.Entry` `ContentKey` column, so content identity pins in the same golden pair rather than a re-hash of the zip.
 
 ```csharp signature
-public readonly record struct RenderHashLane(string Key, double Scale, VisualCodec.ColorPolicy Gamut, int Ticks) {
-    public string Cell => $"{Key}@{Scale}x{Gamut.Key}";
+// The cell key spells every raster-deciding input the golden was taken under — scale, gamut, and text posture
+// — so a break names the axis it moved on and a Golden-posture screen cell and a Paged-posture export cell of
+// one screen are two goldens rather than one file two lanes overwrite in turn.
+public readonly record struct RenderHashLane(string Key, double Scale, VisualCodec.ColorPolicy Gamut, RenderPosture Posture, int Ticks) {
+    public string Cell => $"{Key}@{Scale}x{Gamut.Key}~{Posture.Key}";
 
-    public Fin<CaptureRow> Row(FrameGrab grab) => CaptureRow.Of(Cell, Scale, Gamut, Ticks, grab);
+    public Fin<CaptureRow> Row(FrameGrab grab) => CaptureRow.Of(Cell, Scale, Gamut, Posture, Ticks, grab);
 }
 
 public static class ProofLaw {
@@ -216,11 +229,13 @@ public static class ProofLaw {
         ScreenCatalog catalog,
         Seq<double> scales,
         Seq<VisualCodec.ColorPolicy> gamuts,
+        Seq<RenderPosture> postures,
         Func<ScreenCatalogRow, bool> captureable,
         int ticks) =>
         catalog.HeadlessLane
             .Filter(captureable)
-            .Bind(row => scales.Bind(scale => gamuts.Map(gamut => new RenderHashLane(row.Id, scale, gamut, ticks))));
+            .Bind(row => scales.Bind(scale => gamuts.Bind(gamut =>
+                postures.Map(posture => new RenderHashLane(row.Id, scale, gamut, posture, ticks)))));
 
     public static async Task SuiteHygiene() {
         await VerifyChecks.Run();
@@ -334,16 +349,16 @@ public static class ProofLaw {
             Suite: BenchSuite,
             Case: lane.Case,
             Host: HostEvidence.Current(),
-            Corpus: corpus,
             Median: Duration.FromNanoseconds(SortedArrayStatistics.Median(sorted)),
             P95: Duration.FromNanoseconds(SortedArrayStatistics.QuantileCustom(sorted, 0.95d, QuantileDefinition.R1)),
             Iqr: Duration.FromNanoseconds(SortedArrayStatistics.InterquartileRange(sorted)),
             AllocatedBytes: after - before,
             Operations: frames.Count,
-            Reference: None,
             Verdict: BenchmarkVerdict.Unjudged,
-            ArtifactKey: None,
-            Correlation: correlation)
+            Correlation: correlation,
+            Corpus: corpus,
+            Reference: None,
+            ArtifactKey: None)
         from gate in BenchmarkGate.Gate(sink, fresh, claim, GatePolicy.Canonical)
         from judged in gate.Match(Succ: IO.pure, Fail: IO.fail<BenchmarkReceipt>)
         select judged;
@@ -360,9 +375,25 @@ public static class ProofLaw {
                     .IfNone(Buckets.DivergenceRatio[^1]),
             };
 
+    // Slot conformance rides the SAME live application the accessibility sweep already stands up, because the
+    // shipped vocabulary is only readable by walking a running theme: `Semi.Avalonia` compiles its dictionaries
+    // into XamlClosure bodies, so IL enumeration yields one opaque resource blob and every key stays invisible
+    // to metadata. The roster is therefore DERIVED per run off the live `Application.Current.Styles` chain,
+    // which `SemiRoster.Walk` descends whole — `Styles.Resources` into `MergedDictionaries` into
+    // `ThemeDictionaries` into each `ControlTheme.Resources` — so a control-theme brush and a shadow stack are
+    // in scope beside the palette tokens. A package bump re-derives that roster with no transcription, and a
+    // scratch roster artifact captured at authoring time is the deleted form twice over: it is palette-only, so
+    // it never saw the control-theme half, and it freezes a vocabulary the next bump moves while reading as a pass.
+    // `SemiCovered` is the three-way rail: an unminted claim, a claimed slot the shipped roster never defines,
+    // and a shipped key neither claimed nor excluded each name themselves on the theme owner's own fault.
+    public static Fin<Unit> SemiConformance(ResolvedTheme resolved, Seq<IStyle> chain) =>
+        SemiCorrespondence.SemiCovered(resolved, SemiRoster.Walk(chain));
+
     // BundleShape settles the exported support archive as two goldens — the zip entry roster and
     // extracted directory tree — so a member added to or dropped from the contributor roster
-    // diverges the golden before any support session ships an incomplete bundle.
+    // diverges the golden before any support session ships an incomplete bundle; the extracted
+    // manifest.json rides the tree golden with its per-entry ContentKey column, so content identity
+    // is the third pinned fact and a key drifting from its member's bytes diverges here.
     public static async Task BundleShape(string bundlePath, string extractedRoot) {
         await Verifier.VerifyZip(bundlePath);
         await Verifier.VerifyDirectory(extractedRoot);
@@ -381,6 +412,88 @@ public static class ProofLaw {
 }
 ```
 
-## [05]-[RESEARCH]
+## [05]-[GUARD_REGISTRY]
+
+- Owner: `GoldenLane` — the committed-golden roster naming each pinned artifact beside the entry that writes it; `SkewVerdict` `[SmartEnum<string>]` — the three-value guard disposition; `SkewGuard` — the per-pair guard row carrying its witnessed verdict, its resolution, and the entry that RE-PROVES it on a bump; `SkewGuards` — the two live re-provable folds.
+- Cases: `SkewVerdict` = binds | covers | fails — `binds` is a cross-boundary type crossing that loaded and invoked, `covers` is a themable-surface roster that resolved whole, `fails` is a load-time refusal whose resolution is the DROP recorded beside it.
+- Entry: `public static Fin<Seq<string>> DockTheming(IResourceHost host, Seq<Type> controls, Seq<ThemeVariant> variants)` — answers the control types carrying no `ControlTheme` under some variant, so a lagging skin's coverage gap names itself; `public static IO<Fin<Unit>> SkiaBoundary(ImmediateDrawingContext context)` — leases the Skia api feature at the live render boundary and refuses where the pinned graphics major stopped satisfying the framework's declared reference.
+- Auto: a guard row is DATA — the pair, the mechanism, the witnessed verdict, and the resolution are columns, so reading the registry answers what was proven without opening a probe log, and a row whose `Guard` column names an entry re-proves on every bump of either side rather than resting on the witness that admitted it; the two provable guards ride the settled proof rails and mint nothing — dock coverage is a resource read over the live theme (`Application.Current` is an `IResourceHost`, so the sweep passes each `ThemeVariant` explicitly rather than flipping the requested variant between reads), and the Skia boundary is one lease off the same `ISkiaSharpApiLeaseFeature` the `Vfx` material route composes, so the guard proves exactly the crossing production takes; a dropped package carries no `Guard` entry because there is nothing left to bind.
+- Receipt: a guard refusal is a typed `ProofFault.Text` on the proof rail like every other lane, so a skew break reports beside a pixel drift rather than as a build-time surprise.
+- Packages: Avalonia, Avalonia.Skia, SkiaSharp, Semi.Avalonia.Dock, Dock.Avalonia, Thinktecture.Runtime.Extensions, LanguageExt.Core
+- Growth: a new golden is one `GoldenLane` row naming its writer; a new cross-package pair is one `SkewGuard` row and, where the pair is bindable, one fold beside the two here; zero new surface.
+- Boundary: the registry is the reverse index from a committed artifact to the entry that writes it, so a golden with no row is an orphan file and a row with no writer is a lane nothing proves — `LayoutWireGolden.Parity` lives at `Shell/solver#TS_PROJECTION` because the emission it pins is that page's producer contract, and this registry names it rather than re-spelling it, since a second `VerifyJson` over the same wires would commit a second file that drifts silently from the first; the three package rows record verdicts witnessed on the assay bind-and-invoke rail, and a verdict is never a version pin — the Skia pair is proven at the render boundary rather than pinned, because the framework's declared dependency is a FLOOR the loader satisfies with a higher major under a matching public key, so the guard is the re-run and a pin would freeze the graphics stack against a risk that never materialized; the validation package is DROPPED estate-wide rather than pinned back, because the alternative surrendered the reactive bump across every consumer to keep one rail whose types moved assemblies with no forward left behind — the manifest and registry drop lands at the package owners and this row records the verdict and the resolution; the dock skin's coverage is whole across the minor, so the standing obligation the guard leaves is VARIANT COHERENCE rather than version proximity — the skin carries zero keys in its own theme dictionaries and inherits every light/dark decision from the base Semi dictionaries, so the two Semi packages must move to one variant vocabulary together while the dock skin may lag the dock CONTROL package freely (`Shell/navigation#DOCK_LAYOUTS` states the same obligation at the consuming boundary).
+
+| [INDEX] | [GOLDEN_LANE]      | [PINS]                                                   | [WRITER]                     |
+| :-----: | :----------------- | :------------------------------------------------------- | :--------------------------- |
+|  [01]   | render-hash        | frame hash, draw hash, colour space per capture cell     | `ProofLaw.FrameHashEquality` |
+|  [02]   | replay digests     | the whole ordered payload-digest sequence of two replays | `ProofLaw.ReplayDeterminism` |
+|  [03]   | bundle roster      | support-archive zip entries                              | `ProofLaw.BundleShape`       |
+|  [04]   | bundle tree        | extracted tree beside each entry's `ContentKey`          | `ProofLaw.BundleShape`       |
+|  [05]   | layout-wire parity | the ordered `Seq<LayoutProgramWire>` producer contract   | `LayoutWireGolden.Parity`    |
+
+| [INDEX] | [PAIR]                              | [MECHANISM]                          | [VERDICT] | [RESOLUTION]                            |
+| :-----: | :---------------------------------- | :----------------------------------- | :-------- | :-------------------------------------- |
+|  [01]   | validation rail over reactive major | restore graph read, then bind-invoke | fails     | dropped estate-wide; rail rebuilt owned |
+|  [02]   | dock skin over dock controls        | control-theme resolution per variant | covers    | `SkewGuards.DockTheming` re-proves      |
+|  [03]   | framework Skia over pinned stack    | lease and invoke at render boundary  | binds     | `SkewGuards.SkiaBoundary` re-proves     |
+
+```csharp signature
+public sealed record GoldenLane(string Lane, string Pins, string Writer);
+
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class SkewVerdict {
+    public static readonly SkewVerdict Binds = new("binds");
+    public static readonly SkewVerdict Covers = new("covers");
+    public static readonly SkewVerdict Fails = new("fails");
+}
+
+// A guard row is DATA and its `Guard` column is the RE-PROOF: a witnessed verdict answers what held at the
+// version it was taken under, and only an entry that runs again answers what holds after the next bump. A
+// dropped package carries `None` because nothing is left to bind — the resolution IS the removal, and a row
+// promising a re-proof over an absent assembly would fail forever while naming a risk that no longer exists.
+public sealed record SkewGuard(string Pair, string Mechanism, SkewVerdict Verdict, string Resolution, Option<string> Guard);
+
+public static class SkewGuards {
+    // Coverage is answered per (type, variant) cell rather than per type: the skin defines no variant-local
+    // values of its own and inherits every light/dark decision from the base theme, so a key that resolves
+    // under one variant and not the other is exactly the incoherence version proximity cannot see. A control
+    // type needing no theme — a Panel subclass with no template, a bare window host — carries none in EITHER
+    // variant and drops out of the report, so the answer names only asymmetric gaps.
+    public static Fin<Seq<string>> DockTheming(IResourceHost host, Seq<Type> controls, Seq<ThemeVariant> variants) =>
+        controls
+            .Map(control => (Control: control,
+                Resolved: variants.Filter(variant => host.TryFindResource(control, variant, out object? theme) && theme is ControlTheme)))
+            .Filter(row => !row.Resolved.IsEmpty && row.Resolved.Count < variants.Count)
+            .Map(row => row.Control.Name) switch {
+            { IsEmpty: true } gaps => Fin.Succ(gaps),
+            var gaps => Fin.Fail<Seq<string>>(new ProofFault.Text(
+                $"proof/skew-dock: {string.Join(", ", gaps.Take(12))} resolve a control theme under some variants and not others")),
+        };
+
+    // The framework's declared graphics dependency is a FLOOR the loader satisfies with a higher major under a
+    // matching public key, so a restore that resolves silently proves nothing and the only honest guard is the
+    // crossing itself: lease the api feature the render boundary hands out and touch a member on each side of
+    // the boundary. An absent feature IS the answer on a non-Skia backend, so the guard refuses by name rather
+    // than dereferencing null — the same probe a headless lane runs under stub drawing would otherwise pass
+    // vacuously while the pair it claims to prove was never exercised.
+    public static IO<Fin<Unit>> SkiaBoundary(ImmediateDrawingContext context) =>
+        IO.lift(() => context.TryGetFeature<ISkiaSharpApiLeaseFeature>(out ISkiaSharpApiLeaseFeature? feature) && feature is not null
+            ? Use(feature)
+            : Fin.Fail<Unit>(new ProofFault.Text("proof/skew-skia: the draw context hands out no Skia api lease")));
+
+    static Fin<Unit> Use(ISkiaSharpApiLeaseFeature feature) {
+        // Exemption: the lease restores the canvas matrix it captured at open, so the scope owns it and the
+        // leased canvas never leaves this frame.
+        using ISkiaSharpApiLease lease = feature.Lease();
+        return lease.SkCanvas is not null && SkiaSharpExtensions.ToSKColor(Colors.Transparent).Alpha == 0
+            ? Fin.Succ(unit)
+            : Fin.Fail<Unit>(new ProofFault.Text("proof/skew-skia: the leased canvas or the colour crossing did not resolve"));
+    }
+}
+```
+
+## [06]-[RESEARCH]
 
 (none)

@@ -33,7 +33,7 @@ Rasm.Persistence/            # refs the Rasm.Element seam + Rasm kernel ONLY; no
 │   ├── Tabular.cs           # Delimited and spreadsheet source lane
 │   ├── Schedule.cs          # Schedule-file codec and durable task-relation DAG
 │   ├── Geospatial.cs        # Geospatial feature source lane
-│   └── Issue.cs             # BCF issue-file codec and issue-cycle reconcile
+│   └── Issue.cs             # BCF issue-row seam and issue-cycle reconcile
 └── Store/                   # Durable-home and coordination substrate
     ├── BlobStore.cs         # Content-keyed object store with a write-blob-first seal
     ├── Schema.cs            # Sole current-state contract and immutable generation state machine
@@ -133,10 +133,12 @@ flowchart LR
     Bim e18@-->|"[WIRE]: BimEvent"| Version
     Ingest e7@<-->|"[WIRE]: TaskRelation"| Bim
     Bim e14@-->|"[WIRE]: GeoWire"| Ingest
+    Ingest e30@<-->|"[SHAPE]: BcfTopic⇄IssueTopic"| Bim
     RasmElement e27@-->|"[WIRE]: AnalyticsSchema"| Query
     Materials e19@-->|"[WIRE]: AnalyticsSchema"| Query
-    Materials e28@-->|"[CONTENT_KEY]: ArtifactIndexRow"| Query
+    Materials e28@-->|"[CONTENT_KEY]: TextureSet"| Query
     Compute e8@-->|"[CONTENT_KEY]: AssessmentPayload"| Version
+    Compute e29@-->|"[CONTENT_KEY]: ParityVerdict"| Version
     Compute e9@<-->|"[CONTENT_KEY]: VectorCodebook"| Query
     Compute e10@<-->|"[CONTENT_KEY]: ArtifactIndexRow"| Query
     Compute e20@-->|"[CONTENT_KEY]: ShardPlan"| Query

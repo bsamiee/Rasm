@@ -29,21 +29,20 @@
 |  [11]   | `IncludeMappingConfigurationAttribute(string)`                        | attribute            | configuration reuse by method    |
 |  [12]   | `MappingTargetAttribute`                                              | attribute            | existing-target parameter mark   |
 |  [13]   | `FormatProviderAttribute`                                             | attribute            | `IFormatProvider` member binding |
-|  [14]   | `ReferenceHandlerAttribute`                                           | attribute            | handler parameter binding        |
-|  [15]   | `MapPropertyAttribute(string\|string[], string\|string[])`            | repeatable attribute | rename flatten and unflatten     |
-|  [16]   | `MapPropertyFromSourceAttribute(string\|string[])`                    | repeatable attribute | whole-source member mapping      |
-|  [17]   | `MapNestedPropertiesAttribute(string\|string[])`                      | repeatable attribute | nested-source root flattening    |
-|  [18]   | `MapValueAttribute(string\|string[], object?)`                        | repeatable attribute | constant or computed assignment  |
-|  [19]   | `MapperIgnoreSourceAttribute(string)`                                 | repeatable attribute | source member exclusion          |
-|  [20]   | `MapperIgnoreTargetAttribute(string)`                                 | repeatable attribute | target member exclusion          |
-|  [21]   | `MapperRequiredMappingAttribute(RequiredMappingStrategy)`             | attribute            | per-method diagnostic policy     |
-|  [22]   | `MapperIgnoreObsoleteMembersAttribute(IgnoreObsoleteMembersStrategy)` | attribute            | per-method obsolete policy       |
-|  [23]   | `MapDerivedTypeAttribute(Type, Type)`                                 | repeatable attribute | derived-type switch arm          |
-|  [24]   | `MapDerivedTypeAttribute<TSource, TTarget>`                           | repeatable attribute | generic derived-type switch arm  |
-|  [25]   | `MapEnumAttribute(EnumMappingStrategy)`                               | attribute            | per-method enum policy           |
-|  [26]   | `MapEnumValueAttribute(object, object)`                               | repeatable attribute | explicit enum-member pairing     |
-|  [27]   | `MapperIgnoreSourceValueAttribute(object)`                            | repeatable attribute | source enum-value exclusion      |
-|  [28]   | `MapperIgnoreTargetValueAttribute(object)`                            | repeatable attribute | target enum-value exclusion      |
+|  [14]   | `MapPropertyAttribute(string\|string[], string\|string[])`            | repeatable attribute | rename flatten and unflatten     |
+|  [15]   | `MapPropertyFromSourceAttribute(string\|string[])`                    | repeatable attribute | whole-source member mapping      |
+|  [16]   | `MapNestedPropertiesAttribute(string\|string[])`                      | repeatable attribute | nested-source root flattening    |
+|  [17]   | `MapValueAttribute(string\|string[], object?)`                        | repeatable attribute | constant or computed assignment  |
+|  [18]   | `MapperIgnoreSourceAttribute(string)`                                 | repeatable attribute | source member exclusion          |
+|  [19]   | `MapperIgnoreTargetAttribute(string)`                                 | repeatable attribute | target member exclusion          |
+|  [20]   | `MapperRequiredMappingAttribute(RequiredMappingStrategy)`             | attribute            | per-method diagnostic policy     |
+|  [21]   | `MapperIgnoreObsoleteMembersAttribute(IgnoreObsoleteMembersStrategy)` | attribute            | per-method obsolete policy       |
+|  [22]   | `MapDerivedTypeAttribute(Type, Type)`                                 | repeatable attribute | derived-type switch arm          |
+|  [23]   | `MapDerivedTypeAttribute<TSource, TTarget>`                           | repeatable attribute | generic derived-type switch arm  |
+|  [24]   | `MapEnumAttribute(EnumMappingStrategy)`                               | attribute            | per-method enum policy           |
+|  [25]   | `MapEnumValueAttribute(object, object)`                               | repeatable attribute | explicit enum-member pairing     |
+|  [26]   | `MapperIgnoreSourceValueAttribute(object)`                            | repeatable attribute | source enum-value exclusion      |
+|  [27]   | `MapperIgnoreTargetValueAttribute(object)`                            | repeatable attribute | target enum-value exclusion      |
 
 Paired constructors order their arguments source then target. Each path-carrying attribute splits a `string` argument on `.` into segments while the `string[]` overload takes segments verbatim, exposing them as `Source`/`Target` and the rejoined path as `SourceFullName`/`TargetFullName`. Settable properties an author sets past the constructor:
 
@@ -90,12 +89,14 @@ Null-return mismatch throws when enabled and otherwise returns a default; null-p
 
 [PUBLIC_TYPE_SCOPE]: reference handling (`Riok.Mapperly.Abstractions.ReferenceHandling`), threaded through every mapping method once `UseReferenceHandling` is set.
 
-| [INDEX] | [SYMBOL]                   | [TYPE_FAMILY] | [CAPABILITY]                    |
-| :-----: | :------------------------- | :------------ | :------------------------------ |
-|  [01]   | `IReferenceHandler`        | interface     | cycle identity registry         |
-|  [02]   | `PreserveReferenceHandler` | sealed class  | generator-owned reference table |
+| [INDEX] | [SYMBOL]                    | [TYPE_FAMILY] | [CAPABILITY]                    |
+| :-----: | :-------------------------- | :------------ | :------------------------------ |
+|  [01]   | `IReferenceHandler`         | interface     | cycle identity registry         |
+|  [02]   | `PreserveReferenceHandler`  | sealed class  | generator-owned reference table |
+|  [03]   | `ReferenceHandlerAttribute` | attribute     | handler parameter binding       |
 
 - `IReferenceHandler`: resolves through `TryGetReference<TSource, TTarget>(TSource, out TTarget?)` and records through `SetReference<TSource, TTarget>(TSource, TTarget)`, both constraining source and target to `notnull`.
+- `ReferenceHandlerAttribute` seats in this namespace, NOT `Riok.Mapperly.Abstractions` with the rest of the attribute surface, so a mapping method taking a handler parameter carries a second `using`.
 
 ## [03]-[ENTRYPOINTS]
 
@@ -136,8 +137,10 @@ Null-return mismatch throws when enabled and otherwise returns a default; null-p
 [TOPOLOGY]:
 - Every attribute carries `[Conditional("MAPPERLY_ABSTRACTIONS_SCOPE_RUNTIME")]`, so the compiler reads its syntax and elides it from consumer IL.
 - Every `partial` mapping method's body generates as ordinary inspectable C# — direct assignment, object initialization, element loops, derived-type switches — leaving no mapping engine, runtime expression compilation, or reflection; target construction owns per-map allocation.
+- Every emitted type reference is `global::`-qualified and the generator carries no extern-alias machinery, so a type reachable only through an `extern alias` is UNADDRESSABLE from a generated body — that boundary stays hand-written no matter how mechanical the transcription looks.
 - `ProjectTo` emits a static expression tree the LINQ provider translates, so a projection never materializes the source graph; reference handling and projection are mutually exclusive by construction.
 - Unmapped members raise an `RMG` build diagnostic: `RequiredMappingStrategy` and `MapperRequiredMappingAttribute` set severity, `MapperIgnoreSourceAttribute` and `MapperIgnoreTargetAttribute` waive one member explicitly.
+- Completeness splits by SIDE under a whole-source reader (compile-probed): any `[MapPropertyFromSource(Use = …)]` member suppresses `RMG020` for EVERY source member of that mapping, touched or not, so source-side completeness proves only on reader-free mappings and a reader-bearing mapping's `[MapperIgnoreSource]` roster is authored inventory, never compiler proof; target-side `RMG012` is unaffected and escalates to `RMG013` + `CS7036` on a positional record. Diagnostic ids are `RMG012`/`RMG013`/`RMG020`, never four-digit.
 - Configuration resolves outward-in — assembly defaults, then class policy, then method attributes — so the narrowest declaration wins.
 
 [STACKING]:
@@ -156,6 +159,7 @@ Null-return mismatch throws when enabled and otherwise returns a default; null-p
 - Each mapper generates as a capsule whose declared partial shapes are its whole implementation; a domain decision inside a mapper body belongs to its owner.
 - Boundary policy declares on the mapper attribute: `[FormatProvider(Default = true)]` carries the culture, `ThrowOnPropertyMappingNullMismatch` and `AllowNullPropertyAssignment` carry the null contract, `EnumNamingStrategy.SerializationEnumMemberAttribute` aligns enum strings with the wire schema.
 - `EnabledConversions` narrows the automatic set where an implicit conversion masks a real mismatch — `All & ~ToStringMethod` keeps every conversion but the silent `ToString` fallback.
+- An `extern alias`-gated boundary — the parity-spread geometry packages among them — takes hand-written copyists by construction, so a seam crossing one is never carded as owed transcription.
 
 [RAIL_LAW]:
 - Package: `Riok.Mapperly`

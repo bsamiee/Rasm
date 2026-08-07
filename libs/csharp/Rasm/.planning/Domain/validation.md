@@ -175,7 +175,7 @@ public sealed partial record Requirement {
 - Owner: `OpAcceptance` internal static is the validity oracle and result-acceptance gate; `Op` fronts it publicly and `Analysis/query.md` routes it directly. Its name is frozen, keyed by the repository analyzer's docID.
 - Entry: `AcceptValue`/`AcceptInput`/`Accept`/`AcceptResults` gate one value, re-label the rejection, lift into `Seq`, and bridge a same-type sequence; heterogeneous raw-to-typed projection is `Numerics/atoms.md`'s `ProjectionRow`, never a `typeof` ladder here.
 - Law: `ValidityOf(object?)` is the single validity authority — it instruments only foreign material it cannot reach otherwise (Rhino geometry, host scalars screened against the unset sentinel, the Rhino value shapes) and routes every kernel-owned receipt through one `IValidityEvidence` arm.
-- Law: a kernel type reaches the oracle by implementing `IValidityEvidence` with a `ValidityClaim.All` fold (`rails.md`), never by adding an oracle arm; an unknown type is rejected by `AcceptValue`, so admitting a new result type is exactly one interface implementation.
+- Law: a kernel type reaches the oracle by implementing `IValidityEvidence` with a `ValidityClaim.All` fold (`rails.md`), never by adding an oracle arm; that arm is probed AHEAD of every category default, so a receipt also inhabiting a blanket-admitted category answers through its own fold rather than the category, and an unknown type is rejected by `AcceptValue` — admitting a new result type is exactly one interface implementation.
 - Law: Rhino value-shape validity rides compiled `Expression` lambdas in one `FrozenDictionary`, reflection-free per call and probed last before `None`.
 - Boundary: `OpAcceptance` is internal; the oracle never crosses the package seam, and the assembly-public gates are `Op`'s acceptance members and the readiness algebra.
 
@@ -233,12 +233,17 @@ internal static partial class OpAcceptance {
             Guid id => Some(id != Guid.Empty),
             string text => Some(!string.IsNullOrWhiteSpace(value: text)),
             Ray3d ray => Some(ray.Position.IsValid && ray.Direction.IsValid && !ray.Direction.IsTiny()),
+            // The evidence arm OUTRANKS every category default below it: a kernel receipt implementing this
+            // interface is a deliberate declaration, and the categories are conveniences for shapes carrying no
+            // fold. Seated after them, a receipt also inhabiting one — a Thinktecture `[SmartEnum<TKey>]` row,
+            // which conforms to `ISmartEnum<TKey>` across the kernel — was admitted unconditionally and its own
+            // `IsValid` was never read, so the one oracle answered a verdict its evidence contradicted.
+            IValidityEvidence evidence => Some(evidence.IsValid),
             bool or int or Enum or SurfaceCurvature or MeshCheckParameters or ISmartEnum<int> or ISmartEnum<string> => Some(value: true),
             MeshPoint m => Some(m.Point.IsValid && m.FaceIndex >= 0 && m.ComponentIndex is { ComponentIndexType: not ComponentIndexType.InvalidType, Index: >= 0 } && m.T.All(static t => RhinoMath.IsValidDouble(t))),
             ComponentIndex c => Some(c is { ComponentIndexType: not ComponentIndexType.InvalidType } ci && ci.Index >= 0),
             ValueTuple<double, double> t => Some(t is (double x, double y) && RhinoMath.IsValidDouble(x) && RhinoMath.IsValidDouble(y)),
             ValueTuple<double, Vector3d> t => Some(t is (double m, Vector3d a) && RhinoMath.IsValidDouble(m) && m >= 0.0 && a.IsValid && a.Length > EpsilonPolicy.ZeroTolerance),
-            IValidityEvidence evidence => Some(evidence.IsValid),
             _ => ValueValidity.GetValueOrDefault(source.GetType()) is Func<object, bool> fn ? Some(fn(source)) : Option<bool>.None,
         };
 }
@@ -364,6 +369,17 @@ public static class OpExtensions {
         [BoundaryAdapter]
         public Fin<TVO> AcceptValidated<TVO>(bool candidate) where TVO : IObjectFactory<TVO, bool, ValidationError> =>
             Validated<bool, TVO>(op: op, candidate: candidate);
+        [BoundaryAdapter]
+        public Fin<TVO> AcceptValidated<TVO>(Guid candidate) where TVO : IObjectFactory<TVO, Guid, ValidationError> =>
+            Validated<Guid, TVO>(op: op, candidate: candidate);
+        // The result-shaped sibling of the admission receivers: a smart-enum row resolves from the key a HOST READ
+        // answered, so an unmapped ordinal is `InvalidResult` — the read went wrong, no caller value was refused —
+        // and no site spells the `TryGet`-and-null-test ladder; both type arguments are explicit, key-first.
+        [BoundaryAdapter]
+        public Fin<TRow> Row<TKey, TRow>(TKey candidate) where TRow : class, ISmartEnum<TKey, TRow, ValidationError> =>
+            TRow.TryGet(candidate, out TRow? row)
+                ? Fin.Succ(value: row)
+                : Fin.Fail<TRow>(error: op.InvalidResult(detail: $"{typeof(TRow).Name} {candidate}"));
         [BoundaryAdapter]
         public Fin<TVO> AcceptValidated<TVO>(ValidationError? fault, object? admitted) where TVO : notnull =>
             (fault, admitted) switch {

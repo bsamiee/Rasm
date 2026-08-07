@@ -13,11 +13,11 @@ Ingress is honest: targets, spaces, and adjacency arrive off the concrete graph,
 
 - Owner: `EgressGraph` the per-request space-adjacency view (space nodes `NodeId`-keyed, door/corridor edges with clear width and length, exits marked), built once from the concrete `ElementGraph` and discarded with the run — a persistent second graph store is the deleted form; `OccupancyClass` `[SmartEnum<string>]` the occupant-load-factor policy rows (IBC Table 1004.5 / EN vocabulary as data); `EgressPolicy` the request policy record; `CirculationAnalysis` the runner fold; `EgressFinding` the per-space typed finding.
 - Cases: one exit-rooted path family drives travel, common path, dead end, and RSET; `MaxFlow` derives throughput; `SolveMaxFlowWithMinCost` prices the routable occupant flow without turning an over-capacity design into a solver fault; saturated adjacency arcs identify capacity bottlenecks without claiming an uncomputed cut partition.
-- Entry: `Run(graph, request, geometry, clock)` emits travel, dead-end, common-path, RSET, throughput, feasible distribution cost, width, and saturated-capacity facts; governing includes every acceptance check.
+- Entry: `Run(graph, request, geometry, clock)` emits travel, dead-end, common-path, RSET, throughput, feasible distribution cost, measured clear-width, under-width flag, and saturated-capacity facts; governing folds every MEASURED acceptance ratio, the clear-width one riding the offset-collapse bisection rather than a boolean.
 - Receipt: the shared assessment receipt carries achieved throughput; saturated arcs land as ONE `saturated-capacity-bottlenecks` `List` fact of typed `Reference` values (per-arc facts under a repeated name overwrite in the write-back `Results` bag); no circulation-local receipt exists.
-- Packages: QuikGraph (`AdjacencyGraph<TVertex, TEdge>`, `ShortestPathsDijkstra` → `TryFunc<TVertex, IEnumerable<TEdge>>` accessors, the SCC census — its first Compute consumer; `ShortestPathsAStar` is NOT composed and must not be proposed, because the egress question is every-space-to-nearest-exit and one exit-rooted Dijkstra tree per exit answers it whole, where a heuristic single-pair search would re-run per space-exit pair), Google.OrTools (`Google.OrTools.Graph` `MaxFlow`/`MinCostFlow` natives — each `IDisposable`, `int` node/arc indices, `long` capacities/costs; CP-SAT/MILP stay `Solver/optimizer`'s), Rasm.Element (`ElementGraph`, `NodeId`), Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox.
-- Growth: a new occupancy class is one `OccupancyClass` row; a new egress check is one fold over the same view; a new code edition is the route row's `SolverVersion` bump; zero new surface — a `TravelDistanceAnalyzer`/`ExitCapacityAnalyzer` sibling family the collapsed defect, a managed Edmonds-Karp beside the OrTools push-relabel the rejected reinvention. Seeded runners land one row/route/runner when chartered: MEP network-flow (`Discipline.Water`, the Todini global-gradient algebra over the sparse solver + QuikGraph), geometric room-acoustics (image-source over the clash BVH), and the `StronglyConnectedComponents` wayfinding deepening for multi-storey routes.
-- Boundary: flow capacities and costs quantize to `long`; saturated arcs are bottleneck candidates, not a min-cut partition. QuikGraph owns paths, occupancy is mandatory request evidence, and door width/geometry must resolve before either graph algorithm runs.
+- Packages: QuikGraph (`AdjacencyGraph<TVertex, TEdge>`, `ShortestPathsDijkstra` → `TryFunc<TVertex, IEnumerable<TEdge>>` accessors, `StronglyConnectedComponents` filling a caller-supplied `IDictionary<TVertex, int>` and returning the component count — its first Compute consumer; `ShortestPathsAStar` is NOT composed and must not be proposed, because the egress question is every-space-to-nearest-exit and one exit-rooted Dijkstra tree per exit answers it whole, where a heuristic single-pair search would re-run per space-exit pair), Google.OrTools (`Google.OrTools.Graph` `MaxFlow`/`MinCostFlow` natives — each `IDisposable`, `int` node/arc indices, `long` capacities/costs, `MinCostFlow` pre-sizing through its `(nodes, arcs)` ctor and its `Status` declared on the shared `MinCostFlowBase`; CP-SAT/MILP stay `Solver/optimizer`'s), Rasm.Element (`ElementGraph`, `NodeId`, `QuantityRows`/`BoundaryRows` the row vocabulary the door and boundary reads key), Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox.
+- Growth: a new occupancy class is one `OccupancyClass` row; a new egress check is one fold over the same view; a new code edition is the route row's `SolverVersion` bump; vertical circulation is one `EgressEdge` kind row carrying the SFPE stair/ramp specific-flow columns, which is also what makes a multi-storey merge expressible; zero new surface — a `TravelDistanceAnalyzer`/`ExitCapacityAnalyzer` sibling family the collapsed defect, a managed Edmonds-Karp beside the OrTools push-relabel the rejected reinvention.
+- Boundary: flow capacities and costs quantize to `long`; saturated arcs are bottleneck candidates, not a min-cut partition. QuikGraph owns paths, occupancy is mandatory request evidence, and door width/geometry must resolve before either graph algorithm runs. The graph this page assesses is PLANAR and single-storey: `EgressEdge` carries `ClearWidthM`/`LengthM` alone, so every travel, capacity, and RSET fold reads one storey's horizontal circulation and a stair or ramp has no column to declare its specific flow on. Solver node addressing builds ONE keyed index per solve — a linear scan per arc is `O(n²)` over the arc set. Clear width is MEASURED, never flagged into the ratio channel: a boolean lifted to an epsilon above unity is a utilization no probe produced.
 
 ```csharp signature
 // --- [TYPES] -------------------------------------------------------------------------------
@@ -82,19 +82,25 @@ public readonly record struct EgressFinding(NodeId Space, double TravelM, NodeId
 
 // --- [OPERATIONS] --------------------------------------------------------------------------
 public static class CirculationAnalysis {
+    const double WidthFloorM = 1e-9;   // divisor floor for a fully collapsed passage
+
     public static Fin<AssessmentResult> Run(ElementGraph graph, AssessmentRequest.Circulation request, GeometrySource geometry, IClock clock) =>
         from view in EgressView.Of(graph, request, geometry)
         from findings in Travel(view, request.Policy)
         from capacity in Capacity(view, request.Policy)
         from distribution in Distribute(view, request.Policy)
-        let govern = Governing(findings, capacity, view.Boundaries.Exists(b => EgressView.UnderWidth(b.Boundary, request.Policy.MinimumClearWidthM)), request.Policy)
+        // Widths measure ONCE per boundary and feed both the governing ratio and the emitted evidence, so the probe
+        // never runs twice for one question and the ratio and the fact cannot disagree.
+        let widths = view.Boundaries.Map(b => (b.Space, WidthM: EgressView.ClearWidthM(b.Boundary, request.Policy.MinimumClearWidthM)))
+        let govern = Governing(findings, capacity, widths, request.Policy)
         from travel in findings.TraverseM(f => AssessmentFact.Ratio($"{f.Space.Value}/travel-distance", f.TravelM / request.Policy.AllowableTravelM)).As()
         from deadEnds in findings.Filter(static f => f.DeadEndM > 0.0).TraverseM(f => AssessmentFact.Ratio($"{f.Space.Value}/dead-end", f.DeadEndM / request.Policy.AllowableDeadEndM)).As()
         from commonPaths in findings.Filter(static f => f.CommonPathM > 0.0).TraverseM(f => AssessmentFact.Ratio($"{f.Space.Value}/common-path", f.CommonPathM / request.Policy.AllowableCommonPathM)).As()
         from rset in findings.TraverseM(f => AssessmentFact.Measure($"{f.Space.Value}/rset", Dimension.DurationDim, f.RsetMinutes * 60.0)).As()
         let nearestExits = findings.Map(static finding => AssessmentFact.Reference($"{finding.Space.Value}/nearest-exit", finding.NearestExit))
-        let underWidth = view.Boundaries.Filter(b => EgressView.UnderWidth(b.Boundary, request.Policy.MinimumClearWidthM))
-            .Map(b => AssessmentFact.Flag($"{b.Space.Value}/under-width", true))
+        from clearWidths in widths.TraverseM(row => AssessmentFact.Measure($"{row.Space.Value}/clear-width", Dimension.LengthDim, row.WidthM)).As()
+        let underWidth = widths.Filter(row => row.WidthM < request.Policy.MinimumClearWidthM)
+            .Map(static row => AssessmentFact.Flag($"{row.Space.Value}/under-width", true))
         from exits in AssessmentFact.Rows(
             AssessmentFact.Ratio("exit-capacity", capacity.DemandOccupants / Math.Max(1.0, capacity.ThroughputOccupants)),
             AssessmentFact.Measure("evacuation-throughput", Dimension.Dimensionless, capacity.ThroughputOccupants),
@@ -107,7 +113,7 @@ public static class CirculationAnalysis {
                 capacity.Bottleneck.Map(static edge => (PropertyValue)new PropertyValue.Reference(edge.From))))
         select AssessmentResult.Of(
             request.Route,
-            travel + deadEnds + commonPaths + rset + nearestExits + underWidth + exits + bottlenecks,
+            travel + deadEnds + commonPaths + rset + nearestExits + clearWidths + underWidth + exits + bottlenecks,
             govern,
             new Provenance("CirculationAnalysis", request.Route.Standard, request.Route.SolverVersion, clock.GetCurrentInstant()));
 
@@ -154,20 +160,30 @@ public static class CirculationAnalysis {
     // Exemption: the OrTools arc-building loop is the native-solver marshaling statement seam.
     static Fin<(double DemandOccupants, double ThroughputOccupants, Seq<EgressEdge> Bottleneck)> Capacity(EgressGraph view, EgressPolicy policy) {
         using Google.OrTools.Graph.MaxFlow flow = new();
-        Seq<NodeId> index = (view.Spaces.Map(static s => s.Space) + view.Exits).Distinct().ToSeq();
-        int NodeOf(NodeId id) => index.FindIndex(v => v == id) + 2;
+        Map<NodeId, int> index = NodeIndex(view, offset: 2);
+        int NodeOf(NodeId id) => index[id];
         foreach ((NodeId Space, double AreaM2, OccupancyClass Occupancy) space in view.Spaces) { flow.AddArcWithCapacity(0, NodeOf(space.Space), view.OccupantLoad(space)); }
-        Seq<(int Arc, EgressEdge Edge)> arcs = view.Adjacency.Edges.ToSeq().Map(edge =>
-            (flow.AddArcWithCapacity(NodeOf(edge.From), NodeOf(edge.To), (long)Math.Round(edge.ClearWidthM * policy.CapacityPerMetreWidth)), edge));
+        // Each arc carries the capacity it was BUILT with, so saturation compares two values this fold already holds.
+        Seq<(int Arc, long Capacity, EgressEdge Edge)> arcs = view.Adjacency.Edges.ToSeq().Map(edge => {
+            long capacity = (long)Math.Round(edge.ClearWidthM * policy.CapacityPerMetreWidth);
+            return (flow.AddArcWithCapacity(NodeOf(edge.From), NodeOf(edge.To), capacity), capacity, edge);
+        });
         foreach (NodeId exit in view.Exits) { flow.AddArcWithCapacity(NodeOf(exit), 1, long.MaxValue / 4); }
         return flow.Solve(0, 1) switch {
             Google.OrTools.Graph.MaxFlow.Status.OPTIMAL => Fin.Succ((
                 (double)view.Spaces.Sum(view.OccupantLoad),
                 (double)flow.OptimalFlow(),
-                arcs.Filter(pair => flow.Flow(pair.Arc) == flow.Capacity(pair.Arc)).Map(static pair => pair.Edge))),
+                arcs.Filter(pair => flow.Flow(pair.Arc) == pair.Capacity).Map(static pair => pair.Edge))),
             Google.OrTools.Graph.MaxFlow.Status status => Fin.Fail<(double, double, Seq<EgressEdge>)>(new ComputeFault.AnalysisFailed(SolvePhase.Solve, FailureKind.Numeric, $"<egress-flow:{status}>")),
         };
     }
+
+    // Solver node addressing is ONE keyed index built per solve; the linear FindIndex it replaces made every arc
+    // build an O(n) scan and the whole arc set O(n²) on a corpus-scale storey. The offset reserves the super-source
+    // and super-sink ordinals each flow rail claims.
+    static Map<NodeId, int> NodeIndex(EgressGraph view, int offset) =>
+        (view.Spaces.Map(static s => s.Space) + view.Exits).Distinct().ToSeq()
+            .Fold(Map<NodeId, int>(), (acc, id) => acc.ContainsKey(id) ? acc : acc.Add(id, acc.Count + offset));
 
     // DISTRIBUTION: occupant load routed to exits at least travel cost through MinCostFlow — supplies at spaces, one
     // drain per exit, arc costs the corridor lengths quantized to millimetres so the long costs are exact; the optimal
@@ -175,9 +191,10 @@ public static class CirculationAnalysis {
     // screens on. A non-OPTIMAL status is the typed solve verdict.
     // Exemption: the OrTools arc-building loop is the native-solver marshaling statement seam.
     static Fin<double> Distribute(EgressGraph view, EgressPolicy policy) {
-        using Google.OrTools.Graph.MinCostFlow flow = new();
-        Seq<NodeId> index = (view.Spaces.Map(static s => s.Space) + view.Exits).Distinct().ToSeq();
-        int NodeOf(NodeId id) => index.FindIndex(v => v == id) + 1;
+        Map<NodeId, int> index = NodeIndex(view, offset: 1);
+        // Pre-sized ctor: the node and arc counts are known before the first Add, so the engine allocates once.
+        using Google.OrTools.Graph.MinCostFlow flow = new(index.Count + 1, view.Adjacency.EdgeCount + view.Exits.Count);
+        int NodeOf(NodeId id) => index[id];
         long total = view.Spaces.Sum(view.OccupantLoad);
         foreach ((NodeId Space, double AreaM2, OccupancyClass Occupancy) space in view.Spaces) { flow.SetNodeSupply(NodeOf(space.Space), view.OccupantLoad(space)); }
         foreach (EgressEdge edge in view.Adjacency.Edges) {
@@ -186,28 +203,34 @@ public static class CirculationAnalysis {
         }
         foreach (NodeId exit in view.Exits) { flow.AddArcWithCapacityAndUnitCost(NodeOf(exit), 0, long.MaxValue / 4, 0); }
         flow.SetNodeSupply(0, -total);
+        // Status is declared on MinCostFlowBase, the shared node/arc base MinCostFlow derives from.
         return flow.SolveMaxFlowWithMinCost() switch {
-            Google.OrTools.Graph.MinCostFlow.Status.OPTIMAL => Fin.Succ(flow.OptimalCost() / 1000.0),
-            Google.OrTools.Graph.MinCostFlow.Status status => Fin.Fail<double>(new ComputeFault.AnalysisFailed(SolvePhase.Solve, FailureKind.Numeric, $"<egress-distribution:{status}>")),
+            Google.OrTools.Graph.MinCostFlowBase.Status.OPTIMAL => Fin.Succ(flow.OptimalCost() / 1000.0),
+            Google.OrTools.Graph.MinCostFlowBase.Status status => Fin.Fail<double>(new ComputeFault.AnalysisFailed(SolvePhase.Solve, FailureKind.Numeric, $"<egress-distribution:{status}>")),
         };
     }
 
-    // Governing: worst travel ratio, capacity demand/throughput, and — when the policy states a performance target —
-    // Worst RSET compares against the target; informational zero-target RSET contributes nothing.
-    static double Governing(Seq<EgressFinding> findings, (double Demand, double Throughput, Seq<EgressEdge> Bottleneck) capacity, bool underWidth, EgressPolicy policy) =>
+    // Governing folds MEASURED ratios only: worst travel/dead-end/common-path, the policy-gated RSET, the capacity
+    // demand-over-throughput, and the clear-width demand-over-achieved. Width is a real quantity the Clipper2
+    // offset-collapse bisection measures, so its ratio is reproducible and chartable — the `BitIncrement(1.0)`
+    // epsilon it replaces smuggled a boolean into the ratio channel as "just over unity", a number no probe emitted
+    // and no operator could reproduce, while the flag it stood for now rides the typed AssessmentFact.Flag stream.
+    static double Governing(Seq<EgressFinding> findings, (double DemandOccupants, double ThroughputOccupants, Seq<EgressEdge> Bottleneck) capacity, Seq<(NodeId Space, double WidthM)> widths, EgressPolicy policy) =>
         Math.Max(
             Math.Max(
                 findings.Map(f => Math.Max(f.TravelM / policy.AllowableTravelM,
-                    Math.Max(f.DeadEndM / policy.AllowableDeadEndM, f.CommonPathM / policy.AllowableCommonPathM))).Max() | 0.0,
-                policy.AllowableRsetMinutes > 0.0 ? (findings.Map(f => f.RsetMinutes / policy.AllowableRsetMinutes).Max() | 0.0) : 0.0),
-            Math.Max(capacity.Demand / Math.Max(1.0, capacity.Throughput), underWidth ? Math.BitIncrement(1.0) : 0.0));
+                    Math.Max(f.DeadEndM / policy.AllowableDeadEndM, f.CommonPathM / policy.AllowableCommonPathM))).Max(0.0),
+                policy.AllowableRsetMinutes > 0.0 ? findings.Map(f => f.RsetMinutes / policy.AllowableRsetMinutes).Max(0.0) : 0.0),
+            Math.Max(
+                capacity.DemandOccupants / Math.Max(1.0, capacity.ThroughputOccupants),
+                widths.Map(row => policy.MinimumClearWidthM / Math.Max(row.WidthM, WidthFloorM)).Max(0.0)));
 }
 ```
 
 ## [03]-[PLANAR_SIDE]
 
 - Owner: `EgressView` the ingress projection building the view — space boundaries resolved through the `GeometrySource` port (or decoded off the kernel slice-stack story contours), occupant areas the NTS polygon areas, corridor clearance the Clipper2 inward offset, isovists the planar sight fold; `SpaceBoundary` the resolved planar carrier.
-- Entry: `Of(graph, request, geometry)` resolves each space's boundary by content key through the `GeometrySource` port (an unresolvable boundary rails `AnalysisFailed(Admission, Input, "<space-boundary-unresolved:…>")`), derives occupant areas off NTS `Polygon.Area`, corridor clear widths off the Clipper2 inward `InflatePaths(paths, -delta, JoinType.Miter, EndType.Polygon)` collapse test (an offset vanishing at half the minimum clear width is under-width — the medial axis without a hand-rolled skeleton), and door adjacency off the opening edges.
+- Entry: `Of(graph, request, geometry)` resolves each space's boundary by content key through the `GeometrySource` port (an unresolvable boundary rails `AnalysisFailed(Admission, Input, "<space-boundary-unresolved:…>")`), derives occupant areas off NTS `Polygon.Area`, corridor clear widths off the Clipper2 inward `InflatePaths(paths, -delta, JoinType.Miter, EndType.Polygon)` collapse bisection (the largest surviving inward offset is the inradius, so twice it is the narrowest passage — the medial axis without a hand-rolled skeleton, and a MEASURED width rather than a predicate), and door adjacency off the opening edges.
 - Packages: NetTopologySuite (`Polygon`/`MultiPolygon`, `Geometry.Buffer`/`Area`/`Intersection` — the isovist and occupant-area folds), Clipper2 (`InflatePaths`/`Union` — the corridor-clearance offset), Rasm (project — the decoded `SliceStack` story-contour wire), Rasm.Element.
 - Growth: a new planar check (exit-signage isovist, refuge-area fold) is one fold over the same boundaries; zero new surface.
 - Boundary: NTS/Clipper2 are float production-plane tools at the discipline boundary — no predicate decisions ride them, the kernel staying the exact-geometry owner, never a second exact rail; the floor-plate ingress is the decoded kernel slice-stack wire (`Rasm/Meshing/slice` `Slicing.Apply` story contours through `LayerPlan.AtElevations`, outer-CCW/holes-CW), Compute decoding and never re-slicing; boundary resolution is the one `GeometrySource` port, a circulation-local decode path the deleted form.
@@ -220,8 +243,6 @@ public sealed record SpaceBoundary(NodeId Space, NetTopologySuite.Geometries.Pol
 
 public static class EgressView {
     const string SpaceBoundaryWire = "IfcRelSpaceBoundary";
-    static readonly PropertyName HostAttr = PropertyName.Create("Host");
-    static readonly PropertyName WidthQuantity = PropertyName.Create("Width");
     static readonly NetTopologySuite.Geometries.GeometryFactory Planar = new();
 
     // Ingress projects (1) boundaries by resolving each target footprint through
@@ -233,7 +254,7 @@ public static class EgressView {
     // bounding exactly ONE space discharges to the exterior and IS an exit node; (3) CONNECTIVITY CENSUS — the
     // StronglyConnectedComponents sweep rails a no-exit component as one typed (Admission, Input) failure naming a
     // member space, before any per-space fold runs; the retained Boundaries carry the resolved polygons the Run-side
-    // Clipper2 under-width probe folds into per-space flags.
+    // Clipper2 bisection measures each per-space clear width from.
     public static Fin<EgressGraph> Of(ElementGraph graph, AssessmentRequest.Circulation request, GeometrySource geometry) =>
         request.Targets
             .TraverseM(id => graph.Find<Node.Object>(id)
@@ -250,9 +271,9 @@ public static class EgressView {
                 Seq<(NodeId Space, double AreaM2, OccupancyClass Occupancy)> spaces = admitted.Map(static row =>
                     (row.Space, row.Boundary.Area, row.Occupancy));
                 Seq<(NodeId Space, NodeId Door)> doorBindings = resolved.Bind(r =>
-                    graph.EdgesAt(r.Space).Choose(e => e is Relationship.Generic g && g.WireName == SpaceBoundaryWire && g.Relating == r.Space && g.Attributes.Find(HostAttr).IsSome
+                    graph.EdgesAt(r.Space).Choose(e => e is Relationship.Generic g && g.WireName == SpaceBoundaryWire && g.Relating == r.Space && g.Attribute(BoundaryRows.Host).IsSome
                         ? Some((r.Space, g.Related)) : None).ToSeq());
-                Seq<NodeId> exits = doorBindings.GroupBy(static b => b.Door).Filter(static g => g.Count() == 1).Map(static g => g.Key).ToSeq();
+                Seq<NodeId> exits = toSeq(doorBindings.GroupBy(static b => b.Door)).Filter(static g => g.Count() == 1).Map(static g => g.Key);
                 Seq<SpaceBoundary> boundaries = admitted.Map(static row => new SpaceBoundary(row.Space, row.Boundary, row.Occupancy));
                 return DoorEdges(graph, geometry, resolved, doorBindings)
                     .Bind(edges => {
@@ -290,7 +311,7 @@ public static class EgressView {
     // space-centroid; exterior doors add both directions so exit-rooted and occupant-rooted algorithms share one view.
     static Fin<Seq<EgressEdge>> DoorEdges(ElementGraph graph, GeometrySource geometry,
         Seq<(NodeId Space, NetTopologySuite.Geometries.Polygon Boundary)> resolved, Seq<(NodeId Space, NodeId Door)> bindings) =>
-        bindings.GroupBy(static binding => binding.Door).ToSeq().TraverseM(door =>
+        toSeq(bindings.GroupBy(static binding => binding.Door)).TraverseM(door =>
             from width in DoorWidth(graph, door.Key)
                 .ToFin(new ComputeFault.AnalysisFailed(SolvePhase.Admission, FailureKind.Input, $"<egress-door-width-unresolved:{door.Key.Value}>"))
             from point in graph.Find<Node.Object>(door.Key).Bind(node => geometry.Footprint(node.Representations)).Filter(static footprint => !footprint.IsEmpty)
@@ -310,11 +331,7 @@ public static class EgressView {
             select edges)
         .As().Map(static rows => rows.Fold(Seq<EgressEdge>(), static (edges, row) => edges + row));
 
-    static Option<double> DoorWidth(ElementGraph graph, NodeId door) =>
-        graph.EdgesAt(door).Choose(e => e is Relationship.Assign { SubKind: AssignKind.PropertyDefinition } a && a.Subject == door
-                ? graph.Find<Node.QuantitySet>(a.Definition) : None)
-            .Choose(q => q.Bag.Values.Find(WidthQuantity))
-            .Head.Map(static m => m.Si);
+    static Option<double> DoorWidth(ElementGraph graph, NodeId door) => graph.Magnitude(door, QuantityRows.Width);
 
     static Fin<NetTopologySuite.Geometries.Point> Centroid(Seq<(NodeId Space, NetTopologySuite.Geometries.Polygon Boundary)> resolved, NodeId space) =>
         resolved.Find(row => row.Space == space).Map(static row => row.Boundary.Centroid)
@@ -323,7 +340,10 @@ public static class EgressView {
     // SCC connectivity census classifies a space component reaching no exit as a no-egress island — one typed
     // failure naming a member space, railed BEFORE the per-space travel fold spends its per-exit Dijkstra sweeps.
     static Fin<Unit> Census(QuikGraph.AdjacencyGraph<NodeId, EgressEdge> adjacency, Seq<(NodeId Space, double AreaM2, OccupancyClass Occupancy)> spaces, Seq<NodeId> exits) {
-        adjacency.StronglyConnectedComponents(out System.Collections.Generic.IDictionary<NodeId, int> components);
+        // The labeling extension FILLS a supplied dictionary and returns the component count — the caller owns the
+        // map, so it is constructed here rather than recovered from an out parameter the surface does not carry.
+        System.Collections.Generic.Dictionary<NodeId, int> components = [];
+        adjacency.StronglyConnectedComponents(components);
         Seq<int> exitComponents = exits.Choose(e => components.TryGetValue(e, out int c) ? Some(c) : None).Distinct();
         return spaces.Find(s => components.TryGetValue(s.Space, out int c) && !exitComponents.Contains(c)).Match(
             Some: s => Fin.Fail<Unit>(new ComputeFault.AnalysisFailed(SolvePhase.Admission, FailureKind.Input, $"<egress-island:{s.Space.Value}>")),
@@ -333,12 +353,26 @@ public static class EgressView {
     static NetTopologySuite.Geometries.Polygon Polygon(FootprintPolygon footprint) =>
         Planar.CreatePolygon([.. footprint.Ring.Map(static p => new NetTopologySuite.Geometries.Coordinate(p.X, p.Y)), new(footprint.Ring[0].X, footprint.Ring[0].Y)]);
 
-    // Corridor clearance as offset collapse: the inward Clipper2 inflate at -MinimumClearWidth/2 vanishing marks
-    // under-width — the medial axis without a hand-rolled skeleton. Ring coordinates lift onto PathsD once; a Miter
-    // join keeps re-entrant corners honest where a Round join would smooth a pinch past the test.
-    public static bool UnderWidth(NetTopologySuite.Geometries.Polygon corridor, double minimumClearWidthM) {
+    const int WidthBisections = 12;   // inflate-delta refinements — sub-millimetre over any code clear-width bracket
+
+    // Corridor clearance MEASURES rather than flags: the largest inward Clipper2 inflate a polygon survives is its
+    // inradius, so the narrowest passage is twice that, and a bounded bisection over the inflate delta reads the
+    // width directly — the medial axis without a hand-rolled skeleton. The policy minimum is the upper bracket, so a
+    // compliant corridor costs ONE probe and reports at-or-above minimum without measuring further; only a pinched
+    // one pays the refinement. Ring coordinates lift onto PathsD once; a Miter join keeps re-entrant corners honest
+    // where a Round join would smooth a pinch past the test.
+    public static double ClearWidthM(NetTopologySuite.Geometries.Polygon corridor, double minimumClearWidthM) {
         Clipper2Lib.PathsD paths = [[.. corridor.ExteriorRing.Coordinates.Select(static c => new Clipper2Lib.PointD(c.X, c.Y))]];
-        return Clipper2Lib.Clipper.InflatePaths(paths, -minimumClearWidthM / 2.0, Clipper2Lib.JoinType.Miter, Clipper2Lib.EndType.Polygon).Count == 0;
+        bool Survives(double delta) =>
+            Clipper2Lib.Clipper.InflatePaths(paths, -delta, Clipper2Lib.JoinType.Miter, Clipper2Lib.EndType.Polygon).Count > 0;
+        double half = minimumClearWidthM / 2.0;
+        if (Survives(half)) { return minimumClearWidthM; }
+        (double Low, double High) bracket = (0.0, half);
+        for (int step = 0; step < WidthBisections; step++) {
+            double mid = 0.5 * (bracket.Low + bracket.High);
+            bracket = Survives(mid) ? (mid, bracket.High) : (bracket.Low, mid);
+        }
+        return 2.0 * bracket.Low;
     }
 }
 ```

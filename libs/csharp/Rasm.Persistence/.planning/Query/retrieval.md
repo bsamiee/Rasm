@@ -8,6 +8,7 @@ Rasm.Persistence owns the coupled ANN retrieval subsystem behind the `Query/lane
 - [03]-[LEXICAL_ALGEBRA]: the `Bm25Predicate` typed builder/operator/cast union, the `SearchProjection` score/snippet surface, and the `LexicalRank` ts_rank fallback arm.
 - [04]-[VECTOR_CODEBOOK]: the `ProductCodebook` Compute encodes against, the per-subspace k-means training, the coarse→fine fine-form resolve, the amortized asymmetric-distance corpus scan, and the `RetrievalFault` band.
 - [05]-[FUSION_AND_REUSE]: the typed `RetrievalBranch` axis, the n-ary reciprocal-rank fusion with per-hit lineage, the receipt-keyed read-through reuse, and the one `RetrievalOp` entry.
+- [06]-[DOCUMENT_CORPUS]: the document full-text index lane — its `CorpusKind` roster, index custody, the `DocumentPredicate` lowering, and the `DocumentQuery`/`DocumentHit` wire the app-shell search plane consumes.
 
 ## [02]-[SEARCH_PROVISIONING_PROBE]
 
@@ -257,13 +258,18 @@ public static class SearchProjection {
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class LexicalRank {
     public static readonly LexicalRank Bm25 = new("bm25",
-        static (key, _) => $"pdb.score({key}) DESC",
+        static (key, _) => $"pdb.score({key})",
         static (column, terms) => new Bm25Predicate.Parse(terms, Lenient: true, Conjunction: false).Sql(column));
     public static readonly LexicalRank TsRank = new("ts_rank",
-        static (_, terms) => $"ts_rank(lexemes, websearch_to_tsquery('english', '{Bm25Predicate.Lit(terms)}')) DESC",
+        static (_, terms) => $"ts_rank(lexemes, websearch_to_tsquery('english', '{Bm25Predicate.Lit(terms)}'))",
         static (_, terms) => $"lexemes @@ websearch_to_tsquery('english', '{Bm25Predicate.Lit(terms)}')");
 
-    [UseDelegateFromConstructor] public partial string Rank(Identifier keyColumn, string terms);
+    [UseDelegateFromConstructor] public partial string Score(Identifier keyColumn, string terms);
+
+    // The projected score is PRIMARY and the order fragment DERIVES from it, so an arm cannot project one
+    // expression while ordering by another, and a caller needing the score as a column takes the same row.
+    public string Rank(Identifier keyColumn, string terms) => $"{Score(keyColumn, terms)} DESC";
+
     [UseDelegateFromConstructor] public partial string MatchSql(Identifier column, string terms);
 }
 ```
@@ -273,8 +279,9 @@ public sealed partial class LexicalRank {
 |  [01]   | lexical predicate | `Bm25Predicate` closed union       | one case per builder/operator/cast; `Sql()` the one lowering |
 |  [02]   | cast stacking     | modifier cases wrap `Inner`        | `::pdb.fuzzy(...)::pdb.boost(...)` in cast order, structural |
 |  [03]   | score anchor      | `pdb.score(<key_field>)`           | identities projected; payloads never re-materialized         |
-|  [04]   | degrade           | `LexicalRank.TsRank` row           | same CTE, `websearch_to_tsquery` only; visible in lineage    |
-|  [05]   | escaping          | `Identifier` gate + one `Lit` seam | structural; a quote-bearing term is inert literal text       |
+|  [04]   | order derivation  | `Rank` derives from `Score`        | one expression projects and orders; arms cannot disagree     |
+|  [05]   | degrade           | `LexicalRank.TsRank` row           | same CTE, `websearch_to_tsquery` only; visible in lineage    |
+|  [06]   | escaping          | `Identifier` gate + one `Lit` seam | structural; a quote-bearing term is inert literal text       |
 
 ## [04]-[VECTOR_CODEBOOK]
 
@@ -645,7 +652,161 @@ public static class Retrieval {
 |  [05]   | cache identity     | selection-result reuse                   | distinct from `Query/cache`'s compute-result index                |
 |  [06]   | index ownership    | GiST spatial, pgvector ANN, BM25 lexical | DuckDB is the columnar aggregator, never the index                |
 
-## [06]-[RESEARCH]
+## [06]-[DOCUMENT_CORPUS]
+
+- Owner: `CorpusKind` is the closed document-source roster whose keys ARE the wire tokens the consuming shell spells; `CorpusRow` is the indexed row the lane admits and the projection returns identity from; `DocumentPredicate` is the closed token-to-`Bm25Predicate` lowering; `DocumentQuery`/`DocumentHit` are the consumed query and answer wire; `DocumentCorpus` owns admission, statement composition, and hit shaping.
+- Cases: `CorpusKind` is `Cell | Prose | Issue | Evidence`; `DocumentPredicate` is `Match | Phrase | PhrasePrefix | Regex`, one row per grammar the consumer's own vocabulary closes.
+- Entry: `public static Fin<string> Statement(DocumentQuery query, LexicalRank rank)` admits the wire ONCE — non-blank terms, a non-empty scope of admitted `CorpusKind` keys, a bounded limit — then lowers the predicate token, the scope filter, the subject narrowing, and the rank arm's own score and order fragments into one statement; `public static Fin<DocumentHit> Shape(...)` folds one projected row into the answer wire.
+- Auto: this corpus is a `RetrievalBranch.Lexical` residence, so a document search is a first-class branch a `#FUSION_AND_REUSE` `Fuse` can take beside the vector and spatial branches without a second ranked-list shape. The predicate token selects its `Bm25Predicate` case and the whole-word column selects the exact-term operator inside the `Match` row alone — a phrase already bounds its tokens, a prefix contradicts a boundary by construction, and a pattern carries its own. Case sensitivity is NOT an index property: the `bm25` analyzer case-folds at build, so the lane narrows case-insensitively and gates the matched set with a positional containment test before ranking. The snippet, its positions, and the score all project through `#LEXICAL_ALGEBRA` — `SearchProjection.Snippet`, `SearchProjection.SnippetPositions`, and the rank row's own `Score` — so the degrade arm answers the same column set at reduced lexical power.
+- Receipt: a document search rides the `#FUSION_AND_REUSE` `store.fusion.rank` branch lineage under `RetrievalBranch.Lexical`, so the arm that ranked it is visible without a second fact.
+- Packages: `pg_search` (server-side — the `pdb` schema, the `bm25` access method), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox.
+- Growth: a new document source is one `CorpusKind` row both ends already spell; a new grammar is one `DocumentPredicate` row lowering to an existing `Bm25Predicate` case; zero new surface and no second corpus relation.
+- Boundary: INDEX CUSTODY IS THIS OWNER'S and the consuming shell holds none — the corpus relation, its `bm25` index with `content_key` as the declared `key_field`, its generated `lexemes` tsvector for the degrade arm, and the ingest that lands rows from the durable owners all live here, so a shell-side index is the deleted form. Index DDL still lands via raw `MigrationBuilder.Sql` on the EF migration rail (`Element/identity#SCHEMA_VERDICT`) exactly as `#LEXICAL_ALGEBRA` rules — this section emits QUERY SQL only. The wire is the WHOLE contract with `csharp:Rasm.AppUi/Document/search#INDEX_WIRE`: field names are frozen and both ends transcribe them, the grammar crosses as a predicate token rather than a second vocabulary, the scope crosses as `CorpusKind` keys, and the limit ceiling agrees at both admissions so neither end can accept what the other refuses. The projection returns IDENTITIES, snippet text, positions, and a score alone — the body a hit matched never re-crosses, because the row store already holds it and a returned payload would fork residence. The wire carries no rank-arm column: which branch ranked a hit is this lane's own receipt lineage, and a copy on the wire would be a column the consumer never reads. Every identifier admits through the `#COLUMNAR_LANE` `Identifier` trust gate and every free-text payload crosses the one `Bm25Predicate.Lit` seam, so a quote-bearing term is inert literal text by construction.
+
+```csharp signature
+// --- [TYPES] ------------------------------------------------------------------------------
+// The corpus roster is the CONSUMER's own source vocabulary: keys are the frozen wire tokens both ends
+// spell, so a scope filter arriving on the wire and a stored row's kind are one value read twice.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class CorpusKind {
+    public static readonly CorpusKind Cell = new("cell");
+    public static readonly CorpusKind Prose = new("prose");
+    public static readonly CorpusKind Issue = new("issue");
+    public static readonly CorpusKind Evidence = new("evidence");
+}
+
+// One wire token lowers to ONE `Bm25Predicate` case. The whole-word column is read by the `Match` row
+// alone — the exact-term operator IS word-boundary matching — because a phrase already bounds its tokens,
+// a prefix contradicts a boundary by construction, and a pattern carries its own.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class DocumentPredicate {
+    public static readonly DocumentPredicate Match = new("match",
+        static (terms, whole) => whole
+            ? (Bm25Predicate)new Bm25Predicate.ExactTerm(terms)
+            : new Bm25Predicate.Match(terms, Distance: None, Prefix: false, Conjunction: true));
+    public static readonly DocumentPredicate Phrase = new("phrase",
+        static (terms, _) => new Bm25Predicate.Phrase(terms));
+    public static readonly DocumentPredicate PhrasePrefix = new("phrase-prefix",
+        static (terms, _) => new Bm25Predicate.PhrasePrefix(
+            toSeq(terms.Split(' ', StringSplitOptions.RemoveEmptyEntries)), MaxExpansions: None));
+    public static readonly DocumentPredicate Regex = new("regex",
+        static (terms, _) => new Bm25Predicate.Regex(terms));
+
+    [UseDelegateFromConstructor] public partial Bm25Predicate Lower(string terms, bool wholeWords);
+}
+
+// --- [MODELS] -----------------------------------------------------------------------------
+// The indexed row. `ContentKey` is the declared `key_field` the score anchors on and the identity the
+// projection returns, so a hit resolves to its owner with no payload re-materialization; `Kind`, `Subject`,
+// and `Member` are the consumer's own attribution triple stored verbatim, so a hit needs no second lookup.
+public readonly record struct CorpusRow(
+    UInt128 ContentKey, CorpusKind Kind, string Subject, Option<string> Member, string Title, string Body);
+
+// The consumed wire. `csharp:Rasm.AppUi/Document/search#INDEX_WIRE` sends `DocumentQuery` values and reads
+// `DocumentHit` values; field names are FROZEN and both ends transcribe them.
+public sealed record DocumentQuery(
+    string Terms,
+    string Predicate,
+    Seq<string> Sources,
+    Option<string> Subject,
+    int Limit,
+    bool CaseSensitive,
+    bool WholeWords);
+
+// The span crosses as offset and LENGTH because the consumer's span type carries an inclusive end; a raw
+// end field would let the two sides disagree by one character on every hit.
+public sealed record DocumentHit(
+    string Source,
+    string Subject,
+    Option<string> Member,
+    string Title,
+    int SpanStart,
+    int SpanLength,
+    string Snippet,
+    double Score);
+
+// --- [OPERATIONS] -------------------------------------------------------------------------
+public static class DocumentCorpus {
+    // The result ceiling agrees with the consumer's own admitted ceiling, so neither end accepts what the
+    // other refuses and a wire that drifted names itself at admission.
+    public const int LimitCeiling = 1000;
+
+    // The relation and its two addressed columns are the ONLY identifiers this lane names; each admits
+    // through the trust gate, so no free string reaches the statement as structure.
+    public static readonly Identifier Relation = Identifier.Create("document_corpus");
+    public static readonly Identifier KeyField = Identifier.Create("content_key");
+    public static readonly Identifier BodyColumn = Identifier.Create("body");
+
+    // ONE lowering per query: admission first, then the predicate case, the scope filter, the optional
+    // subject narrowing, the case-sensitivity gate the analyzer cannot carry, and the rank row's own score
+    // and order fragments — so the BM25 arm and the tsvector degrade arm compose the same statement shape.
+    public static Fin<string> Statement(DocumentQuery query, LexicalRank rank) =>
+        from admitted in Admit(query)
+        from predicate in (DocumentPredicate.TryGet(admitted.Predicate, out DocumentPredicate? row)
+                ? Optional(row)
+                : Option<DocumentPredicate>.None)
+            .ToFin(new RetrievalFault.Mismatched(
+                "document-predicate", string.Join("|", DocumentPredicate.Items.Select(static p => p.Key)), admitted.Predicate))
+        select Composed(admitted, predicate, rank);
+
+    // The index answers positions for a WHOLE document, so the wire's span pair is the first match's; the
+    // consumer keys its cache on anchor-plus-offset, so this hit and its own scan of the same document at
+    // the same offset collapse to one row while that document's later offsets stand beside it.
+    public static Fin<DocumentHit> Shape(
+        CorpusKind kind, string subject, Option<string> member, string title, string snippet,
+        Seq<(int Start, int Length)> positions, double score) =>
+        positions.Head
+            .ToFin(new RetrievalFault.Mismatched("snippet-positions", "at least one match position", "none"))
+            .Map(first => new DocumentHit(kind.Key, subject, member, title, first.Start, first.Length, snippet, score));
+
+    // Case sensitivity is NOT an index property — the analyzer case-folds at build — so the lane narrows
+    // case-insensitively through the index and gates the matched set with a positional containment test.
+    static string Composed(DocumentQuery query, DocumentPredicate predicate, LexicalRank rank) =>
+        $"""
+         SELECT kind AS "Source", subject AS "Subject", member AS "Member", title AS "Title",
+                {SearchProjection.Snippet(BodyColumn)} AS "Snippet",
+                {SearchProjection.SnippetPositions(BodyColumn)} AS "Positions",
+                {rank.Score(KeyField, query.Terms)} AS "Score"
+         FROM {Relation}
+         WHERE {predicate.Lower(query.Terms, query.WholeWords).Sql(BodyColumn)}
+           AND kind = ANY(ARRAY[{string.Join(", ", query.Sources.Map(static source => $"'{Bm25Predicate.Lit(source)}'"))}])
+         {query.Subject.Map(static subject => $"  AND subject = '{Bm25Predicate.Lit(subject)}'").IfNone(string.Empty)}
+         {(query.CaseSensitive ? $"  AND position('{Bm25Predicate.Lit(query.Terms)}' in {BodyColumn}) > 0" : string.Empty)}
+         ORDER BY {rank.Rank(KeyField, query.Terms)}
+         LIMIT {query.Limit}
+         """;
+
+    // The ONE gate: terms present, every scoped key an admitted corpus row, the scope non-empty, and the
+    // limit inside the shared ceiling — a refusal names the wire that drifted, never the user's query.
+    static Fin<DocumentQuery> Admit(DocumentQuery query) =>
+        string.IsNullOrWhiteSpace(query.Terms)
+            ? Fin.Fail<DocumentQuery>(new RetrievalFault.Mismatched("document-terms", "non-blank terms", "blank"))
+            : query.Sources.Find(static source => !CorpusKind.TryGet(source, out _)).Match(
+                Some: unknown => Fin.Fail<DocumentQuery>(new RetrievalFault.Mismatched(
+                    "corpus-kind", string.Join("|", CorpusKind.Items.Select(static kind => kind.Key)), unknown)),
+                None: () => query.Sources.IsEmpty || query.Limit <= 0 || query.Limit > LimitCeiling
+                    ? Fin.Fail<DocumentQuery>(new RetrievalFault.Mismatched(
+                        "document-scope", $"1..{LimitCeiling} results over at least one corpus kind",
+                        $"{query.Sources.Count}:{query.Limit}"))
+                    : Fin.Succ(query));
+}
+```
+
+| [INDEX] | [POLICY]         | [VALUE]                                | [BINDING]                                                          |
+| :-----: | :--------------- | :------------------------------------- | :----------------------------------------------------------------- |
+|  [01]   | index custody    | this lane's corpus relation and index  | consumer holds none; a shell-side index is the deleted form        |
+|  [02]   | index DDL        | raw `MigrationBuilder.Sql`             | `Element/identity#SCHEMA_VERDICT`; this section emits query SQL    |
+|  [03]   | branch identity  | `RetrievalBranch.Lexical`              | a document search fuses beside vector and spatial, one shape       |
+|  [04]   | grammar crossing | `DocumentPredicate` token              | one token per `Bm25Predicate` case; no second vocabulary           |
+|  [05]   | word boundary    | exact-term operator inside `Match`     | the other three rows bound their tokens by construction            |
+|  [06]   | case sensitivity | positional containment gate            | the `bm25` analyzer case-folds at build; the index cannot carry it |
+|  [07]   | wire projection  | identities, snippet, positions, score  | the matched body never re-crosses; residence stays unforked        |
+|  [08]   | rank arm         | receipt lineage, not a wire column     | a copy on the wire is a column the consumer never reads            |
+|  [09]   | limit ceiling    | `LimitCeiling` here; consumer reads it | neither end accepts what the other refuses                         |
+
+## [07]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.

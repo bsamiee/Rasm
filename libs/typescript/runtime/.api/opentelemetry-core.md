@@ -59,11 +59,11 @@ Every exporter and SDK processor reports terminal disposition through `ExportRes
 
 Two immutable `Context`-key families, each a `(Context) -> Context` writer with a matching reader: `suppressTracing` marks a region whose spans must not record, `setRPCMetadata` carries active HTTP-route data for span naming. The suppression pair is a two-party contract — a caller marks the region, and the SDK `Tracer.startSpan` is the sole honoring site, returning a non-recording span for any tracer under a marked context.
 
-| [INDEX] | [SURFACE]                                                       | [SHAPE]     | [CAPABILITY]                                    |
-| :-----: | :-------------------------------------------------------------- | :---------- | :---------------------------------------------- |
-|  [01]   | `suppressTracing` / `unsuppressTracing`                         | context key | mark a region whose tracer must not record      |
-|  [02]   | `isTracingSuppressed`                                           | context key | the reader `Tracer.startSpan` alone consults    |
-|  [03]   | `setRPCMetadata` / `deleteRPCMetadata` / `getRPCMetadata`       | context key | active HTTP-route metadata for span naming      |
+| [INDEX] | [SURFACE]                                                 | [SHAPE]     | [CAPABILITY]                                 |
+| :-----: | :-------------------------------------------------------- | :---------- | :------------------------------------------- |
+|  [01]   | `suppressTracing` / `unsuppressTracing`                   | context key | mark a region whose tracer must not record   |
+|  [02]   | `isTracingSuppressed`                                     | context key | the reader `Tracer.startSpan` alone consults |
+|  [03]   | `setRPCMetadata` / `deleteRPCMetadata` / `getRPCMetadata` | context key | active HTTP-route metadata for span naming   |
 
 - Callers of the writer at this pin are `BatchSpanProcessorBase`, `BatchLogRecordProcessorBase`, `internal._export`, `instrumentation-http`, and the aws/container/gcp resource detectors — each fencing its OWN outbound HTTP. Readers of the flag are `Tracer.startSpan` and core's own `W3CTraceContextPropagator.inject`/`W3CBaggagePropagator.inject`, which skip injection under a marked context; no `@opentelemetry/instrumentation-*` package reads it, and none needs to.
 

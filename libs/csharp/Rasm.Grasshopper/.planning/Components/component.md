@@ -189,12 +189,12 @@ public sealed record BakePolicy(
     public Grasshopper2.Bake.BakeContext Context(
         string process, Guid id, Rhino.RhinoDoc document, Option<Rhino.DocObjects.ObjectAttributes> attributes = default) =>
         new(name: process, id: id, document: document,
-            attributes: attributes.IfNoneUnsafe(static () => null!), user: Defaults, meta: Overrides);
+            attributes: attributes.ValueUnsafe()!, user: Defaults, meta: Overrides);
 
     public Grasshopper2.Bake.BakeContext Context(
         string process, Guid id, Rhino.FileIO.File3dm file, Option<Rhino.DocObjects.ObjectAttributes> attributes = default) =>
         new(name: process, id: id, file: file,
-            attributes: attributes.IfNoneUnsafe(static () => null!), user: Defaults, meta: Overrides);
+            attributes: attributes.ValueUnsafe()!, user: Defaults, meta: Overrides);
 }
 
 public sealed record BakeReceipt(
@@ -281,7 +281,7 @@ public sealed record ComponentSpec {
 - Receipt: `RunReceipt` is atomically accumulated across host-parallel iterations and persisted after the post stage; a fault never erases process evidence already emitted.
 - Growth: a host virtual adds one declaration projection; declaration, ledger, and rail ownership stay in the generic base.
 - Boundary: constructor-time declaration failures and initial maintenance failures throw at composition; runtime failures enter the run ledger and report through `IDataAccess` where that channel exists.
-- RESEARCH: the `Connectivity`/`ConnectivityComplete` component virtuals and `ComputeInternal(Solution, CallStack)` carry catalog rows without stated override semantics — whether each is a lifecycle stage the declaration projects (one `Lifecycle` slot each) or host plumbing the base owns resolves at decompile, landing as declaration slots only where the override is consumer-meaningful.
+- Law: `Connectivity`/`ConnectivityComplete` exist on no live `Component` surface and `ComputeInternal(Solution, CallStack)` is a nonpublic virtual — all three are host plumbing the base owns, so no `Lifecycle` slot projects them and a catalog row claiming component virtuals for the first two is stale against the shipped assembly.
 
 ```csharp signature
 // --- [TYPES] -----------------------------------------------------------------------------
@@ -369,9 +369,13 @@ public abstract class SpecComponent<TSelf> : ModularComponent
             ? Track(Maintained(Op.Of()))
             : Maintained(Op.Of()).Match(Succ: identity, Fail: Panic<Unit>));
 
-    public Fin<Unit> Flex(PinSide side, int index, bool shown, Grasshopper2.Undo.ActionList undo, Op? key = null) {
+    // Visibility is the ports vocabulary, never a bool knob — the row dispatches the Show/Hide pair.
+    public Fin<Unit> Flex(PinSide side, int index, PinVisibility visibility, Grasshopper2.Undo.ActionList undo, Op? key = null) {
         ModularList list = side.Switch(state: this, input: static self => self.ModularInputs, output: static self => self.ModularOutputs);
-        return Hosted.Bound(() => { if (shown) { list.Show(index, undo); } else { list.Hide(index, undo); } }, key.OrDefault());
+        return Hosted.Bound(() => visibility.Switch(
+            state: (List: list, Index: index, Undo: undo),
+            shown: static s => s.List.Show(s.Index, s.Undo),
+            hidden: static s => s.List.Hide(s.Index, s.Undo)), key.OrDefault());
     }
 
     private static Fin<ProcessScope> Scope(IDataAccess access, CancellationToken cancel, Op key) =>

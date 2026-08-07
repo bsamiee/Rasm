@@ -79,6 +79,10 @@
 
 [DISPATCH_CEILING]: `Limits.MaxComputeWorkgroupsPerDimension` (`uint`) `Limits.MaxStorageBufferBindingSize` (`ulong`) `Limits.MaxComputeInvocationsPerWorkgroup` (`uint`) — a compute gate reads these three; no timestamp-period member exists on any tier, and resolved `QueryType.Timestamp` values are nanoseconds directly.
 
+[LIMIT_NEGOTIATION]: `RequiredLimits { NextInChain, Limits }` seats on `DeviceDescriptor.RequiredLimits` — an unset requirement grants the specification's conservative defaults, never the adapter's headroom, so a device wanting the hardware ceiling chains the adapter's own `SupportedLimits.Limits` back; the dispatch gate then reads the DEVICE's `DeviceGetLimits` block, because a device grants at or below what it was asked. Both `Bool32` answers rail — a false answer leaves the out-struct zeroed and a zero ceiling refuses every dispatch.
+
+[HANDLE_RELEASE]: every core handle releases through its own void pointer-taking `XxxRelease` — `InstanceRelease` `AdapterRelease` `DeviceRelease` `QueueRelease` beside the resource roster (`Buffer`/`Texture`/`Sampler`/`ShaderModule`/`BindGroupLayout`/`BindGroup`/`ComputePipeline`/`ComputePassEncoder`/`CommandEncoder`/`CommandBuffer`/`QuerySet`).
+
 [PUBLIC_TYPE_SCOPE]: resource and pipeline descriptors
 
 | [INDEX] | [SYMBOL]                      | [TYPE_FAMILY] | [CAPABILITY]                                                   |

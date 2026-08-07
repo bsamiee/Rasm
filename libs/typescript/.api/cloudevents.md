@@ -34,22 +34,22 @@
 
 [ENTRYPOINT_SCOPE]: envelope construction and clone, per-transport serialize/deserialize, header projection, and per-call emission
 
-| [INDEX] | [SURFACE]                                          | [SHAPE]  | [CAPABILITY]                                                |
-| :-----: | :-------------------------------------------------- | :------- | :----------------------------------------------------------- |
-|  [01]   | `new CloudEvent(props, strict?)`                    | ctor     | envelope from owned attributes + branded tracing extensions |
-|  [02]   | `event.cloneWith(options, strict?)`                 | instance | immutable re-attribute; `<D>` overload retypes `data`       |
-|  [03]   | `event.toJSON()` / `.toString()` / `.validate()`    | instance | structured projection, stringify, explicit schema re-check  |
-|  [04]   | `CloudEvent.cloneWith(event, options, strict?)`     | static   | clone a raw `CloudEventV1` off the class                    |
-|  [05]   | `HTTP.binary(event)` / `HTTP.structured(event)`     | static   | `CloudEvent`→`Message`; binary emits `ce-` headers          |
-|  [06]   | `HTTP.toEvent(message)` / `HTTP.isEvent(message)`   | static   | `Message`→`CloudEventV1` or `[]` batch; detect first        |
-|  [07]   | `Kafka.binary` / `Kafka.toEvent`                    | static   | Kafka record-header dialect; `partitionkey`↔`key`           |
-|  [08]   | `MQTT.binary` / `MQTT.toEvent`                      | static   | MQTT PUBLISH dialect; `MQTTMessageFactory` builder          |
-|  [09]   | `headersFor(event)` / `sanitize(headers)`           | static   | binary-header projection; lowercase-normalize a frame       |
-|  [10]   | `allowedContentTypes` / `requiredHeaders`           | static   | admitted binary content types; required `ce-*` literal set  |
-|  [11]   | `emitterFor(fn, { binding, mode })`                 | factory  | per-call `EmitterFunction`; no shared singleton             |
-|  [12]   | `httpTransport(sink)`                               | factory  | `TransportFunction` POSTing the serialized `Message`        |
-|  [13]   | `CONSTANTS`                                         | const    | `ce-` header names, MIME types, `CE_USE_BIG_INT` env key    |
-|  [14]   | `V1` / `V03`                                        | const    | `specversion` literal; the branch mints `V1` only           |
+| [INDEX] | [SURFACE]                                         | [SHAPE]  | [CAPABILITY]                                                |
+| :-----: | :------------------------------------------------ | :------- | :---------------------------------------------------------- |
+|  [01]   | `new CloudEvent(props, strict?)`                  | ctor     | envelope from owned attributes + branded tracing extensions |
+|  [02]   | `event.cloneWith(options, strict?)`               | instance | immutable re-attribute; `<D>` overload retypes `data`       |
+|  [03]   | `event.toJSON()` / `.toString()` / `.validate()`  | instance | structured projection, stringify, explicit schema re-check  |
+|  [04]   | `CloudEvent.cloneWith(event, options, strict?)`   | static   | clone a raw `CloudEventV1` off the class                    |
+|  [05]   | `HTTP.binary(event)` / `HTTP.structured(event)`   | static   | `CloudEvent`→`Message`; binary emits `ce-` headers          |
+|  [06]   | `HTTP.toEvent(message)` / `HTTP.isEvent(message)` | static   | `Message`→`CloudEventV1` or `[]` batch; detect first        |
+|  [07]   | `Kafka.binary` / `Kafka.toEvent`                  | static   | Kafka record-header dialect; `partitionkey`↔`key`           |
+|  [08]   | `MQTT.binary` / `MQTT.toEvent`                    | static   | MQTT PUBLISH dialect; `MQTTMessageFactory` builder          |
+|  [09]   | `headersFor(event)` / `sanitize(headers)`         | static   | binary-header projection; lowercase-normalize a frame       |
+|  [10]   | `allowedContentTypes` / `requiredHeaders`         | static   | admitted binary content types; required `ce-*` literal set  |
+|  [11]   | `emitterFor(fn, { binding, mode })`               | factory  | per-call `EmitterFunction`; no shared singleton             |
+|  [12]   | `httpTransport(sink)`                             | factory  | `TransportFunction` POSTing the serialized `Message`        |
+|  [13]   | `CONSTANTS`                                       | const    | `ce-` header names, MIME types, `CE_USE_BIG_INT` env key    |
+|  [14]   | `V1` / `V03`                                      | const    | `specversion` literal; the branch mints `V1` only           |
 
 - `event.cloneWith` carries three overloads — the default excludes `data` and preserves `T`, the `<D>` form retypes `data`, and the static form clones a raw `CloudEventV1`.
 

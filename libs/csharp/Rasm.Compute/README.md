@@ -81,7 +81,7 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 
 [SYMBOLIC_CAS]:
 - `AngouriMath` — managed CAS: `Entity` parse, simplify, solve, integrate, differentiate, and `Compile<>` in one owner.
-- `PeterO.Numbers` — exact-rational `ERational` carrier the ℚ⁷ dimension exponent vector stores.
+- `PeterO.Numbers` — exact-rational `ERational` carrier the ℚ⁷ dimension exponent vector stores; `EFloat` accumulates large-n criterion sums exactly.
 
 [OPTIMIZATION]:
 - `Google.OrTools` — CP-SAT and MILP exact optimization lane.
@@ -103,6 +103,9 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 - `CloudNative.CloudEvents.Mqtt` — structured-mode CloudEvents MQTT binding decoding typed twin sensor envelopes.
 - `NATS.Net` — NATS Core subscription seam for broker sensor ingest.
 - `Apache.Arrow` — columnar `RecordBatch` construction for surrogate-training and billing egress; IPC/ADBC/Flight egress stays Persistence-side.
+- `PureHDF` — managed HDF5 read and write: hyperslab field-array reads, chunked filtered writes, and the netCDF-4 corpora on the same path.
+- `PureHDF.Filters.BZip2.SharpZipLib` — managed BZip2 codec registered on the HDF5 filter pipeline.
+- `PureHDF.Filters.Lzf` — managed LZF codec on the same pipeline; the accelerated native filter packages publish no osx RID.
 - `Microsoft.IO.RecyclableMemoryStream` — pooled-buffer stream behind the artifact frames and the tileset-manifest emit.
 - `Grpc.Net.Client.Web` — gRPC-Web handler for HTTP/1.1 and browser-constrained paths.
 - `Grpc.Net.Common` — shared compression and connectivity vocabulary beneath the gRPC rails.
@@ -135,7 +138,7 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 [GPU_DEVICE]:
 - `Silk.NET.WebGPU` — GPGPU dispatch over the AppUi-minted device; this lane acquires none of its own.
 - `Silk.NET.WebGPU.Extensions.WGPU` — `QueueSubmitForIndex` and `DevicePoll` deterministic completion beside pipeline statistics.
-- `Alimer.Bindings.MeshOptimizer` — simplification and cluster-LOD bindings behind the residency pyramid; the codec's process-global version state admits no folder partition.
+- `Alimer.Bindings.MeshOptimizer` — residency-pyramid simplification and cluster-LOD bindings; process-global version state admits no folder tier.
 
 [GEOMETRY_INTERCHANGE]:
 - `SharpGLTF.Core` — glTF core read and write beneath the tile-content lane.
@@ -161,11 +164,12 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 - `Google.Protobuf`
 - `Grpc.Net.Client`
 - `Grpc.AspNetCore`
+- `Grpc.Core.Api` — `ServerCallContext`, `IServerStreamWriter<T>`, and `Metadata` on the served compute endpoints.
 - `Grpc.Tools`
 
 [RUNTIME_INBOX]:
 - `System.Net.Http` — `SocketsHttpHandler` policy the remote transport binds beneath its gRPC channel and probe legs.
-- `System.Text.Json` — generated wire contexts and hand-written `Utf8JsonWriter` codecs beside protobuf on the receipt and descriptor lanes.
+- `System.Text.Json` — generated contexts and hand-written `Utf8JsonWriter` codecs beside protobuf on receipt, descriptor, drift, and evidence lanes.
 
 [TEST_SUBSTRATE]: Rows bind in branch test and benchmark projects, never the package csproj.
 - `BenchmarkDotNet`

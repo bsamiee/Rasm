@@ -59,7 +59,7 @@
 |  [05]   | `ITreeStore`                    | interface     | tree item source       |
 |  [06]   | `ITreeGridStore<T>`             | interface     | tree-grid item source  |
 
-- `ITreeGridStore<T>` extends `IDataStore<T>` and backs `TreeGridView.DataStore`; a view consumes any store through the `DataStoreVirtualCollection<T>` adapter, never the store directly.
+- The binding sink is shaped by the view: `GridView.DataStore` and `ListControl.DataStore` are `IEnumerable<object>`, so a plain enumerable or a `DataStoreCollection<T>` binds directly, while `TreeGridView.DataStore` is `ITreeGridStore<ITreeGridItem>` and takes a tree store. `DataStoreVirtualCollection<T>` is the one-direction adapter over a virtualized `IDataStore<T>` source — its constructor takes `IDataStore<T>` and it presents `IList<T>` — so it serves a random-access window and is never interposed on a source the view already accepts.
 
 ## [03]-[ENTRYPOINTS]
 
@@ -110,16 +110,16 @@ Each projection returns a `BindableBinding<T,TNew>`, so the chain composes.
 
 [ENTRYPOINT_SCOPE]: accessor factories, value seam, and propagation control
 
-| [INDEX] | [SURFACE]                                              | [SHAPE]  | [CAPABILITY]                    |
-| :-----: | :----------------------------------------------------- | :------- | :------------------------------ |
-|  [01]   | `Binding.Property<T,TValue>(Expression<Func<T,TValue>>)` | static | property-path accessor factory  |
-|  [02]   | `Binding.Delegate<TValue>(get, set, add, remove)`      | static   | callback accessor factory       |
-|  [03]   | `Binding.Delegate<T,TValue>(get, set, add, remove, …)` | static   | item-callback accessor factory  |
-|  [04]   | `IndirectBinding<T>.GetValue` / `.SetValue`            | instance | data-item value seam            |
-|  [05]   | `IndirectBinding<T>.AfterDelay(TimeSpan, bool)`        | instance | debounced write propagation     |
-|  [06]   | `DirectBinding<T>.DataValue` / `.DataValueChanged`     | property | source value and change event   |
-|  [07]   | `DualBinding<T>.Unbind` / `.Update`                    | instance | link teardown and forced push   |
-|  [08]   | `IBindable.UpdateBindings(BindingUpdateMode)`          | instance | tree-wide propagation           |
+| [INDEX] | [SURFACE]                                                | [SHAPE]  | [CAPABILITY]                   |
+| :-----: | :------------------------------------------------------- | :------- | :----------------------------- |
+|  [01]   | `Binding.Property<T,TValue>(Expression<Func<T,TValue>>)` | static   | property-path accessor factory |
+|  [02]   | `Binding.Delegate<TValue>(get, set, add, remove)`        | static   | callback accessor factory      |
+|  [03]   | `Binding.Delegate<T,TValue>(get, set, add, remove, …)`   | static   | item-callback accessor factory |
+|  [04]   | `IndirectBinding<T>.GetValue` / `.SetValue`              | instance | data-item value seam           |
+|  [05]   | `IndirectBinding<T>.AfterDelay(TimeSpan, bool)`          | instance | debounced write propagation    |
+|  [06]   | `DirectBinding<T>.DataValue` / `.DataValueChanged`       | property | source value and change event  |
+|  [07]   | `DualBinding<T>.Unbind` / `.Update`                      | instance | link teardown and forced push  |
+|  [08]   | `IBindable.UpdateBindings(BindingUpdateMode)`            | instance | tree-wide propagation          |
 
 - `Bind`/`BindDataContext` `Expression<Func<…>>` selector forms default to `DualBindingMode.TwoWay`; `Convert`/`Delegate` setters receive the source value — or the data item on the two-generic `Delegate` — never a binding instance.
 
@@ -140,7 +140,7 @@ Each projection returns a `BindableBinding<T,TNew>`, so the chain composes.
 - a binding is two halves — `IndirectBinding<T>` over the model value, `DirectBinding<T>` over the control value — that `Bind`/`BindDataContext` join into a live `DualBinding<T>`, and `DualBindingMode` fixes which edges relay
 - `BindableBinding<T,TValue>` is the fluent control-side entry: a control exposes its `*Binding`, and its projection chain reshapes and guards the value before it reaches the model
 - `DataContext` is the ambient model: assigning it on a container walks every descendant `IBindable`, so a `BindDataContext` binding resolves without a per-control source assignment
-- a collection view binds only through an `IDataStore<T>` carrier, selected by source shape and adapted for the view
+- a collection view binds by source shape: an enumerable source reaches the enumerable `DataStore` sinks unadapted, a virtualized `IDataStore<T>` window reaches them through `DataStoreVirtualCollection<T>`, and a tree reaches `TreeGridView` as an `ITreeGridStore<T>`
 
 [STACKING]:
 - `api-languageext`(`libs/csharp/.api/api-languageext.md`): a model-bound field validates in the `Convert` to-source direction through a `Validation<Error,A>` gate exiting `.ToFin()` before the model accepts; `CatchException<TException>` traps a conversion fault the folder re-lands as an `Error` on `Fin<A>`; a `DataContext` swap is an `Eff` marshalled onto the UI thread
@@ -152,10 +152,10 @@ Each projection returns a `BindableBinding<T,TNew>`, so the chain composes.
 [LOCAL_ADMISSION]:
 - binding is host-provided and composed directly — a field binds through its `*Binding` and `BindDataContext`
 - a bound model value is a typed `[ValueObject<T>]` or `[SmartEnum<TKey>]` reached through `Convert`
-- a collection view fills through an `IDataStore<T>` carrier
+- a collection view fills through the sink its view declares — an enumerable, a virtualized `IDataStore<T>` behind its adapter, or an `ITreeGridStore<T>`
 
 [RAIL_LAW]:
 - Package: `Eto`
 - Owns: the two-way data-binding rail and data-store collection binding for host-embedded panels, at the branch tier both boundaries register
 - Accept: control-to-model property binding, `DataContext` propagation, two-way modes with conversion and exception guarding, grid/list/tree collection binding
-- Reject: a hand-rolled property-change observer beside the Eto binding, a stringly round-trip past a typed `Convert`, a per-row control rebuild past `IDataStore<T>`
+- Reject: a hand-rolled property-change observer beside the Eto binding, a stringly round-trip past a typed `Convert`, a per-row control rebuild where a virtualized `IDataStore<T>` window serves, and an adapter interposed on a source its view already accepts

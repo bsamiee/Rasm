@@ -64,7 +64,7 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 
 [IMPACT_PLANE_BUILDOUT]-[QUEUED]: impact grows from one compressed page into a provider-deep plane realizing the staged Brightway, openLCA, and prospective-scenario capability.
 - Capability: EPD declaration ingest, LCI inventory custody, LCA solve and contribution analysis, and IAM prospective background BUILDS each get owner-depth treatment — the EC3 search stream, `MultiLCA` shared-factorization batch, contribution rows, staged system boundaries, and the licensed sector-transform run the carrier refuses to host move from named-deferred to realized.
-- Shape: `impact/impact.md` stays the EN 15804 carrier and `ImpactSource` axis owner; sibling pages land as `libs/python/data/.planning/impact/declaration.md` (openepd, epdx, EC3 sync and offline bundles), `libs/python/data/.planning/impact/inventory.md` (bw2data, bw2io, bw-processing project and datapackage custody), `libs/python/data/.planning/impact/solve.md` (bw2calc, bw2analyzer, olca-ipc solve and contribution), and `libs/python/data/.planning/impact/scenario.md` owning the premise BUILD — `NewDatabase`/`IncrementalDatabase`/`PathwaysDataPackage`, the per-sector `update()` run, and the `write_db_to_brightway` write-back whose registered database name `impact.md`'s `PremiseSolve.background` consumes and proves.
+- Shape: `impact/impact.md` stays the EN 15804 carrier and `ImpactSource` axis owner; `libs/python/data/.planning/impact/declaration.md` is LANDED (the declaration-record producer and its corpus contract); the remaining sibling pages land as `libs/python/data/.planning/impact/inventory.md` (bw2data, bw2io, bw-processing project and datapackage custody), `libs/python/data/.planning/impact/solve.md` (bw2calc, bw2analyzer, olca-ipc solve and contribution), and `libs/python/data/.planning/impact/scenario.md` owning the premise BUILD — `NewDatabase`/`IncrementalDatabase`/`PathwaysDataPackage`, the per-sector `update()` run, and the `write_db_to_brightway` write-back whose registered database name `impact.md`'s `PremiseSolve.background` consumes and proves.
 - Unlocks: whole-building LCA at package depth — nine admitted packages each exploited past the normalization floor, the stub-folder ruling satisfied with real capability, and the prospective leg gaining a producer where the carrier holds only its proof.
 - Anchors: `.planning/impact/impact.md` `ImpactSource`/`_normalize`/`_from_prospective`/Growth staged rows; `.api/bw2io.md`, `.api/bw2calc.md`, `.api/olca-ipc.md`, `.api/premise.md` member depth.
 - Tension: the carrier page keeps the one normalization fold and hosts no build — sibling pages feed `ImpactSource` cases, never a second EN 15804 matrix, and a licensed multi-hour sector transform is a composition step the carrier proves rather than runs.
@@ -96,20 +96,14 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 - Anchors: `.planning/graph/graph.md` codec lane and `GraphResult.frame`; branch `.api/networkx.md` `maximum_flow`/`min_cost_flow`/`network_simplex`; `rustworkx` capability line proving the flow-family absence.
 - Tension: rustworkx stays the kernel for everything it spells — the networkx leg exists only for the flow family, never a parallel analysis kernel.
 
-[EPD_RECORD_WIRE]-[QUEUED]: registry-sourced EPD records carry the Assessment edge — declared units, module coverage, and expiry keyed to the Materials identity.
-- Capability: EC3, Ökobaudat, and EPD-Norge records normalize through the standing `openepd`/`epdx` declaration arms into `MaterialImpact` rows carrying declared unit, EN 15804 module coverage, and expiry, keyed to `MaterialId`/component designation so the C# Materials assessment landing decodes real product vectors in place of its authored generic-EPD constants.
-- Shape: a registry-source arm on `libs/python/data/.planning/impact/impact.md` beside the declaration fold — provider fetch discriminated by payload shape, never a provider knob — with the record schema and transport co-signed as the `Discipline.Environmental` `Assessment` seam payload the page already routes; redistribution follows the `[IMPACT_PAGE_SPLIT]` landing when the provider pages mint.
-- Unlocks: audited whole-life carbon on the C# side from evidence-dated records; one EPD sourcing plane serving every estate consumer.
-- Anchors: `impact.md` `MaterialImpact` eight-column frame and `Assessment` crossing; `openepd`/`epdx` wire parsers; the `tabular/columnar` content-keyed Arrow-bytes fold.
-- Tension: provenance stays with the registry record — expiry and declared-unit facts cross untranslated, and the Materials end demotes its authored constants to declared fallback per its own card.
-- Ripple: `csharp:Rasm.Materials` `[EPD_DATA_INGESTION]`.
-
 ## [02]-[CLOSED]
 
 <!-- source-only: closed idea card template:
 [ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
+[ASSESSMENT_RECORD_WIRE]-[COMPLETE]: the shape decision resolved SECOND RECORD CLASS — `impact/declaration.md` mints `DeclarationRecord` (material identity, issuer + registration, declared unit, issue/expiry, presence-censused indicator cells) as the corpus `tests/contracts/MANIFEST.md` `[02.26]-[DECLARATION_RECORD]` domain contract with this branch the one producer, and the impact frame stays impact-only by charter; the C# Materials assessment decode is the committed consumer.
+[EPD_RECORD_WIRE]-[COMPLETE]: registry sourcing landed on `impact/declaration.md`'s payload-shape axis, never as widened `MaterialImpact` rows — the Ökobaudat/ILCD arm whole through `epdx.convert_ilcd`, the EC3 arm on the axis with its validity-date member pin riding the page fence, EPD-Norge and offline bundles frozen `Registry` tokens whose arms land by the page's own growth grammar.
 [DURABLE_EVIDENCE_JOURNAL]-[COMPLETE]: realized as `tabular/journal.md`, which composes the commit and scan owners rather than widening either.
 [ENGINE_PROFILE_PARITY]-[COMPLETE]: every engine feeds `EngineProfile.of` its own payload and none widened the band.
 [RESIDENCE_PROVISIONING]-[COMPLETE]: arming is a `ResidenceRow.layout` row the ingest plan leads with, so no composition remembers an out-of-band create.

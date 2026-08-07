@@ -1,31 +1,35 @@
 # [RASM_NUMERICS_MATRIX]
 
-`Rasm.Numerics` grounds every kernel solver on one linear-algebra substrate: the dense, sparse, and complex matrix owners, the solve/eigen/gauge route algebra, and `MatrixKernel`, the sole MathNet and CSparse factorization path they compose. Every operation leaves as a typed receipt carrying its route, stop, and recomputed residual; a raw `Matrix<double>` or bare factorization never crosses the surface.
+`Rasm.Numerics` grounds every kernel solver on one linear-algebra substrate: the dense, sparse, and complex matrix owners, the solve/eigen/gauge route algebra, the lattice-addressed transform band, and `MatrixKernel`, the sole MathNet and CSparse path they compose. Every operation leaves as a typed receipt carrying its route, stop, and recomputed residual; a raw `Matrix<double>`, bare factorization, or untyped spectrum never crosses the surface.
 
 Rebuilds compose the `Rasm.Domain` rails as the receipt validity floor and stays host-neutral: finiteness reads through `TensorPrimitives.IsFiniteAll` over flat spans, every tolerance draws from an `EpsilonPolicy` row, and no `RhinoMath` member or absolute literal appears. MathNet and CSparse are the mined standard library.
 
 ## [01]-[INDEX]
 
-- [02]-[SOLVE_VOCABULARY]: `Solve`, `eigen`, `norm`, and `gauge` route the algebra every receipt discriminates on.
+- [02]-[SOLVE_VOCABULARY]: `Solve`, `eigen`, `norm`, `sense`, and `gauge` route the algebra every receipt discriminates on.
 - [03]-[DENSE_OWNERS]: dense and packed-symmetric owners with the decomposition carriers holding live factors for repeated right-hand sides.
 - [04]-[SPARSE_OWNERS]: CSR and Hermitian owners with their structural invariants and the lock-guarded AMD factor cache.
 - [05]-[RECEIPTS]: typed solve, eigen, and gauge evidence carriers on the rails validity fold.
-- [06]-[SOLVE_KERNEL]: `MatrixKernel`, the one MathNet and CSparse access path for every decomposition, solve, and eigen route.
+- [06]-[TRANSFORM_BAND]: the caller-arena spectral transform, its taper roster, and the fitted-interpolant carrier over one sampled axis.
+- [07]-[SOLVE_KERNEL]: `MatrixKernel`, the one MathNet and CSparse access path for every decomposition, solve, eigen, and transform route.
 
 ## [02]-[SOLVE_VOCABULARY]
 
-- Owner: route, stop, norm, and gauge-solver capability live as `[SmartEnum<int>]` vocabularies, never `bool` flags — each rides as a discriminant column a consumer reads off the row; `GaugePolicy` is the `[Union]` owning the singular-system gauge algebra.
-- Entry: constant-nullspace presets are the Laplacian consumer's entry; `NullspaceDim`, `Shift`, and `SolverKind` project off the case as total `Switch`.
-- Auto: mass diagonal rides one `Option<Arr<double>>` per case, so the same policy value selects Euclidean or M-weighted inner products throughout the gauge solve; `MeanZeroConstant` defaults its post-shift to `GaugeShift.MeanZero` because a deflated solve re-acquires the constant mode through rounding.
-- Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core (`Arr`, `Seq`, `Option`).
-- Growth: a new solve substrate is one `SolvePath`/`EigenSolvePath` row, the receipt shape unchanged; a new gauge modality is one `GaugePolicy` case whose `Switch` arms break at compile time.
-- Boundary: capability reads off the discriminant column, so a parallel `FactorKind` enum re-declaring the route space beside `SolvePath` never mints.
+- Owner: route, stop, norm, sense, and gauge-solver capability live as `[SmartEnum<int>]` vocabularies, never `bool` flags — each rides as a discriminant column a consumer reads off the row; `GaugePolicy` is the `[Union]` owning the singular-system gauge algebra.
+- Entry: constant-nullspace presets are the Laplacian consumer's entry; `NullspaceDim`, `Shift`, and `SolverKind` project off the case as total `Switch`; `OperatorSense` enters every sparse product and every transposable solve, defaulting to the canonical `Forward` row.
+- Auto: mass diagonal rides one `Option<Arr<double>>` per case, so the same policy value selects Euclidean or M-weighted inner products throughout the gauge solve; `MeanZeroConstant` defaults its post-shift to `GaugeShift.MeanZero` because a deflated solve re-acquires the constant mode through rounding; `OperatorSense.Shape` reports the SENSED operator's own extent, so one projection sizes the product's operands AND the solve's right-hand side and solution.
+- Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core (`Arr`, `Seq`, `Option`), CSparse (the sensed apply and solve columns bind its array overloads).
+- Growth: a new solve substrate is one `SolvePath`/`EigenSolvePath` row, the receipt shape unchanged; a new gauge modality is one `GaugePolicy` case whose `Switch` arms break at compile time; a direction is a `SolvePath` capability column plus the existing `OperatorSense` row, never a transposed twin of every route.
+- Boundary: capability reads off the discriminant column, so a parallel `FactorKind` enum re-declaring the route space beside `SolvePath` never mints, and `TransposeSolve` is a column on the route because the transposed behavior binds to the concrete CSparse factor while the route itself is instance-free.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using System.Numerics;
 using System.Numerics.Tensors;
 using DoubleDouble;
+using MathNet.Numerics;
+using MathNet.Numerics.IntegralTransforms;
+using MathNet.Numerics.Interpolation;
 using MathNet.Numerics.LinearAlgebra;
 using MathNet.Numerics.LinearAlgebra.Storage;
 using Rasm.Domain;
@@ -47,7 +51,10 @@ public sealed partial class EigenSolvePath {
     public static readonly EigenSolvePath DenseGeneralEvd = new(key: 1, isSparse: false, isComplex: true);
     public static readonly EigenSolvePath SparseLobpcg = new(key: 2, isSparse: true, isComplex: false);
     public static readonly EigenSolvePath SparseHermitianLobpcg = new(key: 3, isSparse: true, isComplex: true);
-    public static readonly EigenSolvePath SparseGeneralizedCholeskyCongruence = new(key: 4, isSparse: true, isComplex: false);
+    // The congruence route DENSIFIES by construction and its row says so: the reduction needs M's triangular factor,
+    // which the CSparse peer does not publish, and it solves against an n-by-n identity — a MathNet sparse operator
+    // handed to Cholesky() would densify silently with no fill-reducing ordering, so the density rides the row honestly.
+    public static readonly EigenSolvePath DenseGeneralizedCholeskyCongruence = new(key: 4, isSparse: false, isComplex: false);
     public bool IsSparse { get; }
     public bool IsComplex { get; }
 }
@@ -79,6 +86,40 @@ public sealed partial class MatrixNormKind {
     [UseDelegateFromConstructor] internal partial double Compute(Matrix matrix);
 }
 
+// The operator-application direction: ONE vocabulary serving the sparse product, the LU route, and the QR route, so a
+// transposed product and a transposed solve are the same owner's second direction rather than direction-named siblings.
+// Shape reports the SENSED operator's extent — A is (rows x cols) and A' is (cols x rows) — so one projection sizes the
+// product's operands, the solve's right-hand side and solution, and the receipt's length claims, with no per-route flip.
+// The columns bind the CSparse ARRAY overloads because the page's solve buffers are already arrays; the span twins carry
+// the same semantics and would force a hand-written delegate type on a generated column.
+[SmartEnum<int>]
+public sealed partial class OperatorSense {
+    public static readonly OperatorSense Forward = new(key: 0,
+        shape: static (rows, cols) => (rows, cols),
+        apply: static (operand, x, y) => operand.Multiply(x, y),
+        accumulate: static (operand, alpha, x, beta, y) => operand.Multiply(alpha, x, beta, y),
+        solveLu: static (factor, b, x) => factor.Solve(b, x),
+        solveQr: static (factor, b, x) => factor.Solve(b, x),
+        flipped: static () => Transposed);
+    public static readonly OperatorSense Transposed = new(key: 1,
+        shape: static (rows, cols) => (cols, rows),
+        apply: static (operand, x, y) => operand.TransposeMultiply(x, y),
+        accumulate: static (operand, alpha, x, beta, y) => operand.TransposeMultiply(alpha, x, beta, y),
+        solveLu: static (factor, b, x) => factor.SolveTranspose(b, x),
+        solveQr: static (factor, b, x) => factor.SolveTranspose(b, x),
+        flipped: static () => Forward);
+
+    [UseDelegateFromConstructor] internal partial (Dimension Rows, Dimension Cols) Shape(Dimension rows, Dimension cols);
+    // The opposite direction as a row-to-row column, deferred behind a lambda because a field initializer reading a
+    // later item captures null before materialization. The normal-equation projection is the one consumer: it applies
+    // the sense the solve did NOT take, so neither direction spells its own transposed member.
+    [UseDelegateFromConstructor] internal partial OperatorSense Flipped();
+    [UseDelegateFromConstructor] internal partial void Apply(CSparse.Storage.CompressedColumnStorage<double> operand, double[] x, double[] y);
+    [UseDelegateFromConstructor] internal partial void Accumulate(CSparse.Storage.CompressedColumnStorage<double> operand, double alpha, double[] x, double beta, double[] y);
+    [UseDelegateFromConstructor] internal partial void SolveLu(CSparse.Double.Factorization.SparseLU factor, double[] rhs, double[] solution);
+    [UseDelegateFromConstructor] internal partial void SolveQr(CSparse.Double.Factorization.SparseQR factor, double[] rhs, double[] solution);
+}
+
 // SparsePreconditioner is the Krylov axis — a ROW family, never a boolean beside the path: Diagonal is the Jacobi
 // default, Milu0 the modified incomplete-LU row elliptic operators (a Neumann Laplacian, any SPD grid) want,
 // row-sum-preserving and CSR-native, Ilutp the threshold-and-pivot ILU lane for the near-singular or
@@ -105,21 +146,25 @@ public sealed partial class SparsePreconditioner {
     [UseDelegateFromConstructor] public partial SolvePath KrylovPath();
 }
 
+// TransposeSolve is the CAPABILITY column, never a transposed twin per route: CSparse publishes SolveTranspose on the
+// LU and QR factors alone, so the column states which route admits an OperatorSense.Transposed request and the concrete
+// factor resolves the direction through the sense row's own solve column.
 [SmartEnum<int>]
 public sealed partial class SolvePath {
-    public static readonly SolvePath DenseLu = new(key: 0, isSparse: false, isFallback: false, preconditioner: SparsePreconditioner.None);
-    public static readonly SolvePath DenseQrLeastSquares = new(key: 1, isSparse: false, isFallback: false, preconditioner: SparsePreconditioner.None);
-    public static readonly SolvePath DenseCholesky = new(key: 2, isSparse: false, isFallback: false, preconditioner: SparsePreconditioner.None);
-    public static readonly SolvePath SparseBiCgStabDiagonal = new(key: 3, isSparse: true, isFallback: false, preconditioner: SparsePreconditioner.Diagonal);
-    public static readonly SolvePath SparseMathNetDirectFallback = new(key: 4, isSparse: true, isFallback: true, preconditioner: SparsePreconditioner.None);
-    public static readonly SolvePath SparseCholesky = new(key: 5, isSparse: true, isFallback: false, preconditioner: SparsePreconditioner.None);
-    public static readonly SolvePath SparseLuIndefinite = new(key: 6, isSparse: true, isFallback: false, preconditioner: SparsePreconditioner.None);
-    public static readonly SolvePath SparseBiCgStabMilu0 = new(key: 7, isSparse: true, isFallback: false, preconditioner: SparsePreconditioner.Milu0);
-    public static readonly SolvePath SparseBiCgStabUnit = new(key: 8, isSparse: true, isFallback: false, preconditioner: SparsePreconditioner.None);
-    public static readonly SolvePath SparseBiCgStabIlutp = new(key: 9, isSparse: true, isFallback: false, preconditioner: SparsePreconditioner.Ilutp);
-    public static readonly SolvePath SparseQrLeastSquares = new(key: 10, isSparse: true, isFallback: false, preconditioner: SparsePreconditioner.None);
+    public static readonly SolvePath DenseLu = new(key: 0, isSparse: false, isFallback: false, transposeSolve: false, preconditioner: SparsePreconditioner.None);
+    public static readonly SolvePath DenseQrLeastSquares = new(key: 1, isSparse: false, isFallback: false, transposeSolve: false, preconditioner: SparsePreconditioner.None);
+    public static readonly SolvePath DenseCholesky = new(key: 2, isSparse: false, isFallback: false, transposeSolve: false, preconditioner: SparsePreconditioner.None);
+    public static readonly SolvePath SparseBiCgStabDiagonal = new(key: 3, isSparse: true, isFallback: false, transposeSolve: false, preconditioner: SparsePreconditioner.Diagonal);
+    public static readonly SolvePath SparseMathNetDirectFallback = new(key: 4, isSparse: true, isFallback: true, transposeSolve: false, preconditioner: SparsePreconditioner.None);
+    public static readonly SolvePath SparseCholesky = new(key: 5, isSparse: true, isFallback: false, transposeSolve: false, preconditioner: SparsePreconditioner.None);
+    public static readonly SolvePath SparseLuIndefinite = new(key: 6, isSparse: true, isFallback: false, transposeSolve: true, preconditioner: SparsePreconditioner.None);
+    public static readonly SolvePath SparseBiCgStabMilu0 = new(key: 7, isSparse: true, isFallback: false, transposeSolve: false, preconditioner: SparsePreconditioner.Milu0);
+    public static readonly SolvePath SparseBiCgStabUnit = new(key: 8, isSparse: true, isFallback: false, transposeSolve: false, preconditioner: SparsePreconditioner.None);
+    public static readonly SolvePath SparseBiCgStabIlutp = new(key: 9, isSparse: true, isFallback: false, transposeSolve: false, preconditioner: SparsePreconditioner.Ilutp);
+    public static readonly SolvePath SparseQrLeastSquares = new(key: 10, isSparse: true, isFallback: false, transposeSolve: true, preconditioner: SparsePreconditioner.None);
     public bool IsSparse { get; }
     public bool IsFallback { get; }
+    public bool TransposeSolve { get; }
     public SparsePreconditioner Preconditioner { get; }
 }
 
@@ -292,15 +337,22 @@ public readonly record struct CholeskyResult {
 
 ## [04]-[SPARSE_OWNERS]
 
-- Owner: `SparseMatrix` the CSR owner whose `IsValid` is its admission — factorizing invalid storage produces silently wrong factors; `SparseHermitian` the complex upper-store owner with conjugate reconstruction on multiply and a real-diagonal gate; `CholeskySparse` the SPD factor cache over CSparse `SparseCholesky` under AMD, `Lock`-guarded because CSparse solves share scratch and a concurrent second solve corrupts both results silently, success-only so a broken factor never enters reuse.
-- Entry: `FromTriplets` admits any triplet stream — duplicates sum, zeros drop, out-of-range or non-finite fails typed — so consumers assemble by accumulation, never hand-build CSR; `CholeskySparse.Of` catches the CSparse bare-`Exception` pivot loss into the typed rail; `SolveLeastSquaresDetailed` is the ONE rectangular route — CSparse `SparseQR` under the `A'A` ordering, minimizer at `m >= n` and minimum-norm below, witnessed on the normal-equation residual.
-- Auto: `SparseHermitian.IsValid` gates the stored diagonal real within a scale-relative band, so a drifted assembly is caught at the owner, not inside LOBPCG.
-- Packages: CSparse (SPD and LU factorization, AMD ordering), MathNet.Numerics (sparse storage, BiCgStab and criterion stack), Rasm.Domain (`Admit.FiniteComplexSpan`/`HermitianDiagonalRealSpan`, the one complex-spectrum gate pair), LanguageExt.Core, BCL (`System.Threading.Lock`, `System.Numerics.Complex`).
-- Growth: a new sparse capability (rank-1 update, transpose solve, LDL) adds one member and one `SolvePath` row over the same owners; a second CSR/CSC representation beside `SparseMatrix` is the deleted form — format bridges live inside `MatrixKernel`.
-- Boundary: mesh Laplacian memoization caches these factor objects, so their identity and `Lock` semantics compose from here.
+- Owner: `SparseMatrix` the CSR owner whose `IsValid` is its admission — factorizing invalid storage produces silently wrong factors; `SparseHermitian` the complex upper-store owner with conjugate reconstruction on multiply and a real-diagonal gate; `CholeskySparse` the SPD factor cache over CSparse `SparseCholesky` under AMD, `Lock`-guarded because CSparse solves share scratch and a concurrent second solve corrupts both results silently, success-only so a broken factor never enters reuse, and the sole owner of the three factor-movement verbs the cached symbolic analysis makes cheap.
+- Entry: `FromTriplets` admits any triplet stream — duplicates sum, zeros drop, out-of-range or non-finite fails typed — so consumers assemble by accumulation, never hand-build CSR; `CholeskySparse.Of` catches the CSparse bare-`Exception` pivot loss into the typed rail and takes the caller's `IProgress<double>` so a long factorization reports its symbolic and numeric phases on the same governance surface the arrangement band carries; `SolveLeastSquaresDetailed` is the ONE rectangular route — CSparse `SparseQR` under the `A'A` ordering, minimizer at `m >= n` and minimum-norm below, witnessed on the normal-equation residual — and both transposable routes take an `OperatorSense` rather than mint a transposed twin; the Krylov entry takes an optional `KrylovStop` that becomes a criterion ROW on the ladder rather than a check the caller runs after the budget is already spent.
+- Auto: `SparseHermitian.IsValid` gates the stored diagonal real within a scale-relative band, so a drifted assembly is caught at the owner, not inside LOBPCG; `Refactorize` re-runs the numeric phase against the cached `SymbolicFactorization`, so a parameter sweep over one pattern pays the AMD analysis once, and `Update`/`Downdate` move the standing factor by a rank-1 term so an added or removed constraint costs no refactorization — a `false` verdict means the partial tree walk already corrupted the factor and the caller re-mints rather than retries.
+- Packages: CSparse (SPD, LU, and QR factorization, AMD ordering, `Refactorize`/`Update`/`Downdate`, the `IProgress<double>` phase report `Refactorize` deliberately carries none of), MathNet.Numerics (sparse storage and its duplicate-summing and diagonal-populating repairs, BiCgStab and criterion stack), Rasm.Domain (`Admit.FiniteComplexSpan`/`HermitianDiagonalRealSpan`, the one complex-spectrum gate pair), LanguageExt.Core, BCL (`System.Threading.Lock`, `System.Numerics.Complex`, `IProgress<double>`).
+- Growth: a new sparse capability adds one member and one column over the same owners — an LDL' inertia read and a second fill-reducing ordering are the open axes; a second CSR/CSC representation beside `SparseMatrix` is the deleted form — format bridges live inside `MatrixKernel`.
+- Boundary: mesh Laplacian memoization caches these factor objects, so their identity and `Lock` semantics compose from here; a transposed solve is linear-algebra vocabulary on the standing factor and nothing more — the adjoint sensitivity band that composes it stays `Rasm.Compute`'s, and a kernel differentiation rail beside `Lm`'s forward-mode dual floor never mints here.
 
 ```csharp signature
 // --- [MODELS] -----------------------------------------------------------------------------
+// A domain halt condition as a ROW on the criterion ladder rather than a post-loop check: the delegate criterion mirrors
+// the iterator's own status contract, so the rule runs INSIDE the iteration and stops the solver where a post-loop test
+// would only observe the budget already spent. It reads the iteration index and the residual norm — kernel currency —
+// so no MathNet vector crosses the public surface, and a criterion reset clears only the held status, so a rule closing
+// over an absolute start instant survives the reset a composite ladder performs per rung.
+public readonly record struct KrylovStop(Func<int, double, bool> Halt);
+
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct SparseMatrix(Dimension Rows, Dimension Cols, Arr<int> RowPtr, Arr<int> ColInd, Arr<double> Values) {
     public static Fin<SparseMatrix> FromTriplets(Dimension rows, Dimension cols, IEnumerable<(int Row, int Col, double Value)> triplets, Op? key = null) {
@@ -312,30 +364,32 @@ public readonly record struct SparseMatrix(Dimension Rows, Dimension Cols, Arr<i
         && RowPtr[0] == 0 && RowPtr[Rows.Value] == Values.Count
         && RowPointersAreMonotone(RowPtr) && RowColumnsAreStrict(rowPtr: RowPtr, colInd: ColInd, minCol: static _ => 0, maxCol: Cols.Value);
     public int NonZeros => Values.Count;
-    public Fin<Arr<double>> Multiply(Arr<double> vector, Op? key = null) =>
-        !IsValid || vector.Count != Cols.Value || !TensorPrimitives.IsFiniteAll<double>(vector.AsSpan())
-            ? Fin.Fail<Arr<double>>(key.OrDefault().InvalidInput())
-            : MatrixKernel.SparseMatVec(self: this, x: vector, key: key.OrDefault());
+    // ONE product entry carrying both directions: the sense row's Shape names the SENSED operator, so the operand gate
+    // reads its column count and the result its row count with no second member and no per-direction length arithmetic.
+    public Fin<Arr<double>> Multiply(Arr<double> vector, OperatorSense? sense = null, Op? key = null) =>
+        MatrixKernel.SparseProduct(self: this, x: vector, sense: sense ?? OperatorSense.Forward, key: key.OrDefault());
     public Matrix ToDense() => MatrixKernel.SparseToDense(self: this);
     public Fin<SolveReceipt> SolveDetailed(Arr<double> rhs, Op? key = null) => MatrixKernel.SparseSolve(matrix: this, rhs: rhs, key: key.OrDefault());
 
-    public Fin<SolveReceipt> SolveIterativeDetailed(Arr<double> rhs, SparsePreconditioner preconditioner, double tolerance, int maxIterations, Op? key = null) =>
-        MatrixKernel.SparseSolveIterative(matrix: this, rhs: rhs, preconditioner: preconditioner, tolerance: tolerance, maxIterations: maxIterations, key: key.OrDefault());
+    public Fin<SolveReceipt> SolveIterativeDetailed(Arr<double> rhs, SparsePreconditioner preconditioner, double tolerance, int maxIterations, Option<KrylovStop> stop = default, Op? key = null) =>
+        MatrixKernel.SparseSolveIterative(matrix: this, rhs: rhs, preconditioner: preconditioner, tolerance: tolerance, maxIterations: maxIterations, stop: stop, key: key.OrDefault());
     public Fin<Arr<double>> Solve(Arr<double> rhs, Op? key = null) => SolveDetailed(rhs: rhs, key: key.OrDefault()).Map(static result => result.Solution);
     public Fin<SolveReceipt> SingularSolveDetailed(Arr<double> rhs, GaugePolicy gauge, Context context, Op? key = null) =>
         MatrixKernel.SingularGaugeSolve(matrix: this, rhs: rhs, gauge: gauge, context: context, key: key.OrDefault());
     public Fin<Arr<double>> SingularSolve(Arr<double> rhs, GaugePolicy gauge, Context context, Op? key = null) =>
         SingularSolveDetailed(rhs: rhs, gauge: gauge, context: context, key: key.OrDefault()).Map(static result => result.Solution);
-    public Fin<SolveReceipt> SolveIndefiniteDetailed(Arr<double> rhs, double pivotTolerance = 1.0, Op? key = null) =>
-        MatrixKernel.SparseLuSolve(matrix: this, rhs: rhs, pivotTolerance: pivotTolerance, key: key.OrDefault());
-    public Fin<Arr<double>> SolveIndefinite(Arr<double> rhs, double pivotTolerance = 1.0, Op? key = null) =>
-        SolveIndefiniteDetailed(rhs: rhs, pivotTolerance: pivotTolerance, key: key.OrDefault()).Map(static result => result.Solution);
+    // Both direct routes are transposable on ONE numeric factorization: CSparse runs the standing L/U and Q/R factors in
+    // reverse order for A'x = b, so a transposed request assembles no explicit transpose and analyses no second pattern.
+    public Fin<SolveReceipt> SolveIndefiniteDetailed(Arr<double> rhs, OperatorSense? sense = null, double pivotTolerance = 1.0, IProgress<double>? progress = null, Op? key = null) =>
+        MatrixKernel.SparseLuSolve(matrix: this, rhs: rhs, sense: sense ?? OperatorSense.Forward, pivotTolerance: pivotTolerance, progress: progress, key: key.OrDefault());
+    public Fin<Arr<double>> SolveIndefinite(Arr<double> rhs, OperatorSense? sense = null, double pivotTolerance = 1.0, Op? key = null) =>
+        SolveIndefiniteDetailed(rhs: rhs, sense: sense, pivotTolerance: pivotTolerance, key: key.OrDefault()).Map(static result => result.Solution);
     // SolveLeastSquaresDetailed is the ONE rectangular sparse route: Householder QR over the CSC bridge. At m >= n the least-squares
     // minimizer, below the minimum-norm solution — CSparse transposes internally, so one member serves both.
-    public Fin<SolveReceipt> SolveLeastSquaresDetailed(Arr<double> rhs, Op? key = null) =>
-        MatrixKernel.SparseQrSolve(matrix: this, rhs: rhs, key: key.OrDefault());
-    public Fin<Arr<double>> SolveLeastSquares(Arr<double> rhs, Op? key = null) =>
-        SolveLeastSquaresDetailed(rhs: rhs, key: key.OrDefault()).Map(static result => result.Solution);
+    public Fin<SolveReceipt> SolveLeastSquaresDetailed(Arr<double> rhs, OperatorSense? sense = null, IProgress<double>? progress = null, Op? key = null) =>
+        MatrixKernel.SparseQrSolve(matrix: this, rhs: rhs, sense: sense ?? OperatorSense.Forward, progress: progress, key: key.OrDefault());
+    public Fin<Arr<double>> SolveLeastSquares(Arr<double> rhs, OperatorSense? sense = null, Op? key = null) =>
+        SolveLeastSquaresDetailed(rhs: rhs, sense: sense, key: key.OrDefault()).Map(static result => result.Solution);
     public Fin<EigenSolveReceipt<double, Arr<double>>> SmallestEigenpairsDetailed(int k, double tolerance, int maxIterations = 200, Op? key = null) =>
         MatrixKernel.Lobpcg(matrix: this, k: k, tolerance: tolerance, maxIterations: maxIterations, key: key.OrDefault());
     public Fin<EigenSolveReceipt<double, Arr<double>>> GeneralizedEigenpairsDetailed(SparseMatrix mass, int k, Op? key = null) =>
@@ -382,14 +436,21 @@ public readonly record struct SparseHermitian(Dimension Order, Arr<int> RowPtr, 
 public sealed record CholeskySparse {
     private CholeskySparse(SparseMatrix source, CSparse.Double.Factorization.SparseCholesky factor, Dimension order) { Source = source; Factor = factor; Order = order; }
     private readonly Lock solveLock = new();
-    public static Fin<CholeskySparse> Of(SparseMatrix symmetric, Op? key = null) =>
+    // The progress report is the caller's governance surface, not a knob: an absent reporter selects the two-argument
+    // Create overload rather than handing CSparse a null, and Refactorize deliberately carries none — its symbolic
+    // phase is already cached, so the only phase left to report is the numeric sweep the caller already bounded.
+    public static Fin<CholeskySparse> Of(SparseMatrix symmetric, IProgress<double>? progress = null, Op? key = null) =>
         symmetric.Rows.Value != symmetric.Cols.Value || !symmetric.IsValid
             ? Fin.Fail<CholeskySparse>(error: key.OrDefault().InvalidInput())
             : from csc in MatrixKernel.ToCSparseSymmetric(s: symmetric, key: key.OrDefault())
-              from factor in key.OrDefault().Catch(() =>
-                  Fin.Succ(CSparse.Double.Factorization.SparseCholesky.Create(A: csc, order: CSparse.ColumnOrdering.MinimumDegreeAtPlusA)))
+              from factor in key.OrDefault().Catch(() => Fin.Succ(Optional(progress).Match(
+                  Some: report => CSparse.Double.Factorization.SparseCholesky.Create(A: csc, order: CSparse.ColumnOrdering.MinimumDegreeAtPlusA, progress: report),
+                  None: () => CSparse.Double.Factorization.SparseCholesky.Create(A: csc, order: CSparse.ColumnOrdering.MinimumDegreeAtPlusA))))
               select new CholeskySparse(source: symmetric, factor: factor, order: symmetric.Rows);
-    public SparseMatrix Source { get; }
+    // Source moves WITH the factor under the one solve lock: the CSparse factor is mutable by construction, so a
+    // get-only Source would report the values a refactorized or rank-1-moved factor no longer holds and every residual
+    // witness minted afterwards would measure against an operator the factor abandoned.
+    public SparseMatrix Source { get; private set; }
     internal CSparse.Double.Factorization.SparseCholesky Factor { get; }
     public Dimension Order { get; }
     public int FactorNonZeros => Factor.NonZerosCount;
@@ -409,6 +470,49 @@ public sealed record CholeskySparse {
             });
     public Fin<Arr<double>> Solve(Arr<double> rhs, Op? key = null) =>
         SolveDetailed(rhs: rhs, key: key.OrDefault()).Map(static receipt => receipt.Solution);
+
+    // Numeric re-run on the cached AMD pattern: a parameter sweep re-forming values alone pays the symbolic analysis
+    // once. CSparse binds Refactorize to the cached SymbolicFactorization and reads the incoming pointers AS that
+    // pattern, so a drifted pattern yields a silently wrong factor rather than a throw — the congruence gate is the
+    // only thing standing between a sweep and that silence.
+    public Fin<CholeskySparse> Refactorize(SparseMatrix values, Op? key = null) {
+        Op op = key.OrDefault();
+        return !IsValid || !values.IsValid || !SharesPattern(values: values)
+            ? Fin.Fail<CholeskySparse>(error: op.InvalidInput())
+            : MatrixKernel.ToCSparseSymmetric(s: values, key: op).Bind(csc => op.Catch(() => {
+                lock (solveLock) {
+                    Factor.Refactorize(A: csc);
+                    Source = values;
+                }
+                return Fin.Succ(this);
+            }));
+    }
+    // Rank-1 factor movement: one added or removed constraint moves L·L' by ±w·w' with no refactorization. The two
+    // entries differ by a data pair — the outer-product sign the source re-assembly folds and the CSparse verb — never
+    // by a branch on a sign literal. A false verdict means the partial tree walk already corrupted the factor, so the
+    // rail fails and the caller re-mints; a retry compounds the corruption it inherited.
+    public Fin<CholeskySparse> Update(SparseMatrix column, Op? key = null) =>
+        Move(column: column, scale: 1.0, move: static (factor, w) => factor.Update(w: w), key: key.OrDefault());
+    public Fin<CholeskySparse> Downdate(SparseMatrix column, Op? key = null) =>
+        Move(column: column, scale: -1.0, move: static (factor, w) => factor.Downdate(w: w), key: key.OrDefault());
+    private Fin<CholeskySparse> Move(SparseMatrix column, double scale, Func<CSparse.Double.Factorization.SparseCholesky, CSparse.Storage.CompressedColumnStorage<double>, bool> move, Op key) =>
+        !IsValid || !column.IsValid || column.Rows.Value != Order.Value || column.Cols.Value != 1
+            ? Fin.Fail<CholeskySparse>(error: key.InvalidInput())
+            : from moved in MatrixKernel.RankOneMoved(source: Source, column: column, scale: scale, key: key)
+              from carrier in key.Catch(() => Fin.Succ(CSparse.Double.SparseMatrix.OfIndexed(
+                  rows: Order.Value, columns: 1, enumerable: MatrixKernel.SparseTripletsOf(matrix: column))))
+              from committed in key.Catch(() => {
+                  lock (solveLock) {
+                      if (!move(arg1: Factor, arg2: carrier)) return Fin.Fail<CholeskySparse>(key.InvalidResult());
+                      Source = moved;
+                      return Fin.Succ(this);
+                  }
+              })
+              select committed;
+    // Pattern congruence over the stored index arrays — a span comparison, cheap beside the numeric sweep it guards.
+    private bool SharesPattern(SparseMatrix values) =>
+        values.Rows.Value == Source.Rows.Value && values.Cols.Value == Source.Cols.Value && values.NonZeros == Source.NonZeros
+        && values.RowPtr.AsSpan().SequenceEqual(Source.RowPtr.AsSpan()) && values.ColInd.AsSpan().SequenceEqual(Source.ColInd.AsSpan());
 }
 ```
 
@@ -416,27 +520,32 @@ public sealed record CholeskySparse {
 
 - Owner: `SolveReceipt` the one linear-solve evidence carrier, `EigenSolveReceipt<TEigen, TVector>` the one eigen carrier generic over real or complex spectra, and `GaugeReceipt` the singular-solve evidence — all three spelling the rails fold `IsValid => ValidityClaim.All(…)` under `IValidityEvidence`.
 - Entry: receipts mint only at the `MatrixKernel` exits (`SolveSuccess`, `EigenReceiptOf`) under the two-tier evidence law — hard numerical garbage never mints and fails typed, a usable-stop receipt is gated valid before release, and a non-usable-stop receipt (`RankDeficient`, `IterativeExhausted`, KKT breakdown) is the witnessed refusal the caller reads off `Stop.IsUsable` before consuming the solution. Consuming a minted receipt without reading its stop is the named consumer defect.
-- Auto: each `IsValid` conjoins the mechanical field-shape gates with the semantic couplings — residual within tolerance, solution length matches columns, iterations within budget — one claim row per invariant.
+- Auto: each `IsValid` conjoins the mechanical field-shape gates with the semantic couplings — residual within tolerance, iterations within budget, and the length pair read off the SENSED operator so a transposed solve is validated against `A'`'s own extent rather than the stored one — one claim row per invariant; the sense-versus-capability coupling refuses a transposed receipt on a route whose `TransposeSolve` column denies it, so a mislabelled direction cannot mint.
 - Packages: Rasm.Domain (`IValidityEvidence` and `ValidityClaim`, the rails validity floor), LanguageExt.Core (`Option`, `Seq`, `Arr`).
 - Growth: new evidence is one field and at most one claim row; a new outcome family is one receipt type only when its evidence shape is disjoint (the eigen/solve/gauge split), never per-algorithm receipt clones.
 - Boundary: `Option<T>` carries absence of evidence (`Iterations` on direct solves), never a sentinel; the stored residual is always recomputed against the original operator — a preconditioned or factor-reconstructed residual is the named lying witness.
 
 ```csharp signature
 // --- [MODELS] -----------------------------------------------------------------------------
+// Rows and Cols are the STORED operator's extent and Sense names the direction the route ran, so the length claims
+// read the sensed pair rather than the stored one — a transposed solve over an m-by-n operator carries an n-length
+// right-hand side and an m-length solution, and validating it against the stored extent would reject every correct one.
 public readonly record struct SolveReceipt(
-    Arr<double> Solution, SolvePath Path, SolveStop Stop, Dimension Rows, Dimension Cols, int RhsLength,
+    Arr<double> Solution, SolvePath Path, SolveStop Stop, OperatorSense Sense, Dimension Rows, Dimension Cols, int RhsLength,
     Option<int> Iterations, Option<int> MaxIterations, Option<double> Tolerance, double Residual,
     Option<bool> FullRank, Option<int> InputNonZeros, Option<int> FactorNonZeros, Option<GaugeReceipt> Gauge = default) : IValidityEvidence {
     public bool IsValid {
         get {
             SolvePath path = Path;
             Option<int> maxIterations = MaxIterations;
+            (Dimension sensedRows, Dimension sensedCols) = Sense.Shape(rows: Rows, cols: Cols);
             return ValidityClaim.All(
-                ValidityClaim.Of(Path is not null && Stop is not null && Stop.IsUsable),
-                ValidityClaim.CountExactly(count: RhsLength, expected: Rows.Value),
+                ValidityClaim.Of(Path is not null && Stop is not null && Sense is not null && Stop.IsUsable),
+                ValidityClaim.Of(Sense.Equals(OperatorSense.Forward) || path.TransposeSolve),
+                ValidityClaim.CountExactly(count: RhsLength, expected: sensedRows.Value),
                 ValidityClaim.Nonnegative(value: Residual),
                 ValidityClaim.Of(Residual <= Tolerance.IfNone(double.PositiveInfinity)),
-                ValidityClaim.CountExactly(count: Solution.Count, expected: Cols.Value),
+                ValidityClaim.CountExactly(count: Solution.Count, expected: sensedCols.Value),
                 ValidityClaim.Finite(Solution.AsSpan()),
                 ValidityClaim.Of(Iterations.Map(static iter => iter >= 0).IfNone(noneValue: true) && InputNonZeros.Map(static nz => nz >= 0).IfNone(noneValue: true) && FactorNonZeros.Map(static nz => nz >= 0).IfNone(noneValue: true)),
                 ValidityClaim.Of(FullRank.Map(rank => !path.Equals(SolvePath.DenseQrLeastSquares) || rank).IfNone(noneValue: true)),
@@ -519,14 +628,284 @@ public readonly record struct GaugeReceipt(
 }
 ```
 
-## [06]-[SOLVE_KERNEL]
+## [06]-[TRANSFORM_BAND]
 
-- Owner: `MatrixKernel` the `internal static` numeric kernel and the one MathNet and CSparse factorization path in the corpus, organized by operation family.
+- Owner: `SpectralArena` is the ONE transform carrier — four cases, each holding the buffer layout its MathNet entrypoint owns and exactly the extent its arm consumes; `SpectralReceipt` the evidence a transform leaves; `WindowTaper` the taper roster carrying FFT framing as a column on the row rather than a second roster; `InterpolationRoute` the twelve-scheme fit route and `Interpolant` the fitted carrier whose case states what the fitted instance will actually serve.
+- Entry: `arena.Transform(sense, scaling, key)` is the one transform entry and the arena case is its discriminant, so no per-carrier entrypoint family and no mode flag exist; `WindowTaper.Of(width, framing, shape, key)` samples a taper; `InterpolationRoute.Fit(points, values, slopes, key)` mints a carrier, and `Interpolant.OfSegments`/`OfTransformed` reach the two schemes the factory roster omits — the quadratic spline through its own coefficient constructor, the transformed fit through its own static.
+- Auto: rank 2 and rank 3 ARE the row-column fold over the managed-complete 1D pair, and symmetric scaling composes per axis (`1/sqrt(w) · 1/sqrt(h) = 1/sqrt(w·h)`), so the folded transform carries the convention the 1D row declares and `RoundTripFactor` reads the cell count once; `Power` reads `MagnitudeSquared` on the interleaved bins and the vectorized `Multiply`-then-`MultiplyAdd` pair on the split spans — the reason the split case exists — and never a square root it would only square back; `Axis` derives the bin count from the lattice census and the sampling rate from the affine's own per-axis column norm, so a spectrum reads its own axis instead of a caller-passed rate that can disagree with the grid.
+- Packages: MathNet.Numerics (`IntegralTransforms.Fourier` interleaved, split, and packed pairs, `FrequencyScale`, `Hartley.NaiveForward`/`NaiveInverse`, `FourierOptions`/`HartleyOptions`, the `Window` roster, `Interpolate`, `Interpolation.IInterpolation`/`QuadraticSpline`/`TransformedInterpolation`, `ComplexExtensions.MagnitudeSquared`), System.Numerics.Tensors (`TensorPrimitives.Multiply`/`MultiplyAdd`/`IsFiniteAll`), `Numerics/atoms` (`CellLattice` the addressing carrier, `Dimension`, `PositiveMagnitude`, `UnitInterval`, `SignedAxis`, `EpsilonPolicy`), Rasm.Domain (`Op`, `Admit.FiniteComplexSpan`, the validity fold), LanguageExt.Core, Thinktecture.Runtime.Extensions, BCL (`System.Numerics.Complex`).
+- Growth: a taper is one roster row and its FFT-framing twin a column on that row; an interpolation scheme is one route row; a scaling convention is one `SpectralScaling` row governing both transform owners at once, its `FourierConvention`/`HartleyConvention` columns published so a package binding MathNet's transform entrypoints directly reads this row instead of forking a second convention vocabulary; a buffer layout is one `SpectralArena` case whose arms break every fold at compile time.
+- Boundary: `Fourier.Forward2D`/`Inverse2D`/`ForwardMultiDim`/`InverseMultiDim` never spell in a fence — all four route to the multidim provider seam whose managed realization throws `NotSupportedException`, and the admitted native adapters ship no arm64 asset, so the page's own managed-provider pin makes them unservable by construction and the separable fold IS the platform-total N-dimensional transform. Every transform overwrites the caller's arena, so an immutable spectrum value is unrepresentable and the receipt names the arena the result lives in — the same instance for the three in-place cases, a fresh one for the Hartley case, the sole entrypoint that allocates its output. Separable convolution has NO package primitive — `System.Numerics.Tensors` carries no `Conv1D`, `Conv2D`, `Conv3D`, or `MatMul` on `TensorPrimitives` or on the `Tensor` static owner — so a filter folds over this transform pair with a pointwise spectral product between the legs, or over `TensorPrimitives.MultiplyAdd`/`Dot` in the sample domain. `CellLattice` is the addressing carrier for a lattice-backed plane and the band mints no second linearization, no sibling 2D arena, and no strided-view owner beside it — the `Tensor<T>` plane stays refused on four structural grounds: array-only static entrypoints at the mint, `ref struct` span views that cannot cross the `Fin` rail, an allocating `PermuteDimensions` on every transpose, and this carrier's one-linearization law; `MathNet.Numerics.Interpolation` is one-dimensional whole, so a bicubic or scattered-surface reconstruction is the regression route's and never a row here.
+
+```csharp signature
+// --- [TYPES] ------------------------------------------------------------------------------
+// The transform convention is a DECLARED policy row, never an assumed default and never a literal at a call site:
+// Default scales symmetrically so a forward-inverse pair is the identity, AsymmetricScaling scales the inverse alone to
+// the same identity, and NoScaling omits both so the round trip carries a factor of N. FourierOptions and HartleyOptions
+// spell those three conventions at the same ordinals, so one row governs both transform owners. RoundTrip reads the CELL
+// count, so a separable fold composes per axis and the rank-3 factor is the axis-length product with no call-site arithmetic.
+[SmartEnum<int>]
+public sealed partial class SpectralScaling {
+    public static readonly SpectralScaling Symmetric = new(key: 0,
+        fourierConvention: FourierOptions.Default, hartleyConvention: HartleyOptions.Default, roundTrip: static _ => 1.0);
+    public static readonly SpectralScaling AsymmetricInverse = new(key: 1,
+        fourierConvention: FourierOptions.AsymmetricScaling, hartleyConvention: HartleyOptions.AsymmetricScaling, roundTrip: static _ => 1.0);
+    public static readonly SpectralScaling Unscaled = new(key: 2,
+        fourierConvention: FourierOptions.NoScaling, hartleyConvention: HartleyOptions.NoScaling, roundTrip: static cells => (double)cells);
+    // Both convention columns are PUBLIC: a consumer binding MathNet's own transform entrypoints — Compute's
+    // `Stats/signal` spectra and `Tensor/quadrature` folds — reads the declared row rather than re-spelling a
+    // second `FourierOptions` vocabulary no compiler joins to this one.
+    public FourierOptions FourierConvention { get; }
+    public HartleyOptions HartleyConvention { get; }
+    [UseDelegateFromConstructor] public partial double RoundTrip(long cells);
+}
+
+// Direction as a row carrying the four entrypoint pairs it names, so an arena's arm invokes the column and no arm ever
+// branches on a direction. The packed pair refuses FourierOptions.InverseExponent outright; none of the three admitted
+// convention rows sets it, so the packed arm reaches the provider unconditionally.
+[SmartEnum<int>]
+public sealed partial class SpectralSense {
+    public static readonly SpectralSense Forward = new(key: 0,
+        interleaved: Fourier.Forward, split: Fourier.Forward, packed: Fourier.ForwardReal, realValued: Hartley.NaiveForward);
+    public static readonly SpectralSense Inverse = new(key: 1,
+        interleaved: Fourier.Inverse, split: Fourier.Inverse, packed: Fourier.InverseReal, realValued: Hartley.NaiveInverse);
+    [UseDelegateFromConstructor] internal partial void Interleaved(Complex[] arena, FourierOptions options);
+    [UseDelegateFromConstructor] internal partial void Split(double[] real, double[] imaginary, FourierOptions options);
+    [UseDelegateFromConstructor] internal partial void Packed(double[] arena, int samples, FourierOptions options);
+    [UseDelegateFromConstructor] internal partial double[] RealValued(double[] samples, HartleyOptions options);
+}
+
+// Filter-design versus FFT framing is a COLUMN on the taper roster: the bare factory is the symmetric filter-design form
+// and the *Periodic twin the FFT-framing one, and only four of the fifteen rows carry both. A row asked for a framing it
+// does not serve refuses typed rather than substitute the form it happens to have.
+[SmartEnum<int>]
+public sealed partial class TaperFraming {
+    public static readonly TaperFraming FilterDesign = new(key: 0);
+    public static readonly TaperFraming FftFrame = new(key: 1);
+}
+
+// The two shaped rows' parameter, each case carrying exactly the admission its factory consumes: a Gauss sigma is a
+// positive magnitude relative to the half-width and a Tukey fraction is unit-bounded, so one shared scalar slot would
+// admit a sigma of any size and a fraction above one.
+[Union]
+public abstract partial record TaperShape {
+    private TaperShape() { }
+    public sealed record Spread(PositiveMagnitude Sigma) : TaperShape;
+    public sealed record Tapered(UnitInterval Fraction) : TaperShape;
+}
+
+internal delegate Fin<Arr<double>> TaperKernel(int width, Option<TaperShape> shape, TaperFraming framing, Op key);
+
+// The taper roster as ROWS: a taper is a row binding the package factory, never a hand-authored coefficient loop. Three
+// shared bodies serve every row — Fixed carries the symmetric design plus the optional FFT-framing twin, the two shaped
+// bodies bind the parameterized factories — so a row is one line and its framing reach is readable in the row itself.
+[SmartEnum<int>]
+public sealed partial class WindowTaper {
+    public static readonly WindowTaper Hann = new(key: 0, sample: Fixed(Window.Hann, Some<Func<int, double[]>>(Window.HannPeriodic)));
+    public static readonly WindowTaper Hamming = new(key: 1, sample: Fixed(Window.Hamming, Some<Func<int, double[]>>(Window.HammingPeriodic)));
+    public static readonly WindowTaper Cosine = new(key: 2, sample: Fixed(Window.Cosine, Some<Func<int, double[]>>(Window.CosinePeriodic)));
+    public static readonly WindowTaper Lanczos = new(key: 3, sample: Fixed(Window.Lanczos, Some<Func<int, double[]>>(Window.LanczosPeriodic)));
+    public static readonly WindowTaper Blackman = new(key: 4, sample: Fixed(Window.Blackman, None));
+    public static readonly WindowTaper BlackmanHarris = new(key: 5, sample: Fixed(Window.BlackmanHarris, None));
+    public static readonly WindowTaper BlackmanNuttall = new(key: 6, sample: Fixed(Window.BlackmanNuttall, None));
+    public static readonly WindowTaper Nuttall = new(key: 7, sample: Fixed(Window.Nuttall, None));
+    public static readonly WindowTaper FlatTop = new(key: 8, sample: Fixed(Window.FlatTop, None));
+    public static readonly WindowTaper Bartlett = new(key: 9, sample: Fixed(Window.Bartlett, None));
+    public static readonly WindowTaper BartlettHann = new(key: 10, sample: Fixed(Window.BartlettHann, None));
+    public static readonly WindowTaper Triangular = new(key: 11, sample: Fixed(Window.Triangular, None));
+    public static readonly WindowTaper Dirichlet = new(key: 12, sample: Fixed(Window.Dirichlet, None));
+    public static readonly WindowTaper Gauss = new(key: 13, sample: SigmaShaped(Window.Gauss));
+    public static readonly WindowTaper Tukey = new(key: 14, sample: FractionShaped(Window.Tukey));
+
+    internal TaperKernel Sample { get; }
+    public Fin<Arr<double>> Of(Dimension width, TaperFraming framing, Option<TaperShape> shape = default, Op? key = null) =>
+        framing is null ? Fin.Fail<Arr<double>>(error: key.OrDefault().InvalidInput()) : Sample(width.Value, shape, framing, key.OrDefault());
+
+    private static TaperKernel Fixed(Func<int, double[]> design, Option<Func<int, double[]>> framed) =>
+        (width, shape, framing, key) => shape.IsSome
+            ? Fin.Fail<Arr<double>>(key.InvalidInput())
+            : framing.Switch(
+                filterDesign: () => Fin.Succ(new Arr<double>(design(arg: width))),
+                fftFrame: () => framed.Match(
+                    Some: twin => Fin.Succ(new Arr<double>(twin(arg: width))),
+                    None: () => Fin.Fail<Arr<double>>(key.InvalidInput())));
+    private static TaperKernel SigmaShaped(Func<int, double, double[]> design) =>
+        (width, shape, framing, key) => framing.Switch(
+            filterDesign: () => shape.Match(
+                Some: value => value.Switch(
+                    spread: spread => Fin.Succ(new Arr<double>(design(arg1: width, arg2: spread.Sigma.Value))),
+                    tapered: _ => Fin.Fail<Arr<double>>(key.InvalidInput())),
+                None: () => Fin.Fail<Arr<double>>(key.InvalidInput())),
+            fftFrame: () => Fin.Fail<Arr<double>>(key.InvalidInput()));
+    private static TaperKernel FractionShaped(Func<int, double, double[]> design) =>
+        (width, shape, framing, key) => framing.Switch(
+            filterDesign: () => shape.Match(
+                Some: value => value.Switch(
+                    spread: _ => Fin.Fail<Arr<double>>(key.InvalidInput()),
+                    tapered: tapered => Fin.Succ(new Arr<double>(design(arg1: width, arg2: tapered.Fraction.Value)))),
+                None: () => Fin.Fail<Arr<double>>(key.InvalidInput())),
+            fftFrame: () => Fin.Fail<Arr<double>>(key.InvalidInput()));
+}
+
+internal delegate Fin<IInterpolation> FitKernel(Arr<double> points, Arr<double> values, Option<Arr<double>> slopes, Op key);
+
+// Twelve factory schemes as rows on ONE route. The Hermite row is the only one consuming prescribed slopes, so the slope
+// series rides an Option the row admits or refuses rather than a dead third argument eleven rows would ignore.
+[SmartEnum<int>]
+public sealed partial class InterpolationRoute {
+    public static readonly InterpolationRoute CubicSpline = new(key: 0, kernel: Sampled(Interpolate.CubicSpline));
+    public static readonly InterpolationRoute CubicSplineRobust = new(key: 1, kernel: Sampled(Interpolate.CubicSplineRobust));
+    public static readonly InterpolationRoute CubicSplineMonotone = new(key: 2, kernel: Sampled(Interpolate.CubicSplineMonotone));
+    public static readonly InterpolationRoute CubicSplineWithDerivatives = new(key: 3, kernel: Sloped(Interpolate.CubicSplineWithDerivatives));
+    public static readonly InterpolationRoute Common = new(key: 4, kernel: Sampled(Interpolate.Common));
+    public static readonly InterpolationRoute RationalWithoutPoles = new(key: 5, kernel: Sampled(Interpolate.RationalWithoutPoles));
+    public static readonly InterpolationRoute RationalWithPoles = new(key: 6, kernel: Sampled(Interpolate.RationalWithPoles));
+    public static readonly InterpolationRoute Polynomial = new(key: 7, kernel: Sampled(Interpolate.Polynomial));
+    public static readonly InterpolationRoute PolynomialEquidistant = new(key: 8, kernel: Sampled(Interpolate.PolynomialEquidistant));
+    public static readonly InterpolationRoute Linear = new(key: 9, kernel: Sampled(Interpolate.Linear));
+    public static readonly InterpolationRoute LogLinear = new(key: 10, kernel: Sampled(Interpolate.LogLinear));
+    public static readonly InterpolationRoute Step = new(key: 11, kernel: Sampled(Interpolate.Step));
+
+    internal FitKernel Kernel { get; }
+    public Fin<Interpolant> Fit(Arr<double> points, Arr<double> values, Option<Arr<double>> slopes = default, Op? key = null) {
+        Op op = key.OrDefault();
+        return points.Count < 2 || points.Count != values.Count
+            || !TensorPrimitives.IsFiniteAll<double>(points.AsSpan()) || !TensorPrimitives.IsFiniteAll<double>(values.AsSpan())
+            ? Fin.Fail<Interpolant>(error: op.InvalidInput())
+            : Kernel(points, values, slopes, op).Bind(fitted => Interpolant.Of(fitted: fitted, key: op));
+    }
+
+    private static FitKernel Sampled(Func<IEnumerable<double>, IEnumerable<double>, IInterpolation> factory) =>
+        (points, values, slopes, key) => slopes.IsSome
+            ? Fin.Fail<IInterpolation>(key.InvalidInput())
+            : key.Catch(() => Fin.Succ(factory(arg1: points.AsIterable(), arg2: values.AsIterable())));
+    private static FitKernel Sloped(Func<IEnumerable<double>, IEnumerable<double>, IEnumerable<double>, IInterpolation> factory) =>
+        (points, values, slopes, key) => slopes.Match(
+            Some: prescribed => prescribed.Count != points.Count
+                ? Fin.Fail<IInterpolation>(key.InvalidInput())
+                : key.Catch(() => Fin.Succ(factory(arg1: points.AsIterable(), arg2: values.AsIterable(), arg3: prescribed.AsIterable()))),
+            None: () => Fin.Fail<IInterpolation>(key.InvalidInput()));
+}
+
+// --- [MODELS] -----------------------------------------------------------------------------
+// The fitted-curve carrier. The package advertises differentiation and integration as runtime booleans and THROWS on an
+// unsupported call, so capability is lifted into the case the mint lands in and an unsupported member is unspellable.
+// The two flags genuinely diverge across the roster — the splines and the step scheme answer both, the polynomial and
+// log-linear rows answer differentiation alone, the two rational rows answer neither — so the pairing is READ off the
+// fitted instance and never kept as a per-row column that drifts. Every read is gated finite: the step scheme returns
+// NaN at a sample point and the rational schemes return NaN below ULP, and an ungated read poisons a gradient silently.
+[Union]
+public abstract partial record Interpolant {
+    private Interpolant() { }
+    public sealed record Sampled(IInterpolation Curve) : Interpolant;
+    public sealed record Sloped(IInterpolation Curve) : Interpolant {
+        public Fin<double> Slope(double t, Op? key = null) => Finite(value: Curve.Differentiate(t: t), key: key.OrDefault());
+        public Fin<double> Curvature(double t, Op? key = null) => Finite(value: Curve.Differentiate2(t: t), key: key.OrDefault());
+    }
+    public sealed record Analytic(IInterpolation Curve) : Interpolant {
+        public Fin<double> Slope(double t, Op? key = null) => Finite(value: Curve.Differentiate(t: t), key: key.OrDefault());
+        public Fin<double> Curvature(double t, Op? key = null) => Finite(value: Curve.Differentiate2(t: t), key: key.OrDefault());
+        public Fin<double> Integral(double t, Op? key = null) => Finite(value: Curve.Integrate(t: t), key: key.OrDefault());
+        public Fin<double> Integral(double a, double b, Op? key = null) => Finite(value: Curve.Integrate(a: a, b: b), key: key.OrDefault());
+    }
+
+    public Fin<double> Value(double t, Op? key = null) => Finite(value: Fitted().Interpolate(t: t), key: key.OrDefault());
+    // The two schemes the Interpolate factory roster omits, reached at their OWN owners and therefore not rows: the
+    // quadratic spline admits per-segment coefficients through its CONSTRUCTOR — N+1 ascending knots against N
+    // coefficient triples, never a sample fit — and the transformed fit composes a domain transform with its inverse
+    // around the fit instead of re-fitting a log or reciprocal domain by hand.
+    public static Fin<Interpolant> OfSegments(Arr<double> knots, Arr<double> constant, Arr<double> linear, Arr<double> quadratic, Op? key = null) {
+        Op op = key.OrDefault();
+        return knots.Count < 2 || constant.Count != knots.Count - 1 || linear.Count != constant.Count || quadratic.Count != constant.Count
+            ? Fin.Fail<Interpolant>(error: op.InvalidInput())
+            : op.Catch(() => Of(fitted: new QuadraticSpline(
+                x: [.. knots.AsIterable()], c0: [.. constant.AsIterable()], c1: [.. linear.AsIterable()], c2: [.. quadratic.AsIterable()]), key: op));
+    }
+    public static Fin<Interpolant> OfTransformed(Func<double, double> transform, Func<double, double> inverse, Arr<double> points, Arr<double> values, Op? key = null) {
+        Op op = key.OrDefault();
+        return points.Count < 2 || points.Count != values.Count
+            ? Fin.Fail<Interpolant>(error: op.InvalidInput())
+            : op.Catch(() => Of(fitted: TransformedInterpolation.Interpolate(
+                transform: transform, transformInverse: inverse, x: points.AsIterable(), y: values.AsIterable()), key: op));
+    }
+    internal static Fin<Interpolant> Of(IInterpolation fitted, Op key) =>
+        (fitted.SupportsDifferentiation, fitted.SupportsIntegration) switch {
+            (true, true) => Fin.Succ<Interpolant>(new Analytic(Curve: fitted)),
+            (true, false) => Fin.Succ<Interpolant>(new Sloped(Curve: fitted)),
+            (false, false) => Fin.Succ<Interpolant>(new Sampled(Curve: fitted)),
+            // Integration without differentiation inhabits no shipped scheme; minting a case whose slope member the
+            // instance would throw on is the fabrication this arm refuses.
+            (false, true) => Fin.Fail<Interpolant>(key.InvalidResult()),
+        };
+    internal IInterpolation Fitted() => Switch(sampled: static s => s.Curve, sloped: static s => s.Curve, analytic: static a => a.Curve);
+    private static Fin<double> Finite(double value, Op key) =>
+        double.IsFinite(value) ? key.AcceptValue(value: value) : Fin.Fail<double>(key.InvalidResult());
+}
+
+// Every transform OVERWRITES the caller's buffer, so the arena is the unit of work and an immutable spectrum value is
+// unrepresentable. Each case carries exactly the extent its arm consumes: the interleaved case rides the CellLattice
+// (Layers == 1 IS the plane, so no sibling 2D arena exists) and the three one-dimensional cases carry their own sampling
+// rate, so the frequency axis is total over the family. The interleaved buffer is int-indexed while a lattice census is
+// long, so a census above the array bound refuses at the length gate rather than truncating.
+[Union]
+public abstract partial record SpectralArena {
+    private SpectralArena() { }
+    public sealed record Interleaved(Complex[] Values, CellLattice Lattice) : SpectralArena;
+    public sealed record Split(double[] Real, double[] Imaginary, PositiveMagnitude Rate) : SpectralArena;
+    public sealed record HalfSpectrum(double[] Values, Dimension Samples, PositiveMagnitude Rate) : SpectralArena;
+    public sealed record RealValued(Arr<double> Samples, PositiveMagnitude Rate) : SpectralArena;
+
+    // ONE transform entry: the arena case is the discriminant, so no per-carrier entrypoint family and no mode flag.
+    public Fin<SpectralReceipt> Transform(SpectralSense sense, SpectralScaling scaling, Op? key = null) =>
+        MatrixKernel.SpectralTransform(arena: this, sense: sense, scaling: scaling, key: key.OrDefault());
+    public bool IsValid => Switch(
+        interleaved: static a => a.Values.Length == a.Lattice.CellCount && Admit.FiniteComplexSpan(a.Values.AsSpan()),
+        split: static s => s.Real.Length >= 1 && s.Real.Length == s.Imaginary.Length
+            && TensorPrimitives.IsFiniteAll<double>(s.Real) && TensorPrimitives.IsFiniteAll<double>(s.Imaginary),
+        halfSpectrum: static h => h.Values.Length >= PackedLength(samples: h.Samples.Value) && TensorPrimitives.IsFiniteAll<double>(h.Values),
+        realValued: static r => r.Samples.Count >= 1 && TensorPrimitives.IsFiniteAll<double>(r.Samples.AsSpan()));
+    public int Rank => Switch(interleaved: static a => a.Lattice.Rank, split: static _ => 1, halfSpectrum: static _ => 1, realValued: static _ => 1);
+    public long Cells => Switch(
+        interleaved: static a => a.Lattice.CellCount,
+        split: static s => (long)s.Real.Length,
+        halfSpectrum: static h => (long)h.Samples.Value,
+        realValued: static r => (long)r.Samples.Count);
+    // Packed conjugate-even extent: N+2 doubles for even N, N+1 for odd, holding interleaved (real, imaginary) bin pairs
+    // — bin zero's imaginary slot included — which is exactly the layout the inverse packed transform unpacks.
+    internal static int PackedLength(int samples) => int.IsEvenInteger(samples) ? samples + 2 : samples + 1;
+}
+
+// The transform's evidence. Rank, cell count, and the round-trip factor derive from the arena and the convention rather
+// than riding as fields a producer could fill with something else; Energy is the one MEASURED value — the summed bin
+// power, which under symmetric scaling is the Parseval-invariant a round trip must preserve.
+public readonly record struct SpectralReceipt(SpectralArena Arena, SpectralSense Sense, SpectralScaling Scaling, double Energy) : IValidityEvidence {
+    public int Rank => Arena.Rank;
+    public long Cells => Arena.Cells;
+    public double RoundTripFactor => Scaling.RoundTrip(cells: Cells);
+    public bool IsValid => ValidityClaim.All(
+        ValidityClaim.Of(Arena is not null && Sense is not null && Scaling is not null && Arena.IsValid),
+        ValidityClaim.Of(double.IsFinite(Energy)),
+        ValidityClaim.Nonnegative(value: Energy),
+        ValidityClaim.Of(Cells >= 1L && Rank >= 1));
+    // The per-bin power the Energy field sums, folded per arena layout.
+    public Fin<Arr<double>> Power(Op? key = null) => MatrixKernel.SpectralPower(arena: Arena, key: key.OrDefault());
+    // The spectrum's OWN axis: bin count from the census, spacing from the lattice affine's per-axis column norm or the
+    // one-dimensional case's carried rate, so no consumer derives a frequency axis beside the grid that produced it.
+    public Fin<Arr<double>> Axis(SignedAxis axis, Op? key = null) => MatrixKernel.SpectralAxis(arena: Arena, axis: axis, key: key.OrDefault());
+    // The pointwise spectral product re-mints the receipt because it moves the energy the previous one measured.
+    public Fin<SpectralReceipt> Modulate(ReadOnlySpan<Complex> symbol, Op? key = null) =>
+        MatrixKernel.SpectralModulate(receipt: this, symbol: symbol, key: key.OrDefault());
+}
+```
+
+## [07]-[SOLVE_KERNEL]
+
+- Owner: `MatrixKernel` the `internal static` numeric kernel and the one MathNet and CSparse factorization, solve, and transform path in the corpus, organized by operation family.
 - Entry: every public-facing operation enters through the owning model member; the kernel is reached only through them.
-- Auto: `SingularGaugeSolve` derives every threshold from `OperatorFrobeniusScale` and the rhs scale — relative gates, never absolute literals — and witnesses the true residual against the original un-shifted operator; `LobpcgCore` seeds its basis deterministically off the `Domain/identity` splitmix64 owner for bit-stable replay and terminates typed, never a hidden dense fallback.
-- Packages: MathNet.Numerics (the managed provider path only — `UseManaged`, no `Control.UseNative*` call, no provider package), CSparse (`SparseCholesky`, `SparseLU`, AMD ordering), Rasm.Domain (`Op`, `Context`, `Deterministic` splitmix64), System.Numerics.Tensors, TYoshimura.DoubleDouble (`ddouble`, the 106-bit residual-witness lane), BCL (`System.Numerics.Complex`).
-- Growth: a new route, gauge case, or eigen substrate adds one kernel arm over its vocabulary row and the existing receipt shape.
-- Boundary: statement loops inside `CompressRows`, `SolvePin`, `SolveKkt`, and the MGS pass are the named statement-kernel exemption — measured assembly and elimination hot paths; `BiCgStabDivergenceFactor` (divergence ceiling) and `KktPivotTolerance` (CSparse full-partial-pivot column threshold) are the named kernel policy constants.
+- Auto: `SingularGaugeSolve` derives every threshold from `OperatorFrobeniusScale` and the rhs scale — relative gates, never absolute literals — and witnesses the true residual against the original un-shifted operator; `LobpcgCore` seeds its basis deterministically off the `Domain/identity` splitmix64 owner for bit-stable replay and terminates typed, never a hidden dense fallback; CSR compression is the storage owner's — `OfIndexedEnumerable` sorts each row, `NormalizeDuplicates` sums the coincident run the admission APPENDS, and `PopulateExplicitZerosOnDiagonal` restores the structural diagonal the zero-drop erases before any preconditioner walks it.
+- Packages: MathNet.Numerics (the managed provider path only — `UseManaged`, no `Control.UseNative*` call, no provider package — its CSR storage repairs, the 1D transform pairs, and the taper and interpolation rosters), CSparse (`SparseCholesky`, `SparseLU`, `SparseQR`, AMD ordering, the transposed solves and the rank-1 factor moves), Rasm.Domain (`Op`, `Context`, `Deterministic` splitmix64), System.Numerics.Tensors, TYoshimura.DoubleDouble (`ddouble`, the 106-bit residual-witness lane), BCL (`System.Numerics.Complex`, `IProgress<double>`).
+- Growth: a new route, gauge case, eigen substrate, or arena layout adds one kernel arm over its vocabulary row and the existing receipt shape.
+- Boundary: statement loops inside `SolvePin`, `SolveKkt`, the MGS pass, and the separable axis gather-scatter are the named statement-kernel exemption — measured assembly, elimination, and strided-line hot paths; `BiCgStabDivergenceFactor` (divergence ceiling) and `KktPivotTolerance` (CSparse full-partial-pivot column threshold) are the named kernel policy constants.
 
 ```csharp signature
 // --- [OPERATIONS] -------------------------------------------------------------------------
@@ -546,6 +925,10 @@ internal static class MatrixKernel {
                 Matrix result = FromMathNet(m: project(arg: ToMathNet(source)), rows: rows, cols: cols);
                 return result.IsValid ? Fin.Succ(result) : Fin.Fail<Matrix>(key.InvalidResult());
             });
+    // The ONE plain CSR-to-CSC bridge every sensed product and every direct sparse route enters through; the symmetric
+    // twin below is its mirror-normalizing sibling for the routes that demand a canonical upper view.
+    internal static CSparse.Storage.CompressedColumnStorage<double> ToCSparse(SparseMatrix s) =>
+        CSparse.Double.SparseMatrix.OfIndexed(rows: s.Rows.Value, columns: s.Cols.Value, enumerable: SparseTripletsOf(matrix: s));
     internal static Fin<CSparse.Storage.CompressedColumnStorage<double>> ToCSparseSymmetric(SparseMatrix s, Op key) =>
         NormalizeSymmetricUpperEntries(s: s, key: key).Map(upper =>
             CSparse.Double.SparseMatrix.OfIndexed(rows: s.Rows.Value, columns: s.Rows.Value, enumerable: upper));
@@ -569,10 +952,19 @@ internal static class MatrixKernel {
                 .SelectMany(k => row == s.ColInd[k]
                     ? [(row, row, s.Values[k])]
                     : new[] { (row, s.ColInd[k], s.Values[k]), (s.ColInd[k], row, Complex.Conjugate(s.Values[k])) })));
+    // The Krylov lane's storage carries an EXPLICIT diagonal: MILU0 walks the CSR diagonal position directly and the
+    // Jacobi row reads it, while assembly drops a cancelled diagonal entry structurally, so the slot is restored here
+    // rather than left absent for an incomplete factor to index past. The repair is square-only by construction — the
+    // member writes column index == row index for every diagonal-less row, which on a tall operator would emit columns
+    // beyond the column count.
     private static Matrix<double> ToMathNetSparse(SparseMatrix s) =>
-        DenseMatrixD.Build.Sparse(SparseCompressedRowMatrixStorage<double>.OfCompressedSparseRowFormat(
-            rows: s.Rows.Value, columns: s.Cols.Value, valueCount: s.Values.Count,
-            rowPointers: [.. s.RowPtr.AsIterable()], columnIndices: [.. s.ColInd.AsIterable()], values: [.. s.Values.AsIterable()]));
+        DenseMatrixD.Build.Sparse(DiagonalPopulated(
+            storage: SparseCompressedRowMatrixStorage<double>.OfCompressedSparseRowFormat(
+                rows: s.Rows.Value, columns: s.Cols.Value, valueCount: s.Values.Count,
+                rowPointers: [.. s.RowPtr.AsIterable()], columnIndices: [.. s.ColInd.AsIterable()], values: [.. s.Values.AsIterable()]),
+            square: s.Rows.Value == s.Cols.Value));
+    private static SparseCompressedRowMatrixStorage<double> DiagonalPopulated(SparseCompressedRowMatrixStorage<double> storage, bool square) =>
+        square ? (fun(storage.PopulateExplicitZerosOnDiagonal)(), storage).Item2 : storage;
     private static Matrix<double> ToMathNetSymmetric(SparseMatrix matrix, IEnumerable<(int Row, int Col, double Value)> upper) =>
         SparseMatrixD.OfIndexed(rows: matrix.Rows.Value, columns: matrix.Cols.Value, enumerable: upper.SelectMany(static e => e.Row == e.Col
             ? [(e.Row, e.Col, e.Value)]
@@ -594,13 +986,19 @@ internal static class MatrixKernel {
     }
     internal static bool SolveInputIsValid(int rows, Arr<double> rhs) =>
         rhs.Count == rows && TensorPrimitives.IsFiniteAll<double>(rhs.AsSpan());
-    internal static double SparseResidual(SparseMatrix matrix, Arr<double> solution, Arr<double> rhs) =>
-        RelativeResidual(a: ToMathNetSparse(s: matrix), x: DenseVectorD.OfArray([.. solution.AsIterable()]), b: DenseVectorD.OfArray([.. rhs.AsIterable()]));
     internal static Fin<double> SparseSymmetricResidual(SparseMatrix matrix, Arr<double> solution, Arr<double> rhs, Op key) =>
         NormalizeSymmetricUpperEntries(s: matrix, key: key).Bind(upper => key.AcceptValue(value: RelativeResidual(
             a: ToMathNetSymmetric(matrix: matrix, upper: upper),
             x: DenseVectorD.OfArray([.. solution.AsIterable()]),
             b: DenseVectorD.OfArray([.. rhs.AsIterable()]))));
+    // The sensed residual witness: the result buffer starts as b and the accumulate column folds it to Op·x − b in ONE
+    // pass over the operator — the subtract loop deletes — while the difference norm still folds in 106-bit ddouble, so
+    // the fused pass buys the loop's removal without surrendering the compensation the witness law demands.
+    private static double SensedResidual(CSparse.Storage.CompressedColumnStorage<double> operand, OperatorSense sense, double[] solution, Arr<double> rhs) {
+        double[] residual = [.. rhs.AsIterable()];
+        sense.Accumulate(operand: operand, alpha: 1.0, x: solution, beta: -1.0, y: residual);
+        return CompensatedNorm(v: DenseVectorD.OfArray(residual)) / Math.Max(val1: 1.0, val2: CompensatedNorm(v: DenseVectorD.OfArray([.. rhs.AsIterable()])));
+    }
     private static double EigenResidual<T, TEigen, TVector>(Matrix<T> a, Seq<(TEigen Eigenvalue, TVector Eigenvector)> pairs, Func<TVector, MathNet.Numerics.LinearAlgebra.Vector<T>> vector, Func<(MathNet.Numerics.LinearAlgebra.Vector<T> Vector, TEigen Eigenvalue), MathNet.Numerics.LinearAlgebra.Vector<T>> scale)
         where T : struct, IEquatable<T>, IFormattable =>
         pairs.Fold(initialState: 0.0, f: (max, pair) => {
@@ -613,8 +1011,8 @@ internal static class MatrixKernel {
             LinearVector lhs = stiffness.Multiply(v);
             return Math.Max(val1: max, val2: (lhs - (mass.Multiply(v) * pair.Eigenvalue)).L2Norm() / Math.Max(val1: 1.0, val2: lhs.L2Norm()));
         });
-    internal static Fin<SolveReceipt> SolveSuccess(Arr<double> solution, int solutionLength, SolvePath path, SolveStop stop, Dimension rows, Dimension cols, int rhsLength, double residual, Op key, double residualCap = double.PositiveInfinity, Option<int> iterations = default, Option<int> maxIterations = default, Option<double> tolerance = default, Option<bool> fullRank = default, Option<int> inputNonZeros = default, Option<int> factorNonZeros = default, Option<GaugeReceipt> gauge = default) {
-        SolveReceipt receipt = new(Solution: solution, Path: path, Stop: stop, Rows: rows, Cols: cols, RhsLength: rhsLength, Iterations: iterations, MaxIterations: maxIterations, Tolerance: tolerance, Residual: residual, FullRank: fullRank, InputNonZeros: inputNonZeros, FactorNonZeros: factorNonZeros, Gauge: gauge);
+    internal static Fin<SolveReceipt> SolveSuccess(Arr<double> solution, int solutionLength, SolvePath path, SolveStop stop, Dimension rows, Dimension cols, int rhsLength, double residual, Op key, OperatorSense? sense = null, double residualCap = double.PositiveInfinity, Option<int> iterations = default, Option<int> maxIterations = default, Option<double> tolerance = default, Option<bool> fullRank = default, Option<int> inputNonZeros = default, Option<int> factorNonZeros = default, Option<GaugeReceipt> gauge = default) {
+        SolveReceipt receipt = new(Solution: solution, Path: path, Stop: stop, Sense: sense ?? OperatorSense.Forward, Rows: rows, Cols: cols, RhsLength: rhsLength, Iterations: iterations, MaxIterations: maxIterations, Tolerance: tolerance, Residual: residual, FullRank: fullRank, InputNonZeros: inputNonZeros, FactorNonZeros: factorNonZeros, Gauge: gauge);
         return solution.Count == solutionLength && TensorPrimitives.IsFiniteAll<double>(solution.AsSpan()) && double.IsFinite(residual) && residual <= residualCap && (!stop.IsUsable || receipt.IsValid)
             ? Fin.Succ(receipt)
             : Fin.Fail<SolveReceipt>(key.InvalidResult());
@@ -709,23 +1107,28 @@ internal static class MatrixKernel {
         });
 
     // --- [SPARSE_ASSEMBLY] -----------------------------------------------------------------------
+    // CSR compression belongs to the storage owner, never to a hand-written compressor beside it: OfIndexedEnumerable
+    // sorts each row and APPENDS coincident entries (and drops exact-zero triplets at admission), NormalizeDuplicates
+    // sums the appended run — the one member that adds coincident entries — and the residue pass zeroes then compacts
+    // through the storage's own map-and-normalize pair, so the whole fold is three package calls over one buffer set.
     internal static Fin<SparseMatrix> AssembleSparse(Dimension rows, Dimension cols, IEnumerable<(int Row, int Col, double Value)> triplets, Op op) {
         List<(int Row, int Col, double Value)> raw = [.. triplets];
         if (raw.Exists(t => !double.IsFinite(t.Value) || t.Row < 0 || t.Row >= rows.Value || t.Col < 0 || t.Col >= cols.Value)) return Fin.Fail<SparseMatrix>(op.InvalidInput());
-        List<(int Row, int Col, double Value)> indexed = [.. raw
-            .GroupBy(static t => (t.Row, t.Col))
-            .Select(static g => (g.Key.Row, g.Key.Col, Value: g.Sum(static t => t.Value)))];
-        if (indexed.Exists(static t => !double.IsFinite(t.Value))) return Fin.Fail<SparseMatrix>(op.InvalidResult());
-        SparseMatrixD mathNet = SparseMatrixD.OfIndexed(rows: rows.Value, columns: cols.Value, enumerable: indexed);
+        SparseCompressedRowMatrixStorage<double> storage = SparseCompressedRowMatrixStorage<double>.OfIndexedEnumerable(
+            rows: rows.Value, columns: cols.Value, data: raw.Select(static t => (t.Row, t.Col, t.Value)));
+        storage.NormalizeDuplicates();
         // Assembly residue drops at a STRUCTURAL band scaled to the operator, never at binary zero: a summed
         // triplet cancelling to 1e-300 is fill the factorization pays for and the pattern fingerprint keys on.
-        double residue = EpsilonPolicy.SqrtEpsilon * Math.Sqrt(indexed.Sum(static t => t.Value * t.Value));
-        List<(int Row, int Col, double Value)> sorted = [.. mathNet.EnumerateIndexed(Zeros.AllowSkip)
-            .Where(t => double.IsFinite(t.Item3) && Math.Abs(value: t.Item3) > residue)
-            .OrderBy(static t => t.Item1).ThenBy(static t => t.Item2)
-            .Select(static t => (Row: t.Item1, Col: t.Item2, Value: t.Item3))];
-        (Arr<int> rowPtr, Arr<int> colInd, Arr<double> values) = CompressRows(rowCount: rows.Value, sorted: sorted);
-        SparseMatrix result = new(Rows: rows, Cols: cols, RowPtr: rowPtr, ColInd: colInd, Values: values);
+        double residue = EpsilonPolicy.SqrtEpsilon * TensorPrimitives.Norm<double>(storage.Values.AsSpan(start: 0, length: storage.ValueCount));
+        storage.MapInplace(f: value => Math.Abs(value: value) > residue ? value : 0.0, zeros: Zeros.AllowSkip);
+        storage.NormalizeZeros();
+        return CompressedOf(storage: storage, rows: rows, cols: cols, op: op);
+    }
+    // The storage's own three buffers ARE the CSR: RowPointers runs rows+1, and the value and index arrays are exactly
+    // ValueCount long after NormalizeDuplicates resizes them, so the read is a slice rather than a re-walk.
+    private static Fin<SparseMatrix> CompressedOf(SparseCompressedRowMatrixStorage<double> storage, Dimension rows, Dimension cols, Op op) {
+        SparseMatrix result = new(Rows: rows, Cols: cols,
+            RowPtr: new Arr<int>(storage.RowPointers), ColInd: new Arr<int>(storage.ColumnIndices[..storage.ValueCount]), Values: new Arr<double>(storage.Values[..storage.ValueCount]));
         return result.IsValid ? Fin.Succ(result) : Fin.Fail<SparseMatrix>(op.InvalidResult());
     }
     internal static Fin<SparseHermitian> AssembleHermitian(Dimension order, IEnumerable<(int Row, int Col, Complex Value)> triplets, Op op) {
@@ -740,8 +1143,15 @@ internal static class MatrixKernel {
         double diagonalScale = upper.Where(static t => t.Row == t.Col).Aggregate(seed: 0.0, func: static (max, t) => Math.Max(val1: max, val2: Math.Abs(value: t.Value.Real)));
         double diagonalBand = Math.Max(val1: EpsilonPolicy.SqrtEpsilon, val2: diagonalScale * EpsilonPolicy.SqrtEpsilon);
         if (upper.Exists(t => !double.IsFinite(t.Value.Real) || !double.IsFinite(t.Value.Imaginary) || (t.Row == t.Col && Math.Abs(value: t.Value.Imaginary) > diagonalBand))) return Fin.Fail<SparseHermitian>(op.InvalidResult());
-        (Arr<int> rowPtr, Arr<int> colInd, Arr<Complex> values) = CompressRows(rowCount: order.Value, sorted: [.. upper.Select(static t => (t.Row, t.Col, Value: t.Row == t.Col ? new Complex(t.Value.Real, 0.0) : t.Value))]);
-        SparseHermitian result = new(Order: order, RowPtr: rowPtr, ColInd: colInd, Values: values);
+        // The complex leg pre-sums BEFORE admission and keeps doing so: the diagonal-realness gate must read SUMMED
+        // entries, and the storage admission's per-row `Tuple<int, T>` sort falls through to the VALUE comparison on a
+        // duplicate column, which `Complex` — carrying no `IComparable` — cannot answer. Pre-summed keys are unique, so
+        // that comparison is never reached and the storage owns the compression on this leg too.
+        SparseCompressedRowMatrixStorage<Complex> storage = SparseCompressedRowMatrixStorage<Complex>.OfIndexedEnumerable(
+            rows: order.Value, columns: order.Value,
+            data: upper.Select(static t => (t.Row, t.Col, t.Row == t.Col ? new Complex(t.Value.Real, 0.0) : t.Value)));
+        SparseHermitian result = new(Order: order, RowPtr: new Arr<int>(storage.RowPointers),
+            ColInd: new Arr<int>(storage.ColumnIndices[..storage.ValueCount]), Values: new Arr<Complex>(storage.Values[..storage.ValueCount]));
         return result.IsValid ? Fin.Succ(result) : Fin.Fail<SparseHermitian>(op.InvalidResult());
     }
     // 2n x 2n real-block embedding of a Hermitian pair — the connection-Laplacian assembly (Meshing/dec) composes these rows.
@@ -751,29 +1161,33 @@ internal static class MatrixKernel {
             (i, j, real), (j, i, real), (i + order, j + order, real), (j + order, i + order, real),
             (i, j + order, -imaginary), (j + order, i, -imaginary), (i + order, j, imaginary), (j, i + order, imaginary),
         ]);
-    private static (Arr<int> RowPtr, Arr<int> ColInd, Arr<T> Values) CompressRows<T>(int rowCount, List<(int Row, int Col, T Value)> sorted) {
-        int[] rowPtr = new int[rowCount + 1];
-        int[] colInd = new int[sorted.Count];
-        T[] values = new T[sorted.Count];
-        int cursor = 0;
-        for (int row = 0; row < rowCount; row++) {
-            rowPtr[row] = cursor;
-            while (cursor < sorted.Count && sorted[cursor].Row == row) {
-                colInd[cursor] = sorted[cursor].Col;
-                values[cursor] = sorted[cursor].Value;
-                cursor++;
-            }
-        }
-        rowPtr[rowCount] = cursor;
-        return (new Arr<int>(rowPtr), new Arr<int>(colInd), new Arr<T>(values));
+    // Rank-1 source movement: the factor moves by ±w·w', so the held source moves by the same outer product or the
+    // residual witness would measure against the operator the factor abandoned. The column is sparse, so the product is
+    // its nonzero pairs and the re-assembly folds them through the same accumulating admission every consumer uses.
+    internal static Fin<SparseMatrix> RankOneMoved(SparseMatrix source, SparseMatrix column, double scale, Op key) {
+        List<(int Row, int Col, double Value)> stored = SparseTripletsOf(matrix: column);
+        List<(int Row, int Col, double Value)> entries = SparseTripletsOf(matrix: source, capacityBonus: stored.Count * stored.Count);
+        entries.AddRange(collection: from left in stored
+                                     from right in stored
+                                     select (Row: left.Row, Col: right.Row, Value: scale * left.Value * right.Value));
+        return AssembleSparse(rows: source.Rows, cols: source.Cols, triplets: entries, op: key);
     }
 
     // --- [SPARSE_SOLVES] --------------------------------------------------------------------------
-    internal static Fin<Arr<double>> SparseMatVec(SparseMatrix self, Arr<double> x, Op key) =>
-        ArrFromVector(ToMathNetSparse(s: self).Multiply(DenseVectorD.OfArray([.. x.AsIterable()]))) switch {
-            Arr<double> result when TensorPrimitives.IsFiniteAll<double>(result.AsSpan()) => Fin.Succ(result),
-            _ => Fin.Fail<Arr<double>>(key.InvalidResult()),
-        };
+    // The sensed product: the sense row's own column runs the CSC operator forward or transposed, so a transposed
+    // product is the same entry rather than a second member, and both lengths come off the sensed shape.
+    internal static Fin<Arr<double>> SparseProduct(SparseMatrix self, Arr<double> x, OperatorSense sense, Op key) {
+        if (sense is null || !self.IsValid) return Fin.Fail<Arr<double>>(key.InvalidInput());
+        (Dimension rows, Dimension cols) = sense.Shape(rows: self.Rows, cols: self.Cols);
+        return x.Count != cols.Value || !TensorPrimitives.IsFiniteAll<double>(x.AsSpan())
+            ? Fin.Fail<Arr<double>>(key.InvalidInput())
+            : key.Catch(() => {
+                double[] y = new double[rows.Value];
+                sense.Apply(operand: ToCSparse(s: self), x: [.. x.AsIterable()], y: y);
+                Arr<double> result = new(y);
+                return TensorPrimitives.IsFiniteAll<double>(result.AsSpan()) ? Fin.Succ(result) : Fin.Fail<Arr<double>>(key.InvalidResult());
+            });
+    }
     internal static Fin<Arr<Complex>> HermitianMatVec(SparseHermitian self, Arr<Complex> x, Op key) =>
         ArrFromComplexVector(ToMathNetHermitian(s: self).Multiply(DenseVectorC.OfArray([.. x.AsIterable()]))) switch {
             Arr<Complex> result when Admit.FiniteComplexSpan(result.AsSpan()) => Fin.Succ(result),
@@ -814,20 +1228,30 @@ internal static class MatrixKernel {
             });
     // Preconditioned Krylov with NO direct fallback — the large-grid arm where SparseSolve's MathNet direct
     // rescue (A.Solve densifies a sparse operator) IS the failure mode: a caller above its direct ceiling
-    // states the preconditioner ROW, the tolerance, and the cap, and a non-converged run reports
+    // states the preconditioner ROW, the tolerance, the cap, and — where its own condition governs — one
+    // stop row, and a non-converged run reports
     // IterativeExhausted with the true residual on the receipt rather than silently densifying millions of
     // unknowns. ToMathNetSparse converts the kernel's OWN duplicate-summed CSR, so the MathNet OfIndexed
     // append-duplicates trap never enters this rail.
-    internal static Fin<SolveReceipt> SparseSolveIterative(SparseMatrix matrix, Arr<double> rhs, SparsePreconditioner preconditioner, double tolerance, int maxIterations, Op key) =>
+    internal static Fin<SolveReceipt> SparseSolveIterative(SparseMatrix matrix, Arr<double> rhs, SparsePreconditioner preconditioner, double tolerance, int maxIterations, Option<KrylovStop> stop, Op key) =>
         !matrix.IsValid || matrix.Rows.Value != matrix.Cols.Value || !SolveInputIsValid(rows: matrix.Rows.Value, rhs: rhs) || !double.IsFinite(tolerance) || tolerance <= 0.0 || maxIterations < 1
             ? Fin.Fail<SolveReceipt>(key.InvalidInput())
             : key.Catch(() => {
                 Matrix<double> A = ToMathNetSparse(s: matrix);
                 LinearVector b = DenseVectorD.OfArray([.. rhs.AsIterable()]);
+                // Criterion ORDER is precedence and the status read short-circuits on the first non-continuing verdict:
+                // failure stays terminal ahead of everything, divergence before the residual test, the residual test
+                // ahead of the domain rule so a converged solve is never reported as domain-halted, and the count cap
+                // last so it only fires on a run nothing else settled.
                 MathNet.Numerics.LinearAlgebra.Solvers.Iterator<double> iterator = new([
                     new MathNet.Numerics.LinearAlgebra.Solvers.FailureStopCriterion<double>(),
                     new MathNet.Numerics.LinearAlgebra.Solvers.DivergenceStopCriterion<double>(maximumRelativeIncrease: BiCgStabDivergenceFactor, minimumIterations: 8),
                     new MathNet.Numerics.LinearAlgebra.Solvers.ResidualStopCriterion<double>(maximum: tolerance, minimumIterationsBelowMaximum: 2),
+                    .. stop.Map(static rule => (MathNet.Numerics.LinearAlgebra.Solvers.IIterationStopCriterion<double>)
+                        new MathNet.Numerics.LinearAlgebra.Solvers.DelegateStopCriterion<double>((iteration, _, _, residual) =>
+                            rule.Halt(arg1: iteration, arg2: residual.L2Norm())
+                                ? MathNet.Numerics.LinearAlgebra.Solvers.IterationStatus.StoppedWithoutConvergence
+                                : MathNet.Numerics.LinearAlgebra.Solvers.IterationStatus.Continue)).ToSeq(),
                     new MathNet.Numerics.LinearAlgebra.Solvers.IterationCountStopCriterion<double>(maximumNumberOfIterations: maxIterations),
                 ]);
                 LinearVector x = A.SolveIterative(input: b, solver: new MathNet.Numerics.LinearAlgebra.Double.Solvers.BiCgStab(), iterator: iterator, preconditioner: preconditioner.Create());
@@ -837,46 +1261,56 @@ internal static class MatrixKernel {
             });
 
     // Symmetric-indefinite (or nonsymmetric) sparse direct solve: CSparse SparseLU, A+At ordering,
-    // column-relative pivot tol in [0,1]; SPD pivot loss throws bare Exception, caught into the typed rail.
-    internal static Fin<SolveReceipt> SparseLuSolve(SparseMatrix matrix, Arr<double> rhs, double pivotTolerance, Op key) =>
-        !matrix.IsValid || matrix.Rows.Value != matrix.Cols.Value || !SolveInputIsValid(rows: matrix.Rows.Value, rhs: rhs) || !double.IsFinite(pivotTolerance) || pivotTolerance is < 0.0 or > 1.0
+    // column-relative pivot tol in [0,1]; SPD pivot loss throws bare Exception, caught into the typed rail. The sense
+    // row picks the standing factor's forward or transposed triangular sweep, so A'x = b runs on the SAME numeric
+    // factorization — no explicit transpose is assembled and no second symbolic analysis is paid for.
+    internal static Fin<SolveReceipt> SparseLuSolve(SparseMatrix matrix, Arr<double> rhs, OperatorSense sense, double pivotTolerance, IProgress<double>? progress, Op key) =>
+        sense is null || !matrix.IsValid || matrix.Rows.Value != matrix.Cols.Value || !SolveInputIsValid(rows: matrix.Rows.Value, rhs: rhs) || !double.IsFinite(pivotTolerance) || pivotTolerance is < 0.0 or > 1.0
             ? Fin.Fail<SolveReceipt>(key.InvalidInput())
             : key.Catch(() => {
                 int n = matrix.Rows.Value;
-                CSparse.Storage.CompressedColumnStorage<double> csc = CSparse.Double.SparseMatrix.OfIndexed(rows: n, columns: n, enumerable: SparseTripletsOf(matrix: matrix));
-                CSparse.Double.Factorization.SparseLU lu = CSparse.Double.Factorization.SparseLU.Create(A: csc, order: CSparse.ColumnOrdering.MinimumDegreeAtPlusA, tol: pivotTolerance);
+                CSparse.Storage.CompressedColumnStorage<double> csc = ToCSparse(s: matrix);
+                CSparse.Double.Factorization.SparseLU lu = Optional(progress).Match(
+                    Some: report => CSparse.Double.Factorization.SparseLU.Create(A: csc, order: CSparse.ColumnOrdering.MinimumDegreeAtPlusA, tol: pivotTolerance, progress: report),
+                    None: () => CSparse.Double.Factorization.SparseLU.Create(A: csc, order: CSparse.ColumnOrdering.MinimumDegreeAtPlusA, tol: pivotTolerance));
                 double[] solution = new double[n];
-                lu.Solve(input: [.. rhs.AsIterable()], result: solution.AsSpan());
+                sense.SolveLu(factor: lu, rhs: [.. rhs.AsIterable()], solution: solution);
                 Arr<double> x = new(solution);
-                double residual = SparseResidual(matrix: matrix, solution: x, rhs: rhs);
+                double residual = SensedResidual(operand: csc, sense: sense, solution: solution, rhs: rhs);
                 double cap = Math.Sqrt(EpsilonPolicy.SqrtEpsilon);
-                return SolveSuccess(solution: x, solutionLength: n, path: SolvePath.SparseLuIndefinite, stop: double.IsFinite(residual) && residual <= cap ? SolveStop.DirectSolved : SolveStop.FallbackRejected, rows: matrix.Rows, cols: matrix.Cols, rhsLength: rhs.Count, residual: residual, key: key, residualCap: cap, tolerance: Some(cap), inputNonZeros: Some(matrix.NonZeros), factorNonZeros: Some(lu.NonZerosCount));
+                return SolveSuccess(solution: x, solutionLength: n, path: SolvePath.SparseLuIndefinite, stop: double.IsFinite(residual) && residual <= cap ? SolveStop.DirectSolved : SolveStop.FallbackRejected, rows: matrix.Rows, cols: matrix.Cols, rhsLength: rhs.Count, residual: residual, key: key, sense: sense, residualCap: cap, tolerance: Some(cap), inputNonZeros: Some(matrix.NonZeros), factorNonZeros: Some(lu.NonZerosCount));
             });
 
     // Rectangular sparse least-squares: CSparse SparseQR under the A'A minimum-degree mint. The residual
-    // witnessed is the NORMAL-equation residual ‖Aᵀ(Ax − b)‖ / (‖A‖_F·‖b‖) — the least-squares optimality
-    // signal a raw ‖Ax − b‖ cannot carry — and the work buffer sizes from max(m, n), the solution dimension
-    // a structurally singular system exceeds its row count by.
-    internal static Fin<SolveReceipt> SparseQrSolve(SparseMatrix matrix, Arr<double> rhs, Op key) =>
-        !matrix.IsValid || rhs.Count != matrix.Rows.Value || !TensorPrimitives.IsFiniteAll<double>(rhs.AsSpan())
+    // witnessed is the NORMAL-equation residual ‖Opᵀ(Op·x − b)‖ / (‖A‖_F·‖b‖) — the least-squares optimality
+    // signal a raw ‖Op·x − b‖ cannot carry — and the work buffer sizes from max(m, n), the solution dimension
+    // a structurally singular system exceeds its row count by, which is also the sizing both senses share. The residual
+    // leg is two accumulate passes: the sense folds Op·x − b in place, its FLIPPED row applies the opposite direction
+    // for the normal projection, so neither direction spells its own subtraction loop or its own transposed member.
+    internal static Fin<SolveReceipt> SparseQrSolve(SparseMatrix matrix, Arr<double> rhs, OperatorSense sense, IProgress<double>? progress, Op key) {
+        if (sense is null || !matrix.IsValid) return Fin.Fail<SolveReceipt>(key.InvalidInput());
+        (Dimension sensedRows, Dimension sensedCols) = sense.Shape(rows: matrix.Rows, cols: matrix.Cols);
+        return rhs.Count != sensedRows.Value || !TensorPrimitives.IsFiniteAll<double>(rhs.AsSpan())
             ? Fin.Fail<SolveReceipt>(key.InvalidInput())
             : key.Catch(() => {
-                (int m, int n) = (matrix.Rows.Value, matrix.Cols.Value);
-                CSparse.Storage.CompressedColumnStorage<double> csc = CSparse.Double.SparseMatrix.OfIndexed(rows: m, columns: n, enumerable: SparseTripletsOf(matrix: matrix));
-                CSparse.Double.Factorization.SparseQR qr = CSparse.Double.Factorization.SparseQR.Create(A: csc, order: CSparse.ColumnOrdering.MinimumDegreeAtA);
-                double[] work = new double[Math.Max(val1: m, val2: n)];
-                qr.Solve(input: [.. rhs.AsIterable()], result: work.AsSpan());
-                Arr<double> x = new(work[..n]);
-                double[] residualVector = new double[m];
-                csc.Multiply(x.AsSpan(), residualVector.AsSpan());
-                for (int i = 0; i < m; i++) residualVector[i] -= rhs[index: i];
-                double[] normal = new double[n];
-                csc.TransposeMultiply(residualVector.AsSpan(), normal.AsSpan());
+                CSparse.Storage.CompressedColumnStorage<double> csc = ToCSparse(s: matrix);
+                CSparse.Double.Factorization.SparseQR qr = Optional(progress).Match(
+                    Some: report => CSparse.Double.Factorization.SparseQR.Create(A: csc, order: CSparse.ColumnOrdering.MinimumDegreeAtA, progress: report),
+                    None: () => CSparse.Double.Factorization.SparseQR.Create(A: csc, order: CSparse.ColumnOrdering.MinimumDegreeAtA));
+                double[] work = new double[Math.Max(val1: matrix.Rows.Value, val2: matrix.Cols.Value)];
+                sense.SolveQr(factor: qr, rhs: [.. rhs.AsIterable()], solution: work);
+                double[] solution = work[..sensedCols.Value];
+                Arr<double> x = new(solution);
+                double[] residualVector = [.. rhs.AsIterable()];
+                sense.Accumulate(operand: csc, alpha: 1.0, x: solution, beta: -1.0, y: residualVector);
+                double[] normal = new double[sensedCols.Value];
+                sense.Flipped().Apply(operand: csc, x: residualVector, y: normal);
                 double operatorScale = Math.Max(val1: EpsilonPolicy.SqrtEpsilon, val2: TensorPrimitives.Norm<double>(matrix.Values.AsSpan()));
                 double residual = TensorPrimitives.Norm<double>(normal) / (operatorScale * Math.Max(val1: TensorPrimitives.Norm<double>(rhs.AsSpan()), val2: EpsilonPolicy.SqrtEpsilon));
                 double cap = Math.Sqrt(EpsilonPolicy.SqrtEpsilon);
-                return SolveSuccess(solution: x, solutionLength: n, path: SolvePath.SparseQrLeastSquares, stop: double.IsFinite(residual) && residual <= cap ? SolveStop.LeastSquaresSolved : SolveStop.RankDeficient, rows: matrix.Rows, cols: matrix.Cols, rhsLength: rhs.Count, residual: residual, key: key, residualCap: cap, inputNonZeros: Some(matrix.NonZeros), factorNonZeros: Some(qr.NonZerosCount));
+                return SolveSuccess(solution: x, solutionLength: sensedCols.Value, path: SolvePath.SparseQrLeastSquares, stop: double.IsFinite(residual) && residual <= cap ? SolveStop.LeastSquaresSolved : SolveStop.RankDeficient, rows: matrix.Rows, cols: matrix.Cols, rhsLength: rhs.Count, residual: residual, key: key, sense: sense, residualCap: cap, inputNonZeros: Some(matrix.NonZeros), factorNonZeros: Some(qr.NonZerosCount));
             });
+    }
 
     // --- [SINGULAR_GAUGE] --------------------------------------------------------------------------
     // Gauge dual-solve over a singular SPSD operator: derive every threshold from the operator and rhs
@@ -1082,15 +1516,20 @@ internal static class MatrixKernel {
             : from stiffnessUpper in NormalizeSymmetricUpperEntries(s: stiffness, key: key)
               from massUpper in NormalizeSymmetricUpperEntries(s: mass, key: key)
               from receipt in key.Catch(() => {
-                  Matrix<double> stiffnessM = ToMathNetSymmetric(matrix: stiffness, upper: stiffnessUpper);
-                  Matrix<double> massM = ToMathNetSymmetric(matrix: mass, upper: massUpper);
+                  Matrix<double> stiffnessM = Densified(operand: ToMathNetSymmetric(matrix: stiffness, upper: stiffnessUpper));
+                  Matrix<double> massM = Densified(operand: ToMathNetSymmetric(matrix: mass, upper: massUpper));
                   (LinearVector vals, Matrix<double> vecs, int factorNonZeros) = SolveGeneralised(Ahat: stiffnessM, Mhat: massM);
                   Seq<(double Eigenvalue, Arr<double> Eigenvector)> pairs = toSeq(Enumerable.Range(start: 0, count: vals.Count)
                       .OrderBy(i => vals[i]).Take(k)
                       .Select(i => (Eigenvalue: vals[i], Eigenvector: ArrFromVector(vecs.Column(i)))));
-                  return EigenReceiptOf(pairs: pairs, path: EigenSolvePath.SparseGeneralizedCholeskyCongruence, stop: EigenSolveStop.DirectSolved, order: EigenOrder.Ascending, requestedPairs: k, maxResidual: GeneralizedEigenResidual(stiffness: stiffnessM, mass: massM, pairs: pairs), evidence: new EigenPathEvidence.Factored(FactorNonZeros: factorNonZeros), key: key);
+                  return EigenReceiptOf(pairs: pairs, path: EigenSolvePath.DenseGeneralizedCholeskyCongruence, stop: EigenSolveStop.DirectSolved, order: EigenOrder.Ascending, requestedPairs: k, maxResidual: GeneralizedEigenResidual(stiffness: stiffnessM, mass: massM, pairs: pairs), evidence: new EigenPathEvidence.Factored(FactorNonZeros: factorNonZeros), key: key);
               })
               select receipt;
+    // The densification is SPELLED at the boundary rather than left to happen inside Cholesky(): a MathNet sparse
+    // operator declares no Cholesky override, so the factorization would run through the dense user path with no
+    // fill-reducing ordering and the route would read sparse while paying dense cost.
+    private static Matrix<double> Densified(Matrix<double> operand) =>
+        DenseMatrixD.Build.DenseOfRowMajor(operand.RowCount, operand.ColumnCount, operand.ToRowMajorArray());
     // Generalised eigenproblem A z = lambda M z via the symmetric Cholesky congruence L^-1 A L^-T.
     private static (LinearVector Vals, Matrix<double> Vecs, int FactorNonZeros) SolveGeneralised(Matrix<double> Ahat, Matrix<double> Mhat) {
         MathNet.Numerics.LinearAlgebra.Factorization.Cholesky<double> cholesky = Mhat.Cholesky();
@@ -1239,10 +1678,141 @@ internal static class MatrixKernel {
     private static Matrix<T> TakeSmallest<T>(MathNet.Numerics.LinearAlgebra.Vector<T> eigVals, Matrix<T> eigVecs, int k, Func<T, double> key)
         where T : struct, IEquatable<T>, IFormattable =>
         Matrix<T>.Build.DenseOfColumnVectors([.. Enumerable.Range(start: 0, count: eigVals.Count).OrderBy(i => key(arg: eigVals[i])).Take(count: k).Select(eigVecs.Column)]);
+
+    // --- [SPECTRAL] ------------------------------------------------------------------------------
+    // Rank 2 and rank 3 ARE the row-column fold over the managed-complete 1D pair (Radix-2 at a power of two, Bluestein
+    // otherwise): Forward2D and ForwardMultiDim route to the multidim provider seam whose managed realization throws
+    // NotSupportedException, and the admitted native adapters ship no arm64 asset, so the page's managed-provider pin
+    // makes those four entrypoints unreachable by construction and they never spell here. Symmetric scaling composes per
+    // axis, so the folded transform carries exactly the convention the 1D row declares.
+    internal static Fin<SpectralReceipt> SpectralTransform(SpectralArena arena, SpectralSense sense, SpectralScaling scaling, Op key) =>
+        arena is null || sense is null || scaling is null || !arena.IsValid
+            ? Fin.Fail<SpectralReceipt>(key.InvalidInput())
+            : key.Catch(() => SpectralReceiptOf(arena: Transformed(arena: arena, sense: sense, scaling: scaling), sense: sense, scaling: scaling, key: key));
+    private static SpectralArena Transformed(SpectralArena arena, SpectralSense sense, SpectralScaling scaling) =>
+        arena.Switch(
+            state: (Sense: sense, Scaling: scaling),
+            interleaved: static (s, a) => FoldSeparable(arena: a, sense: s.Sense, options: s.Scaling.FourierConvention),
+            split: static (s, a) => {
+                s.Sense.Split(real: a.Real, imaginary: a.Imaginary, options: s.Scaling.FourierConvention);
+                return (SpectralArena)a;
+            },
+            halfSpectrum: static (s, a) => {
+                s.Sense.Packed(arena: a.Values, samples: a.Samples.Value, options: s.Scaling.FourierConvention);
+                return (SpectralArena)a;
+            },
+            // The ONE arm that allocates: the Hartley pair returns a fresh coefficient vector rather than overwriting
+            // its input, so this case hands back a new arena while the three Fourier cases hand back the caller's own.
+            realValued: static (s, a) => new SpectralArena.RealValued(
+                Samples: new Arr<double>(s.Sense.RealValued(samples: [.. a.Samples.AsIterable()], options: s.Scaling.HartleyConvention)), Rate: a.Rate));
+    // The separable axis fold — the named statement-kernel exemption on this rail. Per axis, each line gathers at that
+    // axis's stride into one contiguous buffer, takes the 1D transform, and scatters back. The strides ARE the lattice's
+    // own linearization read as per-axis steps (1, Columns, Columns·Rows), so the fold addresses through the declared
+    // linearization instead of re-deriving an index expression the lattice already owns.
+    private static SpectralArena FoldSeparable(SpectralArena.Interleaved arena, SpectralSense sense, FourierOptions options) {
+        int columns = arena.Lattice.Columns.Value, rows = arena.Lattice.Rows.Value, layers = arena.Lattice.Layers.Value;
+        int cells = arena.Values.Length;
+        for (int axis = 0; axis < arena.Lattice.Rank; axis++) {
+            (int count, int stride) = axis switch {
+                0 => (columns, 1),
+                1 => (rows, columns),
+                _ => (layers, columns * rows),
+            };
+            Complex[] line = new Complex[count];
+            for (int origin = 0; origin < cells; origin++) {
+                if (origin / stride % count != 0) continue;
+                for (int k = 0; k < count; k++) line[k] = arena.Values[origin + (k * stride)];
+                sense.Interleaved(arena: line, options: options);
+                for (int k = 0; k < count; k++) arena.Values[origin + (k * stride)] = line[k];
+            }
+        }
+        return arena;
+    }
+    // One power fold serves both the receipt's measured energy and the consumer's per-bin read, so the spectrum is never
+    // walked twice and the receipt's Energy is the summed power the caller can re-derive from Power itself.
+    private static Fin<SpectralReceipt> SpectralReceiptOf(SpectralArena arena, SpectralSense sense, SpectralScaling scaling, Op key) =>
+        SpectralPower(arena: arena, key: key).Bind(power => {
+            SpectralReceipt receipt = new(Arena: arena, Sense: sense, Scaling: scaling, Energy: TensorPrimitives.Sum<double>(power.AsSpan()));
+            return receipt.IsValid ? Fin.Succ(receipt) : Fin.Fail<SpectralReceipt>(key.InvalidResult());
+        });
+    // Per-bin power with no square root anywhere: MagnitudeSquared over the interleaved bins, the vectorized
+    // square-then-fused-multiply-add over the split spans (the reason that arena exists), the interleaved pair fold over
+    // the packed half-spectrum, and the reflection pairing the real Hartley spectrum's power identity demands.
+    internal static Fin<Arr<double>> SpectralPower(SpectralArena arena, Op key) =>
+        arena is null || !arena.IsValid
+            ? Fin.Fail<Arr<double>>(key.InvalidInput())
+            : key.Catch(() => Fin.Succ(arena.Switch(
+                interleaved: static a => new Arr<double>([.. a.Values.Select(static bin => bin.MagnitudeSquared())]),
+                split: static s => SplitPower(real: s.Real, imaginary: s.Imaginary),
+                halfSpectrum: static h => PackedPower(values: h.Values, samples: h.Samples.Value),
+                realValued: static r => HartleyPower(samples: r.Samples))));
+    private static Arr<double> SplitPower(double[] real, double[] imaginary) {
+        double[] power = new double[real.Length];
+        TensorPrimitives.Multiply<double>(real, real, power);
+        TensorPrimitives.MultiplyAdd<double>(imaginary, imaginary, power, power);
+        return new Arr<double>(power);
+    }
+    private static Arr<double> PackedPower(double[] values, int samples) =>
+        new Arr<double>([.. Enumerable.Range(start: 0, count: SpectralArena.PackedLength(samples: samples) / 2)
+            .Select(bin => (values[2 * bin] * values[2 * bin]) + (values[(2 * bin) + 1] * values[(2 * bin) + 1]))]);
+    // A Hartley spectrum is real and its power pairs a bin with its reflection — |F(k)|² = (H(k)² + H(N−k)²)/2, bin zero
+    // pairing itself — so reading H(k)² alone would report the Fourier power of a symmetric spectrum only.
+    private static Arr<double> HartleyPower(Arr<double> samples) {
+        int n = samples.Count;
+        return new Arr<double>([.. Enumerable.Range(start: 0, count: n)
+            .Select(k => ((samples[index: k] * samples[index: k]) + (samples[index: (n - k) % n] * samples[index: (n - k) % n])) * 0.5)]);
+    }
+    // The spectrum reads its OWN axis: the bin count and the sample rate come from the arena that produced it — the
+    // lattice census with the affine's per-axis column norm inverted, or the one-dimensional case's carried rate — so no
+    // consumer derives a frequency axis beside the grid it sampled.
+    internal static Fin<Arr<double>> SpectralAxis(SpectralArena arena, SignedAxis axis, Op key) =>
+        arena is null || axis is null || !arena.IsValid
+            ? Fin.Fail<Arr<double>>(key.InvalidInput())
+            : arena.Switch(
+                state: (Ordinal: Math.Abs(value: axis.Key) - 1, Key: key),
+                interleaved: static (s, a) => s.Ordinal >= a.Lattice.Rank
+                    ? Fin.Fail<Arr<double>>(s.Key.InvalidInput())
+                    : AxisOf(metric: LatticeMetric(lattice: a.Lattice, ordinal: s.Ordinal), key: s.Key),
+                split: static (s, a) => s.Ordinal != 0
+                    ? Fin.Fail<Arr<double>>(s.Key.InvalidInput())
+                    : AxisOf(metric: (Count: a.Real.Length, SampleRate: a.Rate.Value), key: s.Key),
+                halfSpectrum: static (s, a) => s.Ordinal != 0
+                    ? Fin.Fail<Arr<double>>(s.Key.InvalidInput())
+                    : AxisOf(metric: (Count: a.Samples.Value, SampleRate: a.Rate.Value), key: s.Key),
+                realValued: static (s, a) => s.Ordinal != 0
+                    ? Fin.Fail<Arr<double>>(s.Key.InvalidInput())
+                    : AxisOf(metric: (Count: a.Samples.Count, SampleRate: a.Rate.Value), key: s.Key));
+    private static Fin<Arr<double>> AxisOf((int Count, double SampleRate) metric, Op key) =>
+        metric.Count < 1 || !double.IsFinite(metric.SampleRate) || metric.SampleRate <= 0.0
+            ? Fin.Fail<Arr<double>>(key.InvalidInput())
+            : key.Catch(() => {
+                Arr<double> bins = new(Fourier.FrequencyScale(length: metric.Count, sampleRate: metric.SampleRate));
+                return TensorPrimitives.IsFiniteAll<double>(bins.AsSpan()) ? Fin.Succ(bins) : Fin.Fail<Arr<double>>(key.InvalidResult());
+            });
+    // The lattice admits only an invertible affine, so no column norm is zero and the reciprocal needs no floor; a
+    // degenerate spacing that somehow reached here divides to infinity and the axis gate refuses it as non-finite.
+    private static (int Count, double SampleRate) LatticeMetric(CellLattice lattice, int ordinal) =>
+        ordinal switch {
+            0 => (Count: lattice.Columns.Value, SampleRate: 1.0 / lattice.CellSize.X),
+            1 => (Count: lattice.Rows.Value, SampleRate: 1.0 / lattice.CellSize.Y),
+            _ => (Count: lattice.Layers.Value, SampleRate: 1.0 / lattice.CellSize.Z),
+        };
+    // The convolution theorem's whole content, and the reason no convolution member exists beside it. The symbol
+    // addresses interleaved bins, so the packed and Hartley layouts refuse rather than have the band re-derive the
+    // package's own bin packing; the destination aliases its operand legally, so the product runs over the caller's
+    // arena with no staging copy.
+    internal static Fin<SpectralReceipt> SpectralModulate(SpectralReceipt receipt, ReadOnlySpan<Complex> symbol, Op key) =>
+        receipt.Arena is SpectralArena.Interleaved plane && plane.Values.Length == symbol.Length && Admit.FiniteComplexSpan(symbol)
+            ? Modulated(plane: plane, symbol: symbol, receipt: receipt, key: key)
+            : Fin.Fail<SpectralReceipt>(key.InvalidInput());
+    private static Fin<SpectralReceipt> Modulated(SpectralArena.Interleaved plane, ReadOnlySpan<Complex> symbol, SpectralReceipt receipt, Op key) {
+        TensorPrimitives.Multiply<Complex>(plane.Values, symbol, plane.Values);
+        return SpectralReceiptOf(arena: plane, sense: receipt.Sense, scaling: receipt.Scaling, key: key);
+    }
 }
 ```
 
-## [07]-[RESEARCH]
+## [08]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.

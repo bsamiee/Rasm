@@ -68,10 +68,12 @@
 |  [02]   | `cctf_encoding(value, function, **kwargs)`              | OETF/CCTF encode  | method-dispatched gamma/log CCTF encoding             |
 |  [03]   | `cctf_decoding(value, function, **kwargs)`              | OETF/CCTF decode  | method-dispatched CCTF decoding                       |
 |  [04]   | `delta_E(a, b, method, **kwargs)`                       | colour difference | CIE 2000 and other ΔE metrics                         |
-|  [05]   | `read_LUT(path, **kwargs)`                              | LUT import        | `.csp`/`.cube`/`.spi1d`/`.spi3d`/`.spimtx` alone — `.clf`/`.ctf` raise `KeyError` and route through OCIO |
+|  [05]   | `read_LUT(path, **kwargs)`                              | LUT import        | `.csp`/`.cube`/`.spi1d`/`.spi3d`/`.spimtx` alone      |
 |  [06]   | `write_LUT(LUT, path, **kwargs)`                        | LUT export        | serialise a LUT to disk                               |
 |  [07]   | `read_image(path, bit_depth, method, **kwargs)`         | image import      | float32/uint8/uint16 image read (Imageio/OpenImageIO) |
 |  [08]   | `write_image(image, path, bit_depth, method, **kwargs)` | image export      | multi-bit-depth image write                           |
+
+- `read_LUT`: `.clf`/`.ctf` raise `KeyError` and route through OCIO.
 
 [ENTRYPOINT_SCOPE]: appearance model and colorimetry operations
 

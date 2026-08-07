@@ -36,14 +36,17 @@ public sealed partial class NeighborSearchBackend {
 }
 
 // Metrics belong on the QUERY — the kd-tree splits on coordinates, so one built tree serves every
-// coordinate-monotone metric with no rebuild. The Euclidean body returns SQUARED distance, so each row derives its
-// own search-radius form; a cosine row is excluded as unsound — the hyperrect prune assumes the coordinate
-// monotonicity it does not hold.
+// coordinate-monotone metric with no rebuild. The row carries the `KDTree` STATIC, not the `DistanceMetrics` enum:
+// the enum is the build-factory's own argument and `Tree.Metric` is a `Func`, so a row is the function itself and
+// each row derives its own search-radius form because the Euclidean body returns SQUARED distance. Cosine is
+// excluded on three counts, any one disqualifying: the hyperrect prune assumes a coordinate monotonicity cosine does
+// not hold, its norm product round-trips through `double` whatever the coordinate type, and it answers a sentinel on
+// a zero dot product or a zero-norm operand, so its priority ordering is not a metric ordering at all.
 [SmartEnum<int>]
 public sealed partial class NeighborMetric {
-    public static readonly NeighborMetric Euclidean = new(key: 0, body: DistanceMetrics.EuclideanDistance, squaredRadius: true);
-    public static readonly NeighborMetric Manhattan = new(key: 1, body: DistanceMetrics.ManhattanDistance, squaredRadius: false);
-    public static readonly NeighborMetric Chebyshev = new(key: 2, body: DistanceMetrics.ChebyshevDistance, squaredRadius: false);
+    public static readonly NeighborMetric Euclidean = new(key: 0, body: KDTree.EuclideanDistance, squaredRadius: true);
+    public static readonly NeighborMetric Manhattan = new(key: 1, body: KDTree.ManhattanDistance, squaredRadius: false);
+    public static readonly NeighborMetric Chebyshev = new(key: 2, body: KDTree.ChebyshevDistance, squaredRadius: false);
     internal Func<IReadOnlyList<double>, IReadOnlyList<double>, double> Body { get; }
     internal bool SquaredRadius { get; }
     internal double SearchRadius(double r) => SquaredRadius ? r * r : r;
@@ -155,6 +158,9 @@ public abstract partial record NeighborIndex {
                 from _ in guard(points.Length > 0, k.InvalidInput()).ToFin()
                 let coordinates = points.Select(IReadOnlyList<double> (p) => [p.X, p.Y, p.Z]).ToArray()
                 let payloads = Enumerable.Range(0, points.Length).ToArray()
+                // Create takes the enum by contract and has no metric-free overload, so the seeded row is the
+                // Euclidean default every query row then replaces on the built tree; the raw constructor stays
+                // reserved for a search window this species does not carry.
                 select (NeighborIndex)new StaticCase(
                     Tree: KDTree.Create(coordinates, payloads, DistanceMetrics.EuclideanDistance), Points: points));
     }
@@ -232,9 +238,10 @@ public abstract partial record NeighborIndex {
 
 - Owner: `NeighborKernel` owns every per-point measurement, and `NeighborhoodPolicy` is the one record each fold threads.
 - Entry: `GraphOf` is the batch spine; `PcaOf`, `EstimateNormals`, `OrientNormals`, `PrincipalCurvatures`, `Curvedness`, `ShapeIndex`, and `ReceiptOf` fold per point over it.
-- Auto: per-point PCA clamps eigenvalues to the floor and emits the sample `register.md` reads as its GICP precision field; normal orientation runs Hoppe-DeRose, propagating sign by BFS per forest root; principal curvature routes its quadric solve to the `matrix.md` owners.
-- Packages: QuikGraph (`MinimumSpanningTreePrim`), RhinoCommon, LanguageExt.Core.
-- Growth: a new per-point measurement is one fold over the `NeighborhoodGraph` spine with its receipt columns; a new classification band is one policy column; a new orientation strategy is one arm beside the MST fold.
+- Auto: per-point PCA clamps eigenvalues to the floor and emits the sample `register.md` reads as its GICP precision field; normal orientation runs Hoppe-DeRose, propagating sign by BFS per forest root; principal curvature routes its quadric solve to the `matrix.md` owners. `CurvatureAxis` owns every derived curvature scalar as a projection row, so `Curvedness`, `ShapeIndex`, and the range bands are all one fold over that vocabulary and each formula has exactly one site.
+- Packages: QuikGraph (`MinimumSpanningTreePrim`), RhinoCommon, Thinktecture.Runtime.Extensions, LanguageExt.Core.
+- Growth: a new per-point measurement is one fold over the `NeighborhoodGraph` spine with its receipt columns; a new derived curvature scalar is one `CurvatureAxis` row that joins every band set unasked; a new classification band is one policy column; a new orientation strategy is one arm beside the MST fold.
+- Boundary: every measure an all-rejected cloud cannot take rides an `Option` — the residual pair and the whole band set are absent, never zero-filled, so a receipt never reads as a perfect fit over samples that failed to solve.
 
 ```csharp signature
 // --- [MODELS] -----------------------------------------------------------------------------
@@ -302,17 +309,39 @@ public readonly record struct CurvatureSample(
         ValidityClaim.CountAtLeast(count: NeighborCount, floor: 6));
 }
 
+// The derived curvature scalars are ONE axis vocabulary, each row owning its projection, so the range fold, the
+// per-point measures, and every later per-axis statistic read one body — the shape-index and curvedness formulas
+// have exactly one site each. A new derived scalar is one row and its band appears in every receipt unasked.
+[SmartEnum<int>]
+public sealed partial class CurvatureAxis {
+    public static readonly CurvatureAxis Principal = new(key: 0, project: static s => s.K1);
+    public static readonly CurvatureAxis Secondary = new(key: 1, project: static s => s.K2);
+    public static readonly CurvatureAxis Gaussian = new(key: 2, project: static s => s.K1 * s.K2);
+    public static readonly CurvatureAxis Mean = new(key: 3, project: static s => 0.5 * (s.K1 + s.K2));
+    public static readonly CurvatureAxis Curvedness = new(key: 4, project: static s => Math.Sqrt(0.5 * ((s.K1 * s.K1) + (s.K2 * s.K2))));
+    // Koenderink shape index; the umbilic band answers the sign because atan2 is undefined where k1 == k2.
+    public static readonly CurvatureAxis Shape = new(key: 5, project: static s => Math.Abs(s.K1 - s.K2) < EpsilonPolicy.SqrtEpsilon
+        ? (double)Math.Sign(s.K1 + s.K2)
+        : 2.0 / Math.PI * Math.Atan2(s.K1 + s.K2, s.K1 - s.K2));
+    [UseDelegateFromConstructor] internal partial double Project(CurvatureSample sample);
+}
+
+// The residual pair rides Options: an all-rejected cloud measured no residual, and a 0.0 there reads as a perfect
+// fit over samples that never solved.
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct CurvatureReceipt(
     int InputCount, int RequestedNeighborCount, int AcceptedSampleCount, int RejectedSampleCount,
-    int RankRejectedCount, int ResidualRejectedCount, double MeanResidual, double MaxResidual,
+    int RankRejectedCount, int ResidualRejectedCount, Option<double> MeanResidual, Option<double> MaxResidual,
     double EigenGapTolerance, double FitResidualTolerance, double SphereLikenessBand,
     NeighborhoodReceipt Neighborhood, CurvatureRangeReceipt Range) : IValidityEvidence {
     public bool IsValid => ValidityClaim.All(
         ValidityClaim.CountExactly(count: AcceptedSampleCount + RejectedSampleCount, expected: InputCount),
         ValidityClaim.CountExactly(count: RankRejectedCount + ResidualRejectedCount, expected: RejectedSampleCount),
-        ValidityClaim.Nonnegative(MeanResidual),
-        ValidityClaim.Ordered(lower: MeanResidual, upper: MaxResidual),
+        ValidityClaim.Of(MeanResidual.IsSome == (AcceptedSampleCount > 0)),
+        ValidityClaim.Of((MeanResidual.Case, MaxResidual.Case) switch {
+            (double mean, double max) => ValidityClaim.Nonnegative(mean).Holds && ValidityClaim.Ordered(lower: mean, upper: max).Holds,
+            _ => MeanResidual.IsNone && MaxResidual.IsNone,
+        }),
         ValidityClaim.Positive(EigenGapTolerance),
         ValidityClaim.Positive(FitResidualTolerance),
         ValidityClaim.UnitInterval(SphereLikenessBand),
@@ -322,18 +351,22 @@ public readonly record struct CurvatureReceipt(
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct CurvatureBand(CurvatureAxis Axis, double Lower, double Upper) : IValidityEvidence {
+    public bool IsValid => ValidityClaim.Ordered(lower: Lower, upper: Upper).Holds;
+}
+
+// One band per axis row replaces the hand-paired min/max columns: the extrema are absent as a SET when nothing was
+// accepted, so an empty cloud publishes no band rather than a zero pair reading as a measured flat surface.
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct CurvatureRangeReceipt(
-    int AcceptedSampleCount, CurvatureRangeKind Kind, int PlaneLikeCount, int SphereLikeCount, int SaddleLikeCount, int MixedCount,
-    double MinK1, double MaxK1, double MinK2, double MaxK2, double MinGaussian, double MaxGaussian,
-    double MinMean, double MaxMean, double MinShapeIndex, double MaxShapeIndex, double Tolerance) : IValidityEvidence {
+    int AcceptedSampleCount, CurvatureRangeKind Kind, int PlaneLikeCount, int SphereLikeCount,
+    int SaddleLikeCount, int MixedCount, Option<Arr<CurvatureBand>> Bands, double Tolerance) : IValidityEvidence {
     public bool IsValid => ValidityClaim.All(
         ValidityClaim.CountExactly(count: PlaneLikeCount + SphereLikeCount + SaddleLikeCount + MixedCount, expected: AcceptedSampleCount),
-        ValidityClaim.Of(AcceptedSampleCount == 0 || (
-            ValidityClaim.Ordered(lower: MinK1, upper: MaxK1).Holds
-            && ValidityClaim.Ordered(lower: MinK2, upper: MaxK2).Holds
-            && ValidityClaim.Ordered(lower: MinGaussian, upper: MaxGaussian).Holds
-            && ValidityClaim.Ordered(lower: MinMean, upper: MaxMean).Holds
-            && ValidityClaim.Ordered(lower: MinShapeIndex, upper: MaxShapeIndex).Holds)),
+        ValidityClaim.Of(Bands.IsSome == (AcceptedSampleCount > 0)),
+        ValidityClaim.Of(Bands.Map(static bands =>
+            bands.Count == CurvatureAxis.Items.Count && bands.ForAll(static band => band.IsValid)).IfNone(true)),
+        ValidityClaim.Of(Kind.Equals(CurvatureRangeKind.Empty) == (AcceptedSampleCount == 0)),
         ValidityClaim.Nonnegative(Tolerance));
 }
 
@@ -407,8 +440,8 @@ internal static partial class NeighborKernel {
             InputCount: cluster.Vertices.Count, RequestedNeighborCount: policy.NeighborCount.Value,
             AcceptedSampleCount: accepted.Count, RejectedSampleCount: rankRejected + residualRejected,
             RankRejectedCount: rankRejected, ResidualRejectedCount: residualRejected,
-            MeanResidual: accepted.IsEmpty ? 0.0 : accepted.Sum(static s => s.Residual) / accepted.Count,
-            MaxResidual: accepted.IsEmpty ? 0.0 : accepted.Max(static s => s.Residual),
+            MeanResidual: accepted.IsEmpty ? Option<double>.None : Some(accepted.Sum(static s => s.Residual) / accepted.Count),
+            MaxResidual: accepted.IsEmpty ? Option<double>.None : Some(accepted.Max(static s => s.Residual)),
             EigenGapTolerance: policy.EigenGapTolerance.Value, FitResidualTolerance: policy.FitResidualTolerance.Value,
             SphereLikenessBand: policy.SphereLikenessBand.Value, Neighborhood: graph.Receipt,
             Range: RangeOf(samples: accepted, band: policy.SphereLikenessBand.Value))
@@ -417,14 +450,14 @@ internal static partial class NeighborKernel {
             : Fin.Fail<CurvatureResult>(key.InvalidResult())
         select result;
 
+    // Both per-point measures ARE axis projections, so each is the same fold over a different row and neither owns
+    // a formula; a third derived measure is one CurvatureAxis row and one line here.
     internal static Fin<Seq<double>> Curvedness(VectorCloud.ClusterCase cluster, NeighborhoodPolicy policy, Op key) =>
-        PrincipalCurvatures(cluster: cluster, policy: policy, key: key)
-            .Map(r => r.Samples.Map(static s => Math.Sqrt(0.5 * ((s.K1 * s.K1) + (s.K2 * s.K2)))));
+        Projected(axis: CurvatureAxis.Curvedness, cluster: cluster, policy: policy, key: key);
     internal static Fin<Seq<double>> ShapeIndex(VectorCloud.ClusterCase cluster, NeighborhoodPolicy policy, Op key) =>
-        PrincipalCurvatures(cluster: cluster, policy: policy, key: key)
-            .Map(r => r.Samples.Map(static s => Math.Abs(s.K1 - s.K2) < EpsilonPolicy.SqrtEpsilon
-                ? (double)Math.Sign(s.K1 + s.K2)
-                : 2.0 / Math.PI * Math.Atan2(s.K1 + s.K2, s.K1 - s.K2)));
+        Projected(axis: CurvatureAxis.Shape, cluster: cluster, policy: policy, key: key);
+    private static Fin<Seq<double>> Projected(CurvatureAxis axis, VectorCloud.ClusterCase cluster, NeighborhoodPolicy policy, Op key) =>
+        PrincipalCurvatures(cluster: cluster, policy: policy, key: key).Map(r => r.Samples.Map(axis.Project));
 
     private static Fin<NeighborhoodGraph> Batch(Point3d[] needles, Option<int> count, Option<double> radius, Op key,
         int hayCount, Func<int, Point3d> hayAt, NeighborSearchBackend knnBackend, NeighborSearchBackend radiusBackend,
@@ -489,11 +522,10 @@ internal static partial class NeighborKernel {
             kinds.Count(static k => k.Equals(CurvatureRangeKind.Plane)),
             kinds.Count(static k => k.Equals(CurvatureRangeKind.Sphere)),
             kinds.Count(static k => k.Equals(CurvatureRangeKind.Saddle)));
-        double MinOf(Func<CurvatureSample, double> f) => samples.IsEmpty ? 0.0 : samples.Min(f);
-        double MaxOf(Func<CurvatureSample, double> f) => samples.IsEmpty ? 0.0 : samples.Max(f);
-        static double ShapeOf(CurvatureSample s) => Math.Abs(s.K1 - s.K2) < EpsilonPolicy.SqrtEpsilon
-            ? (double)Math.Sign(s.K1 + s.K2)
-            : 2.0 / Math.PI * Math.Atan2(s.K1 + s.K2, s.K1 - s.K2);
+        // One band per declared axis, so a new derived scalar joins every receipt by declaration and no extremum pair
+        // is hand-written here; an empty accepted set yields no band set at all.
+        static CurvatureBand BandOf(CurvatureAxis axis, Seq<CurvatureSample> rows) =>
+            new(Axis: axis, Lower: rows.Min(axis.Project), Upper: rows.Max(axis.Project));
         return new CurvatureRangeReceipt(
             AcceptedSampleCount: samples.Count,
             Kind: samples.IsEmpty ? CurvatureRangeKind.Empty
@@ -502,11 +534,10 @@ internal static partial class NeighborKernel {
                 : saddle == samples.Count ? CurvatureRangeKind.Saddle
                 : CurvatureRangeKind.Mixed,
             PlaneLikeCount: plane, SphereLikeCount: sphere, SaddleLikeCount: saddle, MixedCount: samples.Count - plane - sphere - saddle,
-            MinK1: MinOf(static s => s.K1), MaxK1: MaxOf(static s => s.K1),
-            MinK2: MinOf(static s => s.K2), MaxK2: MaxOf(static s => s.K2),
-            MinGaussian: MinOf(static s => s.K1 * s.K2), MaxGaussian: MaxOf(static s => s.K1 * s.K2),
-            MinMean: MinOf(static s => 0.5 * (s.K1 + s.K2)), MaxMean: MaxOf(static s => 0.5 * (s.K1 + s.K2)),
-            MinShapeIndex: MinOf(ShapeOf), MaxShapeIndex: MaxOf(ShapeOf), Tolerance: EpsilonPolicy.SqrtEpsilon);
+            Bands: samples.IsEmpty
+                ? Option<Arr<CurvatureBand>>.None
+                : Some(new Arr<CurvatureBand>([.. CurvatureAxis.Items.Select(axis => BandOf(axis: axis, rows: samples))])),
+            Tolerance: EpsilonPolicy.SqrtEpsilon);
     }
 
     private static CurvatureRangeKind ClassOf(CurvatureSample sample, double band) =>

@@ -151,18 +151,18 @@
 
 [DOCUMENT_LIFECYCLE]: `PdfDocument` and `PdfReader` create, persist, open, and inspect.
 
-| [INDEX] | [SURFACE]                                                        | [SHAPE]  | [CAPABILITY]                                   |
-| :-----: | :--------------------------------------------------------------- | :------- | :--------------------------------------------- |
-|  [01]   | `new PdfDocument()`                                              | ctor     | author a document                              |
-|  [02]   | `AddPage()` / `AddPage(PdfPage)` / `InsertPage(int, PdfPage)`    | instance | append or insert pages                         |
-|  [03]   | `Save(string)` / `Save(Stream, bool)`                            | instance | persist                                        |
-|  [04]   | `SaveAsync(string)` / `SaveAsync(Stream, bool)`                  | instance | async persist                                  |
-|  [05]   | `CanSave(ref string)`                                            | instance | preflight check                                |
-|  [06]   | `PdfReader.Open(string, PdfDocumentOpenMode, PdfReaderOptions?)` | static   | open for import, modify, or info-only          |
-|  [07]   | `PdfReader.TestPdfFile(string\|Stream\|byte[]) -> int`           | static   | validate without a full parse                  |
-|  [08]   | `Info` / `Options` / `Settings`                                  | property | metadata, output policy, font/trim settings    |
-|  [09]   | `Outlines -> PdfOutlineCollection`                               | property | the bookmark tree root                         |
-|  [10]   | `SecuritySettings` / `PageCount` / `Version` / `Pages`           | property | encryption, page count, version, page access   |
+| [INDEX] | [SURFACE]                                                        | [SHAPE]  | [CAPABILITY]                                 |
+| :-----: | :--------------------------------------------------------------- | :------- | :------------------------------------------- |
+|  [01]   | `new PdfDocument()`                                              | ctor     | author a document                            |
+|  [02]   | `AddPage()` / `AddPage(PdfPage)` / `InsertPage(int, PdfPage)`    | instance | append or insert pages                       |
+|  [03]   | `Save(string)` / `Save(Stream, bool)`                            | instance | persist                                      |
+|  [04]   | `SaveAsync(string)` / `SaveAsync(Stream, bool)`                  | instance | async persist                                |
+|  [05]   | `CanSave(ref string)`                                            | instance | preflight check                              |
+|  [06]   | `PdfReader.Open(string, PdfDocumentOpenMode, PdfReaderOptions?)` | static   | open for import, modify, or info-only        |
+|  [07]   | `PdfReader.TestPdfFile(string\|Stream\|byte[]) -> int`           | static   | validate without a full parse                |
+|  [08]   | `Info` / `Options` / `Settings`                                  | property | metadata, output policy, font/trim settings  |
+|  [09]   | `Outlines -> PdfOutlineCollection`                               | property | the bookmark tree root                       |
+|  [10]   | `SecuritySettings` / `PageCount` / `Version` / `Pages`           | property | encryption, page count, version, page access |
 
 [DRAWING]: `XGraphics` context creation and the draw algebra.
 
@@ -197,33 +197,33 @@
 
 [REPORT_RENDER]: MigraDoc flow `Document` to `PdfDocument`.
 
-| [INDEX] | [SURFACE]                                                           | [SHAPE]  | [CAPABILITY]                              |
-| :-----: | :------------------------------------------------------------------ | :------- | :---------------------------------------- |
-|  [01]   | `Document.AddSection() -> Section` / `Document.Styles[...]`         | instance | author flow content and styles            |
-|  [02]   | `Section.AddParagraph()` / `AddTable()` / `AddImage()`              | instance | author flow content and styles            |
-|  [03]   | `new PdfDocumentRenderer { Document = doc }.RenderDocument()`       | instance | paginate and render onto a `PdfDocument`  |
-|  [04]   | `PdfDocumentRenderer.Save(string)` / `.PdfDocument`                 | instance | persist or expose the underlying document |
-|  [05]   | `DocumentRenderer.PrepareDocument()` / `RenderPage(XGraphics, int)` | instance | mix flow content with precise layout      |
-|  [06]   | `PdfDocumentRenderer.PageCount` / `.DocumentRenderer`               | property | rendered page count; the layout owner     |
-|  [07]   | `PdfDocumentRenderer.PrepareRenderPages()` / `RenderPages(int,int)` | instance | paginate without rendering; render a span |
-|  [08]   | `DocumentRenderer.GetDocumentObjectsFromPage(int) -> DocumentObject[]` | instance | which flow objects landed on a page    |
-|  [09]   | `DocumentRenderer.GetRenderInfoFromPage(int) -> RenderInfo[]?`      | instance | per-page render info with geometry        |
-|  [10]   | `FormattedDocument.PageCount` / `GetPageInfo(int) -> PageInfo`      | instance | measured pagination and page geometry     |
-|  [11]   | `ParagraphElements.AddBookmark(string name, bool prepend = true)`   | instance | seat a `BookmarkField` in a paragraph     |
+| [INDEX] | [SURFACE]                                                              | [SHAPE]  | [CAPABILITY]                              |
+| :-----: | :--------------------------------------------------------------------- | :------- | :---------------------------------------- |
+|  [01]   | `Document.AddSection() -> Section` / `Document.Styles[...]`            | instance | author flow content and styles            |
+|  [02]   | `Section.AddParagraph()` / `AddTable()` / `AddImage()`                 | instance | author flow content and styles            |
+|  [03]   | `new PdfDocumentRenderer { Document = doc }.RenderDocument()`          | instance | paginate and render onto a `PdfDocument`  |
+|  [04]   | `PdfDocumentRenderer.Save(string)` / `.PdfDocument`                    | instance | persist or expose the underlying document |
+|  [05]   | `DocumentRenderer.PrepareDocument()` / `RenderPage(XGraphics, int)`    | instance | mix flow content with precise layout      |
+|  [06]   | `PdfDocumentRenderer.PageCount` / `.DocumentRenderer`                  | property | rendered page count; the layout owner     |
+|  [07]   | `PdfDocumentRenderer.PrepareRenderPages()` / `RenderPages(int,int)`    | instance | paginate without rendering; render a span |
+|  [08]   | `DocumentRenderer.GetDocumentObjectsFromPage(int) -> DocumentObject[]` | instance | which flow objects landed on a page       |
+|  [09]   | `DocumentRenderer.GetRenderInfoFromPage(int) -> RenderInfo[]?`         | instance | per-page render info with geometry        |
+|  [10]   | `FormattedDocument.PageCount` / `GetPageInfo(int) -> PageInfo`         | instance | measured pagination and page geometry     |
+|  [11]   | `ParagraphElements.AddBookmark(string name, bool prepend = true)`      | instance | seat a `BookmarkField` in a paragraph     |
 
 [OUTLINE]: `PdfDocument.Outlines` is the bookmark tree — the navigation panel every long PDF reader shows.
 
-| [INDEX] | [SURFACE]                                                                            | [SHAPE]  | [CAPABILITY]                     |
-| :-----: | :----------------------------------------------------------------------------------- | :------- | :------------------------------- |
-|  [01]   | `PdfOutlineCollection.Add(string title, PdfPage destination)`                        | instance | append a top-level bookmark      |
-|  [02]   | `…Add(string, PdfPage, bool opened)`                                                 | instance | append with expansion state      |
-|  [03]   | `…Add(string, PdfPage, bool, PdfOutlineStyle[, XColor])`                             | instance | append with style and colour     |
-|  [04]   | `PdfOutlineCollection.Insert(int, PdfOutline)` / `RemoveAt` / `Remove` / `Clear`     | instance | reorder and drop bookmarks       |
-|  [05]   | `PdfOutline.Outlines -> PdfOutlineCollection`                                        | property | the node's own children — nesting |
-|  [06]   | `PdfOutline.Parent` / `HasChildren` / `Title` / `DestinationPage`                    | property | tree identity and target         |
-|  [07]   | `PdfOutline.Left` / `Top` (`double?`) / `Right` / `Bottom` / `Zoom` (`double?`)      | property | in-page destination rectangle    |
-|  [08]   | `PdfOutline.Opened` / `Style` / `TextColor` / `PageDestinationType`                  | property | presentation and destination mode |
-|  [09]   | `new PdfOutline(string, PdfPage[, bool[, PdfOutlineStyle[, XColor]]])`               | ctor     | construct before insertion       |
+| [INDEX] | [SURFACE]                                                                        | [SHAPE]  | [CAPABILITY]                      |
+| :-----: | :------------------------------------------------------------------------------- | :------- | :-------------------------------- |
+|  [01]   | `PdfOutlineCollection.Add(string title, PdfPage destination)`                    | instance | append a top-level bookmark       |
+|  [02]   | `…Add(string, PdfPage, bool opened)`                                             | instance | append with expansion state       |
+|  [03]   | `…Add(string, PdfPage, bool, PdfOutlineStyle[, XColor])`                         | instance | append with style and colour      |
+|  [04]   | `PdfOutlineCollection.Insert(int, PdfOutline)` / `RemoveAt` / `Remove` / `Clear` | instance | reorder and drop bookmarks        |
+|  [05]   | `PdfOutline.Outlines -> PdfOutlineCollection`                                    | property | the node's own children — nesting |
+|  [06]   | `PdfOutline.Parent` / `HasChildren` / `Title` / `DestinationPage`                | property | tree identity and target          |
+|  [07]   | `PdfOutline.Left` / `Top` (`double?`) / `Right` / `Bottom` / `Zoom` (`double?`)  | property | in-page destination rectangle     |
+|  [08]   | `PdfOutline.Opened` / `Style` / `TextColor` / `PageDestinationType`              | property | presentation and destination mode |
+|  [09]   | `new PdfOutline(string, PdfPage[, bool[, PdfOutlineStyle[, XColor]]])`           | ctor     | construct before insertion        |
 
 - `PdfOutlineCollection` implements `IList<PdfOutline>`, so ordering is positional and a bookmark tree is built by appending to the document's `Outlines` for top-level nodes and to a node's own `Outlines` for children — nesting is collection membership, never a level field.
 - `Left`/`Top`/`Zoom` are NULLABLE while `Right`/`Bottom` default to `double.NaN`, so an unset in-page destination is absence on the first three and a not-a-number on the last two; leaving all five unset targets the page itself.

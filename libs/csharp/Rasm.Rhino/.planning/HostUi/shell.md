@@ -4,9 +4,9 @@
 
 ## [01]-[INDEX]
 
-- [02]-[HOST_THREAD]: `HostWork<T>` and `HostThread.Run` own affine execution, queued delivery, affinity-required work, provenance-guarded work, and document-scoped work; `MarshalLatency` seats the marshal-seam checkpoint ledger.
-- [03]-[STATUS]: `StatusProgram` folds prompt, pane, point, and toast intent into one crossing and preserves every toast outcome.
-- [04]-[PROGRESS]: `ProgressPolicy`, `ProgressMove`, and `ProgressLease` own admission, movement, projection, contention evidence, and release.
+- [02]-[HOST_THREAD]: `HostWork<T>` and `HostThread.Run` own affine execution, queued delivery, affinity-required work, provenance-guarded work, and document-scoped work; `MarshalLatency` seats the marshal-seam checkpoint ledger and the stall gauge — lane budgets, breach verdicts, and last-stall retention.
+- [03]-[STATUS]: `StatusProgram` folds prompt, pane, point, and toast intent into one document-scoped crossing, rescales every measured case into the live regime, and preserves every toast outcome.
+- [04]-[PROGRESS]: `ProgressPolicy`, `ProgressMove`, and `ProgressLease` own admission, movement, projection, contention evidence, and release; the lease publishes the host governance band — `Fraction`/`Ticks` reporters and the escape-armed `Cancel` — every paced fold reads.
 - [05]-[WINDOWS]: `WindowScope`, `WindowPolicy`, `ShellWindows`, and `ShellTheme` own host parents, adoption, typed and untyped modal presentation, discovery, placement, and theme transitions.
 - [06]-[RUNTIME]: `HostFacts`, `HostAssemblies`, `HostScripts`, and `ShellSkin` own capability probes, resolver receipts, collectible loading, the script engine, and the skin load-phase hook; `ShellHooks` mounts the skin phase route on the registry.
 - [07]-[CALLBACKS]: `CallbackObserver<T>`, `NamedKind`, `NamedBag`, and `NamedCallbacks` close guarded delivery and the typed named-parameter wire; `NodeFunctions` projects the node-in-code table onto the same crossing.
@@ -21,14 +21,17 @@
 - Law: `Session` carries every `SessionNeed` in the request value; a consumer never opens a second document demand beside the host operation.
 - Law: provenance is a case, never a caller flag — `Guarded` marshals exactly like `Execute` and adds only the `RiskyAction` bracket around the body.
 - Law: the posted state cell is the terminal probe, not a marker — the expiry CAS separates a body that never started from one already running, and a `Settled` read after a lapsed wait answers with the late result rather than discarding a completed crossing.
-- Law: marshal-seam latency is a mounted ledger, never a second clock — `MarshalLatency` seats one `ILatencyContextProvider` first-mount-wins, the app root registers the checkpoint and tag names through `RegisterCheckpointNames`/`RegisterTagNames` and the tokens resolve once at mount, every off-thread crossing records queued and settled checkpoints with work and outcome tags on one frozen `ILatencyContext`, and an empty seat is the zero-cost pass-through; the `rhino.marshal` instrument row on `Objects/authoring.md` projects this ledger at the app root under the `DurationInstrument` label `rasm.rhino.hostui.marshal.duration`.
-- Boundary: `HostThread` owns Rhino command-thread affinity, while `UiThread` owns Eto control-tree affinity.
+- Law: marshal-seam latency is a mounted ledger, never a second clock — `MarshalLatency` seats one `ILatencyContextProvider` first-mount-wins under the mounting plugin's identity, the app root registers the checkpoint and tag names through `RegisterCheckpointNames`/`RegisterTagNames` and the tokens resolve once at mount, and an empty seat is the zero-cost pass-through; the `rhino.marshal` instrument row on `Objects/authoring.md` projects this ledger at the app root under the `DurationInstrument` label `rasm.rhino.hostui.marshal.duration`.
+- Law: the gauged set is every crossing that can queue — `Execute` and `Guarded` when marshalled, `Posted` always, and `Session` whole (its `Demand` marshals inside the host) — while `Required` never crosses (its off-thread arm is a refusal, not a queue), and the checkpoint pair lands on every exit path because the settle rides `finally`, never a success-only tail.
+- Law: the stall gauge is the marshal seam's own verdict half — every gauged body mints exactly one `MarshalPulse` (lane, elapsed, breach against the lane's frame-multiple budget) whatever the exit path, a breached pulse retains on `LastStall` as hang evidence beside the running `LastPulse`, budgets tune through one `StallPolicy` value carrying its injected `TimeProvider`, and observers tap through `Watch` under keyed detach; an untuned default frame of 1/30 s over-reports and never hides, and the GH boundary's `DispatchPulse` is the twin discipline, plural by the host-twins ruling.
+- Boundary: `HostThread` owns Rhino command-thread affinity, while `UiThread` owns Eto control-tree affinity; the Eto dispatch seam carries its own gauge at its own page.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using System.Collections.Frozen;
 using System.ComponentModel;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using Eto.Forms;
 using Microsoft.Extensions.Diagnostics.Latency;
 using Rasm.Analysis;
@@ -145,7 +148,7 @@ public static class HostThread {
             op,
             execute: static (held, request) => RhinoApp.IsOnMainThread
                 ? held.Catch(request.Body)
-                : Marshalled(body: request.Body, op: held, work: nameof(HostWork<T>.Execute)),
+                : Marshalled(body: request.Body, op: held, lane: MarshalLane.Execute, work: nameof(HostWork<T>.Execute)),
             posted: static (held, request) => RhinoApp.IsOnMainThread
                 ? held.Catch(request.Body)
                 : Posted(request: request, op: held),
@@ -154,8 +157,11 @@ public static class HostThread {
                 : Fin.Fail<T>(error: new UiFault.OffThread(Key: held)),
             guarded: static (held, request) => RhinoApp.IsOnMainThread
                 ? Bracketed(request: request, op: held)
-                : Marshalled(body: () => Bracketed(request: request, op: held), op: held, work: nameof(HostWork<T>.Guarded)),
-            session: static (held, request) => Session(work: request, op: held));
+                : Marshalled(body: () => Bracketed(request: request, op: held), op: held, lane: MarshalLane.Guarded, work: nameof(HostWork<T>.Guarded)),
+            session: static (held, request) => MarshalLatency.Measured(
+                lane: MarshalLane.Session,
+                work: nameof(HostWork<T>.Session),
+                run: () => Session(work: request, op: held)));
     }
 
     internal static Fin<Unit> Release(Seq<Func<Fin<Unit>>> releases, Op? key = null) {
@@ -179,15 +185,15 @@ public static class HostThread {
             return request.Body();
         });
 
-    private static Fin<T> Marshalled<T>(Func<Fin<T>> body, Op op, string work) =>
-        MarshalLatency.Measured(work: work, run: () => op.Catch(() => {
+    private static Fin<T> Marshalled<T>(Func<Fin<T>> body, Op op, MarshalLane lane, string work) =>
+        MarshalLatency.Measured(lane: lane, work: work, run: () => op.Catch(() => {
             Fin<T>? captured = null;
             RhinoApp.InvokeAndWait(action: () => captured = op.Catch(body));
             return Settled(captured: captured, op: op, capability: nameof(RhinoApp.InvokeAndWait));
         }));
 
     private static Fin<T> Posted<T>(HostWork<T>.Posted request, Op op) =>
-        MarshalLatency.Measured(work: nameof(HostWork<T>.Posted), run: () => op.Catch(() => {
+        MarshalLatency.Measured(lane: MarshalLane.Posted, work: nameof(HostWork<T>.Posted), run: () => op.Catch(() => {
             int state = (int)PostedState.Pending;
             TaskCompletionSource<Fin<T>> completed = new(TaskCreationOptions.RunContinuationsAsynchronously);
             RhinoApp.InvokeOnUiThread(
@@ -233,6 +239,32 @@ public static class HostThread {
             : Fin.Fail<T>(error: new UiFault.Unavailable(Key: op, Capability: capability));
 }
 
+[SmartEnum<int>]
+public sealed partial class MarshalLane {
+    public static readonly MarshalLane Execute = new(key: 0, frames: 1.0);
+    public static readonly MarshalLane Guarded = new(key: 1, frames: 1.0);
+    public static readonly MarshalLane Posted = new(key: 2, frames: 6.0);
+    public static readonly MarshalLane Session = new(key: 3, frames: 4.0);
+
+    public double Frames { get; }
+
+    internal TimeSpan Budget(TimeSpan frame) => frame * Frames;
+}
+
+public sealed record StallPolicy(TimeProvider Clock, TimeSpan Frame, HashMap<int, TimeSpan> Bounds) {
+    // Rhino publishes no display refresh interval, so the untuned floor is 1/30 s — over-reports and never hides;
+    // an app root with a real frame anchor pushes it through Tune.
+    public static readonly StallPolicy Default = new(
+        Clock: TimeProvider.System, Frame: TimeSpan.FromSeconds(1.0 / 30.0), Bounds: HashMap<int, TimeSpan>());
+
+    public TimeSpan Bound(MarshalLane lane) => Bounds.Find(lane.Key).IfNone(() => lane.Budget(frame: Frame));
+}
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct MarshalPulse(string Work, MarshalLane Lane, TimeSpan Elapsed, bool Breached) : IValidityEvidence {
+    public bool IsValid => ValidityClaim.Of(holds: Lane is not null && Elapsed >= TimeSpan.Zero);
+}
+
 public static class MarshalLatency {
     public const string DurationInstrument = "rasm.rhino.hostui.marshal.duration";
     public const string QueuedCheckpoint = "rasm.rhino.marshal.queued";
@@ -241,13 +273,21 @@ public static class MarshalLatency {
     public const string OutcomeTag = "rasm.rhino.marshal.outcome";
 
     private static readonly Atom<Option<SeatRow>> Seat = Atom(Option<SeatRow>.None);
+    private static readonly Atom<StallPolicy> Pacing = Atom(StallPolicy.Default);
+    private static readonly Atom<Option<MarshalPulse>> LastPulseCell = Atom(Option<MarshalPulse>.None);
+    private static readonly Atom<Option<MarshalPulse>> LastStallCell = Atom(Option<MarshalPulse>.None);
+    private static readonly Atom<HashMap<Guid, Action<MarshalPulse>>> PulseTaps = Atom(HashMap<Guid, Action<MarshalPulse>>());
+
+    public static Option<MarshalPulse> LastPulse => LastPulseCell.Value;
+    public static Option<MarshalPulse> LastStall => LastStallCell.Value;
 
     // App root registers the four names through RegisterCheckpointNames/RegisterTagNames before mounting; tokens resolve once here.
-    public static Fin<IDisposable> Mount(ILatencyContextProvider provider, ILatencyContextTokenIssuer issuer, Op? key = null) {
+    public static Fin<IDisposable> Mount(PluginKey plugin, ILatencyContextProvider provider, ILatencyContextTokenIssuer issuer, Op? key = null) {
         Op op = key.OrDefault();
-        return from live in Optional(provider).ToFin(Fail: op.InvalidInput())
-               from mint in Optional(issuer).ToFin(Fail: op.InvalidInput())
+        return from live in op.Need(provider)
+               from mint in op.Need(issuer)
                from row in op.Catch(() => Fin.Succ(value: new SeatRow(
+                   Plugin: plugin,
                    Provider: live,
                    Queued: mint.GetCheckpointToken(QueuedCheckpoint),
                    Settled: mint.GetCheckpointToken(SettledCheckpoint),
@@ -260,21 +300,56 @@ public static class MarshalLatency {
                    held.Filter(live2 => ReferenceEquals(live2, row)).IsSome ? Option<SeatRow>.None : held)));
     }
 
-    internal static Fin<T> Measured<T>(string work, Func<Fin<T>> run) =>
-        Seat.Value.Match(
-            None: run,
-            Some: seat => {
-                ILatencyContext ledger = seat.Provider.CreateContext();
-                ledger.SetTag(seat.Work, work);
-                ledger.AddCheckpoint(seat.Queued);
-                Fin<T> outcome = run();
-                ledger.AddCheckpoint(seat.Settled);
-                ledger.SetTag(seat.Outcome, outcome.IsSucc ? "succ" : "fail");
-                ledger.Freeze();
-                return outcome;
-            });
+    public static Fin<Unit> Tune(StallPolicy policy, Op? key = null) {
+        Op op = key.OrDefault();
+        return op.Need(policy).Map(next => ignore(Pacing.Swap(_ => next)));
+    }
+
+    public static Fin<IDisposable> Watch(Action<MarshalPulse> observer, Op? key = null) {
+        Op op = key.OrDefault();
+        return op.Need(observer).Map(tap => {
+            Guid token = Guid.NewGuid();
+            _ = PulseTaps.Swap(rows => rows.Add(token, tap));
+            return (IDisposable)Subscription.Of(detach: () => ignore(PulseTaps.Swap(rows => rows.Remove(token))));
+        });
+    }
+
+    // The gauge times EVERY gauged body — an empty ledger seat drops only the checkpoint half, never the pulse —
+    // and both settles ride finally, so no exit path skips the checkpoint pair or the pulse mint.
+    internal static Fin<T> Measured<T>(MarshalLane lane, string work, Func<Fin<T>> run) {
+        StallPolicy pacing = Pacing.Value;
+        long start = pacing.Clock.GetTimestamp();
+        try {
+            return Seat.Value.Match(
+                None: run,
+                Some: seat => {
+                    ILatencyContext ledger = seat.Provider.CreateContext();
+                    ledger.SetTag(seat.Work, work);
+                    ledger.AddCheckpoint(seat.Queued);
+                    bool succ = false;
+                    try {
+                        Fin<T> held = run();
+                        succ = held.IsSucc;
+                        return held;
+                    }
+                    finally {
+                        ledger.AddCheckpoint(seat.Settled);
+                        ledger.SetTag(seat.Outcome, succ ? "succ" : "fail");
+                        ledger.Freeze();
+                    }
+                });
+        }
+        finally {
+            TimeSpan elapsed = pacing.Clock.GetElapsedTime(startingTimestamp: start);
+            MarshalPulse pulse = new(Work: work, Lane: lane, Elapsed: elapsed, Breached: elapsed > pacing.Bound(lane: lane));
+            _ = LastPulseCell.Swap(_ => Some(pulse));
+            _ = Op.SideWhen(condition: pulse.Breached, action: () => ignore(LastStallCell.Swap(_ => Some(pulse))));
+            PulseTaps.Value.Values.Iter(tap => ignore(Op.Of(name: nameof(MarshalLatency)).Catch(() => Fin.Succ(value: Op.Side(action: () => tap(pulse))))));
+        }
+    }
 
     private sealed record SeatRow(
+        PluginKey Plugin,
         ILatencyContextProvider Provider,
         CheckpointToken Queued,
         CheckpointToken Settled,
@@ -287,9 +362,10 @@ public static class MarshalLatency {
 
 - Owner: `StatusProgram` is the ordered status algebra, and `StatusOp` carries one admitted host write per case.
 - Cases: prompt, prompt message, optional message-pane content, numeric panes, point pane, and viewport toast.
-- Entry: `StatusProgram.Apply` folds every case inside one `HostWork<StatusReceipt>.Execute` crossing.
+- Entry: `StatusProgram.Apply` folds every case inside one document-scoped `HostWork<StatusReceipt>.Session` crossing that resolves the live `ModelUnit` regime once for the whole program.
 - Receipt: `StatusReceipt` carries one `ToastOutcome` per toast, so an invalid or rejected notice stays typed without cancelling independent notices.
 - Law: `StatusProgram.Combine` preserves producer order; each additional status axis is one `StatusOp` case and one fold arm.
+- Law: a MEASURED case carries the regime its magnitude was resolved in — `StatusOp.Distance` takes the kernel `ModelUnit` the `Commands/acquisition.md` `Acquired.Distance` producer detaches — and the fold rescales through `ModelUnit.ScaleTo` before the host write, because the pane renders the DOCUMENT's unit label over whatever number it is handed and a regime-blind write relabels rather than converts. `Number` stays regime-free by construction: the pane's own contract is a dimensionless count.
 - Boundary: `PromptWatch.Observe` detaches callback-scoped option handles into immutable `PromptFact` rows before guarded delivery.
 
 ```csharp signature
@@ -332,7 +408,7 @@ public abstract partial record StatusOp {
     public sealed record Prompt(HostText Text, Option<HostText> Default = default) : StatusOp;
     public sealed record PromptMessage(HostText Text) : StatusOp;
     public sealed record Pane(Option<HostText> Text = default) : StatusOp;
-    public sealed record Distance(double Value) : StatusOp;
+    public sealed record Distance(double Value, ModelUnit Unit) : StatusOp;
     public sealed record Number(double Value) : StatusOp;
     public sealed record Point(Point3d Value) : StatusOp;
     public sealed record Toast(ToastSpec Spec) : StatusOp;
@@ -343,19 +419,27 @@ public sealed record StatusProgram(Seq<StatusOp> Operations) {
         new(Operations: Iterable<StatusProgram>.FromSpan(programs)
             .Fold(Seq<StatusOp>(), static (all, next) => all + next.Operations));
 
-    public Fin<StatusReceipt> Apply(Op? key = null) {
+    // Panes are document space, so the program is too: the session resolves the live regime ONCE for the whole
+    // fold and every measured case reads that one value, rather than each arm re-reading a document it was handed.
+    public Fin<StatusReceipt> Apply(DocumentSession session, Op? key = null) {
+        ArgumentNullException.ThrowIfNull(session);
         Op op = key.OrDefault();
         return HostThread.Run(
-            work: new HostWork<StatusReceipt>.Execute(
-                Body: () => Operations.Fold(
-                    Fin.Succ(value: new StatusReceipt(Toasts: Seq<ToastOutcome>())),
-                    (state, next) => state.Bind(receipt => Apply(next: next, receipt: receipt, op: op)))),
+            work: new HostWork<StatusReceipt>.Session(
+                Document: session,
+                Needs: [SessionNeed.Read],
+                Body: document =>
+                    from regime in ModelUnit.Of(value: document.ModelUnits, key: op)
+                    from receipt in Operations.Fold(
+                        Fin.Succ(value: new StatusReceipt(Toasts: Seq<ToastOutcome>())),
+                        (state, next) => state.Bind(carried => Apply(next: next, receipt: carried, regime: regime, op: op)))
+                    select receipt),
             key: op);
     }
 
-    private static Fin<StatusReceipt> Apply(StatusOp next, StatusReceipt receipt, Op op) =>
+    private static Fin<StatusReceipt> Apply(StatusOp next, StatusReceipt receipt, ModelUnit regime, Op op) =>
         next.Switch(
-            (Receipt: receipt, Op: op),
+            (Receipt: receipt, Regime: regime, Op: op),
             prompt: static (held, write) => held.Op.AcceptText(value: write.Text.Resolve()).Map(text => {
                 _ = write.Default.Match(
                     Some: fallback => Op.Side(() => RhinoApp.SetCommandPrompt(prompt: text, promptDefault: fallback.Resolve())),
@@ -369,7 +453,11 @@ public sealed record StatusProgram(Seq<StatusOp> Operations) {
                     .Map(accepted => (Op.Side(() => StatusBar.SetMessagePane(message: accepted)), held.Receipt).Item2),
                 _ => Fin.Succ(value: (Op.Side(StatusBar.ClearMessagePane), held.Receipt).Item2),
             },
-            distance: static (held, write) => Fin.Succ(value: (Op.Side(() => StatusBar.SetDistancePane(distance: write.Value)), held.Receipt).Item2),
+            // Rhino renders this magnitude under the document's own unit label, so a value carried in another
+            // regime rescales before it is written — never relabels. Same-regime resolves to the identity
+            // factor the one scale owner returns, so no arm branches on whether a conversion is needed.
+            distance: static (held, write) => write.Unit.ScaleTo(target: held.Regime, key: held.Op)
+                .Map(scale => (Op.Side(() => StatusBar.SetDistancePane(distance: write.Value * scale)), held.Receipt).Item2),
             number: static (held, write) => Fin.Succ(value: (Op.Side(() => StatusBar.SetNumberPane(number: write.Value)), held.Receipt).Item2),
             point: static (held, write) => Fin.Succ(value: (Op.Side(() => StatusBar.SetPointPane(point: write.Value)), held.Receipt).Item2),
             toast: static (held, write) => Fin.Succ(value: held.Receipt with {
@@ -403,7 +491,7 @@ public static class PromptWatch {
         EventHandler<CommandPromptChangedEventArgs> handler = (_, args) => ignore(observer.Guard(
             project: () => Fin.Succ(value: new PromptFact(
                 Prompt: args.Prompt,
-                Default: Optional(args.PromptDefault).Filter(static value => value.Length > 0),
+                Default: Op.Text(args.PromptDefault),
                 Options: toSeq(args.Options)
                     .Map(static option => new PromptOption(Index: option.Index, English: option.EnglishName, Local: option.LocalName))
                     .Strict(),
@@ -424,6 +512,9 @@ public static class PromptWatch {
 - Entry: `Progress.Use` opens one document-scoped lease and brackets one callback; `ProgressLease.Advance` is the sole update operation.
 - Receipt: `ProgressReceipt` carries grant, position, effective label, normalized fraction, and the taskbar projection fault for every attempted move.
 - Law: only `MeterGrant.Owned` writes or hides the host meter; `MeterGrant.Foreign` returns unchanged witnessed receipts.
+- Law: the lease IS the host end of the corpus governance band, so a paced fold takes `Fraction`/`Ticks` and `Cancel` off ONE value and no caller writes an `IProgress` shim of its own — `Modeling/meshing.md` `MeshRuntime`, `Modeling/projection.md` `ProjectionPacing`, and the kernel `ArrangementPolicy.Governed` seat are the three consumers, each already shaped for exactly these members. Every projection stays a view of `Advance`: a second position store beside the lease state forks the meter from its own receipt.
+- Law: a refusal an `IProgress.Report` cannot return PARKS on `Faults` — the `void` host contract constrains the seam shape and never licenses discarding the bounds refusal that rail raises, so a fold reporting past its declared range leaves attributable evidence rather than a meter that silently stops.
+- Law: escape arming is a policy ROW, so a lease either publishes a live abort edge or publishes `CancellationToken.None`, and the abort rows disarm on BOTH grants because a foreign meter still armed a native callback this lease owns.
 - Law: the taskbar pulse is best-effort projection — a refused pulse lands as `TaskbarFault` evidence on the receipt, never a failed advance, so position and receipt always mirror the committed host meter.
 - Boundary: `Progress.Use` demands `SessionNeed.Redraw`; release clears every owned projection, returns cleanup failure through the use rail, and retains failed attempts for explicit retry.
 - Law: the lease locks in ONE direction — every operation crosses `HostThread` first and takes the state lock inside the marshalled body, never the reverse; a release holding the lock across a blocking marshal inverts the order against a concurrent advance and deadlocks the host thread against its own caller, so the marshal is always outside and the lock always inside.
@@ -436,6 +527,11 @@ public sealed partial class ProgressFeature {
     public static readonly ProgressFeature Percentage = new();
     public static readonly ProgressFeature Taskbar = new();
     public static readonly ProgressFeature WaitCursor = new();
+    // Escape arms the host abort edge for the lease's scope: what a user presses to stop a meter that is running
+    // away is the same key the command loop already spells Cancel, and a metered fold with no abort edge is the
+    // affordance without its exit. Absent, the lease's token is CancellationToken.None and every paced consumer
+    // reads an uncancellable run — the honest default for a fold whose caller declared no abort.
+    public static readonly ProgressFeature Escape = new();
 }
 
 [ComplexValueObject]
@@ -503,21 +599,57 @@ public sealed record ProgressReceipt(
 public sealed class ProgressLease : IDisposable {
     private sealed record ProgressState(int Position, HostText Label, bool Released);
 
+    // IProgress projections are the ONE adapter between the host meter and every paced kernel and host fold —
+    // Modeling/meshing.md MeshRuntime, Modeling/projection.md ProjectionPacing, and the kernel ArrangementPolicy
+    // governance band all take Option<IProgress<double>> or IProgress<int>, so a lease hands its own Advance rail
+    // outward instead of each caller writing the same shim. Report returns void and the rail returns Fin, so a
+    // refused advance PARKS on the lease's fault cell — discarding it would hide a bounds refusal behind a meter
+    // that silently stops moving, and the cell keeps it attributable to the Op that raised it.
+    private sealed record LeaseReporter(ProgressLease Lease) : IProgress<double>, IProgress<int> {
+        public void Report(double value) => Lease.Park(Lease.Advance(new ProgressMove.Absolute(
+            Position: Lease.policy.Lower + (int)Math.Round(
+                Math.Clamp(value: value, min: 0.0, max: 1.0) * (Lease.policy.Upper - Lease.policy.Lower)))));
+
+        // The tick rail clamps into the declared range exactly as the fraction rail clamps into 0..1 — a consumer
+        // pacing in its own domain range saturates at the meter's bounds instead of parking refusals forever.
+        public void Report(int value) => Lease.Park(Lease.Advance(new ProgressMove.Absolute(
+            Position: Math.Clamp(value: value, min: Lease.policy.Lower, max: Lease.policy.Upper))));
+    }
+
     private readonly MeterGrant grant;
     private readonly Op op;
     private readonly ProgressPolicy policy;
-    private readonly Atom<Seq<Error>> releaseFaults = Atom(Seq<Error>());
+    private readonly Atom<Seq<Error>> faults = Atom(Seq<Error>());
+    private readonly LeaseReporter reporter;
+    private readonly Option<Subscription> escape;
+    private readonly Option<CancellationTokenSource> abort;
     private readonly object sync = new();
     private ProgressState state;
 
-    internal ProgressLease(MeterGrant grant, ProgressPolicy policy, Op op) {
+    internal ProgressLease(MeterGrant grant, ProgressPolicy policy, Option<CancellationTokenSource> abort, Option<Subscription> escape, Op op) {
         this.grant = grant;
         this.policy = policy;
+        this.abort = abort;
+        this.escape = escape;
         this.op = op;
+        reporter = new LeaseReporter(Lease: this);
         state = new(Position: policy.Lower, Label: policy.Label, Released: false);
     }
 
-    public Seq<Error> Faults => releaseFaults.Value;
+    public Seq<Error> Faults => faults.Value;
+
+    // One reporter instance serves both arities, so a consumer taking the fraction rail and one taking the tick
+    // rail drive the SAME meter state and no second adapter exists to drift against it.
+    public IProgress<double> Fraction => reporter;
+    public IProgress<int> Ticks => reporter;
+
+    // CancellationToken.None when the policy declared no Escape row — the host's own uncancellable spelling,
+    // never an Option<CancellationToken> stacking a second absence on a value that already models one
+    // (the Modeling/projection.md pacing law, held here at the producing end).
+    public CancellationToken Cancel => abort.Match(Some: static source => source.Token, None: static () => CancellationToken.None);
+
+    private Unit Park<T>(Fin<T> outcome) =>
+        outcome.Match(Succ: static _ => unit, Fail: failure => ignore(faults.Swap(seen => seen.Add(failure))));
 
     public Fin<ProgressReceipt> Advance(ProgressMove move, Op? key = null) {
         Op op = key.OrDefault();
@@ -564,14 +696,16 @@ public sealed class ProgressLease : IDisposable {
                         return Fin.Succ(value: unit);
                     },
                     Fail: failure => {
-                        _ = releaseFaults.Swap(rows => rows.Add(failure));
+                        _ = faults.Swap(rows => rows.Add(failure));
                         return Fin.Fail<Unit>(error: failure);
                     });
             }
         }),
         key: op);
 
-    // Already on the host thread and already under `sync`: the release fold runs its rows in order and drains every fault.
+    // Already on the host thread and already under `sync`: the release fold runs its rows in order and drains every
+    // fault. The abort rows run on BOTH grants — a foreign meter still armed an escape subscription and a source of
+    // its own, and leaking a live native escape callback past its lease outlives the fold it was cancelling.
     private Fin<Unit> Cleanup() => HostThread.Release(
         releases: grant.Switch(
             this,
@@ -581,10 +715,14 @@ public sealed class ProgressLease : IDisposable {
                     return Fin.Succ(value: unit);
                 },
                 () => self.policy.Features.Contains(ProgressFeature.Taskbar)
-                    ? TaskbarPulse.Apply(state: PulseState.Idle)
-                    : Fin.Succ(value: unit)),
-            foreign: static (_, _) => Seq<Func<Fin<Unit>>>()),
+                    ? TaskbarPulse.Apply(state: new PulseState.Idle(), key: self.op)
+                    : Fin.Succ(value: unit)) + self.Disarm(),
+            foreign: static (self, _) => self.Disarm()),
         key: op);
+
+    private Seq<Func<Fin<Unit>>> Disarm() => Seq<Func<Fin<Unit>>>(
+        () => op.Catch(() => Fin.Succ((escape.Iter(static row => row.Dispose()), unit).Item2)),
+        () => op.Catch(() => Fin.Succ((abort.Iter(static source => source.Dispose()), unit).Item2)));
 
     public void Dispose() => _ = Release();
 
@@ -608,7 +746,7 @@ public sealed class ProgressLease : IDisposable {
             ProgressReceipt receipt = Receipt(state: state);
             return Fin.Succ(value: policy.Features.Contains(ProgressFeature.Taskbar)
                 ? receipt with {
-                    TaskbarFault = TaskbarPulse.Apply(state: PulseState.Working, progress: Some(receipt.Fraction), key: op)
+                    TaskbarFault = TaskbarPulse.Apply(state: new PulseState.Working(Progress: receipt.Fraction), key: op)
                         .Match(Succ: static _ => Option<Error>.None, Fail: Some),
                 }
                 : receipt);
@@ -649,13 +787,33 @@ public static class Progress {
                             showPercentComplete: policy.Features.Contains(ProgressFeature.Percentage)),
                         document: session.Key,
                         op: op)
+                    from armed in Armed(policy: policy, op: op)
                     from result in Bracketed(
-                        lease: new ProgressLease(grant: grant, policy: policy, op: op),
+                        lease: new ProgressLease(grant: grant, policy: policy, abort: armed.Abort, escape: armed.Escape, op: op),
                         wait: policy.Features.Contains(ProgressFeature.WaitCursor),
                         body: body,
                         op: op)
                     select result),
             key: op);
+    }
+
+    // Escape edges arm as a per-lease CLOSURE, never a static method group: RhinoApp.EscapeKeyPressed dedups an
+    // already-present delegate, so two concurrent leases sharing one handler identity would arm ONE source and the
+    // second fold would never see its own abort. Arming is transactional — a subscription that lands with no
+    // source, or a source with no subscription, is an abort edge that fires into nothing or a token nothing raises.
+    private static Fin<(Option<CancellationTokenSource> Abort, Option<Subscription> Escape)> Armed(ProgressPolicy policy, Op op) {
+        if (!policy.Features.Contains(ProgressFeature.Escape)) { return Fin.Succ((Option<CancellationTokenSource>.None, Option<Subscription>.None)); }
+        CancellationTokenSource source = new();
+        EventHandler handler = (_, _) => ignore(op.Catch(() => Fin.Succ((Op.Side(source.Cancel), unit).Item2)));
+        return Subscription.Attach(
+                subscribe: callback => RhinoApp.EscapeKeyPressed += callback,
+                unsubscribe: callback => RhinoApp.EscapeKeyPressed -= callback,
+                handler: handler)
+            .Map(subscription => (Some(source), Some(subscription)))
+            .MapFail(failure => {
+                source.Dispose();
+                return failure;
+            });
     }
 
     private static Fin<T> Bracketed<T>(ProgressLease lease, bool wait, Func<ProgressLease, Fin<T>> body, Op op) {
@@ -678,7 +836,7 @@ public static class Progress {
 - Owner: `WindowPolicy` carries native styling, localization, placement restore, and close-time persistence as behavior rows.
 - Entry: `Adopt`, `Present`, `Discover`, and `Owner` remain separate because modeless ownership, modal return, typed census, and inverse document lookup carry distinct result regimes.
 - Law: `Present` owns every modal modality on one name — a `Dialog<TResult>` returns its typed result, a bare `Dialog` (the themed message box and every result-on-the-instance dialog) returns `Unit` and the caller reads the instance, and a `CommonDialog` (every native-backed picker) returns its `DialogResult` verdict with the instance carrying the picked value — the input's static type discriminates, never a mode flag.
-- Law: `Present` is the sole host-boundary modal presenter — an Eto `Prompt<TResult>` presents by handing `ShellWindows.Present` as its presenter seam, so no host-parented dialog reaches raw `ShowModal` or raw `ShowDialog`.
+- Law: `Present` is the sole host-boundary modal presenter — an Eto `Prompt<TResult>` presents by handing `ShellWindows.Present` as its presenter seam, so raw `ShowModal` never appears at a consumer and raw `ShowDialog` appears exactly once: the `CommonDialog` arm, because a native picker publishes no semi-modal member, making `Present` its one sanctioned call site.
 - Law: every document-scoped operation is a `HostWork<T>.Session` value, and every returned owner is detached as `DocKey`.
 - Owner: `ShellTheme` projects the Rhino theme edge into an injected `ThemeSeam` as a `ThemeShift.Generated` polarity, routes each `ThemeChange` through the guarded callback owner, and returns a symmetric `Subscription` capsule; live host swatch ingestion is the panels `ThemePalette.Feed` seam over the same catalog.
 - Boundary: `ShellTheme` observes only — theme mutation is the Persistence `AppTheme.Adopt` owner, and a shell consumer composes that owner rather than writing the host theme edge.
@@ -844,6 +1002,8 @@ public static class ShellWindows {
 }
 
 public static class ShellTheme {
+    // Decompile-proven: RunningInDarkMode reads AdvancedSettings.DarkMode — a managed settings read, not thread-affine
+    // native UI state — so this read is safe off-thread and owes no HostThread crossing.
     public static ThemeVariant Current => HostUtils.RunningInDarkMode ? ThemeVariant.Dark : ThemeVariant.Light;
 
     public static Fin<Subscription> Observe(ThemeSeam seam, CallbackObserver<ThemeChange> observer, Op? key = null) {
@@ -871,6 +1031,9 @@ public static class ShellTheme {
 - Law: `ShellHooks.Mount` registers `rasm.rhino.hostui.skin` on the `MountRegistry` — the ask is the `Func<SkinPhase, Fin<Unit>>` phase hook, the grant is a `SkinProgram` carrying it, so a skin observer binds by point name and hands the granted program to its `ShellSkin` constructor with no second phase-delivery path.
 - Law: platform capability stays behind `HostFacts` and enters through the two host locators by shape — `HostUtils.GetPlatformService<T>` resolves a typed service contract, `Rhino.UI.Runtime.PlatformServiceProvider` answers the fixed process facts it publishes directly (`ProcessArchitecture`) — and a probe is a `HostProbe` case, so a new capability read is one case and one arm.
 - Law: engine presence is a probed host fact, never an assumption — `HostProbe.Scripting` answers with the `ScriptEngineSnapshot` search-path and runtime-assembly census, and every `HostScripts` entry refuses typed when `PythonScript.Create()` answers null.
+- Owner: `TokenAsk` closes the accounts request family and `Accounts.Ask` dispatches it whole inside `RhinoAccountsManager.ExecuteProtectedCodeAsync`, so `SecretKey` custody is structurally confined to the protected callback; `TokenLease` holds the live token pair and hands out only detached `OpenIdEvidence`/`OauthEvidence`, with refresh and revoke consuming the lease's own held tokens.
+- Law: entitlement is a capability probe, never a member reach — `HostProbe.Entitlement` answers `CloudHostUtils`'s pure platform-service reads headless, `HostProbe.Compute` answers the compute-endpoint census, and `ComputeEndpoints.Register` binds the append-only host roster under process-lifetime custody because the host publishes no unregister.
+- Law: login progress crosses as detached `LoginPulse` facts keyed on the `LoginPhase` vocabulary — a raw `RhinoAccoountsProgressInfo` (the host's own doubled-o spelling) never leaves the dispatch closure, and `TryCached` reads the secure token cache with no server call and no UI, so a headless composition answers it.
 - Law: script execution admits the complete `ScriptRun` text family and every binding name before engine creation or host dispatch, then rides `HostThread.Run`; an execute returning `false` projects onto the rail, expression absence rides `Option<object>`, and scripting-runtime exceptions convert inside the guarded window.
 - Boundary: process facts include runtime architecture, Mono presence, and system references; assembly paths admit through `Op.AcceptText` before any resolver mutation.
 
@@ -882,6 +1045,8 @@ public abstract partial record HostProbe {
     public sealed record Process : HostProbe;
     public sealed record Printers : HostProbe;
     public sealed record Scripting : HostProbe;
+    public sealed record Entitlement : HostProbe;
+    public sealed record Compute : HostProbe;
 }
 
 [ComplexValueObject]
@@ -920,7 +1085,15 @@ public abstract partial record HostFact {
     public sealed record ProcessCase(HostSnapshot Snapshot) : HostFact;
     public sealed record PrinterCase(Seq<PrinterSlot> Printers) : HostFact;
     public sealed record ScriptCase(ScriptEngineSnapshot Engine) : HostFact;
+    public sealed record EntitlementCase(EntitlementFact Verdict) : HostFact;
+    public sealed record ComputeCase(Seq<ComputeEndpoint> Endpoints) : HostFact;
 }
+
+// CloudHostUtils is pure property reads off the ICloudHost platform service (DoNothingCloudHost when no provider
+// ships), so the probe answers headless with no UI and no server call.
+public sealed record EntitlementFact(bool Entitled, Option<string> DenyReason, Option<string> Signature);
+
+public sealed record ComputeEndpoint(string Path, Type Contract);
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record AssemblySource {
@@ -940,13 +1113,15 @@ public abstract partial record AssemblyIntake {
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record AssemblyExtensionReceipt {
     private AssemblyExtensionReceipt() { }
-    public sealed record Completed(int Applied) : AssemblyExtensionReceipt;
-    public sealed record Partial(int Applied, Error Fault) : AssemblyExtensionReceipt;
+    public sealed record Completed(PluginKey Plugin, int Applied) : AssemblyExtensionReceipt;
+    public sealed record Partial(PluginKey Plugin, int Applied, Error Fault) : AssemblyExtensionReceipt;
 }
 
 internal sealed record AssemblyExtensionState(int Applied, Option<Error> Fault);
 
-public sealed record ScriptUnit(PythonCompiledCode Code);
+// The unit carries its compiling engine: a code object executes only in the scope it compiled against, so a
+// cross-engine run is unrepresentable rather than a silent empty-scope execution.
+public sealed record ScriptUnit(PythonCompiledCode Code, PythonScript Engine);
 
 public sealed record ScriptBinding(string Name, object Value);
 
@@ -1094,6 +1269,15 @@ public static class HostFacts {
                         Extent: HostUtils.GetPrinterFormSize(printer, form, out double width, out double height)
                             ? Some((width, height))
                             : None)).Strict())).Strict()))),
+            entitlement: static (held, _) => held.Catch(() => Fin.Succ<HostFact>(value: new HostFact.EntitlementCase(
+                Verdict: new EntitlementFact(
+                    Entitled: CloudHostUtils.IsEntitled,
+                    DenyReason: Op.Text(CloudHostUtils.DenyReason),
+                    Signature: Op.Text(CloudHostUtils.Signature))))),
+            compute: static (held, _) => held.Catch(() => Fin.Succ<HostFact>(value: new HostFact.ComputeCase(
+                Endpoints: toSeq(HostUtils.GetCustomComputeEndpoints())
+                    .Map(static row => new ComputeEndpoint(Path: row.Item1, Contract: row.Item2))
+                    .Strict()))),
             scripting: static (held, _) => held.Catch(() => Optional(PythonScript.Create())
                 .ToFin(Fail: held.InvalidResult())
                 .Bind(engine => held.Catch(() => Fin.Succ<HostFact>(value: new HostFact.ScriptCase(
@@ -1106,7 +1290,10 @@ public static class HostFacts {
 }
 
 public static class HostAssemblies {
-    public static Fin<AssemblyExtensionReceipt> Extend(Seq<AssemblySource> sources, Op? key = null) {
+    // Resolver extension is process-permanent: the host publishes no removal, so the receipt attributes every
+    // applied row to the extending plugin and an applied prefix is never rolled back — custody is the
+    // SnapshotParticipant permanence class, stated rather than hidden.
+    public static Fin<AssemblyExtensionReceipt> Extend(PluginKey plugin, Seq<AssemblySource> sources, Op? key = null) {
         Op op = key.OrDefault();
         return
             from admitted in sources.TraverseM(source => Optional(source)
@@ -1131,8 +1318,8 @@ public static class HostAssemblies {
                                     Succ: static _ => held with { Applied = held.Applied + 1 },
                                     Fail: fault => held with { Fault = Some(fault) }));
                     return Fin.Succ(value: state.Fault.Match<AssemblyExtensionReceipt>(
-                        Some: fault => new AssemblyExtensionReceipt.Partial(Applied: state.Applied, Fault: fault),
-                        None: () => new AssemblyExtensionReceipt.Completed(Applied: state.Applied)));
+                        Some: fault => new AssemblyExtensionReceipt.Partial(Plugin: plugin, Applied: state.Applied, Fault: fault),
+                        None: () => new AssemblyExtensionReceipt.Completed(Plugin: plugin, Applied: state.Applied)));
                 }),
                 key: op)
             select receipt;
@@ -1159,7 +1346,7 @@ public static class HostScripts {
             .Bind(source => Engine(op).Bind(engine => op.Catch(() =>
                 Optional(engine.Compile(script: source))
                     .ToFin(Fail: op.InvalidResult())
-                    .Map(static code => new ScriptUnit(Code: code)))));
+                    .Map(code => new ScriptUnit(Code: code, Engine: engine)))));
     }
 
     public static Fin<ScriptOutcome> Run(ScriptRun run, Seq<ScriptBinding> bindings = default, Op? key = null) {
@@ -1167,11 +1354,15 @@ public static class HostScripts {
         Op op = key.OrDefault();
         return from admitted in run.Admit(op)
                from prepared in bindings.TraverseM(binding =>
-                       from row in Optional(binding).ToFin(Fail: op.InvalidInput())
+                       from row in op.Need(binding)
                        from name in op.AcceptText(value: row.Name)
                        select row with { Name = name })
                    .As()
-               from engine in Engine(op)
+               // A compiled unit executes in the engine that compiled it; every other case mints one fresh engine
+               // and both the bindings and the dispatch read the same instance.
+               from engine in admitted is ScriptRun.Compiled held
+                   ? Fin.Succ(value: held.Unit.Engine)
+                   : Engine(op)
                from outcome in HostThread.Run(
             work: new HostWork<ScriptOutcome>.Execute(Body: () =>
                 prepared.TraverseM(binding => op.Catch(() =>
@@ -1202,13 +1393,189 @@ public static class HostScripts {
     static Fin<PythonScript> Engine(Op op) =>
         op.Catch(() => Optional(PythonScript.Create()).ToFin(Fail: op.InvalidResult()));
 }
+
+// --- [ACCOUNTS_RAIL]
+[SmartEnum<ProgressState>]
+public sealed partial class LoginPhase {
+    public static readonly LoginPhase AwaitingLogin = new(key: ProgressState.AwaitingLogin);
+    public static readonly LoginPhase RetrievingTokens = new(key: ProgressState.RetrievingTokens);
+    public static readonly LoginPhase AwaitingRedirect = new(key: ProgressState.AwaitingRedirect);
+    public static readonly LoginPhase Other = new(key: ProgressState.Other);
+}
+
+public sealed record LoginPulse(LoginPhase Phase, Option<string> Description);
+
+// Detached claim/expiry evidence — the live token interfaces never leave the lease.
+public sealed record OpenIdEvidence(
+    string Subject,
+    string Issuer,
+    string Audience,
+    Option<DateTime> Issued,
+    Option<DateTime> Expires,
+    Seq<string> Emails,
+    Option<bool> EmailVerified,
+    Option<string> Name);
+
+public sealed record OauthEvidence(Option<DateTime> Expires, Seq<string> Scopes, bool Expired);
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record TokenAsk {
+    private TokenAsk() { }
+    public sealed record Acquire(string ClientId, string ClientSecret) : TokenAsk;
+    public sealed record AcquireScoped(
+        string ClientId, string ClientSecret, Seq<string> Scopes, Option<string> Prompt, Option<int> MaxAge) : TokenAsk;
+    public sealed record TryCached(string ClientId, Seq<string> Scopes) : TokenAsk;
+
+    internal Fin<TokenAsk> Admit(Op op) => Switch(
+        op,
+        acquire: static (key, row) =>
+            from id in key.AcceptText(value: row.ClientId)
+            from secret in key.AcceptText(value: row.ClientSecret)
+            select (TokenAsk)new Acquire(ClientId: id, ClientSecret: secret),
+        acquireScoped: static (key, row) =>
+            from id in key.AcceptText(value: row.ClientId)
+            from secret in key.AcceptText(value: row.ClientSecret)
+            from scopes in row.Scopes.TraverseM(scope => key.AcceptText(value: scope)).As()
+            select (TokenAsk)new AcquireScoped(
+                ClientId: id, ClientSecret: secret, Scopes: scopes.Strict(), Prompt: row.Prompt, MaxAge: row.MaxAge),
+        tryCached: static (key, row) =>
+            from id in key.AcceptText(value: row.ClientId)
+            from scopes in row.Scopes.TraverseM(scope => key.AcceptText(value: scope)).As()
+            select (TokenAsk)new TryCached(ClientId: id, Scopes: scopes.Strict()));
+}
+
+// --- [SERVICES]
+// The lease confines the live token pair: every dispatch runs INSIDE ExecuteProtectedCode/Async, so SecretKey
+// never escapes the callback and no consumer touches the accounts namespace. Refresh and revoke take the lease's
+// own held tokens — a detached evidence record cannot reconstruct them, which is the confinement working.
+public sealed class TokenLease : IDisposable {
+    private readonly Atom<Option<(IOpenIDConnectToken OpenId, IOAuth2Token Oauth)>> held;
+    private readonly string clientId;
+    private readonly Op op;
+
+    internal TokenLease(IOpenIDConnectToken openId, IOAuth2Token oauth, string clientId, Op op) {
+        held = Atom(Some((openId, oauth)));
+        this.clientId = clientId;
+        this.op = op;
+    }
+
+    public Fin<OpenIdEvidence> OpenId(Op? key = null) => Read(
+        project: static pair => new OpenIdEvidence(
+            Subject: pair.OpenId.Sub,
+            Issuer: pair.OpenId.Iss,
+            Audience: pair.OpenId.Aud,
+            Issued: Optional(pair.OpenId.Iat),
+            Expires: Optional(pair.OpenId.Exp),
+            Emails: toSeq(pair.OpenId.Emails).Strict(),
+            EmailVerified: Optional(pair.OpenId.EmailVerified),
+            Name: Op.Text(pair.OpenId.Name)),
+        key: key);
+
+    public Fin<OauthEvidence> Oauth(Op? key = null) => Read(
+        project: static pair => new OauthEvidence(
+            Expires: Optional(pair.Oauth.Exp),
+            Scopes: toSeq(pair.Oauth.Scope).Strict(),
+            Expired: pair.Oauth.IsExpired),
+        key: key);
+
+    // A lease past expiry answers dead rather than handing a stale credential.
+    public bool Live => held.Value.Map(static pair => !pair.Oauth.IsExpired).IfNone(false);
+
+    public Fin<Unit> Refresh(Op? key = null) {
+        Op admitted = key.OrDefault();
+        return held.Value.ToFin(Fail: admitted.MissingContext()).Bind(pair => admitted.Catch(() => {
+            Task task = RhinoAccountsManager.ExecuteProtectedCodeAsync(protectedCode: async secret => {
+                IOpenIDConnectToken updated = await RhinoAccountsManager.UpdateOpenIDConnectTokenAsync(
+                    currentToken: pair.OpenId, oauth2Token: pair.Oauth, secretKey: secret, cancellationToken: CancellationToken.None);
+                _ = held.Swap(current => current.Map(row => (updated, row.Oauth)));
+            });
+            task.Wait();
+            return Fin.Succ(value: unit);
+        }));
+    }
+
+    public Fin<Unit> Revoke(Op? key = null) {
+        Op admitted = key.OrDefault();
+        return held.Value.ToFin(Fail: admitted.MissingContext()).Bind(pair => admitted.Catch(() => {
+            Task task = RhinoAccountsManager.ExecuteProtectedCodeAsync(protectedCode: secret =>
+                RhinoAccountsManager.RevokeAuthTokenAsync(oauth2Token: pair.Oauth, secretKey: secret, cancellationToken: CancellationToken.None));
+            task.Wait();
+            _ = held.Swap(static _ => Option<(IOpenIDConnectToken, IOAuth2Token)>.None);
+            return Fin.Succ(value: unit);
+        }));
+    }
+
+    public void Dispose() => ignore(held.Swap(static _ => Option<(IOpenIDConnectToken, IOAuth2Token)>.None));
+
+    private Fin<T> Read<T>(Func<(IOpenIDConnectToken OpenId, IOAuth2Token Oauth), T> project, Op? key = null) {
+        Op admitted = key.OrDefault();
+        return held.Value.ToFin(Fail: admitted.MissingContext()).Bind(pair => admitted.Catch(() => Fin.Succ(value: project(pair))));
+    }
+}
+
+// --- [OPERATIONS]
+public static class Accounts {
+    // Interactive login confines to first acquisition; TryCached reads the secure token cache with no server call
+    // and no UI, so a headless process answers it. showUI stays false on the scoped overload — the host raises its
+    // own browser flow off the progress callback, and the caller observes it as detached LoginPulse facts.
+    public static Fin<TokenLease> Ask(TokenAsk ask, Option<Action<LoginPulse>> progress = default, Option<Env> env = default, Op? key = null) {
+        ArgumentNullException.ThrowIfNull(ask);
+        Op op = key.OrDefault();
+        return from admitted in ask.Admit(op)
+               from cancel in Fin.Succ(value: env.Map(static held => held.Cancellation).IfNone(CancellationToken.None))
+               from pulse in Fin.Succ<IProgress<RhinoAccoountsProgressInfo>>(value: new Progress<RhinoAccoountsProgressInfo>(info =>
+                   progress.Iter(tap => ignore(op.Catch(() => Fin.Succ(value: Op.Side(() => tap(new LoginPulse(
+                       Phase: LoginPhase.TryGet(info.State, out LoginPhase? phase) && phase is { } row ? row : LoginPhase.Other,
+                       Description: Op.Text(info.Description))))))))))
+               from lease in op.Catch(() => {
+                   Tuple<IOpenIDConnectToken, IOAuth2Token>? pair = null;
+                   Task task = RhinoAccountsManager.ExecuteProtectedCodeAsync(protectedCode: async secret => pair = await admitted.Switch(
+                       (Secret: secret, Cancel: cancel, Pulse: pulse),
+                       acquire: static (held, row) => RhinoAccountsManager.GetAuthTokensAsync(
+                           clientId: row.ClientId, clientSecret: row.ClientSecret, secretKey: held.Secret, cancellationToken: held.Cancel),
+                       acquireScoped: static (held, row) => RhinoAccountsManager.GetAuthTokensAsync(
+                           clientId: row.ClientId, clientSecret: row.ClientSecret, scope: row.Scopes.AsEnumerable(),
+                           prompt: row.Prompt.IfNone((string?)null)!, maxAge: row.MaxAge.Map(static age => (int?)age).IfNone((int?)null),
+                           showUI: false, progress: held.Pulse, secretKey: held.Secret, cancellationToken: held.Cancel),
+                       tryCached: static (held, row) => Task.FromResult(row.Scopes.IsEmpty
+                           ? RhinoAccountsManager.TryGetAuthTokens(clientId: row.ClientId, secretKey: held.Secret)
+                           : RhinoAccountsManager.TryGetAuthTokens(clientId: row.ClientId, scope: row.Scopes.AsEnumerable(), secretKey: held.Secret))));
+                   task.Wait();
+                   return Optional(pair)
+                       .Filter(static row => row.Item1 is not null && row.Item2 is not null)
+                       .ToFin(Fail: op.MissingContext())
+                       .Map(row => new TokenLease(openId: row.Item1, oauth: row.Item2, clientId: admitted.Switch(
+                           acquire: static held => held.ClientId,
+                           acquireScoped: static held => held.ClientId,
+                           tryCached: static held => held.ClientId), op: op));
+               })
+               select lease;
+    }
+}
+
+// --- [COMPUTE_ENDPOINTS]
+// Registration binds an (endpointPath, Type) pair onto an append-only host roster — no delegate, no unregister,
+// no invocation surface in RhinoCommon (routing and activation live server-side in Rhino.Compute) — so the
+// register receipt carries no Subscription: process-lifetime custody, the SnapshotParticipant precedent.
+public static class ComputeEndpoints {
+    public static Fin<ComputeEndpoint> Register(string path, Type contract, Op? key = null) {
+        ArgumentNullException.ThrowIfNull(contract);
+        Op op = key.OrDefault();
+        return from admitted in op.AcceptText(value: path)
+               from row in op.Catch(() => {
+                   HostUtils.RegisterComputeEndpoint(endpointPath: admitted, t: contract);
+                   return Fin.Succ(value: new ComputeEndpoint(Path: admitted, Contract: contract));
+               })
+               select row;
+    }
+}
 ```
 
 ## [07]-[CALLBACKS]
 
 - Owner: `NamedValue` closes the typed-parameter vocabulary, `NamedKind` rows carry read dispatch, and `NamedBag` serializes native common objects into detached payloads before they enter the map.
 - Entry: `NamedCallbacks.Register` seats one host callback under a wire name; `NamedCallbacks.Execute` mints, executes, and detaches the response in one crossing.
-- Law: wire names are plugin-claimed custody — `HostUtils.RegisterNamedCallback` silently replaces a prior handler, so `Register` claims the name in the process registry keyed on `PluginKey` before the host call, a foreign plugin's claim faults typed instead of shadowing, the owning plugin re-registers only itself, and detach releases the claim with the host row.
+- Law: wire names are plugin-claimed custody — `HostUtils.RegisterNamedCallback` silently replaces a prior handler, so `Register` claims the name in the process registry under a fresh claim token keyed on `PluginKey` before the host call; ANY registration against a live claim faults typed — foreign or same-plugin alike, because a silent replacement would leave the prior `Subscription`'s detach removing the new host row — and detach releases exactly its own claim with the host row.
 - Law: `NamedSlot.Admit` revalidates one complete schema before native arguments exist; a callback handler detaches the request, runs the typed body, and writes the reply into the live dictionary before returning.
 - Law: execution cancellation reads the kernel `Env`, never an ambient token; a cancelled execution is a typed `UiFault.Cancelled`, never a swallowed skip.
 - Boundary: geometry, viewport, and meshing rows cross as serialized values; `NamedLease` owns every rehydrated common object until the synchronous host call ends, and the read-only viewport row refuses `Write`.
@@ -1396,7 +1763,7 @@ public sealed partial class NamedSlot {
             : null;
 
     internal static Fin<Seq<NamedSlot>> Admit(Seq<NamedSlot> slots, Op op) =>
-        from admitted in slots.TraverseM(slot => Optional(slot).ToFin(Fail: op.InvalidInput()).Bind(row =>
+        from admitted in slots.TraverseM(slot => op.Need(slot).Bind(row =>
                 TryCreate(key: row.Key, kind: row.Kind, presence: row.Presence, out NamedSlot? validated) && validated is { } value
                     ? Fin.Succ(value: value)
                     : Fin.Fail<NamedSlot>(error: op.InvalidInput())))
@@ -1448,7 +1815,7 @@ public sealed record NamedBag {
     public Fin<NamedBag> Put(string name, NamedValue value, Op? key = null) {
         Op op = key.OrDefault();
         return from admitted in op.AcceptText(value: name)
-               from payload in Optional(value).ToFin(Fail: op.InvalidInput())
+               from payload in op.Need(value)
                from _ in guard(flag: Rows.Find(admitted).IsNone, False: op.InvalidInput()).ToFin()
                select new NamedBag(rows: Rows.Add(admitted, payload));
     }
@@ -1458,7 +1825,7 @@ public sealed record NamedBag {
     public Option<NamedValue> Find(string key) => Rows.Find(key);
 
     internal Fin<NamedLease> WriteInto(NamedParametersEventArgs args, Op op) {
-        NamedWriteState state = toSeq(Rows).Fold(
+        NamedWriteState state = toSeq(Rows.AsIterable()).Fold(
             new NamedWriteState(Releases: Seq<Func<Fin<Unit>>>(), Fault: None),
             (held, row) => held.Fault.IsSome
                 ? held
@@ -1496,7 +1863,7 @@ public sealed record NamedBag {
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
 public static class NamedCallbacks {
-    private static readonly Atom<HashMap<string, PluginKey>> Names = Atom(HashMap<string, PluginKey>());
+    private static readonly Atom<HashMap<string, (PluginKey Plugin, Guid Claim)>> Names = Atom(HashMap<string, (PluginKey Plugin, Guid Claim)>());
 
     public static Fin<Subscription> Register(
         PluginKey plugin,
@@ -1508,10 +1875,14 @@ public static class NamedCallbacks {
         ArgumentNullException.ThrowIfNull(body);
         ArgumentNullException.ThrowIfNull(report);
         Op op = key.OrDefault();
+        // The claim is a fresh token, not the plugin id alone: a same-plugin double registration refuses typed
+        // instead of silently replacing the host handler — whose prior Subscription's detach would then remove the
+        // NEW registration — so exactly one live claim maps to exactly one host row at all times.
+        Guid claimId = Guid.NewGuid();
         return from admitted in op.AcceptText(value: name)
                from schema in NamedSlot.Admit(slots: request, op: op)
-               from claim in Names.Swap(held => held.ContainsKey(admitted) ? held : held.Add(admitted, plugin)).Find(admitted)
-                   .Filter(holder => holder == plugin)
+               from claim in Names.Swap(held => held.ContainsKey(admitted) ? held : held.Add(admitted, (plugin, claimId))).Find(admitted)
+                   .Filter(holder => holder.Plugin == plugin && holder.Claim == claimId)
                    .ToFin(Fail: op.InvalidContext())
                from seated in op.Catch(() => {
                    EventHandler<NamedParametersEventArgs> handler = (_, args) => ignore(op.Catch(() => {
@@ -1525,12 +1896,12 @@ public static class NamedCallbacks {
                    HostUtils.RegisterNamedCallback(name: admitted, callback: handler);
                    return Fin.Succ(value: Subscription.Of(detach: () => {
                        HostUtils.RemoveNamedCallback(name: admitted);
-                       _ = Names.Swap(held => held.Find(admitted).Filter(holder => holder == plugin).Match(
+                       _ = Names.Swap(held => held.Find(admitted).Filter(holder => holder.Claim == claimId).Match(
                            Some: _ => held.Remove(admitted),
                            None: () => held));
                    }));
                }).MapFail(error => {
-                   _ = Names.Swap(held => held.Find(admitted).Filter(holder => holder == plugin).Match(
+                   _ = Names.Swap(held => held.Find(admitted).Filter(holder => holder.Claim == claimId).Match(
                        Some: _ => held.Remove(admitted),
                        None: () => held));
                    return error;
@@ -1603,7 +1974,7 @@ public sealed record NodeFunction {
     public Fin<NodeReturn> Call(Seq<object> arguments, NodeCallShape shape, Op? key = null) {
         Op op = key.OrDefault();
         NodeFunction self = this;
-        return from mode in Optional(shape).ToFin(Fail: op.InvalidInput())
+        return from mode in op.Need(shape)
                from produced in op.Catch(() => {
                    object[] values = self.info.Evaluate(args: arguments.AsEnumerable(), keepTree: mode.Native, warnings: out string[] warnings);
                    return Optional(values).ToFin(Fail: op.InvalidResult())
@@ -1685,8 +2056,8 @@ public sealed partial class NoticeSpec {
         RunOutcome outcome, HostText message, Seq<Assembly> guards = default,
         Option<HostText> confirmCaption = default, Option<HostText> alternateCaption = default, Op? key = null) {
         Op op = key.OrDefault();
-        return from active in Optional(outcome).ToFin(Fail: op.InvalidInput())
-               from body in Optional(message).ToFin(Fail: op.InvalidInput())
+        return from active in op.Need(outcome)
+               from body in op.Need(message)
                let facts = active.Switch(
                    completed: static row => row.Scale,
                    cancelled: static _ => FrozenDictionary<string, string>.Empty,
@@ -1720,10 +2091,6 @@ public sealed partial class NoticeSpec {
         validationError = title is null
             || message is null
             || severity is null
-            || description.Exists(static text => text is null)
-            || confirmCaption.Exists(static text => text is null)
-            || cancelCaption.Exists(static text => text is null)
-            || alternateCaption.Exists(static text => text is null)
             || metadata is null
             || metadata.Any(static row => string.IsNullOrWhiteSpace(row.Key) || row.Value is null)
             || !guards.ForAll(static assembly => assembly is not null)
@@ -1979,8 +2346,20 @@ public static class Notices {
 - Growth: a second plugin is a second `Open` call with its own discriminator.
 
 ```csharp signature
-// App-root composition: the plugin root assembly references Rasm.AppHost beside Rasm.Rhino and owns
-// this seam; no Rasm.Rhino package source composes AppHost or OpenTelemetry types.
+// --- [APP_ROOT_PRELUDE] ---------------------------------------------------------------------
+// This fence compiles in the plugin app-shell project — the one assembly referencing Rasm.AppHost
+// beside Rasm.Rhino — under the shell project's own namespace; no Rasm.Rhino package source
+// composes AppHost or OpenTelemetry types.
+using System.Reflection;
+using System.Runtime.Loader;
+using Microsoft.Extensions.Hosting;
+using NodaTime;
+using Rasm.AppHost.Observability;
+using Rasm.AppHost.Runtime;
+using Rasm.Domain;
+using Rasm.Rhino.Document;
+using Rasm.Rhino.HostUi;
+
 public static class ShellTelemetry {
     public static Fin<PluginTelemetryHost> Open(Assembly pluginRoot, string plugin, Op? key = null) {
         ArgumentNullException.ThrowIfNull(pluginRoot);
@@ -1999,10 +2378,10 @@ public static class ShellTelemetry {
                    profile: new ConsumptionProfile(
                        Tenancy: Tenancy.None,
                        Topology: DeploymentTopology.InHost,
-                       Host: Some(HostRows.Rhino),
                        Lifecycle: LifecycleOwner.CallerOwned,
                        Isolation: Isolation.InProc,
-                       Providers: []),
+                       Providers: [],
+                       Host: Some(HostRows.Rhino)),
                    applicationName: TelemetryDomain.Rhino.Key,
                    environmentName: Environments.Production,
                    contentRoot: ContentRoot(pluginRoot),

@@ -12,13 +12,13 @@ The Rhino host boundary reaches macOS natively for exactly one concern: high-fid
 
 ## [02]-[BOUNDARY_REACH]
 
-- Registers the macOS pacing core (`libs/csharp/.api/api-macos-native.md`): the `NSView`-to-`NSWindow`-to-`NSScreen` anchor chain with its refresh ceiling, refresh intervals, backing scale, and EDR headroom, `CADisplayLink`/`CAFrameRateRange`, `NSRunLoop`/`NSRunLoopMode`, the `NSWorkspace` accessibility gates, the screen and accessibility observation tokens, and the `Runtime` handle bridge carry their algebra there. This boundary composes the layer graph, capture, gesture, and event subsystems nowhere, so it adds no carrier and states the pace-rail law over the registered core.
+- Registers the macOS pacing core (`libs/csharp/.api/api-macos-native.md`): the `NSApplication`-to-`NSWindow`-to-`NSScreen` anchor chain with its refresh ceiling, refresh intervals, backing scale, and EDR headroom, `CADisplayLink`/`CAFrameRateRange`, `NSRunLoop`/`NSRunLoopMode`, the `NSWorkspace` accessibility gates, the screen and accessibility observation tokens, and the `Runtime` handle bridge carry their algebra there. This boundary composes the layer graph, capture, gesture, and event subsystems nowhere, so it adds no carrier and states the pace-rail law over the registered core.
 
 | [INDEX] | [RAIL_STAGE]       | [REGISTERED_MEMBERS]                                                                          |
 | :-----: | :----------------- | :-------------------------------------------------------------------------------------------- |
-|  [01]   | host selection     | `Platform.IsMac` gate against the portable clock (`api-eto-runtime.md`)                       |
+|  [01]   | host selection     | `OperatingSystem.IsMacOSVersionAtLeast(14)` gate against the portable clock                   |
 |  [02]   | accessibility gate | `NSWorkspace.SharedWorkspace`, `AccessibilityDisplayShouldReduceMotion` and its four siblings |
-|  [03]   | anchor resolution  | `NSView.Window`, `NSWindow.Screen`                                                            |
+|  [03]   | anchor resolution  | `NSApplication.SharedApplication.KeyWindow`, `Windows`, `NSWindow.Screen`                     |
 |  [04]   | rate negotiation   | `NSScreen.MaximumFramesPerSecond`, `MaximumRefreshInterval`, `CAFrameRateRange.Create`        |
 |  [05]   | link construction  | `NSScreen.GetDisplayLink(NSObject, Selector)`, `CADisplayLink.PreferredFrameRateRange`        |
 |  [06]   | loop bracket       | `CADisplayLink.AddToRunLoop`, `Paused`, `RemoveFromRunLoop`, `Invalidate`                     |
@@ -37,11 +37,11 @@ The Rhino host boundary reaches macOS natively for exactly one concern: high-fid
 - An invalidated link is dead and rebuilt, never resumed; the bracket releases in exact inverse and disposes the link and its callback target.
 
 [STACKING]:
-- `api-macos-native`(`../../.api/api-macos-native.md`): the registered pacing core; this boundary composes it and re-tables none of it.
-- `api-eto-runtime`(`api-eto-runtime.md`): the portable clock the rail falls back to off macOS, and the density surface the backing-scale read supersedes on macOS.
-- `api-eto-platform`(`api-eto-platform.md`): the native host resolves the view whose window and screen the anchor stage reads.
-- `LanguageExt.Core`(`../../.api/api-languageext.md`): the create, attach, and invalidate bracket is resource-scoped through the `use` rail so a link never outlives its scope, the per-frame callback composes as an `IO<A>`/`Eff<A>` step, `Fin<A>` carries every platform-gated stage so an off-macOS or unavailable-screen path is a typed rail, and `Option<A>` lifts the nullable anchor resolution.
-- `Thinktecture.Runtime.Extensions`(`../../.api/api-thinktecture-runtime-extensions.md`): the run-loop mode binds as a `[SmartEnum<string>]` so an attachment is keyed by a validated owner, and a frame-rate policy binds as a `[ComplexValueObject]` so the minimum, maximum, and preferred triple is one validated owner routed by generated equality.
+- `libs/csharp/.api/api-macos-native.md`: the registered pacing core; this boundary composes it and re-tables none of it.
+- `libs/csharp/Rasm.Rhino/.api/api-eto-runtime.md`: the portable clock the rail falls back to off macOS, and the density surface the backing-scale read supersedes on macOS.
+- `libs/csharp/Rasm.Rhino/.api/api-eto-platform.md`: the native host resolves the view whose window and screen the anchor stage reads.
+- `LanguageExt.Core`(`libs/csharp/.api/api-languageext.md`): the create, attach, and invalidate bracket is resource-scoped through the `use` rail so a link never outlives its scope, the per-frame callback composes as an `IO<A>`/`Eff<A>` step, `Fin<A>` carries every platform-gated stage so an off-macOS or unavailable-screen path is a typed rail, and `Option<A>` lifts the nullable anchor resolution.
+- `Thinktecture.Runtime.Extensions`(`libs/csharp/.api/api-thinktecture-runtime-extensions.md`): the run-loop mode binds as a `[SmartEnum<string>]` so an attachment is keyed by a validated owner, and a frame-rate policy binds as a `[ComplexValueObject]` so the minimum, maximum, and preferred triple is one validated owner routed by generated equality.
 
 [LOCAL_ADMISSION]:
 - `Microsoft.macOS` is host-provided under the macOS target and never re-declared; the pace owner internalizes the display-link, accessibility-gate, and screen-observation concern behind one canonical rail.

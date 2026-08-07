@@ -7,8 +7,8 @@ Block operations (`Rasm.Rhino.Blocks`) own one closed mutation family, one close
 - [02]-[OPERATION_FAMILY]: `BlockOp` carrying every verified definition mutation and block-specific instance operation as generated values, `BlockMember` pairing one admitted `GeometryIntake` with one attribute set under a lease that closes on every exit.
 - [03]-[READ_FAMILY]: `BlockAsk`/`BlockAnswer` closing state, dependency, preview, field extraction, token composition, name minting, and instance explosion, `ExplodedPiece` owning its detached geometry and attribute custody.
 - [04]-[COMMIT_SPINE]: `BlockTransaction` admitting one homogeneous program through `BlockTrait`-derived undo and kernel-context requirements, and `Blocks.Commit` walking the one `DocumentCommit.Sealed` envelope.
-- [05]-[RECEIPTS]: `BlockReceipt` the consequence fact stream with no default state, path, tally, signal, and undo facts sharing one closed payload family and slot projections deriving from `Facts`.
-- [06]-[SURFACE_LEDGER]: owner-to-ingress-to-rail-to-egress roster across `BlockOp`, `BlockTransaction`, `Blocks`, and `BlockReceipt`.
+- [05]-[RECEIPTS]: `BlockSlot`/`BlockBody` the folder's contribution to the Document spine's shared `FactStream`, `BlockFacts` its mint and projection extension surface, path, tally, signal, and undo facts sharing one closed payload family and slot projections deriving from `Facts`.
+- [06]-[SURFACE_LEDGER]: owner-to-ingress-to-rail-to-egress roster across `BlockOp`, `BlockTransaction`, `Blocks`, and the slot and body vocabularies.
 
 ## [02]-[OPERATION_FAMILY]
 
@@ -126,14 +126,6 @@ public sealed partial class BlockMember {
 }
 
 [SmartEnum<int>]
-public sealed partial class HostInteraction {
-    public static readonly HostInteraction Quiet = new(key: 0, isQuiet: true);
-    public static readonly HostInteraction Interactive = new(key: 1, isQuiet: false);
-
-    public bool IsQuiet { get; }
-}
-
-[SmartEnum<int>]
 public sealed partial class LinkMode {
     public static readonly LinkMode Linked = new(key: 0, updateType: InstanceDefinitionUpdateType.Linked);
     public static readonly LinkMode LinkedAndEmbedded = new(key: 1, updateType: InstanceDefinitionUpdateType.LinkedAndEmbedded);
@@ -208,18 +200,34 @@ public abstract partial record BlockOp {
     public sealed record Repoint(TableTarget Instances, ResourceRef Target) : BlockOp;
     public sealed record Bake(Guid InstanceId, ExplodeDepth Depth, InstanceDisposition Disposition) : BlockOp;
 
-    internal BlockTrait Traits => this switch {
-        Author or Regeometry => BlockTrait.Contextual,
-        Purge or PurgeUnused or Compact or Export => BlockTrait.Unrecorded,
-        _ => BlockTrait.Mutation,
-    };
+    // Every case names its own trait. The catch-all read as "everything else records undo", so a new case that
+    // opened no undo record — the exact shape `Purge`, `Compact`, and `Export` already are — would silently join
+    // the recorded lane and the transaction admission would accept it into a sealed program it cannot roll back.
+    internal BlockTrait Traits => Map(
+        author: BlockTrait.Contextual,
+        amend: BlockTrait.Mutation,
+        regeometry: BlockTrait.Contextual,
+        rebind: BlockTrait.Mutation,
+        sever: BlockTrait.Mutation,
+        refresh: BlockTrait.Mutation,
+        retarget: BlockTrait.Mutation,
+        style: BlockTrait.Mutation,
+        delete: BlockTrait.Mutation,
+        undelete: BlockTrait.Mutation,
+        purge: BlockTrait.Unrecorded,
+        purgeUnused: BlockTrait.Unrecorded,
+        compact: BlockTrait.Unrecorded,
+        export: BlockTrait.Unrecorded,
+        place: BlockTrait.Mutation,
+        repoint: BlockTrait.Mutation,
+        bake: BlockTrait.Mutation);
 
     internal Fin<BlockReceipt> Apply(RhinoDoc document, Option<Context> domain, Op op) =>
         Switch(
             context: (Document: document, Domain: domain, Op: op),
             author: static (context, edit) =>
-                from metadata in Optional(edit.Metadata).ToFin(Fail: context.Op.InvalidInput())
-                from conflict in Optional(edit.Conflict).ToFin(Fail: context.Op.InvalidInput())
+                from metadata in context.Op.Need(edit.Metadata)
+                from conflict in context.Op.Need(edit.Conflict)
                 from _ in guard(edit.BasePoint.IsValid, context.Op.InvalidInput()).ToFin()
                 from name in context.Op.Need(metadata.Name)
                 from resolved in Optional(context.Document.InstanceDefinitions.Find(name.Value)).Case switch {
@@ -274,8 +282,8 @@ public abstract partial record BlockOp {
                 select receipt,
             amend: static (context, edit) =>
                 from definition in Definitions.Resolve(target: edit.Target, document: context.Document, key: context.Op)
-                from metadata in Optional(edit.Metadata).ToFin(Fail: context.Op.InvalidInput())
-                from interaction in Optional(edit.Interaction).ToFin(Fail: context.Op.InvalidInput())
+                from metadata in context.Op.Need(edit.Metadata)
+                from interaction in context.Op.Need(edit.Interaction)
                 let hyperlink = metadata.Hyperlink.Case switch {
                     BlockHyperlink value => (Url: value.Url, Tag: value.Tag),
                     _ => (Url: string.Empty, Tag: string.Empty),
@@ -305,8 +313,8 @@ public abstract partial record BlockOp {
             rebind: static (context, edit) =>
                 from definition in Definitions.Resolve(target: edit.Target, document: context.Document, key: context.Op)
                 from source in context.Op.Need(edit.Source)
-                from mode in Optional(edit.Mode).ToFin(Fail: context.Op.InvalidInput())
-                from interaction in Optional(edit.Interaction).ToFin(Fail: context.Op.InvalidInput())
+                from mode in context.Op.Need(edit.Mode)
+                from interaction in context.Op.Need(edit.Interaction)
                 from _ in source.Use(
                     body: reference => context.Op.Confirm(success: context.Document.InstanceDefinitions.ModifySourceArchive(
                         idefIndex: definition.Index, sourceArchive: reference, updateType: mode.UpdateType, quiet: interaction.IsQuiet)),
@@ -319,7 +327,7 @@ public abstract partial record BlockOp {
                 select receipt,
             sever: static (context, edit) =>
                 from definition in Definitions.Resolve(target: edit.Target, document: context.Document, key: context.Op)
-                from interaction in Optional(edit.Interaction).ToFin(Fail: context.Op.InvalidInput())
+                from interaction in context.Op.Need(edit.Interaction)
                 from _ in context.Op.Confirm(success: context.Document.InstanceDefinitions.DestroySourceArchive(
                     definition: definition, quiet: interaction.IsQuiet))
                 from receipt in BlockReceipt.Definition(slot: BlockSlot.Severed, definition: definition, key: context.Op)
@@ -334,8 +342,8 @@ public abstract partial record BlockOp {
             retarget: static (context, edit) =>
                 from definition in Definitions.Resolve(target: edit.Target, document: context.Document, key: context.Op)
                 from path in context.Op.Need(edit.Filename)
-                from traversal in Optional(edit.Traversal).ToFin(Fail: context.Op.InvalidInput())
-                from interaction in Optional(edit.Interaction).ToFin(Fail: context.Op.InvalidInput())
+                from traversal in context.Op.Need(edit.Traversal)
+                from interaction in context.Op.Need(edit.Interaction)
                 from _ in context.Op.Confirm(success: context.Document.InstanceDefinitions.UpdateLinkedInstanceDefinition(
                     idefIndex: definition.Index, filename: path.Value, updateNestedLinks: traversal.NestedLinks, quiet: interaction.IsQuiet))
                 from receipt in BlockReceipt.Definition(
@@ -357,9 +365,9 @@ public abstract partial record BlockOp {
                 select receipt,
             delete: static (context, edit) =>
                 from definition in Definitions.Resolve(target: edit.Target, document: context.Document, key: context.Op)
-                from policy in Optional(edit.Policy).ToFin(Fail: context.Op.InvalidInput())
+                from policy in context.Op.Need(edit.Policy)
                 from _ in context.Op.Confirm(success: context.Document.InstanceDefinitions.Delete(
-                    idefIndex: definition.Index, deleteReferences: policy.DeleteReferences, quiet: policy.Quiet))
+                    idefIndex: definition.Index, deleteReferences: policy.DeleteReferences, quiet: policy.Interaction.IsQuiet))
                 from receipt in BlockReceipt.Definition(slot: BlockSlot.Deleted, definition: definition, key: context.Op)
                 select receipt,
             undelete: static (context, edit) =>
@@ -377,7 +385,7 @@ public abstract partial record BlockOp {
                 from receipt in BlockReceipt.Tally(slot: BlockSlot.Reclaimed, count: tally, key: context.Op)
                 select receipt,
             compact: static (context, edit) =>
-                from policy in Optional(edit.Policy).ToFin(Fail: context.Op.InvalidInput())
+                from policy in context.Op.Need(edit.Policy)
                 from _ in context.Op.Catch(() => {
                     context.Document.InstanceDefinitions.Compact(ignoreUndoReferences: policy.IgnoreUndoReferences);
                     return Fin.Succ(value: unit);
@@ -425,7 +433,7 @@ public abstract partial record BlockOp {
                 select receipt,
             repoint: static (context, edit) =>
                 from definition in Definitions.Resolve(target: edit.Target, document: context.Document, key: context.Op)
-                from target in Optional(edit.Instances).ToFin(Fail: context.Op.InvalidInput())
+                from target in context.Op.Need(edit.Instances)
                 from ids in target.Resolve(document: context.Document, key: context.Op)
                 from repointed in ids.TraverseM(id => context.Op.Confirm(success: context.Document.Objects.ReplaceInstanceObject(
                     objectId: id, instanceDefinitionIndex: definition.Index)).Map(_ => id)).As()
@@ -433,11 +441,11 @@ public abstract partial record BlockOp {
                 select receipt,
             bake: static (context, edit) =>
                 from _ in guard(edit.InstanceId != Guid.Empty, context.Op.InvalidInput()).ToFin()
-                from depth in Optional(edit.Depth).ToFin(Fail: context.Op.InvalidInput())
-                from disposition in Optional(edit.Disposition).ToFin(Fail: context.Op.InvalidInput())
+                from depth in context.Op.Need(edit.Depth)
+                from disposition in context.Op.Need(edit.Disposition)
                 from native in Optional(context.Document.Objects.FindId(edit.InstanceId))
                     .ToFin(Fail: context.Op.MissingContext())
-                from instance in Optional(native as InstanceObject).ToFin(Fail: context.Op.InvalidInput())
+                from instance in context.Op.Need(native as InstanceObject)
                 from expected in context.Op.Catch(() => Optional(instance.InstanceDefinition)
                     .ToFin(Fail: context.Op.InvalidResult())
                     .Map(static definition => definition.ObjectCount))
@@ -477,7 +485,7 @@ public abstract partial record BlockOp {
         Seq<InstanceDefinition> roster = toSeq(document.InstanceDefinitions.GetList(ignoreDeleted: false))
             .Choose(static definition => Optional(definition))
             .Filter(static definition => definition.IsDeleted);
-        return Optional(target).ToFin(Fail: op.InvalidInput()).Bind(active => active.Switch(
+        return op.Need(target).Bind(active => active.Switch(
             context: (Roster: roster, Op: op),
             byId: static (ctx, value) => ctx.Roster.Find(definition => definition.Id == value.Value)
                 .ToFin(Fail: ctx.Op.MissingContext()),
@@ -515,7 +523,7 @@ public abstract partial record BlockOp {
         Op op) =>
         DocumentCommit.Compensated(
             source: members,
-            land: member => Optional(member).ToFin(Fail: op.InvalidInput())
+            land: member => op.Need(member)
                 .Bind(active => active.Source.Admit(domain: domain, key: op)
                     .Map(geometry => (Geometry: geometry, Attributes: active.Attributes))),
             rollback: landed => Fin.Succ(value: ignore(landed.Iter(static prior => prior.Geometry.Dispose()))));
@@ -549,11 +557,11 @@ public abstract partial record FieldSource {
                     value: Described(descriptors: TextFields.GetInstanceAttributeFields(str: text))))
                 select (BlockAnswer)new BlockAnswer.Fields(Descriptors: descriptors),
             @object: static (ctx, source) =>
-                from target in Optional(source.Target).ToFin(Fail: ctx.Op.InvalidInput())
+                from target in ctx.Op.Need(source.Target)
                 from ids in target.Resolve(document: ctx.Document, key: ctx.Op)
                 from id in ids.Head.Filter(_ => ids.Count == 1).ToFin(Fail: ctx.Op.InvalidInput())
                 from native in Optional(ctx.Document.Objects.FindId(id)).ToFin(Fail: ctx.Op.MissingContext())
-                from text in Optional(native as TextObject).ToFin(Fail: ctx.Op.InvalidInput())
+                from text in ctx.Op.Need(native as TextObject)
                 from descriptors in ctx.Op.Catch(() => Fin.Succ(
                     value: Described(descriptors: TextFields.GetInstanceAttributeFields(text: text))))
                 select (BlockAnswer)new BlockAnswer.Fields(Descriptors: descriptors),
@@ -565,7 +573,7 @@ public abstract partial record FieldSource {
             token: static (ctx, source) =>
                 from key in ctx.Op.AcceptText(value: source.Key)
                 from prompt in ctx.Op.AcceptText(value: source.Prompt)
-                from fallback in Optional(source.DefaultValue).ToFin(Fail: ctx.Op.InvalidInput())
+                from fallback in ctx.Op.Need(source.DefaultValue)
                 from token in ctx.Op.Catch(() => ctx.Op.AcceptText(value: TextFields.BlockAttributeText(
                     key: key, prompt: prompt, defaultValue: fallback)))
                 select (BlockAnswer)new BlockAnswer.Token(Value: token));
@@ -590,7 +598,7 @@ public abstract partial record BlockAsk {
 public abstract partial record BlockAnswer : IDetachedDocumentResult {
     private BlockAnswer() { }
     public sealed record State(BlockSnapshot Snapshot) : BlockAnswer;
-    public sealed record Dependency(int Measure) : BlockAnswer;
+    public sealed record Dependency(BlockDependencyAnswer Measure) : BlockAnswer;
     public sealed record Rendered(Lease<System.Drawing.Bitmap> Preview) : BlockAnswer;
     public sealed record Fields(Arr<BlockField> Descriptors) : BlockAnswer;
     public sealed record Token(string Value) : BlockAnswer;
@@ -647,9 +655,9 @@ public sealed class BlockTransaction {
     public static Fin<BlockTransaction> Batch(string name, RedrawPolicy redraw, params ReadOnlySpan<BlockOp> operations) {
         Op op = Op.Of();
         return from admitted in op.AcceptText(value: name)
-               from policy in Optional(redraw).ToFin(Fail: op.InvalidInput())
+               from policy in op.Need(redraw)
                from program in LanguageExt.Iterable<BlockOp>.FromSpan(operations).ToSeq()
-                   .TraverseM(operation => Optional(operation).ToFin(Fail: op.InvalidInput()))
+                   .TraverseM(operation => op.Need(operation))
                    .As()
                from _ in guard(!program.IsEmpty, op.InvalidInput()).ToFin()
                let records = program.Head.Map(static operation => operation.Traits.RecordsUndo).IfNone(false)
@@ -662,8 +670,8 @@ public sealed class BlockTransaction {
 public static class Blocks {
     public static Fin<BlockReceipt> Commit(DocumentSession session, BlockTransaction transaction) {
         Op op = Op.Of();
-        return from owner in Optional(session).ToFin(Fail: op.InvalidInput())
-               from plan in Optional(transaction).ToFin(Fail: op.InvalidInput())
+        return from owner in op.Need(session)
+               from plan in op.Need(transaction)
                from receipt in owner.Demand(
                    use: document => Run(document: document, plan: plan, op: op),
                    key: op,
@@ -673,13 +681,13 @@ public static class Blocks {
 
     public static Fin<BlockAnswer> Ask(DocumentSession session, BlockAsk request) {
         Op op = Op.Of();
-        return from owner in Optional(session).ToFin(Fail: op.InvalidInput())
-               from active in Optional(request).ToFin(Fail: op.InvalidInput())
+        return from owner in op.Need(session)
+               from active in op.Need(request)
                from answer in owner.Demand(
                    use: document => active.Switch(
                        context: (Document: document, Op: op),
                        state: static (ctx, ask) =>
-                           from scope in Optional(ask.Scope).ToFin(Fail: ctx.Op.InvalidInput())
+                           from scope in ctx.Op.Need(ask.Scope)
                            from snapshot in BlockSnapshot.Of(
                                target: ask.Target,
                                document: ctx.Document,
@@ -688,16 +696,16 @@ public static class Blocks {
                            select (BlockAnswer)new BlockAnswer.State(Snapshot: snapshot),
                        dependency: static (ctx, ask) =>
                            from definition in Definitions.Resolve(target: ask.Target, document: ctx.Document, key: ctx.Op)
-                           from probe in Optional(ask.Probe).ToFin(Fail: ctx.Op.InvalidInput())
+                           from probe in ctx.Op.Need(ask.Probe)
                            from measure in probe.Measure(owner: definition, document: ctx.Document, key: ctx.Op)
                            select (BlockAnswer)new BlockAnswer.Dependency(Measure: measure),
                        preview: static (ctx, ask) =>
                            from definition in Definitions.Resolve(target: ask.Target, document: ctx.Document, key: ctx.Op)
-                           from spec in Optional(ask.Spec).ToFin(Fail: ctx.Op.InvalidInput())
+                           from spec in ctx.Op.Need(ask.Spec)
                            from bitmap in spec.Render(definition: definition, key: ctx.Op)
                            select (BlockAnswer)new BlockAnswer.Rendered(
                                Preview: new Lease<System.Drawing.Bitmap>.Owned(Value: bitmap)),
-                       fields: static (ctx, ask) => Optional(ask.Source).ToFin(Fail: ctx.Op.InvalidInput())
+                       fields: static (ctx, ask) => ctx.Op.Need(ask.Source)
                            .Bind(source => source.Read(document: ctx.Document, op: ctx.Op)),
                        mintName: static (ctx, ask) =>
                            from root in ask.Root.Traverse(value => ctx.Op.Need(value)).As()
@@ -710,7 +718,7 @@ public static class Blocks {
                            from _ in guard(ask.InstanceId != Guid.Empty, ctx.Op.InvalidInput()).ToFin()
                            from native in Optional(ctx.Document.Objects.FindId(ask.InstanceId))
                                .ToFin(Fail: ctx.Op.MissingContext())
-                           from instance in Optional(native as InstanceObject).ToFin(Fail: ctx.Op.InvalidInput())
+                           from instance in ctx.Op.Need(native as InstanceObject)
                            from products in Exploded(instance: instance, policy: ask.Policy, key: ctx.Op)
                            select (BlockAnswer)new BlockAnswer.Pieces(Products: products)),
                    key: op,
@@ -731,12 +739,15 @@ public static class Blocks {
                 .TraverseM(operation => operation.Apply(document: document, domain: domain, op: op))
                 .As()
                 .Map(static receipts => receipts.Fold(BlockReceipt.Empty, static (state, value) => state + value)),
-            stamp: static (receipt, serial) => receipt + BlockReceipt.UndoRecords(serials: Seq(serial)),
+            stamp: static (receipt, serial) => receipt.Stamped(
+                slot: BlockSlot.Undo,
+                record: static stamped => new BlockBody.Record(Serial: stamped),
+                serial: serial),
             op: op)
         select receipt;
 
     private static Fin<Seq<ExplodedPiece>> Exploded(InstanceObject instance, ExplodePolicy policy, Op key) =>
-        Optional(policy).ToFin(Fail: key.InvalidInput()).Bind(active => key.Catch(() => {
+        key.Need(policy).Bind(active => key.Catch(() => {
             Fin<(RhinoObject[] Pieces, ObjectAttributes[] Attributes, Transform[] Motions)> native = active.Switch(
                 all: request => Capture(instance: instance, depth: request.Depth, viewport: Option<Guid>.None, key: key),
                 visible: request => request.ViewportId != Guid.Empty
@@ -815,7 +826,7 @@ public static class Blocks {
         ExplodeDepth depth,
         Option<Guid> viewport,
         Op key) =>
-        Optional(depth).ToFin(Fail: key.InvalidInput()).Bind(active => key.Catch(() => {
+        key.Need(depth).Bind(active => key.Catch(() => {
             if (viewport.Case is Guid viewportId) {
                 instance.Explode(
                     skipHiddenPieces: true, viewportId: viewportId, explodeNestedInstances: active.Nested,
@@ -836,16 +847,23 @@ public static class Blocks {
 
 ## [05]-[RECEIPTS]
 
-`BlockReceipt` has no default state. Each definition fact retains stable guid and transient table index and mints its optional path fact in the same call; object receipt admission rejects any empty id before distinct projection, and path, tally, signal, and undo facts share the same closed payload family.
+`BlockReceipt` is the Document spine's `FactStream<TSlot, TBody>` closed over this folder's `BlockSlot` and `BlockBody`, so the accumulation, the gate, the undo projection, and the slot-keyed reader are the owner's and this page contributes only the two vocabularies plus its own mint and projection surface as extension blocks. Each definition fact retains stable guid and transient table index and mints its optional path fact in the same call; object receipt admission rejects any empty id before distinct projection, and path, tally, signal, and undo facts share the same closed payload family.
 
-`BlockFact.Of` is the one fact ingress and the cross-product gate: `BlockSlot` carries an `Admits` predicate row naming exactly the body kinds its slot emits, so a tally landed on an authoring slot or a path on a tally slot refuses at construction and a new slot cannot compile without declaring its bodies. `BlockFact.Stamp` is the closed undo pairing the sealing stamp's total shape demands — one producer, one slot, one body, unreachable from a caller.
+- Law: the stream MACHINERY is not this folder's — a folder-local receipt, fact, gate, or projection beside the owner is the deleted form, and the same two declarations are all a third mutation folder needs to join.
+- Law: every address column on `BlockBody` takes its spine owner — `ResourceId`, `ResourceIndex`, `DocumentPath`, `UndoSerial` — because each raw primitive's invalid value is precisely what a failed host member answers with, and a receipt publishing one is indistinguishable from a real consequence. The address admissions stay on this page, because which host members lie about failure is this folder's evidence law, not the stream's.
+- Law: the undo stamp is a projection on the stream, not a rail — the envelope stamps every sealed receipt, an unrecorded program's serial is zero, `UndoSerial` refuses zero, so no fact claims record zero and the total `(receipt, serial) -> receipt` shape holds.
+
+The stream factory is the one fact ingress and the cross-product gate: `BlockSlot` carries an `Admits` predicate row naming exactly the body kinds its slot emits, so a tally landed on an authoring slot or a path on a tally slot refuses at construction with the slot named, and a new slot cannot compile without declaring its bodies.
 
 Slot projections derive from `Facts`; no consumer re-queries a mutation merely to reconstruct its consequences.
 
 ```csharp signature
 // --- [TYPES] -------------------------------------------------------------------------------
+// This folder's whole contribution to the shared stream: a keyed slot vocabulary and a body union. The
+// accumulation, the gate, the undo projection, and the slot-keyed reader live once on the Document spine's
+// `FactStream<TSlot, TBody>`, which this page closes as `BlockReceipt`.
 [SmartEnum<int>]
-public sealed partial class BlockSlot {
+public sealed partial class BlockSlot : IFactSlot<BlockBody> {
     public static readonly BlockSlot Authored = new(key: 0, admits: Named);
     public static readonly BlockSlot Reused = new(key: 18, admits: Named);
     public static readonly BlockSlot Amended = new(key: 1, admits: Named);
@@ -867,9 +885,9 @@ public sealed partial class BlockSlot {
     public static readonly BlockSlot Undo = new(key: 17, admits: Stamped);
 
     // The cross product a receipt may express: one predicate row per slot, so a new slot cannot compile
-    // without declaring which body kinds it emits and a mismatched pairing refuses at the receipt factory.
+    // without declaring which body kinds it emits and a mismatched pairing refuses at the stream factory.
     [UseDelegateFromConstructor]
-    internal partial bool Admits(BlockBody body);
+    public partial bool Admits(BlockBody body);
 
     private static bool Named(BlockBody body) => body is BlockBody.Definition;
     private static bool Sourced(BlockBody body) => body is BlockBody.Definition or BlockBody.Path;
@@ -880,119 +898,110 @@ public sealed partial class BlockSlot {
     private static bool Stamped(BlockBody body) => body is BlockBody.Record;
 }
 
+// Every address column takes its spine owner. The path column already did; the other four carried raw primitives
+// whose invalid values are exactly the ones a host failure answers with — an empty definition guid, a `-1` table
+// index, an empty object id, a zero undo serial — so a receipt could publish a "created" fact naming nothing and
+// no reader could tell it from a real one.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record BlockBody {
     private BlockBody() { }
-    public sealed record Definition(Guid Key, int Index) : BlockBody;
-    public sealed record Object(Guid Id) : BlockBody;
+    public sealed record Definition(ResourceId Key, ResourceIndex Index) : BlockBody;
+    public sealed record Object(ResourceId Id) : BlockBody;
     public sealed record Tally(int Count) : BlockBody;
     public sealed record Path(DocumentPath Value) : BlockBody;
-    public sealed record Record(uint Serial) : BlockBody;
+    public sealed record Record(UndoSerial Serial) : BlockBody;
     public sealed record Signal : BlockBody;
 }
 
-// --- [MODELS] ------------------------------------------------------------------------------
-public sealed record BlockFact {
-    private BlockFact(BlockSlot slot, BlockBody body) => (Slot, Body) = (slot, body);
+// --- [EXPORTS] -------------------------------------------------------------------------------
+// The folder's receipt IS the spine's stream closed over this folder's two vocabularies; the aliases carry the
+// domain names call sites already read, and the project-level alias rows publish them namespace-wide, so no
+// consumer spells the instantiation and no folder-local receipt type exists to drift from the owner.
+global using BlockFact = Rasm.Rhino.Document.Fact<Rasm.Rhino.Blocks.BlockSlot, Rasm.Rhino.Blocks.BlockBody>;
+global using BlockReceipt = Rasm.Rhino.Document.FactStream<Rasm.Rhino.Blocks.BlockSlot, Rasm.Rhino.Blocks.BlockBody>;
 
-    public BlockSlot Slot { get; }
-    public BlockBody Body { get; }
+// --- [OPERATIONS] ----------------------------------------------------------------------------
+// The folder's mint surface rides an extension block over the closed instantiation, so every `BlockReceipt.*`
+// call site reads as it did while the accumulation and the gate stay on the one owner. The address admissions
+// stay HERE, because they are this folder's evidence law: a host member reporting failure as an empty guid or a
+// `-1` index must refuse before its value reaches a body.
+public static class BlockFacts {
+    extension(BlockReceipt) {
+        public static Fin<BlockReceipt> Definition(
+            BlockSlot slot,
+            InstanceDefinition definition,
+            Op key,
+            Option<DocumentPath> path = default) =>
+            from admitted in Optional(definition).ToFin(Fail: key.InvalidResult())
+            from _ in guard(admitted.Id != Guid.Empty && admitted.Index >= 0, key.InvalidResult()).ToFin()
+            from identity in ResourceId.Admit(value: admitted.Id, key: key)
+            from index in ResourceIndex.Admit(value: admitted.Index, key: key)
+            from named in BlockReceipt.Of(
+                slot: slot,
+                body: new BlockBody.Definition(Key: identity, Index: index),
+                key: key)
+            from sourced in path
+                .Traverse(value => BlockReceipt.Of(slot: slot, body: new BlockBody.Path(Value: value), key: key))
+                .As()
+            select sourced.IfNone(BlockReceipt.Empty) + named;
 
-    internal static Fin<BlockFact> Of(BlockSlot slot, BlockBody body, Op key) =>
-        from row in key.Need(slot)
-        from payload in key.Need(body)
-        from _ in guard(row.Admits(body: payload), key.InvalidResult(detail: row.Key.ToString())).ToFin()
-        select new BlockFact(slot: row, body: payload);
+        public static Fin<BlockReceipt> Objects(BlockSlot slot, Seq<Guid> ids, Op key) =>
+            from _ in guard(!ids.IsEmpty, key.InvalidResult()).ToFin()
+            from admitted in ids
+                .Traverse(id => guard(id != Guid.Empty, key.InvalidResult()).ToFin().ToValidation())
+                .As()
+                .ToFin()
+            from bodies in admitted.Distinct()
+                .TraverseM(id => ResourceId.Admit(value: id, key: key)
+                    .Map(value => (BlockBody)new BlockBody.Object(Id: value)))
+                .As()
+            from receipt in BlockReceipt.All(slot: slot, bodies: bodies, key: key)
+            select receipt;
 
-    // The undo stamp is the one pairing no caller can vary — one producer, the `Undo` slot, a `Record` body —
-    // so it mints through the closed path the sealing stamp's total `(receipt, serial)` shape demands.
-    internal static BlockFact Stamp(uint serial) =>
-        new(slot: BlockSlot.Undo, body: new BlockBody.Record(Serial: serial));
-}
+        public static Fin<BlockReceipt> Tally(BlockSlot slot, int count, Op key) =>
+            from _ in guard(count >= 0, key.InvalidResult()).ToFin()
+            from receipt in BlockReceipt.Of(slot: slot, body: new BlockBody.Tally(Count: count), key: key)
+            select receipt;
 
-public sealed class BlockReceipt : IDetachedDocumentResult {
-    private readonly Seq<BlockFact> facts;
+        public static Fin<BlockReceipt> Signal(BlockSlot slot, Op key) =>
+            BlockReceipt.Of(slot: slot, body: new BlockBody.Signal(), key: key);
+    }
 
-    private BlockReceipt(Seq<BlockFact> facts) => this.facts = facts;
+    extension(BlockReceipt receipt) {
+        public Seq<(ResourceId Key, ResourceIndex Index)> DefinitionRefs(BlockSlot slot) =>
+            receipt.Project(slot: slot, select: static body => body is BlockBody.Definition value
+                ? Some((value.Key, value.Index))
+                : Option<(ResourceId, ResourceIndex)>.None);
 
-    public static BlockReceipt Empty { get; } = new(facts: Seq<BlockFact>());
+        public Seq<ResourceIndex> Definitions(BlockSlot slot) =>
+            receipt.DefinitionRefs(slot: slot).Map(static definition => definition.Index);
 
-    public Seq<BlockFact> Facts => facts;
+        public Seq<ResourceId> Ids(BlockSlot slot) =>
+            receipt.Project(slot: slot, select: static body => body is BlockBody.Object value
+                ? Some(value.Id)
+                : Option<ResourceId>.None);
 
-    public static BlockReceipt operator +(BlockReceipt left, BlockReceipt right) =>
-        new(facts: left.facts + right.facts);
+        public Seq<int> Tallies(BlockSlot slot) =>
+            receipt.Project(slot: slot, select: static body => body is BlockBody.Tally value
+                ? Some(value.Count)
+                : Option<int>.None);
 
-    public static Fin<BlockReceipt> Definition(
-        BlockSlot slot,
-        InstanceDefinition definition,
-        Op key,
-        Option<DocumentPath> path = default) =>
-        from admitted in Optional(definition).ToFin(Fail: key.InvalidResult())
-        from _ in guard(admitted.Id != Guid.Empty && admitted.Index >= 0, key.InvalidResult()).ToFin()
-        from named in BlockFact.Of(
-            slot: slot,
-            body: new BlockBody.Definition(Key: admitted.Id, Index: admitted.Index),
-            key: key)
-        from sourced in path
-            .Traverse(value => BlockFact.Of(slot: slot, body: new BlockBody.Path(Value: value), key: key))
-            .As()
-        select new BlockReceipt(facts: Seq(named) + sourced.ToSeq());
-
-    public static Fin<BlockReceipt> Objects(BlockSlot slot, Seq<Guid> ids, Op key) =>
-        from _ in guard(!ids.IsEmpty, key.InvalidResult()).ToFin()
-        from admitted in ids
-            .Traverse(id => guard(id != Guid.Empty, key.InvalidResult()).ToFin().ToValidation())
-            .As()
-            .ToFin()
-        from facts in admitted.Distinct()
-            .TraverseM(id => BlockFact.Of(slot: slot, body: new BlockBody.Object(Id: id), key: key))
-            .As()
-        select new BlockReceipt(facts: facts);
-
-    public static Fin<BlockReceipt> Tally(BlockSlot slot, int count, Op key) =>
-        from _ in guard(count >= 0, key.InvalidResult()).ToFin()
-        from fact in BlockFact.Of(slot: slot, body: new BlockBody.Tally(Count: count), key: key)
-        select new BlockReceipt(facts: Seq(fact));
-
-    internal static BlockReceipt UndoRecords(Seq<uint> serials) =>
-        new(facts: serials.Map(BlockFact.Stamp));
-
-    public static Fin<BlockReceipt> Signal(BlockSlot slot, Op key) =>
-        BlockFact.Of(slot: slot, body: new BlockBody.Signal(), key: key)
-            .Map(static fact => new BlockReceipt(facts: Seq(fact)));
-
-    public Seq<(Guid Key, int Index)> DefinitionRefs(BlockSlot slot) =>
-        Project(slot: slot, pick: static body => body is BlockBody.Definition value
-            ? Some((value.Key, value.Index))
-            : Option<(Guid, int)>.None);
-
-    public Seq<int> Definitions(BlockSlot slot) =>
-        DefinitionRefs(slot: slot).Map(static definition => definition.Index);
-
-    public Seq<Guid> Ids(BlockSlot slot) =>
-        Project(slot: slot, pick: static body => body is BlockBody.Object value ? Some(value.Id) : Option<Guid>.None);
-
-    public Seq<int> Tallies(BlockSlot slot) =>
-        Project(slot: slot, pick: static body => body is BlockBody.Tally value ? Some(value.Count) : Option<int>.None);
-
-    public Seq<DocumentPath> Paths(BlockSlot slot) =>
-        Project(slot: slot, pick: static body => body is BlockBody.Path value ? Some(value.Value) : Option<DocumentPath>.None);
-
-    public int FactCount(BlockSlot slot) => facts.Count(fact => fact.Slot == slot);
-
-    private Seq<T> Project<T>(BlockSlot slot, Func<BlockBody, Option<T>> pick) =>
-        facts.Filter(fact => fact.Slot == slot).Choose(fact => pick(fact.Body));
+        public Seq<DocumentPath> Paths(BlockSlot slot) =>
+            receipt.Project(slot: slot, select: static body => body is BlockBody.Path value
+                ? Some(value.Value)
+                : Option<DocumentPath>.None);
+    }
 }
 ```
 
 ## [06]-[SURFACE_LEDGER]
 
-| [INDEX] | [OWNER]            | [INGRESS]        | [RAIL]                               | [EGRESS]          |
-| :-----: | :----------------- | :--------------- | :----------------------------------- | :---------------- |
-|  [01]   | `BlockOp`          | generated values | `Apply`                              | receipt fragment  |
-|  [02]   | `BlockTransaction` | `Batch`          | trait homogeneity                    | admitted program  |
-|  [03]   | `Blocks`           | `Commit` · `Ask` | `Fin` · `Validation` · `UndoBracket` | receipt or answer |
-|  [04]   | `BlockReceipt`     | closed factories | additive facts                       | slot projections  |
+| [INDEX] | [OWNER]                 | [INGRESS]               | [RAIL]                               | [EGRESS]          |
+| :-----: | :---------------------- | :---------------------- | :----------------------------------- | :---------------- |
+|  [01]   | `BlockOp`               | generated values        | `Apply`                              | receipt fragment  |
+|  [02]   | `BlockTransaction`      | `Batch`                 | trait homogeneity                    | admitted program  |
+|  [03]   | `Blocks`                | `Commit` · `Ask`        | `Fin` · `Validation` · `UndoBracket` | receipt or answer |
+|  [04]   | `BlockSlot`/`BlockBody` | `BlockFacts` extensions | spine `FactStream` accumulation      | slot projections  |
 
 ## [07]-[RESEARCH]
 

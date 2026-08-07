@@ -23,8 +23,8 @@
 |  [04]   | `TextureImage`                   | class                  | format plus the subresource pyramid                                |
 |  [05]   | `TextureSubresource`             | sealed class           | one mip, array layer, face payload                                 |
 |  [06]   | `TextureSubresourceSelection`    | readonly record struct | mip, array layer, cube face selector                               |
-|  [07]   | `TextureSubresourceFilter`       | readonly struct        | subresource predicate                                              |
-|  [08]   | `TextureMipmapGenerationOptions` | class                  | texture-level mip policy                                           |
+|  [07]   | `TextureSubresourceFilter`       | readonly record struct | subresource predicate                                              |
+|  [08]   | `TextureMipmapGenerationOptions` | static class           | texture-level mip policy                                           |
 |  [09]   | `TextureFormatKind`              | enum                   | `Uncompressed` `Paletted` `BlockCompressed`                        |
 |  [10]   | `TextureValueKind`               | enum                   | sample interpretation                                              |
 |  [11]   | `TextureComponents`              | enum                   | channel set and order                                              |
@@ -32,7 +32,7 @@
 |  [13]   | `TexturePayloadSizeMode`         | enum                   | block payload sizing convention                                    |
 
 [TextureValueKind]: `UNorm` `SNorm` `UInt` `SInt` `Float` `Srgb` `XR` `XRSrgb` `DepthStencil`
-[TextureComponents]: `R` `Rg` `Rgb` `Rgba` `Bgr` `Bgra` `Bgrx` `Argb` `Abgr` `Alpha` `Luminance` `LuminanceAlpha` `Intensity` `Yuv` `Yuva` `Depth` `Stencil` `DepthStencil`
+[TextureComponents]: `R` `Rg` `Rgb` `Yuv` `Yuva` `Rgba` `Bgr` `Bgra` `Bgrx` `Argb` `Abgr` `Alpha` `Luminance` `LuminanceAlpha` `Intensity` `Depth` `Stencil` `DepthStencil` (implicitly numbered, so the roster is DECLARATION-ordered)
 
 [PUBLIC_TYPE_SCOPE]: pixel carriers — `TextureCompressor.Colors`
 
@@ -88,12 +88,13 @@
 |  [16]   | `DepthStencilTextureCoder`                                       | sealed class  | depth and stencil layouts                          |
 |  [17]   | `Rgbm`/`Xr`/`BitPackedUNorm` `TextureCoder`                      | sealed class  | RGBM, XR, sub-byte layouts                         |
 |  [18]   | `PlanarYuv`/`PackedYuv422`/`PackedYuva444`/`PackedRgb422` coders | sealed class  | video chroma layouts                               |
-|  [19]   | `TextureArrayCoder` / `PitchTextureArrayCoder`                   | sealed class  | array-layer coding over a per-slice coder          |
+|  [19]   | `TextureArrayCoder` / `PitchTextureArrayCoder`                   | internal      | array-layer coding over a per-slice coder          |
 
 - `AstcTextureCoder` spans the `RgbaAstc4x4*`..`RgbaAstc12x12*` 2D extents and `Astc3DTextureCoder` the `RgbaAstc3x3x3*`..`RgbaAstc6x6x6*` 3D extents, each extent carrying `UNorm`, `Srgb`, and `Float` arms — the HDR arm spells `Float`.
 - `BasisEtc1sTextureCoder` and `BasisUastcLdr4x4TextureCoder`: `TextureFormats.RgbaBasisEtc1sUNorm`/`RgbaBasisEtc1sSrgb` and `TextureFormats.RgbaBasisUastcLdr4x4UNorm`/`RgbaBasisUastcLdr4x4Srgb` are the four `TextureFormats` fields the KTX2 wire-legal payload classes ride.
 - `BptcTextureCoder`, `S3tcTextureCoder`, and `RgtcLatcTextureCoder` bind these `TextureFormats` fields: `Bc1Rgb` `Bc1RgbSrgb` `Bc1Rgba` `Bc1RgbaSrgb` `Bc2Rgba` `Bc2RgbaSrgb` `Bc3Rgba` `Bc3RgbaSrgb` `Bc4UNorm` `Bc4SNorm` `Bc5UNorm` `Bc5SNorm` `Bc6HUFloat` `Bc6HSFloat` `Bc7UNorm` `Bc7Srgb` — the field name, never a `BC1_RGB_UNORM_BLOCK`-style token, is what a static reference spells.
 - `TextureFormatCatalog.TryGet(string, out TextureFormat)` matches EITHER the declaring field name or the format's own `Name`, ordinal-ignore-case, so a caller holding either spelling resolves; binding the static field directly is the compile-checked form and the lookup serves a runtime-sourced name alone.
+- `TextureFormats.Rgba8Srgb` (`TextureFormat.Uncompressed("RGBA8_SRGB", Rgba, Srgb, 8, 8, 8, 8)`) is the uncompressed sRGB-declared field beside the block rows — the declared-transfer probe a container sniff compares against.
 
 [PUBLIC_TYPE_SCOPE]: conversion facade, options, and file-format registry
 
@@ -105,15 +106,14 @@
 |  [04]   | `TextureConversionFileKind`                                      | enum          | image versus texture container classification      |
 |  [05]   | `TextureConversionMipmaps`                                       | enum          | `None` `Generate`                                  |
 |  [06]   | `TextureAssembler` / `TextureExtractor`                          | class         | subresource assembly and extraction                |
-|  [07]   | `TextureExtractedImage`                                          | class         | one extracted subresource image                    |
-|  [08]   | `TextureCompressionOptions`                                      | class         | per-coder compression-mode options record          |
-|  [09]   | `TextureCompressionOptions`                                      | class         | `CompressionMode` carrier                          |
-|  [10]   | `TextureCompressionLevel`                                        | enum          | `Fast` `Normal` `High`                             |
-|  [11]   | `TextureFileFormatManager`                                       | sealed class  | file-format registry with a global instance        |
-|  [12]   | `IFileFormat` / `IImageFileFormat` / `ITextureFileFormat`        | interface     | format identity, image codec, texture codec        |
-|  [13]   | `ITextureFile`                                                   | interface     | a decoded container carrying its `TextureImage`    |
-|  [14]   | `IFileFormatOptions`                                             | interface     | the per-format options contract                    |
-|  [15]   | `BigEndianByteSwap` / `SwizzledHelper` / `TextureCodingParallel` | static class  | byte-order, swizzle, and parallel coding utilities |
+|  [07]   | `TextureExtractedImage<TPixel>`                                  | sealed record | one extracted subresource image                    |
+|  [08]   | `TextureCompressionOptions`                                      | class         | `CompressionMode` carrier, per-coder options       |
+|  [09]   | `TextureCompressionLevel`                                        | enum          | `Fast` `Normal` `High` `Exhaustive`                |
+|  [10]   | `TextureFileFormatManager`                                       | sealed class  | file-format registry with a global instance        |
+|  [11]   | `IFileFormat` / `IImageFileFormat` / `ITextureFileFormat`        | interface     | format identity, image codec, texture codec        |
+|  [12]   | `ITextureFile`                                                   | interface     | a decoded container carrying its `TextureImage`    |
+|  [13]   | `IFileFormatOptions`                                             | interface     | the per-format options contract                    |
+|  [14]   | `BigEndianByteSwap` / `SwizzledHelper` / `TextureCodingParallel` | static class  | byte-order, swizzle, and parallel coding utilities |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -217,7 +217,7 @@
 - `BitmapView<TPixel>` is the coding boundary. Every coder takes and returns a borrowed span plane, so the arena belongs to the caller and `ArrayBitmap<TPixel>` is a convenience owner rather than a required one.
 - `TextureImage` carries the whole pyramid — mip levels, array layers, cube faces — as an ordered `TextureSubresource` list, and `GetSubresource(mip, face, layer)` is the one navigator; `IsCubeMap` reads `FaceCount == 6`. Each slot states its OWN `Width`/`Height`/`Depth`, so a level's extent reads off the subresource rather than halving the base — and `Payload` is a bare `byte[]`, which the coder's `ReadOnlySpan<byte>` parameter takes directly; a `.Span` projection on it does not compile.
 - Mip generation is deliberately minimal: `MipmapFilter` offers `Box` and `Triangle` alone, and `MipmapColorSpace`/`MipmapAlphaMode` decide whether the fold decodes sRGB and un-premultiplies first. Any wider mip law — windowed-sinc, normal renormalization, roughness-variance coupling — is the composing folder's fold over `BitmapView` rows, never a knob here.
-- `TextureCompressionLevel` (`Fast`/`Normal`/`High`) is the sole quality dial and it reaches the block encoders through `TextureCompressionOptions.CompressionMode`; per-block RDO and error-metric selection are not exposed.
+- `TextureCompressionLevel` (`Fast`/`Normal`/`High`/`Exhaustive`) is the sole quality dial and it reaches the block encoders through `TextureCompressionOptions.CompressionMode`; per-block RDO and error-metric selection are not exposed.
 - `TextureFileFormatManager` splits the way the coder rail does: `IImageFileFormat` reads and writes a FLAT pixel image generically over `IPixel`, `ITextureFileFormat` reads and writes a `TextureImage` container. Container packages register one row each on this manager.
 
 [STACKING]:

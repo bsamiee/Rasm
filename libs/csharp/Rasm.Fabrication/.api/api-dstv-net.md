@@ -15,12 +15,12 @@
 
 [PUBLIC_TYPE_SCOPE]: parse contracts — `DSTV.Net.Contracts`
 
-| [INDEX] | [SYMBOL]      | [TYPE_FAMILY]      | [CAPABILITY]                                                                        |
-| :-----: | :------------ | :----------------- | :---------------------------------------------------------------------------------- |
-|  [01]   | `IDstvReader` | reader contract    | `ParseAsync(string)` / `ParseAsync(TextReader)` → `Task<IDstv>`                     |
-|  [02]   | `IDstv`       | document contract  | parsed program: `Header` (`IDstvHeader?`) + `Elements` (`IEnumerable<DstvElement>`) |
-|  [03]   | `IDstvHeader` | header contract    | the steel-piece `ST`-block descriptor                                               |
-|  [04]   | `ISplitter`   | tokenizer shape    | `string[] Split(string)` — the shape the internal line tokenizers hold              |
+| [INDEX] | [SYMBOL]      | [TYPE_FAMILY]     | [CAPABILITY]                                                                        |
+| :-----: | :------------ | :---------------- | :---------------------------------------------------------------------------------- |
+|  [01]   | `IDstvReader` | reader contract   | `ParseAsync(string)` / `ParseAsync(TextReader)` → `Task<IDstv>`                     |
+|  [02]   | `IDstv`       | document contract | parsed program: `Header` (`IDstvHeader?`) + `Elements` (`IEnumerable<DstvElement>`) |
+|  [03]   | `IDstvHeader` | header contract   | the steel-piece `ST`-block descriptor                                               |
+|  [04]   | `ISplitter`   | tokenizer shape   | `string[] Split(string)` — the shape the internal line tokenizers hold              |
 
 - `ISplitter` is a describing shape, NOT a seam: `ParseAsync` takes no splitter, constructs its own `ReaderContext`, and every implementation is `internal` with an `internal static readonly ISplitter Instance`, while `ReaderContext`'s own constructor and `Source` are `internal` too — so the tokenizer pipeline is fixed and unreachable from a consumer.
 

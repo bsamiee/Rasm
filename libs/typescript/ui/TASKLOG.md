@@ -20,6 +20,13 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic included; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Tasks state landing-grain work decomposing an idea.
 -->
 
+[BCF_WIRE_WIDENING]-[QUEUED]: The BCF decode end absorbs the C# wire's threaded-reply and optional-camera columns.
+- Capability: the BCF topic/viewpoint decode reads the widened producer wire — a threaded CDE conversation and a selection-only viewpoint both cross whole instead of flattening.
+- Shape: `BcfCommentWire` gains the optional `replyToGuid` string and `BcfViewpointWire.camera` goes optional at this folder's BCF decode surface, mirroring the `Rasm.Bim` `Review/issues` producer columns (`BcfComment.ReplyToGuid` REST-lane, `Option<BcfCamera>`).
+- Unlocks: threaded issue boards and camera-less viewpoint anchors in the viewer.
+- Anchors: the additive wire-evolution law; the Bim producer end landed.
+- Ripple: mirrors `Rasm.Bim` `Review/issues#TS_PROJECTION`.
+
 [CATALOGUE_REACH_VERDICT]-[QUEUED]: Every folder-tier catalogue this folder carries is earned by a composing page or retires with its whole touch-point set.
 - Capability: the folder-tier catalogue gate becomes provable rather than assumed — a catalogue answers which page composes it, and one that answers nothing leaves through the same surfaces that admitted it, so manifest, registry, and catalogue never disagree about what this folder uses.
 - Shape: one verdict per unreached catalogue under `libs/typescript/ui/.api/` — adoption is one composing fence with its `Packages` line at the owning page, retirement is the catalogue file, its `libs/typescript/ui/README.md` registry row, and its `pnpm-workspace.yaml` catalog row removed in one pass.

@@ -110,16 +110,16 @@
 - `RequestMetadata` keys ride `httpx.Request.extensions` (the `request/stream/get(..., extensions=)` carry) and the proxy reads them beside the policy.
 - `ResponseMetadata` keys land on `httpx.Response.extensions`; every key is `hishel_`-prefixed to avoid colliding with caller extensions.
 
-| [INDEX] | [SURFACE]                              | [SHAPE]  | [CAPABILITY]                                                     |
-| :-----: | :------------------------------------- | :------- | :--------------------------------------------------------------- |
-|  [01]   | `hishel_ttl: float \| None`            | request  | per-entry eviction horizon in seconds; overrides the store TTL   |
-|  [02]   | `hishel_refresh_ttl_on_access: bool`   | request  | slide this entry's TTL on each serve instead of expiring fixed   |
-|  [03]   | `hishel_spec_ignore: bool`             | request  | bypass the RFC-9111 decision for this request alone              |
-|  [04]   | `hishel_body_key: bool`                | request  | fold the body into the cache key per request, `use_body_key`'s OR |
-|  [05]   | `hishel_from_cache: bool`              | response | this response was served from a stored entry                     |
-|  [06]   | `hishel_revalidated: bool`             | response | the entry revalidated against the origin before serving          |
-|  [07]   | `hishel_stored: bool`                  | response | the origin response was written to the store                     |
-|  [08]   | `hishel_created_at: float`             | response | epoch seconds the served or stored entry was written             |
+| [INDEX] | [SURFACE]                            | [SHAPE]  | [CAPABILITY]                                                      |
+| :-----: | :----------------------------------- | :------- | :---------------------------------------------------------------- |
+|  [01]   | `hishel_ttl: float \| None`          | request  | per-entry eviction horizon in seconds; overrides the store TTL    |
+|  [02]   | `hishel_refresh_ttl_on_access: bool` | request  | slide this entry's TTL on each serve instead of expiring fixed    |
+|  [03]   | `hishel_spec_ignore: bool`           | request  | bypass the RFC-9111 decision for this request alone               |
+|  [04]   | `hishel_body_key: bool`              | request  | fold the body into the cache key per request, `use_body_key`'s OR |
+|  [05]   | `hishel_from_cache: bool`            | response | this response was served from a stored entry                      |
+|  [06]   | `hishel_revalidated: bool`           | response | the entry revalidated against the origin before serving           |
+|  [07]   | `hishel_stored: bool`                | response | the origin response was written to the store                      |
+|  [08]   | `hishel_created_at: float`           | response | epoch seconds the served or stored entry was written              |
 
 [ENTRYPOINT_SCOPE]: policy construction
 

@@ -10,9 +10,10 @@
 
 ## [02]-[SHARED_AXES]
 
-- Owner: `SubDForm` `[SmartEnum<int>]` — the SubD tessellation vocabulary whose columns carry both host enums (`FileObjWriteOptions.SubDMeshing`, `FileGltfWriteOptions.SubDMeshing` — identical `Surface`/`ControlNet` rosters, two host types), so one domain row serves both consumers. `CsvColumn` `[SmartEnum<int>]` — the CSV column set: each row carries its tune-baseline predicate and its host setter, so column membership is set algebra over one vocabulary, never twenty-six parallel booleans. `DracoDial` and `ObjNgonDial` — admitted values for the host's clamped compression bands and n-gon cluster, the n-gon mode admitted against the host enum roster before any mint. `IgesIdentity`, `IgesFitPolicy`, `IgesSurfaceForm`, and `VdaHeader` — structural policy products; the fit policy is one shape the IGES case instantiates for both entity slots because the host columns share semantics and defaults.
+- Owner: `SubDForm` `[SmartEnum<int>]` — the SubD tessellation vocabulary whose columns carry both host enums (`FileObjWriteOptions.SubDMeshing`, `FileGltfWriteOptions.SubDMeshing` — identical `Surface`/`ControlNet` rosters, two host types), so one domain row serves both consumers. `CsvColumn` `[SmartEnum<int>]` — the CSV column set: each row carries its tune-baseline predicate and its host setter, so column membership is set algebra over one vocabulary, never a parallel boolean per host member. `DracoDial` and `ObjNgonDial` — admitted values for the host's clamped compression bands and n-gon cluster, the n-gon mode admitted against the host enum roster before any mint. `IgesIdentity`, `IgesFitPolicy`, `IgesSurfaceForm`, and `VdaHeader` — structural policy products, each carrying its own all-defaults `Standard` value; the fit policy is one shape serving both IGES entity slots because the host columns share semantics and defaults, and both unstated slots read the same `Standard` instance.
 - Law: a shared vocabulary is earned only by two or more host enums sharing one roster — `SubDForm` qualifies; a single-host enum rides its case field directly as boundary material, because a one-to-one `[SmartEnum]` mirror restates host truth.
-- Law: `Option<FieldOverride<T>>` carries an optional enable-plus-value override: `None` and `Some(FieldOverride<T>.Keep)` retain the baseline, `Some(new FieldOverride<T>.SetCase(Value: value))` writes gate-plus-value, and `Some(new FieldOverride<T>.ClearCase())` forces the gate off. A class-shaped `FieldOverride<T>` never uses `default` as `Keep`.
+- Law: a dial field wraps the operations rail's `FieldOverride<T>` in `Option`, so an unstated field and a stated `Keep` both leave the baseline standing; `default` is `None` and never `Keep`, because the override is class-shaped and a defaulted field carries no case to dispatch.
+- Law: the CSV column set is the ONE row where the tune's baseline diverges from the host's own default, and it does so by design — column membership derives from the tune's grouping, ordering, and fidelity axes, so the layer, object-name, description, and user-string columns the host turns on by default appear only when an axis names them, while the measured mass-property columns the host leaves off appear whenever the fidelity is measured. A dial-free CSV write is therefore a policy-shaped table rather than the host's default table, and a caller wanting the host's own column set states `Columns` explicitly.
 - Growth: a new cross-host vocabulary is one row set with one column per host enum; a new cluster is one sub-record with its `Apply`.
 - Boundary: each `Mint` block is a host-mutation capsule; object initialization and ordered `Iter`/`Apply` statements are the platform-forced statement exemption.
 
@@ -165,12 +166,16 @@ public readonly partial struct ObjNgonDial {
     }
 }
 
+// Each policy record's `Standard` IS its all-defaults value: one immutable instance per record serves every
+// unstated slot, so the IGES case's two fit slots read one value instead of minting a pair per write.
 public sealed record IgesIdentity(
     string Author = "",
     string Organization = "",
     string Sender = "",
     string Receiver = "",
-    bool NotesInStartSection = true);
+    bool NotesInStartSection = true) {
+    public static IgesIdentity Standard { get; } = new();
+}
 
 public sealed record IgesFitPolicy(
     FileIgsWriteOptions.MaxDegreeMode MaxDegree = FileIgsWriteOptions.MaxDegreeMode.MdNoLimit,
@@ -179,7 +184,9 @@ public sealed record IgesFitPolicy(
     bool ClampEndKnots = false,
     bool UseParentLabel = true,
     bool ForceBezierKnots = false,
-    bool FlagDependentAs03 = false);
+    bool FlagDependentAs03 = false) {
+    public static IgesFitPolicy Standard { get; } = new();
+}
 
 public sealed record IgesSurfaceForm(
     FileIgsWriteOptions.SurfacesMode Surfaces = FileIgsWriteOptions.SurfacesMode.Srf143,
@@ -189,7 +196,9 @@ public sealed record IgesSurfaceForm(
     bool SplitClosed = false,
     bool SplitBiPolar = false,
     bool ForceTrimmed = false,
-    bool WriteNonPlanarUnitNormal = true);
+    bool WriteNonPlanarUnitNormal = true) {
+    public static IgesSurfaceForm Standard { get; } = new();
+}
 
 public sealed record VdaHeader(
     string SendingCompany = "",
@@ -202,7 +211,9 @@ public sealed record VdaHeader(
     string Confidentiality = "",
     string DateEffective = "",
     string CompanyName = "",
-    string ReceivingDepartment = "");
+    string ReceivingDepartment = "") {
+    public static VdaHeader Standard { get; } = new();
+}
 ```
 
 ## [03]-[DIAL_FAMILY]
@@ -649,10 +660,10 @@ public abstract partial record FormatDial {
         Option<bool> RenderColorAsIgesColor = default,
         Option<(Dimension Version, double Tolsize)> Catia = default) : FormatDial(FileCodec.Igs, CodecPhase.Export) {
         internal FileIgsWriteOptions Mint() {
-            IgesIdentity identity = Identity.IfNone(static () => new IgesIdentity());
-            IgesFitPolicy curves = Curves.IfNone(static () => new IgesFitPolicy());
-            IgesFitPolicy surfaceFit = SurfaceFit.IfNone(static () => new IgesFitPolicy());
-            IgesSurfaceForm surfaces = Surfaces.IfNone(static () => new IgesSurfaceForm());
+            IgesIdentity identity = Identity.IfNone(IgesIdentity.Standard);
+            IgesFitPolicy curves = Curves.IfNone(IgesFitPolicy.Standard);
+            IgesFitPolicy surfaceFit = SurfaceFit.IfNone(IgesFitPolicy.Standard);
+            IgesSurfaceForm surfaces = Surfaces.IfNone(IgesSurfaceForm.Standard);
             FileIgsWriteOptions host = new() {
                 Author = identity.Author,
                 Organization = identity.Organization,
@@ -825,7 +836,7 @@ public abstract partial record FormatDial {
         Option<VdaHeader> Header = default,
         Option<bool> PointDeviationHairsAsMdi = default) : FormatDial(FileCodec.Vda, CodecPhase.Export) {
         internal FileVdaWriteOptions Mint() {
-            VdaHeader header = Header.IfNone(static () => new VdaHeader());
+            VdaHeader header = Header.IfNone(VdaHeader.Standard);
             return new() {
                 SendingCompany = header.SendingCompany,
                 SendersName = header.SendersName,

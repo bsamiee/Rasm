@@ -1,6 +1,6 @@
 # [RASM_BIM_API_VIVIDORANGE_CASES]
 
-`VividOrange.Cases` (concrete) over `VividOrange.ICases` (contract) owns the Eurocode EN 1990 load-case-and-combination algebra: it folds typed `VividOrange.Loads` `ILoad` actions into design cases, then synthesizes the full ULS/SLS combination set with the partial-safety (`γ`) and combination (`ψ`) factors a `NationalAnnex` selects. It is the Eurocode engine the design layer composes to PRODUCE `Model/structural` `StructuralLoadKind.LoadCase`/`LoadCombination` rows, never the canonical in-graph shape, and it feeds the `load-case` rail.
+`VividOrange.Cases` (concrete) over `VividOrange.ICases` (contract) owns the Eurocode EN 1990 load-case-and-combination algebra: it folds typed `VividOrange.Loads` `ILoad` actions into design cases, then synthesizes the ULS/SLS combination set with the partial-safety (`γ`) and combination (`ψ`) factors a `NationalAnnex` selects. `Model/structural#STRUCTURAL_PROJECTION` composes it to PRODUCE a load-combination group's neutral rows — the generated `Definition` beside the `GetFactoredLoads()` design actions. It feeds the `load-case` rail.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -66,15 +66,16 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: EN load-case construction (`ENLoadCaseFactory`, static)
-- note: each `Create*` mints a `VariableCase` pre-loaded with the action's EN 1990 Annex A1.1 `ψ` factors; every action factory carries an `IList<ILoad>` loaded overload, and `CreateImposed` ships only that loaded form
+- note: each `Create*` mints a `VariableCase` pre-loaded with the action's EN 1990 Annex A1.1 `ψ` factors, and every action factory carries BOTH a no-loads overload and an `IList<ILoad>` loaded overload.
+- note: the `EN.ITableA1_2` γ-table CONTRACT is public while its only implementations (`ENTableA1_2A/B/C`) are `internal` — no public member yields one, so a consumer composes the public `IDesignSituation` partial-factor surface (`GammaQ1`/`GammaQi`/`Xi`) and never a table singleton.
 
-| [INDEX] | [SURFACE]                                                         | [CAPABILITY]                                  |
-| :-----: | :---------------------------------------------------------------- | :-------------------------------------------- |
-|  [01]   | `CreateImposed(IList<ILoad>, ImposedLoadCategory, NationalAnnex)` | category-keyed `ψ` factors (loaded-only)      |
-|  [02]   | `CreateSnow(NationalAnnex, bool altitudeAbove1000m)`              | altitude-keyed snow `ψ` factors               |
-|  [03]   | `CreateThermal(NationalAnnex)`                                    | thermal `ψ` factors                           |
-|  [04]   | `CreateWind(NationalAnnex)`                                       | wind `ψ` factors                              |
-|  [05]   | `Create{Snow,Thermal,Wind}(IList<ILoad>, NationalAnnex, …)`       | each action factory's `IList<ILoad>` overload |
+| [INDEX] | [SURFACE]                                            | [CAPABILITY]                             |
+| :-----: | :--------------------------------------------------- | :--------------------------------------- |
+|  [01]   | `CreateImposed(ImposedLoadCategory, NationalAnnex)`  | category-keyed `ψ` factors, empty case   |
+|  [02]   | `CreateSnow(NationalAnnex, bool altitudeAbove1000m)` | altitude-keyed snow `ψ` factors          |
+|  [03]   | `CreateThermal(NationalAnnex)`                       | thermal `ψ` factors                      |
+|  [04]   | `CreateWind(NationalAnnex)`                          | wind `ψ` factors                         |
+|  [05]   | `Create{Imposed,Snow,Thermal,Wind}(IList<ILoad>, …)` | the LOADS-first overload of each factory |
 
 [ENTRYPOINT_SCOPE]: EN combination synthesis (`ENCombinationFactory`, static)
 - note: each `Create*` folds an `IList<ILoadCase> cases` (`prefix="LC"`, `firstCaseId=1`; ULS forms add `NationalAnnex`) into the EN /6.10a-b set
@@ -84,9 +85,9 @@
 |  [01]   | `CreateCharacteristic -> IList<ICharacteristicCombination>`                                 | SLS characteristic  |
 |  [02]   | `CreateFrequent -> IList<IFrequentCombination>`                                             | SLS frequent        |
 |  [03]   | `CreateQuasiPermanent -> IList<IQuasiPermanentCombination>`                                 | SLS quasi-permanent |
-|  [04]   | `CreateEquSetA -> IList<IEquilibriumCombination>`                                           | EQU Set A           |
-|  [05]   | `CreateStrGeoSetB(…, bool use6_10aAnd6_10b) -> IList<IMemberDesignCombination>`             | STR/GEO Set B       |
-|  [06]   | `CreateStrGeoSetC -> IList<IGeotechnicalMemberDesignCombination>`                           | STR/GEO Set C       |
+|  [04]   | `CreateEquSetA(…[, NationalAnnex]) -> IList<IEquilibriumCombination>`                       | EQU Set A           |
+|  [05]   | `CreateStrGeoSetB(…, NationalAnnex, bool use6_10aAnd6_10b, …)`                              | STR/GEO Set B       |
+|  [06]   | `CreateStrGeoSetC(…[, NationalAnnex]) -> IList<IGeotechnicalMemberDesignCombination>`       | STR/GEO Set C       |
 |  [07]   | `CreateAccidental(IVariableCase, double partialFactor, …) -> IList<IAccidentalCombination>` | accidental ULS      |
 |  [08]   | `CreateSeismic(IList<IVariableCase>, Ratio partialFactor, …) -> IList<ISeismicCombination>` | seismic ULS         |
 
@@ -116,11 +117,11 @@
 - with `UnitsNet` (`libs/csharp/.api/api-unitsnet.md`): every combination/partial factor is a `Ratio` and `ILoad.Factor(γ)` multiplies by `γ.DecimalFractions`; the `ψ·γ` accompanying-action weighting is `Ratio` arithmetic
 - with `VividOrange.IStandards` (`.api/api-vividorange-istandards`) + `VividOrange.Countries` (`.api/api-vividorange-countries`): `NationalAnnex` (incl. `RecommendedValues`) is the dispatch key for every factory and table; the project's `ICountry` selects which `NationalAnnex` parameterizes the set, bridged BY NAME (no compiled `Country`→`NationalAnnex` map)
 - with `VividOrange.ISerialization`: `ICase`/`ILoadCombination: ITaxonomySerializable` share the one taxonomy-serialization marker, so the whole structural taxonomy round-trips through a single serializer
-- with `StructuralAnalysisFormat` (`.api/api-structuralanalysisformat`): outputs map onto `ExcelStructuralLoadCase` (`ExcelActionType`=`ActionClass`) and `ExcelStructuralLoadCombination` whose `ExcelLoadCaseCombinationStandard` (`EnUlsSetB`/`EnUlsSetC`/`EnAccidental*`/`EnSeismic`/`EnSls*`) images `CreateStrGeoSetB`/`SetC`/`CreateAccidental`/`CreateSeismic`/`CreateCharacteristic`/`Frequent`/`QuasiPermanent`; `LoadFactors`/`LoadMultipliers`/`LoadCases` carry the factored result to the SAF wire
+- with `StructuralAnalysisFormat` (`.api/api-structural-analysis-format`): outputs map onto `ExcelStructuralLoadCase` (`ExcelActionType`=`ActionClass`) and `ExcelStructuralLoadCombination` whose `ExcelLoadCaseCombinationStandard` (`EnUlsSetB`/`EnUlsSetC`/`EnAccidental*`/`EnSeismic`/`EnSls*`) images `CreateStrGeoSetB`/`SetC`/`CreateAccidental`/`CreateSeismic`/`CreateCharacteristic`/`Frequent`/`QuasiPermanent`; `LoadFactors`/`LoadMultipliers`/`LoadCases` carry the factored result to the SAF wire
 - with `LanguageExt.Core`: an uncovered `NationalAnnex` faults at the boundary — the EN `ψ`/`γ` singletons throw `NotImplementedException` and `IStandard.Title`'s kernel throws `MissingNationalAnnexException` (`.api/api-vividorange-istandards`); Bim ingest captures both (and a bare `Exception` for an unrecognised case type) into `Fin<T>` via `.ToError()`, lowering onto `Model/faults` `BimFault.CapabilityMiss`, never propagating into the fold
 
 [LOCAL_ADMISSION]:
-- `Model/structural` `StructuralLoadKind` (`LoadCase`/`LoadCombination`) is the canonical in-graph discriminant; VividOrange `ILoadCase`/`ILoadCombination` are the Eurocode engine the design layer composes to PRODUCE those rows, never re-exported as the canonical graph shape
+- the canonical in-graph carrier is the neutral `PropertyName`→`PropertyValue` row set `Model/structural#STRUCTURAL_PROJECTION` stamps; VividOrange `ILoadCase`/`ILoadCombination` are the Eurocode engine that PRODUCES those rows and never a type re-exported across the seam
 - every `ψ`/`γ` factor is a `Ratio`, never a bare `double`; the `IDesignSituation` `double` partial-factor reads are wrapped in `Ratio.FromDecimalFractions` at the boundary before factoring
 - a national deviation is a `NationalAnnex` table row passed to `GetProperties`/the factory, never a per-country code branch; `RecommendedValues` is the EN fallback when no annex applies
 - concrete `PermanentCase`/`VariableCase`/`DesignSituation` are MUTABLE settable-property carriers — the Eurocode authoring surface; project the produced combination set onto the immutable Bim records
@@ -129,4 +130,4 @@
 - Package: `VividOrange.Cases` over `VividOrange.ICases`
 - Owns: the Eurocode EN 1990 load-case/combination taxonomy, the `ψ`/`γ` factor tables, and the ULS/SLS combination synthesis
 - Accept: load cases from typed `ILoad` actions; combinations through `ENCombinationFactory`; national deviations as `NationalAnnex` table rows; factors carried as `Ratio`
-- Reject: per-country combination code branches, bare-`double` partial factors, a hand-rolled EN combination sweep, re-exporting `ILoadCombination` as the canonical Bim graph shape (owner is `Model/structural` `StructuralLoadKind`), a SAF round-trip losing the `ExcelLoadCaseCombinationStandard` ↔ factory mapping
+- Reject: per-country combination code branches, bare-`double` partial factors, a hand-rolled EN combination sweep, re-exporting `ILoadCombination` as a Bim graph shape (the graph carries neutral rows), a SAF round-trip losing the `ExcelLoadCaseCombinationStandard` ↔ factory mapping

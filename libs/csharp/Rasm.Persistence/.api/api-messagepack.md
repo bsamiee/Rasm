@@ -18,18 +18,18 @@ Only an attribute-carrying wire type enters this row; an attribute-free seam gra
 
 [CODEC_TYPES]: token, profile, and framing surfaces
 
-| [INDEX] | [SYMBOL]                            | [TYPE_FAMILY] | [CAPABILITY]                                    |
-| :-----: | :---------------------------------- | :------------ | :---------------------------------------------- |
-|  [01]   | `MessagePackSerializer`             | class         | static codec root: typed, by-`Type`, JSON       |
-|  [02]   | `MessagePackSerializer.Typeless`    | class         | nested root writing a CLR type header           |
-|  [03]   | `MessagePackReader`                 | ref struct    | pull decoder over `ReadOnlySequence<byte>`      |
-|  [04]   | `MessagePackWriter`                 | ref struct    | push encoder over `IBufferWriter<byte>`         |
-|  [05]   | `MessagePackStreamReader`           | class         | length-delimited frame reader over a `Stream`   |
-|  [06]   | `MessagePackSerializerOptions`      | class         | immutable profile and the typeless type gate    |
-|  [07]   | `MessagePackSecurity`               | class         | depth, decompressed-size, and hashing ceilings  |
-|  [08]   | `MessagePackCompression`            | enum          | `None`, `Lz4Block` ext99, `Lz4BlockArray` ext98 |
-|  [09]   | `MessagePackSerializationException` | class         | contract and decode failure                     |
-|  [10]   | `FormatterNotRegisteredException`   | class         | no formatter resolved for the requested type    |
+| [INDEX] | [SYMBOL]                            | [TYPE_FAMILY] | [CAPABILITY]                                     |
+| :-----: | :---------------------------------- | :------------ | :----------------------------------------------- |
+|  [01]   | `MessagePackSerializer`             | class         | static codec root: typed, by-`Type`, JSON        |
+|  [02]   | `MessagePackSerializer.Typeless`    | class         | nested root writing a CLR type header            |
+|  [03]   | `MessagePackReader`                 | ref struct    | pull decoder over `ReadOnlySequence<byte>`       |
+|  [04]   | `MessagePackWriter`                 | ref struct    | push encoder over `IBufferWriter<byte>`          |
+|  [05]   | `MessagePackStreamReader`           | class         | length-delimited frame reader over a `Stream`    |
+|  [06]   | `MessagePackSerializerOptions`      | class         | immutable profile and the typeless type gate     |
+|  [07]   | `MessagePackSecurity`               | class         | depth, decompressed-size, and hashing ceilings   |
+|  [08]   | `MessagePackCompression`            | enum          | `None`, `Lz4Block` ext99, `Lz4BlockArray` ext98  |
+|  [09]   | `MessagePackSerializationException` | class         | contract and decode failure                      |
+|  [10]   | `FormatterNotRegisteredException`   | class         | no formatter resolved for the requested type     |
 |  [11]   | `MessagePackCode`                   | static class  | the format-byte constants a raw token write uses |
 
 - value types: `MessagePackType` the next-token discriminant, `Nil` (`Nil.Default` the sole instance), `ExtensionHeader` a `(sbyte TypeCode, uint Length)` pair, and `ExtensionResult` that code with its payload sequence

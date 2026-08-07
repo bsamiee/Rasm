@@ -55,7 +55,10 @@
 
 [TOPOLOGY]:
 - A masked field owns its own format contract: `MaskedTextBox<T>` and `MaskedTextStepper<T>` take a typed provider, so a format is a provider value and never a validation ladder beside a plain text field.
-- Increment is an affordance, not a widget kind: `Stepper` is the bare affordance and `TextStepper`/`NumericUpDown` are the fields that carry it, so a stepped variant of an existing field composes the affordance rather than forking the field roster.
+- Increment is an affordance, not a widget kind: `Stepper` is the bare affordance and `TextStepper`/`NumericUpDown` are the fields that carry it, so a stepped variant of an existing field composes the affordance rather than forking the field roster. `NumericUpDown` ships `[Obsolete]` — `NumericStepper` is the live spelling and the obsolete field never enters a fence.
+- `MaskedTextStepper<T>` constructs bare or over `(IMaskedTextProvider<T>)` — no string-mask constructor exists, so it composes a typed provider, never `FixedMaskedTextProvider`'s string mask.
+- Owner-drawn and templated cells: `DrawableCell`'s whole hook is its `Paint` event; `CustomCell` carries the `CreateCell`/`ConfigureCell`/`GetIdentifier`/`GetPreferredWidth` delegate slots beside `BeginEdit`/`CancelEdit`/`CommitEdit`/`Paint` events.
+- `Grid.CommitEdit()`/`CancelEdit()` return `bool` — a refused commit is a readable verdict, never a silent no-op; `SegmentedButton.SelectedIndexes` is get/set over `IEnumerable<int>`, assignable from a collection expression.
 - Tree interaction resolves through the two model returns alone — `GetCellAt` answers what the pointer is over and `GetDragInfo` answers where a drop lands, so a canvas drag reads one descriptor rather than reconstructing the target from coordinates.
 
 [STACKING]:

@@ -64,18 +64,18 @@
 
 `Index<K, V>` is the versioned trace every keyed operator keeps — a key→versions→signed-values map `reconstructAt` reads at any version and `compact` collapses below a stability frontier.
 
-| [INDEX] | [SURFACE]                                              | [PRODUCES]                   |
-| :-----: | :----------------------------------------------------- | :--------------------------- |
-|  [01]   | `new Index<K, V>()`                                    | empty versioned trace        |
-|  [02]   | `.addValue(key, version, [value, multiplicity])`       | in-place                     |
-|  [03]   | `.reconstructAt(key, version)`                         | `[V, number][]`              |
-|  [04]   | `.compact(compactionFrontier: Antichain, keys?)`       | in-place                     |
-|  [05]   | `.keys()`/`.entries()`/`.versions(key)`                | `K[]`/rows/`Version[]`       |
-|  [06]   | `.get(key)`/`.has(key)`/`.append(other)`               | `VersionMap`/`boolean`/merge |
-|  [07]   | `.join<V2>(other)`                                     | `[Version, MultiSet][]`      |
-|  [08]   | `./sqlite` `SQLiteDb`/`BetterSQLite3Wrapper`           | durable operator state       |
-|  [09]   | `./electric` `electricStreamToD2Input(opts)`           | `RootStreamBuilder`          |
-|  [10]   | `./electric` `outputElectricMessages(fn)`              | `PipedOperator`              |
+| [INDEX] | [SURFACE]                                        | [PRODUCES]                   |
+| :-----: | :----------------------------------------------- | :--------------------------- |
+|  [01]   | `new Index<K, V>()`                              | empty versioned trace        |
+|  [02]   | `.addValue(key, version, [value, multiplicity])` | in-place                     |
+|  [03]   | `.reconstructAt(key, version)`                   | `[V, number][]`              |
+|  [04]   | `.compact(compactionFrontier: Antichain, keys?)` | in-place                     |
+|  [05]   | `.keys()`/`.entries()`/`.versions(key)`          | `K[]`/rows/`Version[]`       |
+|  [06]   | `.get(key)`/`.has(key)`/`.append(other)`         | `VersionMap`/`boolean`/merge |
+|  [07]   | `.join<V2>(other)`                               | `[Version, MultiSet][]`      |
+|  [08]   | `./sqlite` `SQLiteDb`/`BetterSQLite3Wrapper`     | durable operator state       |
+|  [09]   | `./electric` `electricStreamToD2Input(opts)`     | `RootStreamBuilder`          |
+|  [10]   | `./electric` `outputElectricMessages(fn)`        | `PipedOperator`              |
 
 [SQLITE_DB]: `SQLiteDb.exec(string) -> void` `SQLiteDb.prepare(string) -> SQLiteStatement<P,R>`
 [BETTER_SQLITE3_WRAPPER]: `BetterSQLite3Wrapper(import('better-sqlite3').Database)` `BetterSQLite3Wrapper.close() -> void`

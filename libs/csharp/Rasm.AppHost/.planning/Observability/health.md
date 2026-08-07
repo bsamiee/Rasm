@@ -294,7 +294,7 @@ public sealed record HealthSnapshot(
         HealthStatus Status,
         Duration Elapsed,
         FrozenSet<string> Tags,
-        Option<string> Detail);
+        Option<string> Detail = default);
 }
 
 public static class HealthSurface {
@@ -321,7 +321,7 @@ public static class HealthSurface {
 
 ## [03]-[DEGRADATION_RAIL]
 
-- Owner: `Capability` and `DegradationLevel` vocabularies under the shipped `ComparerAccessors.StringOrdinalIgnoreCase` accessor; `DegradationPolicy` with nested `Rule` rows is the derivation table; `DegradationState` is the fold receipt; `DegradationReading` is the coherent `(snapshot, state)` pair; `DegradationCell` is the boundary capsule owning the one atom cell, the publisher seam, and the hook rail every committed reading fans through.
+- Owner: `Capability` and `DegradationLevel` vocabularies under the shipped `ComparerAccessors.StringOrdinalIgnoreCase` accessor; `DegradationPolicy` with nested `Rule` rows is the derivation table; `DegradationState` is the fold receipt; `DegradationReading` is the coherent `(snapshot, state)` pair; `DegradationCell` is the boundary capsule owning the one atom cell, the publisher seam, and the hook rail every committed reading fans through; `CommandAvailabilityWire` is the level-plus-per-command admission carrier the palette decodes, projected off the capability registry's own `Permitting` fold and registered on the `Runtime/ports#WIRE_LAW` roster.
 - Cases: `Full(0)`, `ReducedRemote(1)`, `LocalOnly(2)`, `ReadOnly(3)`, `Suspended(4)` in severity order; six `Capability` keys form the retained sets.
 - Entry: `Derive(DegradationState state, HealthSnapshot snapshot)` folds rules with escalation-immediate, recovery-hysteresis semantics; `Force(Option<DegradationLevel> forced)` is the single override entrypoint; `Cascade(Option<DegradationLevel> parent)` admits a parent-forced level as a derivation floor; `Read()` returns the one `DegradationReading` carrying the snapshot that produced the level and the derived `DegradationState` in one coherent value.
 - Auto: `DegradationCell` registers as the `IHealthCheckPublisher` and owns one `Atom<DegradationReading>` — `PublishAsync` snapshots the `HealthReport` and folds `Derive` in the SAME swap, so the published snapshot and the level it produced are one atomic transition and a reader can never observe a fresh level against a stale snapshot or the reverse; `HealthCheckPublisherOptions` binds `Delay` and `Period` from `DegradationPolicy.Canonical` and `Timeout` from `DeadlineClass.HealthProbe`; `OperatorOverride` projects onto `Force` at the composition root — forced beats derived, release re-derives; `Force` and `Cascade` swap the `State` slot of the reading while preserving the last snapshot so the override is coherent with the evidence it overrides; every committed reading — derived, forced, cascaded alike — fans the `Observability/hooks#HOOK_RAIL` `Degradation` replay row through the rail's own `Degraded` member, so the held window carries the trajectory an attaching panel reads rather than whichever single arm remembered to publish.
@@ -360,13 +360,16 @@ public sealed partial class DegradationLevel {
     public bool Permits(Capability capability) => Retains.Contains(capability);
 }
 
+// The three `Option<T>` slots tail the positional list carrying `= default`: the suite's `OmitAbsent` modifier
+// drops an absent one at write, so a slot without a default reads back wire-required under
+// `RespectRequiredConstructorParameters` and fails the decode of the payload this producer emitted.
 public readonly record struct DegradationState(
     DegradationLevel Derived,
-    Option<DegradationLevel> Forced,
-    Option<DegradationLevel> Cascade,
     int Streak,
-    Option<Instant> Since) {
-    public static readonly DegradationState Boot = new(DegradationLevel.Full, None, None, Streak: 0, Since: None);
+    Option<DegradationLevel> Forced = default,
+    Option<DegradationLevel> Cascade = default,
+    Option<Instant> Since = default) {
+    public static readonly DegradationState Boot = new(DegradationLevel.Full, Streak: 0, Forced: None, Cascade: None, Since: None);
     public DegradationLevel Floor =>
         Cascade.Match(parent => parent.Rank > Derived.Rank ? parent : Derived, () => Derived);
     public DegradationLevel Level => Forced.IfNone(Floor);
@@ -396,11 +399,11 @@ public sealed record DegradationPolicy(
     public DegradationState Derive(DegradationState state, HealthSnapshot snapshot) =>
         (Candidate: Candidate(snapshot), Rank: state.Derived.Rank) switch {
             var fold when fold.Candidate.Rank > fold.Rank =>
-                new DegradationState(fold.Candidate, state.Forced, state.Cascade, Streak: 0, Since: Optional(snapshot.At)),
+                new DegradationState(fold.Candidate, Streak: 0, Forced: state.Forced, Cascade: state.Cascade, Since: Optional(snapshot.At)),
             var fold when fold.Candidate.Rank == fold.Rank => state with { Streak = 0 },
             var fold when state.Streak + 1 >= ConsecutiveHealthy
                 && state.Since.Map(since => snapshot.At - since >= MinimumDwell).IfNone(true) =>
-                new DegradationState(fold.Candidate, state.Forced, state.Cascade, Streak: 0, Since: Optional(snapshot.At)),
+                new DegradationState(fold.Candidate, Streak: 0, Forced: state.Forced, Cascade: state.Cascade, Since: Optional(snapshot.At)),
             _ => state with { Streak = state.Streak + 1 },
         };
 
@@ -445,6 +448,25 @@ public sealed class DegradationCell(DegradationPolicy policy, IClock clock, Corr
     // races the operator path and misses exactly the override transitions a late panel attaches to reconstruct.
     DegradationReading Fired(DegradationReading reading) => (rail.Degraded(reading), reading).Item2;
 }
+
+// The command-availability snapshot the palette decodes: the settled level, the per-command admission the
+// capability registry's own `Permitting` fold derives at that level, and the dwell anchor. `Commands` is keyed
+// by descriptor id and its value is the admission BOOLEAN — the registry decides admission and this carrier
+// transcribes it, so a verdict vocabulary minted here would fork the one the registry already owns. Absence is
+// impossible by construction: every registry row lands a key, so a descriptor missing from the map is a
+// decode-side fallback rather than a producer-side omission.
+public sealed record CommandAvailabilityWire(DegradationLevel Level, HashMap<string, bool> Commands, Instant Since) {
+    // The registry answers WHICH descriptors a level admits; the complement is what the palette greys, so the
+    // projection folds the admitted set against the whole catalog once rather than probing per row.
+    public static CommandAvailabilityWire Of(CapabilityRegistry registry, DegradationState state, Instant since) =>
+        new(state.Level,
+            registry.Discover(new DiscoveryQuery.Permitting(state.Level))
+                .Fold(
+                    registry.Discover(new DiscoveryQuery.All).Fold(
+                        HashMap<string, bool>(), static (map, row) => map.Add(row.Descriptor, false)),
+                    static (map, row) => map.SetItem(row.Descriptor, true)),
+            since);
+}
 ```
 
 ## [04]-[WIRE_HEALTH]
@@ -467,7 +489,7 @@ public static class WireHealth {
     // MapGrpcHealthChecksService() serves grpc.health.v1 at the wire host, so the health fold stays
     // sole truth and the wire reads it filtered, never a second health surface.
     public static IServiceCollection Register(IServiceCollection services, params ReadOnlySpan<WireHealthRow> rows) {
-        Seq<WireHealthRow> set = rows.ToArray().ToSeq();
+        Seq<WireHealthRow> set = Iterable<WireHealthRow>.FromSpan(rows).ToSeq();
         return services.AddGrpcHealthChecks(options =>
             ignore(set.Iter(row => options.Services.Map(row.Service, context => row.Admits(context.Tags)))));
     }
@@ -490,14 +512,14 @@ public static class WireHealth {
 
 ## [05]-[ALERT_ENGINE]
 
-- Owner: `HealthSignal` `[Union]` the closed selector naming which reading a rule watches; `AlertCondition` `[Union]` the declarative condition family (threshold, anomaly, forecast-band) carrying its wire key and window depth as case columns; `AlertTransition` `[SmartEnum<string>]` the three transition keys; `AlertRule` the versioned rule record carrying hysteresis and debounce; `AlertState` the per-rule firing-state cell; `AlertEngine` the static evaluate-and-escalate surface over the continuous `DegradationReading` stream.
+- Owner: `HealthSignal` `[Union]` the closed selector naming which reading a rule watches; `AlertCondition` `[Union]` the declarative condition family (threshold, anomaly, forecast-band) carrying its wire key and window depth as case columns; `AlertTransition` `[SmartEnum<string>]` the three transition keys; `AlertRule` the versioned rule record carrying hysteresis and debounce; `AlertPolicy` the rule roster derived from the grading table; `AlertState` the per-rule firing-state value and `AlertCell` the keyed holder that carries it between readings; `AlertEngine` the static evaluate-and-escalate surface over the continuous `DegradationReading` stream.
 - Cases: `HealthSignal` = Overall | Tagged | Named | Level — the aggregate status rank, the worst rank among entries carrying one tag, one named contributor's rank, and the derived degradation rank; `AlertCondition` = Threshold | AnomalyBand | ForecastBand — Threshold fires on a value crossing a bound, AnomalyBand on a value outside a rolling mean ± k·sigma band, ForecastBand on a value outside a linear-trend forecast envelope; severity rows are the kernel `page`/`ticket` pair alone.
-- Entry: `Observe(AlertEngine.Runtime runtime, AlertRule rule, AlertState state, DegradationReading reading, Instant at)` is the stream entry — it resolves `rule.Signal` through `AlertEngine.Project`, delegates to the pure value-fold `Evaluate`, and delivers each transition receipt on `IO`; `Evaluate(AlertRule rule, AlertState state, double value, Instant at, CorrelationId correlation)` returns `(AlertState State, Option<AlertReceipt> Fired)`; `Backtest(AlertRule rule, Seq<(Instant At, double Value)> history, CorrelationId correlation)` returns `Seq<AlertReceipt>` by replaying that pure fold without a delivery runtime. One fold, two front doors: the live stream resolves and delivers, while the back-test feeds historical values and only returns evidence.
+- Entry: `Sweep(AlertEngine.Runtime runtime, AlertCell cell, DegradationReading reading, Instant at)` returns `IO<Seq<AlertReceipt>>` — the composition's one stream entry, folding the whole roster against one reading and committing each rule's advanced state; `Observe(AlertEngine.Runtime runtime, AlertRule rule, AlertState state, DegradationReading reading, Instant at)` is the per-rule leg it folds — it resolves `rule.Signal` through `AlertEngine.Project`, delegates to the pure value-fold `Evaluate`, and delivers each transition receipt on `IO`; `Evaluate(AlertRule rule, AlertState state, double value, Instant at, CorrelationId correlation)` returns `(AlertState State, Option<AlertReceipt> Fired)`; `Backtest(AlertRule rule, Seq<(Instant At, double Value)> history, CorrelationId correlation)` returns `Seq<AlertReceipt>` by replaying that pure fold without a delivery runtime. One fold, two front doors: the live stream resolves and delivers, while the back-test feeds historical values and only returns evidence.
 - Auto: the threshold condition fires only after the value holds past the rule's dwell so a momentary spike does not fire, and recovers only after the value clears the hysteresis band so a value oscillating at the bound does not flap; the dwell is the rule's own debounce raised to its severity's `Hold` column, so a ticketing rule inherits the deploy plane's flap suppression without restating it; the anomaly band folds the held window's mean and deviation in one pass and tests the incoming value against them, so the sample never contributes to the baseline that judges it; the forecast band fits the window by ordinary least squares and evaluates one step past its end, so a slow drift toward a limit fires before the limit is crossed; a firing alert escalates through the severity rank walk if it stays fired past the escalation dwell and the top row escalates to itself, so the ladder grows by a severity row and never by an arm here; a recovered alert reports the severity it held and resets the escalation; the rule version stamps every receipt so a rule edit is auditable and a back-test pins the rule version it ran against.
-- Receipt: `AlertReceipt` — rule id, rule version, severity, condition key, the firing value, the transition row, `Instant`, and the correlation the producing reading carried, so an alert joins the snapshot that fired it rather than rooting a fresh causal frame; `Observe` invokes the runtime delivery delegate exactly once for each transition, and the app root binds that delegate to `ReceiptSinkPort.Send` and the outbound fan.
+- Receipt: `AlertReceipt` — rule id, rule version, severity, condition key, the firing value, the transition row, `Instant`, and the correlation the producing reading carried, so an alert joins the snapshot that fired it rather than rooting a fresh causal frame; `Observe` invokes the runtime delivery delegate exactly once for each transition, and the app root binds that delegate to `ReceiptSinkPort.Send` and the outbound fan; the receipt kind is receipt-only by declaration — an alert names a `HealthSignal` where every `InstrumentFan` arm names a mounted instrument, so a fan arm here would mint the second grader the `[05]` Boundary and the folder ruling both forbid.
 - Packages: Rasm, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
-- Growth: one condition shape is one `AlertCondition` case breaking every evaluate arm; one watched reading is one `HealthSignal` case breaking `Project`; a rule edit is one new `AlertRule` version, never a mutated rule; a routing posture is a kernel `AlertSeverity` row, never a case here; zero new surface.
-- Boundary: the alert engine is the only declarative-alerting owner — an ad hoc threshold check, a per-metric alarm, and a parallel alert store are the deleted forms; the engine evaluates over the continuous `DegradationReading` the `[03]` cell already publishes, so it reads the coherent snapshot-and-level pair the governor reads and can never grade a fresh level against a stale snapshot, and a `HealthSnapshot`-only entry is the stale-read shape that pair exists to foreclose; `AlertEngine.Project` resolves each `HealthSignal` case onto its OWN rank axis — the status cases onto the healthy-through-unhealthy ladder, `Level` onto the five-row degradation rank — so a bound is authored against the case the rule names and a bound ported across cases is the drift the two axes make visible, while an unmatched selector yields `Option<double>.None` so `Observe` holds the prior state and delivers nothing; the severity vocabulary is the kernel's two-row routing axis — this page carries no ladder, and the rank-ordered incident escalation rides the row's `Rank` and `Escalated` columns; error-budget burn is the SEPARATE concern the kernel `Slo.Specs` compiles onto the deploy plane from an `Objective`, so a burn arm here mints the second metric source this boundary forbids; the alert engine and degradation rail remain distinct — degradation is the host's capability state, while alerting is user-facing notification over continuous queries; hysteresis is the condition's recovery band and dwell is the rule's minimum breach hold, so sampling frequency cannot change a rule's firing threshold; only live `Observe` invokes delivery, so `Backtest` cannot notify operators while replaying history; rule versioning makes a rule edit a new immutable version so each receipt identifies the rule that fired it.
+- Growth: one condition shape is one `AlertCondition` case breaking every evaluate arm; one watched reading is one `HealthSignal` case breaking `Project`; one grading rule mints its own alert row through the same derivation, so the roster grows where the grader does and never beside it; a rule edit is one new `AlertRule` version, never a mutated rule; a routing posture is a kernel `AlertSeverity` row, never a case here; zero new surface.
+- Boundary: the alert engine is the only declarative-alerting owner — an ad hoc threshold check, a per-metric alarm, and a parallel alert store are the deleted forms; the engine evaluates over the continuous `DegradationReading` the `[03]` cell already publishes, so it reads the coherent snapshot-and-level pair the governor reads and can never grade a fresh level against a stale snapshot, and a `HealthSnapshot`-only entry is the stale-read shape that pair exists to foreclose; `AlertEngine.Project` resolves each `HealthSignal` case onto its OWN rank axis — the status cases onto the healthy-through-unhealthy ladder, `Level` onto the five-row degradation rank — so a bound is authored against the case the rule names and a bound ported across cases is the drift the two axes make visible, while an unmatched selector yields `Option<double>.None` so `Observe` holds the prior state and delivers nothing; the severity vocabulary is the kernel's two-row routing axis — this page carries no ladder, and the rank-ordered incident escalation rides the row's `Rank` and `Escalated` columns; error-budget burn is the SEPARATE concern the kernel `Slo.Specs` compiles onto the deploy plane from an `Objective`, so a burn arm here mints the second metric source this boundary forbids; the alert engine and degradation rail remain distinct — degradation is the host's capability state, while alerting is user-facing notification over continuous queries; hysteresis is the condition's recovery band and dwell is the rule's minimum breach hold, so sampling frequency cannot change a rule's firing threshold; only live `Observe` invokes delivery, so `Backtest` cannot notify operators while replaying history — and `Backtest` seeds `AlertState.Clear` per replay rather than reading the cell, so a historical run can neither observe nor disturb live firing state; rule versioning makes a rule edit a new immutable version so each receipt identifies the rule that fired it; the cell is the roster's own custody and holds nothing for a rule the roster no longer carries, so a retired rule's dwell cannot resurrect it.
 
 ```csharp signature
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -575,12 +597,76 @@ public readonly record struct AlertReceipt(
     Instant At,
     CorrelationId Correlation);
 
+// The rule roster DERIVES from the grader's own table: every tag-and-trigger pair that can move the host's
+// capability level is exactly the pair an operator is notified about, so a new grading rule mints its
+// notification with no second roster to remember and a hand-listed alert set cannot drift from the levels it
+// claims to watch. The level rule closes the set, because "already degraded" is one fact no per-tag rule carries.
+// Bounds sit a half step BELOW the trigger rank so `value > Bound` fires exactly AT the trigger on an integer
+// ladder, and the hysteresis band shifts that one threshold alone — widening both sides would let a rank both
+// fire and clear.
+public static class AlertPolicy {
+    static readonly Duration Escalation = Duration.FromMinutes(15);
+
+    public static Seq<AlertRule> Canonical =>
+        DegradationPolicy.Canonical.Rules
+            .Map(static rule => Row(
+                $"apphost.health.{rule.Tag}.{rule.Outcome.Key}",
+                new HealthSignal.Tagged(rule.Tag),
+                AlertEngine.Rank(rule.Trigger) - 0.5d,
+                // A grading rule whose outcome retires WRITES pages; one that only sheds remote capability
+                // queues, so routing derives from the capability the outcome drops rather than a per-row column.
+                rule.Outcome.Permits(Capability.StoreWrite) ? AlertSeverity.Ticket : AlertSeverity.Page))
+            .Add(Row(
+                "apphost.health.level",
+                new HealthSignal.Level(),
+                DegradationLevel.ReducedRemote.Rank - 0.5d,
+                AlertSeverity.Page))
+            .Strict();
+
+    static AlertRule Row(string id, HealthSignal signal, double bound, AlertSeverity severity) =>
+        new(RuleId: id,
+            Version: 1,
+            Signal: signal,
+            Condition: new AlertCondition.Threshold(Bound: bound, Above: true, Hysteresis: 0.5d),
+            Severity: severity,
+            Debounce: DegradationPolicy.Canonical.MinimumDwell,
+            EscalationDwell: Escalation);
+}
+
+// The state HOLDER the pure fold has always required: dwell, hysteresis, escalation, and the anomaly window are
+// each state carried BETWEEN readings, so a value threaded through one `Observe` and dropped makes every one of
+// them inert — a rule re-reads `Clear` on the next reading and can neither dwell nor escalate. One cell keyed by
+// rule id, beside `DegradationCell` and never inside it: the grader publishes a reading whether or not anything
+// alerts, and folding alert state into that swap would make a rule edit a grader edit.
+public sealed class AlertCell(Seq<AlertRule> rules) {
+    readonly Atom<HashMap<string, AlertState>> states = Atom(HashMap<string, AlertState>());
+
+    public Seq<AlertRule> Rules { get; } = rules;
+
+    public AlertState Held(string ruleId) => states.Value.Find(ruleId).IfNone(AlertState.Clear);
+
+    public Unit Commit(string ruleId, AlertState state) =>
+        ignore(states.Swap(held => held.AddOrUpdate(ruleId, state)));
+}
+
 public static class AlertEngine {
     public sealed record Runtime(Func<AlertReceipt, IO<Unit>> Deliver);
 
+    // Every rule sees the SAME reading: the grader publishes one coherent snapshot-and-level pair per cadence, so
+    // sweeping the roster against one value is what keeps two rules from grading two different observations of
+    // one moment. Each rule commits its own advanced state before the next reading arrives, which is what makes
+    // dwell and escalation reachable at all.
+    public static IO<Seq<AlertReceipt>> Sweep(Runtime runtime, AlertCell cell, DegradationReading reading, Instant at) =>
+        cell.Rules
+            .TraverseM(rule => Observe(runtime, rule, cell.Held(rule.RuleId), reading, at)
+                .Map(step => (cell.Commit(rule.RuleId, step.State), step.Fired).Item2))
+            .As()
+            .Map(static fired => fired.Somes().ToSeq());
+
     // Enum values outside the roster reach this arm, so the floor takes the WORST rank: an unmapped status is
-    // absent evidence, and ranking it healthier than healthy silences the rule that watches it.
-    static double Rank(HealthStatus status) => status switch {
+    // absent evidence, and ranking it healthier than healthy silences the rule that watches it. The roster reads
+    // the same ladder, so a rule bound and a projected value can never be authored against two scales.
+    public static double Rank(HealthStatus status) => status switch {
         HealthStatus.Healthy => 1d,
         HealthStatus.Degraded => 2d,
         _ => 3d,
@@ -683,7 +769,7 @@ public static class AlertEngine {
 - Owner: `HealthSnapshotWire`, `DegradationWire`, `CommandAvailabilityWire`, and `AlertReceiptWire` transcribe the snapshot, level, command-availability, and alert records the dashboard ingests; `CommandAvailabilityWire` is the ONE frozen name for the health/availability wire — the `DegradationLevel` command-availability projection (the level and the per-command verdict the `Agent/capability#DISCOVERY_FOLD` `Permitting` fold derives) the TS `state/evidence` `Availability` lattice decodes, its level roster mirroring the `DegradationLevel` rows one-to-one at the decode seam.
 - Packages: BCL inbox
 - Growth: one capability key row, one alert field, or one field on an owning wire record, zero new surface.
-- Boundary: instants cross as extended-ISO text and elapsed spans as ISO-8601 duration text; level, cascade, capability, transition, and severity keys are the smart-enum string keys, status crosses as the camel-case enum name, never ordinals; `AlertSeverityKey` is the kernel routing pair the deploy plane's contact rows already key on, so the decode seam admits exactly the two rows the C# vocabulary carries and a four-tier ladder crossing this wire is the drift the collapse deleted; `DegradationWire` transcribes `DegradationState`'s own emission — the stored slots beside the `Floor` and `Level` projections the record already computes — registered at Runtime/ports#WIRE_LAW, so `rank` and `retains` never cross: both derive from the frozen `DegradationLevelKey` roster the decode seam already mirrors, and a wire field no C# record emits is the phantom this shape deletes; `cascade` is the parent-floored level a child reports, distinct from `forced` operator override.
+- Boundary: instants cross as extended-ISO text and elapsed spans as ISO-8601 duration text; level, cascade, capability, transition, and severity keys are the smart-enum string keys, status crosses as the camel-case enum name, never ordinals; `AlertSeverityKey` is the kernel routing pair the deploy plane's contact rows already key on, so the decode seam admits exactly the two rows the C# vocabulary carries and a four-tier ladder crossing this wire is the drift the collapse deleted; `DegradationWire` transcribes `DegradationState`'s own emission — the stored slots beside the `Floor` and `Level` projections the record already computes — registered at Runtime/ports#WIRE_LAW, so `rank` and `retains` never cross: both derive from the frozen `DegradationLevelKey` roster the decode seam already mirrors, and a wire field no C# record emits is the phantom this shape deletes; `cascade` is the parent-floored level a child reports, distinct from `forced` operator override; every `Option<T>` slot crosses ABSENT under the `Runtime/ports#WIRE_LAW` omission posture, so the TS face spells it `field?: T` and a `| null` union there declares a token the merge posture guarantees never appears.
 
 ```ts signature
 type HealthStatusWire = "healthy" | "degraded" | "unhealthy";
@@ -700,7 +786,7 @@ interface HealthEntryWire {
   readonly status: HealthStatusWire;
   readonly elapsed: string;
   readonly tags: readonly string[];
-  readonly detail: string | null;
+  readonly detail?: string;
 }
 
 interface HealthSnapshotWire {
@@ -712,10 +798,10 @@ interface HealthSnapshotWire {
 
 interface DegradationWire {
   readonly derived: DegradationLevelKey;
-  readonly forced: DegradationLevelKey | null;
-  readonly cascade: DegradationLevelKey | null;
+  readonly forced?: DegradationLevelKey;
+  readonly cascade?: DegradationLevelKey;
   readonly streak: number;
-  readonly since: string | null;
+  readonly since?: string;
   readonly floor: DegradationLevelKey;
   readonly level: DegradationLevelKey;
 }

@@ -1,10 +1,10 @@
 # [APPHOST_TOOL_FEDERATION]
 
-Rasm.AppHost inverts `Agent/mcp#METHOD_AXIS` into an MCP-CLIENT federation surface: the official `ModelContextProtocol` SDK owns the peer session — JSON-RPC framing, the `IClientTransport` connection, the initialize handshake, and `McpClientTool : AIFunction` adoption — and this surface folds each attached external server's tools, resources, and prompts inward as brokered `CapabilityDescriptor` rows under a `federated.{server}.{tool}` key, wrapping the same `CommandAIFunction` the server projection mints so one tool-adoption seam serves both directions.
+Rasm.AppHost inverts `Agent/mcp#METHOD_AXIS` into an MCP-CLIENT federation surface: the official `ModelContextProtocol` SDK owns the peer session — JSON-RPC framing, the `IClientTransport` connection, the initialize handshake, and `McpClientTool : AIFunction` adoption — and this surface folds each attached external server's tools, resources, and prompts inward as brokered `CapabilityDescriptor` rows under a `federated.{server}.{tool}` key, so one registry, one broker, and one codegen source serve both directions.
 
-Every federated call therefore routes through `Agent/capability#COMMAND_ALGEBRA` `CommandAlgebra.Run`, the `Agent/capability#GRANT_BROKER` admission, the dry-run cost preview, and the `Runtime/determinism#EVENT_LOG` chain exactly as a native op; `Wire/outbound#HOP_AXIS` `OutboundHop` carries the peer bytes under the existing retry, breaker, and deadline; and the peer-tool JSON Schema becomes the descriptor's content-keyed argument schema for the `Agent/capability#SDK_CODEGEN` identity gate.
+A federated call therefore compiles to the same `CommandBody` a native op compiles to and rides `Agent/capability#COMMAND_ALGEBRA` `CommandAlgebra.Run` through the composition-bound dispatch seam, whose federated arm is the peer call below — so the `Agent/capability#GRANT_BROKER` admission, the dry-run cost preview, the `Agent/runtime#DISPATCH_FRONT_DOOR` veto and mediation, and the `Runtime/determinism#EVENT_LOG` chain all hold exactly as they hold for a native op; `Wire/outbound#HOP_AXIS` `OutboundHop` carries the peer bytes under the existing retry, breaker, and deadline; and the peer-tool JSON Schema becomes the descriptor's content-keyed argument schema for the `Agent/capability#SDK_CODEGEN` pin.
 
-`CapabilityDescriptor`/`DescriptorSurface.Describe`, `CapabilityRegistry`, `CommandAlgebra`/`CommandRuntime`/`GrantBroker`, `ComputeIntent`/`AdmittedIntent.Admit`, `ToolResult`, `CommandAIFunction`, `SubscriptionLane`/`ExternalValue`, `OutboundHop`/`OutboundSurface`, `TenantContext`, `ReceiptSinkPort`, and `CancelScope` arrive settled, and no eighth port is minted.
+`CapabilityDescriptor`/`DescriptorSurface.Describe`, `CapabilityRegistry`, `CommandAlgebra`/`CommandRuntime`/`CommandBody`/`DispatchReceipt`/`GrantBroker`, `McpDispatch.Project`/`ToolResult`, `SubscriptionLane`/`ExternalValue`, `OutboundHop`/`OutboundSurface`, `TenantContext`, `ReceiptSinkPort`, and `CancelScope` arrive settled, and no eighth port is minted.
 
 ## [01]-[INDEX]
 
@@ -59,7 +59,11 @@ public sealed record TrustScope(
     public PermissionShape Floor(EffectClass declared) =>
         new(ObjectSet, declared.Rank <= Ceiling.Rank ? declared : Ceiling, Classification);
 
-    public string Hash => $"{Ceiling.Key}:{Classification.Key}:{string.Join(',', ObjectSet.Order(StringComparer.Ordinal))}";
+    // The trust hash IS the ceiling shape's own scope key, so the dashboard groups a server's federated
+    // tools by exactly the value it groups every other permission shape by. A second hand-rolled projection
+    // over the same three fields is one more unbounded string that drifts from the first the day either
+    // spelling changes — and one of the two would be the wrong one with nothing to say which.
+    public string Hash => Floor(Ceiling).ScopeHash;
 }
 
 [ValueObject<string>]
@@ -99,7 +103,8 @@ public sealed record FederationCatalog(FrozenDictionary<string, FederatedServer>
 
     public static Validation<FederationFault, FederationCatalog> Admit(Seq<(string Server, TransportKind Kind, string Endpoint, TrustScope Trust, StdioClientTransportOptions? Stdio)> rows) =>
         rows.Traverse(row => FederatedServer.Admit(row.Server, row.Kind, row.Endpoint, row.Trust, row.Stdio))
-            .Map(servers => new FederationCatalog(servers.ToFrozenDictionary(static s => s.Value, StringComparer.Ordinal)));
+            .Map(servers => new FederationCatalog(servers.ToFrozenDictionary(static s => s.Value, StringComparer.Ordinal)))
+            .As();
 
     public Option<FederatedServer> Resolve(string server) =>
         Servers.TryGetValue(server, out var row) ? Optional(row) : None;
@@ -122,13 +127,13 @@ public abstract partial record FederationFault : Expected, IValidationError<Fede
 ## [03]-[FEDERATION_PROJECTION]
 
 - Owner: `FederationProjection` the static peer-to-descriptor inversion fold; `PeerSession` the held `McpClient` session owner per admitted server; `FederationRuntime` the held composition state the fold reads — the `FederationCatalog`, the session accessor, the live `PeerSchemas` id→schema map, and the `McpRuntime` the reused `CommandAIFunction` closes over.
-- Cases: the projection folds each `McpClientTool` the peer's `McpClient.ListToolsAsync` enumerates into one `CapabilityDescriptor` under `federated.{server}.{tool}`, reusing the one `CommandAIFunction : AIFunction` subclass the server projection mints — never a second `AIFunction` subclass and never an `AIFunctionFactory` delegate whose reflected-parameter schema is blind to the peer-tool contract.
-- Entry: `Project(FederationRuntime runtime, FederatedServer server)` returns `IO<Seq<CapabilityDescriptor>>` — opens the peer session through `McpClient.CreateAsync(server.Transport, ...)`, lists the peer's tools, and folds each `McpClientTool` into one brokered descriptor whose `Compile` projects to the federated-call `ComputeIntent`, returning the descriptor set the composition admits through `DescriptorSurface.Describe`; `Federate(FederationRuntime runtime, IServiceCollection services)` returns `IO<IServiceCollection>` — folds the tool projection beside the `#RESOURCE_PROMPT_FOLD` resource, prompt, and template projection over every admitted server and lands each peer's whole federated census as one `DescriptorSurface.Describe` snapshot across the four surface keys `Surfaces` derives.
-- Auto: the peer session is constructed once per server through `McpClient.CreateAsync(IClientTransport, McpClientOptions?, ILoggerFactory?, CancellationToken)` so the SDK owns the initialize handshake and the session lifecycle, the federation holding one `McpClient` per server in the `PeerSession` cell and never re-initializing per call; each `McpClientTool : AIFunction` the peer exposes carries its `JsonSchema` (the `JsonElement` parameter schema on `AIFunctionDeclaration`) which the projection folds into the live `PeerSchemas` id→schema map under the descriptor id — the composition's `McpRuntime.SchemaOf` resolver consults that map so a federated row's argument schema is the peer's published contract verbatim while a native row falls to the `SuiteContracts.Schema<CommandArguments>` shape — content-keyed for the `Agent/capability#SDK_CODEGEN` identity gate and never a re-derived schema; the descriptor's `EffectClass` derives from the peer-tool `ToolAnnotations` alone — a `DestructiveHint` tool is `External` (the saga/compensation path), a `ReadOnlyHint` tool is `Read`, and an unannotated tool defaults to `External` because the host cannot prove a remote tool side-effect-free — and the SAME derived value feeds both the declared effect and the `TrustScope.Floor` lowering (never a `ReturnJsonSchema` gate under-declaring a schema-less destructive tool as `Read`), so a peer tool's declared effect class never exceeds the server's trust ceiling; the `Idempotency` reads the `IdempotentHint` (`Idempotent` when the peer asserts it, else `NonIdempotent` for a tool the host cannot prove repeat-safe), and the `CostModel` carries a fixed `CostUnit.Calls` beside a `CostUnit.BytesEgress` variable the broker meters; the descriptor's `Compile` projects the `CommandArguments` payload into the federated-call `ComputeIntent` the command algebra dispatches at `FEDERATED_DISPATCH`, so the federated tool enters the registry as a real descriptor whose body is the brokered peer call, never an unbrokered side channel; the `federated.{server}.{tool}` surface key namespaces every federated descriptor under its server so two peers exposing a same-named tool never collide and the catalog stays one flat registry.
+- Cases: the projection folds each `McpClientTool` the peer's `McpClient.ListToolsAsync` enumerates into one `CapabilityDescriptor` under `federated.{server}.{tool}`, and the row's model-facing adoption is the one `CommandAIFunction : AIFunction` subclass the server projection mints — never a second `AIFunction` subclass, and never the peer's own `McpClientTool` handed to a model directly, which routes the call around the broker AND carries no `CommandReceipt` at all.
+- Entry: `Project(FederationRuntime runtime, FederatedServer server)` returns `IO<Seq<CapabilityDescriptor>>` — opens the peer session through `McpClient.CreateAsync(server.Transport, ...)`, lists the peer's tools, and folds each `McpClientTool` into one brokered descriptor whose `Compile` projects to the federated-call `CommandBody`, returning the descriptor set the composition admits through `DescriptorSurface.Describe`; `Federate(FederationRuntime runtime, IServiceCollection services)` returns `IO<IServiceCollection>` — folds the tool projection beside the `#RESOURCE_PROMPT_FOLD` resource, prompt, and template projection over every admitted server and lands each peer's whole federated census as one `DescriptorSurface.Describe` snapshot across the four surface keys `Surfaces` derives.
+- Auto: the peer session is constructed once per server through `McpClient.CreateAsync(IClientTransport, McpClientOptions?, ILoggerFactory?, CancellationToken)` so the SDK owns the initialize handshake and the session lifecycle, the federation holding one `McpClient` per server in the `PeerSession` cell and never re-initializing per call; each `McpClientTool : AIFunction` the peer exposes carries its `JsonSchema` (the `JsonElement` parameter schema on `AIFunctionDeclaration`) which the projection folds into the live `PeerSchemas` id→schema map under the descriptor id — the composition's `McpRuntime.SchemaOf` resolver consults that map so a federated row's argument schema is the peer's published contract verbatim while a native row falls to the `SuiteContracts.Schema<CommandArguments>` shape — content-keyed for the `Agent/capability#SDK_CODEGEN` identity gate and never a re-derived schema; the descriptor's `EffectClass` derives from the peer-tool `ToolAnnotations` alone — a `DestructiveHint` tool is `External` (the saga/compensation path), a `ReadOnlyHint` tool is `Read`, and an unannotated tool defaults to `External` because the host cannot prove a remote tool side-effect-free — and the SAME derived value feeds both the declared effect and the `TrustScope.Floor` lowering (never a `ReturnJsonSchema` gate under-declaring a schema-less destructive tool as `Read`), so a peer tool's declared effect class never exceeds the server's trust ceiling; the `Idempotency` reads the `IdempotentHint` (`Idempotent` when the peer asserts it, else `NonIdempotent` for a tool the host cannot prove repeat-safe), and the `CostModel` carries a fixed `CostUnit.Calls` beside a `CostUnit.BytesEgress` variable the broker meters; the descriptor's `Compile` projects the `CommandArguments` payload into the same `CommandBody` a native op compiles to — surface, op, payload and nothing else — so the federated row enters the registry as a real descriptor the command algebra dispatches, and the composition's dispatch seam routes it to the peer call by that body's surface key, never through an unbrokered side channel and never through a sentinel that only ever refuses; the `federated.{server}.{tool}` surface key namespaces every federated descriptor under its server so two peers exposing a same-named tool never collide and the catalog stays one flat registry.
 - Receipt: each projected descriptor is one `CapabilityDescriptor` the registry folds through `DescriptorSurface.Describe`; the federation transition mints one `DescriptorReceipt` per admitted row exactly as a native descriptor's, never a parallel federation receipt.
 - Packages: ModelContextProtocol.Core, Microsoft.Extensions.AI.Abstractions, LanguageExt.Core, Thinktecture.Runtime.Extensions, NodaTime, BCL inbox
 - Growth: a new federated server is one `FederationProjection.Project` fold over its session; a new peer tool is one descriptor row the fold absorbs at composition with no per-tool edit; the projection is the one inversion seam, so a second descriptor-from-peer fold is the deleted form; zero new surface.
-- Boundary: the projection is the only peer-tool-to-descriptor owner — a per-server descriptor table, a hand-mirrored federated tool list, and a second tool catalog are the deleted forms, so every federated tool is a real registry descriptor adopted as the one `CommandAIFunction`; the inversion is the exact mirror of `Agent/mcp#METHOD_AXIS` — that page folds `DiscoveryResult` outward to an `McpTool` adopted as `AIFunction`, this page folds `McpClientTool` inward to a `CapabilityDescriptor`, so one tool-adoption seam serves both front doors and a federated call and a native call share one `CommandAIFunction` invoker; the peer-tool `JsonSchema` crosses verbatim through the `PeerSchemas` map into the one `McpRuntime.SchemaOf` resolver so the content-addressed codegen identity gate at `Agent/capability#SDK_CODEGEN` sees the peer's published schema, never a host-fabricated one; the `McpClient` session is the SDK's — the federation never re-implements the JSON-RPC client, the initialize handshake, or the tool enumeration, it composes `ListToolsAsync` and holds the session; the `TrustScope` ceiling is the trust boundary so a federated descriptor's effect class is the lesser of the peer's declared class and the server's trust, the broker reading the inherited `PermissionShape` with no federation-specific permission path.
+- Boundary: the projection is the only peer-tool-to-descriptor owner — a per-server descriptor table, a hand-mirrored federated tool list, and a second tool catalog are the deleted forms, so every federated tool is a real registry descriptor adopted as the one `CommandAIFunction`; a peer tool the SDK adopted reaches a model as `McpClientTool` ONLY when nothing brokered it, and such a call carries no `CommandReceipt` BY STRUCTURE — that function's own invoke answers `AIContent`, an `AIContent` array, or the serialized `CallToolResult`, never a CLR domain value, so the brokered invoker's foreign arm passes it through and the turn's receipt is `None`, which is the honest read of an unbrokered peer call rather than a gap to close; the inversion is the exact mirror of `Agent/mcp#METHOD_AXIS` — that page folds `DiscoveryResult` outward to an `McpTool` adopted as `AIFunction`, this page folds `McpClientTool` inward to a `CapabilityDescriptor`, so one tool-adoption seam serves both front doors and a federated call and a native call share one `CommandAIFunction` invoker; the peer-tool `JsonSchema` crosses verbatim through the `PeerSchemas` map into the one `McpRuntime.SchemaOf` resolver so the content-addressed codegen identity gate at `Agent/capability#SDK_CODEGEN` sees the peer's published schema, never a host-fabricated one; the `McpClient` session is the SDK's — the federation never re-implements the JSON-RPC client, the initialize handshake, or the tool enumeration, it composes `ListToolsAsync` and holds the session; the `TrustScope` ceiling is the trust boundary so a federated descriptor's effect class is the lesser of the peer's declared class and the server's trust, the broker reading the inherited `PermissionShape` with no federation-specific permission path.
 
 ```csharp signature
 // --- [SERVICES] -------------------------------------------------------------------------
@@ -137,15 +142,43 @@ public sealed record PeerSession(
     Atom<Option<McpClient>> Client,
     CancelScope Spine);
 
+// Outbound and CallTimeout live HERE, not on McpRuntime: the server projection has no outbound concern at
+// all, and reading a hop surface off it names two members that record declares nowhere. Sessions memoize on
+// this record too, so the held client the Auto line promises is a cell this runtime owns rather than a
+// re-initialization on every list, call, and subscribe.
 public sealed record FederationRuntime(
     FederationCatalog Catalog,
-    Func<FederatedServer, IO<McpClient>> SessionOf,
+    Atom<HashMap<string, PeerSession>> Sessions,
     Atom<HashMap<string, JsonNode>> PeerSchemas,
     McpRuntime Mcp,
+    // The hop CAPABILITY record, never the static surface that consumes it: `OutboundSurface` declares the
+    // entries and holds no state, so a column typed on it names a type no instance exists of.
+    OutboundRuntime Outbound,
+    // The peer-facing client identity, composed rather than literal: a hardcoded name and version report the
+    // same build forever to every peer that logs, gates, or negotiates on it.
+    Implementation Identity,
+    TimeSpan CallTimeout,
     ClockPolicy Clocks,
+    // The composition root's one latency-context factory (the modules ledger's latency-context seat), so a
+    // federated hop records its phase boundaries instead of compiling silent on the trailing default.
+    Func<ILatencyContext> Latency,
     ReceiptSinkPort Sink,
     JsonSerializerOptions Wire,
-    CancelScope Spine);
+    CancelScope Spine) {
+    // SessionOf is the memoizing read the whole page dispatches through: the first caller opens the peer and
+    // seats it, every later caller reads the held client, and the SDK's initialize handshake runs once per
+    // server for the process rather than once per request.
+    public IO<McpClient> SessionOf(FederatedServer server) =>
+        Sessions.Value.Find(server.Value).Bind(static held => held.Client.Value).Match(
+            Some: IO.pure,
+            None: () => FederationProjection.Open(this, server).Map(opened => Seat(server, opened)));
+
+    McpClient Seat(FederatedServer server, McpClient opened) =>
+        (ignore(Sessions.Swap(map => map.AddOrUpdate(
+            server.Value,
+            existing => (ignore(existing.Client.Swap(_ => Some(opened))), existing).Item2,
+            new PeerSession(server, Atom(Some(opened)), Spine)))), opened).Item2;
+}
 
 // --- [OPERATIONS] -----------------------------------------------------------------------
 public static partial class FederationProjection {
@@ -171,10 +204,13 @@ public static partial class FederationProjection {
     static Seq<string> Surfaces(FederatedServer server) =>
         Seq("", ".resource", ".prompt", ".template").Map(suffix => $"federated.{server.Value}{suffix}");
 
+    // The schema publish is the fold's ONE declared effect and it is named in the signature rather than
+    // hidden inside a projection helper: a static Descriptor(...) that mutates a shared cell reads pure at
+    // every call site and re-publishes on every re-projection with nothing saying so.
     static CapabilityDescriptor Descriptor(FederationRuntime runtime, FederatedServer server, McpClientTool tool) {
         var declared = EffectOf(tool.ProtocolTool.Annotations);
         // Each peer publishes its own JsonSchema into the live id->schema map the composition's
-        // McpRuntime.SchemaOf resolver consults by descriptor id, so the SDK_CODEGEN identity gate
+        // McpRuntime.SchemaOf resolver consults by descriptor id, so the SDK_CODEGEN pin
         // reads that peer contract verbatim while a native row falls to the SuiteContracts.Schema shape.
         ignore(runtime.PeerSchemas.Swap(current =>
             current.AddOrUpdate($"federated.{server.Value}.{tool.Name}", JsonNode.Parse(tool.JsonSchema.GetRawText())!)));
@@ -187,7 +223,11 @@ public static partial class FederationProjection {
                 Fixed: new CostVector(HashMap((CostUnit.Calls, 1L))),
                 Variable: static args => new CostVector(HashMap((CostUnit.BytesEgress, args.Payload.GetRawText().Length)))),
             permission: server.Trust.Floor(declared),
-            compile: _ => FederatedDispatch.Compile(server, tool.Name));
+            // A peer tool reports on its OWN MCP session — the progress notifications the peer emits ride the
+            // client the federation holds, never the Compute cell this host's lane would mint, so the federated
+            // rows carry no progress admission and the peer's stream stays the peer's.
+            progress: None,
+            compile: args => FederatedDispatch.Compile(server, tool.Name, args));
     }
 
     static EffectClass EffectOf(ToolAnnotations? annotations) =>
@@ -195,10 +235,12 @@ public static partial class FederationProjection {
         : annotations?.ReadOnlyHint == true ? EffectClass.Read
         : EffectClass.External;
 
+    // Client identity is a PARAMETER of the composed runtime, never a literal: a hardcoded name and version
+    // report the same build forever to every peer that logs or gates on it.
     public static IO<McpClient> Open(FederationRuntime runtime, FederatedServer server) =>
         IO.liftAsync(() => McpClient.CreateAsync(
             server.Transport,
-            new McpClientOptions { ClientInfo = new Implementation { Name = "rasm-apphost", Version = "1.0.0" } },
+            new McpClientOptions { ClientInfo = runtime.Identity },
             loggerFactory: null,
             cancellationToken: runtime.Spine.Token).AsTask());
 }
@@ -206,14 +248,14 @@ public static partial class FederationProjection {
 
 ## [04]-[FEDERATED_DISPATCH]
 
-- Owner: `FederatedDispatch` the static brokered-call surface routing a federated descriptor's invocation through the command algebra and onto the peer `McpClient.CallToolAsync`; `FederatedCall` the call-intent record the descriptor's `Compile` mints; `FederatedReceipt` the per-call evidence record projecting the peer `CallToolResult` onto the reused `ToolResult`.
-- Cases: a federated descriptor's `Compile` projects to one `FederatedCall` carrying the server, the tool name, and the payload; the dispatch resolves the peer session, sends `CallToolAsync` over the server's `OutboundHop`, and projects the peer result onto the reused `Agent/mcp#TOOL_DISPATCH` `ToolResult` — never a branch-side `ToolResultWire` mint.
-- Entry: `Dispatch(MediationRuntime mediation, GrantScope scope, FederationRuntime runtime, string descriptorId, FederatedCall call, CommandArguments arguments)` returns `IO<(BrokeredCall, ToolResult)>` — the brokered federated front door riding the ONE `Sandbox/isolation#GRANT_HANDLE` `GrantHandleSurface.Mediate` fold (policy gate, scope cover, broker charge) with the peer call as the dispatch closure; `Compile(FederatedServer server, string tool)` returns `Fin<ComputeIntent>` — the typed never-compiles sentinel, because a federated call is not a Compute intent (the landed `ComputeIntent` union carries no federated case, and the strata law forbids AppHost adding one); `Call(FederationRuntime runtime, FederatedCall call)` returns `IO<ToolResult>` — resolves the peer session, invokes `McpClient.CallToolAsync(name, args, progress: null, options, ct)` over the `OutboundHop`, and projects the peer `CallToolResult` content blocks onto the reused `ToolResult`.
-- Auto: the federated descriptor routes through the one `Mediate` fold so the grant brokerage at `Agent/capability#GRANT_BROKER` runs before the peer call — a denied federated call never reaches the peer and never charges the broker's `CostUnit.Calls`/`CostUnit.BytesEgress` ceiling, the dry-run cost preview the `Agent/mcp#TOOL_DISPATCH` `McpDispatch.Preview` exposes pricing the federated call against the same standing grant a native call prices against; the dispatch closure sends `McpClient.CallToolAsync(name, args, progress: null, options, ct)` over the server's `OutboundHop` so the peer call inherits the hop's retry, breaker, and deadline — a flapping peer breaks on the same circuit breaker an HTTP API breaks on, never a per-server retry loop; the peer's `CallToolResult` content blocks and `IsError` flag project onto the reused `ToolResult` (`Tool`/`Content`/`IsError`/`Correlation`) so the federated result rides the existing structured-result wire the agent transport already decodes; a peer-call fault projects to `FederationFault.ToolCallFaulted` (registry-banded) the mediation evidence carries, so a faulted federated call returns a typed transaction disposition, never a thrown exception; the mediation's `BrokeredCall` evidence and the projected `ToolResult` ride the same `ReceiptSinkPort.Send` fan a native command's evidence rides, so a federated tool call is content-addressed and replayable exactly as a native op.
-- Receipt: the federated call mints one `BrokeredCall` through the mediation carrying the caller modality, permitted flag, and charged cost vector; the peer result is the reused `ToolResult`, never a parallel federation receipt; the determinism chain seat is the mediation's `ReceiptSinkPort` fan, so federation owns no direct `EventLog.Append`.
+- Owner: `FederatedDispatch` the static peer-call surface the composition binds as the dispatch seam's federated arm; `FederatedCall` the call-intent record decoded from the compiled `CommandBody`.
+- Cases: a federated descriptor's `Compile` projects to a `CommandBody` under the `federated.{server}` surface key carrying the tool name and the payload; the seam's federated arm decodes it, resolves the peer session, sends `CallToolAsync` over the server's `OutboundHop`, and answers the `DispatchReceipt` the command algebra commits — the agent-facing structured result is the reused `Agent/mcp#TOOL_DISPATCH` `ToolResult` off `McpDispatch.Project`, never a branch-side mint.
+- Entry: `Compile(FederatedServer server, string tool, CommandArguments arguments)` returns `Fin<CommandBody>` — the same body shape a native op compiles to, so one algebra dispatches both; `Call(FederationRuntime runtime, FederatedCall call)` returns `IO<Fin<DispatchReceipt>>` — resolves the peer session, invokes `McpClient.CallToolAsync(name, args, progress: null, options, ct)` through `OutboundSurface.Carry<CallToolResult>` on the server's `OutboundHop` under the composition root's `ILatencyContext`, and answers the decoded execution evidence; `Decode(CommandBody body, CorrelationId correlation)` returns `FederatedCall` — the seam's one body-to-peer-call read.
+- Auto: the federated row rides the ONE command algebra, so the grant brokerage at `Agent/capability#GRANT_BROKER` runs before the peer call exactly as it runs before a compute dispatch — a denied federated call never reaches the peer and never charges the broker's `CostUnit.Calls`/`CostUnit.BytesEgress` ceiling, the dry-run cost preview the `Agent/mcp#TOOL_DISPATCH` `McpDispatch.Preview` exposes pricing the federated call against the same standing grant a native call prices against, and the `Agent/runtime#DISPATCH_FRONT_DOOR` veto and mediation cover it without a second admission fold; the dispatch closure sends `McpClient.CallToolAsync(name, args, progress: null, options, ct)` over the server's `OutboundHop` so the peer call inherits the hop's retry, breaker, and deadline — a flapping peer breaks on the same circuit breaker an HTTP API breaks on, never a per-server retry loop — and it crosses through the value-producing `Carry<T>` run rather than the outcome-only `Run`, because the peer's result IS the hop's product and a second raw call to fetch it rides no pipeline while the receipt times the first; the hop body states its own `HopOutcome`, so the peer's `IsError` flag lands as `Refused` on the hop's own accounting rather than as a delivery the breaker credits; the peer's `CallToolResult` content blocks and `IsError` flag project onto the reused `ToolResult` (`Tool`/`Content`/`IsError`/`Correlation`) so the federated result rides the existing structured-result wire the agent transport already decodes; a peer-call fault projects to `FederationFault.ToolCallFaulted` (registry-banded) the mediation evidence carries, so a faulted federated call returns a typed transaction disposition, never a thrown exception; the mediation's `BrokeredCall` evidence and the projected `ToolResult` ride the same `ReceiptSinkPort.Send` fan a native command's evidence rides, so a federated tool call is content-addressed and replayable exactly as a native op.
+- Receipt: the federated call mints the command algebra's own `CommandReceipt` carrying the decoded `DispatchReceipt`, with the front door's `BrokeredCall` recording the caller modality — never a parallel federation receipt; the chain seat is the front door's `EventLog.Append`, so federation owns no direct chain advance.
 - Packages: ModelContextProtocol.Core, LanguageExt.Core, NodaTime, Thinktecture.Runtime.Extensions, BCL inbox
 - Growth: a federated call is one descriptor `Compile` projection over one `CallToolAsync` on the hop; a new peer-result content kind is one column the reused `ToolResult` already carries; zero new surface.
-- Boundary: the federated dispatch is the only federated-call owner — a direct `McpClient.CallToolAsync` outside the mediation, a per-server call helper, and an unbrokered peer call are the deleted forms, so every federated call routes through the ONE `GrantHandleSurface.Mediate` fold exactly as `ARCHITECTURE.md#[05]-[BOUNDARIES]` mandates (the same fold the operator, agent, and plugin callers share — the federation adds a dispatch closure, never a second admission path); the dispatch never invokes Compute — a federated call is externally executed, so the Compute rail is untouched and the never-compiles sentinel makes the impossibility a compile-time fact; the peer call rides the server's `OutboundHop` so the external server's bytes inherit the existing resilience and the federation owns no transport retry; the `ToolResult` is the reused `Agent/mcp#TOOL_DISPATCH` record ridden as the `ReceiptEnvelopeWire` `TPayload` at `TS_PROJECTION` — a branch-side `ToolResultWire` mint is the named drift defect both this page and the server projection delete; the federated `EffectClass.External` forces the command algebra onto the saga path because no rollback restores a peer's side effect, so a federated write declares a compensation descriptor on the runtime or admits as a single-shot non-compensatable op, never a phantom undo of a remote side effect.
+- Boundary: the federated dispatch is the only federated-call owner — a direct `McpClient.CallToolAsync` outside the algebra, a per-server call helper, and an unbrokered peer call are the deleted forms, so every federated call routes through the ONE front door and the ONE transaction `ARCHITECTURE.md#[05]-[BOUNDARIES]` mandates, the federation binding a dispatch ARM and never a second admission path; the dispatch never invokes the compute rail — a federated call is externally executed, so the seam's federated arm is where the body lands and no executing-stratum type appears anywhere on this page; the peer call rides the server's `OutboundHop` so the external server's bytes inherit the existing resilience and the federation owns no transport retry; the `ToolResult` is the reused `Agent/mcp#TOOL_DISPATCH` record ridden as the `ReceiptEnvelopeWire` `TPayload` at `TS_PROJECTION` — a branch-side `ToolResultWire` mint is the named drift defect both this page and the server projection delete; the federated `EffectClass.External` forces the command algebra onto the saga path because no rollback restores a peer's side effect, so a federated write declares a compensation descriptor on the runtime or admits as a single-shot non-compensatable op, never a phantom undo of a remote side effect.
 
 ```csharp signature
 // --- [MODELS] ---------------------------------------------------------------------------
@@ -225,47 +267,63 @@ public sealed record FederatedCall(
 
 // --- [OPERATIONS] -----------------------------------------------------------------------
 public static class FederatedDispatch {
-    // Compile is the typed never-compiles sentinel (the model-descriptor precedent): a federated call is
-    // NOT a Compute intent — the landed ComputeIntent union carries no Federated case and AppHost cannot add
-    // one — so this delegate rejects by construction and brokered execution routes through the one
-    // GrantHandleSurface.Mediate fold below, with zero reversed Compute coupling.
-    public static Fin<ComputeIntent> Compile(FederatedServer server, string tool) =>
-        Fin.Fail<ComputeIntent>(new CommandFault.CompileRejected($"federated.{server.Value}.{tool}:not-a-compute-intent"));
+    // Compile answers the SAME CommandBody a native op answers: the surface key is what the composition's
+    // dispatch seam routes on, so one algebra brokers, meters, chains, and compensates every command in the
+    // suite. A sentinel that could only ever refuse buys the strata law nothing the body already buys, and it
+    // costs the federated rows every guarantee the algebra carries.
+    public static Fin<CommandBody> Compile(FederatedServer server, string tool, CommandArguments arguments) =>
+        Fin.Succ(new CommandBody($"federated.{server.Value}", tool, arguments.Payload));
 
-    // Dispatch is the brokered federated front door: policy gate, scope cover, and broker charge ride the
-    // ONE Sandbox/isolation#GRANT_HANDLE Mediate fold with the peer call as the dispatch closure, so grant,
-    // cost, and evidence stay identical to a native op.
-    public static IO<(BrokeredCall Call, ToolResult Result)> Dispatch(MediationRuntime mediation, GrantScope scope, FederationRuntime runtime, string descriptorId, FederatedCall call, CommandArguments arguments) =>
-        GrantHandleSurface.Mediate(mediation, CallerModality.Agent, scope, descriptorId, arguments,
-            (_, _) => Call(runtime, call));
+    public static FederatedCall Decode(CommandBody body, CorrelationId correlation) =>
+        new(body.Surface["federated.".Length..], body.Op, body.Payload, correlation);
 
-    public static IO<ToolResult> Call(FederationRuntime runtime, FederatedCall call) =>
+    // The seam's federated arm: the peer call rides the server's own hop, so its retry, breaker, and deadline
+    // are the transport owner's and this surface holds none. A resolved peer answering nothing and an
+    // unresolvable server both land on the typed rail the algebra folds into a rolled-back transaction, so
+    // the ONE catch here is what turns the hop's railed error into the Fin the seam contract declares.
+    public static IO<Fin<DispatchReceipt>> Call(FederationRuntime runtime, FederatedCall call) =>
         runtime.Catalog.Resolve(call.Server).Match(
-            Some: server =>
-                from client in runtime.SessionOf(server)
-                from result in OutboundSurface.Run(runtime.Mcp.Outbound, HopOf(server), async ct =>
-                    await client.CallToolAsync(call.Tool, Arguments(call.Payload), progress: null, options: new RequestOptions { Timeout = runtime.Mcp.CallTimeout }, cancellationToken: ct)
-                        is { } peer
-                        ? new HopOutcome.Delivered<CallToolResult>(peer)
-                        : new HopOutcome.Faulted(new FederationFault.PeerUnavailable(call.Server)))
-                select Project(call, result),
-            None: () => IO.pure(new ToolResult(call.Tool, [JsonValue.Create(new FederationFault.PeerUnavailable(call.Server).Message)!], IsError: true, call.Correlation)));
+            Some: server => Hopped(runtime, server, call)
+                | @catch<IO, Fin<DispatchReceipt>>(static _ => true, error => IO.pure(Fin.Fail<DispatchReceipt>(error))),
+            None: () => IO.pure(Fin.Fail<DispatchReceipt>(new FederationFault.PeerUnavailable(call.Server))));
+
+    // Carry, never Run: the peer's CallToolResult is a VALUE this hop produces, and Run answers the receipt
+    // alone — so a Run here buys the receipt and nothing else, and the second raw call it then forces
+    // rides no pipeline, no retry, and no breaker while the receipt attributes its timing to the first.
+    static IO<Fin<DispatchReceipt>> Hopped(FederationRuntime runtime, FederatedServer server, FederatedCall call) =>
+        from mark in IO.lift(runtime.Clocks.Mark)
+        from client in runtime.SessionOf(server)
+        from latency in IO.lift(runtime.Latency)
+        from _peer in OutboundSurface.Carry(runtime.Outbound, HopOf(server), ct => Peer(runtime, client, call, ct), Some(latency))
+        from elapsed in IO.lift(() => runtime.Clocks.Elapsed(mark))
+        select Fin.Succ(new DispatchReceipt($"federated.{call.Server}", call.Tool, elapsed));
+
+    // The body states its OWN HopOutcome, which is what puts the peer's error flag on the hop's accounting:
+    // an isError result reported as Delivered records a failed peer call as a completed command on every
+    // evidence surface downstream AND credits the breaker a success the peer never gave it.
+    static async Task<(HopOutcome Outcome, CallToolResult Value)> Peer(FederationRuntime runtime, McpClient client, FederatedCall call, CancellationToken ct) {
+        CallToolResult peer = await client.CallToolAsync(
+            call.Tool,
+            Arguments(call.Payload),
+            progress: null,
+            options: new RequestOptions { Timeout = runtime.CallTimeout },
+            cancellationToken: ct).ConfigureAwait(false);
+        return (peer.IsError is true
+            ? new HopOutcome.Refused(new FederationFault.ToolCallFaulted($"{call.Server}.{call.Tool}"))
+            : new HopOutcome.Delivered(), peer);
+    }
 
     static IReadOnlyDictionary<string, object?> Arguments(JsonElement payload) =>
         payload.ValueKind is JsonValueKind.Object
             ? payload.EnumerateObject().ToDictionary(static p => p.Name, static p => (object?)p.Value)
             : new Dictionary<string, object?>();
 
+    // The arms READ the server, so none of them is static: a static lambda cannot close over the parameter,
+    // and the generated dispatch would compile against a capture that is not there.
     static OutboundHop HopOf(FederatedServer server) => server.Kind.Switch(
-        stdio: static () => new OutboundHop.CompanionSpawn(new ProcessStartInfo(server.Endpoint)),
-        http: static () => new OutboundHop.HttpApi(new Uri(server.Endpoint)),
-        streamable: static () => new OutboundHop.ServerStream(new Uri(server.Endpoint)));
-
-    static ToolResult Project(FederatedCall call, CallToolResult result) =>
-        new(call.Tool,
-            toSeq(result.Content).Map(static block => JsonSerializer.SerializeToNode(block)!),
-            IsError: result.IsError ?? false,
-            call.Correlation);
+        stdio: () => new OutboundHop.CompanionSpawn(new ProcessStartInfo(server.Endpoint)),
+        http: () => new OutboundHop.HttpApi(new Uri(server.Endpoint)),
+        streamable: () => new OutboundHop.ServerStream(new Uri(server.Endpoint)));
 }
 ```
 
@@ -300,7 +358,8 @@ public static partial class FederationProjection {
             idempotency: Idempotency.Idempotent,
             cost: new CostModel(new CostVector(HashMap((CostUnit.Calls, 1L))), static _ => CostVector.Zero),
             permission: server.Trust.Floor(EffectClass.Read),
-            compile: _ => FederatedDispatch.Compile(server, uri));
+            progress: None,
+            compile: args => FederatedDispatch.Compile(server, uri, args));
 
     static CapabilityDescriptor PromptDescriptor(FederatedServer server, string name) =>
         CapabilityDescriptor.Of(
@@ -310,7 +369,8 @@ public static partial class FederationProjection {
             idempotency: Idempotency.Idempotent,
             cost: CostModel.Free,
             permission: server.Trust.Floor(EffectClass.Pure),
-            compile: _ => FederatedDispatch.Compile(server, name));
+            progress: None,
+            compile: args => FederatedDispatch.Compile(server, name, args));
 
     static CapabilityDescriptor TemplateDescriptor(FederatedServer server, string template) =>
         CapabilityDescriptor.Of(
@@ -320,7 +380,8 @@ public static partial class FederationProjection {
             idempotency: Idempotency.Idempotent,
             cost: new CostModel(new CostVector(HashMap((CostUnit.Calls, 1L))), static _ => CostVector.Zero),
             permission: server.Trust.Floor(EffectClass.Read),
-            compile: _ => FederatedDispatch.Compile(server, template));
+            progress: None,
+            compile: args => FederatedDispatch.Compile(server, template, args));
 }
 
 public static class FederationSubscription {
@@ -332,12 +393,20 @@ public static class FederationSubscription {
         from client in runtime.SessionOf(server)
         from handle in IO.liftAsync(() => client.SubscribeToResourceAsync(
             uri,
+            // A resource-update notification carries IDENTITY and nothing measurable — the SDK hands the uri
+            // and no body — so the numeric carrier is ABSENT rather than a literal zero, and the quality flag
+            // reports what the notification actually proves: the peer said this resource changed. A fabricated
+            // zero reading under a true quality flag is a measurement no instrument took, and it grades as one
+            // everywhere downstream. The absent carrier is the lane's own shape: the MTConnect leg already
+            // parses its text observations into an optional raw for the same reason, so the carrier column is
+            // optional at the owner and every producer with nothing to measure writes nothing.
             (notification, ct) => {
                 ignore(sink.TryWrite(new ExternalValue(
-                    Raw: 0d,
+                    Raw: None,
                     Unit: $"federated.{server.Value}.resource.{notification.Uri}",
                     Good: true,
-                    SourceAt: runtime.Clocks.Now)));
+                    SourceAt: runtime.Clocks.Now,
+                    Echo: EchoDiscriminator.None)));
                 return ValueTask.CompletedTask;
             },
             options: null,
@@ -391,8 +460,12 @@ Validation<FederationFault, FederationCatalog> catalog =
 // Refused peers boot the host federation-free and never vanish silently: accumulated admission faults ride
 // one SpineLog event on the stride the [02] card names, so a mistyped endpoint reads as a logged absence
 // rather than an unexplained gap in the command palette.
+// Boot is BOUNDED: the federation spine's token carries the composition deadline, so an unreachable peer
+// refuses on it rather than holding the host at composition forever with no timeout on the leg that opens
+// each session — the dispatch leg's own RequestOptions.Timeout covers only calls, never the handshake.
 IServiceCollection federated = await catalog.Match(
-    Succ: admitted => FederationProjection.Federate(federationRuntime with { Catalog = admitted }, services).RunAsync(EnvIO.New()),
+    Succ: admitted => FederationProjection.Federate(federationRuntime with { Catalog = admitted }, services)
+        .RunAsync(EnvIO.New(token: federationRuntime.Spine.Token)),
     Fail: faults => (SpineLog.PeersRefused(logger, faults.Count, faults.Head.Message), services).Item2);
 
 federated.AddSingleton(sp => new CapabilityRegistry(sp.GetServices<CapabilityDescriptor>()));

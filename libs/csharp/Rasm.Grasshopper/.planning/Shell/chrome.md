@@ -15,7 +15,7 @@ A bar is a fold of `BarItemSpec` rows onto one host `Bar`, a panel is a fold of 
 ## [02]-[BAR]
 
 - Owner: `BarItemSpec` `[Union]` — the toolbar item-row family, data a fold appends onto a live `Bar`: `PushCase(IIcon Icon, Nomen Label, Action Verb, BarShortcut Chord)` (`Bar.AddPushButton(IIcon, Nomen, Action = null, BarShortcut = null)`), `RadioCase(IIcon Icon, Nomen Label, bool Initial, Action<bool> Verb, BarShortcut Chord)` (`AddRadioToggle`), `FieldCase(IIcon Icon, Nomen Label, string Text, string Placeholder)` (`AddTextField(IIcon, Nomen, string initial, string placeholder)`), `SpacerCase(Nomen Label, int MinimumWidth, int MaximumWidth)` (`AddSpacer(Nomen, int, int)`), `SectionToggleCase(Nomen Label, bool Initial, Seq<string> Sections)` (`AddToggle(Nomen, bool, params string[])` — the section-visibility toggle), `ItemCase(BarItem Element)` (`Add(BarItem)` — the raw append absorbing any caller-minted item), `ColoursCase(ColourRange Range, Nomen Label, OpenColor.Family Seed, Action<OpenColor.Family> Changed)` — the in-bar colour rows. `ColourRange` `[Union]` discriminates the host's colour-row family: `LifeCase` (`AddLifeColours`), `CoolCase` (`AddCoolColours`), `WarmCase` (`AddWarmColours`), `SpectrumCase(Seq<OpenColor.Family> Spectrum)` (`AddColours(Nomen, Family[], Family, Action<Family>)`) — three named rows and the parameterized spectrum on one union, so the host's enumerated sibling methods demote to dispatch arms. A bar's whole item surface is one `Seq<BarItemSpec>`, and the icon slot composes `Shell/icons.md`'s `IconHandle.Icon` so every bar item is catalog-addressable.
-- Owner: `BarMutation` `[Union]` — post-build mutation of live items the host returned to the consumer: `RadioSwing(RadioToggle Item, Option<bool> Target)` (`SetState(bool)` on `Some`, `Toggle()` on `None`), `FieldWrite(TextField Item, string Text)` (`SetText(string)`). `BarPass` `[Union]` — the bar-level verb family: `LayoutCase` (`Bar.Layout`), `RenderCase(Context Surface)` (`Bar.Render(Context)`), `TooltipCase(PointF At)` (`Bar.ShowTooltipAt(PointF)` → `bool` — a `false` settles `Fault.InvalidResult`, never a silently ignored bool), `InvalidateCase` (`Bar.Invalidate`), `TuneCase(Option<bool> Enabled, Option<int> RowHeight, Option<BarStyle> Style)` — one bar-state write over the settable `Enabled`/`ElementHeight`/`Style` members, present slots only — and `FindCase(string Name)` (`Bar[string]` — the named-item probe whose hit returns on the receipt).
+- Owner: `BarMutation` `[Union]` — post-build mutation of live items the host returned to the consumer: `RadioSwing(RadioToggle Item, Option<bool> Target)` (`SetState(bool)` on `Some`, `Toggle()` on `None`), `RadioDress(RadioToggle, Option<string> OnText, Option<string> OffText, Option<bool> Optional)` (the settable dress trio, present slots only), `FieldWrite(TextField Item, string Text)` (`SetText(string)`), `FieldDress(TextField, Option<string> Placeholder)` (the settable placeholder, present slot only). `BarPass` `[Union]` — the bar-level verb family: `LayoutCase` (`Bar.Layout`), `RenderCase(Context Surface)` (`Bar.Render(Context)`), `TooltipCase(PointF At)` (`Bar.ShowTooltipAt(PointF)` → `bool` — a `false` settles `Fault.InvalidResult`, never a silently ignored bool), `InvalidateCase` (`Bar.Invalidate`), `TuneCase(Option<bool> Enabled, Option<int> RowHeight, Option<BarStyle> Style)` — one bar-state write over the settable `Enabled`/`ElementHeight`/`Style` members, present slots only — and `FindCase(string Name)` (`Bar[string]` — the named-item probe whose hit returns on the receipt).
 - Owner: `ColourBars` readonly record struct — the `CreateStandardColourBars(Nomen, OpenColor.Family, Action<OpenColor.Family>, out Bar life, out Bar cool, out Bar warm)` triplet carried as one value (`Life`, `Cool`, `Warm` — the out-parameter roles); the callback receives the settled family and the three bars enter the same `BarPass`/fold vocabulary as any other bar.
 - Law: a `Bar` mints anywhere — the public `Bar()`/`Bar(params BarItem[])` constructors, a panel's `AddBar` return, or the colour-bar factory — and the `Add*` family returns its typed item (`PushButton`/`RadioToggle`/`TextField`/`Spacer`/`Bar`), so a consumer holding an item for later mutation captures the return at build or re-resolves through `FindCase`; the `RadioToggle(IIcon, Nomen, bool, Action<bool>)` and `TextField(IIcon, Nomen, string)` constructors mint the caller-held items an `ItemCase` or `AddBar` transports.
 - Boundary: `Bar.Invalidated`, `TooltipDetails`, `CloseRequested`, `TextField.TextChanged`/`ActiveChanged`, and `RadioToggle.StateChanged` are public event streams belonging in `Shell/events.md`'s `UiSource` vocabulary as chrome rows through its factory-fold contract, never subscribed here; `Bar.Render` draws over `Eto.Drawing.Context` inside the paint window `Canvas/paint.md` owns — this page transports the context, never opens one.
@@ -89,7 +89,9 @@ public abstract partial record BarItemSpec {
 public abstract partial record BarMutation {
     private BarMutation() { }
     public sealed record RadioSwing(RadioToggle Item, Option<bool> Target) : BarMutation;
+    public sealed record RadioDress(RadioToggle Item, Option<string> OnText, Option<string> OffText, Option<bool> Optional) : BarMutation;
     public sealed record FieldWrite(TextField Item, string Text) : BarMutation;
+    public sealed record FieldDress(TextField Item, Option<string> Placeholder) : BarMutation;
 }
 
 [Union]
@@ -255,7 +257,14 @@ public static class Chrome {
                 radioSwing: static (op, m) => op.Catch(body: () => Fin.Succ(Op.Side(action: () => m.Target.Match(
                     Some: value => m.Item.SetState(state: value),
                     None: () => m.Item.Toggle())))),
-                fieldWrite: static (op, m) => op.Catch(body: () => Fin.Succ(Op.Side(action: () => m.Item.SetText(text: m.Text)))))
+                radioDress: static (op, m) => op.Catch(body: () => Fin.Succ(Op.Side(action: () => {
+                    m.OnText.Iter(value => m.Item.OnText = value);
+                    m.OffText.Iter(value => m.Item.OffText = value);
+                    m.Optional.Iter(value => m.Item.Optional = value);
+                }))),
+                fieldWrite: static (op, m) => op.Catch(body: () => Fin.Succ(Op.Side(action: () => m.Item.SetText(text: m.Text)))),
+                fieldDress: static (op, m) => op.Catch(body: () => Fin.Succ(Op.Side(action: () =>
+                    m.Placeholder.Iter(value => m.Item.Placeholder = value)))))
                 .Map(static _ => (ChromeReceipt)new ChromeReceipt.PassedCase(Verb: nameof(ChromeIntent.BarMutateCase))),
             colourBarsCase: static (k, c) => k.Catch(body: () => {
                 Bar.CreateStandardColourBars(c.Label, c.Seed, c.Changed, out Bar life, out Bar cool, out Bar warm);
@@ -268,7 +277,7 @@ public static class Chrome {
                 hideCase: static (op, _) => Passed(key: op, verb: nameof(TooltipIntent.HideCase), action: Frame.Hide),
                 invalidateCase: static (op, _) => Passed(key: op, verb: nameof(TooltipIntent.InvalidateCase), action: Frame.Invalidate),
                 captureCase: static (op, t) => Passed(key: op, verb: nameof(TooltipIntent.CaptureCase), action: () =>
-                    Frame.ScreencapFolder = t.Folder.MatchUnsafe(Some: static folder => folder, None: static () => null))),
+                    Frame.ScreencapFolder = t.Folder.Match<string?>(Some: static folder => folder, None: static () => null))),
             floatCase: static (k, c) => k.Need(c.Target).Bind(floats => Settle(floats: floats, verb: c.Verb, key: k))), key: active));
     }
 
@@ -371,10 +380,10 @@ public static class Chrome {
             .Map(static _ => (ChromeReceipt)new ChromeReceipt.PassedCase(Verb: nameof(FloatOp.BindCase))));
 
     private static T? Flat<T>(Option<T> slot) where T : class =>
-        slot.MatchUnsafe(Some: static value => value, None: static () => null);
+        slot.Match<T?>(Some: static value => value, None: static () => null);
 
     private static Color? Tinted(Option<Color> slot) =>
-        slot.MatchUnsafe(Some: static value => (Color?)value, None: static () => null);
+        slot.Match<Color?>(Some: static value => value, None: static () => null);
 }
 ```
 
@@ -403,7 +412,7 @@ flowchart LR
 
 | [INDEX] | [CONCERN]        | [OWNER]                                                   | [RAIL]                            | [CASES] |
 | :-----: | :--------------- | :-------------------------------------------------------- | :-------------------------------- | :-----: |
-|  [01]   | toolbar items    | `ColourRange` + `BarItemSpec` + `BarMutation` + `BarPass` | fold arms inside the gate         |   19    |
+|  [01]   | toolbar items    | `ColourRange` + `BarItemSpec` + `BarMutation` + `BarPass` | fold arms inside the gate         |   21    |
 |  [02]   | input panel      | `PanelControl` + `PanelPlan` + `PanelOp`                  | `Settle → Fin<ChromeReceipt>`     |   11    |
 |  [03]   | tooltips         | `TooltipContent` + `TooltipIntent` + `Painters`           | overload dispatch inside the gate |    7    |
 |  [04]   | floating buttons | `FloatSpec` + `FloatMutation` + `FloatOp`                 | `Settle → Fin<ChromeReceipt>`     |   16    |
@@ -417,7 +426,7 @@ flowchart LR
 
 `EtoDispatch`, `Op`, `Fault`, `Lease<T>`, and `IIcon` are composed upstream owners; `InputPanel.FindBar`, the instance `Frame`, `FloatingButtonLayout`, the `FloatingButton` constructor, and the `Position*`/`*Ux`/`AnchorChanged`/`ColourChanged`/`StateChanged` members are internal or absent host surfaces no fence composes.
 
-RESEARCH: the `Nomen`/`BarShortcut` mint shapes and the `BarStyle` value roster — both transport as caller-held values with zero gate impact; the set-ability of `RadioToggle.OnText`/`OffText`/`Optional` and `TextField.Placeholder` — each confirmed-settable member lands as one present-slot `BarMutation` case with the gate unchanged.
+Mint shapes are settled host truth: `Nomen(string name, string info, string chapter, string section, int slot, Rank rank, string sortKey)` beside its `Compose`/`Categorise` statics, `BarShortcut(Keys, string)`/`BarShortcut(char, string)`, and `BarStyle`'s two-value roster (`Default`, `DefaultWithoutCategories`) — each transports as a caller-held value with zero gate impact, and the settable dress members ride the `RadioDress`/`FieldDress` present-slot cases.
 
 ## [08]-[RESEARCH]
 

@@ -59,7 +59,9 @@ Every row is consumed by `viewer/scene/glb`.
 |  [04]   | `AnimationMixer` / `AnimationClip` / `AnimationAction` / `Clock` | animation     | GLB tracks on a per-frame mixer + `Clock`             |
 |  [05]   | `HDRLoader` / `EXRLoader` (`three/addons`)                       | HDR ingest    | `viewer/scene` — in-memory equirect decode            |
 |  [06]   | `RoomEnvironment` (`three/addons`)                               | env floor     | `viewer/scene` — analytic dome floor, `dispose()`     |
-|  [07]   | `GLTFExporter` (`three/addons/exporters/GLTFExporter.js`)        | GLB export    | `parseAsync(input: Object3D \| Object3D[], options?: GLTFExporterOptions) -> Promise<ArrayBuffer \| {[key: string]: unknown}>`; the `binary: true` GLB arm is NOT discriminated by the return type — the caller narrows on its own option |
+|  [07]   | `GLTFExporter` (`three/addons/exporters/GLTFExporter.js`)        | GLB export    | GLB egress through `parseAsync`                       |
+
+- `GLTFExporter.parseAsync(Object3D | Object3D[], GLTFExporterOptions?) -> Promise<ArrayBuffer | Record<string, unknown>>`: `binary: true` selects the GLB arm without narrowing the return type, so the caller discriminates on its own option.
 
 ## [03]-[ENTRYPOINTS]
 
@@ -167,10 +169,10 @@ Every row is consumed by `viewer/scene/glb`.
 |  [08]   | `new BatchedMesh(maxInstances, maxVertices, maxIndices, material)`               | batched build   | distinct geoms, one draw call |
 |  [09]   | `.addGeometry(geo)` / `.addInstance(geoId)`                                      | batched add     | geometry + instance ids       |
 |  [10]   | `.setMatrixAt(i, matrix)` / `.setVisibleAt(i, flag)` / `.getVisibleAt(i)`        | batched slot    | per-instance matrix + visible |
-|  [11]   | `.setColorAt(i, Color \| Vector4)` / `.setGeometryIdAt(i, geoId)`                 | batched slot    | per-instance tint + geometry  |
+|  [11]   | `.setColorAt(i, Color \| Vector4)` / `.setGeometryIdAt(i, geoId)`                | batched slot    | per-instance tint + geometry  |
 |  [12]   | `renderer.initTexture(texture)`                                                  | eager upload    | upload ahead of first frame   |
 |  [13]   | `.getMatrixAt(i, Matrix4)` / `.getGeometryIdAt(i)` / `.instanceCount`            | batched read    | per-instance cull bound, [13] |
-|  [14]   | `.getBoundingSphereAt(geoId, Sphere): Sphere \| null` / `.maxInstanceCount`       | batched bound   | geometry sphere, capacity     |
+|  [14]   | `.getBoundingSphereAt(geoId, Sphere): Sphere \| null` / `.maxInstanceCount`      | batched bound   | geometry sphere, capacity     |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

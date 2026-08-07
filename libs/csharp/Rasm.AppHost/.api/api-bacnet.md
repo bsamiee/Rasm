@@ -51,15 +51,17 @@
 
 [PUBLIC_TYPE_SCOPE]: schedule and calendar objects — the BACnet Schedule/Calendar encode-decode family
 
-| [INDEX] | [SYMBOL]                                                                     | [TYPE_FAMILY] | [CAPABILITY]                                                                        |
-| :-----: | :--------------------------------------------------------------------------- | :------------ | :---------------------------------------------------------------------------------- |
-|  [01]   | `BacnetCalendarEntry`                                                        | class         | one date, `BacnetDateRange`, or `BacnetWeekNDay` period; `IsAFittingDate(DateTime)` |
-|  [02]   | `BacnetWeekNDay`                                                             | struct        | month + week-of-month + day-of-week recurrence; `IsAFittingDate(DateTime)`          |
-|  [03]   | `BacnetDailySchedule`                                                        | class         | `List<BacnetTimeValue> DaySchedule` — one weekday's setpoint ladder                 |
-|  [04]   | `BacnetSpecialEvent`                                                         | class         | a calendar entry or `CalendarReference` plus time values at `EventPriority`         |
-|  [05]   | `BacnetTimeValue`                                                            | struct        | `TimeSpan Time` + `BacnetValue Value` — one schedule transition                     |
-|  [06]   | `BacnetTime` / `BacnetDateTime`                                              | struct        | wire time and date-time primitives                                                  |
-|  [07]   | `BacnetMonthOptions` / `BacnetWeekOfMonthOptions` / `BacnetDayOfWeekOptions` | enum          | the `AnyMonth`/`AnyWeek`/any-day wildcards `BacnetWeekNDay` composes                |
+| [INDEX] | [SYMBOL]                        | [TYPE_FAMILY] | [CAPABILITY]                                                                        |
+| :-----: | :------------------------------ | :------------ | :---------------------------------------------------------------------------------- |
+|  [01]   | `BacnetCalendarEntry`           | class         | one date, `BacnetDateRange`, or `BacnetWeekNDay` period; `IsAFittingDate(DateTime)` |
+|  [02]   | `BacnetWeekNDay`                | struct        | month + week-of-month + day-of-week recurrence; `IsAFittingDate(DateTime)`          |
+|  [03]   | `BacnetDailySchedule`           | class         | `List<BacnetTimeValue> DaySchedule` — one weekday's setpoint ladder                 |
+|  [04]   | `BacnetSpecialEvent`            | class         | a calendar entry or `CalendarReference` plus time values at `EventPriority`         |
+|  [05]   | `BacnetTimeValue`               | struct        | `TimeSpan Time` + `BacnetValue Value` — one schedule transition                     |
+|  [06]   | `BacnetTime` / `BacnetDateTime` | struct        | wire time and date-time primitives                                                  |
+|  [07]   | `BacnetMonthOptions`            | enum          | month wildcard (`AnyMonth`) `BacnetWeekNDay` composes                               |
+|  [08]   | `BacnetWeekOfMonthOptions`      | enum          | week-of-month wildcard (`AnyWeek`)                                                  |
+|  [09]   | `BacnetDayOfWeekOptions`        | enum          | day-of-week wildcard                                                                |
 
 - Every member of this family implements `ASN1.IEncode`/`ASN1.IDecode`, so a schedule reads and writes through the same `Encode(EncodeBuffer)`/`Decode(byte[], int, uint)` pair the property codec uses — no second serializer.
 
@@ -86,44 +88,46 @@
 
 [ENTRYPOINT_SCOPE]: property read/write and COV
 
-`BacnetClient` confirmed services all await: each trails `byte invokeId = 0` and `CancellationToken`, returns its decoded result, and THROWS on failure.
+`BacnetClient` confirmed services all await: each is an instance member opening on `BacnetAddress`, trails `byte invokeId = 0` and `CancellationToken`, returns its decoded result, and THROWS on failure.
 
-| [INDEX] | [SURFACE]                                                                                                            | [SHAPE]  | [CAPABILITY]                          |
-| :-----: | :------------------------------------------------------------------------------------------------------------------- | :------- | :------------------------------------ |
-|  [01]   | `ReadPropertyAsync(BacnetAddress, BacnetObjectId, BacnetPropertyIds, uint) -> IList<BacnetValue>`                    | instance | confirmed poll at an array index      |
-|  [02]   | `WritePropertyAsync(BacnetAddress, BacnetObjectId, BacnetPropertyIds, IEnumerable<BacnetValue>, byte?, uint)`        | instance | confirmed write at a priority slot    |
-|  [03]   | `SubscribeCOVAsync(BacnetAddress, BacnetObjectId, uint, bool, bool, uint)`                                           | instance | subscribe or cancel object COV        |
-|  [04]   | `SubscribePropertyAsync(BacnetAddress, BacnetObjectId, BacnetPropertyReference, uint, bool, bool)`                   | instance | subscribe or cancel property COV      |
-|  [05]   | `ReadRangeAsync(BacnetAddress, BacnetObjectId, DateTime, uint) -> BacnetReadRangeResult`                             | instance | trend range read by time              |
-|  [06]   | `ReadRangeAsync(BacnetAddress, BacnetObjectId, uint, uint) -> BacnetReadRangeResult`                                 | instance | trend range read by position          |
-|  [07]   | `ReadPropertyMultipleAsync(BacnetAddress, IList<BacnetReadAccessSpecification>) -> IList<BacnetReadAccessResult>`    | instance | batched read over an access-spec list |
-|  [08]   | `ReadPropertyMultipleAsync(BacnetAddress, BacnetObjectId, params BacnetPropertyIds[]) -> IList<BacnetPropertyValue>` | instance | one object's property set             |
-|  [09]   | `WritePropertyMultipleAsync(BacnetAddress, BacnetObjectId, ICollection<BacnetPropertyValue>)`                        | instance | batched write on one object           |
-|  [10]   | `WritePropertyMultipleAsync(BacnetAddress, ICollection<BacnetReadAccessResult>)`                                     | instance | batched write across objects          |
+| [INDEX] | [SURFACE]                                                                                             | [CAPABILITY]                     |
+| :-----: | :---------------------------------------------------------------------------------------------------- | :------------------------------- |
+|  [01]   | `ReadPropertyAsync(BacnetObjectId, BacnetPropertyIds, uint) -> IList<BacnetValue>`                    | confirmed poll at an array index |
+|  [02]   | `WritePropertyAsync(BacnetObjectId, BacnetPropertyIds, IEnumerable<BacnetValue>, byte?, uint)`        | confirmed priority-slot write    |
+|  [03]   | `SubscribeCOVAsync(BacnetObjectId, uint, bool, bool, uint)`                                           | subscribe or cancel object COV   |
+|  [04]   | `SubscribePropertyAsync(BacnetObjectId, BacnetPropertyReference, uint, bool, bool)`                   | subscribe or cancel property COV |
+|  [05]   | `ReadRangeAsync(BacnetObjectId, DateTime, uint) -> BacnetReadRangeResult`                             | trend range read by time         |
+|  [06]   | `ReadRangeAsync(BacnetObjectId, uint, uint) -> BacnetReadRangeResult`                                 | trend range read by position     |
+|  [07]   | `ReadPropertyMultipleAsync(IList<BacnetReadAccessSpecification>) -> IList<BacnetReadAccessResult>`    | batched access-spec read         |
+|  [08]   | `ReadPropertyMultipleAsync(BacnetObjectId, params BacnetPropertyIds[]) -> IList<BacnetPropertyValue>` | one object's property set        |
+|  [09]   | `WritePropertyMultipleAsync(BacnetObjectId, ICollection<BacnetPropertyValue>)`                        | batched write on one object      |
+|  [10]   | `WritePropertyMultipleAsync(ICollection<BacnetReadAccessResult>)`                                     | batched write across objects     |
 
 - `WritePropertyAsync`'s `byte? priority` selects the BACnet command priority-array slot and throws `ArgumentOutOfRangeException` outside 1-16; a null value at a held slot is the RELEASE, so take-and-release is one member, and a priority-less write lands at the device default no later write can distinguish.
 - `SubscribeCOVAsync`/`SubscribePropertyAsync` carry the unsubscribe on their `cancel` parameter, so subscribe and detach are one member, and `issueConfirmedNotifications` selects the confirmed versus unconfirmed notification service.
 - `ReadPropertyMultipleAsync(BacnetAddress, BacnetObjectId, params BacnetPropertyIds[])` is the ONE member carrying no `CancellationToken`: its params array occupies the trailing slot, so it runs to the client's own timeout-and-retry bound and a caller needing cancellation takes the `IList<BacnetPropertyReference>` overload.
 - Correlation is by invoke id alone, so many requests ride one `BacnetClient` concurrently with no caller lock, and a segmented response re-arms the timeout PER SEGMENT — the bound is per segment, never per transfer.
 
-[ENTRYPOINT_SCOPE]: object lifecycle, alarm, file, and vendor services — same awaited shape and throw contract
+[ENTRYPOINT_SCOPE]: object lifecycle, alarm, file, and vendor services — same awaited shape and throw contract, every member an instance call opening on `BacnetAddress`
 
-| [INDEX] | [SURFACE]                                                                                                                              | [SHAPE]  | [CAPABILITY]                             |
-| :-----: | :------------------------------------------------------------------------------------------------------------------------------------- | :------- | :--------------------------------------- |
-|  [01]   | `CreateObjectAsync(BacnetAddress, BacnetObjectId, ICollection<BacnetPropertyValue>)`                                                   | instance | create a device object                   |
-|  [02]   | `DeleteObjectAsync(BacnetAddress, BacnetObjectId)`                                                                                     | instance | delete a device object                   |
-|  [03]   | `AddListElementAsync` / `RemoveListElementAsync(BacnetAddress, BacnetObjectId, BacnetPropertyReference, IList<BacnetValue>)`           | instance | mutate a list-valued property            |
-|  [04]   | `GetAlarmSummaryOrEventAsync(BacnetAddress, bool) -> IList<BacnetGetEventInformationData>`                                             | instance | alarm summary or event information       |
-|  [05]   | `AlarmAcknowledgementAsync(BacnetAddress, BacnetObjectId, BacnetEventStates, string, BacnetGenericTime, BacnetGenericTime)`            | instance | acknowledge an alarm                     |
-|  [06]   | `SendConfirmedEventNotificationAsync(BacnetAddress, BacnetEventNotificationData)`                                                      | instance | push a confirmed event notification      |
-|  [07]   | `NotifyAsync(BacnetAddress, uint, uint, BacnetObjectId, uint, bool, IList<BacnetPropertyValue>)`                                       | instance | issue a COV notification as server       |
-|  [08]   | `ReadFileAsync(BacnetAddress, BacnetObjectId, int, uint) -> BacnetReadFileResult`                                                      | instance | atomic file read                         |
-|  [09]   | `WriteFileAsync(BacnetAddress, BacnetObjectId, int, int, byte[]) -> int`                                                               | instance | atomic file write                        |
-|  [10]   | `PrivateTransferAsync(BacnetAddress, uint, uint, byte[]) -> BacnetPrivateTransferResult`                                               | instance | vendor-proprietary confirmed transfer    |
-|  [11]   | `ReinitializeAsync(BacnetAddress, BacnetReinitializedStates, string)`                                                                  | instance | device reinitialize under a password     |
-|  [12]   | `DeviceCommunicationControlAsync(BacnetAddress, uint, uint, string)`                                                                   | instance | enable/disable device communication      |
-|  [13]   | `LifeSafetyOperationAsync(BacnetAddress, BacnetObjectId, string, BacnetLifeSafetyOperations)`                                          | instance | life-safety command                      |
-|  [14]   | `RawEncodedDecodedPropertyConfirmedAsync(BacnetAddress, BacnetObjectId, BacnetPropertyIds, BacnetConfirmedServices, byte[]) -> byte[]` | instance | raw-APDU escape for an uncovered service |
+| [INDEX] | [SURFACE]                                                                                    | [CAPABILITY]                             |
+| :-----: | :------------------------------------------------------------------------------------------- | :--------------------------------------- |
+|  [01]   | `CreateObjectAsync(BacnetObjectId, ICollection<BacnetPropertyValue>)`                        | create a device object                   |
+|  [02]   | `DeleteObjectAsync(BacnetObjectId)`                                                          | delete a device object                   |
+|  [03]   | `{Add, Remove}ListElementAsync(BacnetObjectId, BacnetPropertyReference, IList<BacnetValue>)` | mutate a list-valued property            |
+|  [04]   | `GetAlarmSummaryOrEventAsync(bool) -> IList<BacnetGetEventInformationData>`                  | alarm summary or event information       |
+|  [05]   | `AlarmAcknowledgementAsync(BacnetObjectId, BacnetEventStates, string, BacnetGenericTime ×2)` | acknowledge an alarm                     |
+|  [06]   | `SendConfirmedEventNotificationAsync(BacnetEventNotificationData)`                           | push a confirmed event notification      |
+|  [07]   | `NotifyAsync(uint, uint, BacnetObjectId, uint, bool, IList<BacnetPropertyValue>)`            | issue a COV notification as server       |
+|  [08]   | `ReadFileAsync(BacnetObjectId, int, uint) -> BacnetReadFileResult`                           | atomic file read                         |
+|  [09]   | `WriteFileAsync(BacnetObjectId, int, int, byte[]) -> int`                                    | atomic file write                        |
+|  [10]   | `PrivateTransferAsync(uint, uint, byte[]) -> BacnetPrivateTransferResult`                    | vendor-proprietary confirmed transfer    |
+|  [11]   | `ReinitializeAsync(BacnetReinitializedStates, string)`                                       | device reinitialize under a password     |
+|  [12]   | `DeviceCommunicationControlAsync(uint, uint, string)`                                        | enable/disable device communication      |
+|  [13]   | `LifeSafetyOperationAsync(BacnetObjectId, string, BacnetLifeSafetyOperations)`               | life-safety command                      |
+|  [14]   | `RawEncodedDecodedPropertyConfirmedAsync(…)`                                                 | raw-APDU escape for an uncovered service |
+
+- `RawEncodedDecodedPropertyConfirmedAsync(BacnetObjectId, BacnetPropertyIds, BacnetConfirmedServices, byte[]) -> byte[]` carries the escape signature in full.
 
 [ENTRYPOINT_SCOPE]: trend-log decode
 
@@ -153,6 +157,14 @@
 - `api-serilog-hosting.md`: `BacnetLogging.Factory` takes the host's composed `ILoggerFactory`, so BACnet transport and BVLC diagnostics land on the one host log pipeline rather than a package-private sink.
 - `api-mtconnect.md`: building-automation observations decode at this seam exactly as MTConnect machine-tool observations feed Fabrication — one decode boundary, the observation crossing as a wire row.
 - within-lib: the `bacnet` row is one `ExternalTransport` `[SmartEnum<string>]` case with its `TransportRow` (`ReadShape.Poll` with COV subscribe, `Writable: true`, an `OutboundHop` hop) and one `LiveClient` case wrapping `BacnetClient`, no bespoke poller beyond the client's confirmed-request retry.
+
+[SERIAL_LINE_CONTRACT]:
+- `IBacnetSerialTransport : IDisposable` is five members — `int BytesToRead { get; }`, `void Open()`, `void Close()`, `int Read(byte[] buffer, int offset, int length, int timeoutMs)`, `void Write(byte[] buffer, int offset, int length)`.
+- `Read`'s return is a sentinel dispatch, never a plain count: exactly `-110` (negative ETIMEDOUT; the transport's own `ETIMEDOUT = 110` const) reads as MS/TP `Timeout`/`SubTimeout` — the arm a sole master claims the token through — while any OTHER negative reads `ConnectionError` and `0` reads `ConnectionClose`, and BOTH of those log and re-enter the master loop without stopping it, so a host line answering a dead or idle bus with `0` spins a `ThreadPriority.Highest` thread at full burn; a benign timeout AND every port fault therefore answer `-110`.
+- Partial returns are legal — the 8-byte header loop and the body loop both accumulate offsets, and a started frame collapses the wait to the 80 ms inter-character gap — and `timeoutMs` is per call, so a `SerialPort`-backed line re-arms `ReadTimeout` on each entry.
+- Nothing catches around `Read`/`Write`: a thrown line fault ends the MS/TP thread permanently (`IsRunning = false`, no restart), so a host line never throws, and a swallowed write surfaces as the awaited confirmed service's own `TimeoutException` at the seam that carries it.
+- `Start()` and `StartSpyMode()` call `Open()` unguarded, so `Open` is idempotent on an open line; `Close` is reached only from `Dispose`, and ONE dedicated `IsBackground`, `ThreadPriority.Highest` thread drives every member synchronously — `FrameRecieved` alone re-dispatches on the pool.
+- `BacnetMstpProtocolTransport(IBacnetSerialTransport transport, short sourceAddress = -1, byte maxMaster = 127, byte maxInfoFrames = 1)` also exposes settable `SourceAddress`/`MaxMaster`, `IsRunning`, and the timing consts `T_NO_TOKEN` 500 / `T_REPLY_TIMEOUT` 295 / `T_USAGE_TIMEOUT` 95 / `T_FRAME_ABORT` 80 / `T_REPLY_DELAY` 250; `BacnetPtpProtocolTransport(IBacnetSerialTransport transport, bool isServer)` carries the dial-up `Password` knob.
 
 [LOCAL_ADMISSION]:
 - Point maps (object id, property id, COV lifetime, unit id) carry binding-spec policy data, never a parallel BACnet loop; the per-row retry is the `OutboundHop` breaker.

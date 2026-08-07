@@ -113,18 +113,13 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 - Anchors: `.planning/graph/graph.md` codec lane; branch `.api/networkx.md` flow family; idea `[GRAPH_NETWORK_ANALYSIS]`.
 - Tension: networkx carries the flow family only — rustworkx stays the kernel for everything it spells.
 
-[EPD_WIRE_ROWS]-[QUEUED]: land the registry-source arm and the Assessment record schema rows.
-- Capability: provider fetch rows for EC3/Ökobaudat/EPD-Norge folding into `MaterialImpact` with declared unit, module coverage, and expiry columns; the record schema stated once as the `Assessment` seam payload the Materials end decodes.
-- Shape: rows on `libs/python/data/.planning/impact/impact.md`; schema co-sign recorded at the seam cluster.
-- Unlocks: IDEAS.md [EPD_RECORD_WIRE] — audited whole-life carbon on the C# side from evidence-dated records, one EPD sourcing plane serving every estate consumer.
-- Anchors: idea `[EPD_RECORD_WIRE]`; `openepd`/`epdx` declaration arms; the content-keyed Arrow-bytes crossing.
-
 ## [02]-[CLOSED]
 
 <!-- source-only: closed task card template:
 [ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
+[EPD_WIRE_ROWS]-[COMPLETE]: realized as `impact/declaration.md` + the corpus `declaration-record` contract (`tests/contracts/MANIFEST.md` `[02.26]`) rather than widened `MaterialImpact` columns — the record schema stated ONCE at the corpus definition, the Ökobaudat/ILCD arm whole, EC3 on the axis with its date-member pin, and the Materials decode the committed consumer.
 [ENGINE_HARVEST]-[DROPPED]: folded into `[ENGINE_PROFILE_ADAPTERS]` — one arming trigger, one decoder; the DuckDB-only slice held no work the merged adapter card lacks.
 [ENGINE_PROFILE_ADAPTERS]-[COMPLETE]: `tabular/columnar#SCAN` `ProfileHarvest` gained the `duckdb` and `polars` cases carrying each provider's raw payload, so `EngineProfile.of` stays the one decoder — `_duck_profile`/`_duck_operators` fold the profiling JSON's root metrics beside its depth-first operator tree, `profiled()` arms `PRAGMA enable_profiling = 'no_output'` off `_PROFILING_MODE`, and `_polars_collect` reads `LazyFrame.profile` node spans; no engine widened the band.
 [COST_FRAME_CONSUMER]-[DROPPED]: no artifacts page consumes a cost ledger, frame, or receipt, so the priced frame stays a terminal egress advertising no reader.

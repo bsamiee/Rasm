@@ -150,20 +150,20 @@
 
 [VECTOR_IMAGE_TYPES]: `Avalonia.Media` + `Avalonia.Media.Imaging` — the retained drawing and bitmap surfaces an `Image.Source` or `IImage` consumer binds
 
-| [INDEX] | [SYMBOL]             | [TYPE_FAMILY]  | [CAPABILITY]                                            |
-| :-----: | :------------------- | :------------- | :------------------------------------------------------ |
-|  [01]   | `IImage`             | interface      | `Size` plus `Draw(context, source, dest)` — the one     |
-|         |                      |                | contract a raster and a vector product both satisfy     |
-|  [02]   | `Geometry`           | abstract class | path model with `Bounds`, `Transform`, hit tests        |
-|  [03]   | `StreamGeometry`     | class          | path-data geometry with a streaming build context       |
-|  [04]   | `Drawing`            | abstract class | retained draw node with `GetBounds()`                   |
-|  [05]   | `GeometryDrawing`    | sealed class   | geometry with its own brush and pen                     |
-|  [06]   | `ImageDrawing`       | sealed class   | an `IImage` placed in a `Rect`                          |
-|  [07]   | `DrawingGroup`       | sealed class   | children with transform, clip, opacity, effect          |
-|  [08]   | `DrawingImage`       | class          | `IImage` over a `Drawing` under an optional `Viewbox`   |
-|  [09]   | `MatrixTransform`    | sealed class   | a `Matrix` as a bindable `Transform`                    |
-|  [10]   | `Bitmap`             | class          | decoded raster, `IImage` and `IDisposable`              |
-|  [11]   | `RenderTargetBitmap` | class          | `Bitmap` a drawing context renders into                 |
+| [INDEX] | [SYMBOL]             | [TYPE_FAMILY]  | [CAPABILITY]                                          |
+| :-----: | :------------------- | :------------- | :---------------------------------------------------- |
+|  [01]   | `IImage`             | interface      | `Size` plus `Draw(context, source, dest)` — the one   |
+|  [02]   |                      |                | contract a raster and a vector product both satisfy   |
+|  [03]   | `Geometry`           | abstract class | path model with `Bounds`, `Transform`, hit tests      |
+|  [04]   | `StreamGeometry`     | class          | path-data geometry with a streaming build context     |
+|  [05]   | `Drawing`            | abstract class | retained draw node with `GetBounds()`                 |
+|  [06]   | `GeometryDrawing`    | sealed class   | geometry with its own brush and pen                   |
+|  [07]   | `ImageDrawing`       | sealed class   | an `IImage` placed in a `Rect`                        |
+|  [08]   | `DrawingGroup`       | sealed class   | children with transform, clip, opacity, effect        |
+|  [09]   | `DrawingImage`       | class          | `IImage` over a `Drawing` under an optional `Viewbox` |
+|  [10]   | `MatrixTransform`    | sealed class   | a `Matrix` as a bindable `Transform`                  |
+|  [11]   | `Bitmap`             | class          | decoded raster, `IImage` and `IDisposable`            |
+|  [12]   | `RenderTargetBitmap` | class          | `Bitmap` a drawing context renders into               |
 
 - `DrawingImage.Size` reads `Viewbox ?? Drawing?.GetBounds() ?? default`, so setting `Viewbox` pins the product extent regardless of where the drawing's own geometry lands; leaving it unset makes the extent the drawing's bounds and a non-square glyph then reports a non-square size.
 - `DrawingGroup.Children` is a `DirectProperty` returning a live `DrawingCollection`, so a group composes through a collection initializer and its `Transform` applies to every child at once.
@@ -282,15 +282,15 @@
 
 [POINTER_TYPES]: `Avalonia.Input` — the pointer identity, its per-event device state, and the digitizer properties a pen surface reads
 
-| [INDEX] | [SYMBOL]                  | [TYPE_FAMILY] | [CAPABILITY]                          |
-| :-----: | :------------------------ | :------------ | :------------------------------------ |
-|  [01]   | `IPointer`                | interface     | pointer identity and capture custody  |
-|  [02]   | `PointerType`             | enum          | `Mouse` / `Touch` / `Pen`             |
-|  [03]   | `PointerPoint`            | record struct | one positioned reading                |
-|  [04]   | `PointerPointProperties`  | record struct | button, pen, and contact device state |
-|  [05]   | `PointerUpdateKind`       | enum          | the state change that raised an event |
-|  [06]   | `PointerEventArgs`        | class         | pointer event payload base            |
-|  [07]   | `PointerDeltaEventArgs`   | class         | touchpad rotate/magnify/swipe delta   |
+| [INDEX] | [SYMBOL]                 | [TYPE_FAMILY] | [CAPABILITY]                          |
+| :-----: | :----------------------- | :------------ | :------------------------------------ |
+|  [01]   | `IPointer`               | interface     | pointer identity and capture custody  |
+|  [02]   | `PointerType`            | enum          | `Mouse` / `Touch` / `Pen`             |
+|  [03]   | `PointerPoint`           | record struct | one positioned reading                |
+|  [04]   | `PointerPointProperties` | record struct | button, pen, and contact device state |
+|  [05]   | `PointerUpdateKind`      | enum          | the state change that raised an event |
+|  [06]   | `PointerEventArgs`       | class         | pointer event payload base            |
+|  [07]   | `PointerDeltaEventArgs`  | class         | touchpad rotate/magnify/swipe delta   |
 
 - `IPointer` members: `int Id`, `IInputElement? Captured`, `PointerType Type`, `bool IsPrimary`, `void Capture(IInputElement?)` — `[NotClientImplementable]`, so a synthesized pointer is unspellable outside the framework.
 - `PointerPoint` members: `IPointer Pointer`, `PointerPointProperties Properties`, `Point Position`.
@@ -396,19 +396,19 @@
 
 [ASSET_LOOKUP_OPERATIONS]: resource and name lookup
 
-| [INDEX] | [SURFACE]                                | [SHAPE]  | [CAPABILITY]       |
-| :-----: | :--------------------------------------- | :------- | :----------------- |
-|  [01]   | `FindResource(IResourceHost, object)`                     | static   | throwing-free lookup, null when absent |
-|  [02]   | `FindResource(IResourceHost, ThemeVariant?, object)`      | static   | same read under an explicit variant    |
-|  [03]   | `TryFindResource(IResourceHost, object, out object?)`     | static   | guarded lookup, ambient variant        |
-|  [04]   | `TryFindResource(IResourceHost, object, ThemeVariant?, out object?)` | static | guarded lookup under a variant  |
-|  [05]   | `INameScope.Register`                                     | instance | name ownership                         |
-|  [06]   | `INameScope.Find`                                         | instance | named lookup                           |
-|  [07]   | `Styles.Add`                                              | instance | style admission                        |
-|  [08]   | `ResourceDictionary.Add`                                  | instance | resource admission                     |
-|  [09]   | `ResourceDictionary.TryGetValue`                          | instance | keyed value read                       |
-|  [10]   | `ResourceDictionary.AddDeferred`                          | instance | lazy admission                         |
-|  [11]   | `ResourceDictionary.AddNotSharedDeferred`                 | instance | per-read admission                     |
+| [INDEX] | [SURFACE]                                                            | [SHAPE]  | [CAPABILITY]                           |
+| :-----: | :------------------------------------------------------------------- | :------- | :------------------------------------- |
+|  [01]   | `FindResource(IResourceHost, object)`                                | static   | throwing-free lookup, null when absent |
+|  [02]   | `FindResource(IResourceHost, ThemeVariant?, object)`                 | static   | same read under an explicit variant    |
+|  [03]   | `TryFindResource(IResourceHost, object, out object?)`                | static   | guarded lookup, ambient variant        |
+|  [04]   | `TryFindResource(IResourceHost, object, ThemeVariant?, out object?)` | static   | guarded lookup under a variant         |
+|  [05]   | `INameScope.Register`                                                | instance | name ownership                         |
+|  [06]   | `INameScope.Find`                                                    | instance | named lookup                           |
+|  [07]   | `Styles.Add`                                                         | instance | style admission                        |
+|  [08]   | `ResourceDictionary.Add`                                             | instance | resource admission                     |
+|  [09]   | `ResourceDictionary.TryGetValue`                                     | instance | keyed value read                       |
+|  [10]   | `ResourceDictionary.AddDeferred`                                     | instance | lazy admission                         |
+|  [11]   | `ResourceDictionary.AddNotSharedDeferred`                            | instance | per-read admission                     |
 
 - `ThemeVariant?` null reads the host's own `ActualThemeVariant`, so a conformance sweep proving a key resolves under Light AND Dark passes each variant explicitly rather than flipping the application's requested variant between reads.
 - Every `ResourceNodeExtensions` static extends `IResourceHost`, so `Application.Current` and any `StyledElement` serve equally as the lookup root, and each no-variant arm delegates to its variant arm with null.
@@ -418,15 +418,15 @@
 
 [DYNAMIC_RESOURCE_OPERATIONS]: `ResourceNodeExtensions` and `NameScopeExtensions` statics — the code-side counterpart of `{DynamicResource}` and of a template-part read
 
-| [INDEX] | [SURFACE]                                                                | [SHAPE] | [CAPABILITY]                         |
-| :-----: | :----------------------------------------------------------------------- | :------ | :----------------------------------- |
-|  [01]   | `GetResourceObservable(IResourceHost, object, Func?)`                    | static  | re-resolving value stream off a host |
-|  [02]   | `GetResourceObservable(IResourceProvider, object, Func?)`                | static  | same stream off a provider           |
-|  [03]   | `GetResourceObservable(IResourceProvider, object, ThemeVariant?, Func?)` | static  | stream under a default variant       |
-|  [04]   | `TryGetResource(IResourceHost, object, out object?)`                     | static  | single non-tracking read             |
-|  [05]   | `IResourceNode.TryGetResource(object, ThemeVariant?, out object?)`       | instance| node-level read both statics delegate to |
-|  [06]   | `Find<T>(INameScope, string) -> T?`                                      | static  | nullable typed template-part lookup  |
-|  [07]   | `Get<T>(INameScope, string) -> T`                                        | static  | throwing typed template-part lookup  |
+| [INDEX] | [SURFACE]                                                                | [SHAPE]  | [CAPABILITY]                             |
+| :-----: | :----------------------------------------------------------------------- | :------- | :--------------------------------------- |
+|  [01]   | `GetResourceObservable(IResourceHost, object, Func?)`                    | static   | re-resolving value stream off a host     |
+|  [02]   | `GetResourceObservable(IResourceProvider, object, Func?)`                | static   | same stream off a provider               |
+|  [03]   | `GetResourceObservable(IResourceProvider, object, ThemeVariant?, Func?)` | static   | stream under a default variant           |
+|  [04]   | `TryGetResource(IResourceHost, object, out object?)`                     | static   | single non-tracking read                 |
+|  [05]   | `IResourceNode.TryGetResource(object, ThemeVariant?, out object?)`       | instance | node-level read both statics delegate to |
+|  [06]   | `Find<T>(INameScope, string) -> T?`                                      | static   | nullable typed template-part lookup      |
+|  [07]   | `Get<T>(INameScope, string) -> T`                                        | static   | throwing typed template-part lookup      |
 
 - `GetResourceObservable` is the ONE code-side dynamic read; a `SetValue` of a resolved resource seats a LocalValue that no dictionary edit re-resolves, so a code-driven consumer binds this observable and never writes the value.
 - `Find<T>` returns null for a missing or mistyped part while `Get<T>` throws, so a control resolving an optional part takes `Find` and a required-part refusal is the caller's own typed fault rather than an escaped exception.
@@ -505,15 +505,15 @@
 
 [POINTER_OPERATIONS]: the per-event pointer reads a gesture or digitizer surface takes
 
-| [INDEX] | [SURFACE]                                              | [SHAPE]  | [CAPABILITY]                    |
-| :-----: | :----------------------------------------------------- | :------- | :------------------------------ |
-|  [01]   | `PointerEventArgs.GetPosition(Visual?)`                | instance | position in a visual's frame    |
-|  [02]   | `PointerEventArgs.GetCurrentPoint(Visual?)`            | instance | the event's own reading         |
-|  [03]   | `PointerEventArgs.GetIntermediatePoints(Visual?)`      | instance | the whole coalesced burst       |
-|  [04]   | `PointerEventArgs.Properties` / `.Pointer`             | property | device state and pointer        |
-|  [05]   | `PointerEventArgs.Timestamp` / `.KeyModifiers`         | property | event instant and modifiers     |
-|  [06]   | `PointerEventArgs.PreventGestureRecognition()`         | instance | suppress downstream recognizers |
-|  [07]   | `IPointer.Capture(IInputElement?)` / `.Captured`       | instance | capture custody                 |
+| [INDEX] | [SURFACE]                                         | [SHAPE]  | [CAPABILITY]                    |
+| :-----: | :------------------------------------------------ | :------- | :------------------------------ |
+|  [01]   | `PointerEventArgs.GetPosition(Visual?)`           | instance | position in a visual's frame    |
+|  [02]   | `PointerEventArgs.GetCurrentPoint(Visual?)`       | instance | the event's own reading         |
+|  [03]   | `PointerEventArgs.GetIntermediatePoints(Visual?)` | instance | the whole coalesced burst       |
+|  [04]   | `PointerEventArgs.Properties` / `.Pointer`        | property | device state and pointer        |
+|  [05]   | `PointerEventArgs.Timestamp` / `.KeyModifiers`    | property | event instant and modifiers     |
+|  [06]   | `PointerEventArgs.PreventGestureRecognition()`    | instance | suppress downstream recognizers |
+|  [07]   | `IPointer.Capture(IInputElement?)` / `.Captured`  | instance | capture custody                 |
 
 - `GetIntermediatePoints` returns the platform's coalesced samples with the current point APPENDED LAST, and answers a one-element list carrying only the current point when the platform coalesced nothing — so it is total and `GetCurrentPoint` is the read that discards a burst, never the safer one.
 - Each intermediate point rebuilds its `PointerPointProperties` from the event's own properties with that sample's raw twist, pressure, tilt, and contact rect, so per-sample digitizer state survives the projection while the button flags stay the event's.
@@ -628,34 +628,34 @@
 
 [VECTOR_IMAGE_OPERATIONS]: retained-drawing construction, geometry parsing, and the raster round-trip an image product takes
 
-| [INDEX] | [SURFACE]                                                     | [SHAPE]  | [CAPABILITY]                     |
-| :-----: | :------------------------------------------------------------ | :------- | :------------------------------- |
-|  [01]   | `Geometry.Parse(string) -> Geometry`                          | static   | path-data to geometry            |
-|  [02]   | `StreamGeometry.Parse(string) -> StreamGeometry`              | static   | typed path-data parse            |
-|  [03]   | `Geometry.Bounds` / `GetRenderBounds(IPen)`                   | property | fill and stroke extents          |
-|  [04]   | `GeometryDrawing.{Geometry,Brush,Pen}`                        | property | geometry, fill, stroke           |
-|  [05]   | `ImageDrawing.{ImageSource,Rect}`                             | property | placed image and its box         |
-|  [06]   | `DrawingGroup.{Children,Transform,ClipGeometry,Opacity}`      | property | composed retained drawing        |
-|  [07]   | `DrawingImage.{Drawing,Viewbox}` / `.Size` / `.Invalidated`   | property | image product, extent, re-render |
-|  [08]   | `Matrix.{CreateScale,CreateTranslation,CreateRotation}`       | static   | transform factors                |
-|  [09]   | `MatrixTransform(Matrix)`                                     | ctor     | matrix as bindable transform     |
-|  [10]   | `Bitmap(Stream)` / `.PixelSize` / `.Dpi` / `.Dispose()`       | instance | decoded raster and its extents   |
-|  [11]   | `RenderTargetBitmap(PixelSize)` / `CreateDrawingContext()`    | instance | render target and its context    |
-|  [12]   | `IImage.Draw(DrawingContext, Rect, Rect)`                     | instance | source-to-destination blit       |
+| [INDEX] | [SURFACE]                                                   | [SHAPE]  | [CAPABILITY]                     |
+| :-----: | :---------------------------------------------------------- | :------- | :------------------------------- |
+|  [01]   | `Geometry.Parse(string) -> Geometry`                        | static   | path-data to geometry            |
+|  [02]   | `StreamGeometry.Parse(string) -> StreamGeometry`            | static   | typed path-data parse            |
+|  [03]   | `Geometry.Bounds` / `GetRenderBounds(IPen)`                 | property | fill and stroke extents          |
+|  [04]   | `GeometryDrawing.{Geometry,Brush,Pen}`                      | property | geometry, fill, stroke           |
+|  [05]   | `ImageDrawing.{ImageSource,Rect}`                           | property | placed image and its box         |
+|  [06]   | `DrawingGroup.{Children,Transform,ClipGeometry,Opacity}`    | property | composed retained drawing        |
+|  [07]   | `DrawingImage.{Drawing,Viewbox}` / `.Size` / `.Invalidated` | property | image product, extent, re-render |
+|  [08]   | `Matrix.{CreateScale,CreateTranslation,CreateRotation}`     | static   | transform factors                |
+|  [09]   | `MatrixTransform(Matrix)`                                   | ctor     | matrix as bindable transform     |
+|  [10]   | `Bitmap(Stream)` / `.PixelSize` / `.Dpi` / `.Dispose()`     | instance | decoded raster and its extents   |
+|  [11]   | `RenderTargetBitmap(PixelSize)` / `CreateDrawingContext()`  | instance | render target and its context    |
+|  [12]   | `IImage.Draw(DrawingContext, Rect, Rect)`                   | instance | source-to-destination blit       |
 
 - `Matrix` composes row-vector first: `a * b` applies `a` then `b`, so a place-then-mirror fold reads left to right.
 - `Bitmap` and `RenderTargetBitmap` are `IDisposable` over platform surfaces while `DrawingImage` is not, so a cache holding mixed products releases through the disposable interface rather than a per-type branch.
 
 [CURSOR_OPERATIONS]: pointer construction and the inherited slot every interaction surface writes
 
-| [INDEX] | [SURFACE]                             | [SHAPE]  | [CAPABILITY]                    |
-| :-----: | :------------------------------------ | :------- | :------------------------------ |
-|  [01]   | `Cursor(StandardCursorType)`          | ctor     | platform pointer                |
-|  [02]   | `Cursor(Bitmap, PixelPoint)`          | ctor     | drawn pointer with hotspot      |
-|  [03]   | `Cursor.Default`                      | static   | the arrow pointer               |
-|  [04]   | `Cursor.Parse(string)`                | static   | case-insensitive member parse   |
-|  [05]   | `Cursor.Dispose()`                    | instance | platform handle release         |
-|  [06]   | `InputElement.Cursor`                 | property | `StyledProperty<Cursor?>` slot  |
+| [INDEX] | [SURFACE]                    | [SHAPE]  | [CAPABILITY]                   |
+| :-----: | :--------------------------- | :------- | :----------------------------- |
+|  [01]   | `Cursor(StandardCursorType)` | ctor     | platform pointer               |
+|  [02]   | `Cursor(Bitmap, PixelPoint)` | ctor     | drawn pointer with hotspot     |
+|  [03]   | `Cursor.Default`             | static   | the arrow pointer              |
+|  [04]   | `Cursor.Parse(string)`       | static   | case-insensitive member parse  |
+|  [05]   | `Cursor.Dispose()`           | instance | platform handle release        |
+|  [06]   | `InputElement.Cursor`        | property | `StyledProperty<Cursor?>` slot |
 
 - Both constructors resolve `ICursorFactory` from the application locator, so cursor construction throws before the platform initializes and belongs behind a typed trap.
 - `InputElement.CursorProperty` registers with inheritance on, so one write at an interaction root reaches every descendant and a per-control cursor write is only for the descendants that differ.

@@ -1,46 +1,48 @@
 # [RASM_FABRICATION_WELD_SEQUENCE]
 
-`Sequence.Order` turns one admitted weld-and-assembly census into a precedence-safe, thermally feasible, motion-timed schedule. Candidate space derives from parameterized traversal kernels and physical segment bands; tack and deposit events advance one thickness-scaled thermal state, and each candidate carries predicted sweep, camber, twist, angular distortion, thermal excursions, robot warnings, and elapsed time. Selected `WeldSchedule` preserves the complete ranking evidence.
+`Sequence.Order` turns one admitted weld-and-assembly census into a precedence-safe, thermally feasible, motion-timed schedule. Candidate space derives from parameterized traversal kernels and physical segment bands; tack and deposit events advance one thickness-scaled thermal state, and each candidate carries predicted displacement, thermal excursions, elapsed time, and warnings. The selected `WeldSchedule` preserves the complete ranking evidence.
 
-Precedence is a partial order, never a serial rank: `JointPrecedence` folds `AssemblyPlan.Precedence` into a per-joint depth, so joints sharing a depth interleave freely under the traversal arm while a real precedence path stays ordered. `TorchFrame.StationMm` is the station authority and `JointAction` stages against `Backgouge.BeforeSide`, so backgouging and backing removal land between the sides they gate rather than ahead of every deposit.
+The scheduling row is `Joining/weld`'s own `DepositSegment`: a station-indexed interval owning its frames and its one commanded move, so ordering, subdivision, and the distortion moment arm read the admitted seam position and never index-join a commanded path against a frame roster the arc program already lengthened. `DepositSegment.Window` is the ONE sub-interval geometry, so subdividing an orbital deposit for a thermal band keeps it circular.
 
-`WeldPlan`, `AssemblyPlan`, and `ProcessBudget.Joining` enter once through `SequenceRequest`; `WeldSchedule.TotalS` remains the estimation clock projection. Compiled robot programs contribute target timing, planned cycle duration, and warnings, while `Program.Errors` close aggregate admission without moving kinematics ownership; `QuikGraph` owns precedence and `CSparse` owns the inherent-strain solve over `PrecedenceKind`-weighted restraints.
+Precedence is a partial order, never a serial rank: `JointPrecedence` folds `AssemblyPlan.Precedence` into a per-joint level through `DagShortestPathAlgorithm` under `DistanceRelaxers.CriticalDistance`, so joints sharing a level interleave freely under the traversal arm while a real precedence path stays ordered, and a cyclic census refuses carrying its strongly-connected component MEMBERS.
+
+`DistortionSource` and `DisplacementReceipt` are this page's PRODUCED shapes: thermal shrinkage per pass, clamp preload, and stage release enter one stiffness assembly, and one `CholeskySparse` factor over `SparseMatrix.FromTriplets` serves every candidate solve — `Fixturing/assembly` tolerance chains and `Fixturing/setups` datum-transfer budgets consume the ONE receipt. Timing evidence enters as the provider-free `CellTiming` census `Kinematics/cell` publishes off its compiled program, keyed here onto the weld pass that compiled it; this page names no robot type and holds no provider crossing.
 
 ## [01]-[INDEX]
 
-- [02]-[SEQUENCE_REQUEST]: admission, dimensional policy, generated candidate space, and motion evidence.
-- [03]-[SCHEDULE_FOLD]: graph reduction, thermal-resource fold, distortion solve, candidate ranking, and receipt projection.
+- [02]-[SEQUENCE_REQUEST]: admission, traversal vocabulary, dimensional policy, the generated candidate space, and the provider-free motion timing.
+- [03]-[DISTORTION_FIELD]: the distortion source family, the stiffness assembly over the kernel sparse owners, and the displacement receipt every fixturing consumer reads.
+- [04]-[SCHEDULE_FOLD]: precedence levels, segment derivation and subdivision, the thermal-resource fold, candidate ranking, and receipt projection.
 
 ## [02]-[SEQUENCE_REQUEST]
 
-- Owner: `SequenceRequest` admits the aggregate correspondence between deposits, assembly nodes, thermal limits, policy, and optional compiled motion evidence.
-- Owner: `SequencePolicy` owns tack, thickness-scaled thermal, action-time, inherent-strain, feasibility-limit, candidate-generation, and multi-objective scoring values as generated invariant owners.
-- Owner: `WorkSeed` carries unresolved policy input before clock and thermal evaluation; `ScheduledWork` carries public timing and physical evidence after that fold, so their distinct payload timing keeps both shapes.
-- Cases: `DistortionOrder` is the closed traversal family; each case carries only the segment, stride, block, origin, direction, and side-barrier evidence its ordering arm consumes.
-- Law: `InherentStrainLaw.RestraintStiffness` is a `PrecedenceKind`-keyed row map, so a datum constraint and a handling constraint contribute different coupling to the same solve.
-- Law: `CandidateLaw.Ceiling` truncates the generated product deterministically, so band, stride, block, and origin breadth grows without an unbounded candidate sweep.
-- Exemption: generated admission and `RobotTiming.From` are boundary statements; `CandidateLaw.Generate` and `Sequence` graph, geometry, scheduling, and sparse folds are measured kernels.
-- Entry: `Sequence.Order` accepts only `SequenceRequest`; decoded or foreign material re-enters through `SequenceRequest.Validate`.
-- Packages: `Thinktecture.Runtime.Extensions` owns admission and closed dispatch; `UnitsNet` owns length, speed, temperature, energy, power, angle, and duration; `LanguageExt.Core` owns accumulated admission and immutable folds; `QuikGraph` owns precedence; `CSparse` owns sparse factorization; `Robots` owns compiled target timing.
-- Growth: a traversal primitive is one `DistortionOrder` case, while operating breadth grows through parameter ranges on `CandidateLaw` without new named strategies or entrypoints.
-- Boundary: weld geometry, station, and realized heat input remain `WeldPlan` evidence, assembly remains the precedence authority, and robot compilation remains a kinematics concern.
+- Owner: `SequenceRequest` admits the aggregate correspondence between deposits, assembly nodes, thermal limits, policy, clamp preloads, and optional motion evidence; `ClampPreload` carries the gripped member, its force, and the release step that relaxes it; `SequencePolicy` owns tack, thickness-scaled thermal, action-time, inherent-strain, feasibility-limit, candidate-generation, and multi-objective scoring values; `DistortionOrder` closes the traversal family; `MotionTiming` owns the provider-free timing census.
+- Cases: each `DistortionOrder` case carries only the segment band, stride, block, origin, direction, and side-barrier evidence its ordering arm consumes.
+- Law: ordering is a COMPARATOR COLUMN, not six bodies. Every arm sorts by precedence level, then by side barrier, then by the case's own primary and secondary projections — so a new traversal primitive supplies two projections rather than a re-spelled `OrderBy` chain whose first two keys drift from its siblings.
+- Law: `CandidateLaw.Ceiling` truncates the generated product BEFORE materialization — the four families concatenate as a lazy stream and `Take` bounds it, so band, stride, block, and origin breadth grows without a full sweep the ceiling then discards.
+- Law: `MotionTiming` is provider-free by construction. `MotionTiming.Of` keys the `CellTiming` census a compiled pass published onto the `MotionKey` that requested it, so the station ordinal stays the producer's and the weld identity stays this page's; a compiled program's own error set refuses at its producing boundary, so this page names no `Robots` type and the `Rhino3dm` alias boundary keeps its single package crossing at `Kinematics/cell`.
+- Exemption: generated admission hooks are boundary statements; `CandidateLaw.Generate` is the measured product kernel.
+- Entry: `Sequence.Order` accepts only `SequenceRequest`; decoded or foreign material re-enters through `SequenceRequest.Admit`.
+- Packages: Thinktecture.Runtime.Extensions owns admission and closed dispatch; UnitsNet owns length, speed, temperature, energy, angle, and duration; LanguageExt.Core owns accumulated admission and immutable folds; QuikGraph owns precedence; `Rasm.Element` supplies `AdmissionSlots`; `Rasm.Numerics` owns the sparse assembly and factorization; `Rasm.Fabrication.Process` supplies `RunWarning` and the fault band; `Kinematics/cell` supplies `CellTiming` and `CellSpanTiming`.
+- Boundary: weld geometry, station, and realized heat input remain `WeldPlan` evidence, assembly remains the precedence authority, and motion compilation remains a kinematics concern.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
-using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
-using CSparse;
-using CSparse.Double.Factorization;
-using CSparse.Storage;
 using LanguageExt;
 using LanguageExt.Common;
+using LanguageExt.Traits;
 using QuikGraph;
 using QuikGraph.Algorithms;
+using QuikGraph.Algorithms.Observers;
+using QuikGraph.Algorithms.ShortestPath;
+using Rasm.Domain;
 using Rasm.Fabrication.Fixturing;
+using Rasm.Fabrication.Kinematics;
 using Rasm.Fabrication.Process;
+using Rasm.Numerics;
 using Rhino.Geometry;
-using Robots;
 using Thinktecture;
 using UnitsNet;
 using UnitsNet.Units;
@@ -68,40 +70,47 @@ public abstract partial record DistortionOrder {
         cascade: static value => value.Segment,
         wandering: static value => value.Segment);
 
-    public Seq<WeldSegment> Arrange(Seq<WeldSegment> segments) => Switch(
-        state: segments,
-        progression: static (rows, order) => toSeq(rows.AsEnumerable()
+    public bool SideBarrier => Switch(
+        progression: static value => value.SideBarrier,
+        residue: static value => value.SideBarrier,
+        centerOut: static value => value.SideBarrier,
+        block: static value => value.SideBarrier,
+        cascade: static value => value.SideBarrier,
+        wandering: static value => value.SideBarrier);
+
+    // The two case-owned ordering projections. Precedence level and side barrier lead EVERY arm, so they live on the
+    // shared comparator and a new traversal primitive supplies these two columns rather than a fourth sort chain.
+    private Func<WeldSegment, double> Primary => Switch(
+        progression: static order => segment => order.Reverse ? -segment.Station.Meters : segment.Station.Meters,
+        residue: static order => segment => segment.Sequence % order.Stride,
+        centerOut: static order => segment => UnitMath.Abs(segment.Station - order.Origin).Meters,
+        block: static order => segment => (int)(segment.Station.Meters / order.Segment.Meters) / order.Size,
+        cascade: static order => segment => segment.Pass.Layer + (segment.Sequence / (double)order.Stride),
+        wandering: static order => segment => UnitMath.Abs(segment.Station - order.Origin).Meters);
+
+    private Func<WeldSegment, double> Secondary => Switch(
+        progression: static _ => static _ => 0.0,
+        residue: static order => segment => order.Reverse ? -segment.Sequence : segment.Sequence,
+        centerOut: static order => segment => (segment.Station < order.Origin ? 0 : 1) ^ (order.Reverse ? 1 : 0),
+        block: static order => segment => order.Reverse ? -segment.Sequence : segment.Sequence,
+        cascade: static order => segment => order.Reverse ? -segment.Station.Meters : segment.Station.Meters,
+        wandering: static order => segment => ((segment.Pass.Layer + segment.Side) % 2) ^ (order.Reverse ? 1 : 0));
+
+    public Seq<WeldSegment> Arrange(Seq<WeldSegment> segments) {
+        Func<WeldSegment, double> primary = Primary;
+        Func<WeldSegment, double> secondary = Secondary;
+        bool barrier = SideBarrier;
+        return toSeq(segments.AsEnumerable()
             .OrderBy(static segment => segment.Precedence)
-            .ThenBy(segment => order.SideBarrier ? segment.Side : 0)
-            .ThenBy(segment => order.Reverse ? -segment.Station.Meters : segment.Station.Meters)),
-        residue: static (rows, order) => toSeq(rows.AsEnumerable()
-            .OrderBy(static segment => segment.Precedence)
-            .ThenBy(segment => order.SideBarrier ? segment.Side : 0)
-            .ThenBy(segment => segment.Sequence % order.Stride)
-            .ThenBy(segment => order.Reverse ? -segment.Sequence : segment.Sequence)),
-        centerOut: static (rows, order) => toSeq(rows.AsEnumerable()
-            .OrderBy(static segment => segment.Precedence)
-            .ThenBy(segment => order.SideBarrier ? segment.Side : 0)
-            .ThenBy(segment => UnitMath.Abs(segment.Station - order.Origin))
-            .ThenBy(segment => (segment.Station < order.Origin ? 0 : 1) ^ (order.Reverse ? 1 : 0))),
-        block: static (rows, order) => toSeq(rows.AsEnumerable()
-            .OrderBy(static segment => segment.Precedence)
-            .ThenBy(segment => order.SideBarrier ? segment.Side : 0)
-            .ThenBy(segment => (int)(segment.Station.Meters / order.Segment.Meters) / order.Size)
-            .ThenBy(segment => order.Reverse ? -segment.Sequence : segment.Sequence)),
-        cascade: static (rows, order) => toSeq(rows.AsEnumerable()
-            .OrderBy(static segment => segment.Precedence)
-            .ThenBy(segment => order.SideBarrier ? segment.Side : 0)
-            .ThenBy(segment => segment.Pass.Layer + (segment.Sequence / order.Stride))
-            .ThenBy(segment => order.Reverse ? -segment.Station.Meters : segment.Station.Meters)),
-        wandering: static (rows, order) => toSeq(rows.AsEnumerable()
-            .OrderBy(static segment => segment.Precedence)
-            .ThenBy(segment => order.SideBarrier ? segment.Side : 0)
-            .ThenBy(segment => UnitMath.Abs(segment.Station - order.Origin))
-            .ThenBy(segment => ((segment.Pass.Layer + segment.Side) % 2) ^ (order.Reverse ? 1 : 0))));
+            .ThenBy(segment => barrier ? segment.Side : 0)
+            .ThenBy(primary)
+            .ThenBy(secondary));
+    }
 }
 
+// --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
 [ComplexValueObject]
+[ValidationError<FabricationFault>]
 [StructLayout(LayoutKind.Auto)]
 public readonly partial struct CandidateLaw {
     public Seq<Length> SegmentBands { get; }
@@ -114,112 +123,102 @@ public readonly partial struct CandidateLaw {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref ValidationError? validationError,
+        ref FabricationFault? validationError,
         ref Seq<Length> segmentBands,
         ref Seq<int> strides,
         ref Seq<int> blockSizes,
         ref Seq<double> originFractions,
         ref bool reversePairs,
         ref bool preserveSideBarriers,
-        ref int ceiling) =>
-        validationError = segmentBands.IsEmpty
-            || segmentBands.Exists(static value => !double.IsFinite(value.Meters) || value <= Length.Zero)
+        ref int ceiling) {
+        if (segmentBands.IsEmpty || segmentBands.Exists(static value => !Witness.Positive(value.Meters))
             || strides.IsEmpty || strides.Exists(static value => value <= 0)
             || blockSizes.IsEmpty || blockSizes.Exists(static value => value <= 0)
-            || originFractions.IsEmpty || originFractions.Exists(static value => !double.IsFinite(value) || value is < 0.0 or > 1.0)
-            || ceiling <= 0
-            ? new ValidationError(message: "candidate-law")
-            : null;
+            || originFractions.IsEmpty
+            || originFractions.Exists(static value => !double.IsFinite(value) || value is < 0.0 or > 1.0)
+            || ceiling <= 0)
+            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Joining, "candidate-law");
+    }
 
+    // The ceiling bounds the STREAM: the four families concatenate lazily and `Take` truncates before any candidate
+    // materializes, so widening a breadth column never pays for orders the ceiling immediately discards.
     public Fin<Seq<DistortionOrder>> Generate(Length extent) {
-        Seq<bool> directions = ReversePairs ? Seq(false, true) : Seq(false);
-        Seq<DistortionOrder> progression =
+        if (!Witness.Positive(extent.Meters))
+            return Fin.Fail<Seq<DistortionOrder>>(
+                new FabricationFault.PolicyInadmissible(FabConcern.Joining, "candidate-law:extent"));
+
+        IEnumerable<bool> directions = ReversePairs ? [false, true] : [false];
+        IEnumerable<Length> bands = SegmentBands.AsEnumerable().Select(band => UnitMath.Min(band, extent));
+        IEnumerable<DistortionOrder> progression =
             from reverse in directions
-            from segment in SegmentBands
-            select (DistortionOrder)new DistortionOrder.Progression(
-                UnitMath.Min(segment, extent),
-                reverse,
-                PreserveSideBarriers);
-        Seq<DistortionOrder> strided =
+            from band in bands
+            select (DistortionOrder)new DistortionOrder.Progression(band, reverse, PreserveSideBarriers);
+        IEnumerable<DistortionOrder> strided =
             from reverse in directions
-            from segment in SegmentBands
-            from stride in Strides
-            from order in Seq<DistortionOrder>(
-                new DistortionOrder.Residue(UnitMath.Min(segment, extent), stride, reverse, PreserveSideBarriers),
-                new DistortionOrder.Cascade(UnitMath.Min(segment, extent), stride, reverse, PreserveSideBarriers))
+            from band in bands
+            from stride in Strides.AsEnumerable()
+            from order in new DistortionOrder[] {
+                new DistortionOrder.Residue(band, stride, reverse, PreserveSideBarriers),
+                new DistortionOrder.Cascade(band, stride, reverse, PreserveSideBarriers),
+            }
             select order;
-        Seq<DistortionOrder> centered =
+        IEnumerable<DistortionOrder> centered =
             from reverse in directions
-            from segment in SegmentBands
-            from origin in OriginFractions
-            from order in Seq<DistortionOrder>(
-                new DistortionOrder.CenterOut(
-                    UnitMath.Min(segment, extent),
-                    extent * origin,
-                    reverse,
-                    PreserveSideBarriers),
-                new DistortionOrder.Wandering(
-                    UnitMath.Min(segment, extent),
-                    extent * origin,
-                    reverse,
-                    PreserveSideBarriers))
+            from band in bands
+            from fraction in OriginFractions.AsEnumerable()
+            from order in new DistortionOrder[] {
+                new DistortionOrder.CenterOut(band, extent * fraction, reverse, PreserveSideBarriers),
+                new DistortionOrder.Wandering(band, extent * fraction, reverse, PreserveSideBarriers),
+            }
             select order;
-        Seq<DistortionOrder> blocked =
+        IEnumerable<DistortionOrder> blocked =
             from reverse in directions
-            from segment in SegmentBands
-            from size in BlockSizes
-            select (DistortionOrder)new DistortionOrder.Block(
-                UnitMath.Min(segment, extent),
-                size,
-                reverse,
-                PreserveSideBarriers);
-        return !double.IsFinite(extent.Meters) || extent <= Length.Zero
-            ? Fin.Fail<Seq<DistortionOrder>>(Error.New("candidate-law:extent"))
-            : Fin.Succ((progression + strided + centered + blocked).Take(Ceiling).ToSeq());
+            from band in bands
+            from size in BlockSizes.AsEnumerable()
+            select (DistortionOrder)new DistortionOrder.Block(band, size, reverse, PreserveSideBarriers);
+        return Fin.Succ(toSeq(progression.Concat(strided).Concat(centered).Concat(blocked).Take(Ceiling)));
     }
 }
 
 [ComplexValueObject]
+[ValidationError<FabricationFault>]
 [StructLayout(LayoutKind.Auto)]
 public readonly partial struct ThermalLaw {
     public Temperature Ambient { get; }
     public Temperature Peak { get; }
     public Temperature MinimumInterpass { get; }
-    public Duration TauAtReference { get; }
+    public NodaTime.Duration TauAtReference { get; }
     public Length ReferenceThickness { get; }
-    public Duration ReheatAfter { get; }
-    public Duration ReheatDuration { get; }
+    public NodaTime.Duration ReheatAfter { get; }
+    public NodaTime.Duration ReheatDuration { get; }
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref ValidationError? validationError,
+        ref FabricationFault? validationError,
         ref Temperature ambient,
         ref Temperature peak,
         ref Temperature minimumInterpass,
-        ref Duration tauAtReference,
+        ref NodaTime.Duration tauAtReference,
         ref Length referenceThickness,
-        ref Duration reheatAfter,
-        ref Duration reheatDuration) =>
-        validationError = Seq(ambient, peak, minimumInterpass)
-                .Exists(static value => !double.IsFinite(value.DegreesCelsius))
-            || Seq(tauAtReference, reheatAfter, reheatDuration)
-                .Exists(static value => !double.IsFinite(value.Seconds))
-            || !double.IsFinite(referenceThickness.Meters)
-            || ambient >= minimumInterpass || minimumInterpass >= peak || tauAtReference <= Duration.Zero
-            || referenceThickness <= Length.Zero || reheatAfter <= Duration.Zero || reheatDuration <= Duration.Zero
-            ? new ValidationError(message: "thermal-law")
-            : null;
-
-    public Temperature Heated(Temperature initial, Energy delivered, Energy peakEnergy) {
-        double fraction = Math.Clamp(delivered.Joules / peakEnergy.Joules, 0.0, 1.0);
-        return new Temperature(
-            initial.DegreesCelsius
-            + (fraction * (Peak.DegreesCelsius - initial.DegreesCelsius)),
-            TemperatureUnit.DegreeCelsius);
+        ref NodaTime.Duration reheatAfter,
+        ref NodaTime.Duration reheatDuration) {
+        if (Seq(ambient, peak, minimumInterpass).Exists(static value => !double.IsFinite(value.DegreesCelsius))
+            || ambient >= minimumInterpass || minimumInterpass >= peak
+            || tauAtReference <= NodaTime.Duration.Zero || referenceThickness <= Length.Zero
+            || reheatAfter <= NodaTime.Duration.Zero || reheatDuration <= NodaTime.Duration.Zero)
+            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Joining, "thermal-law");
     }
+
+    // ONE heating law for every arc event. A deposit and a tack differ in delivered energy, never in the model, so
+    // neither arm hard-sets the peak: a short tack under a long pass's peak energy lands below it.
+    public Temperature Heated(Temperature initial, Energy delivered, Energy peakEnergy) => new(
+        initial.DegreesCelsius
+        + (Math.Clamp(delivered.Joules / peakEnergy.Joules, 0.0, 1.0) * (Peak.DegreesCelsius - initial.DegreesCelsius)),
+        TemperatureUnit.DegreeCelsius);
 }
 
 [ComplexValueObject]
+[ValidationError<FabricationFault>]
 [StructLayout(LayoutKind.Auto)]
 public readonly partial struct TackBand {
     public Length MaximumThickness { get; }
@@ -230,52 +229,62 @@ public readonly partial struct TackBand {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref ValidationError? validationError,
+        ref FabricationFault? validationError,
         ref Length maximumThickness,
         ref Length pitch,
         ref double lengthFactor,
         ref Length minimumLength,
-        ref Energy minimumEnergy) =>
-        validationError = Seq(maximumThickness, pitch, minimumLength)
-                .Exists(static value => !double.IsFinite(value.Meters))
-            || !double.IsFinite(minimumEnergy.Joules) || !double.IsFinite(lengthFactor)
-            || maximumThickness <= Length.Zero || pitch <= Length.Zero || lengthFactor <= 0.0
-            || minimumLength <= Length.Zero || minimumEnergy <= Energy.Zero
-            ? new ValidationError(message: "tack-band")
-            : null;
+        ref Energy minimumEnergy) {
+        if (maximumThickness <= Length.Zero || pitch <= Length.Zero || !Witness.Positive(lengthFactor)
+            || minimumLength <= Length.Zero || minimumEnergy <= Energy.Zero)
+            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Joining, "tack-band");
+    }
 }
 
+// Every joint action the plan emits carries a duration, so preheat and post-weld heat treatment occupy the clock
+// they actually consume: an action family with no row here would silently shorten every schedule that stages it.
 [ComplexValueObject]
+[ValidationError<FabricationFault>]
 [StructLayout(LayoutKind.Auto)]
 public readonly partial struct ActionDurations {
-    public Duration PrepareGroove { get; }
-    public Duration InstallBacking { get; }
-    public Duration Backgouge { get; }
-    public Duration RemoveBacking { get; }
-    public Duration Inspect { get; }
+    public NodaTime.Duration PrepareGroove { get; }
+    public NodaTime.Duration InstallBacking { get; }
+    public NodaTime.Duration Backgouge { get; }
+    public NodaTime.Duration RemoveBacking { get; }
+    public NodaTime.Duration Preheat { get; }
+    public NodaTime.Duration PostWeldHeatTreatRamp { get; }
+    public NodaTime.Duration Inspect { get; }
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref ValidationError? validationError,
-        ref Duration prepareGroove,
-        ref Duration installBacking,
-        ref Duration backgouge,
-        ref Duration removeBacking,
-        ref Duration inspect) =>
-        validationError = Seq(prepareGroove, installBacking, backgouge, removeBacking, inspect)
-            .Exists(static value => !double.IsFinite(value.Seconds) || value < Duration.Zero)
-            ? new ValidationError(message: "action-durations")
-            : null;
+        ref FabricationFault? validationError,
+        ref NodaTime.Duration prepareGroove,
+        ref NodaTime.Duration installBacking,
+        ref NodaTime.Duration backgouge,
+        ref NodaTime.Duration removeBacking,
+        ref NodaTime.Duration preheat,
+        ref NodaTime.Duration postWeldHeatTreatRamp,
+        ref NodaTime.Duration inspect) {
+        if (Seq(prepareGroove, installBacking, backgouge, removeBacking, preheat, postWeldHeatTreatRamp, inspect)
+            .Exists(static value => value < NodaTime.Duration.Zero))
+            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Joining, "action-durations");
+    }
 
-    public Duration Resolve(JointAction action) => action.Switch(
+    // The soak an action DECLARES is the action's own fact; the policy row carries only the shop's ramp allowance,
+    // so a two-hour stress relief occupies two hours plus ramp rather than the ramp alone.
+    public NodaTime.Duration Resolve(JointAction action) => action.Switch(
         state: this,
         prepareGroove: static (durations, _) => durations.PrepareGroove,
         installBacking: static (durations, _) => durations.InstallBacking,
         backgouge: static (durations, _) => durations.Backgouge,
-        removeBacking: static (durations, _) => durations.RemoveBacking);
+        removeBacking: static (durations, _) => durations.RemoveBacking,
+        preheat: static (durations, _) => durations.Preheat,
+        postWeldHeatTreat: static (durations, value) =>
+            durations.PostWeldHeatTreatRamp + NodaTime.Duration.FromMinutes(value.SoakMinutes));
 }
 
 [ComplexValueObject]
+[ValidationError<FabricationFault>]
 [StructLayout(LayoutKind.Auto)]
 public readonly partial struct DistortionObjective {
     public double Sweep { get; }
@@ -287,86 +296,92 @@ public readonly partial struct DistortionObjective {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref ValidationError? validationError,
+        ref FabricationFault? validationError,
         ref double sweep,
         ref double camber,
         ref double twist,
         ref double angular,
         ref double time,
         ref double thermal) {
-        double total = sweep + camber + twist + angular + time + thermal;
-        validationError = Seq(sweep, camber, twist, angular, time, thermal)
-                .Exists(static value => !double.IsFinite(value) || value < 0.0)
-            || !double.IsFinite(total) || total <= 0.0
-            ? new ValidationError(message: "distortion-objective")
-            : null;
+        Seq<double> weights = Seq(sweep, camber, twist, angular, time, thermal);
+        if (weights.Exists(static value => !double.IsFinite(value) || value < 0.0)
+            || !Witness.Positive(weights.Fold(0.0, static (sum, value) => sum + value)))
+            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Joining, "distortion-objective");
     }
 }
 
 [ComplexValueObject]
+[ValidationError<FabricationFault>]
 public sealed partial class InherentStrainLaw {
     public Energy ReferenceHeat { get; }
     public Length LongitudinalAtReference { get; }
     public Length TransverseAtReference { get; }
+    public Length NormalAtReference { get; }
     public Angle TwistAtReference { get; }
     public Angle AngularAtReference { get; }
     public double SelfStiffness { get; }
     public Map<PrecedenceKind, double> RestraintStiffness { get; }
-    public Duration SequenceMemory { get; }
+    public NodaTime.Duration SequenceMemory { get; }
+
+    // A clamp preload and a stage release are load SOURCES on the same stiffness, so their reference magnitudes seat
+    // here beside the thermal one and the assembly never mints a second law for a second source family.
+    public Length PreloadAtReference { get; }
+    public Force ReferencePreload { get; }
+    public Length ReleaseAtReference { get; }
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref ValidationError? validationError,
+        ref FabricationFault? validationError,
         ref Energy referenceHeat,
         ref Length longitudinalAtReference,
         ref Length transverseAtReference,
+        ref Length normalAtReference,
         ref Angle twistAtReference,
         ref Angle angularAtReference,
         ref double selfStiffness,
         ref Map<PrecedenceKind, double> restraintStiffness,
-        ref Duration sequenceMemory) =>
-        validationError = !double.IsFinite(referenceHeat.Joules)
-            || Seq(longitudinalAtReference, transverseAtReference)
-                .Exists(static value => !double.IsFinite(value.Meters))
-            || Seq(twistAtReference, angularAtReference)
-                .Exists(static value => !double.IsFinite(value.Radians))
-            || !double.IsFinite(sequenceMemory.Seconds)
-            || referenceHeat <= Energy.Zero || longitudinalAtReference < Length.Zero
-            || transverseAtReference < Length.Zero || twistAtReference < Angle.Zero || angularAtReference < Angle.Zero
-            || !double.IsFinite(selfStiffness) || selfStiffness <= 0.0
+        ref NodaTime.Duration sequenceMemory,
+        ref Length preloadAtReference,
+        ref Force referencePreload,
+        ref Length releaseAtReference) {
+        if (referenceHeat <= Energy.Zero || referencePreload <= Force.Zero
+            || Seq(longitudinalAtReference, transverseAtReference, normalAtReference, preloadAtReference, releaseAtReference)
+                .Exists(static value => !double.IsFinite(value.Meters) || value < Length.Zero)
+            || Seq(twistAtReference, angularAtReference).Exists(static value => value < Angle.Zero)
+            || !Witness.Positive(selfStiffness)
             || restraintStiffness.IsEmpty
             || restraintStiffness.Values.Exists(static value => !double.IsFinite(value) || value < 0.0)
-            || sequenceMemory <= Duration.Zero
-            ? new ValidationError(message: "inherent-strain-law")
-            : null;
+            || sequenceMemory <= NodaTime.Duration.Zero)
+            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Joining, "inherent-strain-law");
+    }
 
     public double Coupling(PrecedenceKind kind) => RestraintStiffness.Find(kind).IfNone(0.0);
 }
 
 [ComplexValueObject]
+[ValidationError<FabricationFault>]
 [StructLayout(LayoutKind.Auto)]
 public readonly partial struct SequenceLimits {
     public int ConsecutiveDeposits { get; }
-    public Duration Elapsed { get; }
+    public NodaTime.Duration Elapsed { get; }
     public Length LinearDistortion { get; }
     public Angle AngularDistortion { get; }
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref ValidationError? validationError,
+        ref FabricationFault? validationError,
         ref int consecutiveDeposits,
-        ref Duration elapsed,
+        ref NodaTime.Duration elapsed,
         ref Length linearDistortion,
-        ref Angle angularDistortion) =>
-        validationError = !double.IsFinite(elapsed.Seconds) || !double.IsFinite(linearDistortion.Meters)
-            || !double.IsFinite(angularDistortion.Radians)
-            || consecutiveDeposits <= 0 || elapsed <= Duration.Zero || linearDistortion <= Length.Zero
-            || angularDistortion <= Angle.Zero
-            ? new ValidationError(message: "sequence-limits")
-            : null;
+        ref Angle angularDistortion) {
+        if (consecutiveDeposits <= 0 || elapsed <= NodaTime.Duration.Zero
+            || linearDistortion <= Length.Zero || angularDistortion <= Angle.Zero)
+            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Joining, "sequence-limits");
+    }
 }
 
 [ComplexValueObject]
+[ValidationError<FabricationFault>]
 public sealed partial class SequencePolicy {
     public CandidateLaw Candidates { get; }
     public ThermalLaw Thermal { get; }
@@ -378,126 +393,240 @@ public sealed partial class SequencePolicy {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref ValidationError? validationError,
+        ref FabricationFault? validationError,
         ref CandidateLaw candidates,
         ref ThermalLaw thermal,
         ref Seq<TackBand> tackBands,
         ref ActionDurations actions,
         ref InherentStrainLaw distortion,
         ref SequenceLimits limits,
-        ref DistortionObjective objective) =>
-        validationError = candidates == default || thermal == default || actions == default || distortion is null
-            || limits == default || objective == default || tackBands.IsEmpty || tackBands.Exists(static band => band == default)
-            ? new ValidationError(message: "sequence-policy")
-            : null;
+        ref DistortionObjective objective) {
+        if (tackBands.IsEmpty)
+            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Joining, "sequence-policy");
+    }
+
+    public static Fin<SequencePolicy> Admit(
+        CandidateLaw candidates,
+        ThermalLaw thermal,
+        Seq<TackBand> tackBands,
+        ActionDurations actions,
+        InherentStrainLaw distortion,
+        SequenceLimits limits,
+        DistortionObjective objective) =>
+        Validate(candidates, thermal, tackBands, actions, distortion, limits, objective, out SequencePolicy policy)
+            .Admitted(policy);
 }
 
+public readonly record struct MotionKey(int Joint, int Pass);
+
+public readonly record struct MotionSpanTiming(MotionKey Key, int Segment, NodaTime.Duration Elapsed);
+
+public readonly record struct MotionCycleTiming(MotionKey Key, NodaTime.Duration Cycle);
+
+// The provider-free timing crossing. `Kinematics/cell` compiles a pass into station-indexed span elapsed times and a
+// planned cycle and hands THESE rows; a compiled program's own error set refuses at that boundary, so this page names
+// no provider type and the package keeps exactly one alias crossing.
 [ComplexValueObject]
-public sealed partial class RobotTiming {
-    public HashMap<(int Joint, int Pass, int Span), Duration> Segments { get; }
-    public HashMap<(int Joint, int Pass), Duration> Cycles { get; }
-    public Seq<string> Warnings { get; }
-    public Seq<string> Errors { get; }
+[ValidationError<FabricationFault>]
+public sealed partial class MotionTiming {
+    public Map<(int Joint, int Pass, int Segment), NodaTime.Duration> Segments { get; }
+    public Map<MotionKey, NodaTime.Duration> Cycles { get; }
+    public Seq<RunWarning> Warnings { get; }
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref ValidationError? validationError,
-        ref HashMap<(int Joint, int Pass, int Span), Duration> segments,
-        ref HashMap<(int Joint, int Pass), Duration> cycles,
-        ref Seq<string> warnings,
-        ref Seq<string> errors) =>
-        validationError = segments.Values.Exists(static duration => !double.IsFinite(duration.Seconds) || duration < Duration.Zero)
-            || cycles.Values.Exists(static duration => !double.IsFinite(duration.Seconds) || duration <= Duration.Zero)
-            || segments.Keys.Exists(key => !cycles.ContainsKey((key.Joint, key.Pass)))
-            || warnings.Exists(static warning => string.IsNullOrWhiteSpace(warning))
-            || errors.Exists(static error => string.IsNullOrWhiteSpace(error))
-            ? new ValidationError(message: "robot-timing")
-            : null;
-
-    // Program.Duration is the look-ahead planner's own cycle figure; it seeds a pass whose span index falls outside Targets.
-    public static Fin<RobotTiming> From(Map<(int Joint, int Pass), Program> programs) {
-        if (programs.Values.Exists(static program => program is null)) {
-            return Fin.Fail<RobotTiming>(Error.New("robot-timing:null-program"));
-        }
-        var admitted = toSeq(programs.AsEnumerable()).Fold(
-            (Segments: HashMap<(int Joint, int Pass, int Span), Duration>(),
-                Cycles: HashMap<(int Joint, int Pass), Duration>(),
-                Warnings: Seq<string>(),
-                Errors: Seq<string>()),
-            static (timing, row) => (
-                toSeq(row.Value.Targets)
-                    .Map((target, index) => (Key: (row.Key.Joint, row.Key.Pass, index), At: Duration.FromSeconds(target.DeltaTime)))
-                    .Fold(timing.Segments, static (held, target) => held.SetItem(target.Key, target.At)),
-                timing.Cycles.SetItem(row.Key, Duration.FromSeconds(row.Value.Duration)),
-                timing.Warnings + toSeq(row.Value.Warnings),
-                timing.Errors + toSeq(row.Value.Errors)));
-        return RobotTiming.Validate(admitted.Segments, admitted.Cycles, admitted.Warnings, admitted.Errors, out RobotTiming timing) is { } error
-            ? Fin.Fail<RobotTiming>(Error.New(error.Message))
-            : Fin.Succ(timing);
+        ref FabricationFault? validationError,
+        ref Map<(int Joint, int Pass, int Segment), NodaTime.Duration> segments,
+        ref Map<MotionKey, NodaTime.Duration> cycles,
+        ref Seq<RunWarning> warnings) {
+        if (segments.Values.Exists(static value => value < NodaTime.Duration.Zero)
+            || cycles.Values.Exists(static value => value <= NodaTime.Duration.Zero)
+            || segments.Keys.Exists(key => !cycles.ContainsKey(new MotionKey(key.Joint, key.Pass))))
+            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Joining, "motion-timing");
     }
+
+    public static Fin<MotionTiming> Admit(
+        Seq<MotionSpanTiming> spans,
+        Seq<MotionCycleTiming> cycles,
+        Seq<RunWarning> warnings) =>
+        Validate(
+            spans.Fold(
+                Map<(int, int, int), NodaTime.Duration>(),
+                static (held, row) => held.AddOrUpdate((row.Key.Joint, row.Key.Pass, row.Segment), row.Elapsed)),
+            cycles.Fold(
+                Map<MotionKey, NodaTime.Duration>(),
+                static (held, row) => held.AddOrUpdate(row.Key, row.Cycle)),
+            warnings,
+            out MotionTiming timing).Admitted(timing);
+
+    // The ONE crossing entry: `Kinematics/cell` compiles a pass and publishes station-ordinal rows, this page attaches
+    // the weld identity the compile was requested for. Neither side learns the other's key space.
+    public static Fin<MotionTiming> Of(Seq<(MotionKey Key, CellTiming Timing)> compiled) =>
+        Admit(
+            compiled.Bind(static row => row.Timing.Spans.Map(span => new MotionSpanTiming(row.Key, span.Station, span.Elapsed))),
+            compiled.Map(static row => new MotionCycleTiming(row.Key, row.Timing.Cycle)),
+            compiled.Bind(static row => row.Timing.Warnings));
+
+    // Span timing is authoritative; a compiled pass whose segment is absent still contributes its planned cycle,
+    // pro-rated by the fraction of the pass's own station extent this segment covers.
+    public Option<NodaTime.Duration> Elapsed(WeldSegment segment) =>
+        Segments.Find((segment.Pass.Joint, segment.Pass.Ordinal, segment.Source.Ordinal))
+            .Map(span => span * (segment.Length / Length.FromMillimeters(segment.Source.LengthMm)))
+        | Cycles.Find(new MotionKey(segment.Pass.Joint, segment.Pass.Ordinal))
+            .Map(cycle => cycle * (segment.Length / PassExtent(segment.Pass)));
+
+    private static Length PassExtent(WeldPass pass) => Length.FromMillimeters(
+        pass.Segments.Fold(0.0, static (sum, row) => sum + row.LengthMm));
 }
 
+// A clamp is a load SOURCE on the same stiffness the shrinkage loads: the member it grips, the force it holds, and
+// the assembly step whose release relaxes it. A schedule modelling shrinkage alone reports the spring-back of a
+// part nobody ever let go of, so the two remaining `DistortionSource` families enter here or they never load.
+public readonly record struct ClampPreload(
+    int Index,
+    AssemblyMemberKey Member,
+    Force Preload,
+    Option<int> ReleaseStep);
+
 [ComplexValueObject]
+[ValidationError<FabricationFault>]
 public sealed partial class SequenceRequest {
     public WeldPlan Plan { get; }
     public AssemblyPlan Assembly { get; }
     public ProcessBudget.Joining Budget { get; }
     public SequencePolicy Policy { get; }
-    public Option<RobotTiming> Robot { get; }
+    public Seq<ClampPreload> Clamps { get; }
+    public Option<MotionTiming> Motion { get; }
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref ValidationError? validationError,
+        ref FabricationFault? validationError,
         ref WeldPlan plan,
         ref AssemblyPlan assembly,
         ref ProcessBudget.Joining budget,
         ref SequencePolicy policy,
-        ref Option<RobotTiming> robot) {
-        if (plan is null || assembly is null || budget is null || policy is null) {
-            validationError = new ValidationError(message: "sequence-request");
-            return;
-        }
-        Seq<int> planJoints = plan.Passes.Map(static pass => pass.Joint).Distinct().ToSeq();
-        Seq<int> assemblyJoints = assembly.Steps.Filter(static step => step.Phase == JoinPhase.Final)
-            .Map(static step => step.Joint).Distinct().ToSeq();
-        bool stationsValid = plan.Passes.ForAll(static pass => pass.Frames.Count == pass.Path.Count
-            && pass.Frames.Count >= 2
-            && pass.Frames.Zip(pass.Frames.Tail).ForAll(static pair =>
-                double.IsFinite(pair.Item1.StationMm)
-                && double.IsFinite(pair.Item2.StationMm)
-                && pair.Item2.StationMm > pair.Item1.StationMm));
+        ref Seq<ClampPreload> clamps,
+        ref Option<MotionTiming> motion) {
+        Set<int> planJoints = toSet(plan.Passes.Map(static pass => pass.Joint));
+        Set<int> assemblyJoints = toSet(assembly.Steps
+            .Filter(static step => step.Phase == JoinPhase.Final)
+            .Map(static step => step.Joint));
+        Set<AssemblyMemberKey> members = toSet(assembly.Members.Map(static member => member.Key));
+        Set<int> releases = toSet(assembly.Steps
+            .Filter(static step => step.Phase == JoinPhase.Release)
+            .Map(static step => step.Order));
         Temperature ceiling = new(budget.InterpassTemp, TemperatureUnit.DegreeCelsius);
-        validationError = planJoints.IsEmpty || !stationsValid
-            || planJoints.Exists(joint => !assemblyJoints.Contains(joint))
-            || !double.IsFinite(budget.InterpassTemp)
+        if (planJoints.IsEmpty
+            || !planJoints.ForAll(assemblyJoints.Contains)
+            || !plan.Passes.ForAll(static pass => !pass.Segments.IsEmpty)
             || ceiling < policy.Thermal.MinimumInterpass || ceiling >= policy.Thermal.Peak
-            || Seq(budget.CurrentA, budget.VoltageV).Exists(static value => !double.IsFinite(value) || value <= 0.0)
-            || robot.Exists(timing => timing.Errors.Count > 0)
-            ? new ValidationError(message: "sequence-request")
-            : null;
+            || !Seq(budget.CurrentA, budget.VoltageV).ForAll(Witness.Positive)
+            || clamps.Map(static clamp => clamp.Index).Distinct().Count != clamps.Count
+            // A clamp naming a member the assembly never carried grips nothing, and a release naming a step that is
+            // not a RELEASE phase relaxes a hold the plan never staged.
+            || clamps.Exists(clamp => clamp.Preload <= Force.Zero
+                || !members.Contains(clamp.Member)
+                || clamp.ReleaseStep.Exists(step => !releases.Contains(step))))
+            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Joining, "sequence-request");
     }
+
+    public static Fin<SequenceRequest> Admit(
+        WeldPlan plan,
+        AssemblyPlan assembly,
+        ProcessBudget.Joining budget,
+        SequencePolicy policy,
+        Seq<ClampPreload> clamps,
+        Option<MotionTiming> motion) =>
+        Validate(plan, assembly, budget, policy, clamps, motion, out SequenceRequest request).Admitted(request);
+}
+```
+
+## [03]-[DISTORTION_FIELD]
+
+- Owner: `DistortionSource` closes the load-source family; `DisplacementRow` and `DisplacementReceipt` own the per-member field this page PRODUCES; `DistortionKernel` owns the one factored stiffness a candidate sweep reuses; `DistortionEvidence` owns the residual field summary every candidate ranks on.
+- Cases: `DistortionSource.Thermal` carries the pass ordinal and its inherent shrinkage, `.Preload` the clamp index and its force, `.Release` the assembly step whose unclamping relaxes it — three sources loading ONE stiffness through one solve, so a member the schedule never welds still moves under the clamp that grips it.
+- Law: `Fixturing/assembly` tolerance chains and `Fixturing/setups` datum-transfer budgets consume THIS receipt and no second field. A member row names the source that DOMINATES its own load — compared in the operator's own units, never by a per-case reading that would rank newtons against millimetres — so a consumer separating thermal shrinkage from clamp spring-back reads the discriminant rather than re-running the assembly with one family suppressed, and a member moving only through its restraints answers None rather than naming a stage that never ran.
+- Law: the stiffness assembles through the kernel sparse owners — `SparseMatrix.FromTriplets` sums duplicate triplets into one SPD operator and `CholeskySparse.Of` factors it once per request, so every candidate pays one solve against a cached symbolic analysis and no raw CSparse type crosses this page.
+- Auto: the residual witness rides the kernel's own `SolveReceipt`, so the field summary reports the solver's measured residual and factor fill rather than a re-derived figure.
+- Receipt: `DisplacementReceipt` carries one row per assembly member — the three linear displacement components as one `Vector3d` and the dominating source — beside the `DistortionEvidence` field summary holding the sweep, camber, twist, and angular extremes, the residual, and the factor fill.
+- Packages: `Rasm.Numerics` supplies `SparseMatrix.FromTriplets`, `CholeskySparse.Of`/`SolveDetailed`, `SolveReceipt`, and `Dimension.Create`; `Rasm.Domain` supplies `Op`.
+- Boundary: the kernel holds the factor and the member index alone; the graph, the load vector, and every intermediate array stay inside the fold.
+
+```csharp signature
+// --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record DistortionSource {
+    private DistortionSource() { }
+
+    public sealed record Thermal(int Pass, double InherentStrainMm) : DistortionSource;
+    public sealed record Preload(int ClampIndex, double PreloadN) : DistortionSource;
+    public sealed record Release(int StageIndex) : DistortionSource;
 }
 
+// `Source` is the load family DOMINATING this member's own displacement. A member that carries no load of its own
+// and moves only through its restraints answers None, because naming a zero-magnitude release there would report a
+// stage that never ran as the reason a datum moved.
+public readonly record struct DisplacementRow(
+    AssemblyMemberKey Member,
+    Vector3d Displacement,
+    Option<DistortionSource> Source);
+
+public readonly record struct DistortionEvidence(
+    Length Sweep,
+    Length Camber,
+    Angle Twist,
+    Angle Angular,
+    double Residual,
+    double SolverWork,
+    int FactorNonZeros);
+
+public sealed record DisplacementReceipt(Seq<DisplacementRow> Rows, DistortionEvidence Field);
+
+// The factored stiffness and the member index it was assembled against. One factor serves every candidate solve,
+// so a five-hundred-candidate sweep pays one symbolic analysis.
+internal sealed record DistortionKernel(
+    CholeskySparse Factor,
+    Map<AssemblyMemberKey, int> MemberIndex,
+    int Degrees);
+```
+
+## [04]-[SCHEDULE_FOLD]
+
+- Owner: `Sequence` derives joint precedence levels, segment rows, candidate schedules, the displacement receipt, and the selected schedule through one ordered algebra; `WeldSegment` and `ScheduledWork` carry the pre- and post-clock shapes.
+- Law: precedence LEVEL is the critical distance over the joint projection of `AssemblyPlan.Precedence`. One synthetic source edges every root, `DagShortestPathAlgorithm` under `DistanceRelaxers.CriticalDistance` measures the longest path to each joint, and the depths shift down one — so joints sharing a level carry no precedence path between them and stay interleavable. A cyclic census refuses carrying the strongly-connected component MEMBERS the detecting walk labelled, never a vertex-and-edge count a caller cannot act on.
+- Law: `Seeds` walks the arrangement itself, so joints at one level alternate under the traversal arm. `JointAction.Stage` decides placement — an OPENING action precedes a joint's first deposit, a GATING action stages against the side `Backgouge.BeforeSide` names, and a CLOSING action follows its last deposit — so preheat opens the joint it heats and post-weld heat treatment occupies the clock after the joint closes.
+- Law: each event advances one immutable `ScheduleState`. Work on other joints credits thickness- and position-scaled cooling, reheat occupies the clock, and BOTH arc arms heat through `ThermalLaw.Heated` against their own delivered energy — a deposit that hard-sets the peak makes every interpass reading fiction. Cooling reads the temperature actually held, so a joint already below the ceiling waits no time at all.
+- Law: `DepositSegment.Window` is the ONE subdivision geometry. A band split re-cuts the owner's own interval, so an orbital deposit subdivides into arcs and a linear one into lines, and the schedule never straightens a bead to fit a thermal band.
+- Auto: candidate rejection is typed — consecutive deposits, elapsed clock, linear distortion, angular distortion — and a fully infeasible space fails carrying the NEAREST-MISS candidate's rejections rather than a bare no-candidate error.
+- Exemption: `Sequence.Assemble` and `Sequence.Solve` are the measured sparse kernels; `Sequence.Advance` and its four arms are the immutable state fold.
+- Receipt: `WeldSchedule` carries selected work, dimensional total, the `TotalS` estimation projection, interpass ceiling and maximum, the displacement receipt, the whole candidate ranking, and typed warnings.
+- Packages: QuikGraph supplies `BidirectionalGraph`, `SEdge`, `IsDirectedAcyclicGraph`, `StronglyConnectedComponents`, `DagShortestPathAlgorithm`, and `DistanceRelaxers.CriticalDistance`.
+- Boundary: typed infeasibility terminates before scheduling, and a feasible but inferior candidate remains evidence rather than disappearing from the result.
+
+```csharp signature
 // --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
+// The scheduling row wraps the weld owner's OWN station-indexed segment: station, length, and the commanded window
+// all read `DepositSegment`, so nothing here reconstructs seam position from a move ordinal.
 public readonly record struct WeldSegment(
     WeldPass Pass,
+    DepositSegment Source,
     int Sequence,
-    int SourceSpan,
-    Length SourceLength,
     int Side,
     int Precedence,
     Length Station,
     Length Length,
+    double FromFraction,
+    double ToFraction,
     Seq<Move> Path,
-    Seq<TorchFrame> SourceFrames);
+    Seq<TorchFrame> Frames);
 
-internal readonly record struct JointPrecedence(HashMap<int, int> Depth, Seq<AssemblyEdge> Restraints);
+internal readonly record struct JointPrecedence(Map<int, int> Level, Seq<AssemblyEdge> Restraints);
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 internal abstract partial record WorkSeed {
     private WorkSeed() { }
 
-    public sealed record Tack(WeldSegment Segment, TackBand Band, Length Length) : WorkSeed;
+    public sealed record Tack(WeldSegment Segment, TackBand Band, Length Length, Seq<Move> Path) : WorkSeed;
     public sealed record Preparation(JointAction Action) : WorkSeed;
     public sealed record Inspection(int Joint, Option<int> Pass) : WorkSeed;
     public sealed record Deposit(WeldSegment Segment) : WorkSeed;
@@ -512,46 +641,40 @@ public abstract partial record ScheduledWork {
         WeldPass Pass,
         int Segment,
         Seq<Move> Path,
-        Duration At,
-        Duration Run,
-        Energy Heat) : ScheduledWork;
-    public sealed record Preparation(int Rank, JointAction Action, Duration At, Duration Run) : ScheduledWork;
-    public sealed record Inspection(int Rank, int Joint, Option<int> Pass, Duration At, Duration Run) : ScheduledWork;
+        NodaTime.Duration At,
+        NodaTime.Duration Run,
+        Energy Heat,
+        Temperature Start,
+        Temperature End) : ScheduledWork;
+    public sealed record Preparation(int Rank, JointAction Action, NodaTime.Duration At, NodaTime.Duration Run) : ScheduledWork;
+    public sealed record Inspection(int Rank, int Joint, Option<int> Pass, NodaTime.Duration At, NodaTime.Duration Run) : ScheduledWork;
     public sealed record Deposit(
         int Rank,
         WeldPass Pass,
         int Segment,
-        int SourceSpan,
+        int SourceSegment,
         Seq<Move> Path,
-        Seq<TorchFrame> SourceFrames,
-        Duration At,
-        Duration Wait,
-        Duration Reheat,
-        Duration Run,
+        Seq<TorchFrame> Frames,
+        NodaTime.Duration At,
+        NodaTime.Duration Wait,
+        NodaTime.Duration Reheat,
+        NodaTime.Duration Run,
         Temperature Start,
         Temperature End) : ScheduledWork;
 }
-
-public readonly record struct DistortionEvidence(
-    Length Sweep,
-    Length Camber,
-    Angle Twist,
-    Angle Angular,
-    double SolverWork,
-    int FactorNonZeros);
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record CandidateRejection {
     private CandidateRejection() { }
 
     public sealed record ConsecutiveDeposits(int Actual, int Limit) : CandidateRejection;
-    public sealed record Elapsed(Duration Actual, Duration Limit) : CandidateRejection;
+    public sealed record Elapsed(NodaTime.Duration Actual, NodaTime.Duration Limit) : CandidateRejection;
     public sealed record LinearDistortion(Length Actual, Length Limit) : CandidateRejection;
     public sealed record AngularDistortion(Angle Actual, Angle Limit) : CandidateRejection;
 
     public string Detail => Switch(
         consecutiveDeposits: static value => $"weld-sequence:consecutive:{value.Actual}/{value.Limit}",
-        elapsed: static value => $"weld-sequence:elapsed:{value.Actual.Seconds}/{value.Limit.Seconds}",
+        elapsed: static value => $"weld-sequence:elapsed:{value.Actual.TotalSeconds}/{value.Limit.TotalSeconds}",
         linearDistortion: static value => $"weld-sequence:linear:{value.Actual.Millimeters}/{value.Limit.Millimeters}",
         angularDistortion: static value => $"weld-sequence:angular:{value.Actual.Degrees}/{value.Limit.Degrees}");
 }
@@ -559,52 +682,46 @@ public abstract partial record CandidateRejection {
 public sealed record SequenceCandidate(
     DistortionOrder Order,
     Seq<ScheduledWork> Work,
-    Duration Total,
-    DistortionEvidence Distortion,
+    NodaTime.Duration Total,
+    DisplacementReceipt Displacement,
     Temperature InterpassCeiling,
     Temperature MaximumInterpass,
-    Seq<string> Warnings,
+    Seq<RunWarning> Warnings,
     Seq<CandidateRejection> Rejections,
     double Score);
 
 public sealed record WeldSchedule(
     Seq<ScheduledWork> Work,
-    Duration Total,
+    NodaTime.Duration Total,
     Temperature InterpassCeiling,
     Temperature MaximumInterpass,
-    DistortionEvidence Distortion,
+    DisplacementReceipt Displacement,
     Seq<SequenceCandidate> Candidates,
-    Seq<string> Warnings) {
-    public double TotalS => Total.Seconds;
+    Seq<RunWarning> Warnings) {
+    public double TotalS => Total.TotalSeconds;
 }
 
 internal readonly record struct ScheduleState(
-    Duration Clock,
-    HashMap<int, Duration> LastArc,
-    HashMap<int, Temperature> Temperature,
+    NodaTime.Duration Clock,
+    Map<int, NodaTime.Duration> LastArc,
+    Map<int, Temperature> Temperature,
     Temperature MaximumInterpass,
     Seq<ScheduledWork> Work,
     int Rank);
 
-internal sealed record DistortionKernel(
-    SparseCholesky Factor,
-    HashMap<int, int> JointIndex,
-    int Degrees);
-
 // --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
 public static class Sequence {
-    public static Fin<WeldSchedule> Order(SequenceRequest request) =>
-        Optional(request).ToFin(Error.New("sequence-request:null"))
-            .Bind(Schedule)
-            .Bind(Select);
+    public static Fin<WeldSchedule> Order(SequenceRequest request) => Schedule(request).Bind(Select);
 
     private static Fin<Seq<SequenceCandidate>> Schedule(SequenceRequest request) =>
         from precedence in Precedence(request.Assembly)
-        let segments = Segments(request.Plan, precedence.Depth)
-        from _ in guard(!segments.IsEmpty, Error.New("weld-sequence:no-deposit-segments")).ToFin()
+        from segments in Segments(request.Plan, precedence.Level)
+        from _ in guard(!segments.IsEmpty,
+                (Error)new FabricationFault.PolicyInadmissible(FabConcern.Joining, "weld-sequence:no-deposit-segments"))
+            .ToFin()
         let extent = UnitMath.Sum(segments, static segment => segment.Length, LengthUnit.Meter)
         let ceiling = new Temperature(request.Budget.InterpassTemp, TemperatureUnit.DegreeCelsius)
-        from kernel in Factor(segments, precedence.Restraints, request.Policy.Distortion)
+        from kernel in Assemble(request, segments, precedence.Restraints)
         from orders in request.Policy.Candidates.Generate(extent)
         from candidates in orders.Traverse(order => Candidate(request, segments, order, ceiling, kernel)).As()
         select candidates;
@@ -619,7 +736,7 @@ public static class Sequence {
                 selected.Total,
                 selected.InterpassCeiling,
                 selected.MaximumInterpass,
-                selected.Distortion,
+                selected.Displacement,
                 candidates,
                 selected.Warnings));
 
@@ -629,53 +746,38 @@ public static class Sequence {
                 .ThenBy(static candidate => candidate.Score))
             .Head
             .Map(static nearest => nearest.Rejections.Fold(
-                Error.New("weld-sequence:no-feasible-candidate"),
+                (Error)new FabricationFault.PolicyInadmissible(FabConcern.Joining, "weld-sequence:no-feasible-candidate"),
                 static (combined, rejection) => combined + Error.New(rejection.Detail)))
-            .IfNone(Error.New("weld-sequence:no-candidate-space"));
+            .IfNone(() => new FabricationFault.PolicyInadmissible(FabConcern.Joining, "weld-sequence:no-candidate-space"));
 
     private static Fin<SequenceCandidate> Candidate(
         SequenceRequest request,
         Seq<WeldSegment> segments,
         DistortionOrder order,
         Temperature ceiling,
-        DistortionKernel kernel) {
-        Seq<WeldSegment> arranged = order.Arrange(Subdivide(segments, order.Band));
-        Seq<WorkSeed> seeds = Seeds(request, arranged);
-        ScheduleState scheduled = seeds.Fold(
+        DistortionKernel kernel) =>
+        from subdivided in Subdivide(segments, order.Band)
+        let arranged = order.Arrange(subdivided)
+        let scheduled = Seeds(request, arranged).Fold(
             new ScheduleState(
-                Duration.Zero,
-                HashMap<int, Duration>(),
-                HashMap<int, Temperature>(),
+                NodaTime.Duration.Zero,
+                Map<int, NodaTime.Duration>(),
+                Map<int, Temperature>(),
                 request.Policy.Thermal.Ambient,
                 Seq<ScheduledWork>(),
                 0),
-            (state, seed) => Advance(request, state, seed, ceiling));
-        Seq<string> warnings = request.Robot.Map(static timing => timing.Warnings).IfNone(Seq<string>());
-        return InherentStrain(
-                arranged,
-                scheduled.Work,
-                scheduled.Clock,
-                request.Policy.Distortion,
-                kernel)
-            .Map(distortion => {
-                Seq<CandidateRejection> rejections = Rejections(
-                    request.Policy.Limits,
-                    scheduled.Work,
-                    scheduled.Clock,
-                    distortion);
-                double score = Score(request.Policy.Objective, scheduled.Clock, scheduled.MaximumInterpass, distortion);
-                return new SequenceCandidate(
-                    order,
-                    scheduled.Work,
-                    scheduled.Clock,
-                    distortion,
-                    ceiling,
-                    scheduled.MaximumInterpass,
-                    warnings,
-                    rejections,
-                    score);
-            });
-    }
+            (state, seed) => Advance(request, state, seed, ceiling))
+        from displacement in Solve(request, arranged, scheduled.Work, scheduled.Clock, kernel)
+        select new SequenceCandidate(
+            order,
+            scheduled.Work,
+            scheduled.Clock,
+            displacement,
+            ceiling,
+            scheduled.MaximumInterpass,
+            request.Motion.Map(static timing => timing.Warnings).IfNone(Seq<RunWarning>()),
+            Rejections(request.Policy.Limits, scheduled.Work, scheduled.Clock, displacement.Field),
+            Score(request.Policy.Objective, scheduled.Clock, scheduled.MaximumInterpass, displacement.Field));
 
     private static ScheduleState Advance(
         SequenceRequest request,
@@ -683,225 +785,205 @@ public static class Sequence {
         WorkSeed seed,
         Temperature ceiling) => seed.Switch(
         state: (Request: request, State: state, Ceiling: ceiling),
-        tack: static (context, tack) => Tack(context.Request, context.State, tack),
-        preparation: static (context, preparation) => Preparation(context.Request, context.State, preparation),
-        inspection: static (context, inspection) => Inspection(context.Request, context.State, inspection),
-        deposit: static (context, deposit) => Deposit(context.Request, context.State, deposit.Segment, context.Ceiling));
+        tack: static (context, tack) => Arc(
+            context.Request, context.State, tack.Segment, tack.Path, tack.Length, Some(tack.Band), context.Ceiling),
+        preparation: static (context, preparation) => Staged(
+            context.State,
+            rank => new ScheduledWork.Preparation(
+                rank, preparation.Action, context.State.Clock, context.Request.Policy.Actions.Resolve(preparation.Action)),
+            context.Request.Policy.Actions.Resolve(preparation.Action)),
+        inspection: static (context, inspection) => Staged(
+            context.State,
+            rank => new ScheduledWork.Inspection(
+                rank, inspection.Joint, inspection.Pass, context.State.Clock, context.Request.Policy.Actions.Inspect),
+            context.Request.Policy.Actions.Inspect),
+        deposit: static (context, deposit) => Arc(
+            context.Request, context.State, deposit.Segment, deposit.Segment.Path, deposit.Segment.Length,
+            Option<TackBand>.None, context.Ceiling));
 
-    private static ScheduleState Tack(SequenceRequest request, ScheduleState state, WorkSeed.Tack tack) {
-        Energy heat = UnitMath.Max(
-            new Energy(tack.Segment.Pass.HeatInputKjMm * tack.Length.Millimeters, EnergyUnit.Kilojoule),
-            tack.Band.MinimumEnergy);
-        Duration run = UnitMath.Max(
-            Duration.FromSeconds(60.0 * tack.Length.Millimeters / tack.Segment.Pass.TravelMmMin),
-            Duration.FromSeconds(heat.Joules / (request.Budget.CurrentA * request.Budget.VoltageV)));
-        Duration prior = state.LastArc.Find(tack.Segment.Pass.Joint).IfNone(Duration.Zero);
-        Temperature priorTemperature = state.Temperature.Find(tack.Segment.Pass.Joint)
-            .IfNone(request.Policy.Thermal.Ambient);
-        Temperature start = TemperatureAt(
-            state.Clock - prior,
-            tack.Segment.Pass,
-            request.Policy.Thermal,
-            priorTemperature);
-        Energy peakEnergy = new(
-            tack.Segment.Pass.HeatInputKjMm * tack.Segment.Length.Millimeters,
-            EnergyUnit.Kilojoule);
-        Temperature endTemperature = request.Policy.Thermal.Heated(start, heat, peakEnergy);
-        ScheduledWork.Tack work = new(
-            state.Rank,
-            tack.Segment.Pass,
-            tack.Segment.Sequence,
-            Window(tack.Segment, 0.0, tack.Length / tack.Segment.Length),
-            state.Clock,
-            run,
-            heat);
-        Duration end = state.Clock + run;
-        return new ScheduleState(
-            end,
-            state.LastArc.SetItem(tack.Segment.Pass.Joint, end),
-            state.Temperature.SetItem(tack.Segment.Pass.Joint, endTemperature),
-            UnitMath.Max(state.MaximumInterpass, endTemperature),
-            state.Work.Add(work),
-            state.Rank + 1);
-    }
+    // A clock-only event advances rank and clock and touches no thermal column, so preparation and inspection share
+    // one body rather than two that differ by a constructor.
+    private static ScheduleState Staged(
+        ScheduleState state,
+        Func<int, ScheduledWork> work,
+        NodaTime.Duration run) =>
+        state with {
+            Clock = state.Clock + run,
+            Work = state.Work.Add(work(state.Rank)),
+            Rank = state.Rank + 1,
+        };
 
-    private static ScheduleState Preparation(SequenceRequest request, ScheduleState state, WorkSeed.Preparation preparation) {
-        Duration run = request.Policy.Actions.Resolve(preparation.Action);
-        ScheduledWork.Preparation work = new(state.Rank, preparation.Action, state.Clock, run);
-        return state with { Clock = state.Clock + run, Work = state.Work.Add(work), Rank = state.Rank + 1 };
-    }
-
-    private static ScheduleState Inspection(SequenceRequest request, ScheduleState state, WorkSeed.Inspection inspection) {
-        Duration run = request.Policy.Actions.Inspect;
-        ScheduledWork.Inspection work = new(state.Rank, inspection.Joint, inspection.Pass, state.Clock, run);
-        return state with { Clock = state.Clock + run, Work = state.Work.Add(work), Rank = state.Rank + 1 };
-    }
-
-    private static ScheduleState Deposit(
+    // ONE arc-event body. A tack and a deposit differ in delivered energy, in whether an interpass wait applies, and
+    // in which case they publish — never in the thermal model, so both heat through `ThermalLaw.Heated`.
+    private static ScheduleState Arc(
         SequenceRequest request,
         ScheduleState state,
         WeldSegment segment,
+        Seq<Move> path,
+        Length length,
+        Option<TackBand> band,
         Temperature ceiling) {
-        Duration prior = state.LastArc.Find(segment.Pass.Joint).IfNone(Duration.Zero);
-        Duration elapsed = state.Clock - prior;
-        Temperature priorTemperature = state.Temperature.Find(segment.Pass.Joint)
-            .IfNone(request.Policy.Thermal.Ambient);
-        Temperature held = TemperatureAt(elapsed, segment.Pass, request.Policy.Thermal, priorTemperature);
-        Duration cooling = Cooling(segment.Pass, ceiling, request.Policy.Thermal);
-        Duration wait = UnitMath.Max(Duration.Zero, cooling - elapsed);
-        Duration reheat = elapsed >= request.Policy.Thermal.ReheatAfter || held < request.Policy.Thermal.MinimumInterpass
-            ? request.Policy.Thermal.ReheatDuration
-            : Duration.Zero;
-        Temperature start = reheat > Duration.Zero
-            ? request.Policy.Thermal.MinimumInterpass
-            : TemperatureAt(elapsed + wait, segment.Pass, request.Policy.Thermal, priorTemperature);
-        Duration nominal = Duration.FromSeconds(60.0 * segment.Length.As(LengthUnit.Millimeter) / segment.Pass.TravelMmMin);
-        // Span timing is authoritative; a compiled pass whose span index is absent still contributes its planned cycle.
-        Duration run = request.Robot.ToSeq()
-            .Bind(timing => timing.Segments.Find((segment.Pass.Joint, segment.Pass.Ordinal, segment.SourceSpan))
-                    .Map(span => span * (segment.Length / segment.SourceLength)).ToSeq()
-                + timing.Cycles.Find((segment.Pass.Joint, segment.Pass.Ordinal))
-                    .Bind(cycle => StationSpan(segment.Pass.Frames)
-                        .Map(span => cycle * (segment.Length / Length.FromMillimeters(span)))).ToSeq())
-            .Head
-            .IfNone(nominal);
-        Duration at = state.Clock;
-        Duration end = at + wait + reheat + run;
-        ScheduledWork.Deposit work = new(
-            state.Rank,
-            segment.Pass,
-            segment.Sequence,
-            segment.SourceSpan,
-            segment.Path,
-            segment.SourceFrames,
-            at,
-            wait,
-            reheat,
-            run,
-            start,
-            request.Policy.Thermal.Peak);
+        ThermalLaw thermal = request.Policy.Thermal;
+        NodaTime.Duration prior = state.LastArc.Find(segment.Pass.Joint).IfNone(NodaTime.Duration.Zero);
+        NodaTime.Duration elapsed = state.Clock - prior;
+        Temperature priorTemperature = state.Temperature.Find(segment.Pass.Joint).IfNone(thermal.Ambient);
+        Temperature held = TemperatureAt(elapsed, segment.Pass, thermal, priorTemperature);
+        // A joint already at or below the ceiling waits no time; the wait is what the ACTUAL held temperature owes.
+        NodaTime.Duration wait = band.IsSome || held <= ceiling
+            ? NodaTime.Duration.Zero
+            : Cooling(segment.Pass, held, ceiling, thermal);
+        NodaTime.Duration reheat = elapsed >= thermal.ReheatAfter || held < thermal.MinimumInterpass
+            ? thermal.ReheatDuration
+            : NodaTime.Duration.Zero;
+        Temperature start = reheat > NodaTime.Duration.Zero
+            ? thermal.MinimumInterpass
+            : TemperatureAt(elapsed + wait, segment.Pass, thermal, priorTemperature);
+        Energy delivered = band.Match(
+            Some: row => UnitMath.Max(Heat(segment.Pass, length), row.MinimumEnergy),
+            None: () => Heat(segment.Pass, length));
+        Energy peak = Heat(segment.Pass, Length.FromMillimeters(segment.Source.LengthMm));
+        Temperature end = thermal.Heated(start, delivered, peak);
+        NodaTime.Duration nominal = NodaTime.Duration.FromSeconds(
+            60.0 * length.As(LengthUnit.Millimeter) / segment.Pass.TravelMmMin);
+        NodaTime.Duration run = band.Match(
+            Some: _ => UnitMath.Max(
+                nominal,
+                NodaTime.Duration.FromSeconds(delivered.Joules / (request.Budget.CurrentA * request.Budget.VoltageV))),
+            None: () => request.Motion.Bind(timing => timing.Elapsed(segment)).IfNone(nominal));
+        NodaTime.Duration at = state.Clock;
+        ScheduledWork work = band.IsSome
+            ? new ScheduledWork.Tack(state.Rank, segment.Pass, segment.Sequence, path, at, run, delivered, start, end)
+            : new ScheduledWork.Deposit(
+                state.Rank, segment.Pass, segment.Sequence, segment.Source.Ordinal, path, segment.Frames,
+                at, wait, reheat, run, start, end);
+        NodaTime.Duration close = at + wait + reheat + run;
         return new ScheduleState(
-            end,
-            state.LastArc.SetItem(segment.Pass.Joint, end),
-            state.Temperature.SetItem(segment.Pass.Joint, request.Policy.Thermal.Peak),
+            close,
+            state.LastArc.AddOrUpdate(segment.Pass.Joint, close),
+            state.Temperature.AddOrUpdate(segment.Pass.Joint, end),
             UnitMath.Max(state.MaximumInterpass, start),
             state.Work.Add(work),
             state.Rank + 1);
     }
 
-    // `Seq.Head`/`Seq.Last` are `Option`, and a pass carrying fewer than two frames has no station span at all: the
-    // row drops out of the fold so the nominal travel time answers, never a cycle divided by a fabricated zero.
-    private static Option<double> StationSpan(Seq<TorchFrame> frames) =>
-        from last in frames.Last
-        from head in frames.Head
-        select last.StationMm - head.StationMm;
+    private static Energy Heat(WeldPass pass, Length length) =>
+        new(pass.HeatInputKjMm * length.As(LengthUnit.Millimeter), EnergyUnit.Kilojoule);
 
-    private static Duration Cooling(WeldPass pass, Temperature ceiling, ThermalLaw law) {
-        double numerator = law.Peak.DegreesCelsius - law.Ambient.DegreesCelsius;
-        double denominator = ceiling.DegreesCelsius - law.Ambient.DegreesCelsius;
-        Duration tau = TimeConstant(pass, law);
-        return tau * Math.Log(numerator / denominator);
-    }
+    // Time for the HELD temperature to fall to the ceiling, never a constant band width: a joint that has already
+    // cooled owes nothing and a hot one owes exactly its own exponential decay.
+    private static NodaTime.Duration Cooling(WeldPass pass, Temperature held, Temperature ceiling, ThermalLaw law) =>
+        TimeConstant(pass, law) * Math.Log(
+            (held.DegreesCelsius - law.Ambient.DegreesCelsius) / (ceiling.DegreesCelsius - law.Ambient.DegreesCelsius));
 
     private static Temperature TemperatureAt(
-        Duration elapsed,
+        NodaTime.Duration elapsed,
         WeldPass pass,
         ThermalLaw law,
         Temperature initial) =>
         new(
             law.Ambient.DegreesCelsius
             + ((initial.DegreesCelsius - law.Ambient.DegreesCelsius)
-                * Math.Exp(-elapsed.Seconds / TimeConstant(pass, law).Seconds)),
+                * Math.Exp(-elapsed.TotalSeconds / TimeConstant(pass, law).TotalSeconds)),
             TemperatureUnit.DegreeCelsius);
 
-    private static Duration TimeConstant(WeldPass pass, ThermalLaw law) =>
-        law.TauAtReference
-        * (new Length(pass.ThicknessMm, LengthUnit.Millimeter) / law.ReferenceThickness)
-        * pass.Position.CoolingScale;
+    private static NodaTime.Duration TimeConstant(WeldPass pass, ThermalLaw law) =>
+        law.TauAtReference * (new Length(pass.ThicknessMm, LengthUnit.Millimeter) / law.ReferenceThickness);
 
-    // Depth is the joint-graph longest-path level: joints sharing a depth carry no precedence path and stay interleavable.
+    // Level is the critical distance from ONE synthetic source edged to every root, so a multi-root precedence forest
+    // measures in one walk and every level shifts down by that source. A cycle publishes its component MEMBERS.
     private static Fin<JointPrecedence> Precedence(AssemblyPlan assembly) {
+        const int Source = -1;
         BidirectionalGraph<int, SEdge<int>> joints = new(allowParallelEdges: false);
-        joints.AddVertexRange(assembly.Steps.Map(static step => step.Joint).Distinct().ToSeq());
+        joints.AddVertexRange(assembly.Steps.Map(static step => step.Joint).Distinct());
         assembly.Precedence
             .Filter(static edge => edge.Source.Joint != edge.Target.Joint)
             .Iter(edge => joints.AddVerticesAndEdge(new SEdge<int>(edge.Source.Joint, edge.Target.Joint)));
-        return joints.IsDirectedAcyclicGraph()
-            ? Fin.Succ(new JointPrecedence(
-                toSeq(joints.SourceFirstBidirectionalTopologicalSort()).Fold(
-                    HashMap<int, int>(),
-                    (depth, joint) => depth.AddOrUpdate(
-                        joint,
-                        toSeq(joints.InEdges(joint)).Fold(
-                            0,
-                            (deepest, edge) => Math.Max(deepest, 1 + depth.Find(edge.Source).IfNone(0))))),
-                assembly.Precedence))
-            : Fin.Fail<JointPrecedence>(
-                new FabricationFault.AssemblyPrecedenceCyclic(joints.VertexCount, joints.EdgeCount));
+        if (!joints.IsDirectedAcyclicGraph()) {
+            _ = joints.StronglyConnectedComponents(out IDictionary<int, int> components);
+            return Fin.Fail<JointPrecedence>(new FabricationFault.AssemblyPrecedenceCyclic(
+                toSeq(components)
+                    .GroupBy(static row => row.Value)
+                    .Filter(static group => group.Count() > 1)
+                    .Bind(static group => toSeq(group).Map(static row => row.Key))
+                    .ToArr()));
+        }
+
+        // The root scan MATERIALIZES before the source edges land: `Roots()` streams off the graph it is about to
+        // gain edges into, so a lazy walk would enumerate a collection the same statement mutates.
+        Arr<int> roots = joints.Roots().ToArr();
+        roots.Iter(root => joints.AddVerticesAndEdge(new SEdge<int>(Source, root)));
+        DagShortestPathAlgorithm<int, SEdge<int>> longest = new(joints, static _ => 1.0, DistanceRelaxers.CriticalDistance);
+        longest.Compute(Source);
+        return Fin.Succ(new JointPrecedence(
+            toSeq(longest.Distances)
+                .Filter(static row => row.Key != Source && double.IsFinite(row.Value))
+                .Fold(Map<int, int>(), static (held, row) => held.AddOrUpdate(row.Key, (int)row.Value - 1)),
+            assembly.Precedence));
     }
 
-    // TorchFrame.StationMm is the admitted arc-length station; chord distance between move targets is not the seam position.
-    private static Seq<WeldSegment> Segments(WeldPlan plan, HashMap<int, int> depth) =>
-        plan.Passes.Bind(pass => pass.Path.Zip(pass.Path.Tail)
-                .Map(static (pair, index) => (Start: pair.Item1, End: pair.Item2, Source: index))
-                .Filter(static span => span.End is Move.Linear && span.Start is Move.Rapid or Move.Linear)
-                .Map((span, index) => {
-                    Length station = Length.FromMillimeters(pass.Frames[span.Source].StationMm);
-                    Length length = Length.FromMillimeters(pass.Frames[span.Source + 1].StationMm) - station;
-                    return new WeldSegment(
-                        pass,
-                        index,
-                        span.Source,
-                        length,
-                        pass.Side,
-                        depth.Find(pass.Joint).IfNone(int.MaxValue),
-                        station,
-                        length,
-                        Seq<Move>(new Move.Rapid(Target(span.Start)), span.End),
-                        pass.Frames.Skip(span.Source).Take(2));
-                }))
-            .OrderBy(static segment => segment.Precedence)
-            .ToSeq();
+    // `DepositSegment` supplies station, length, frames, and the commanded window; the schedule row adds precedence
+    // level and the sub-interval fractions a band split re-cuts against.
+    private static Fin<Seq<WeldSegment>> Segments(WeldPlan plan, Map<int, int> level) =>
+        plan.Passes
+            .Bind(pass => pass.Segments.Map(segment => (Pass: pass, Segment: segment)))
+            .Map(row => row.Segment
+                .Window(0.0, 1.0, row.Pass.CommandedFeedMmMin)
+                .Map(path => new WeldSegment(
+                    row.Pass,
+                    row.Segment,
+                    Sequence: 0,
+                    row.Pass.Side,
+                    level.Find(row.Pass.Joint).IfNone(int.MaxValue),
+                    Length.FromMillimeters(row.Segment.StartStationMm),
+                    Length.FromMillimeters(row.Segment.LengthMm),
+                    FromFraction: 0.0,
+                    ToFraction: 1.0,
+                    path,
+                    row.Segment.Frames)))
+            .Traverse(identity)
+            .As()
+            .Map(static rows => toSeq(rows.OrderBy(static segment => segment.Precedence))
+                .Map(static (segment, index) => segment with { Sequence = index }));
 
-    private static Seq<WeldSegment> Subdivide(Seq<WeldSegment> segments, Length maximum) =>
-        segments.Bind(segment => {
-            int count = Math.Max(1, (int)Math.Ceiling(segment.Length / maximum));
-            return toSeq(Enumerable.Range(0, count)).Map(index => {
-                double from = (double)index / count;
-                double to = (double)(index + 1) / count;
-                Length length = segment.Length / count;
-                return segment with {
-                    Station = segment.Station + (segment.Length * from),
-                    Length = length,
-                    Path = Window(segment, from, to),
-                };
-            });
-        }).Map((segment, index) => segment with { Sequence = index });
+    // A band split re-cuts the OWNER's interval, so a circular segment subdivides into arcs and a linear one into
+    // lines — the geometry stays with `DepositSegment` and the schedule holds only fractions and stations.
+    private static Fin<Seq<WeldSegment>> Subdivide(Seq<WeldSegment> segments, Length maximum) =>
+        segments
+            .Bind(segment => {
+                int count = Math.Max(1, (int)Math.Ceiling(segment.Length / maximum));
+                return toSeq(Range(0, count)).Map(index => (Segment: segment, Index: index, Count: count));
+            })
+            .Map(row => {
+                double from = row.Segment.FromFraction
+                    + ((row.Segment.ToFraction - row.Segment.FromFraction) * row.Index / row.Count);
+                double to = row.Segment.FromFraction
+                    + ((row.Segment.ToFraction - row.Segment.FromFraction) * (row.Index + 1) / row.Count);
+                return row.Segment.Source
+                    .Window(from, to, row.Segment.Pass.CommandedFeedMmMin)
+                    .Map(path => row.Segment with {
+                        Station = row.Segment.Station + (row.Segment.Length * ((double)row.Index / row.Count)),
+                        Length = row.Segment.Length / row.Count,
+                        FromFraction = from,
+                        ToFraction = to,
+                        Path = path,
+                        Frames = Seq(row.Segment.Source.FrameAt(from), row.Segment.Source.FrameAt(to)),
+                    });
+            })
+            .Traverse(identity)
+            .As()
+            .Map(static rows => rows.Map(static (segment, index) => segment with { Sequence = index }));
 
-    private static Seq<Move> Window(WeldSegment segment, double from, double to) {
-        Point3d start = Target(segment.Path[0]);
-        Point3d end = Target(segment.Path[1]);
-        double feed = ((Move.Linear)segment.Path[1]).Feed;
-        return Seq<Move>(
-            new Move.Rapid(Interpolate(start, end, from)),
-            new Move.Linear(Interpolate(start, end, to), feed));
-    }
-
-    private static Point3d Interpolate(Point3d start, Point3d end, double fraction) =>
-        new(
-            start.X + ((end.X - start.X) * fraction),
-            start.Y + ((end.Y - start.Y) * fraction),
-            start.Z + ((end.Z - start.Z) * fraction));
-
-    // Arrangement is the schedule: joint actions stage around the deposits they gate instead of preceding every deposit.
+    // Arrangement is the schedule: joint actions stage around the deposits they gate instead of preceding every
+    // deposit, and membership rides SETS so a thousand-segment arrangement pays no quadratic rescan.
     private static Seq<WorkSeed> Seeds(SequenceRequest request, Seq<WeldSegment> arranged) {
-        HashMap<int, int> closes = arranged.Map(static (segment, index) => (segment.Pass.Joint, Index: index))
-            .Fold(HashMap<int, int>(), static (held, row) => held.AddOrUpdate(row.Joint, row.Index));
-        HashMap<(int Joint, int Pass), int> passCloses = arranged
+        Map<int, int> closes = arranged
+            .Map(static (segment, index) => (segment.Pass.Joint, Index: index))
+            .Fold(Map<int, int>(), static (held, row) => held.AddOrUpdate(row.Joint, row.Index));
+        Map<(int Joint, int Pass), int> passCloses = arranged
             .Map(static (segment, index) => (Key: (segment.Pass.Joint, segment.Pass.Ordinal), Index: index))
-            .Fold(HashMap<(int, int), int>(), static (held, row) => held.AddOrUpdate(row.Key, row.Index));
+            .Fold(Map<(int, int), int>(), static (held, row) => held.AddOrUpdate(row.Key, row.Index));
         return arranged.Map(static (segment, index) => (Segment: segment, Index: index)).Fold(
-            (Seeds: Seq<WorkSeed>(), Opened: Seq<int>(), Gated: Seq<(int Joint, int Side)>()),
+            (Seeds: Seq<WorkSeed>(), Opened: Set<int>(), Gated: Set<(int Joint, int Side)>()),
             (stream, row) => {
                 int joint = row.Segment.Pass.Joint;
                 (int Joint, int Side) gate = (joint, row.Segment.Side);
@@ -910,30 +992,33 @@ public static class Sequence {
                         + (stream.Opened.Contains(joint) ? Seq<WorkSeed>() : Opening(request, arranged, joint))
                         + (stream.Gated.Contains(gate) ? Seq<WorkSeed>() : Gating(request, gate))
                         + Seq<WorkSeed>(row.Segment.Pass.Role == PassRole.Tack
-                            ? new WorkSeed.Tack(row.Segment, TackFor(request.Policy, row.Segment.Pass), row.Segment.Length)
+                            ? new WorkSeed.Tack(
+                                row.Segment, TackFor(request.Policy, row.Segment.Pass), row.Segment.Length, row.Segment.Path)
                             : new WorkSeed.Deposit(row.Segment))
                         + (row.Segment.Pass.Role.HoldForInspection
-                                && passCloses.Find((joint, row.Segment.Pass.Ordinal))
-                                    .Exists(last => last == row.Index)
+                                && passCloses.Find((joint, row.Segment.Pass.Ordinal)).Exists(last => last == row.Index)
                             ? Seq<WorkSeed>(new WorkSeed.Inspection(joint, Some(row.Segment.Pass.Ordinal)))
                             : Seq<WorkSeed>())
                         + (closes.Find(joint).Exists(last => last == row.Index) ? Closing(request, joint) : Seq<WorkSeed>()),
-                    stream.Opened.Contains(joint) ? stream.Opened : stream.Opened.Add(joint),
-                    stream.Gated.Contains(gate) ? stream.Gated : stream.Gated.Add(gate));
+                    stream.Opened.TryAdd(joint),
+                    stream.Gated.TryAdd(gate));
             }).Seeds;
     }
 
+    // Preheat and groove preparation open the joint; the tack pattern seeds only where the plan itself carries no
+    // tack role, so a plan that already programmed tacks is never double-tacked by policy.
     private static Seq<WorkSeed> Opening(SequenceRequest request, Seq<WeldSegment> arranged, int joint) {
         Seq<WeldSegment> deposits = arranged.Filter(segment => segment.Pass.Joint == joint);
-        TackBand band = deposits.Head.Map(segment => TackFor(request.Policy, segment.Pass))
-            .IfNone(request.Policy.TackBands.Head);
+        TackBand band = deposits.Head
+            .Map(segment => TackFor(request.Policy, segment.Pass))
+            .IfNone(() => request.Policy.TackBands[0]);
         return request.Plan.Actions
-                .Filter(action => action.Joint == joint
-                    && action is JointAction.PrepareGroove or JointAction.InstallBacking)
+                .Filter(action => action.Joint == joint && action.Stage == JointStage.Opening)
                 .Map(static action => (WorkSeed)new WorkSeed.Preparation(action))
             + (request.Assembly.Steps.Exists(step => step.Joint == joint && step.Phase == JoinPhase.Tack)
                 && !deposits.Exists(static segment => segment.Pass.Role == PassRole.Tack)
-                ? deposits.Filter(segment => (segment.Station.Meters % band.Pitch.Meters) <= segment.Length.Meters)
+                ? deposits
+                    .Filter(segment => (segment.Station.Meters % band.Pitch.Meters) <= segment.Length.Meters)
                     .Map(segment => (WorkSeed)new WorkSeed.Tack(
                         segment,
                         band,
@@ -941,7 +1026,8 @@ public static class Sequence {
                             segment.Length,
                             UnitMath.Max(
                                 band.MinimumLength,
-                                new Length(segment.Pass.ThicknessMm * band.LengthFactor, LengthUnit.Millimeter)))))
+                                new Length(segment.Pass.ThicknessMm * band.LengthFactor, LengthUnit.Millimeter))),
+                        segment.Path))
                 : Seq<WorkSeed>());
     }
 
@@ -953,169 +1039,260 @@ public static class Sequence {
 
     private static Seq<WorkSeed> Closing(SequenceRequest request, int joint) =>
         request.Plan.Actions
-            .Filter(action => action is JointAction.RemoveBacking && action.Joint == joint)
+            .Filter(action => action.Joint == joint && action.Stage == JointStage.Closing)
             .Map(static action => (WorkSeed)new WorkSeed.Preparation(action));
 
-    private static TackBand TackFor(SequencePolicy policy, WeldPass pass) =>
-        policy.TackBands.OrderBy(static band => band.MaximumThickness)
+    private static TackBand TackFor(SequencePolicy policy, WeldPass pass) {
+        Seq<TackBand> ordered = toSeq(policy.TackBands.OrderBy(static band => band.MaximumThickness));
+        return ordered
             .Find(band => new Length(pass.ThicknessMm, LengthUnit.Millimeter) <= band.MaximumThickness)
-            .IfNone(policy.TackBands.OrderBy(static band => band.MaximumThickness).Last);
+            .IfNone(() => ordered[^1]);
+    }
 
-    private static Point3d Target(Move move) => move.Switch(
-        rapid: static value => value.Target,
-        linear: static value => value.Target,
-        circular: static value => value.Target);
-
-    // Consecutive deposits are counted over the emitted schedule, never the pre-schedule arrangement the interleave reorders.
+    // Consecutive deposits are counted over the EMITTED schedule, never the pre-schedule arrangement the interleave
+    // reorders, and each limit that trips names its own measured figure beside the bound it crossed.
     private static Seq<CandidateRejection> Rejections(
         SequenceLimits limits,
         Seq<ScheduledWork> work,
-        Duration elapsed,
-        DistortionEvidence distortion) {
+        NodaTime.Duration elapsed,
+        DistortionEvidence field) {
         int consecutive = work.Fold(
             (Current: 0, Maximum: 0),
             static (held, row) => row.Switch(
                 state: held,
-                tack: static (state, _) => ResetStreak(state),
-                preparation: static (state, _) => ResetStreak(state),
-                inspection: static (state, _) => ResetStreak(state),
-                deposit: static (state, _) => {
-                    int current = state.Current + 1;
-                    return (current, Math.Max(state.Maximum, current));
-                })).Maximum;
+                tack: static (state, _) => (0, state.Maximum),
+                preparation: static (state, _) => (0, state.Maximum),
+                inspection: static (state, _) => (0, state.Maximum),
+                deposit: static (state, _) => (state.Current + 1, Math.Max(state.Maximum, state.Current + 1)))).Maximum;
+        Length linear = UnitMath.Max(field.Sweep, field.Camber);
+        Angle angular = UnitMath.Max(field.Twist, field.Angular);
         return Seq<Option<CandidateRejection>>(
                 consecutive > limits.ConsecutiveDeposits
-                    ? Some<CandidateRejection>(new CandidateRejection.ConsecutiveDeposits(
-                        consecutive,
-                        limits.ConsecutiveDeposits))
+                    ? Some<CandidateRejection>(new CandidateRejection.ConsecutiveDeposits(consecutive, limits.ConsecutiveDeposits))
                     : Option<CandidateRejection>.None,
                 elapsed > limits.Elapsed
                     ? Some<CandidateRejection>(new CandidateRejection.Elapsed(elapsed, limits.Elapsed))
                     : Option<CandidateRejection>.None,
-                UnitMath.Max(distortion.Sweep, distortion.Camber) > limits.LinearDistortion
-                    ? Some<CandidateRejection>(new CandidateRejection.LinearDistortion(
-                        UnitMath.Max(distortion.Sweep, distortion.Camber),
-                        limits.LinearDistortion))
+                linear > limits.LinearDistortion
+                    ? Some<CandidateRejection>(new CandidateRejection.LinearDistortion(linear, limits.LinearDistortion))
                     : Option<CandidateRejection>.None,
-                UnitMath.Max(distortion.Twist, distortion.Angular) > limits.AngularDistortion
-                    ? Some<CandidateRejection>(new CandidateRejection.AngularDistortion(
-                        UnitMath.Max(distortion.Twist, distortion.Angular),
-                        limits.AngularDistortion))
+                angular > limits.AngularDistortion
+                    ? Some<CandidateRejection>(new CandidateRejection.AngularDistortion(angular, limits.AngularDistortion))
                     : Option<CandidateRejection>.None)
             .Choose(identity);
     }
 
-    private static (int Current, int Maximum) ResetStreak((int Current, int Maximum) state) =>
-        (0, state.Maximum);
+    // Five degrees of freedom per assembly MEMBER: three linear components the receipt row publishes as one vector,
+    // and the twist and angular modes the field summary carries. Duplicate triplets SUM in the kernel assembly, so
+    // the self term and every restraint coupling compose into one SPD operator without a hand accumulator.
+    private const int MemberDegrees = 5;
 
-    // COO accumulates duplicate triplets, so the self term and every restraint coupling sum into one SPD stiffness.
-    private static Fin<DistortionKernel> Factor(
+    private static Fin<DistortionKernel> Assemble(
+        SequenceRequest request,
         Seq<WeldSegment> segments,
-        Seq<AssemblyEdge> restraints,
-        InherentStrainLaw law) => Try.lift(() => {
-            Seq<int> joints = segments.Map(static segment => segment.Pass.Joint).Distinct().ToSeq();
-            HashMap<int, int> indexOf = joints.Map((joint, index) => (Joint: joint, Index: index))
-                .Fold(HashMap<int, int>(), static (held, row) => held.AddOrUpdate(row.Joint, row.Index));
-            int degrees = Math.Max(1, 4 * joints.Count);
-            CoordinateStorage<double> coo = new(degrees, degrees, Math.Max(degrees, 9 * segments.Count));
-            toSeq(Enumerable.Range(0, degrees)).Iter(index => coo.At(index, index, law.SelfStiffness));
-            restraints.Filter(edge => edge.Source.Joint != edge.Target.Joint
-                    && indexOf.ContainsKey(edge.Source.Joint) && indexOf.ContainsKey(edge.Target.Joint)
-                    && law.Coupling(edge.Kind) > 0.0)
-                .Iter(edge => toSeq(Enumerable.Range(0, 4)).Iter(axis => {
-                    double coupling = law.Coupling(edge.Kind);
-                    int source = (4 * indexOf[edge.Source.Joint]) + axis;
-                    int target = (4 * indexOf[edge.Target.Joint]) + axis;
-                    coo.At(source, source, coupling);
-                    coo.At(target, target, coupling);
-                    coo.At(source, target, -coupling);
-                    coo.At(target, source, -coupling);
-                }));
-            return new DistortionKernel(
-                SparseCholesky.Create(
-                    CompressedColumnStorage<double>.OfIndexed(coo),
-                    ColumnOrdering.MinimumDegreeAtPlusA),
-                indexOf,
-                degrees);
-        })
-            .Run()
-            .MapFail(error => Error.New("weld-sequence:distortion-factorization") + error);
+        Seq<AssemblyEdge> restraints) {
+        InherentStrainLaw law = request.Policy.Distortion;
+        Map<int, AssemblyMemberKey> owners = request.Assembly.Joints.Fold(
+            Map<int, AssemblyMemberKey>(),
+            static (held, joint) => held.AddOrUpdate(joint.Index, joint.Owner));
+        // Welded members AND clamped ones: a member the schedule never deposits on still moves under the clamp that
+        // grips it, so leaving it out of the index drops its whole load family from the operator.
+        Seq<AssemblyMemberKey> members = (segments
+                .Bind(segment => owners.Find(segment.Pass.Joint).ToSeq())
+            + request.Clamps.Map(static clamp => clamp.Member))
+            .Distinct()
+            .ToSeq();
+        Map<AssemblyMemberKey, int> index = members
+            .Map(static (member, ordinal) => (Member: member, Ordinal: ordinal))
+            .Fold(Map<AssemblyMemberKey, int>(), static (held, row) => held.AddOrUpdate(row.Member, row.Ordinal));
+        int degrees = Math.Max(MemberDegrees, MemberDegrees * members.Count);
+        Op key = Op.Of();
+        IEnumerable<(int Row, int Col, double Value)> diagonal = Range(0, degrees)
+            .Select(slot => (slot, slot, law.SelfStiffness));
+        IEnumerable<(int Row, int Col, double Value)> couplings = restraints
+            .Filter(edge => edge.Source.Joint != edge.Target.Joint && law.Coupling(edge.Kind) > 0.0)
+            .Bind(edge => Pair(owners, index, edge, law.Coupling(edge.Kind)))
+            .AsEnumerable();
+        return SparseMatrix
+            .FromTriplets(Dimension.Create(degrees), Dimension.Create(degrees), diagonal.Concat(couplings), key)
+            .Bind(stiffness => CholeskySparse.Of(stiffness, key: key))
+            .Map(factor => new DistortionKernel(factor, index, degrees));
+    }
 
-    private static Fin<DistortionEvidence> InherentStrain(
+    // A restraint couples two members on every degree of freedom: the two diagonal terms and the two off-diagonal
+    // terms sum into the assembly, so the operator stays symmetric positive-definite under the self term.
+    private static Seq<(int Row, int Col, double Value)> Pair(
+        Map<int, AssemblyMemberKey> owners,
+        Map<AssemblyMemberKey, int> index,
+        AssemblyEdge edge,
+        double coupling) =>
+        (from source in owners.Find(edge.Source.Joint).Bind(index.Find)
+         from target in owners.Find(edge.Target.Joint).Bind(index.Find)
+         where source != target
+         select toSeq(Range(0, MemberDegrees)).Bind(axis =>
+             Seq(((MemberDegrees * source) + axis, (MemberDegrees * source) + axis, coupling),
+                 ((MemberDegrees * target) + axis, (MemberDegrees * target) + axis, coupling),
+                 ((MemberDegrees * source) + axis, (MemberDegrees * target) + axis, -coupling),
+                 ((MemberDegrees * target) + axis, (MemberDegrees * source) + axis, -coupling))))
+        .IfNone(Seq<(int, int, double)>());
+
+    // Every source family loads ONE stiffness: thermal shrinkage decays by candidate chronology, clamp preload rides
+    // its declared force, and a release stage relaxes what it held. The dominating source per member is the row's
+    // own discriminant, so a fixturing consumer separates spring-back from shrinkage without a second solve.
+    private static Fin<DisplacementReceipt> Solve(
+        SequenceRequest request,
         Seq<WeldSegment> segments,
         Seq<ScheduledWork> work,
-        Duration total,
-        InherentStrainLaw law,
-        DistortionKernel kernel) => Try.lift(() => {
-        HashMap<(int Joint, int Pass, int Segment), Duration> chronology = work.Choose(static row => row.Switch(
-                state: unit,
-                tack: static (_, tack) => Some((
-                    Key: (tack.Pass.Joint, tack.Pass.Ordinal, tack.Segment),
-                    At: tack.At)),
-                preparation: static (_, _) => Option<((int Joint, int Pass, int Segment) Key, Duration At)>.None,
-                inspection: static (_, _) => Option<((int Joint, int Pass, int Segment) Key, Duration At)>.None,
-                deposit: static (_, deposit) => Some((
-                    Key: (deposit.Pass.Joint, deposit.Pass.Ordinal, deposit.Segment),
-                    At: deposit.At + deposit.Wait + deposit.Reheat))))
+        NodaTime.Duration total,
+        DistortionKernel kernel) {
+        InherentStrainLaw law = request.Policy.Distortion;
+        Map<int, AssemblyMemberKey> owners = request.Assembly.Joints.Fold(
+            Map<int, AssemblyMemberKey>(),
+            static (held, joint) => held.AddOrUpdate(joint.Index, joint.Owner));
+        Map<(int Joint, int Pass, int Segment), NodaTime.Duration> chronology = work.Fold(
+            Map<(int, int, int), NodaTime.Duration>(),
+            static (held, row) => row.Switch(
+                state: held,
+                tack: static (map, tack) => map.AddOrUpdate((tack.Pass.Joint, tack.Pass.Ordinal, tack.Segment), tack.At),
+                preparation: static (map, _) => map,
+                inspection: static (map, _) => map,
+                deposit: static (map, value) => map.AddOrUpdate(
+                    (value.Pass.Joint, value.Pass.Ordinal, value.Segment), value.At + value.Wait + value.Reheat)));
+        Seq<(int Slot, double Load, DistortionSource Source)> loads = segments.Bind(segment =>
+            owners.Find(segment.Pass.Joint).Bind(kernel.MemberIndex.Find).Map(member => {
+                Energy heat = Heat(segment.Pass, segment.Length);
+                NodaTime.Duration at = chronology
+                    .Find((segment.Pass.Joint, segment.Pass.Ordinal, segment.Sequence))
+                    .IfNone(NodaTime.Duration.Zero);
+                double memory = Math.Exp(-(total - at).TotalSeconds / law.SequenceMemory.TotalSeconds);
+                double source = (heat / law.ReferenceHeat) * memory;
+                double sign = segment.Pass.Side % 2 == 0 ? -1.0 : 1.0;
+                double arm = segment.Station / UnitMath.Max(
+                    Length.FromMillimeters(segment.Source.LengthMm), segment.Station + segment.Length);
+                int offset = MemberDegrees * member;
+                DistortionSource discriminant = new DistortionSource.Thermal(
+                    segment.Pass.Ordinal, source * law.LongitudinalAtReference.Millimeters);
+                return Seq(
+                    (offset, source * law.LongitudinalAtReference.Meters, discriminant),
+                    (offset + 1, sign * source * law.TransverseAtReference.Meters, discriminant),
+                    (offset + 2, sign * source * law.NormalAtReference.Meters, discriminant),
+                    (offset + 3, sign * source * law.TwistAtReference.Radians * arm, discriminant),
+                    (offset + 4, sign * source * law.AngularAtReference.Radians, discriminant));
+            }).IfNone(Seq<(int, double, DistortionSource)>()));
+        // A clamp presses its member against the fixture for as long as it holds, and its RELEASE relaxes what it
+        // held — two families over one force, so the schedule reports the spring-back a shop actually measures at
+        // unclamping rather than a shrinkage field the fixture was still restraining.
+        Seq<(int Slot, double Load, DistortionSource Source)> restraint = request.Clamps.Bind(clamp =>
+            kernel.MemberIndex.Find(clamp.Member).Map(member => {
+                double held = clamp.Preload / law.ReferencePreload;
+                int offset = MemberDegrees * member;
+                DistortionSource pressing = new DistortionSource.Preload(clamp.Index, clamp.Preload.Newtons);
+                Seq<(int, double, DistortionSource)> preload = Seq(
+                    (offset + 1, held * law.PreloadAtReference.Meters, pressing),
+                    (offset + 2, held * law.PreloadAtReference.Meters, pressing));
+                return preload + clamp.ReleaseStep.Map(step => {
+                    DistortionSource relaxing = new DistortionSource.Release(step);
+                    return Seq<(int, double, DistortionSource)>(
+                        (offset + 1, -held * law.ReleaseAtReference.Meters, relaxing),
+                        (offset + 2, -held * law.ReleaseAtReference.Meters, relaxing));
+                }).IfNone(Seq<(int, double, DistortionSource)>());
+            }).IfNone(Seq<(int, double, DistortionSource)>()));
+        double[] vector = (loads + restraint).Fold(
+            new double[kernel.Degrees],
+            static (held, row) => { held[row.Slot] += row.Load; return held; });
+        return kernel.Factor
+            .SolveDetailed(new Arr<double>(vector), Op.Of())
+            .Map(receipt => Receipt(kernel, loads + restraint, vector, receipt));
+    }
+
+    // ONE pass over the solution vector yields every field extreme and the solver work, reading the already-summed
+    // load slot rather than re-scanning the source rows per degree of freedom.
+    private static DisplacementReceipt Receipt(
+        DistortionKernel kernel,
+        Seq<(int Slot, double Load, DistortionSource Source)> loads,
+        double[] vector,
+        SolveReceipt solved) {
+        // Dominance compares the LOAD each row actually placed on the operator, in the operator's own units — a
+        // per-case reading compares millimetres of shrinkage against newtons of preload and elects by whichever
+        // family happens to be spelled in the larger number.
+        Map<int, (double Load, DistortionSource Source)> dominating = loads.Fold(
+            Map<int, (double Load, DistortionSource Source)>(),
+            static (held, row) => held.AddOrUpdate(
+                row.Slot / MemberDegrees,
+                existing => existing.Load >= Math.Abs(row.Load) ? existing : (Math.Abs(row.Load), row.Source),
+                (Math.Abs(row.Load), row.Source)));
+        Seq<DisplacementRow> rows = toSeq(kernel.MemberIndex).Map(entry => new DisplacementRow(
+            entry.Key,
+            new Vector3d(
+                solved.Solution[MemberDegrees * entry.Value],
+                solved.Solution[(MemberDegrees * entry.Value) + 1],
+                solved.Solution[(MemberDegrees * entry.Value) + 2]),
+            dominating.Find(entry.Value).Map(static held => held.Source)));
+        (double Sweep, double Camber, double Twist, double Angular, double Work) extremes = toSeq(solved.Solution)
+            .Map(static (value, slot) => (Value: value, Slot: slot))
             .Fold(
-                HashMap<(int, int, int), Duration>(),
-                static (held, row) => held.AddOrUpdate(row.Key, row.At));
-        double[] loads = new double[kernel.Degrees];
-        segments.Iter(segment => {
-            int offset = 4 * kernel.JointIndex[segment.Pass.Joint];
-            Energy heat = new(
-                segment.Pass.HeatInputKjMm * segment.Length.As(LengthUnit.Millimeter),
-                EnergyUnit.Kilojoule);
-            Duration at = chronology.Find((segment.Pass.Joint, segment.Pass.Ordinal, segment.Sequence))
-                .IfNone(Duration.Zero);
-            double memory = Math.Exp(-(total - at).Seconds / law.SequenceMemory.Seconds);
-            double source = (heat / law.ReferenceHeat) * memory;
-            double sign = segment.Pass.Side % 2 == 0 ? -1.0 : 1.0;
-            double arm = segment.Station / UnitMath.Max(segment.SourceLength, segment.Station + segment.Length);
-            loads[offset] += source * law.LongitudinalAtReference.Meters;
-            loads[offset + 1] += sign * source * law.TransverseAtReference.Meters;
-            loads[offset + 2] += sign * source * law.TwistAtReference.Radians * arm;
-            loads[offset + 3] += sign * source * law.AngularAtReference.Radians;
-        });
-        double[] displacement = new double[kernel.Degrees];
-        kernel.Factor.Solve(loads, displacement);
-        Length sweep = Length.FromMeters(displacement.Where((_, index) => index % 4 == 0).Select(Math.Abs).DefaultIfEmpty().Max());
-        Length camber = Length.FromMeters(displacement.Where((_, index) => index % 4 == 1).Select(Math.Abs).DefaultIfEmpty().Max());
-        Angle twist = new(displacement.Where((_, index) => index % 4 == 2).Select(Math.Abs).DefaultIfEmpty().Max(), AngleUnit.Radian);
-        Angle angular = new(displacement.Where((_, index) => index % 4 == 3).Select(Math.Abs).DefaultIfEmpty().Max(), AngleUnit.Radian);
-        double solverWork = displacement.Zip(loads, static (value, load) => value * load).Sum();
-        return new DistortionEvidence(sweep, camber, twist, angular, solverWork, kernel.Factor.NonZerosCount);
-    })
-        .Run()
-        .MapFail(error => Error.New("weld-sequence:distortion-solve") + error);
+                (Sweep: 0.0, Camber: 0.0, Twist: 0.0, Angular: 0.0, Work: 0.0),
+                (held, row) => (
+                    row.Slot % MemberDegrees == 0 ? Math.Max(held.Sweep, Math.Abs(row.Value)) : held.Sweep,
+                    row.Slot % MemberDegrees == 1 ? Math.Max(held.Camber, Math.Abs(row.Value)) : held.Camber,
+                    row.Slot % MemberDegrees == 3 ? Math.Max(held.Twist, Math.Abs(row.Value)) : held.Twist,
+                    row.Slot % MemberDegrees == 4 ? Math.Max(held.Angular, Math.Abs(row.Value)) : held.Angular,
+                    held.Work + (row.Value * vector[row.Slot])));
+        return new DisplacementReceipt(rows, new DistortionEvidence(
+            Length.FromMeters(extremes.Sweep),
+            Length.FromMeters(extremes.Camber),
+            new Angle(extremes.Twist, AngleUnit.Radian),
+            new Angle(extremes.Angular, AngleUnit.Radian),
+            solved.Residual,
+            extremes.Work,
+            solved.FactorNonZeros.IfNone(0)));
+    }
 
     private static double Score(
         DistortionObjective objective,
-        Duration total,
+        NodaTime.Duration total,
         Temperature maximum,
-        DistortionEvidence distortion) =>
-        (objective.Sweep * distortion.Sweep.Millimeters)
-        + (objective.Camber * distortion.Camber.Millimeters)
-        + (objective.Twist * distortion.Twist.Degrees)
-        + (objective.Angular * distortion.Angular.Degrees)
-        + (objective.Time * total.Seconds)
+        DistortionEvidence field) =>
+        (objective.Sweep * field.Sweep.Millimeters)
+        + (objective.Camber * field.Camber.Millimeters)
+        + (objective.Twist * field.Twist.Degrees)
+        + (objective.Angular * field.Angular.Degrees)
+        + (objective.Time * total.TotalSeconds)
         + (objective.Thermal * maximum.DegreesCelsius);
 }
 ```
 
-## [03]-[SCHEDULE_FOLD]
+```mermaid
+---
+config:
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+---
+flowchart LR
+    accTitle: Weld sequencing fold
+    accDescr: One admitted sequence request derives joint precedence levels, cuts station-indexed schedule rows off the weld plan's own deposit segments, generates a bounded candidate order space, folds each candidate through one thermal state, and solves every candidate against one cached sparse factor before ranking.
+    Request["SequenceRequest — plan, assembly, budget, policy, motion timing"] --> Precedence["Precedence — DagShortestPathAlgorithm + CriticalDistance"]
+    Request --> Segments["Segments — DepositSegment.Window(0,1)"]
+    Precedence -->|level per joint| Segments
+    Segments --> Assemble["Assemble — SparseMatrix.FromTriplets + CholeskySparse.Of"]
+    Request -->|CandidateLaw.Generate, lazily bounded| Orders["DistortionOrder stream"]
+    Orders --> Candidate["Candidate"]
+    Segments --> Candidate
+    Candidate -->|"Subdivide — DepositSegment.Window(from,to)"| Sub["band-split rows"]
+    Sub -->|"Arrange — precedence, barrier, primary, secondary"| Arranged["ordered rows"]
+    Arranged -->|Seeds — JointAction.Stage| Work["WorkSeed stream"]
+    Work -->|"Advance — one thermal state"| Scheduled["ScheduledWork + clock"]
+    Assemble --> Solve["Solve — one factor per request"]
+    Scheduled --> Solve
+    Solve --> Receipt["DisplacementReceipt — per-member rows + field summary"]
+    Receipt --> Rank["Rejections + Score"]
+    Rank --> Schedule["WeldSchedule"]
+    Receipt -->|"the ONE distortion field"| Fixturing["Fixturing/assembly + Fixturing/setups"]
+```
 
-- Owner: `Sequence` derives the joint precedence depth, candidate schedules, inherent-strain evidence, and selected receipt through one ordered algebra.
-- Law: `Seeds` walks the arrangement itself, so joints at one depth alternate under the traversal arm; `PrepareGroove` and `InstallBacking` open a joint, `Backgouge` and its root inspection gate the side `BeforeSide` names, and `RemoveBacking` closes the joint after its last deposit.
-- Law: `TorchFrame.StationMm` supplies segment station and length, so ordering, subdivision, and the distortion moment arm read the admitted seam position rather than a chord between move targets.
-- Law: each deposit advances one immutable `ScheduleState`; work on other joints credits thickness- and position-scaled cooling, reheat occupies the clock, and each start, peak, ceiling, and maximum interpass temperature remains dimensioned. Band-floored tacks dwell for the time their energy needs at `ProcessBudget.Joining` arc power.
-- Law: `RobotTiming` reads `Program.Targets`, `SystemTarget.DeltaTime`, `Program.Duration`, `Program.Warnings`, and `Program.Errors`; a compiled pass missing a span falls back to its planned cycle, and nominal travel duration remains the non-robot timing row.
-- Law: policy-scaled longitudinal, transverse, twist, and angular sources couple through `PrecedenceKind`-weighted assembly restraints and decay by candidate chronology; one COO assembly finalizes to CSC and one `SparseCholesky` factor serves every candidate solve, while factor fill and every predicted mode ride each candidate.
-- Receipt: `WeldSchedule` carries selected work, dimensional total, the frozen `TotalS` projection, interpass ceiling, distortion evidence, candidate ranking, and warnings.
-- Packages: `BidirectionalGraph` admits the joint projection of `AssemblyPlan.Precedence`, `IsDirectedAcyclicGraph` gates the fold, and `SourceFirstBidirectionalTopologicalSort` supplies the order the `InEdges` longest-path fold turns into a depth per joint.
-- Boundary: typed infeasibility terminates before scheduling, and a fully infeasible space fails carrying the nearest-miss candidate's rejections; a feasible but inferior candidate remains evidence rather than disappearing from the result.
-
-## [04]-[RESEARCH]
+## [05]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.

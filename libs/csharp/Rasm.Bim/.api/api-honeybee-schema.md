@@ -91,6 +91,25 @@ Every geometry object carries a `Properties` member splitting into per-extension
 |  [06]   | schedule enums   | `ScheduleNumericType`/`ScheduleUnitType`/`DaysOfWeek` — the temporal vocabulary                              |
 |  [07]   | control enums    | `ControlType`/`VentilationControlType`/`EconomizerType`/`AllAirEconomizerType`                               |
 
+[PUBLIC_TYPE_SCOPE]: verified constructor signatures — the shapes the energy raise and lower author against
+
+Each ctor is positional-then-optional; the optional tail carries the schema's OWN authoring defaults, so an omitted argument is the schema's stated value and never a fabricated one.
+
+- `EnergyMaterial(string identifier, double thickness, double conductivity, double density, double specificHeat, string displayName = null, object userData = null, Roughness roughness = MediumRough, double thermalAbsorptance = 0.9, double solarAbsorptance = 0.7, double visibleAbsorptance = 0.7)`
+- `EnergyWindowMaterialGlazing(string identifier, string displayName = null, object userData = null, double thickness = 0.003, double solarTransmittance = 0.85, double solarReflectance = 0.075, AnyOf<Autocalculate,double> solarReflectanceBack = null, …)`
+- `EnergyWindowMaterialGlazing` continues `double visibleTransmittance = 0.9, double visibleReflectance = 0.075, AnyOf<Autocalculate,double> visibleReflectanceBack = null, double infraredTransmittance = 0.0, double emissivity = 0.84, double emissivityBack = 0.84, double conductivity = 0.9, double dirtCorrection = 1.0, bool solarDiffusing = false`.
+- `OpaqueConstructionAbridged(string identifier, List<string> materials, string displayName = null, object userData = null)`
+- `WindowConstructionAbridged(string identifier, List<string> materials, string displayName = null, object userData = null, string frame = null)`
+- `Face(string identifier, Face3D geometry, FaceType faceType, AnyOf<Ground,Outdoors,Adiabatic,Surface,OtherSideTemperature> boundaryCondition, FacePropertiesAbridged properties, string displayName = null, object userData = null, List<Aperture> apertures = null, List<Door> doors = null, List<Shade> indoorShades = null, List<Shade> outdoorShades = null)`
+- `Aperture(string identifier, Face3D geometry, AnyOf<Outdoors,Surface> boundaryCondition, AperturePropertiesAbridged properties, string displayName = null, object userData = null, bool isOperable = false, List<Shade> indoorShades = null, List<Shade> outdoorShades = null)`
+- `Door(string identifier, Face3D geometry, AnyOf<Outdoors,Surface> boundaryCondition, DoorPropertiesAbridged properties, string displayName = null, object userData = null, bool isGlass = false, List<Shade> indoorShades = null, List<Shade> outdoorShades = null)`
+- `Room(string identifier, List<Face> faces, RoomPropertiesAbridged properties, string displayName = null, object userData = null, List<Shade> indoorShades = null, List<Shade> outdoorShades = null, int multiplier = 1, bool excludeFloorArea = false, string zone = null, string story = null)`
+- `Model(string identifier, ModelProperties properties, string displayName = null, object userData = null, List<Room> rooms = null, List<Face> orphanedFaces = null, List<Shade> orphanedShades = null, List<Aperture> orphanedApertures = null, List<Door> orphanedDoors = null, List<ShadeMesh> shadeMeshes = null, Units units = Meters, double tolerance = 0.01, double angleTolerance = 1.0)`
+- `ModelEnergyProperties(...)` takes all-optional list arguments, so `new ModelEnergyProperties()` is the empty store an authoring fold appends into.
+
+- [ROOM_AXES]: `Room` carries `Zone` and `Story` as authored STRING identifiers beside its `Multiplier` repeat, so a raise reads a room's thermal-zone grouping and its level off the room itself — no sibling lookup and no derived grouping.
+- [BOUNDARY_ORDER]: the `Face` boundary closure orders its arguments `(Ground, Outdoors, Adiabatic, Surface, OtherSideTemperature)`, which is NOT the `DragonflySchema.Room2D.BoundaryConditions` order, so the two `AnyOf` closures are distinct constructed types and one concrete case re-converts between them.
+
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: HBJSON round-trip
@@ -106,7 +125,8 @@ Every geometry object carries a `Properties` member splitting into per-extension
 |  [06]   | `model.Validate() -> IEnumerable<ValidationResult>` | instance | the per-property DataAnnotations results          |
 
 [ENTRYPOINT_SCOPE]: model assembly and standards library
-- note: the `Model.Add*` energy mutators are `AddConstructions`/`AddMaterials`/`AddSchedules`/`AddScheduleTypeLimits`/`AddConstructionSets`/`AddProgramTypes`/`AddHVACs`, the radiance mutators `AddModifiers`/`AddModifierSets`; `Helper.EnergyLibrary` exposes `StandardEnergyLibrary`/`DefaultModelEnergyProperties`/`UserEnergyLibrary` and the `Get<X>ByIdentifier` resolvers.
+- note: `Model.Add*` energy mutators (`AddConstructions`/`AddMaterials`/`AddSchedules`/`AddScheduleTypeLimits`/`AddConstructionSets`/`AddProgramTypes`/`AddHVACs`) and radiance mutators (`AddModifiers`/`AddModifierSets`) each DELEGATE to the store-keyed `Extension` static of the same name, so both paths dedupe by identifier and a fold holding a bare `ModelEnergyProperties` appends through the extension directly.
+- note: `Helper.EnergyLibrary` exposes `StandardEnergyLibrary`/`DefaultModelEnergyProperties`/`UserEnergyLibrary` beside the `Get<X>ByIdentifier` resolvers.
 
 | [INDEX] | [SURFACE]                                       | [SHAPE]  | [CAPABILITY]                                      |
 | :-----: | :---------------------------------------------- | :------- | :------------------------------------------------ |
@@ -120,13 +140,16 @@ Every geometry object carries a `Properties` member splitting into per-extension
 
 `Extension` is the cross-cutting static helper beneath the `Model.Add*` instance mutators — the generic codec entry, the interface-typed deep copy, the store-keyed library mutators `Model.Add*` delegates to, and the abridged-reference resolvers. `Extension.Duplicate` clones `ILoad`/`IMaterial`/`IConstruction`/`IConstructionset`; `Extension.GetAll*` reads a `ConstructionSetAbridged`/`IConstruction`/`ProgramTypeAbridged`/`ModifierSetAbridged`.
 
-| [INDEX] | [SURFACE]                                                            | [SHAPE] | [CAPABILITY]                                         |
-| :-----: | :------------------------------------------------------------------- | :------ | :--------------------------------------------------- |
-|  [01]   | `Extension.To<T>(this string) -> T`                                  | static  | generic HBJSON parse; reflects `T.FromJson`          |
-|  [02]   | `Extension.Add*(this ModelEnergyProperties, I…)`                     | static  | store-keyed library mutators (dedupe-by-id)          |
-|  [03]   | `Extension.Duplicate(this I…)`                                       | static  | interface-typed deep clone keeping the concrete case |
-|  [04]   | `Extension.GetAll*(this Abridged) -> List<string>`                   | static  | the library ids a `*Abridged` object references      |
-|  [05]   | `Extension.GetUserData/AddUserData/ToDictionary(this IIDdBaseModel)` | static  | over the `UserData` dict                             |
+| [INDEX] | [SURFACE]                                                              | [SHAPE] | [CAPABILITY]                                         |
+| :-----: | :--------------------------------------------------------------------- | :------ | :--------------------------------------------------- |
+|  [01]   | `Extension.To<T>(this string) -> T`                                    | static  | generic HBJSON parse; reflects `T.FromJson`          |
+|  [02]   | `Extension.Add*(this ModelEnergyProperties, I…)`                       | static  | store-keyed library mutators (dedupe-by-id)          |
+|  [03]   | `Extension.AddMaterial(this ModelEnergyProperties, IMaterial)`         | static  | ONE material appended by identifier                  |
+|  [04]   | `Extension.AddConstruction(this ModelEnergyProperties, IConstruction)` | static  | ONE construction appended by identifier              |
+|  [05]   | `Extension.AddSchedule`/`AddProgramType`/`AddHVAC`/`AddSHW`            | static  | the singular sibling of each plural mutator          |
+|  [06]   | `Extension.Duplicate(this I…)`                                         | static  | interface-typed deep clone keeping the concrete case |
+|  [07]   | `Extension.GetAll*(this Abridged) -> List<string>`                     | static  | the library ids a `*Abridged` object references      |
+|  [08]   | `Extension.GetUserData/AddUserData/ToDictionary(this IIDdBaseModel)`   | static  | over the `UserData` dict                             |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

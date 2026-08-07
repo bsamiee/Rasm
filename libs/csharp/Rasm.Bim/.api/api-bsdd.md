@@ -121,7 +121,7 @@ Optional query parameters, keyed to the rows above:
 |  [06]   | `api/Dictionary/v1[?Uri=]`                                | enumerate dictionaries / pin one version                    |
 
 [BSDD_CLASS]: `BsddClass(code, name, classType, definition, uri, properties, status, relatedIfcEntities, relations, reverseRelations, parent, ancestry, children, replaces, replacedBy, deprecation)` — `Status` gates IDS admission, `Relations`/`ReverseRelations` feed the `BsddFederation` closure, `Parent`/`Ancestry`/`Children` the containment, `Replaces`/`ReplacedBy`/`Deprecation` the supersession the `Admit` gate reads.
-[BSDD_PROPERTY]: `BsddProperty(propertyCode ?? code, name, dataType, propertySet, predefinedValue, isRequired, valueKind, allowedValues, pattern, bounds, exponents, units, status)` — `AllowedValues`/`Pattern`/`Bounds`/`SiExponents`/`Units` feed the `Semantics/properties` templates and IDS value constraints.
+[BSDD_PROPERTY]: `BsddProperty(propertyCode ?? code, name, dataType, propertySet, predefinedValue, isRequired, valueKind, status, allowedValues, pattern, bounds, siDimension, units)` — `AllowedValues`/`Pattern`/`Bounds`/`SiDimension`/`Units` feed the `Semantics/properties` templates and IDS value constraints; the seven `dimension*` exponent columns build the seam `Dimension` directly, so no exponent carrier stands beside it.
 
 ## [05]-[IMPLEMENTATION_LAW]
 

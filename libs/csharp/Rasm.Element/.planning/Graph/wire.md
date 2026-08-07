@@ -2,22 +2,24 @@
 
 `ElementWire` owns the proto-first `rasm.element.v1` graph crossing. `ElementGraphWire` and `GraphDeltaWire` mirror closed seam unions; `WireCodec` owns per-case transcription; `Encode` lowers valid values; `DecodeGraph` and `DecodeDelta` re-admit hostile input on `Fin<T>`.
 
-Content keys cross verbatim: `NodeId` as X32 text and `UInt128` as big-endian bytes. Decode reuses value admissions and routes whole graphs through `GraphDelta.AdmitOnto`; delta payloads must satisfy `IsNormalForm` before later admission. `WireLimits` owns parse budgets and optional address verification. Measures carry SI magnitude, quantity token, and dimension exponents. `GraphEventEnvelope` carries CloudEvents context metadata beside the protobuf body.
+Content keys cross verbatim: `NodeId` as X32 text and `UInt128` as big-endian bytes. Decode reuses value admissions and routes whole graphs through `GraphDelta.AdmitOnto`; delta payloads must satisfy `IsNormalForm` before later admission. `WireLimits` owns parse budgets and optional address verification. `RedactionScope` owns scoped egress — classified field paths clear on the encoded message and the crossing carries its manifest, so source content keys survive redaction. Measures carry SI magnitude, quantity token, and dimension exponents. `GraphEventEnvelope` carries CloudEvents context metadata beside the protobuf body.
 
 ## [01]-[INDEX]
 
 - [02]-[WIRE_CODEC]: the `rasm.element.v1` messages, `WireCodec` Mapperly transcription and key codecs, `ElementWire` encode/decode boundary, `WireLimits`, and the key, depth, and evolution laws.
-- [03]-[EVENT_ENVELOPE]: the `GraphEventType` closed event-token vocabulary and the `GraphEventEnvelope` CloudEvents-aligned crossing metadata — content-key subject dedup, the `Attributes`/`Admit` transport-neutral dual, and the W3C trace slots an app-tier propagator fills.
+- [03]-[EGRESS_REDACTION]: the `rasm.element` sensitivity taxonomy over the wire's classified columns, the `ClassifiedColumn` roster carrying each column group's `FieldMask` and identity verdict, and `RedactionScope` — the presence-clearing egress policy and its `RedactionManifestWire` receipt.
+- [04]-[EVENT_ENVELOPE]: the `GraphEventType` closed event-token vocabulary and the `GraphEventEnvelope` CloudEvents-aligned crossing metadata — content-key subject dedup, the `Attributes`/`Admit` transport-neutral dual, and the W3C trace slots an app-tier propagator fills.
 
 ## [02]-[WIRE_CODEC]
 
 - Owner: the `Graph/element.proto` `rasm.element.v1` contract — the language-neutral message roster `Grpc.Tools` compiles for C# (`GrpcServices=None`, message codegen only) and `buf`/`protoc-gen-es` + `grpcio-tools` compile for the TypeScript/Python peers; `WireCodec` the `[Mapper]` static transcription family owning every per-case seam↔wire field mapping; `ElementWire` the boundary owner railing decode onto `Fin<T>`; `WireLimits` the parameterized decode-budget policy record.
 - Cases: every closed seam union crosses as a `oneof` mirroring its cases 1:1 — `NodeWire` the eight `Node` payloads, `RelationshipWire` the six edge kinds, `PropertyValueWire` the recursive fourteen-case value family, `MaterialUsageWire` the explicit none/layer/profile usage family, `MaterialCompositionWire` the four composition arms, and `MaterialPropertySetWire` the engineering-property family. Generated keyed owners cross by key; absence is field presence, never a numeric or unset-oneof sentinel.
-- Entry: `ElementWire.Encode(ElementGraph)` and `Encode(GraphDelta)` are the infallible total lowerings of already-valid graphs onto `ElementGraphWire`/`GraphDeltaWire` (the wire message IS the byte surface — a consumer composes the `Google.Protobuf` write family `WriteTo(IBufferWriter<byte>)`/`ToByteArray`/`WriteDelimitedTo` directly, never a forwarding byte wrapper); `DecodeGraph(Stream, WireLimits, Op)` and `DecodeDelta(Stream, WireLimits, Op)` are the one `Fin<T>`-railed decode leg per wire kind (the `GeometrySource` typed-leg precedent — the discriminant is the return TYPE, never a `Get`/`GetById` arity family), parsing through `MessageParser<T>.ParseFrom(CodedInputStream.CreateWithLimits(stream, limits.SizeLimit, limits.RecursionLimit))`, re-admitting every value through the seam gates, and re-crossing the STRUCTURAL owners — `DecodeGraph` admits the transcription as a `Genesis`-rooted delta through `GraphDelta.AdmitOnto` (`LegalLink` per decoded edge, a duplicate wire node id railed before admission), `DecodeDelta` gates `GraphDelta.IsNormalForm` and returns a delta applied ONLY through `AdmitOnto`, never `ReplayOnto`.
-- Auto: `WireCodec` combines Mapperly's explicit member diagnostics with generated union/protobuf case dispatch. Decode re-mints a `MeasureValue` through `OfSi`, re-admits its `MeasureBand`, re-admits material-usage direction/cardinal tokens, and recursively re-admits every `PropertyValue`; no generated-code `Get` throw is part of the boundary contract.
-- Receipt: an `ElementGraphWire` is the snapshot a peer decodes into its own graph mirror WITHOUT re-deriving an identity — ids and content keys verbatim, the decoded transcription re-admitted as a `Genesis`-rooted delta through `GraphDelta.AdmitOnto` so `LegalLink` runs per decoded edge; a `GraphDeltaWire` is the change record a streaming consumer folds (the `DELTA_CRDT` convergence substrate's wire form); the optional `ContentAddress.Verify` sweep is the rehydrate integrity verdict a content-keyed consumer reads before trusting a crossed id, railing `ElementFault.AddressUnstable` per drifted node.
-- Packages: Google.Protobuf (`IMessage<T>`/`MessageParser<T>`/`CodedInputStream.CreateWithLimits`/`ByteString`/`RepeatedField<T>`/`MessageExtensions` write family), Grpc.Tools (the `<Protobuf>` MSBuild item, `GrpcServices=None`, `PrivateAssets=all` — build-only, never a runtime surface), Riok.Mapperly (`[Mapper]`/`[UserMapping]`/`[MappingTarget]`/`[MapProperty]` and `MappingConversionType` policy over the Thinktecture `Create`/`Value` key codecs), NodaTime.Serialization.Protobuf (`Instant.ToTimestamp()`/`Timestamp.ToInstant()`, `Duration` dual), LanguageExt.Core (`Fin`/`Seq`/`Option` and the `Traverse` admission folds), Thinktecture.Runtime.Extensions (the generated total `Switch` encode dispatch).
-- Growth: a new node/edge/value case is one `oneof` arm and one `WireCodec` case mapping; a new payload column is one append-only numbered field; a new peer runtime is one codegen lane over the same `.proto`; a new decode budget is one `WireLimits` column.
+- Entry: `ElementWire.Encode(ElementGraph, Option<RedactionScope>)` and `Encode(GraphDelta)` are the infallible total lowerings of already-valid graphs onto `ElementGraphWire`/`GraphDeltaWire` — ONE graph entry carries the egress policy, the absent scope folding through `RedactionScope.None`, so a redacted and an unredacted crossing share one encode path and no sibling method forks it (the wire message IS the byte surface — a consumer composes the `Google.Protobuf` write family `WriteTo(IBufferWriter<byte>)`/`ToByteArray`/`WriteDelimitedTo` directly, never a forwarding byte wrapper); `DecodeGraph(Stream, WireLimits, Op)` and `DecodeDelta(Stream, WireLimits, Op)` are the one `Fin<T>`-railed decode leg per wire kind (the `GeometrySource` typed-leg precedent — the discriminant is the return TYPE, never a `Get`/`GetById` arity family), parsing through `MessageParser<T>.ParseFrom(CodedInputStream.CreateWithLimits(stream, limits.SizeLimit, limits.RecursionLimit))`, re-admitting every value through the seam gates, and re-crossing the STRUCTURAL owners — `DecodeGraph` admits the transcription as a `Genesis`-rooted delta through `GraphDelta.AdmitOnto` (`LegalLink` per decoded edge, a duplicate wire node id railed by a raw-id scan BEFORE any value re-admission), `DecodeDelta` gates `GraphDelta.IsNormalForm` and returns a delta applied ONLY through `AdmitOnto`, never `ReplayOnto`.
+- Auto: `WireCodec` combines Mapperly's explicit member diagnostics with generated union/protobuf case dispatch. Decode re-mints a `MeasureValue` through `OfSi`, re-admits its `MeasureBand`, re-admits material-usage direction/cardinal tokens, and recursively re-admits every `PropertyValue`; no generated-code `Get` throw is part of the boundary contract. `ToPropertySet` keeps ELEVEN per-case bodies where every sibling decode collapses to a row table, because the arms share no generative structure to derive from: each names a distinct wire message, a distinct factory arity, and a distinct accumulating slot set, so a case-keyed row table carries the same eleven bodies behind eleven distinct closure types and trades the generated `PropertySetOneofCase` switch's compile-time exhaustiveness for a lookup miss — the switch IS the table here.
+- Receipt: an `ElementGraphWire` is the snapshot a peer decodes into its own graph mirror WITHOUT re-deriving an identity — ids and content keys verbatim, the decoded transcription re-admitted as a `Genesis`-rooted delta through `GraphDelta.AdmitOnto` so `LegalLink` runs per decoded edge; a `GraphDeltaWire` is the `delta#GRAPH_DELTA` event body's wire form — the change record a streaming consumer folds, whose unique-per-id `Merge` normal form is the re-entry condition `DecodeDelta` gates; the optional address sweep is the rehydrate integrity verdict a content-keyed consumer reads before trusting a crossed id, verifying the COMPLEMENT of the crossing's redaction manifest and railing `ElementFault.AddressUnstable` per drifted node outside that roster.
+- Packages: Google.Protobuf (`IMessage<T>`/`MessageParser<T>`/`CodedInputStream.CreateWithLimits`/`ByteString`/`RepeatedField<T>`/`MessageExtensions` write family), Grpc.Tools (the `<Protobuf>` MSBuild item, `GrpcServices=None`, `PrivateAssets=all` — build-only, never a runtime surface), Riok.Mapperly (`[Mapper]`/`[UserMapping]`/`[MappingTarget]`/`[MapProperty]`/`[MapperIgnoreSource]`/`[UseStaticMapper]` and `MappingConversionType` policy over the Thinktecture `Create`/`Value` key codecs), NodaTime.Serialization.Protobuf (`NodaExtensions`/`ProtobufExtensions` registered WHOLESALE through `[UseStaticMapper]`, so `ToTimestamp`/`ToInstant`/`ToProtobufDuration`/`ToNodaDuration` cross with no per-member row), LanguageExt.Core (`Fin`/`Seq`/`Option` and the accumulating `Traverse` over `Validation<Error,_>` the admission folds collapse to `Fin` at their gate), Thinktecture.Runtime.Extensions (the generated total `Switch` encode dispatch).
+- Auto: `WireLimits.Default` carries its two budgets as DECLARED POLICY VALUES, each naming the axis it bounds — the size ceiling bounds the WHOLE-SNAPSHOT transfer axis (an `ElementGraph` crosses in one message; there is no chunked graph transport), the recursion ceiling the one recursive family (`PropertyValue.List`/`Table`; every other message is flat) and it sits under protobuf's own default recursion limit of 100 so the seam refuses before the parser does; both are tuned numbers a deployment re-declares through `Of`, and a payload past either is refused by policy rather than by construction.
+- Growth: a new node/edge/value case is one `oneof` arm and one `WireCodec` case mapping; a new payload column is one append-only numbered field; a new peer runtime is one codegen lane over the same `.proto`; a new decode budget is one `WireLimits` column carrying the axis it bounds.
 - Boundary: ids and content keys cross verbatim; peers re-mint nothing. Persisted `UInt128` keys use big-endian form, distinct from little-endian hash input. Derived `Element` values never cross, recursive values parse under `WireLimits`, decoded values re-cross owner gates, and descriptor evolution rejects incompatible changes.
 
 ```proto signature
@@ -36,6 +38,17 @@ message ElementGraphWire {
   HeaderWire header = 1;
   repeated NodeWire nodes = 2;
   repeated RelationshipWire edges = 3;
+  optional RedactionManifestWire redaction = 4;  // present only on a scoped egress
+}
+
+// The scoped-egress receipt: the policy identity, the owner-qualified paths the policy cleared, and the ids of the
+// nodes whose cleared columns fold into canonical bytes. A cleared column WITHOUT explicit presence reads as its
+// proto3 default, so this declared roster — never the message — is the presence record a consumer separates a cleared
+// column from an authored default by, which is why no redactor token stands in for the cleared value.
+message RedactionManifestWire {
+  string policy = 1;
+  repeated string cleared_paths = 2;
+  repeated string unstable_node_ids = 3;
 }
 
 message GraphDeltaWire {
@@ -89,6 +102,22 @@ message ObjectWire {
   optional OwnerHistoryWire history = 9;
   SchemaSpanWire span = 10;
   optional string object_type = 11;        // the USERDEFINED label pairing with predefined_type; absent otherwise
+  optional PlacementWire placement = 12;
+}
+
+// The PlacementTransform frame flattened to its nine ordered doubles — the Location origin, the Axis local-Z, and the
+// RefDirection local-X. It crosses so a peer reads a rigid move off the node it moved; it stays OUT of the canonical
+// bytes at its owner, which is what keeps the Rasm.Bim diff's Moved discriminant alive across the crossing.
+message PlacementWire {
+  double location_x = 1;
+  double location_y = 2;
+  double location_z = 3;
+  double axis_x = 4;
+  double axis_y = 5;
+  double axis_z = 6;
+  double ref_direction_x = 7;
+  double ref_direction_y = 8;
+  double ref_direction_z = 9;
 }
 
 message ClassificationWire {
@@ -218,6 +247,16 @@ message QuantitySetWire {
   map<string, MeasureValueWire> values = 2;
   string inheritance = 3;
   sint32 source_rank = 4;
+  map<string, GroupIdentityWire> groups = 5;  // dot-path prefix -> grouping identity; empty = an ungrouped bag
+}
+
+// The three grouping columns are proto3 `optional`, so an unstated qualifier crosses as field ABSENCE and an
+// explicitly empty spelling crosses as a present empty string — the seam Option distinction the canonical bytes
+// already presence-prefix. PropertySetWire carries no counterpart: a property bag nests through PropertyValueWire.
+message GroupIdentityWire {
+  optional string discrimination = 1;
+  optional string quality = 2;
+  optional string usage = 3;
 }
 
 // --- [EDGE_WIRE] ---
@@ -292,8 +331,8 @@ message MaterialLayerWire {
   string category = 5;
   optional bool ventilated = 6;
 }
-// The primary material_key and profile RETIRED into the row spread — the seam derives both off the rows, so carrying them
-// beside row zero was the double-store the compound arm deletes; composite is the set-level built-up outline.
+// Field 1 and 2 are reserved because the seam DERIVES the primary material and profile off the rows: a primary scalar
+// beside row zero double-stores what row zero already carries. Composite is the set-level built-up outline.
 message ProfileSetWire {
   reserved 1, 2;
   optional SectionPropertiesWire section = 3;
@@ -389,7 +428,9 @@ message FireWire {
   string droplets = 3;                     // DropletClass key
   FireResistanceWire resistance = 4;
 }
-message FireResistanceWire { sint32 load_bearing_minutes = 1; sint32 integrity_minutes = 2; sint32 insulation_minutes = 3; }
+// Each criterion is OPTIONAL: an unmeasured leg (an ACI 216.1 equivalent-thickness derivation measures insulation
+// alone) crosses ABSENT, never as a zero a peer reads as a failing rating.
+message FireResistanceWire { optional sint32 load_bearing_minutes = 1; optional sint32 integrity_minutes = 2; optional sint32 insulation_minutes = 3; }
 message EnvironmentalWire {
   string basis = 1;                        // MeasurementBasis key
   repeated double impacts = 2;
@@ -564,9 +605,10 @@ message GeoReferenceWire {
   double scale_y = 7;
   double scale_z = 8;
   string geodetic_datum = 9;
-  string vertical_datum = 10;
+  string vertical_datum = 10;               // VerticalCrs.Name — blank with no vertical_epsg is the absent vertical frame
   optional ProjectedCrsWire crs = 11;
   optional double epoch = 12;
+  optional sint32 vertical_epsg = 13;       // VerticalCrs.Epsg — the vertical authority code a survey/GIS ingest carries
 }
 message ProjectedCrsWire {
   string name = 1;
@@ -581,12 +623,16 @@ message ProjectedCrsWire {
 ```csharp signature
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
 using System.Buffers.Binary;
+using System.Collections.Frozen;
 using System.Numerics;
 using System.Globalization;
 using Google.Protobuf;
 using Google.Protobuf.Collections;
+using Google.Protobuf.Reflection;
+using Google.Protobuf.WellKnownTypes;
 using LanguageExt;
 using LanguageExt.Common;
+using Microsoft.Extensions.Compliance.Classification;
 using NodaTime.Serialization.Protobuf;
 using Rasm.Domain;
 using Rasm.Drawing;
@@ -598,10 +644,11 @@ using Rasm.Element.Projection;
 using Rasm.Element.Properties;
 using Rasm.Element.Relations;
 using Rasm.Element.Wire;
-using Rasm.Numerics;
-using Rhino.Geometry;
 using Riok.Mapperly.Abstractions;
 using static LanguageExt.Prelude;
+// The kernel lattice-axis count and the seam's physical 7-vector both spell Dimension; the alias names the kernel
+// reading so the enclosing-namespace Dimension stays the bare SI signature.
+using LatticeAxis = Rasm.Numerics.Dimension;
 
 namespace Rasm.Element.Graph;
 
@@ -609,8 +656,18 @@ namespace Rasm.Element.Graph;
 //   <Protobuf Include="Graph/element.proto" GrpcServices="None" />
 
 // --- [MODELS] -----------------------------------------------------------------------------
-// WireLimits owns size, recursion, and address-verification policy. Parse calls contain no budget literal.
+// WireLimits owns size, recursion, and address-verification policy. Parse calls contain no budget literal: both
+// defaults are DECLARED POLICY VALUES naming the axis they bound, and a deployment re-declares either through Of.
 public sealed record WireLimits {
+ // Bounds the WHOLE-SNAPSHOT transfer axis: an ElementGraph crosses in ONE message (there is no chunked graph
+ // transport), so the budget clears the largest snapshot the seam admits and refuses beyond it.
+ private const int SnapshotSizeCeiling = 512 << 20;
+
+ // Bounds the ONE recursive family — PropertyValue.List/Table nest, every other message is flat — with headroom for
+ // the envelope frames above it, and sits UNDER protobuf's own default recursion limit of 100 so a hostile nesting
+ // depth is refused by this seam's declared budget rather than by the parser's.
+ private const int NestedValueDepthCeiling = 96;
+
  private WireLimits(int sizeLimit, int recursionLimit, bool verifyAddresses) =>
   (SizeLimit, RecursionLimit, VerifyAddresses) = (sizeLimit, recursionLimit, verifyAddresses);
 
@@ -618,7 +675,7 @@ public sealed record WireLimits {
  public int RecursionLimit { get; }
  internal bool VerifyAddresses { get; init; }
 
- public static readonly WireLimits Default = new(sizeLimit: 512 << 20, recursionLimit: 96, verifyAddresses: false);
+ public static readonly WireLimits Default = new(SnapshotSizeCeiling, NestedValueDepthCeiling, verifyAddresses: false);
  public static readonly WireLimits Verified = Default.WithAddressVerification();
 
  public static Fin<WireLimits> Of(int sizeLimit, int recursionLimit, Op key) =>
@@ -634,9 +691,19 @@ public sealed record WireLimits {
 // [UserMapping] statics so identity NEVER re-derives — Mapperly transcribes shape, the seam owns identity.
 // Encode case dispatch is the union's generated total Switch; decode dispatch is the generated PayloadCase/
 // ValueCase closed enum ([MapDerivedType] is the class-hierarchy rail; a oneof envelope has no case base).
+// RequiredMappingStrategy.Both proves BOTH sides complete — but source-side completeness is compiler-proved only while
+// no [MapPropertyFromSource] reader lands here: one whole-source reader suppresses RMG020 for EVERY source member of
+// that mapping, touched or not, so a reader-bearing mapping demotes its [MapperIgnoreSource] roster from compiler proof
+// to authored inventory. Target-side RMG012 is unaffected.
+// The two NodaTime.Serialization.Protobuf static mappers register the whole ToTimestamp/ToInstant/ToProtobufDuration/
+// ToNodaDuration/ToDate/ToLocalDate family, so every plain temporal crossing generates with NO per-member codec row;
+// the hand bodies below keep their explicit calls because each encodes a CHOICE — an Interval flattened to a bounded
+// column pair, an Option presence write, an ISO pattern the wire fixes — not a plain conversion.
 [Mapper(
  EnabledConversions = MappingConversionType.Constructor | MappingConversionType.ImplicitCast | MappingConversionType.Enumerable | MappingConversionType.Dictionary,
  RequiredMappingStrategy = RequiredMappingStrategy.Both)]
+[UseStaticMapper(typeof(NodaTime.Serialization.Protobuf.NodaExtensions))]
+[UseStaticMapper(typeof(NodaTime.Serialization.Protobuf.ProtobufExtensions))]
 internal static partial class WireCodec {
  // --- [KEY_CODECS] — verbatim crossings, never re-minted
  [UserMapping] internal static string ToWire(NodeId id) => id.Value;
@@ -648,20 +715,25 @@ internal static partial class WireCodec {
   return ByteString.CopyFrom(be);
  }
  [UserMapping] internal static UInt128 ToKey(ByteString wire) => BinaryPrimitives.ReadUInt128BigEndian(wire.Span);
- [UserMapping] internal static Google.Protobuf.WellKnownTypes.Timestamp ToWire(NodaTime.Instant at) => at.ToTimestamp();
- [UserMapping] internal static NodaTime.Instant ToInstant(Google.Protobuf.WellKnownTypes.Timestamp wire) => wire.ToInstant();
 
  // --- [CASE_TRANSCRIPTIONS] — Mapperly generates the flat-column width per case; every union-valued member
  // rides an explicit envelope fold below, every Option/tuple-flatten/token crossing rides an explicit
  // [UserMapping] carrier codec (conditional set on encode; the hand decode below reads the generated Has*/null
  // presence pairs), and [MapProperty] pins every seam→wire name seam so the generator never silently skips a member.
  // Envelope owns Id (NodeWire.id), so the payload mappings exclude it — RequiredMappingStrategy.Both would
- // otherwise fault the intentionally-unmapped source member.
+ // otherwise fault the intentionally-unmapped source member. AllClassifications is the node's own COMPUTED union of
+ // the primary and secondary columns, both of which already cross on their own fields, so mapping it would double-store
+ // the primary on the wire and fork the two spellings the moment one side is edited.
  [MapperIgnoreSource(nameof(Node.Object.Id))]
+ [MapperIgnoreSource(nameof(Node.Object.AllClassifications))]
  internal static partial ObjectWire ToWire(Node.Object node);
  [MapperIgnoreSource(nameof(Node.Material.Id))]
  [MapProperty(nameof(Node.Material.Properties), nameof(MaterialWire.PropertySets))]
  internal static partial MaterialWire ToWire(Node.Material node);
+ // The property bag's Groups is empty by construction (its nesting is the PropertyValue.Complex case) and
+ // PropertySetWire declares no counterpart, so the source member is ignored EXPLICITLY — RequiredMappingStrategy.Both
+ // faults an unmapped source member, and that fault is the signal a group-bearing property bag would owe a wire field.
+ [MapperIgnoreSource(nameof(PropertyBag.Groups))]
  [MapProperty(nameof(PropertyBag.Source), nameof(PropertySetWire.SourceRank))]
  internal static partial PropertySetWire ToWire(PropertyBag bag);
  [MapProperty(nameof(QuantityBag.Source), nameof(QuantitySetWire.SourceRank))]
@@ -703,6 +775,9 @@ internal static partial class WireCodec {
  // attribute, and results map transcriptions compose; keys cross as the PropertyName string, values recurse.
  [UserMapping] internal static void ToWire(Map<PropertyName, PropertyValue> values, [MappingTarget] MapField<string, PropertyValueWire> wire) { foreach (var (n, v) in values) { wire[n.Value] = ToWire(v); } }
  [UserMapping] internal static void ToWire(Map<PropertyName, MeasureValue> values, [MappingTarget] MapField<string, MeasureValueWire> wire) { foreach (var (n, m) in values) { wire[n.Value] = ToWire(m); } }
+ // The group run keys on the dot-path prefix string (not a PropertyName), and each Option column writes CONDITIONALLY
+ // so an unstated qualifier leaves its proto3 optional unset rather than crossing as an empty spelling.
+ [UserMapping] internal static void ToWire(Map<string, GroupIdentity> groups, [MappingTarget] MapField<string, GroupIdentityWire> wire) { foreach (var (prefix, group) in groups) { GroupIdentityWire row = new(); group.Discrimination.IfSome(d => row.Discrimination = d); group.Quality.IfSome(q => row.Quality = q); group.Usage.IfSome(u => row.Usage = u); wire[prefix] = row; } }
  [UserMapping] internal static void ToWire(UnitScheme scheme, [MappingTarget] MapField<string, string> wire) { foreach (var (quantity, unit) in scheme.Display) { wire[quantity] = unit; } }
 
  [UserMapping] internal static ClassificationWire ToWire(Classification c) {
@@ -715,9 +790,15 @@ internal static partial class WireCodec {
 
  // --- [CARRIER_CODECS] — the Option/tuple-flatten crossings Mapperly cannot bridge alone: an absent Option leaves
  // Proto3 field stays unset when a nullable return skips assignment; a flatten writes its column pair explicitly.
- [UserMapping] internal static string? ToWire(Option<string> value) => value.MatchUnsafe(static s => s, static () => (string?)null);
- [UserMapping] internal static string? ToWire(Option<NodeId> id) => id.MatchUnsafe(static i => i.Value, static () => (string?)null);
- [UserMapping] internal static ByteString? ToWire(Option<UInt128> key) => key.MatchUnsafe(static k => ToWire(k), static () => (ByteString?)null);
+ [UserMapping] internal static string? ToWire(Option<string> value) => value.Match<string?>(static s => s, static () => null);
+ // proto3 explicit presence over a scalar is a NULLABLE mapping target, so an absent criterion or count crosses
+ // UNSET rather than as a zero a peer reads as a measured value.
+ [UserMapping] internal static int? ToWire(Option<int> value) => value.Match<int?>(static v => v, static () => null);
+ [UserMapping] internal static string? ToWire(Option<NodeId> id) => id.Match<string?>(static i => i.Value, static () => null);
+ [UserMapping] internal static ByteString? ToWire(Option<UInt128> key) => key.Match<ByteString?>(static k => ToWire(k), static () => null);
+ // The absence carrier over the registered NodaExtensions conversion — the presence decision is this seam's, the
+ // conversion the static mapper's, so an absent instant leaves its proto3 optional unset.
+ [UserMapping] internal static Timestamp? ToWire(Option<NodaTime.Instant> at) => at.Match<Timestamp?>(static i => i.ToTimestamp(), static () => null);
 
  [UserMapping] internal static void ToWire(RepresentationContentHash representations, [MappingTarget] MapField<string, ByteString> wire) { foreach (var (id, hash) in representations.ByIdentifier) { wire[id] = ToWire(hash); } }
 
@@ -727,13 +808,22 @@ internal static partial class WireCodec {
   return w;
  }
 
- [UserMapping] internal static OwnerHistoryWire? ToWire(Option<OwnerHistory> history) => history.MatchUnsafe(
-  static h => {
-   OwnerHistoryWire w = new() { OwningUser = h.OwningUser, OwningApplication = h.OwningApplication, Created = h.Created.ToTimestamp(), ChangeAction = h.ChangeAction, State = h.State };
-   h.Modified.IfSome(m => w.Modified = m.ToTimestamp());
-   return w;
-  },
-  static () => (OwnerHistoryWire?)null);
+ // Every column is a plain crossing once the static temporal mappers and the Option<Instant> carrier are registered,
+ // so the audit row generates whole and only its ABSENCE decision stays hand-owned.
+ internal static partial OwnerHistoryWire ToWire(OwnerHistory history);
+ [UserMapping] internal static OwnerHistoryWire? ToWire(Option<OwnerHistory> history) =>
+  history.Match<OwnerHistoryWire?>(static h => ToWire(h), static () => null);
+
+ // The placement frame flattens to nine ordered columns — a triple-flatten Mapperly bridges only through nine per-column
+ // path rows, so the flatten is owned here beside the GeoReference precedent, and the frame's ABSENCE rides the same
+ // nullable-return carrier every optional message crossing takes.
+ [UserMapping] internal static PlacementWire ToWire(PlacementTransform placement) => new() {
+  LocationX = placement.Location.X, LocationY = placement.Location.Y, LocationZ = placement.Location.Z,
+  AxisX = placement.Axis.X, AxisY = placement.Axis.Y, AxisZ = placement.Axis.Z,
+  RefDirectionX = placement.RefDirection.X, RefDirectionY = placement.RefDirection.Y, RefDirectionZ = placement.RefDirection.Z,
+ };
+ [UserMapping] internal static PlacementWire? ToWire(Option<PlacementTransform> placement) =>
+  placement.Match<PlacementWire?>(static p => ToWire(p), static () => null);
 
  // Wire epsg/resolution columns are peer-informative derivations; blank ProjectedCrs strings stay unset.
  [UserMapping] internal static GeoReferenceWire ToWire(GeoReference geo) {
@@ -741,8 +831,12 @@ internal static partial class WireCodec {
    Eastings = geo.Eastings, Northings = geo.Northings, OrthogonalHeight = geo.OrthogonalHeight,
    XAxisAbscissa = geo.XAxisAbscissa, XAxisOrdinate = geo.XAxisOrdinate,
    ScaleX = geo.ScaleX, ScaleY = geo.ScaleY, ScaleZ = geo.ScaleZ,
-   GeodeticDatum = geo.GeodeticDatum, VerticalDatum = geo.VerticalDatum,
+   GeodeticDatum = geo.GeodeticDatum,
   };
+  geo.Vertical.IfSome(v => {
+   w.VerticalDatum = v.Name;
+   v.Epsg.IfSome(e => w.VerticalEpsg = e);
+  });
   geo.Crs.IfSome(c => {
    ProjectedCrsWire p = new() { Name = c.Name, Resolution = c.Resolution.Key };
    c.Epsg.IfSome(e => p.Epsg = e);
@@ -779,7 +873,10 @@ internal static partial class WireCodec {
   // The legend colour crosses through the SAME ToRgb quantizer CanonicalBytes takes, so the wire quadruple and the
   // content key are one projection — a second quantization here would let two runtimes agree on the key and disagree
   // on the swatch. The decoder re-admits through PerceptualColor.OfRgb, never a stored perceptual triple, because the
-  // display quadruple is the only form both the key and every host palette surface already speak.
+  // display quadruple is the only form both the key and every host palette surface already speak. Both calls stay
+  // CONDITION-FREE for the same reason coverage#COVERAGE_NODE CanonicalBytes does: the kernel seats a viewing
+  // condition on appearance-case payloads and never on ToRgb, and a gamut or observer argument admitted at either
+  // end alone splits the wire from the key it is defined to agree with.
   w.Palette.AddRange(band.Palette.Map(static c => {
    (byte r, byte g, byte b, byte a) = c.Colour.ToRgb();
    return new ColorBinWire { Index = c.Index, R = r, G = g, B = b, A = a, Category = c.Category };
@@ -791,9 +888,8 @@ internal static partial class WireCodec {
  // re-admits with — the fourth matrix row is the invariant [0 0 0 1] and carries no information, so twelve IS the
  // whole affine and a thirteenth column would be a value the receiver already knows.
  [UserMapping] internal static CellLatticeWire ToWire(CellLattice lattice) {
-  Transform t = lattice.IndexToWorld;
   CellLatticeWire w = new() { Columns = lattice.Columns.Value, Rows = lattice.Rows.Value, Layers = lattice.Layers.Value, Ceiling = lattice.Ceiling };
-  w.Affine.AddRange([t.M00, t.M01, t.M02, t.M03, t.M10, t.M11, t.M12, t.M13, t.M20, t.M21, t.M22, t.M23]);
+  w.Affine.AddRange(lattice.Affine);
   return w;
  }
 
@@ -806,9 +902,9 @@ internal static partial class WireCodec {
   return w;
  }
 
- [UserMapping] internal static DiagnosticWire? ToWire(Option<Diagnostic> diagnostic) => diagnostic.MatchUnsafe(
+ [UserMapping] internal static DiagnosticWire? ToWire(Option<Diagnostic> diagnostic) => diagnostic.Match<DiagnosticWire?>(
   static d => { DiagnosticWire w = new() { Phase = d.Phase.Key, Kind = d.Kind.Key, Message = d.Message }; d.Code.IfSome(c => w.Code = c); return w; },
-  static () => (DiagnosticWire?)null);
+  static () => null);
 
  [UserMapping] internal static PropertyEvidenceWire ToWire(PropertyEvidence evidence) {
   PropertyEvidenceWire w = new() { Source = evidence.Source, Reference = evidence.Reference };
@@ -1130,7 +1226,19 @@ internal static partial class WireCodec {
       new RepresentationContentHash(w.Representations.Aggregate(Map<string, UInt128>(), static (m, p) => m.Add(p.Key, ToKey(p.Value)))),
       w.History is null ? None : Some(new OwnerHistory(w.History.OwningUser, w.History.OwningApplication, w.History.Created.ToInstant(),
        w.History.Modified is null ? None : Some(w.History.Modified.ToInstant()), w.History.ChangeAction, w.History.State)),
-      span, secondary))));
+      span, secondary, ToPlacement(w.Placement)))));
+
+ // The frame re-admits through its own kernel factory: the nine columns are free reals under no seam gate (a placement
+ // carries no tolerance and no invariant — the canonical-bytes exclusion at its owner is what makes it free), so
+ // message presence answers the whole decision and no rail is owed. The bare Vector3 is the enclosing namespace's
+ // seam coordinate, never the System.Numerics carrier the prelude also has in scope.
+ static Option<PlacementTransform> ToPlacement(PlacementWire? w) =>
+  w is null
+   ? None
+   : Some(PlacementTransform.Create(
+      new Vector3(w.LocationX, w.LocationY, w.LocationZ),
+      new Vector3(w.AxisX, w.AxisY, w.AxisZ),
+      new Vector3(w.RefDirectionX, w.RefDirectionY, w.RefDirectionZ)));
 
  static Fin<Node> ToMaterial(NodeId id, MaterialWire w, Op key) =>
   ToComposition(w.Composition, key).Bind(composition =>
@@ -1172,13 +1280,29 @@ internal static partial class WireCodec {
  static Fin<ProfileRef> ToProfileRef(ProfileRefWire w, Op key) =>
   ProfileRef.Rehydrate(w.Standard, w.Designation, ToKey(w.ContentKey), key);
 
- // SectionProperties decode is hand-owned Fin — nineteen measure columns re-cross the OfSi finite gate, which a
- // Mapperly partial cannot thread — the traversal order mirroring the wire field order exactly (positional by the
- // frozen SectionPropertiesWire layout, the count locked by the ctor arity).
+ // ONE column table owns the section's measured run: each row pairs the wire slot's own name with its accessor, and
+ // ROW POSITION is simultaneously the traversal order, the frozen SectionPropertiesWire field order, and the ctor
+ // position — so a slot moves once and both directions follow. The slot name is load-bearing on the rail: a
+ // non-finite column names ITSELF rather than reporting the quantity token nineteen columns share. The positional
+ // rebuild survives because a C# constructor takes no splat; the table's own order is what pins it, and the arity is
+ // proved by the table rather than restated.
+ static readonly (string Slot, Func<SectionPropertiesWire, MeasureValueWire> Read)[] SectionColumns = [
+  ("area", static w => w.Area), ("iyy", static w => w.Iyy), ("izz", static w => w.Izz), ("j", static w => w.J),
+  ("iw", static w => w.Iw), ("wely", static w => w.Wely), ("welz", static w => w.Welz), ("wply", static w => w.Wply),
+  ("wplz", static w => w.Wplz), ("av-y", static w => w.AvY), ("av-z", static w => w.AvZ),
+  ("radius-of-gyration-major", static w => w.RadiusOfGyrationMajor), ("radius-of-gyration-minor", static w => w.RadiusOfGyrationMinor),
+  ("depth", static w => w.Depth), ("width", static w => w.Width), ("heated-perimeter", static w => w.HeatedPerimeter),
+  ("axis-distance", static w => w.AxisDistance), ("shear-centre-y", static w => w.ShearCentreY), ("shear-centre-z", static w => w.ShearCentreZ)];
+
+ // Nineteen measure columns re-cross the OfSi finite gate, which a Mapperly partial cannot thread, and they accumulate:
+ // a datasheet with three bad columns names all three, matching the owning admission's own accumulating shape.
  static Fin<SectionProperties> ToSection(SectionPropertiesWire w, Op key) =>
-  toSeq<MeasureValueWire>([w.Area, w.Iyy, w.Izz, w.J, w.Iw, w.Wely, w.Welz, w.Wply, w.Wplz, w.AvY, w.AvZ,
-    w.RadiusOfGyrationMajor, w.RadiusOfGyrationMinor, w.Depth, w.Width, w.HeatedPerimeter, w.AxisDistance, w.ShearCentreY, w.ShearCentreZ])
-   .TraverseM(m => ToMeasure(m, key)).As()
+  toSeq(SectionColumns)
+   .Traverse(column => Present(column.Read(w), $"section.{column.Slot}", key)
+    .Bind(cell => ToMeasure(cell, key))
+    .MapFail(_ => (Error)ElementFault.ValueRejected(key, $"<wire-section-column:{column.Slot}>"))
+    .ToValidation())
+   .As().ToFin()
    .Map(m => new SectionProperties(m[0], m[1], m[2], m[3], m[4], m[5], m[6], m[7], m[8], m[9], m[10], m[11], m[12], m[13], m[14], m[15], m[16], m[17], m[18], w.MonosymmetryFactor));
 
  // Every arm re-enters the canonical MaterialPropertySet.Of* admission rail — the decoder NEVER constructs a case
@@ -1208,13 +1332,16 @@ internal static partial class WireCodec {
     MaterialPropertySetWire.PropertySetOneofCase.Fire => FireRating.Parse(w.Fire.Reaction, key).Bind(reaction =>
      Row(SmokeClass.TryGet(w.Fire.Smoke, out SmokeClass? sc), sc, w.Fire.Smoke, key).Bind(smoke =>
       Row(DropletClass.TryGet(w.Fire.Droplets, out DropletClass? dc), dc, w.Fire.Droplets, key).Bind(droplets =>
-       FireResistance.Of(w.Fire.Resistance.LoadBearingMinutes, w.Fire.Resistance.IntegrityMinutes, w.Fire.Resistance.InsulationMinutes, key)
+       FireResistance.Of(
+        Opt(w.Fire.Resistance.HasLoadBearingMinutes, w.Fire.Resistance.LoadBearingMinutes),
+        Opt(w.Fire.Resistance.HasIntegrityMinutes, w.Fire.Resistance.IntegrityMinutes),
+        Opt(w.Fire.Resistance.HasInsulationMinutes, w.Fire.Resistance.InsulationMinutes), key)
         .Map(resistance => MaterialPropertySet.OfFire(reaction, smoke, droplets, resistance, evidence))))),
     MaterialPropertySetWire.PropertySetOneofCase.Environmental => MeasurementBasis.Parse(w.Environmental.Basis, key).Bind(basis =>
      MaterialPropertySet.OfEnvironmental(basis, [.. w.Environmental.Impacts], w.Environmental.RecycledContent, w.Environmental.EndOfLifeRecovery, key, evidence)),
     MaterialPropertySetWire.PropertySetOneofCase.Cost => MeasurementBasis.Parse(w.Cost.Basis, key).Bind(basis =>
      Currency.Parse(w.Cost.Currency, key).Bind(currency =>
-      MaterialPropertySet.OfCost(currency, basis, w.Cost.SupplyPerUnit, w.Cost.InstallPerUnit, w.Cost.LifecyclePerUnit, key, evidence))),
+      MaterialPropertySet.OfCost(basis, currency, w.Cost.SupplyPerUnit, w.Cost.InstallPerUnit, w.Cost.LifecyclePerUnit, key, evidence))),
     MaterialPropertySetWire.PropertySetOneofCase.Damping => MaterialPropertySet.OfDamping(
      w.Damping.DampingRatio, w.Damping.Rayleigh is null ? None : Some((w.Damping.Rayleigh.AlphaPerS, w.Damping.Rayleigh.BetaS)), key, evidence),
     MaterialPropertySetWire.PropertySetOneofCase.Hygrothermal =>
@@ -1308,18 +1435,15 @@ internal static partial class WireCodec {
  // The placement RE-ADMITS through the kernel's own gate rather than crossing as trusted state: a wire whose affine
  // is non-invertible or whose census breaches the ceiling rails here, so a foreign encoder cannot hand this runtime
  // a lattice its own CellLattice.Of would refuse. The arity gate is the wire's, because a repeated field carries no
- // fixed length and a short affine would otherwise index past its own array.
+ // fixed length and a short affine would otherwise index past its own array; the census crosses the SAME rail through
+ // AcceptValidated, because the generated Create THROWS on a non-positive axis and a foreign encoder owns that int.
  static Fin<CellLattice> ToLattice(CellLatticeWire? w, Op key) =>
   w is { Affine.Count: 12 } wire
-   ? CellLattice.Of(
-      new Transform {
-       M00 = wire.Affine[0], M01 = wire.Affine[1], M02 = wire.Affine[2], M03 = wire.Affine[3],
-       M10 = wire.Affine[4], M11 = wire.Affine[5], M12 = wire.Affine[6], M13 = wire.Affine[7],
-       M20 = wire.Affine[8], M21 = wire.Affine[9], M22 = wire.Affine[10], M23 = wire.Affine[11],
-       M30 = 0.0, M31 = 0.0, M32 = 0.0, M33 = 1.0,
-      },
-      LatticeAxis.Create(value: wire.Columns), LatticeAxis.Create(value: wire.Rows), LatticeAxis.Create(value: wire.Layers),
-      wire.Ceiling, key)
+   ? from columns in key.AcceptValidated<LatticeAxis>(candidate: wire.Columns)
+     from rows in key.AcceptValidated<LatticeAxis>(candidate: wire.Rows)
+     from layers in key.AcceptValidated<LatticeAxis>(candidate: wire.Layers)
+     from lattice in CellLattice.Of([.. wire.Affine], columns, rows, layers, wire.Ceiling, key)
+     select lattice
    : ElementFault.ValueRejected(key, $"<wire-lattice-affine-arity:{w?.Affine.Count ?? 0}>");
 
  static Fin<CoverageBand> ToBand(CoverageBandWire w, Op key) =>
@@ -1341,7 +1465,7 @@ internal static partial class WireCodec {
   w.XAxisAbscissa, w.XAxisOrdinate, w.ScaleX, w.ScaleY, w.ScaleZ,
   w.GeodeticDatum, w.VerticalDatum,
   w.Crs?.Name ?? "", w.Crs?.Wkt ?? "", w.Crs?.MapProjection ?? "", w.Crs?.MapZone ?? "", key,
-  Opt(w.HasEpoch, w.Epoch));
+  Opt(w.HasEpoch, w.Epoch), Opt(w.HasVerticalEpsg, w.VerticalEpsg));
 
  static Fin<Option<Diagnostic>> ToDiagnostic(DiagnosticWire? w, Op key) =>
   w is null ? Fin.Succ(Option<Diagnostic>.None)
@@ -1374,7 +1498,16 @@ internal static partial class WireCodec {
  static Fin<QuantityBag> ToBag(QuantitySetWire w, Op key) =>
   BagAxes(w.Inheritance, w.SourceRank, key).Bind(axes =>
    toSeq(w.Values).TraverseM(p => ToMeasure(p.Value, key).Map(m => (Name: PropertyName.Create(p.Key), Value: m))).As()
-    .Map(pairs => new QuantityBag(w.SetName, pairs.Fold(Map<PropertyName, MeasureValue>(), static (m, p) => m.Add(p.Name, p.Value)), axes.Mode, axes.Rank)));
+    .Map(pairs => new QuantityBag(w.SetName, pairs.Fold(Map<PropertyName, MeasureValue>(), static (m, p) => m.Add(p.Name, p.Value)), axes.Mode, axes.Rank, ToGroups(w.Groups))));
+
+ // The group run re-admits TOTAL: the three columns are free grouping text under no seam gate, so absence is the
+ // whole decision each Has* presence pair answers and no rail is owed. A prefix naming no value row is admitted —
+ // an authored group whose members a partial crossing omitted is data, not a malformed payload.
+ static Map<string, GroupIdentity> ToGroups(IEnumerable<KeyValuePair<string, GroupIdentityWire>> entries) =>
+  toSeq(entries).Fold(Map<string, GroupIdentity>(), static (map, entry) => map.Add(entry.Key, new GroupIdentity(
+   entry.Value.HasDiscrimination ? Some(entry.Value.Discrimination) : None,
+   entry.Value.HasQuality ? Some(entry.Value.Quality) : None,
+   entry.Value.HasUsage ? Some(entry.Value.Usage) : None)));
 
  static Fin<(InheritanceMode Mode, PropertySource Rank)> BagAxes(string inheritance, int sourceRank, Op key) =>
   !InheritanceMode.TryGet(inheritance, out InheritanceMode? mode) ? ElementFault.ValueRejected(key, $"<wire-inheritance:{inheritance}>")
@@ -1436,11 +1569,14 @@ internal static partial class WireCodec {
 // Google.Protobuf write family (WriteTo(IBufferWriter<byte>) / ToByteArray / WriteDelimitedTo) on the returned
 // envelope directly — a forwarding byte wrapper here is the deleted form.
 public static class ElementWire {
- public static ElementGraphWire Encode(ElementGraph graph) {
+ // ONE graph encode carries the egress policy: an absent scope folds through RedactionScope.None, whose empty column
+ // roster is the identity of Apply, so the unredacted and the scoped crossing run the same path and no sibling
+ // EncodeRedacted forks it. Clearing runs on the JUST-ENCODED message, never on a caller's value.
+ public static ElementGraphWire Encode(ElementGraph graph, Option<RedactionScope> scope = default) {
   ElementGraphWire wire = new() { Header = WireCodec.ToWire(graph.Header) };
   wire.Nodes.AddRange(toSeq(graph.Nodes.Values).Map(WireCodec.ToWire));
   wire.Edges.AddRange(graph.Edges.Select(WireCodec.ToWire));
-  return wire;
+  return scope.IfNone(RedactionScope.None).Apply(wire);
  }
 
  public static GraphDeltaWire Encode(GraphDelta delta) {
@@ -1459,36 +1595,64 @@ public static class ElementWire {
  // admission: the decoded snapshot enters as a Genesis-rooted GraphDelta through AdmitOnto, so LegalLink runs per
  // decoded edge — an absent endpoint rails NodeAbsent, an illegal endpoint-kind pair RelationshipInvalid, a
  // duplicate link DeltaConflict — exactly as the in-process Link path; a decoder-trusted ElementGraph.Of over
- // foreign edges is the deleted form (the wire is not a validated producer). Duplicate node ids rail DeltaConflict
- // before admission (two same-id wire nodes would otherwise coalesce silently through the PutNode upsert). Then
- // optionally sweep ContentAddress.Verify (AddressUnstable per drifted id). The protobuf parse fault is a BOUNDARY
- // exception (InvalidProtocolBufferException) caught ONCE here and lowered to ValueRejected — never a leaked throw.
+ // foreign edges is the deleted form (the wire is not a validated producer). Then optionally sweep the address
+ // complement of the crossing's redaction manifest. The protobuf parse fault is a BOUNDARY exception
+ // (InvalidProtocolBufferException) caught ONCE here and lowered to ValueRejected — never a leaked throw.
+ //
+ // The duplicate-id gate runs FIRST, over the RAW wire ids: two same-id wire nodes coalesce silently through the
+ // PutNode upsert, so the conflict must rail before anything trusts the transcription — and a string scan is one
+ // pass over the cheapest column on the message, where gating after ToNode pays every payload admission on a
+ // hostile duplicate-stuffed graph before rejecting it.
+ //
+ // Node and edge admission ACCUMULATE: the two runs are independent of each other and each element is independent
+ // within its run, so the applicative Traverse over Validation reports every malformed node AND every malformed edge
+ // of a hostile payload in ONE failure, collapsing to Fin once at the structural gate — a first-failure TraverseM
+ // would make a four-hundred-defect payload a four-hundred-round conversation.
  public static Fin<ElementGraph> DecodeGraph(Stream payload, WireLimits limits, Op key) =>
   Parse(ElementGraphWire.Parser, payload, limits, key).Bind(wire => Funnel(key, () =>
-   WireCodec.ToHeader(wire.Header, key).Bind(header =>
-    toSeq(wire.Nodes).TraverseM(n => WireCodec.ToNode(n, key)).As().Bind(nodes =>
-     toSeq(wire.Edges).TraverseM(e => WireCodec.ToEdge(e, key)).As().Bind(edges =>
-      nodes.Map(static n => n.Id).ToHashSet().Count != nodes.Count
-       ? ElementFault.DeltaConflict(key, "<wire-node-duplicate-id>")
-       : edges.Fold(nodes.Fold(GraphDelta.Empty.Reheader(header), static (delta, node) => delta.Put(node)), static (delta, edge) => delta.Link(edge))
+   toSeq(wire.Nodes).Map(static n => n.Id).Distinct().Count != wire.Nodes.Count
+    ? ElementFault.DeltaConflict(key, "<wire-node-duplicate-id>")
+    : WireCodec.ToHeader(wire.Header, key).Bind(header =>
+       (toSeq(wire.Nodes).Traverse(n => WireCodec.ToNode(n, key).ToValidation()).As(),
+        toSeq(wire.Edges).Traverse(e => WireCodec.ToEdge(e, key).ToValidation()).As())
+        .Apply(static (nodes, edges) => (Nodes: nodes, Edges: edges)).As().ToFin()
+        .Bind(admitted =>
+         admitted.Edges.Fold(admitted.Nodes.Fold(GraphDelta.Empty.Reheader(header), static (delta, node) => delta.Put(node)), static (delta, edge) => delta.Link(edge))
           .AdmitOnto(ElementGraph.Genesis(header), key)
-          .Bind(step => limits.VerifyAddresses ? ContentAddress.Verify(step.Graph, key).ToFin().Map(_ => step.Graph) : Fin.Succ(step.Graph)))))));
+          .Bind(step => limits.VerifyAddresses ? VerifyComplement(step.Graph, wire.Redaction, key) : Fin.Succ(step.Graph))))));
+
+ // The verified sweep checks the COMPLEMENT of the crossing's manifest: a manifest-named node is DECLARED unstable —
+ // its cleared columns fold into canonical bytes at their owners, so its id cannot re-derive — while every node
+ // outside that roster still re-derives and rails AddressUnstable on drift. An absent manifest yields an empty
+ // roster, so the unredacted crossing verifies whole through the SAME leg and no second sweep exists.
+ static Fin<ElementGraph> VerifyComplement(ElementGraph graph, RedactionManifestWire? manifest, Op key) {
+  FrozenSet<NodeId> declared = (manifest is null ? Seq<NodeId>() : toSeq(manifest.UnstableNodeIds).Map(NodeId.Create)).ToFrozenSet();
+  return toSeq(graph.Nodes.Values)
+   .Filter(node => !declared.Contains(node.Id))
+   .Traverse(node => ContentAddress.Verify(node, graph.Header.Tolerance, key).ToValidation())
+   .As().ToFin().Map(_ => graph);
+ }
 
  // Decoded deltas re-cross the IsNormalForm shape gate (a double-entry id or edge rails DeltaConflict — the
  // unique-per-id normal form Merge produces is an OBLIGATION on a foreign transcription, never assumed), and its
  // ONLY sanctioned application is AdmitOnto — ReplayOnto trusts a delta the seam's own algebra produced, which a
  // wire payload is not, so the structural edge law runs when the foreign delta lands on a graph.
+ // Its four node and edge sections are independent runs over independent elements, so they admit through the SAME
+ // accumulating Traverse the snapshot leg takes and join applicatively — one failure carrying every defect across all
+ // four sections — before the delta shape gate runs.
  public static Fin<GraphDelta> DecodeDelta(Stream payload, WireLimits limits, Op key) =>
   Parse(GraphDeltaWire.Parser, payload, limits, key).Bind(wire => Funnel(key, () =>
-   toSeq(wire.AddedNodes).TraverseM(n => WireCodec.ToNode(n, key)).As().Bind(added =>
-    toSeq(wire.RevisedNodes).TraverseM(r => WireCodec.ToNode(r.Before, key).Bind(b => WireCodec.ToNode(r.After, key).Map(a => (b, a)))).As().Bind(revised =>
-     toSeq(wire.AddedEdges).TraverseM(e => WireCodec.ToEdge(e, key)).As().Bind(addedEdges =>
-      toSeq(wire.RemovedEdges).TraverseM(e => WireCodec.ToEdge(e, key)).As().Bind(removedEdges =>
-       (wire.Header is null ? Fin.Succ(Option<Header>.None) : WireCodec.ToHeader(wire.Header, key).Map(Some))
-        .Map(header => new GraphDelta(
-         added, toSeq(wire.RemovedNodeIds).Map(NodeId.Create), revised.Map(static p => (p.b, p.a)),
-         addedEdges, removedEdges, header))
-        .Bind(delta => delta.IsNormalForm ? Fin.Succ(delta) : ElementFault.DeltaConflict(key, "<wire-delta-not-normal-form>"))))))));
+   (toSeq(wire.AddedNodes).Traverse(n => WireCodec.ToNode(n, key).ToValidation()).As(),
+    toSeq(wire.RevisedNodes).Traverse(r => WireCodec.ToNode(r.Before, key).Bind(b => WireCodec.ToNode(r.After, key).Map(a => (Before: b, After: a))).ToValidation()).As(),
+    toSeq(wire.AddedEdges).Traverse(e => WireCodec.ToEdge(e, key).ToValidation()).As(),
+    toSeq(wire.RemovedEdges).Traverse(e => WireCodec.ToEdge(e, key).ToValidation()).As())
+    .Apply(static (added, revised, addedEdges, removedEdges) => (added, revised, addedEdges, removedEdges)).As().ToFin()
+    .Bind(sections =>
+     (wire.Header is null ? Fin.Succ(Option<Header>.None) : WireCodec.ToHeader(wire.Header, key).Map(Some))
+      .Map(header => new GraphDelta(
+       sections.added, toSeq(wire.RemovedNodeIds).Map(NodeId.Create), sections.revised,
+       sections.addedEdges, sections.removedEdges, header))
+      .Bind(delta => delta.IsNormalForm ? Fin.Succ(delta) : ElementFault.DeltaConflict(key, "<wire-delta-not-normal-form>")))));
 
  // Residual-throw funnel over protobuf/generated mapping code; typed inner faults pass untouched.
  static Fin<T> Funnel<T>(Op key, Func<Fin<T>> decode) =>
@@ -1502,7 +1666,151 @@ public static class ElementWire {
 }
 ```
 
-## [03]-[EVENT_ENVELOPE]
+## [03]-[EGRESS_REDACTION]
+
+- Owner: `ElementClassification` the `rasm.element` taxonomy's two `DataClassification` keys; `ClassifiedColumn` the `[SmartEnum<string>]` roster — one row per classified column group, carrying its owning `MessageDescriptor`, the `FieldMask` over that owner, its `DataClassificationSet`, and its identity verdict; `RedactionScope` the `WireLimits`-sibling egress policy record.
+- Cases: `Commercial` claims the `CostWire` columns, the `EnvironmentalWire` impact matrix, and `PropertyEvidenceWire` — evidence rides the `MaterialPropertySetWire` ENVELOPE, so one row reaches all eleven property cases. `Personal` claims the `ObjectWire` audit row, `StepHeaderWire.authors`/`organizations`, `ProvenanceWire.author`/`correlation`, and `SensorProvenanceWire.serial`.
+- Law: identity splits the roster on the canonical-bytes preimage its OWNERS already fix, never on a re-derivation here — `Composition/material#MATERIAL_PROPERTY` `CaseBytes` folds the evidence envelope and the `Cost`/`Environmental` columns into every `Node.Material` key, so those three rows are IDENTITY-BEARING and clearing one re-keys its node; `Graph/element#NODE_MODEL` `WriteObject` excludes `OwnerHistory` and `Projection/address#CONTENT_ADDRESS` `OfGraph` excludes the `StepHeader`/`Provenance` provenance slots, so those four rows are IDENTITY-INERT and clearing one moves no key and owes no manifest row.
+- Entry: `RedactionScope.Of(policy, DataClassificationSet, key)` claims every row whose own set the request contains — `DataClassificationSet` keys on WHOLE-set equality, so containment reads as the union fixing the request — and rails a blank policy or a request claiming no row; `scope.Apply(wire)` is the whole egress effect and `RedactionScope.None` its identity element.
+- Auto: protobuf's own path grammar admits NO segment past a repeated field, so only the singular header spine validates root-relative against `ElementGraphWire` and every column reached through `nodes` declares its mask against its OWNING descriptor, the clearing walk carrying the traversal the mask cannot express; the walk descends singular and repeated message fields alone, which is total over the roster because a classified column is declared on a typed payload message and a map value is a generated map-entry.
+- Receipt: `RedactionManifestWire` is the crossing's egress receipt — policy identity, the owner-qualified path roster, and the node ids the clearing re-keyed. A cleared column WITHOUT explicit presence (`FieldDescriptor.HasPresence` is false for every scalar in the roster) reads as its proto3 default, so the DECLARED roster — never the message — is the presence record separating a cleared column from an authored default.
+- Packages: Microsoft.Extensions.Compliance.Abstractions (`DataClassification(taxonomy, value)`/`DataClassificationSet`/`Union` — the contract assembly ALONE, so this seam mints classification keys and resolves no `Redactor`), Google.Protobuf (`FieldMask.FromString<T>`/`Normalize`/`Paths`, `MessageDescriptor.Fields.InFieldNumberOrder`/`FindFieldByName`, `FieldDescriptor.IsMap`/`IsRepeated`/`FieldType`/`Accessor`, `IFieldAccessor.Clear`/`GetValue`), Thinktecture.Runtime.Extensions (`[SmartEnum<string>]` + the generated `Items` roster), LanguageExt.Core (`Fin`/`Seq`/`Option`).
+- Growth: a new classified column is one `ClassifiedColumn` row naming its owner, its paths, its classification, and its identity verdict; a new sensitivity class is one `DataClassification` key on the taxonomy; a new policy is one `Of` call — never a per-policy scope type, never a second walk, and never a redactor token substituted for a cleared value.
+- Boundary: the mechanism is PRESENCE CLEARING on the encoded message and nothing else — no `Redactor` resolves, no HMAC pseudonym crosses, and no re-derived identity space mints, so a redacted crossing PRESERVES its source content keys and a partner reference off the source model still resolves; the policy touches the wire message alone and never an `ElementGraph`, so an in-process consumer of the same graph is unaffected; and a redacted crossing is a DISTINCT byte stream from its unredacted twin, so the `Graph/corpus` parity vectors are forged unredacted and a redacted stream is never a parity input.
+
+```csharp signature
+// --- [TYPES] ------------------------------------------------------------------------------
+// The seam's own compliance taxonomy. The two keys are minted as ordinary (taxonomy, value) pairs off the CONTRACT
+// assembly, so an app-tier redactor registration and this wire policy select rows from ONE vocabulary while this page
+// stays free of the redaction runtime — the classification is the SELECTOR here and the cleared field path is the effect.
+public static class ElementClassification {
+ public const string Taxonomy = "rasm.element";
+
+ public static readonly DataClassification Commercial = new(Taxonomy, "commercial");
+ public static readonly DataClassification Personal = new(Taxonomy, "personal");
+}
+
+// --- [TABLES] -----------------------------------------------------------------------------
+// One row per classified column GROUP. Owner is the message the columns live on; Mask is the FieldMask over that
+// owner, so the roster's path algebra never has to express a segment past a repeated field — the walk owns traversal
+// and the mask owns selection. IdentityBearing is read off the owners' canonical-bytes preimages, never re-derived.
+[SmartEnum<string>]
+public sealed partial class ClassifiedColumn {
+ public static readonly ClassifiedColumn Cost = new("cost",
+  Owned<CostWire>(), Declared<CostWire>("basis,currency,supply_per_unit,install_per_unit,lifecycle_per_unit"),
+  ElementClassification.Commercial, identityBearing: true);
+
+ public static readonly ClassifiedColumn Environmental = new("environmental",
+  Owned<EnvironmentalWire>(), Declared<EnvironmentalWire>("basis,impacts,recycled_content,end_of_life_recovery"),
+  ElementClassification.Commercial, identityBearing: true);
+
+ // Evidence rides the MaterialPropertySetWire envelope, so ONE row reaches every one of the eleven property cases.
+ public static readonly ClassifiedColumn PropertyEvidence = new("property-evidence",
+  Owned<PropertyEvidenceWire>(), Declared<PropertyEvidenceWire>("source,reference,valid_until"),
+  ElementClassification.Commercial, identityBearing: true);
+
+ // The audit row clears WHOLE off its owner rather than column by column: history carries explicit message presence,
+ // so the cleared crossing is absence-honest with no manifest row owed.
+ public static readonly ClassifiedColumn OwnerHistory = new("owner-history",
+  Owned<ObjectWire>(), Declared<ObjectWire>("history"), ElementClassification.Personal, identityBearing: false);
+
+ public static readonly ClassifiedColumn StepAuthorship = new("step-authorship",
+  Owned<StepHeaderWire>(), Declared<StepHeaderWire>("authors,organizations"),
+  ElementClassification.Personal, identityBearing: false);
+
+ public static readonly ClassifiedColumn ComputeProvenance = new("compute-provenance",
+  Owned<ProvenanceWire>(), Declared<ProvenanceWire>("author,correlation"),
+  ElementClassification.Personal, identityBearing: false);
+
+ public static readonly ClassifiedColumn SensorSerial = new("sensor-serial",
+  Owned<SensorProvenanceWire>(), Declared<SensorProvenanceWire>("serial"),
+  ElementClassification.Personal, identityBearing: false);
+
+ public MessageDescriptor Owner { get; }
+ public FieldMask Mask { get; }
+ public DataClassificationSet Classes { get; }
+ public bool IdentityBearing { get; }
+
+ // Clearing IS the redaction: the mask's own path resolves its descriptor row and IFieldAccessor.Clear writes the
+ // proto3 default — dropping a presence-bearing message whole, zeroing a presence-less scalar, emptying a repeated
+ // run. Answering the identity verdict is what lets the sweep decide a node's manifest row without a second probe.
+ // The foreach is the protobuf boundary's own mutable shape, the named statement exemption on this page.
+ public bool Clear(IMessage message) {
+  foreach (string path in Mask.Paths) { Owner.FindFieldByName(path).Accessor.Clear(message); }
+  return IdentityBearing;
+ }
+
+ // Roster rows are declaration-total: FromString<T> parses AND proves every path against the owning message's own
+ // grammar, Normalize sorts, dedupes, and prunes subpaths, so a mistyped column is a construction defect at roster
+ // materialization rather than a clear that silently reaches nothing. Owned reads the descriptor off the published
+ // IMessage.Descriptor reflection entry, so the roster names no generated static.
+ static FieldMask Declared<T>(string paths) where T : IMessage<T> => FieldMask.FromString<T>(paths).Normalize();
+ static MessageDescriptor Owned<T>() where T : IMessage<T>, new() => new T().Descriptor;
+}
+
+// --- [MODELS] -----------------------------------------------------------------------------
+// The egress policy record beside WireLimits: a policy identity plus the rows one requested classification set claims.
+// None carries an EMPTY roster and is the identity of Apply, so an unscoped encode and a scoped one are one code path.
+public sealed record RedactionScope {
+ private RedactionScope(string policy, Seq<ClassifiedColumn> columns) => (Policy, Columns) = (policy, columns);
+
+ public string Policy { get; }
+ public Seq<ClassifiedColumn> Columns { get; }
+
+ public static readonly RedactionScope None = new("", Seq<ClassifiedColumn>());
+
+ // A row is claimed when the request CONTAINS its classification set; DataClassificationSet keys on whole-set
+ // equality, so containment reads as the union fixing the request rather than as a member scan. A policy claiming no
+ // row rails instead of crossing an unredacted stream under a redaction label.
+ public static Fin<RedactionScope> Of(string policy, DataClassificationSet classes, Op key) =>
+  string.IsNullOrWhiteSpace(policy)
+   ? ElementFault.ValueRejected(key, "<redaction-policy-blank>")
+   : toSeq(ClassifiedColumn.Items).Filter(column => classes.Union(column.Classes).Equals(classes)) is { IsEmpty: false } claimed
+    ? Fin.Succ(new RedactionScope(policy.Trim(), claimed))
+    : ElementFault.ValueRejected(key, $"<redaction-scope-claims-nothing:{policy}>");
+
+ // --- [OPERATIONS]
+ // The whole egress effect: clear every claimed column reachable from the encoded message, then stamp the manifest.
+ // The header spine's rows are identity-inert by the roster's own law, so its sweep yields no node id; each node's
+ // sweep contributes its id exactly when an identity-bearing row was reached, which is the roster the verifying
+ // decode admits as declared-unstable. Message mutation is the protobuf boundary's shape — the statement exemption —
+ // and the empty-roster arm returns the message untouched, which is what makes None a true identity.
+ public ElementGraphWire Apply(ElementGraphWire wire) {
+  if (Columns.IsEmpty) { return wire; }
+  _ = Sweep(wire.Header);
+  Seq<string> unstable = toSeq(wire.Nodes).Fold(Seq<string>(), (roster, node) => Sweep(node) ? roster.Add(node.Id) : roster);
+  RedactionManifestWire manifest = new() { Policy = Policy };
+  manifest.ClearedPaths.AddRange(Columns.Bind(column => toSeq(column.Mask.Paths).Map(path => $"{column.Owner.Name}.{path}")));
+  manifest.UnstableNodeIds.AddRange(unstable);
+  wire.Redaction = manifest;
+  return wire;
+ }
+
+ // ONE descriptor walk per message root, ANSWERING whether the walk reached an identity-bearing row: clear what this
+ // message owns, then descend. The folds are strict and every join is the NON-short-circuiting `|`, because clearing
+ // is an EFFECT — `||` would skip the descent the moment a row on this message already moved identity, leaving the
+ // subtree uncleared while still reporting the verdict. The one short-circuit that IS wanted is the owner match,
+ // which must not clear a message the row does not own. A new classified column is one roster row, no new traversal.
+ bool Sweep(IMessage message) =>
+  Columns.Fold(false, (moved, column) =>
+   (ReferenceEquals(column.Owner, message.Descriptor) && column.Clear(message)) | moved)
+   | Nested(message).Fold(false, (moved, child) => Sweep(child) | moved);
+
+ // Singular and repeated message fields are the whole descent: a classified column is declared on a typed payload
+ // message, and a map field's value is a generated map-entry no roster row can own. An unset oneof arm reads null
+ // through the accessor and drops out, so a node walks only its own case.
+ static Seq<IMessage> Nested(IMessage message) =>
+  toSeq(message.Descriptor.Fields.InFieldNumberOrder())
+   .Filter(static field => field.FieldType is FieldType.Message && !field.IsMap)
+   .Bind(field => field.Accessor.GetValue(message) switch {
+    IMessage single => Seq(single),
+    System.Collections.IEnumerable run => toSeq(run.Cast<IMessage>()),
+    _ => Seq<IMessage>(),
+   });
+}
+```
+
+## [04]-[EVENT_ENVELOPE]
 
 - Owner: `GraphEventType` closes the `rasm.element.graph.v1` snapshot and `rasm.element.graphdelta.v1` delta tokens. `GraphEventEnvelope` owns the CloudEvents context attributes: `specversion`, `id`, `source`, `type`, `datacontenttype`, `subject`, `time`, and optional W3C `traceparent`/`tracestate`.
 - Entry: `For(ElementGraph, ...)` and `For(GraphDelta, ...)` derive `Subject` through the same content projections used by persistence dedup and observation facts. `Attributes()` emits the canonical unprefixed rows. `Admit(attributes, key)` rejects duplicate, missing, malformed, or reserved `data` attribute names, re-admits the type and content address, compares the protobuf media type case-insensitively, verifies fixed CloudEvents values and derived id, validates the source URI-reference and trace composite, and ignores unknown extension rows.
@@ -1615,14 +1923,20 @@ public sealed record GraphEventEnvelope {
 }
 ```
 
-## [04]-[IMPLEMENTATION_LAW]
+## [05]-[IMPLEMENTATION_LAW]
 
 - [KEY_VERBATIM_LAW]: wire identities cross verbatim. `NodeId` uses X32 text; `UInt128` keys use big-endian fields while `CanonicalWriter.U128` remains little-endian hash input. Each peer normalizes once at decode and never substitutes a second digest.
 - [CODEC_DIVISION]: `Grpc.Tools` emits messages, Mapperly emits field transcription, Thinktecture `Switch` owns seam-case encode dispatch, and protobuf case enums own decode dispatch. Reflection and parallel hand-written mappings are forbidden.
-- [ADMISSION_AND_DEPTH_GATE]: `DecodeGraph` and `DecodeDelta` parse under positive `WireLimits`. Every decoded value re-crosses its owner gate before the aggregate reaches `AdmitOnto` or `IsNormalForm`. Unset cases, unknown rows, duplicate ids, invalid values, and illegal structure share the in-process typed rail.
+- [ADMISSION_AND_DEPTH_GATE]: `DecodeGraph` and `DecodeDelta` parse under positive `WireLimits`. Every decoded value re-crosses its owner gate before the aggregate reaches `AdmitOnto` or `IsNormalForm`. Duplicate node ids rail on a raw-id scan before value admission. Unset cases, unknown rows, invalid values, and illegal structure share the in-process typed rail.
 - [EVENT_ENVELOPE]: `GraphEventEnvelope` derives subject and id from the crossing content key, emits canonical CloudEvents attributes, and carries app-filled W3C trace data. Carrier adapters own binding prefixes. Protobuf streaming uses `WriteLengthPrefixedTo` for buffer writers and `WriteDelimitedTo` for streams.
+- [EGRESS_REDACTION]: a scoped crossing clears classified field paths on the encoded message and carries its `RedactionManifestWire`. Source content keys survive — no key re-derives over redacted bytes — and the verifying decode admits exactly the manifest-named nodes as declared-unstable while a drifted node outside that roster still faults `AddressUnstable`. A redacted crossing is a DISTINCT byte stream from its unredacted twin, so parity vectors are forged and compared unredacted and a redaction policy never enters a parity gate.
 - [CONTRACT_EVOLUTION]: `Graph/element.proto` is the descriptor source. Appended fields and new `oneof` arms are additive; renumbers, incompatible type changes, and unreserved removals are breaking. Whole-graph parity literals remain governed by `Graph/corpus`'s terminal research route until exact addresses exist.
 
-## [05]-[RESEARCH]
+## [06]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
 
 (none)

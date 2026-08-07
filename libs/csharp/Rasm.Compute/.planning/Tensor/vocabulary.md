@@ -1,23 +1,27 @@
 # [COMPUTE_VOCABULARY]
 
-Cpu-tensor vocabulary uses `Tensor<T>` as its only tensor owner, `TensorDtype` as the `TensorElementType`↔CLR/ONNX map, and `TensorOpFamily` as the equivalence-keyed operation table. `TensorDtype`, `QuantizationPolicy`, `TensorFault`, `TensorVocabulary`, `TensorOpKind`, `TensorOpFamily`, and `ToleranceClass` live here; matrix lowering, kernel dispatch, residency, and layout consume those settled shapes.
+Cpu-tensor vocabulary uses `Tensor<T>` as its only tensor owner, `TensorDtype` as the `TensorElementType`↔CLR/ONNX map, and `TensorOpFamily` as the equivalence-keyed operation table. `TensorDtype`, `QuantizationPolicy`, `TensorFault`, `TensorVocabulary`, `TensorOpKind`, `TensorOpFamily`, `ToleranceClass`, and `ProofVerdict` live here; matrix lowering, kernel dispatch, residency, and layout consume those settled shapes.
 
 ## [01]-[INDEX]
 
 - [02]-[TENSOR_VOCABULARY]: tensor shapes, factories, dtype map, ONNX byte-width, quantization policy.
-- [03]-[OPERATION_TABLE]: `TensorOpKind`/`TensorOpFamily`/`ToleranceClass` vocabulary rows.
+- [03]-[OPERATION_TABLE]: `TensorOpKind`/`TensorOpFamily`/`ToleranceClass`/`ProofVerdict` vocabulary rows.
 
 ## [02]-[TENSOR_VOCABULARY]
 
 - Owner: `TensorDtype`
 - Cases: float32, float64, float16, bfloat16, complex128, int8, int16, int32, int64, uint8, uint16, uint32, uint64, bool, string
-- Entry: `Admit(TensorElementType)` aborts on an unmapped element; `Promote(TensorDtype, TensorDtype)` derives mixed arithmetic from each row's numeric, integral, signedness, storage, precision, and exponent-range columns, including signed/unsigned widening, float/complex escalation, and the range gate that promotes a bfloat16-float16 pair to float32 rather than truncating exponent range, without a named pair roster. Quantization admission proves scalar, axis, block, vector-cardinality, and zero-point invariants against the tensor shape. `OrtByteSpan` converts native bytes without negative, alignment, or width truncation.
+- Entry: `Admit(TensorElementType)` aborts on an unmapped element; `Promote(TensorDtype, TensorDtype)` derives mixed arithmetic from each row's numeric, integral, signedness, storage, precision, and exponent-range columns, including signed/unsigned widening, float/complex escalation, and the range gate that promotes a bfloat16-float16 pair to float32 rather than truncating exponent range, without a named pair roster. A mixed-sign integral pair demanding one bit past the widest integral row exhausts the integer ladder and promotes to float64 — the deliberate lossy widening numpy semantics fix, carrying both magnitudes at 53-bit precision rather than refusing a promotion every caller then works around. Quantization admission proves scalar, axis, block, vector-cardinality, and zero-point invariants against the tensor shape. `OrtByteSpan` converts native bytes without negative, alignment, or width truncation.
 - Packages: System.Numerics.Tensors, Microsoft.ML.OnnxRuntime, CommunityToolkit.HighPerformance, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
 - Growth: a new element mapping is one `TensorDtype` row carrying byte-width, quantization, numeric-domain, storage, precision, and exponent-range columns; admission and mixed promotion derive from `Items`, so no pair table grows.
 - Boundary: `Tensor<T>`, `TensorSpan<T>`, `ReadOnlyTensorSpan<T>`, `TensorShape`, and `TensorDimensionSpan<T>` are the only tensor shapes — package-local tensor wrappers and a TensorService are the deleted forms; `Tensor.CreateFromArray`, `CreateFromMemory`, `CreateFromSequence`, and `CreateFromDiagonal` are phantom spellings — `Tensor.Create`, `CreateFromShape`, and `CreateFromShapeUninitialized` are the factory surface, and zero-copy admission rides `TensorSpan<T>` constructors over spans and `Tensor.Create` over rented `MemoryOwner<T>` arrays through `DangerousGetArray`; `TensorMarshal.CreateTensorSpan` is the write-polarity native bridge over ref-rooted foreign memory and `TensorMarshal.CreateReadOnlyTensorSpan` the read-polarity bridge admitting pooled-plane and model-output buffers whose lifetime the caller owns, with `TensorMarshal.GetReference` and `Tensor<T>.GetPinnableReference` as ref roots; one generic kernel serves each operation family. `Width` carries CLR byte width and `OrtElementBytes` the ONNX C-data stride, so `GetTensorSizeInBytes` converts through the dtype row, never `sizeof(T)`; `OrtByteSpan` rejects negative, non-integral, and `int`-overflowing element counts before any destination slice. `Complex128` carries `System.Numerics.Complex`, while `complex64` has no BCL carrier and never admits to a span; native FP8, `Int4`/`UInt4`, and `Float4E2M1` types do not exist in managed `TensorElementType` and remain inadmissible. Quantized rows compose subtract-zero-point then multiply-scale dequantization and inverse round-add-`ConvertSaturating` quantization, broadcasting by per-tensor, per-axis, or blocked granularity. `QuantizationPolicy.Admit` receives the tensor shape, accumulates independent scalar and structural gates through tuple `Apply`, proves the axis exists, requires vector count equal to the axis extent or blocked group count, and exits once to `Fin`; no kernel revalidates metadata. Chunked contiguous frames stage through `StreamGrant.ContiguousFrame`; the string row admits only at the model boundary through `OrtValue.CreateTensorWithEmptyStrings` then `CreateFromStringTensor`.
 
 ```csharp signature
 // --- [TYPES] -------------------------------------------------------------------------------
+// `Width` is CLR BYTES and `StorageBits` the same width in BITS, so `StorageBits == Width * 8` on every row that
+// carries a width: `bool` occupies one byte and states eight bits, its one-bit packing belonging to the
+// `Tensor/memory#ALLOCATION_AXIS` mask view rather than to a dtype column. `PrecisionBits`/`ExponentBits` are
+// numeric-domain columns, so a non-numeric row states zero for both and `Promote` rejects it before either reads.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -35,7 +39,7 @@ public sealed partial class TensorDtype {
     public static readonly TensorDtype UInt16 = new("uint16", TensorElementType.UInt16, typeof(ushort), width: Some(2), ortBytes: 2, quantized: false, modelBoundaryOnly: false, numeric: true, integral: true, signed: false, storageBits: 16, precisionBits: 16, exponentBits: 0);
     public static readonly TensorDtype UInt32 = new("uint32", TensorElementType.UInt32, typeof(uint), width: Some(4), ortBytes: 4, quantized: false, modelBoundaryOnly: false, numeric: true, integral: true, signed: false, storageBits: 32, precisionBits: 32, exponentBits: 0);
     public static readonly TensorDtype UInt64 = new("uint64", TensorElementType.UInt64, typeof(ulong), width: Some(8), ortBytes: 8, quantized: false, modelBoundaryOnly: false, numeric: true, integral: true, signed: false, storageBits: 64, precisionBits: 64, exponentBits: 0);
-    public static readonly TensorDtype Bool = new("bool", TensorElementType.Bool, typeof(bool), width: Some(1), ortBytes: 1, quantized: false, modelBoundaryOnly: false, numeric: false, integral: false, signed: false, storageBits: 1, precisionBits: 1, exponentBits: 0);
+    public static readonly TensorDtype Bool = new("bool", TensorElementType.Bool, typeof(bool), width: Some(1), ortBytes: 1, quantized: false, modelBoundaryOnly: false, numeric: false, integral: false, signed: false, storageBits: 8, precisionBits: 0, exponentBits: 0);
     public static readonly TensorDtype Utf8Text = new("string", TensorElementType.String, typeof(string), width: None, ortBytes: 0, quantized: false, modelBoundaryOnly: true, numeric: false, integral: false, signed: false, storageBits: 0, precisionBits: 0, exponentBits: 0);
 
     public TensorElementType Element { get; }
@@ -51,11 +55,13 @@ public sealed partial class TensorDtype {
     public int PrecisionBits { get; }
     public int ExponentBits { get; }
 
-    // Zero-point range shares the quantized row's integer domain.
+    // Zero-point range derives from the row's OWN signedness and storage width, so a quantized row landing at a
+    // wider integer domain answers without an edit here; an identity probe against a named row answers only the
+    // rows it names and silently mis-domains every later one.
     public Option<(long Min, long Max)> ZeroPointDomain =>
         !Quantized ? None
-        : Element == TensorElementType.Int8 ? Some(((long)sbyte.MinValue, (long)sbyte.MaxValue))
-        : Some(((long)byte.MinValue, (long)byte.MaxValue));
+        : Signed ? Some((-(1L << (StorageBits - 1)), (1L << (StorageBits - 1)) - 1))
+        : Some((0L, (1L << StorageBits) - 1));
 
     public Fin<int> ElementCount(long sizeInBytes) =>
         OrtElementBytes <= 0 ? TensorFault.Fail<int>("no-byte-stride", Key)
@@ -140,11 +146,15 @@ public abstract partial record QuantizationPolicy {
 }
 
 // --- [ERRORS] ------------------------------------------------------------------------------
+// Refusal grammar is `<slug:payload>` — a leading BOUNDED slug the receipt panel groups on, then colon-joined
+// payload segments carrying the unbounded evidence (a row key, a measured pair, a native message). One arity
+// absorbs every raising site, so a slug-only refusal and a three-segment one are the same call and no site
+// smuggles an unbounded message into the slug the grouping reads.
 public static class TensorFault {
-    public static Error Symbol(string symbol, string key) => ComputeFault.Create($"<{symbol}:{key}>");
-    public static Error Symbol(string symbol, string key, string detail) => ComputeFault.Create($"<{symbol}:{key}:{detail}>");
-    public static Fin<A> Fail<A>(string symbol, string key) => Fin.Fail<A>(Symbol(symbol, key));
-    public static Fin<A> Fail<A>(string symbol, string key, string detail) => Fin.Fail<A>(Symbol(symbol, key, detail));
+    public static Error Symbol(string slug, params ReadOnlySpan<string> payload) =>
+        ComputeFault.Create(payload.IsEmpty ? $"<{slug}>" : $"<{slug}:{string.Join(':', payload)}>");
+
+    public static Fin<A> Fail<A>(string slug, params ReadOnlySpan<string> payload) => Fin.Fail<A>(Symbol(slug, payload));
 }
 
 // --- [SERVICES] ----------------------------------------------------------------------------
@@ -196,10 +206,28 @@ public static class TensorVocabulary {
 - Cases: thirteen `TensorOpKind` rows — elementwise, rounding, transcendental, reduction, statistics, bitwise, population, similarity, conversion, predicate, matrix, structural, geometry — each carrying its `ToleranceClass` envelope column; the transcendental family spans the full `TensorPrimitives` surface — the forward and inverse trig (`Sin`/`Cos`/`Tan`/`Asin`/`Acos`/`Atan`/`Atan2`) and their `Pi` companions (`SinPi`/`CosPi`/`TanPi`/`AsinPi`/`AcosPi`/`AtanPi`/`Atan2Pi`/`SinCos`/`SinCosPi`), the hyperbolic and inverse-hyperbolic pairs (`Sinh`/`Cosh`/`Tanh`/`Asinh`/`Acosh`/`Atanh`), the base-2 and base-10 and `M1`/`P1` precision variants (`Exp2`/`Exp10`/`ExpM1`/`Exp2M1`/`Exp10M1`/`Log2`/`Log10`/`LogP1`/`Log2P1`/`Log10P1`), and the `Pow`/`Sqrt`/`Cbrt`/`RootN`/`ScaleB`/`Hypot` powers beside the exact-scale `DegreesToRadians`/`RadiansToDegrees`; the activation family — `Sigmoid`/`Tanh`/`SoftMax` bind direct `TensorPrimitives` members while `ReLU` (a `Max` clamp at zero), `SiLU` (`x · Sigmoid(x)`), `Gelu` (the tanh-approximation form), and `LogSoftMax` (`SoftMax` then `Log`) carry NO direct `TensorPrimitives` member and lower as the composed forms `Tensor/dispatch#KERNEL_DISPATCH` binds; the four pooling rows (`MaxPool`/`AvgPool`/`GlobalMaxPool`/`GlobalAvgPool`); the index-driven structural pair (`Gather`/`Scatter`) reading or writing elements by index value at span rate — take-along-axis composes `Gather` over layout-derived flat indices and a colliding scatter resolves last-write-wins in index order; the magnitude-extremum reduction quartet (`Max`/`Min` crossed with value/magnitude and NaN-propagating/NaN-missing: `MaxMagnitude`/`MinMagnitude`/`MaxMagnitudeNumber`/`MinMagnitudeNumber`); the five segmented-reduction rows (`SegmentSum`/`SegmentMean`/`SegmentMax`/`SegmentMin`/`SegmentCount`) folding per-group aggregates over a segment-id lane in one pass — per-zone, per-member, and per-cell rollups ride the `Tensor/dispatch#KERNEL_DISPATCH` `Segment` arity at span rate instead of a caller loop, and the rows carry no `TensorPrimitives` member; the estimate rows (`ReciprocalEstimate`/`ReciprocalSqrtEstimate`/`MultiplyAddEstimate`); the bit-adjacency and exponent-extraction elementwise rows (`BitIncrement`/`BitDecrement`/`ILogB`/`Remainder`); the widening conversion rows (`ConvertToSingle`/`ConvertToInteger`/`ConvertToIntegerNative`); the complete IEEE-754 predicate-classification family — `IsNaN`/`IsFinite`/`IsInfinity`/`IsPositiveInfinity`/`IsNegativeInfinity`/`IsInteger`/`IsEvenInteger`/`IsOddInteger`/`IsNegative`/`IsPositive`/`IsZero`/`IsNormal`/`IsSubnormal`/`IsPow2`/`IsCanonical`/`IsComplexNumber`/`IsImaginaryNumber`/`IsRealNumber`, each carrying its per-element mask and its fused `All`/`Any` boolean-aggregate rows; the element-domain rows (`ComplexAbs`/`ComplexExp`/`ComplexLog`/`Conjugate` over `System.Numerics.Complex`, `QuaternionMultiply`/`QuaternionConjugate`/`QuaternionNormalize` over `System.Numerics.Quaternion`); and the six DDG geometry-operator rows (`Gradient`/`Divergence`/`Curl`/`CotangentLaplacian`/`HeatFlow`/`Spectral`) carrying the linear DEC operators whose reverse-mode adjoint is the operator transpose over the `Tensor/dispatch#EQUIVALENCE_INTEROP` `Sensitivity.Operator` reverse-mode apply (routing the `Tensor/dispatch#EQUIVALENCE_INTEROP` `OperatorRow.Adjoint` over the kernel `Rasm.Numerics` `DiscreteCalculus`) — all ride the existing kind axis as rows, never sibling op types
 - Packages: System.Numerics.Tensors, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
 - Growth: a new operation is one `TensorOpFamily` row carrying its kind and tolerance columns; a new tolerance band is one `ToleranceClass` row; a new operation kind is one `TensorOpKind` row; zero new surface.
-- Boundary: `ToleranceClass.Bound(length, mass)` owns absolute equivalence envelopes, and `Vacuous` rejects cancellation-dominated evidence. `TensorVocabulary.Promote(left, right)` generates result dtype from numeric kind, signedness, storage width, precision width, and exponent range rather than maintaining an ordered-pair roster. Quantized admission composes independent scale, zero-point, axis, block, vector, and shape gates through accumulated `Validation`.
+- Boundary: `ToleranceClass.Bound(length, mass)` owns absolute equivalence envelopes, and `Vacuous` rejects cancellation-dominated evidence. `TensorOpKind` is the proof-family selector the `Tensor/dispatch#EQUIVALENCE_INTEROP` `EquivalenceLaw` reads: the `Kind` column picks the gap kernel a row certifies through — elementwise, rounding, transcendental, bitwise, population, predicate, and conversion rows against the element-by-element scalar tail; reduction, statistics, and similarity rows against the reassociated (reversed) order; matrix rows against the lowered GEMM reference; structural and geometry rows against the operator-transpose identity over a mesh fixture — so a proof route derives from the kind axis rather than a per-row proof roster. `ToleranceClass.Verdict` is the three-state fold `ProofVerdict` names, and an infinite envelope certifies nothing: every estimate row lands `unprovable-estimate`, because a finite deviation compared against an unbounded envelope is the false pass this owner forecloses. `TensorVocabulary.Promote(left, right)` generates result dtype from numeric kind, signedness, storage width, precision width, and exponent range rather than maintaining an ordered-pair roster. Quantized admission composes independent scale, zero-point, axis, block, vector, and shape gates through accumulated `Validation`.
 
 ```csharp signature
 // --- [TYPES] -------------------------------------------------------------------------------
+// Equivalence is MULTI-state, never a boolean: a row whose envelope is infinite, a reduction whose evidence
+// cancelled away, and a family whose oracle never ran all fail to certify, and reporting any of them as a pass
+// publishes a proof nobody ran — while reporting the last as a VIOLATION accuses a kernel nobody measured.
+// `Certifies` is true on one row alone, so a consumer folds the column instead of re-deriving which non-pass is
+// a violation, and the three refusal rows keep their causes distinct at the receipt.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class ProofVerdict {
+    public static readonly ProofVerdict Holds = new("holds", certifies: true);
+    public static readonly ProofVerdict Violated = new("violated", certifies: false);
+    public static readonly ProofVerdict UnprovableEstimate = new("unprovable-estimate", certifies: false);
+    public static readonly ProofVerdict UnprovableCancelling = new("unprovable-cancelling", certifies: false);
+    public static readonly ProofVerdict UnprovableUnmeasured = new("unprovable-unmeasured", certifies: false);
+
+    public bool Certifies { get; }
+}
+
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -227,8 +255,20 @@ public sealed partial class ToleranceClass {
 
     public bool Vacuous(double cancellationRatio) => this != Exact && cancellationRatio < CancellationFloor;
 
+    // Boundedness derives from the row's OWN envelope at unit length and unit mass, never a second column that
+    // de-syncs from it: an estimate row answers +inf and bounds nothing, so `deviation <= Bound(...)` — true for
+    // every finite deviation under an infinite bound — would publish a pass no measurement supports.
+    public bool Certifiable => double.IsFinite(Bound(1, 1.0));
+
+    public ProofVerdict Verdict(double deviation, int length, double mass, double cancellationRatio) =>
+        !Certifiable ? ProofVerdict.UnprovableEstimate
+        : !double.IsFinite(deviation) ? ProofVerdict.UnprovableUnmeasured
+        : Vacuous(cancellationRatio) ? ProofVerdict.UnprovableCancelling
+        : deviation <= Bound(length, mass) ? ProofVerdict.Holds
+        : ProofVerdict.Violated;
+
     public bool Holds(double deviation, int length, double mass, double cancellationRatio) =>
-        !Vacuous(cancellationRatio) && deviation <= Bound(length, mass);
+        Verdict(deviation, length, mass, cancellationRatio).Certifies;
 }
 
 [SmartEnum<string>]

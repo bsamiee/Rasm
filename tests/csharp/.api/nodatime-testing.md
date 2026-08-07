@@ -25,17 +25,17 @@
 
 [ENTRYPOINT_SCOPE]: clock control — `NodaTime.Testing`
 
-| [INDEX] | [SURFACE]                                                                     | [SHAPE]  | [CAPABILITY]                                                   |
-| :-----: | :---------------------------------------------------------------------------- | :------- | :------------------------------------------------------------- |
-|  [01]   | `new FakeClock(Instant)`                                                      | ctor     | start instant, auto-advance zero                               |
-|  [02]   | `new FakeClock(Instant, Duration)`                                            | ctor     | start instant with a per-read auto-advance                     |
-|  [03]   | `FakeClock.FromUtc(int, int, int)`                                            | static   | midnight UTC of the given ISO year, month, day                 |
-|  [04]   | `FakeClock.FromUtc(int, int, int, int, int, int)`                             | static   | the given UTC date and time of day in the ISO calendar         |
-|  [05]   | `Advance(Duration)`                                                           | instance | moves the clock by a duration; negative values move it back    |
-|  [06]   | `AdvanceNanoseconds(long)` … `AdvanceDays(int)`                               | instance | unit wrappers over `Advance`; days are standard 24-hour days   |
-|  [07]   | `Reset(Instant)`                                                              | instance | rebases the clock; `AutoAdvance` survives unchanged            |
-|  [08]   | `AutoAdvance { get; set; }`                                                   | property | every `GetCurrentInstant()` advances by this; defaults to zero |
-|  [09]   | `GetCurrentInstant()`                                                         | instance | the read; repeated calls return one value until time is moved  |
+| [INDEX] | [SURFACE]                                         | [SHAPE]  | [CAPABILITY]                                                   |
+| :-----: | :------------------------------------------------ | :------- | :------------------------------------------------------------- |
+|  [01]   | `new FakeClock(Instant)`                          | ctor     | start instant, auto-advance zero                               |
+|  [02]   | `new FakeClock(Instant, Duration)`                | ctor     | start instant with a per-read auto-advance                     |
+|  [03]   | `FakeClock.FromUtc(int, int, int)`                | static   | midnight UTC of the given ISO year, month, day                 |
+|  [04]   | `FakeClock.FromUtc(int, int, int, int, int, int)` | static   | the given UTC date and time of day in the ISO calendar         |
+|  [05]   | `Advance(Duration)`                               | instance | moves the clock by a duration; negative values move it back    |
+|  [06]   | `AdvanceNanoseconds(long)` … `AdvanceDays(int)`   | instance | unit wrappers over `Advance`; days are standard 24-hour days   |
+|  [07]   | `Reset(Instant)`                                  | instance | rebases the clock; `AutoAdvance` survives unchanged            |
+|  [08]   | `AutoAdvance { get; set; }`                       | property | every `GetCurrentInstant()` advances by this; defaults to zero |
+|  [09]   | `GetCurrentInstant()`                             | instance | the read; repeated calls return one value until time is moved  |
 
 [ENTRYPOINT_SCOPE]: scripted zones — `NodaTime.Testing.TimeZones`
 
@@ -58,11 +58,11 @@
 
 [ENTRYPOINT_SCOPE]: literal construction — `NodaTime.Testing.Extensions`, `DurationConstruction` and `LocalDateConstruction` extending their numeric and day receivers
 
-| [INDEX] | [SURFACE]                                              | [SHAPE] | [CAPABILITY]                          |
-| :-----: | :----------------------------------------------------- | :------ | :------------------------------------ |
-|  [01]   | `Days\|Hours(int\|double)`                             | static  | `Duration` off a whole-unit count     |
-|  [02]   | `Minutes\|Seconds\|Milliseconds\|Ticks\|Nanoseconds(int\|long\|double)` | static | `Duration` off a sub-hour count |
-|  [03]   | `January(int day, int year)` … `December`              | static  | `LocalDate`, one member per ISO month |
+| [INDEX] | [SURFACE]                                                               | [SHAPE] | [CAPABILITY]                          |
+| :-----: | :---------------------------------------------------------------------- | :------ | :------------------------------------ |
+|  [01]   | `Days\|Hours(int\|double)`                                              | static  | `Duration` off a whole-unit count     |
+|  [02]   | `Minutes\|Seconds\|Milliseconds\|Ticks\|Nanoseconds(int\|long\|double)` | static  | `Duration` off a sub-hour count       |
+|  [03]   | `January(int day, int year)` … `December`                               | static  | `LocalDate`, one member per ISO month |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

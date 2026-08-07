@@ -863,11 +863,12 @@ public abstract partial record EmbeddedFault : Expected, IValidationError<Embedd
 // --- [OPERATIONS] -----------------------------------------------------------------------
 
 public static class EngineOps {
-    // native crossing mints a CLOSED `EmbeddedFault`, never throws into the interior (`boundaries.md`
-    // `CAPSULE_OWNER`/`SEAM_CHOOSER`): an `OK` checkpoint receipts the frame counts, a `SQLITE_BUSY` receipts a retry the
-    // schedule re-drives (an overlapping reader blocked the truncate — steady-state, not a fault), and every other status
-    // lifts through `EmbeddedFault.FromStatus` (a `SQLITE_CORRUPT` routes to recovery) — a bare `throw` of a provider
-    // `SqliteException` escaping unconverted is the deleted form the sibling ops already reject.
+    // native crossing mints a CLOSED `EmbeddedFault`, never throws into the interior
+    // (`docs/stacks/csharp/boundaries#CAPSULE_OWNER`): an `OK` checkpoint receipts the frame counts, a
+    // `SQLITE_BUSY` receipts a retry the schedule re-drives (an overlapping reader blocked the truncate —
+    // steady-state, not a fault), and every other status lifts through `EmbeddedFault.FromStatus` (a
+    // `SQLITE_CORRUPT` routes to recovery) — a bare `throw` of a provider `SqliteException` escaping
+    // unconverted is the deleted form the sibling ops already reject.
     // observation instant rides the injected `Element/graph#STORE_RAIL` ProjectionContext frame ([A.1]) —
     // a `ClockPolicy` parameter on any signature here is the named strata inversion.
     public static Fin<EmbeddedFact> Checkpoint(SqliteConnection store, SnapshotFloor floor, CheckpointMode mode, ProjectionContext frame) {

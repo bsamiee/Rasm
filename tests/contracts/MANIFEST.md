@@ -28,6 +28,10 @@ Corpus entries bind each contract to its class: an `infrastructure` entry names 
 |  [20]   | SIGNED_ARTIFACT         | `signed-artifact`       | domain         | `wire-bytes` + `digest`         | DESIGN-PIN |
 |  [21]   | APPHOST_WIRE            | `apphost-wire`          | domain         | `canonical-json` + `digest`     | DESIGN-PIN |
 |  [22]   | APPUI_WIRE              | `appui-wire`            | domain         | `canonical-json` + `digest`     | DESIGN-PIN |
+|  [23]   | BIM_WIRE                | `bim-wire`              | domain         | `canonical-json` + `digest`     | DESIGN-PIN |
+|  [24]   | ELEMENT_WIRE            | `element-wire`          | domain         | `wire-bytes` + `digest`         | DESIGN-PIN |
+|  [25]   | ELEMENT_CORPUS          | `element-corpus`        | domain         | `wire-bytes` + `digest`         | DESIGN-PIN |
+|  [26]   | DECLARATION_RECORD      | `declaration-record`    | domain         | `canonical-json` + `digest`     | DESIGN-PIN |
 
 Two appearance entries — `[02.17]` and `[02.18]` — conform to one shared definition, [appearance-vocabulary.schema.json](appearance-vocabulary.schema.json): the channel roster with its per-channel transfer, neutral, unit, mip policy, and minting branches; the ingest alias table; the transfer, normal-convention, alpha-mode, container, pack, plane-format, mip-policy, and KTX2-payload vocabularies; the three hex spellings; the level-ordered plane address; the egress grammar; and the spherical-harmonic band order with its golden vectors. Neither seam restates a row of it, and a document-local re-spelling is the fork the shared definition forecloses.
 
@@ -229,7 +233,7 @@ Two appearance entries — `[02.17]` and `[02.18]` — conform to one shared def
 
 - Seam: `texture-set-by-key`
 - Class: domain
-- Producer: `csharp:Rasm.Materials/Raster/set#TEXTURE_SET`, keyed and projected through `csharp:Rasm.Materials/Appearance/interchange#MATERIAL_WIRE`
+- Producer: `csharp:Rasm.Materials/Raster/set#TEXTURE_SET`, keyed and projected through `csharp:Rasm.Materials/Appearance/interchange#TEXTURE_EGRESS`
 - Consumers: `typescript:core/interchange/codec#WIRE_CENSUS` carries the family and `#LANDING_WIRE` lands it as `TextureSet`; `typescript:ui/viewer/scene#APPEARANCE_BIND` seats it through `Pbr.seat`/`Pbr.index` over the served asset directory; `python:runtime/transport/shapes#VOCABULARY` decodes it on the `texture_set_wire` row, decode-only.
 - Payload: `wire-bytes` + `digest`
 - Pin: DESIGN-PIN
@@ -296,3 +300,51 @@ Two appearance entries — `[02.17]` and `[02.18]` — conform to one shared def
 - Blocker: the producer freezes no family vector — every family crosses as source-generated JSON with no pinned instance, so no family carries a byte-deriving input on either branch.
 - Shape: the AppUi product-shell family set as ONE registration — `CommandPayloadWire`, `CommandGateWire`, `ControlIntentWire`, `LayoutConstraintWire`, `GeometryResidencyWire`, `EvidenceTimelineWire` — each family one producer roster row and one census row at the consumer; render evidence is a MEMBER of the evidence family (`EvidenceTimelineWire`'s `render` kind arm), never a standalone `RenderReceiptWire` — no producer mints that name, and the ts frame-hash compare shape decoded under it awaits its producer reconciliation at the consumer's own card; sibling wire records an owning page mints beside a family (`CommandIntentWire`/`CommandInvocationWire`/`CommandOutcomeWire`/`CommandReceiptWire`, `IntentBindingWire`/`ControlReceiptWire`, `LayoutVarWire`/`LayoutTermWire`/`LayoutProgramWire`, `ViewpointWire`/`ResidencyTileWire`/`MeshoptStreamWire`/`MeshletWire`) are family MEMBERS riding inside their family's payload, never separate entries. Carriage is JSON by the producer's landed wire law, so the consumer census carries these rows under its `json` arm, never `proto` — no descriptor source exists or is owed under `[02.9]`, and a census `proto` arm over these families names a descriptor no producer publishes. Ordered-program parity binds `LayoutConstraintWire` whole — variable-introduction order, edit-variable set, authored and resolved measurement suggestions — because both tableaus re-solve rather than trusting solved positions. Product-shell vocabulary is the producer's domain capability, so peers decode the families and re-author none.
 - Regenerate when: a family's field roster changes, the producer roster gains or retires a family, or the camelCase Strict emission law moves.
+
+### [02.23]-[BIM_WIRE]
+
+- Seam: `bim-wire`
+- Class: domain
+- Producer: `csharp:Rasm.Bim` — the JSON wire families the openBIM owner mints beside the `[02.8]` IFC artifact, per owning page: `Review/issues#TS_PROJECTION` (`BcfTopicWire` with its nested comment/viewpoint/camera family under `BcfWireContext`), `Semantics/geospatial#GEOSPATIAL_SEAM` (`GeoFeatureWire`, the GeoJSON text projection), `Review/diff#MODEL_DIFF` (`ModelDiff`, the typed change-set), `Model/query#PREDICATE_WIRE` (`PredicateWire`, the `[JsonPolymorphic]` predicate family under `PredicateCodec.Seal`/`Admit`).
+- Consumers: `typescript:core/interchange/codec#WIRE_CENSUS` census rows sourced `Rasm.Bim` decode each family into its landing class; `typescript:ui` materializes the BCF board, viewpoint, diff, and geo overlays; `python:data` decodes `GeoFeatureWire` on its geo ingest.
+- Payload: `canonical-json` + `digest`
+- Pin: DESIGN-PIN
+- Blocker: the producer freezes no family vector — every family crosses as source-generated or codec-sealed JSON with no pinned instance, so no family carries a byte-deriving input on either branch.
+- Shape: the Bim coordination-and-context family set as ONE registration — `BcfTopicWire`, `BcfViewpointWire`, `GeoFeatureWire`, `ModelDiff`, `PredicateWire` — each family one producer roster row and one census row at the consumer, the entry registering PRE-EXISTING crossings exactly as `[02.19]` did: the typescript census already decoded these families, so until this entry landed they crossed as convention-aligned coincidence. Carriage is JSON by each producer page's landed wire law, so the consumer census carries these rows under its `json` arm, never `proto` — no descriptor source exists or is owed under `[02.9]`. Sibling wire records a page mints beside a family (`BcfCommentWire`/`BcfCameraWire`/`BcfColoringWire`, the `ValueMatchWire`/`MeasureWire`/`BoundWire`/`NodeMatchWire` predicate members, the per-arm diff records) are family MEMBERS riding inside their family's payload, never separate entries. Selection semantics bind `PredicateWire` whole — a browser client composes the same closed predicate algebra the model owner evaluates, an unrostered `arm`/`match` refusing at BOTH ends — and re-admission facts only the producer can decide (pattern compilability, vocabulary membership, measure dimension) stay the producer's gates. The IFC artifact itself stays `[02.8]` and the openBIM issue/geo/diff/predicate vocabulary is the producer's domain capability, so peers decode the families and re-author none.
+- Regenerate when: a family's field roster changes, the producer roster gains or retires a family, or either dialect register's emission law moves.
+
+### [02.24]-[ELEMENT_WIRE]
+
+- Seam: `element-wire`
+- Class: domain
+- Producer: `csharp:Rasm.Element/Graph/wire#WIRE_CODEC` — the `rasm.element.v1` protobuf family (`ElementGraphWire`, `GraphDeltaWire`, `NodeWire`, `RelationshipWire` and their nested payload messages) minted by `ElementWire.Encode` under the append-only contract-evolution law.
+- Consumers: `typescript:core/interchange/codec#WIRE_CENSUS` census rows sourced `Rasm.Element/Graph` with the `#KEYED_REGISTRY` `admittedGraph` decode; `python:runtime/transport/shapes#VOCABULARY` holds its roster deferral until the descriptor source lands.
+- Payload: `wire-bytes` + `digest`
+- Pin: DESIGN-PIN
+- Blocker: `Graph/element.proto` holds no landed source — the `[02.9]` descriptor-drift entry names it a pending mint unit — so no message carries a frozen byte-deriving instance on either branch.
+- Shape: the one element-graph crossing, registering a PRE-EXISTING decode — the typescript census already lands `ElementGraphWire`, so until this entry the flow crossed as convention-aligned coincidence. Content keys ride the wire verbatim under the `docs/laws/patterns.md` `[CONTENT_KEY]` law (16 big-endian bytes), decode re-admission runs the producer's own value gates at the consumer's landing class, and descriptor-drift gating for the `.proto` stays `[02.9]`'s obligation — this entry owns the semantic model, never the descriptor snapshot. Sibling messages a page mints inside the family (`PropertyValueWire`, `MeasureValueWire`, `MaterialPropertySetWire`, the event envelope) are family MEMBERS riding the payload, never separate entries.
+- Regenerate when: the message roster or a field number changes, or the descriptor source lands.
+
+### [02.25]-[ELEMENT_CORPUS]
+
+- Seam: `element-corpus`
+- Class: domain
+- Producer: `csharp:Rasm.Element/Graph/corpus#CORPUS_ROSTER` — four graded deterministic models (`S`/`M`/`L`/`XL`) minted by the seeded `GraphForge` through `CorpusGate.Mint`, each an `ElementWire`-encoded snapshot beside its `ContentAddress`.
+- Consumers: `python:runtime/evidence/reproduction#SEED_REPRODUCTION` (the `_CORPUS` `element-corpus` design-pin row, bytes at graduation); `typescript:core/value/contentKey` (the bit-parity gate) with the `core/interchange/codec` decode leg.
+- Payload: `wire-bytes` + `digest`
+- Pin: DESIGN-PIN
+- Blocker: execution route absent, knowledge complete — no source tree exists to run `GraphForge.Mint` (`libs/.planning/ARCHITECTURE.md` `[05]-[PLANNING_LIFECYCLE]` authors source only when code is written), `tests/csharp/libs/Rasm.Element` is an `AssayTestShell` shell, and the DESIGN-PIN law forbids fabricated bytes; the four grade addresses pin when the corpus harness executes the settled forge.
+- Shape: whole-graph parity — each peer decodes a grade's wire bytes and re-derives its snapshot address, equality across the three runtimes proving canonical-bytes, sorting, and hash-seed agreement in one gate; producer-side `CorpusOp` witnesses prove op stability before any pin lands. Grade profiles and seeds are the producer's roster rows, so a forge or layout edit re-derives all four addresses and re-freezes the fixtures whole.
+
+### [02.26]-[DECLARATION_RECORD]
+
+- Seam: `declaration-record`
+- Class: domain
+- Producer: `python:data/impact/declaration#DECLARATION` — the declaration-registry ingest owner minting one `DeclarationRecord` per verified product declaration (Ökobaudat the first source row, EC3 and offline bundles rows on the same axis) keyed to an estate material identity by the ingest keying row.
+- Consumers: `csharp:Rasm.Materials/Properties/assessment#ASSESSMENT_RECORD` — the `DeclarationWire.Decode` leg lowering a record onto `EpdRow` and `AssessmentRecord.Declared`, reaching `AssessmentSet.Of` unchanged.
+- Payload: `canonical-json` + `digest`
+- Pin: DESIGN-PIN
+- Blocker: no frozen Ökobaudat sample declaration pins the byte-deriving input — the producer freezes one registry record per source row when the ingest lane executes; the DESIGN-PIN law forbids fabricated bytes.
+- Shape: one product declaration keyed to a material identity — issuer + registration the duplicate-check pair, declared unit admitted at its own functional unit, issue and expiry dates, and the per-indicator per-module impact map at declaration granularity (the frozen 13-indicator EN 15804+A2 roster over the 15-module EN 15978 roster) where KEY PRESENCE is the coverage census — an absent cell is undeclared absence, never a zero. Discriminating laws: a declared cell is a measured value with negative biogenic/avoided-burden carbon valid; the two resource fractions are optional scenario data, absent when undeclared; consumers band modules as their own seam requires (the C# leg sums declared cells onto its six-band `LifecycleStage` axis and constructs the full matrix only when every core indicator covers every band). The declaration semantic model is the python data branch's host-free ingestion capability; peers decode and re-author none.
+- Regenerate when: the indicator or module roster, the declared-unit vocabulary, or the canonical key order changes.
+- Regenerate when: any forge kernel, grade profile row, canonical-bytes layout, or wire message changes.

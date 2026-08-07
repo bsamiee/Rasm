@@ -43,6 +43,20 @@
 - [12]-[UNITS]: `CobieAreaUnit`/`CobieLinearUnit`/`CobieVolumeUnit`/`CobieCurrencyUnit`/`CobieDurationUnit`/`CobieImpactUnit`.
 - [13]-[VALUE]: `StringValue`/`IntegerValue`/`FloatValue`/`BooleanValue`/`DateTimeValue`.
 
+[PUBLIC_TYPE_SCOPE]: the authored columns the graph-sourced fold fills — verified member sets per entity
+
+- `CobieReferencedObject`: `Created` (`CobieCreatedInfo`), `ExternalId`, `AltExternalId`, `ExternalSystem`, `ExternalObject`, `CreatedBy`, `CreatedOn`, `RowNumber`.
+- `CobieAsset`: `Name`, `Description`, `Categories`, `Impacts`, `Documents`, `Attributes`, `Representations`, and the `this[string attributeName]` → `AttributeValue` indexer.
+- `CobieFacility`: `Project`, `Site`, `Phase`, `AreaMeasurement`, `LinearUnits`/`AreaUnits`/`VolumeUnits`/`CurrencyUnit`.
+- `CobieFloor`: `Facility`, `Elevation` (`double?`), `Height` (`double?`).
+- `CobieSpace`: `Floor`, `RoomTag`, `UsableHeight`/`GrossArea`/`NetArea` (each `double?`).
+- `CobieComponent`: `Type`, `Spaces` (`IItemSet<CobieSpace>`), `SerialNumber`, `TagNumber`, `BarCode`, `AssetIdentifier`, `InstallationDate`/`WarrantyStartDate` (`DateTimeValue?`).
+- `CobieType`: `AssetType`, `Manufacturer`, `ModelNumber`, `ModelReference`, `Material`, `Shape`/`Size`/`Color`/`Finish`/`Grade`, `NominalLength`/`Width`/`Height`, `ReplacementCost`, `ExpectedLife`, the warranty guarantor and duration set.
+- `CobieAttribute`: `Name`, `Description`, `Stage`, `Value` (`AttributeValue`), `Unit`, `AllowedValues`, `PropertySet`, and the typed `Set` family.
+
+- [TYPED_SET]: `CobieAttribute.Set` overloads take `string`, `int`, `float`, `double`, `bool`, `DateTime`, `IExpressValueType`, `CobieAttribute`, and `object` — so a numeric quantity lands as a `FloatValue` the spreadsheet computes on and a stamp as a `DateTimeValue`; rendering every property to text is the deleted form, because it makes an area and a fire rating the same kind of cell.
+- [COMPONENT_SPACES]: `Spaces` is an `IItemSet<CobieSpace>` appended through `Add`, so a component hosted by several spaces carries all of them and one hosted by none stays facility-scoped.
+
 [PUBLIC_TYPE_SCOPE]: the `CobieModel` store (`Xbim.IO.CobieExpress`)
 - note: `CobieModel : IModel, IDisposable` holds the entity graph, transaction log, and serialization surface; author in a `BeginTransaction` scope, serialize through the save family.
 
@@ -80,26 +94,26 @@
 [ENTRYPOINT_SCOPE]: author the `CobieModel` directly (canonical path)
 - note: the canonical Rasm path builds the register from the `Rasm.Element/Graph/element#ELEMENT_GRAPH` `ElementGraph` `Element`s + properties with NO xBIM IFC reader — `Element` → `CobieComponent`, its type → `CobieType`, spatial parent → `CobieFloor`/`CobieSpace`, Pset → `CobieAttribute`.
 
-| [INDEX] | [SURFACE]                                                                             | [SHAPE]  | [CAPABILITY]                       |
-| :-----: | :------------------------------------------------------------------------------------ | :------- | :--------------------------------- |
-|  [01]   | `new CobieModel()` / `(IModel)` / `(string)`                                          | ctor     | in-memory or Esent-backed store    |
-|  [02]   | `model.BeginTransaction(string) -> ITransaction`                                      | instance | author scope; `txn.Commit()` seals |
-|  [03]   | `model.Instances.New<T>()`                                                            | instance | author an entity (types [03])      |
-|  [04]   | `model.SetDefaultEntityInfo(DateTime, string, string, string) -> CobieCreatedInfo`    | instance | default provenance stamp           |
-|  [05]   | `asset.Categories` / `asset.Attributes` / `asset.Documents`                           | property | attribute/category/document sets   |
-|  [06]   | `model.InsertCopy<T>(T, XbimInstanceHandleMap, PropertyTranformDelegate, bool, bool)` | instance | deep-copy an entity + inverses     |
+| [INDEX] | [SURFACE]                                                                             | [SHAPE]  | [CAPABILITY]                        |
+| :-----: | :------------------------------------------------------------------------------------ | :------- | :---------------------------------- |
+|  [01]   | `new CobieModel()` / `(IModel)` / `(string)`                                          | ctor     | in-memory or Esent-backed store     |
+|  [02]   | `model.BeginTransaction(string) -> ITransaction`                                      | instance | author scope; `txn.Commit()` seals  |
+|  [03]   | `model.Instances.New<T>()` / `New<T>(Action<T>)`                                      | instance | author an entity; init fills inline |
+|  [04]   | `model.SetDefaultEntityInfo(DateTime, string email, string given, string family)`     | instance | default provenance stamp            |
+|  [05]   | `asset.Categories` / `asset.Attributes` / `asset.Documents`                           | property | attribute/category/document sets    |
+|  [06]   | `model.InsertCopy<T>(T, XbimInstanceHandleMap, PropertyTranformDelegate, bool, bool)` | instance | deep-copy an entity + inverses      |
 
 [ENTRYPOINT_SCOPE]: serialization and the COBie-spreadsheet bridge
-- note: the register serializes to EXPRESS STEP21, the COBie spreadsheet (XLS/XLSX), or Esent; `ExportToTable` is the canonical FM-handover deliverable.
+- note: the register serializes to EXPRESS STEP21, the COBie spreadsheet (XLS/XLSX), or Esent; `ExportToTable` is the canonical FM-handover deliverable and its `out string report` carries the mapping diagnostics a discarded overload threw away.
 
-| [INDEX] | [SURFACE]                                                                        | [SHAPE]  | [CAPABILITY]                 |
-| :-----: | :------------------------------------------------------------------------------- | :------- | :--------------------------- |
-|  [01]   | `model.SaveAsStep21` / `SaveAsStep21Zip` / `SaveAsEsent`                         | instance | STEP/zip/Esent forms         |
-|  [02]   | `model.ExportToTable(string, out string, ModelMapping?, Stream?)`                | instance | FM XLS/XLSX deliverable      |
-|  [03]   | `model.ExportToTable(Stream, ExcelTypeEnum, out string, ModelMapping?, Stream?)` | instance | stream overload              |
-|  [04]   | `CobieModel.OpenStep21` / `OpenStep21Zip` / `OpenEsent`                          | static   | re-open a register           |
-|  [05]   | `CobieModel.ImportFromTable(string, out string, ModelMapping?) -> CobieModel`    | static   | round-trip a spreadsheet     |
-|  [06]   | `CobieModel.GetMapping() -> ModelMapping`                                        | static   | default column/sheet mapping |
+| [INDEX] | [SURFACE]                                                                     | [SHAPE]  | [CAPABILITY]                       |
+| :-----: | :---------------------------------------------------------------------------- | :------- | :--------------------------------- |
+|  [01]   | `model.SaveAsStep21` / `SaveAsStep21Zip` / `SaveAsEsent`                      | instance | STEP/zip/Esent forms               |
+|  [02]   | `model.ExportToTable(string, out string, ModelMapping?, Stream?)`             | instance | FM XLS/XLSX deliverable            |
+|  [03]   | `model.ExportToTable(Stream, ExcelTypeEnum, out string report, …)`            | instance | stream overload; `report` REQUIRED |
+|  [04]   | `CobieModel.OpenStep21` / `OpenStep21Zip` / `OpenEsent`                       | static   | re-open a register                 |
+|  [05]   | `CobieModel.ImportFromTable(string, out string, ModelMapping?) -> CobieModel` | static   | round-trip a spreadsheet           |
+|  [06]   | `CobieModel.GetMapping() -> ModelMapping`                                     | static   | default column/sheet mapping       |
 
 [ENTRYPOINT_SCOPE]: turnkey IFC→COBie conversion (terminal file→file handover only)
 - note: the exchanger reads an xBIM `IModel` (never GeometryGym) — admissible only as a terminal one-way transform off the persisted `.ifc`, opened/converted/disposed within the call.

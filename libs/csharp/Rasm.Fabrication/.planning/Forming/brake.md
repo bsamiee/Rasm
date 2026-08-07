@@ -12,10 +12,15 @@
 
 - Owner: `BendMethod` owns forming physics; `PunchKind` owns punch compatibility; `BrakeTool` owns admitted tool geometry; `SupportRule` owns handling limits; `PartPose` owns rigid orientation; `BrakePolicy` owns cell and search policy; `BendSequence` owns candidate evaluation and sequencing.
 - Cases: `BendMethod` carries air, bottom, coin, hem, wipe, and fold behavior with a per-row forming-force law; `PunchKind` carries straight, acute, gooseneck, hemming, wiping, and radius turn windows beside each punch's nose-radius floor; `BrakeRejection` carries every failed admission column.
-- Entry: `BendSequence.Plan(UnfoldResult, FormPolicy, ProcessEnvelope.Brake)` is the frozen polymorphic planning entry.
-- Auto: Candidate generation spans the admitted tool catalog and physical bend-axis alignments; each bend resolves the tooling its `SheetForm` demands over the policy default; independent gauge, support, sweep-station, and candidate failures accumulate before one accepted transition rotates every descendant panel and enters the best-first frontier; `Brent.TryFindRoot` inverts the cubic elastic-recovery law over the loaded radius; blank weight and descendant closures resolve once for the whole search.
+- Entry: `BendSequence.Plan(UnfoldResult, FormPolicy, ProcessEnvelope.Brake, FabricationTap?, CancellationToken)` is the frozen polymorphic planning entry; the tap defaults silent for headless callers and the token rides the frontier.
+- Entry: `BrakeBench.Workload` admits the `bend-search` measured workload — bend and tool floors with both bend signs present over the pinned literal envelope — and `BrakeBench.Run` is the fold the corpus gate times against `FabricationBenchClaims.BendSearch`; measurement and receipt projection stay the bench edge's under the AppHost claim-field map.
+- Law: dominance keys on the QUANTIZED state, on the same grid the frontier priority already uses. A key over exact `Transform` equality never matches two states the search reached by different arithmetic paths, so the map never fired and the pruning was structurally dead — the frontier then expanded the whole reachable space under its own budget. Two states agreeing to the admitted gauge and angular resolution ARE the same state for every future feasibility and cost question, and both resolutions are state policy: `RootAccuracyDeg` is the springback inversion's convergence band alone, so tightening the solver never widens the frontier.
+- Law: a typed geometry or policy fault leaves the search on the rail it arrived on as `BrakeCandidate.Refused`. Folding it into an evaluation rejection erased which band refused, so a degenerate profile read as an infeasible bend and the census counted a structural failure as a tried candidate.
+- Law: abandonment lowers `FabricationFault.RunAbandoned(FabConcern.Forming, done, "bend-search")` carrying the fraction of bends the frontier seated — never a thrown cancellation, never `PolicyInadmissible`, which says nothing true about a withdrawn run.
+- Law: panel descent reads `Forming/sheet` `UnfoldEvidence.Descendants`, computed once at unfold; the byte-identical per-bend recursion this page carried walked the same tree a second time.
+- Auto: Candidate generation spans the admitted tool catalog and physical bend-axis alignments; each bend resolves the tooling its `SheetForm` demands over the policy default; independent gauge, support, sweep-station, and candidate failures accumulate before one accepted transition rotates every descendant panel and enters the best-first frontier; the folder's `ElasticLaw` inverts the cubic elastic-recovery law over the loaded radius under this lane's own fibre and thickness terms; blank weight and descendant closures resolve once for the whole search.
 - Receipt: `BendSequenceReceipt` carries the frozen `Seq<BendStep>` line, angle, radius, `K`, overbend, tonnage, and orientation wire beside the settled expansion and rejection census the `FabricationFact.Engine.Of` form rows read on the run spine; the search path retains tool, gauge, setup, support, transformed-panel, and clearance evidence until projection; frontier exhaustion alone returns `BendSequenceInfeasible`, and budget exhaustion returns a distinct fault carrying the unfinished frontier.
-- Packages: `LanguageExt.Core`, `Thinktecture.Runtime.Extensions`, `MathNet.Numerics`, `UnitsNet`, `RhinoCommon`, the `Geometry2D` owner, and BCL `PriorityQueue<TElement, TPriority>` compose the surface.
+- Packages: `LanguageExt.Core`, `Thinktecture.Runtime.Extensions`, `UnitsNet`, `RhinoCommon`, the `Geometry2D` owner, the `Rasm.Element` `CanonicalWriter` codec behind `FabricationCanon`, and BCL `PriorityQueue<TElement, TPriority>` compose the surface.
 - Growth: each method or punch family is one smart-enum row carrying its own force or nose law, a physical tool is catalog data, a setup derives from the live bend axis, and a feasibility dimension is one `BrakeRejection` case with one evidence column.
 - Boundary: Forming owns sequence feasibility and evolving part geometry; flat development, machine capacity, polygon topology, process physics, posting text, and artifact identity remain at their canonical owners; punch body profile is `BrakeTool.ForbiddenSections` geometry, so `PunchKind` states only the turn window and nose-radius floor a section cannot. `PriorityQueue<TElement, TPriority>`, its canonical composite priority, structural dominance map, and frontier loop are the statement-kernel exemptions.
 
@@ -23,14 +28,15 @@
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
 using LanguageExt;
 using LanguageExt.Common;
-using MathNet.Numerics.RootFinding;
 using Rasm.Domain;
 using Rasm.Element.Projection;
 using Rasm.Fabrication.Geometry2D;
 using Rasm.Fabrication.Kinematics;
 using Rasm.Fabrication.Process;
 using Rasm.Meshing;
+using Rasm.Numerics;
 using Rhino.Geometry;
+using System.Threading;
 using Thinktecture;
 using UnitsNet;
 using static LanguageExt.Prelude;
@@ -74,15 +80,17 @@ public sealed partial class BendMethod {
 }
 
 // Punch body profile is `BrakeTool.ForbiddenSections` geometry, so a punch row owns only what the section
-// cannot state: the turn window it can reach and the forming radius its nose imposes on the work.
+// cannot state: the turn window it can reach and the forming radius its nose imposes on the work. The window is
+// stated over the SWEPT turn its family executes, so the hemming row reaches the rolled hem's 270 and the radius
+// row the full turn a curl declares — a window closed at the flat refuses every form past it by construction.
 [SmartEnum<string>]
 public sealed partial class PunchKind {
     public static readonly PunchKind Straight = new("straight", Angle.FromDegrees(180.0), Angle.FromDegrees(0.0), noseRadiusFactor: 0.0);
     public static readonly PunchKind Acute = new("acute", Angle.FromDegrees(180.0), Angle.FromDegrees(20.0), noseRadiusFactor: 0.0);
     public static readonly PunchKind Gooseneck = new("gooseneck", Angle.FromDegrees(180.0), Angle.FromDegrees(0.0), noseRadiusFactor: 0.0);
-    public static readonly PunchKind Hemming = new("hemming", Angle.FromDegrees(180.0), Angle.FromDegrees(150.0), noseRadiusFactor: 0.0);
+    public static readonly PunchKind Hemming = new("hemming", Angle.FromDegrees(270.0), Angle.FromDegrees(150.0), noseRadiusFactor: 0.0);
     public static readonly PunchKind Wiping = new("wiping", Angle.FromDegrees(135.0), Angle.FromDegrees(0.0), noseRadiusFactor: 0.0);
-    public static readonly PunchKind Radius = new("radius", Angle.FromDegrees(180.0), Angle.FromDegrees(0.0), noseRadiusFactor: 2.0);
+    public static readonly PunchKind Radius = new("radius", Angle.FromDegrees(360.0), Angle.FromDegrees(0.0), noseRadiusFactor: 2.0);
 
     public Angle MaximumTurn { get; }
     public Angle MinimumTurn { get; }
@@ -103,6 +111,7 @@ public sealed partial class SupportMode {
 }
 
 [ComplexValueObject]
+[ValidationError<FabricationFault>]
 public sealed partial class BrakeTool {
     public string Key { get; }
     public PunchKind Punch { get; }
@@ -115,7 +124,7 @@ public sealed partial class BrakeTool {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref ValidationError? validationError,
+        ref FabricationFault? validationError,
         ref string key,
         ref PunchKind punch,
         ref Set<BendMethod> methods,
@@ -132,10 +141,11 @@ public sealed partial class BrakeTool {
             && double.IsFinite(capacityKn) && capacityKn > 0.0
             && !forbiddenSections.IsEmpty && forbiddenSections.ForAll(static loop => loop is not null && loop.Closed)
                 ? null
-                : new ValidationError(message: "Brake tooling must carry compatible methods, physical section geometry, and finite capacity.");
+                : new FabricationFault.PolicyInadmissible(FabConcern.Forming, "brake:brake-tool");
 }
 
 [ComplexValueObject]
+[ValidationError<FabricationFault>]
 public sealed partial class SupportRule {
     public SupportMode Mode { get; }
     public double MaximumOverhangMm { get; }
@@ -143,7 +153,7 @@ public sealed partial class SupportRule {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref ValidationError? validationError,
+        ref FabricationFault? validationError,
         ref SupportMode mode,
         ref double maximumOverhangMm,
         ref double maximumMomentNmm) =>
@@ -151,15 +161,21 @@ public sealed partial class SupportRule {
             && double.IsFinite(maximumOverhangMm) && maximumOverhangMm >= 0.0
             && double.IsFinite(maximumMomentNmm) && maximumMomentNmm >= 0.0
                 ? null
-                : new ValidationError(message: "Support limits require one mode and finite non-negative overhang and moment bounds.");
+                : new FabricationFault.PolicyInadmissible(FabConcern.Forming, "brake:support-rule");
 }
 
 [ComplexValueObject]
+[ValidationError<FabricationFault>]
 public sealed partial class BrakePolicy {
     public Arr<BrakeTool> Tools { get; }
     public Arr<Loop> CellForbiddenSections { get; }
     public Arr<SupportRule> Supports { get; }
     public double GaugeResolutionMm { get; }
+    // The angular grid two poses must agree on to BE one search state, paired with the gauge resolution the same
+    // key quantizes translation on. It is not the root finder's convergence band: a solver tolerance answers when
+    // an inversion has converged, and reading it as a state resolution ties how coarsely the frontier deduplicates
+    // to how precisely one springback command was solved, so tightening the solver silently widens the search.
+    public double AngularResolutionDeg { get; }
     public double SectionClearanceMm { get; }
     public int SearchExpansions { get; }
     public int SweepStations { get; }
@@ -174,11 +190,12 @@ public sealed partial class BrakePolicy {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref ValidationError? validationError,
+        ref FabricationFault? validationError,
         ref Arr<BrakeTool> tools,
         ref Arr<Loop> cellForbiddenSections,
         ref Arr<SupportRule> supports,
         ref double gaugeResolutionMm,
+        ref double angularResolutionDeg,
         ref double sectionClearanceMm,
         ref int searchExpansions,
         ref int sweepStations,
@@ -191,12 +208,13 @@ public sealed partial class BrakePolicy {
         ref double gaugeTravelCost,
         ref double handlingCost) =>
         validationError = !tools.IsEmpty && tools.ForAll(static tool => tool is not null)
-            && tools.GroupBy(static tool => tool.Key).ForAll(static group => group.Count() == 1)
+            && toSeq(tools.GroupBy(static tool => tool.Key)).ForAll(static group => group.Count() == 1)
             && cellForbiddenSections.ForAll(static loop => loop is not null && loop.Closed)
             && tools.Bind(static tool => tool.ForbiddenSections).Concat(cellForbiddenSections)
-                .Map(static loop => loop.Tolerance).Distinct().Count() <= 1
+                .Select(static loop => loop.Tolerance).Distinct().Count() <= 1
             && !supports.IsEmpty && supports.ForAll(static support => support is not null)
             && double.IsFinite(gaugeResolutionMm) && gaugeResolutionMm > 0.0
+            && double.IsFinite(angularResolutionDeg) && angularResolutionDeg is > 0.0 and <= 90.0
             && double.IsFinite(sectionClearanceMm) && sectionClearanceMm >= 0.0
             && searchExpansions > 0 && sweepStations >= 2
             && double.IsFinite(rootAccuracyDeg) && rootAccuracyDeg is > 0.0 and <= 1.0
@@ -205,17 +223,18 @@ public sealed partial class BrakePolicy {
             && Seq(reorientCost, toolChangeCost, gaugeTravelCost, handlingCost)
                 .ForAll(static value => double.IsFinite(value) && value >= 0.0)
                 ? null
-                : new ValidationError(message: "Brake policy must carry unique tools, cell solids, support limits, sweep, search, and solver resolution, and non-negative costs.");
+                : new FabricationFault.PolicyInadmissible(FabConcern.Forming, "brake:brake-policy");
 }
 
 [ComplexValueObject]
+[ValidationError<FabricationFault>]
 public sealed partial class PartPose {
     public Transform Placement { get; }
     public BendOrientation Orientation { get; }
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref ValidationError? validationError,
+        ref FabricationFault? validationError,
         ref Transform placement,
         ref BendOrientation orientation) {
         Point3d origin = placement * Point3d.Origin;
@@ -228,7 +247,7 @@ public sealed partial class PartPose {
             && Math.Abs(x * y) <= tolerance && Math.Abs(x * z) <= tolerance && Math.Abs(y * z) <= tolerance
             && Math.Abs((Vector3d.CrossProduct(x, y) * z) - 1.0) <= tolerance
             ? null
-            : new ValidationError(message: "Part pose must carry a finite rigid placement.");
+            : new FabricationFault.PolicyInadmissible(FabConcern.Forming, "brake:part-pose");
     }
 }
 
@@ -257,12 +276,22 @@ public abstract partial record BrakeRejection {
 public sealed record BendSequenceReceipt(Seq<BendStep> Steps, int Expansions, int Rejected);
 
 public static class BendSequence {
-    public static Fin<BendSequenceReceipt> Plan(UnfoldResult unfold, FormPolicy policy, ProcessEnvelope.Brake envelope) =>
-        unfold is null || policy is null || envelope is null || unfold.Flat.IsEmpty || unfold.Bends.IsEmpty
+    // The engine tap threads through the entry the run spine already holds, defaulting silent for headless callers,
+    // and the withdrawal token rides the frontier: a search whose caller abandoned the run lowers `RunAbandoned` on
+    // the forming plane carrying the fraction of bends it seated, never a thrown cancellation and never the
+    // policy-admission arm, which says nothing true about a withdrawn run.
+    public static Fin<BendSequenceReceipt> Plan(
+        UnfoldResult unfold,
+        FormPolicy policy,
+        ProcessEnvelope.Brake envelope,
+        FabricationTap? tap = null,
+        CancellationToken cancel = default) =>
+        unfold.Flat.IsEmpty || unfold.Bends.IsEmpty
             ? Fin.Fail<BendSequenceReceipt>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, "bend-sequence:input"))
             : from _ in ValidEnvelope(envelope)
               from context in Prepare(unfold, policy.Brake)
-              from result in Search(context, unfold, policy, envelope)
+              from result in Search(context, unfold, policy, envelope, cancel)
+              let _engine = FabricationFact.Engine.Of(result).Map((tap ?? FabricationTap.Silent).Fire).Strict()
               select result;
 
     // `PriorityQueue`, the dominance map, and the expansion counters are the named statement kernel: a best-first
@@ -273,17 +302,23 @@ public static class BendSequence {
         BrakeContext context,
         UnfoldResult unfold,
         FormPolicy policy,
-        ProcessEnvelope.Brake envelope) {
+        ProcessEnvelope.Brake envelope,
+        CancellationToken cancel) {
         PriorityQueue<BrakeState, FrontierPriority> frontier = new(FrontierPriorityComparer.Instance);
-        BrakeState start = BrakeState.Start(unfold.Evidence.Panels.Map(static panel => panel.Panel).Distinct().ToSeq());
+        BrakeState start = BrakeState.Start(unfold.Evidence.Panels.Map(static panel => panel.Panel).Distinct());
         frontier.Enqueue(start, Priority(start, policy.Brake));
         Dictionary<SearchKey, double> best = [];
         int expanded = 0;
         int rejected = 0;
         while (frontier.TryDequeue(out BrakeState? state, out _) && state is not null) {
+            if (cancel.IsCancellationRequested)
+                return Fin.Fail<BendSequenceReceipt>(new FabricationFault.RunAbandoned(
+                    FabConcern.Forming,
+                    (double)state.Done.Count / Math.Max(unfold.Bends.Count, 1),
+                    "bend-search").ToError());
             if (state.Done.Count == unfold.Bends.Count)
                 return Fin.Succ(new BendSequenceReceipt(state.Path.Map(static row => row.Step), expanded, rejected));
-            SearchKey key = Key(state);
+            SearchKey key = Key(state, policy.Brake);
             if (best.TryGetValue(key, out double prior) && prior <= state.Cost)
                 continue;
             if (expanded >= policy.Brake.SearchExpansions)
@@ -296,17 +331,31 @@ public static class BendSequence {
                     state, row.Bend, row.Tool, row.Pose, context, unfold, policy, envelope)
                     .Match(
                         Succ: identity,
-                        Fail: error => new BrakeCandidate.Rejected(Seq<BrakeRejection>(
-                            new BrakeRejection.Evaluation(row.Bend.Index, row.Tool.Key, error)))));
+                        // A typed geometry or policy fault is EVIDENCE, not an evaluation rejection: downgrading it
+                        // to `BrakeRejection.Evaluation` erased which band refused and made a degenerate profile
+                        // read as an infeasible bend. The rejection carries the fault itself, so the census
+                        // partitions by band and `Search` returns the first structural failure whole.
+                        Fail: error => Structural(error)
+                            ? new BrakeCandidate.Refused(error)
+                            : new BrakeCandidate.Rejected(Seq<BrakeRejection>(
+                                new BrakeRejection.Evaluation(row.Bend.Index, row.Tool.Key, error)))));
             if (expansion.IsFail)
                 return expansion.Map(static _ => new BendSequenceReceipt(Seq<BendStep>(), 0, 0));
             Seq<BrakeCandidate> evaluated = expansion.IfFail(Seq<BrakeCandidate>());
             rejected += evaluated.Fold(0, static (count, candidate) => count + candidate.Switch(
                 accepted: static _ => 0,
-                rejected: static row => row.Rejections.Count));
+                rejected: static row => row.Rejections.Count,
+                refused: static _ => 0));
+            Option<Error> refused = evaluated.Choose(static candidate => candidate.Switch(
+                accepted: static _ => Option<Error>.None,
+                rejected: static _ => Option<Error>.None,
+                refused: static row => Some(row.Fault))).Head;
+            if (refused.IsSome)
+                return Fin.Fail<BendSequenceReceipt>(refused.IfNone(() => Error.Empty));
             evaluated.Bind(static candidate => candidate.Switch(
                     accepted: static row => Seq(row.State),
-                    rejected: static _ => Seq<BrakeState>()))
+                    rejected: static _ => Seq<BrakeState>(),
+                    refused: static _ => Seq<BrakeState>()))
                 .Iter(next => frontier.Enqueue(next, Priority(next, policy.Brake)));
         }
         return Fin.Fail<BendSequenceReceipt>(new FabricationFault.BendSequenceInfeasible(rejected, expanded).ToError());
@@ -328,7 +377,7 @@ public static class BendSequence {
             volumeM3 * unfold.Material.Thermal.DensityKgM3 * policy.GravityMps2,
             unfold.Bends.Fold(
                 HashMap<int, Set<int>>(),
-                (held, bend) => held.Add(bend.Child, Descendants(unfold.Bends, Set(bend.Child)))));
+                (held, bend) => held.Add(bend.Child, unfold.Evidence.Descendants.Under(bend.Child))));
 
     private static Fin<Seq<(BendLine Bend, BrakeTool Tool, PartPose Pose)>> Candidates(
         BrakeState state,
@@ -391,20 +440,20 @@ public static class BendSequence {
         let workingRadius = WorkingRadius(method, tool, bend, unfold.ThicknessMm)
         let tonnage = Tonnage(unfold.Forming, unfold.ThicknessMm, length, tool.DieOpeningMm, method)
         let minimumFlange = MinimumFlange(tool, unfold.ThicknessMm, workingRadius, method)
-        let capacity = Math.Min(envelope.CapacityKn, tool.CapacityKn)
+        let capacity = Math.Min(envelope.Capacity.Kilonewtons, tool.CapacityKn)
         let missing = bend.Prerequisites.Filter(prerequisite => !state.Done.Contains(prerequisite))
         let supportDemand = support.Demand
         let rejections = Seq<Option<BrakeRejection>>(
                 missing.IsEmpty ? None : Some<BrakeRejection>(new BrakeRejection.Dependency(bend.Index, missing)),
                 DirectionFormable(bend, pose) ? None : Some<BrakeRejection>(new BrakeRejection.Direction(bend.Index, pose)),
                 Compatible(tool, policy, bend, length) ? None : Some<BrakeRejection>(new BrakeRejection.Tool(bend.Index, tool.Key)),
-                length <= envelope.BedLengthMm ? None : Some<BrakeRejection>(new BrakeRejection.Bed(bend.Index, length, envelope.BedLengthMm)),
+                length <= envelope.BedLength.Millimeters ? None : Some<BrakeRejection>(new BrakeRejection.Bed(bend.Index, length, envelope.BedLength.Millimeters)),
                 tonnage <= capacity ? None : Some<BrakeRejection>(new BrakeRejection.Tonnage(bend.Index, tonnage, capacity)),
                 gaugeContact.IsNone
                     ? Some<BrakeRejection>(new BrakeRejection.GaugeMissing(bend.Index))
-                    : gaugeContact.Filter(row => row.XMm > envelope.GaugeTravelMm)
-                        .Map<BrakeRejection>(row => new BrakeRejection.Gauge(bend.Index, row.XMm, envelope.GaugeTravelMm)),
-                sweep.MaximumHeightMm <= envelope.OpenHeightMm ? None : Some<BrakeRejection>(new BrakeRejection.Height(bend.Index, sweep.MaximumHeightMm, envelope.OpenHeightMm)),
+                    : gaugeContact.Filter(row => row.XMm > envelope.GaugeTravel.Millimeters)
+                        .Map<BrakeRejection>(row => new BrakeRejection.Gauge(bend.Index, row.XMm, envelope.GaugeTravel.Millimeters)),
+                sweep.MaximumHeightMm <= envelope.OpenHeight.Millimeters ? None : Some<BrakeRejection>(new BrakeRejection.Height(bend.Index, sweep.MaximumHeightMm, envelope.OpenHeight.Millimeters)),
                 flange >= minimumFlange ? None : Some<BrakeRejection>(new BrakeRejection.Flange(bend.Index, flange, minimumFlange)),
                 sweep.MinimumClearanceMm.ForAll(clearance => clearance > policy.Brake.SectionClearanceMm)
                     ? None
@@ -449,12 +498,12 @@ public static class BendSequence {
             (held, row) => held.Add(row.Key, descendants.Contains(row.Key) ? rotation * row.Value : row.Value))
         let length = bend.Line.A.DistanceTo(bend.Line.B)
         let witness = new BrakeWitness(
-            Math.Min(envelope.CapacityKn, tool.CapacityKn) - tonnage,
+            Math.Min(envelope.Capacity.Kilonewtons, tool.CapacityKn) - tonnage,
             tool.SegmentLengthMm - length,
-            envelope.GaugeTravelMm - gauge.XMm,
-            envelope.OpenHeightMm - sweep.MaximumHeightMm,
+            envelope.GaugeTravel.Millimeters - gauge.XMm,
+            envelope.OpenHeight.Millimeters - sweep.MaximumHeightMm,
             sweep.MinimumClearanceMm,
-            transforms.OrderBy(static row => row.Key).Map(static row => row.Value).ToArr())
+            toArray(transforms.OrderBy(static row => row.Key).Select(static row => row.Value)))
         let step = new BendStep(
             state.Path.Count + 1,
             bend.Line,
@@ -624,32 +673,21 @@ public static class BendSequence {
                 .Map(low => nearest.Fold(low, Math.Min))
                 .ToFin(new GeometryFault.DegenerateInput(Kind.Polyline, None, "bend-sequence:clearance-empty").ToError()));
 
-    // Elastic recovery follows loaded radius, not commanded angle: with the neutral-fibre arc conserved,
-    // Loaded radius falls as the command opens, so the recovered angle is `command * (4r^3 - 3r + 1)` over the
-    // normalized elastic index `r = R * yield / (E * t)`. That relation is cubic in a reciprocal of the command and
-    // has no closed inverse, which is what puts the bracketed root find on the rail.
+    // The sheet-bend instance of the folder's ONE elastic-recovery law: the neutral fibre sits at `k·t` inside the
+    // punch working radius and the elastic index normalizes on thickness. Absence is the bracket refusing to
+    // straddle, which this lane reads as a springback rejection of the candidate rather than a run failure.
     private static Option<double> Overbend(BendLine bend, BrakeTool tool, ProcessBudget.Formed forming, FormPolicy policy) {
         double target = Math.Abs(bend.AngleDeg);
         double fibre = bend.K * policy.ThicknessMm;
-        double arc = Angle.FromDegrees(target).Radians
-            * (WorkingRadius(Tooling(bend, policy).Method, tool, bend, policy.ThicknessMm) + fibre);
-        double elastic = Tooling(bend, policy).Method.RecoveryFactor * forming.SpringbackRatio
-            * policy.Material.Mechanical.YieldStrengthMpa
-            / (policy.Material.Mechanical.ElasticModulusMpa * policy.ThicknessMm);
-        return Brent.TryFindRoot(
-            command => Recovered(command) - target,
-            target,
-            target + policy.Brake.MaximumOverbendDeg,
-            policy.Brake.RootAccuracyDeg,
-            policy.Brake.RootIterations,
-            out double commanded)
-                ? Some(commanded - target)
-                : None;
-
-        double Recovered(double commandDeg) {
-            double index = elastic * ((arc / Angle.FromDegrees(commandDeg).Radians) - fibre);
-            return commandDeg * ((4.0 * index * index * index) - (3.0 * index) + 1.0);
-        }
+        return new ElasticLaw(
+            Angle.FromDegrees(target).Radians
+                * (WorkingRadius(Tooling(bend, policy).Method, tool, bend, policy.ThicknessMm) + fibre),
+            fibre,
+            Tooling(bend, policy).Method.RecoveryFactor * forming.SpringbackRatio
+                * policy.Material.Mechanical.YieldStrengthMpa
+                / (policy.Material.Mechanical.ElasticModulusMpa * policy.ThicknessMm))
+            .Commanded(target, policy.Brake.MaximumOverbendDeg, policy.Brake.RootAccuracyDeg, policy.Brake.RootIterations)
+            .Map(commanded => commanded - target);
     }
 
     // Line forms whose geometry demands dedicated tooling override the policy default, so one part mixes hemmed,
@@ -657,11 +695,14 @@ public static class BendSequence {
     private static (BendMethod Method, PunchKind Punch) Tooling(BendLine bend, FormPolicy policy) =>
         bend.Form.Tooling.IfNone((policy.Method, policy.Punch));
 
+    // Punch reach gates on the turn the form EXECUTES, never its nominal bend angle: a teardrop hem sweeps 210 and a
+    // rolled one 270 past a line whose `AngleDeg` reads 180, so an angle-gated window admitted a punch that cannot
+    // reach the commanded sweep and the failure landed as a collision or a scrapped part instead of a rejection.
     private static bool Compatible(BrakeTool tool, FormPolicy policy, BendLine bend, double lengthMm) =>
         Tooling(bend, policy) is var demand
             && tool.Punch == demand.Punch && tool.Methods.Contains(demand.Method) && tool.SegmentLengthMm >= lengthMm
-            && Math.Abs(bend.AngleDeg) >= tool.Punch.MinimumTurn.Degrees
-            && Math.Abs(bend.AngleDeg) <= tool.Punch.MaximumTurn.Degrees
+            && bend.Form.Swept(bend.AngleDeg) >= tool.Punch.MinimumTurn.Degrees
+            && bend.Form.Swept(bend.AngleDeg) <= tool.Punch.MaximumTurn.Degrees
             && policy.DieWidthFactor.ForAll(factor => Math.Abs(tool.DieOpeningMm - (factor * policy.ThicknessMm)) <= tool.DieOpeningMm / factor);
 
     private static double WorkingRadius(BendMethod method, BrakeTool tool, BendLine bend, double thicknessMm) =>
@@ -775,25 +816,24 @@ public static class BendSequence {
     private static Point3d Closest(Edge3 edge, Point3d point) =>
         new Line(edge.A, edge.B).ClosestPoint(point, limitToFiniteSegment: true);
 
-    private static Set<int> Descendants(Seq<BendLine> bends, Set<int> seed) {
-        Set<int> closure = seed.Union(bends.Filter(bend => seed.Contains(bend.Parent)).Map(static bend => bend.Child).ToSet());
-        return closure.Count > seed.Count ? Descendants(bends, closure) : closure;
-    }
-
-    // Dominance keys every state component consumed by future feasibility and cost without frontier rounding.
-    private static SearchKey Key(BrakeState state) =>
-        new(
+    // Dominance keys on the QUANTIZED state, on the same grid the frontier priority already uses. A key over exact
+    // `Transform` equality never matches two states the search reaches by different arithmetic paths, so the map
+    // never fires and the "dominance" pruning is structurally dead — the frontier then expands the whole reachable
+    // state space under its own budget. Two states agreeing to the admitted gauge and angular resolution ARE the
+    // same state for every future feasibility and cost question, which is exactly what the key must say — and both
+    // resolutions are STATE policy, never the root finder's convergence band wearing a second meaning.
+    private static SearchKey Key(BrakeState state, BrakePolicy policy) {
+        double angular = Math.Sin(Angle.FromDegrees(policy.AngularResolutionDeg).Radians);
+        return new SearchKey(
             state.Done,
             state.Setup.Orientation.Key,
-            Exact(-1, state.Setup.Placement),
+            Quantized(-1, state.Setup.Placement, policy.GaugeResolutionMm, angular),
             state.ToolKey,
-            state.GaugeX,
-            new SearchGeometry(state.PanelTransforms
+            (long)Math.Round(state.GaugeX / policy.GaugeResolutionMm, MidpointRounding.ToEven),
+            new SearchGeometry(toSeq(state.PanelTransforms
                 .OrderBy(static row => row.Key)
-                .Map(static row => Exact(row.Key, row.Value))
-                .ToSeq()));
-
-    private static ExactTransform Exact(int panel, Transform value) => new(panel, value);
+                .Select(row => Quantized(row.Key, row.Value, policy.GaugeResolutionMm, angular)))));
+    }
 
     private static QuantizedTransform Quantized(
         int panel,
@@ -818,20 +858,19 @@ public static class BendSequence {
     }
 
     private static FrontierPriority Priority(BrakeState state, BrakePolicy policy) {
-        double angularResolution = Math.Sin(Angle.FromDegrees(policy.RootAccuracyDeg).Radians);
+        double angularResolution = Math.Sin(Angle.FromDegrees(policy.AngularResolutionDeg).Radians);
         // The frontier tie-break is a canonical preimage like every other on the branch, so it composes the ONE
         // `Rasm.Element` `CanonicalWriter`: a page-local `double` framing would make two states that differ only in
         // the sign of a zero ordinate rank as distinct search nodes.
         CanonicalWriter writer = new(policy.GaugeResolutionMm);
         _ = writer.Ordinal(state.Done.Count);
-        state.Done.Order().Iter(value => writer.Ordinal(value));
+        toSeq(state.Done.Order()).Iter(value => writer.Ordinal(value));
         _ = writer.String(state.Setup.Orientation.Key);
         Write(writer, Quantized(-1, state.Setup.Placement, policy.GaugeResolutionMm, angularResolution));
         _ = writer.String(state.ToolKey).I64((long)Math.Round(state.GaugeX / policy.GaugeResolutionMm));
-        Seq<QuantizedTransform> geometry = state.PanelTransforms
+        Seq<QuantizedTransform> geometry = toSeq(state.PanelTransforms
             .OrderBy(static row => row.Key)
-            .Map(row => Quantized(row.Key, row.Value, policy.GaugeResolutionMm, angularResolution))
-            .ToSeq();
+            .Select(row => Quantized(row.Key, row.Value, policy.GaugeResolutionMm, angularResolution)));
         _ = writer.Ordinal(geometry.Count);
         geometry.Iter(row => Write(writer, row));
         _ = writer.Ordinal(state.Path.Count);
@@ -850,13 +889,15 @@ public static class BendSequence {
                 writer,
                 Quantized(index, row.Witness.PanelTransforms[index], policy.GaugeResolutionMm, angularResolution)));
             _ = writer.Ordinal(row.Step.Order);
-            Write(writer, row.Step.Line.A); Write(writer, row.Step.Line.B);
-            _ = writer.Double(row.Step.AngleDeg).Double(row.Step.RadiusMm).Double(row.Step.KFactor)
+            _ = writer.Coords(row.Step.Line.A).Coords(row.Step.Line.B)
+                .Double(row.Step.AngleDeg).Double(row.Step.RadiusMm).Double(row.Step.KFactor)
                 .Double(row.Step.OverbendDeg).Double(row.Step.TonnageKn).String(row.Step.Orientation.Key);
         });
         return new FrontierPriority(state.Cost, writer.ToBytes().ToArray());
     }
 
+    // The quantized search vocabulary is this page's OWN, so its two writers stay here; points, optional slots,
+    // and row counts frame at the S0 `FabricationCanon` family every fabrication preimage composes.
     private static void Write(CanonicalWriter writer, QuantizedTransform value) {
         _ = writer.Ordinal(value.Panel);
         Write(writer, value.X); Write(writer, value.Y); Write(writer, value.Z); Write(writer, value.Origin);
@@ -865,11 +906,8 @@ public static class BendSequence {
     private static void Write(CanonicalWriter writer, QuantizedVector value) =>
         _ = writer.I64(value.X).I64(value.Y).I64(value.Z);
 
-    private static void Write(CanonicalWriter writer, Point3d value) =>
-        _ = writer.Double(value.X).Double(value.Y).Double(value.Z);
-
     private static Fin<Unit> ValidEnvelope(ProcessEnvelope.Brake envelope) =>
-        Seq(envelope.CapacityKn, envelope.GaugeTravelMm, envelope.OpenHeightMm, envelope.BedLengthMm)
+        Seq(envelope.Capacity.Kilonewtons, envelope.GaugeTravel.Millimeters, envelope.OpenHeight.Millimeters, envelope.BedLength.Millimeters)
             .ForAll(static value => double.IsFinite(value) && value > 0.0)
                 ? Fin.Succ(unit)
                 : Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, "bend-sequence:envelope"));
@@ -880,7 +918,16 @@ public static class BendSequence {
 
         public sealed record Accepted(BrakeState State) : BrakeCandidate;
         public sealed record Rejected(Seq<BrakeRejection> Rejections) : BrakeCandidate;
+
+        // A structural fault is not a bend the search may try elsewhere: it names geometry or policy the whole run
+        // carries, so it leaves the frontier on the rail it arrived on rather than joining the rejection census.
+        public sealed record Refused(Error Fault) : BrakeCandidate;
     }
+
+    // Geometry and policy bands refuse the RUN; every other band refuses this candidate.
+    private static bool Structural(Error fault) =>
+        fault.IsType<GeometryFault>() || fault.IsType<FabricationFault.PolicyInadmissible>();
+
     private readonly record struct GaugeStop(double XMm, double RMm, double ZMm, Point3d Contact);
     private sealed record BrakeWitness(
         double TonnageMarginKn,
@@ -923,14 +970,15 @@ public static class BendSequence {
         QuantizedVector Y,
         QuantizedVector Z,
         QuantizedVector Origin);
-    private sealed record ExactTransform(int Panel, Transform Value);
-    private sealed record SearchGeometry(Seq<ExactTransform> Rows);
+    private sealed record SearchGeometry(Seq<QuantizedTransform> Rows);
     private sealed record SearchKey(
         Set<int> Done,
         string Orientation,
-        ExactTransform Setup,
+        QuantizedTransform Setup,
         string ToolKey,
-        double GaugeX,
+        // The QUANTIZED gauge ordinal, not a millimetre: a double slot re-admits float equality into the dominance
+        // map's hash and names a count in a unit it does not carry.
+        long GaugeX,
         SearchGeometry Geometry);
     private readonly record struct FrontierPriority(double Cost, byte[] Canonical);
 
@@ -966,6 +1014,33 @@ public static class BendSequence {
 
         private static PartPose OriginPose() => PartPose.Create(Transform.Identity, BendOrientation.AsIs);
     }
+}
+
+// The bend-search measuring case for the FabricationBenchClaims.BendSearch no-regression claim: the machine
+// envelope pins as one literal row so every measured run prices the same capacity, and workload admission
+// proves the frontier genuinely searches — bend and tool floors plus both bend signs present, so pose
+// branching and reorientation cost are live rather than degenerate. The unfold and policy arrive admitted
+// through their own factories; the measured fold is the exact entry the claim's lane columns spell, and
+// measurement stays the bench edge's under the AppHost claim-field map.
+public static class BrakeBench {
+    public const int BendFloor = 4;
+    public const int ToolFloor = 2;
+
+    public static readonly ProcessEnvelope.Brake Envelope = new(
+        Force.FromKilonewtons(1000.0), Length.FromMillimeters(750.0),
+        Length.FromMillimeters(450.0), Length.FromMillimeters(3000.0));
+
+    public static Fin<(UnfoldResult Unfold, FormPolicy Policy)> Workload(UnfoldResult unfold, FormPolicy policy) =>
+        unfold.Bends.Count >= BendFloor
+        && policy.Brake.Tools.Count >= ToolFloor
+        && unfold.Bends.Exists(static bend => bend.AngleDeg > 0.0)
+        && unfold.Bends.Exists(static bend => bend.AngleDeg < 0.0)
+            ? Fin.Succ((unfold, policy))
+            : Fin.Fail<(UnfoldResult, FormPolicy)>(
+                new FabricationFault.PolicyInadmissible(FabConcern.Forming, "bench:bend-search"));
+
+    public static Fin<BendSequenceReceipt> Run((UnfoldResult Unfold, FormPolicy Policy) workload) =>
+        BendSequence.Plan(workload.Unfold, workload.Policy, Envelope);
 }
 ```
 

@@ -15,19 +15,19 @@
 
 [PUBLIC_TYPE_SCOPE]: the MCP client and its capability calls
 
-| [INDEX] | [SYMBOL]                                                            | [TYPE_FAMILY] | [CAPABILITY]                           |
-| :-----: | :------------------------------------------------------------------ | :------------ | :------------------------------------- |
-|  [01]   | `Client`                                                            | class         | MCP client over a `Transport`          |
-|  [02]   | `Client#connect`                                                    | method        | attach transport + initialize          |
-|  [03]   | `Client#listTools / callTool`                                       | method        | discover + invoke server tools         |
-|  [04]   | `Client#listResources / readResource / subscribeResource`           | method        | resource access + updates              |
-|  [05]   | `Client#listPrompts / getPrompt`                                    | method        | server prompt access                   |
-|  [06]   | `Client#complete`                                                   | method        | argument auto-completion               |
-|  [07]   | `Client#getServerCapabilities / getServerVersion / getInstructions` | method        | post-init server facts                 |
-|  [08]   | `Client#setRequestHandler`                                          | method        | client-side elicitation/sampling/roots |
+| [INDEX] | [SYMBOL]                                                            | [TYPE_FAMILY] | [CAPABILITY]                            |
+| :-----: | :------------------------------------------------------------------ | :------------ | :-------------------------------------- |
+|  [01]   | `Client`                                                            | class         | MCP client over a `Transport`           |
+|  [02]   | `Client#connect`                                                    | method        | attach transport + initialize           |
+|  [03]   | `Client#listTools / callTool`                                       | method        | discover + invoke server tools          |
+|  [04]   | `Client#listResources / readResource / subscribeResource`           | method        | resource access + updates               |
+|  [05]   | `Client#listPrompts / getPrompt`                                    | method        | server prompt access                    |
+|  [06]   | `Client#complete`                                                   | method        | argument auto-completion                |
+|  [07]   | `Client#getServerCapabilities / getServerVersion / getInstructions` | method        | post-init server facts                  |
+|  [08]   | `Client#setRequestHandler`                                          | method        | client-side elicitation/sampling/roots  |
 |  [09]   | `Client#setNotificationHandler / removeNotificationHandler`         | method        | one handler PER METHOD; second replaces |
-|  [10]   | `Client#experimental.tasks`                                         | property      | streaming/task tool execution          |
-|  [11]   | `getSupportedElicitationModes`                                      | function      | capability-derived elicitation modes   |
+|  [10]   | `Client#experimental.tasks`                                         | property      | streaming/task tool execution           |
+|  [11]   | `getSupportedElicitationModes`                                      | function      | capability-derived elicitation modes    |
 
 - `Client.callTool`: auto-validates `structuredContent` against the tool `outputSchema` through the configured `jsonSchemaValidator`.
 

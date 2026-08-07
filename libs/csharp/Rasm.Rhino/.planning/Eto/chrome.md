@@ -15,7 +15,7 @@
 - Entry: `Materialize` accumulates independent identity, gesture, and placement conflicts before construction; command access, refresh, and every chrome projection share the active lifecycle rail.
 - Receipt: every UI or programmatic execution appends one `IntentReceipt` carrying the exact `Fin<Unit>` outcome.
 - Growth: a verb is one `IntentRow`; a surface occurrence is one `PlacementSlot`; a command modality is one `CommandKind` case.
-- Boundary: `Command.Execute` remains inside the table, and host events retain their otherwise-unreturnable result in `Receipts`. Chrome egress states its custody: a menu bar and toolbar leave bare because a window takes them, while a context menu leaves leased because nothing else will.
+- Boundary: `Command.Execute` remains inside the table, and host events retain their otherwise-unreturnable result in `Receipts`. Chrome egress states its custody: a menu bar and toolbar leave bare because a window takes them, while a context menu leaves leased because nothing else will. The table owns the commands every projection borrows, so it releases last — a shell releasing its table while a realized menu still carries those commands releases in the wrong order.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -249,14 +249,14 @@ public sealed class IntentTable : UiLease {
 
     private static Fin<Unit> Distinct(Seq<IntentRow> rows, Op op) =>
         (Gate(
-             rows.GroupBy(static row => row.Key).ForAll(static group => group.Count() == 1),
+             toSeq(rows.GroupBy(static row => row.Key)).ForAll(static group => group.Count() == 1),
              new UiFault.Rejected(Key: op, Field: nameof(IntentRow.Key), Reason: "duplicate intent identity")),
          Gate(
-             rows.Choose(static row => row.Gesture).GroupBy(static gesture => gesture).ForAll(static group => group.Count() == 1),
+             toSeq(rows.Choose(static row => row.Gesture).GroupBy(static gesture => gesture)).ForAll(static group => group.Count() == 1),
              new UiFault.Rejected(Key: op, Field: nameof(IntentRow.Gesture), Reason: "duplicate gesture")),
          Gate(
-             rows.Bind(static row => row.Slots)
-                 .GroupBy(static slot => (slot.Place, slot.Group, slot.Rank))
+             toSeq(rows.Bind(static row => row.Slots)
+                     .GroupBy(static slot => (slot.Place, slot.Group, slot.Rank)))
                  .ForAll(static group => group.Count() == 1),
              new UiFault.Rejected(Key: op, Field: nameof(IntentRow.Slots), Reason: "duplicate placement rank")))
         .Apply(static (_, _, _) => unit)
@@ -266,8 +266,12 @@ public sealed class IntentTable : UiLease {
     private static K<Validation<Error>, Unit> Gate(bool accepted, Error fault) =>
         (accepted ? Fin.Succ(unit) : Fin.Fail<Unit>(fault)).ToValidation();
 
+    // Detach THEN dispose, in mint-reverse order: `Bind` mints every command on this table, so the table owns each one,
+    // and a detach-only sever strands one host command widget per verb on every table a shell rebuilds.
     private static Fin<Unit> Severed(Seq<BoundIntent> entries, Op op) =>
-        entries.Rev().Map(entry => (Action)(() => entry.Command.Executed -= entry.Executed)).Drained(op);
+        entries.Rev().Bind(entry => Seq<Action>(
+            () => entry.Command.Executed -= entry.Executed,
+            entry.Command.Dispose)).Drained(op);
 }
 ```
 
@@ -401,10 +405,10 @@ public sealed class ShellReceipt : UiLease {
 ## [04]-[MODAL_RAIL]
 
 - Owner: `Prompt<TResult>` builds one `Dialog<Option<Fin<TResult>>>`; `PromptLease<TResult>` owns its dialog and content receipt without a parallel verdict store.
-- Entry: `Ask` admits the prompt before realizing content and guards either the owner-bound `ShowModal` presenter or an injected presenter; `AskAsync` marshals construction, presentation, cancellation close, and release through awaitable UI crossings.
+- Entry: `Ask` admits the prompt, realizes content, and runs the injected presenter; `AskAsync` marshals construction, that same presenter, cancellation close, and release through awaitable UI crossings.
 - Receipt: choices and cancellation close with an explicit `Fin<TResult>`, while native dismissal projects `Option.None` to `UiFault.Dismissed` without a result sentinel.
 - Growth: another affirmative outcome is one `PromptChoice<TResult>` row; cancellation and dismissal remain distinct faults.
-- Boundary: presentation is the presenter value — a host boundary hands its own modal presenter (`ShellWindows.Present` at the Rhino boundary), so the semi-modal host contract owns every host-parented prompt and raw `ShowModal` reaches only host-free shells.
+- Boundary: presentation IS the presenter value on both entries — a host boundary hands its own modal presenter (`ShellWindows.Present` at the Rhino boundary), so the semi-modal host contract owns every host-parented prompt; an owner-taking entry calling `ShowModal` itself is the shape that routed a host-parented dialog around that contract, and it is the deleted form.
 
 ```csharp signature
 // --- [MODELS] -------------------------------------------------------------------------------
@@ -419,11 +423,6 @@ public sealed record Prompt<TResult>(
     DialogDisplayMode DisplayMode,
     Action<Error> Report) {
 
-    public Fin<TResult> Ask(ElementRuntime runtime, Control owner, Op? key = null) {
-        Op op = key.OrDefault();
-        return Ask(runtime, present: dialog => Fin.Succ(dialog.ShowModal(owner)), key: op);
-    }
-
     public Fin<TResult> Ask(
         ElementRuntime runtime,
         Func<Dialog<Option<Fin<TResult>>>, Fin<Option<Fin<TResult>>>> present,
@@ -437,25 +436,26 @@ public sealed record Prompt<TResult>(
 
     public async Task<Fin<TResult>> AskAsync(
         ElementRuntime runtime,
-        Control owner,
+        Func<Dialog<Option<Fin<TResult>>>, Fin<Option<Fin<TResult>>>> present,
         CancellationToken cancellationToken,
         Op? key = null) {
         Op op = key.OrDefault();
         Fin<PromptLease<TResult>> built = await UiThread.Run(
             new UiDispatch<PromptLease<TResult>>.Awaited(() => Build(runtime, op)), op).ConfigureAwait(false);
         return await built.Match(
-            Succ: lease => AskOwnedAsync(lease, owner, cancellationToken, op),
+            Succ: lease => AskShownAsync(lease, present, cancellationToken, op),
             Fail: static fault => Task.FromResult(Fin.Fail<TResult>(fault))).ConfigureAwait(false);
     }
 
-    private static async Task<Fin<TResult>> AskOwnedAsync(
+    private static async Task<Fin<TResult>> AskShownAsync(
         PromptLease<TResult> lease,
-        Control owner,
+        Func<Dialog<Option<Fin<TResult>>>, Fin<Option<Fin<TResult>>>> present,
         CancellationToken cancellationToken,
         Op op) {
         Fin<TResult> outcome;
         try {
-            Task<Option<Fin<TResult>>> shown = Application.Instance.InvokeAsync(() => lease.Dialog.ShowModal(owner));
+            Task<Fin<Option<Fin<TResult>>>> shown = Application.Instance.InvokeAsync(
+                () => op.Catch(() => present(lease.Dialog)));
             TaskCompletionSource<Unit> cancelled = new(TaskCreationOptions.RunContinuationsAsynchronously);
             using CancellationTokenRegistration cancellation = cancellationToken.Register(
                 static signal => ((TaskCompletionSource<Unit>)signal!).TrySetResult(unit), cancelled);
@@ -463,7 +463,7 @@ public sealed record Prompt<TResult>(
             if (ReferenceEquals(completed, cancelled.Task)) {
                 await Application.Instance.InvokeAsync(lease.Cancel).ConfigureAwait(false);
             }
-            outcome = PromptLease<TResult>.Settle(await shown.ConfigureAwait(false), op);
+            outcome = (await shown.ConfigureAwait(false)).Bind(verdict => PromptLease<TResult>.Settle(verdict, op));
         } catch (Exception thrown) {
             outcome = Fin.Fail<TResult>(new UiFault.HostRejected(Key: op, Detail: thrown.Message));
         }
@@ -551,6 +551,7 @@ internal sealed class PromptLease<TResult>(Dialog<Option<Fin<TResult>>> dialog, 
 
 - Owner: `PrintPlan` admits and defers one `PrintDocument` run; `PrintPage` replays a mounted `PaintProgram` under one `ScenePolicy` and host, bounded, or `PageSettings.PrintableArea` framing.
 - Entry: `Run` returns `IO<Fin<PrintReceipt>>`; printer interaction and document lifetime begin only when the caller executes the effect, and that execution crosses `UiThread` once so job construction, every page callback, both dialog routes, and disposal share one UI-affine scope.
+- Law: nothing inside that scope re-marshals — a page or completion callback fires from the run this driver is already blocking on, so presence lands through the affinity assertion and a refusal reaches `PresenceFailures`; the blocking crossing from inside the callback waits on the very thread that raised it, which deadlocks on any backend raising the page event off that thread and is a redundant crossing on every other.
 - Receipt: every attempted page normalizes Eto's selected-range page number to a zero-based source and scope ordinal; `PrintReceipt.Completed` requires one in-range fact per expected page plus host completion and zero failed facts, while `PresenceFailures` preserves taskbar projection faults.
 - Boundary: `PrintReceipt` is this driver's raw run outcome only — printer-evidence vocabulary is the Exchange publish receipt family, and the composing app root folds these facts into it.
 - Growth: a route is one `PrintRoute` case, a frame source is one `PageFrame` case, and a job option is one `PrintSpec` field.
@@ -731,9 +732,8 @@ public sealed record PrintPlan(string Name, Seq<PrintPage> Pages, PrintSpec Spec
                     _ = facts.Swap(held => held.Add(fact));
                     int expected = PrintScope.Expected(document.PrintSettings, Pages.Count);
                     UnitInterval progress = UnitInterval.Create(Math.Clamp(facts.Value.Count / (double)expected, 0d, 1d));
-                    Fin<Unit> presence = fact.IsValid
-                        ? TaskbarPulse.Apply(new PulseState.Working(progress), op)
-                        : TaskbarPulse.Apply(new PulseState.Failed(progress), op);
+                    Fin<Unit> presence = Pulsed(
+                        fact.IsValid ? (PulseState)new PulseState.Working(progress) : new PulseState.Failed(progress), op);
                     _ = presence.Match(
                         Succ: static applied => applied,
                         Fail: fault => ignore(presenceFailures.Swap(held => held.Add(fault))));
@@ -745,7 +745,7 @@ public sealed record PrintPlan(string Name, Seq<PrintPage> Pages, PrintSpec Spec
             document.Printed += (_, _) => {
                 _ = op.Catch(() => {
                     _ = hostCompleted.Swap(static _ => true);
-                    return TaskbarPulse.Apply(new PulseState.Idle(), op);
+                    return Pulsed(new PulseState.Idle(), op);
                 }).Match(
                     Succ: static applied => applied,
                     Fail: fault => ignore(presenceFailures.Swap(held => held.Add(fault))));
@@ -753,6 +753,13 @@ public sealed record PrintPlan(string Name, Seq<PrintPage> Pages, PrintSpec Spec
             return Present(document, op).Map(_ => new PrintReceipt(
                 Name, facts.Value, PrintScope.Expected(document.PrintSettings, Pages.Count), hostCompleted.Value, presenceFailures.Value));
         }));
+
+    // A page callback fires from inside the run this method is already blocking on, so it asserts affinity and lands
+    // the taskbar state in-frame instead of re-entering `Invoke` against the thread its own caller holds. A backend
+    // raising the callback off that thread answers `UiFault.OffThread` into `PresenceFailures` — a refusal the receipt
+    // carries — where the marshalling entry would instead block on a thread that can never drain the request.
+    private static Fin<Unit> Pulsed(PulseState state, Op op) =>
+        UiThread.Run(new UiDispatch<Unit>.Current(() => TaskbarPulse.Land(state, op)), op).Result;
 
     private Fin<Unit> Admit(Op op) => (Name, Spec, Route) switch {
         (var name, _, _) when string.IsNullOrWhiteSpace(name) =>

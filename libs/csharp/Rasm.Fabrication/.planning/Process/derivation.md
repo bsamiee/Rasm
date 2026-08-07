@@ -4,7 +4,9 @@
 
 Full-plan derivation gates procedure qualification, measurement suitability, `Cpk`, and `IT` grade before scheduling. `OperationTopology` carries source-first DAG order as admitted evidence. Each admitted joint becomes an explicit operation or routes through `JoinRouting`; an unroutable class rejects.
 
-`LotReceipt` separates total `Work`, lap-phased critical `Chain`, calendar `Lead`, and the operations that set `CriticalPath`. `LotPolicy.TransferBuffer` releases successors after the predecessor's first transfer batch. Each instant advances through the assigned machine's `AvailabilityPlan.Finish`, and work beyond its calendar horizon rejects as `LotUnschedulable`.
+`LotReceipt` separates total `Work`, lap-phased critical `Chain`, calendar `Lead`, the operations that set `CriticalPath`, the `InstanceReservation` windows the lot held on each physical station, and the per-operation `OperationFloat` the same walk measured. `LotPolicy.TransferBuffer` releases successors after the predecessor's first transfer batch. Scheduling is FINITE-CAPACITY: each operation seats on one assigned `MachineInstanceKey`, that station's free-from clock gates its start beside its predecessors and the lot release, every instant advances through that station's own `AvailabilityPlan.Finish`, and effort a station cannot seat rejects as `CapacityExhausted` while work beyond the calendar horizon rejects as `LotUnschedulable`. `Completion` is the INDEPENDENT maximum finish across the whole topology, never the last-scheduled operation's, so a short topological tail cannot seal a lot a parallel branch is still running.
+
+The critical path is a LONGEST path over the precedence DAG computed by the shipped critical relaxer, and per-operation early, late, and float fall out of the same forward and reverse walks — one algorithm, published as receipt columns, rather than a hand-threaded tuple whose ordering predicate gated chain and completion on one comparison.
 
 `PlanDraft` threads one accumulator through the rail, and its key covers every lot, capability, topology, route, and assignment discriminant.
 
@@ -12,18 +14,19 @@ Wire posture: HOST-LOCAL. `FabricationPlan` crosses to the caller and `Verify/es
 
 ## [01]-[INDEX]
 
-- [02]-[DERIVATION]: `DerivationStage`, `PlanIdentitySchema`, `CapabilityGate`, `WorkAxis`, `JoinRouting`, `LotPolicy`, `CapabilityRequirement`, `LotReceipt`, `WorkKind`, `OperationDemand`, `OperationTopology`, `DerivePolicy`, `PlanDraft`, `Derivation.Plan`, and `FabricationProjector`.
+- [02]-[DERIVATION]: `DerivationStage`, `PlanIdentitySchema`, `CapabilityGate`, `WorkAxis`, `JoinRouting`, `LotPolicy`, `CapabilityRequirement`, `InstanceReservation`, `OperationFloat`, `LotReceipt`, `WorkKind`, `OperationDemand`, `OperationTopology`, `DerivePolicy`, `PlanDraft`, `Derivation.Plan`, and `FabricationProjector`.
 
 ## [02]-[DERIVATION]
 
 - Owner: `DerivationStage` owns ordered ceilings; `CapabilityGate` owns execution predicates; `WorkAxis` owns every per-modality work fact; `JoinRouting` owns the join-class-to-process correspondence; `LotPolicy` owns lot timing and batching; `LotReceipt` owns the lap-phased schedule evidence; `CapabilityRequirement` owns the required gate set; `OperationDemand` and `OperationTopology` own executable work and its proven order; `DerivePolicy` owns request depth and aggregate admission; `PlanDraft` owns rail accumulation; `Derivation` owns the stage rail; and `FabricationProjector` owns graph projection.
 - Cases: `WorkKind` carries cut, join, form, additive, inspection, finish, fixture, treatment, cleaning, coating, transfer, handling, packing, and hold work. `DerivePolicy.Assessment` carries lot and the full `DfmRequest`; `Routing` adds fleet and preferences; `FullPlan` adds assembly, operations, setup, and artifact intent. Without a setup plan, full-plan work groups by process in setup `0`; with one, each admitted setup expands by operation ids and then by process.
-- Entry: `Plan(FabricationPolicy.Derive, FabricationInput)` admits the policy aggregate, admits DfM routing at every ceiling, gates full-plan capability, reduces the operation DAG into an `OperationTopology`, composes assembly precedence, verifies setup coverage, selects the highest-score feasible machine per step, and closes the lot against its due bound.
+- Entry: `Plan(FabricationPolicy.Derive, FabricationInput, FabricationTap?)` admits the policy aggregate, admits DfM routing at every ceiling, gates full-plan capability, reduces the operation DAG into an `OperationTopology`, composes assembly precedence, verifies setup coverage, selects the highest-score feasible machine per step, and closes the lot against its due bound; the run spine's tap threads through the request switch into the fleet join, so a headless derivation emits nothing.
 - Auto: `Manufacturability.Assess(DfmRequest)` supplies ranked routes, fleet supplies scored matches, `AssemblyPlan.Apply(AssemblyOp.Plan)` supplies reduced join precedence and join duration, and `SetupSchedule.Apply(SetupOp.Schedule)` partitions topologically ordered demands. Every plan-derivation rejection lowers through `Reject` onto the `FabricationFault.Derivation` mint, so the witness clears its own kind predicate before the fault carrying it and its stage exists. `RequestedArtifacts` changes plan identity but never pretends an artifact was produced.
-- Receipt: `FabricationPlan` is the derivation evidence: case-derived ceiling, DfM-ranked `Routing` rows, retained `MachineMatch` routes, admitted topology and steps, capability requirement and verdict, lot receipt, key ledger, and content key. `LotReceipt` adds availability, calendar completion, total work, critical-chain effort, the critical operation chain, the derived `Slack` between work and chain, and the derived `Queue` between lead and chain. `DfmReport` and `AssemblyPlan` remain stage-local because the terminal result carries their ranked-route and plan projections at every ceiling.
+- Receipt: `FabricationPlan` is the derivation evidence: case-derived ceiling, DfM-ranked `Routing` rows, retained `MachineMatch` routes, admitted topology and steps each naming its assigned station, capability requirement and verdict, lot receipt, key ledger, and content key. `LotReceipt` adds availability, calendar completion, total work, critical-chain effort, the critical operation chain, the per-station reservation windows, the per-operation float, the derived `Slack` between work and chain, the derived `Queue` between lead and chain, and the derived `Contention` each station held. `DfmReport` and `AssemblyPlan` remain stage-local because the terminal result carries their ranked-route and plan projections at every ceiling.
+- Law: `CanonicalWriter` is MUTABLE-FLUENT — every primitive mutates its bound buffer and returns the same writer, the contract `Process/owner#RUN_DISPATCH` states — so a byte kernel here chains or discards the return interchangeably and a discarded return costs no bytes. Nothing in this page's preimage depends on a copied writer.
 - Packages: Process exports `AdmittedComponent`, `PlannedStep`, `FabricationPlan`, `EgressKind`, and `ContentKey`; stage owners export `Manufacturability.Assess`, `Fleet.Capable`, `AvailabilityPlan.Finish`, `AssemblyPlan.Apply`, and `SetupSchedule.Apply`; QuikGraph owns DAG validation, reduction, and topological order; NodaTime owns instant and duration semantics; `Rasm.Element` owns graph projection and the `PropertyCategory` row-name custody every bag key mints through; Thinktecture.Runtime.Extensions and LanguageExt.Core own generated values and rails.
 - Growth: a rail segment is one ordered `DerivationStage` row and one fold arm; a work modality is one `WorkAxis` row with its `WorkKind` case, admission and byte projection following without a consumer edit; a join class becomes routable as one `JoinRouting` row; a route or plan fact widens the existing `FabricationPlan` receipt and canonical-byte projection; an element fact extends the existing total `Lower` arm for its owning result case.
-- Boundary: `Derivation.Plan` owns orchestration, `RoutingInfeasible`, and plan identity. `TopologyOf` is the QuikGraph mutation kernel, while `KeyOf`, `Framed`, and the `Write` overloads are the canonical-byte kernel every optional slot presence-frames through. Projection keeps each fact typed on the graph — counts as `PropertyValue.Integer`, ratios as `Number`, gate outcomes as `Boolean`, dimensioned facts as SI-coerced `MeasureValue` quantities, and step and route collections as `List` of `Complex` rows — so no consumer parses a stringified number back out. Every row name mints through `Row` over the seam owner's `PropertyCategory.Fabrication` scope, so this package declares its own vocabulary inside a partition the seam blesses and a bare `PropertyName.Create` at any write site is the deleted form. DfM owns routing evidence, fleet owns machine matches, assembly owns precedence, setup owns partitions, and later `Run(Post)` and `Run(Document)` calls own artifact production.
+- Boundary: `Derivation.Plan` owns orchestration, `RoutingInfeasible`, and plan identity. `TopologyOf` is the QuikGraph mutation kernel, while `KeyOf`, `Framed`, and the `Write` overloads are the canonical-byte kernel every optional slot presence-frames through. Projection is a COLUMN TABLE per result case — one row per bag key carrying its own source read and its typed render — so every fact keeps its type on the graph (counts `Integer`, ratios `Number`, gate outcomes `Boolean`, dimensioned facts SI-coerced `MeasureValue`, collections `List` of `Complex`), a content key lands as its framed family-and-digest pair rather than an interpolated string, and an optional payload renders its own table or contributes nothing. Every row name mints through `Row` over the seam owner's `PropertyCategory.Fabrication` scope, so this package declares its own vocabulary inside a partition the seam blesses and a bare `PropertyName.Create` at any write site is the deleted form. DfM owns routing evidence, fleet owns machine matches, assembly owns precedence, setup owns partitions, and later `Run(Post)` and `Run(Document)` calls own artifact production.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
@@ -33,6 +36,7 @@ using LanguageExt.Common;
 using NodaTime;
 using QuikGraph;
 using QuikGraph.Algorithms;
+using QuikGraph.Algorithms.ShortestPath;        // DagShortestPathAlgorithm, DistanceRelaxers
 using Rasm.Element.Graph;
 using Rasm.Element.Projection;
 using Rasm.Element.Properties;
@@ -79,6 +83,7 @@ public sealed partial class CapabilityGate {
 
 // --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
 [ComplexValueObject]
+[ValidationError<FabricationFault>]
 public sealed partial class LotPolicy {
     public int Quantity { get; }
     public int BatchSize { get; }
@@ -103,7 +108,7 @@ public sealed partial class LotPolicy {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref ValidationError? validationError,
+        ref FabricationFault? validationError,
         ref int quantity,
         ref int batchSize,
         ref Instant release,
@@ -113,11 +118,12 @@ public sealed partial class LotPolicy {
         if (quantity < 1 || batchSize < 1 || batchSize > quantity || due < release
             || transferBuffer < Duration.Zero || predecessors.Distinct().Count != predecessors.Count
             || predecessors.Contains(UInt128.Zero))
-            validationError = new ValidationError("derive:lot");
+            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Derivation, "derive:lot");
     }
 }
 
 [ComplexValueObject]
+[ValidationError<FabricationFault>]
 public sealed partial class CapabilityRequirement {
     public double MinimumCpk { get; }
     public int DemandedItGrade { get; }
@@ -125,16 +131,31 @@ public sealed partial class CapabilityRequirement {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref ValidationError? validationError,
+        ref FabricationFault? validationError,
         ref double minimumCpk,
         ref int demandedItGrade,
         ref Set<CapabilityGate> gates) {
         if (!double.IsFinite(minimumCpk) || minimumCpk <= 0.0 || demandedItGrade < 1)
-            validationError = new ValidationError("derive:capability-requirement");
+            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Derivation, "derive:capability-requirement");
     }
 }
 
+// The window one operation held on one physical station. A machine CLASS is unbounded parallelism; a machine
+// INSTANCE is one station that cannot run two operations at once, so the reservation is the evidence a shop reads
+// to see WHY a lot finished when it did.
+public sealed record InstanceReservation(MachineInstanceKey Instance, int Operation, Instant Start, Instant Finish) {
+    public Duration Held => Finish - Start;
+}
+
+// Per-operation timing evidence off the critical-path walk: the earliest an operation could start, the latest it
+// could start without moving the completion, and the difference. A float of zero names a critical operation, so
+// the critical path and the per-operation float are one algorithm's outputs rather than two derivations.
+public sealed record OperationFloat(int Operation, Duration Early, Duration Late) {
+    public Duration Float => Late - Early;
+}
+
 [ComplexValueObject]
+[ValidationError<FabricationFault>]
 public sealed partial class LotReceipt {
     public Instant Available { get; }
     public Instant Completion { get; }
@@ -143,27 +164,45 @@ public sealed partial class LotReceipt {
     public Seq<int> CriticalPath { get; }
     public int Batches { get; }
 
+    // The finite-capacity evidence: which station held which operation for how long, and how much each operation
+    // could have slipped. A schedule that publishes only a completion instant cannot answer either question, and a
+    // shop reading it cannot tell a busy station from a long operation.
+    public Seq<InstanceReservation> Reservations { get; }
+    public Seq<OperationFloat> Floats { get; }
+
     // Effort, concurrency, and calendar are three separate facts: total effort never falls below the critical
-    // chain and their gap is the concurrency the plan admits, while queue is the closed time the shop calendar
-    // and committed load impose on that chain. A 24/7 fleet drives Queue to zero; no other reading of Lead does.
+    // chain and their gap is the concurrency the plan admits, while queue is the closed time the shop calendar,
+    // the committed load, and station CONTENTION impose on that chain. A 24/7 single-operation-per-station fleet
+    // drives Queue to zero; no other reading of Lead does.
     public Duration Lead => Completion - Available;
     public Duration Slack => Work - Chain;
     public Duration Queue => Lead - Chain;
 
+    // Contention is the share of queue that station occupancy caused rather than the calendar: the reservations
+    // one instance held, summed against the span it held them across.
+    public Seq<(MachineInstanceKey Instance, Duration Held)> Contention => Reservations
+        .GroupBy(static row => row.Instance)
+        .Map(static group => (group.Key, group.Fold(Duration.Zero, static (held, row) => held + row.Held)))
+        .ToSeq();
+
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref ValidationError? validationError,
+        ref FabricationFault? validationError,
         ref Instant available,
         ref Instant completion,
         ref Duration work,
         ref Duration chain,
         ref Seq<int> criticalPath,
-        ref int batches) {
+        ref int batches,
+        ref Seq<InstanceReservation> reservations,
+        ref Seq<OperationFloat> floats) {
         if (completion < available || work < Duration.Zero || chain < Duration.Zero || chain > work
             || completion - available < chain || batches < 1
             || (chain > Duration.Zero && criticalPath.IsEmpty)
-            || criticalPath.Distinct().Count != criticalPath.Count)
-            validationError = new ValidationError("derive:lot-receipt");
+            || criticalPath.Distinct().Count != criticalPath.Count
+            || reservations.Exists(static row => row.Finish < row.Start)
+            || floats.Exists(static row => row.Late < row.Early))
+            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Derivation, "derive:lot-receipt");
     }
 }
 
@@ -255,6 +294,7 @@ public sealed partial class JoinRouting {
 }
 
 [ComplexValueObject]
+[ValidationError<FabricationFault>]
 public sealed partial class OperationDemand {
     public int Id { get; }
     public WorkKind Work { get; }
@@ -274,7 +314,7 @@ public sealed partial class OperationDemand {
         Duration setupDuration,
         Set<int> predecessors,
         Seq<ContentKey> evidence) =>
-        Validate(id, work, process, quantity, unitDuration, setupDuration, predecessors, evidence, out OperationDemand admitted) is { } error
+        Validate(id, work, process, quantity, unitDuration, setupDuration, predecessors, evidence, out OperationDemand admitted) is not null
             ? Fin.Fail<OperationDemand>(Derivation.Reject(new DeriveWitness.DemandInadmissible(id), DerivationStage.Operations))
             : Fin.Succ(admitted);
 
@@ -297,7 +337,7 @@ public sealed partial class OperationDemand {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref ValidationError? validationError,
+        ref FabricationFault? validationError,
         ref int id,
         ref WorkKind work,
         ref ProcessKind process,
@@ -309,13 +349,14 @@ public sealed partial class OperationDemand {
         if (id < 0 || work is null || process is null || quantity < 1
             || unitDuration <= Duration.Zero || setupDuration < Duration.Zero
             || predecessors.Contains(id) || !work.Axis.Admits(work))
-            validationError = new ValidationError("derive:operation-demand");
+            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Derivation, "derive:operation-demand");
     }
 }
 
 // Reduced DAG source-first order is the invariant every downstream fold reads, so it travels as
 // evidence rather than as an ordering convention a bare Seq cannot state.
 [ComplexValueObject]
+[ValidationError<FabricationFault>]
 public sealed partial class OperationTopology {
     public Seq<OperationDemand> Ordered { get; }
     public Map<int, OperationDemand> ById => toMap(Ordered.Map(static demand => (demand.Id, demand)));
@@ -325,7 +366,7 @@ public sealed partial class OperationTopology {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref ValidationError? validationError,
+        ref FabricationFault? validationError,
         ref Seq<OperationDemand> ordered) {
         // Each element reads the pre-add frontier, so a predecessor appearing later fails the fold.
         bool sourceFirst = ordered.Fold(
@@ -334,7 +375,7 @@ public sealed partial class OperationTopology {
                 state.Seen.Add(demand.Id),
                 state.Ordered && demand.Predecessors.ForAll(state.Seen.Contains))).Ordered;
         if (!sourceFirst || ordered.Map(static demand => demand.Id).Distinct().Count != ordered.Count)
-            validationError = new ValidationError("derive:operation-topology");
+            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Derivation, "derive:operation-topology");
     }
 }
 
@@ -365,49 +406,51 @@ public abstract partial record DerivePolicy(LotPolicy Lot, DfmRequest Dfm) {
         routing: static _ => DerivationStage.Fleet,
         fullPlan: static _ => DerivationStage.Setup);
 
-    // Structural admission runs once for the whole request; no stage re-checks the aggregate downstream.
+    // Structural admission runs once for the whole request; no stage re-checks the aggregate downstream. Only the
+    // violations that ACTUALLY occurred reach the slot run, so no gate ever mints a witness for a condition its own
+    // kind predicate would refute, and an empty run is the admitted answer through the same fold.
     public static Fin<DerivePolicy> Admit(DerivePolicy candidate) =>
-        candidate.Switch<Fin<DerivePolicy>>(
-            state: candidate,
-            assessment: static (self, _) => Fin.Succ(self),
-            routing: static (self, row) => Pairing(row.PreferProcess, row.PreferMachine).Map(_ => self),
-            fullPlan: static (self, row) => Seq(
-                    Duplicate(row.Operations).Match(
-                        id => Gate<Unit>(new DeriveWitness.DuplicateOperation(id)),
-                        static () => Fin.Succ(unit).ToValidation()),
-                    Dangling(row.Operations).Match(
-                        pair => Gate<Unit>(new DeriveWitness.UnknownPredecessor(pair.Operation, pair.Predecessor)),
-                        static () => Fin.Succ(unit).ToValidation()),
-                    Pairing(row.PreferProcess, row.PreferMachine).ToValidation())
-                .Traverse(static gate => gate).As().ToFin().Map(_ => self));
+        AdmissionSlots
+            .Accumulate(Refusals(candidate).Map(static refusal => AdmissionSlots.Gate(false, refusal)))
+            .As()
+            .ToFin()
+            .Map(_ => candidate);
 
-    private static Option<int> Duplicate(Seq<OperationDemand> operations) =>
-        operations.Fold(
-            (Seen: Set<int>(), Found: Option<int>.None),
-            static (state, demand) => state.Found.IsSome
-                ? state
-                : state.Seen.Contains(demand.Id)
-                    ? (state.Seen, Some(demand.Id))
-                    : (state.Seen.Add(demand.Id), state.Found)).Found;
+    private static Seq<Error> Refusals(DerivePolicy candidate) => candidate.Switch(
+        assessment: static _ => Seq<Error>(),
+        routing: static row => Pairing(row.PreferProcess, row.PreferMachine).ToSeq(),
+        fullPlan: static row =>
+            Duplicate(row.Operations)
+                .Map(static id => Derivation.Reject(new DeriveWitness.DuplicateOperation(id), DerivationStage.Operations))
+                .ToSeq()
+            + Dangling(row.Operations)
+                .Map(static pair => Derivation.Reject(
+                    new DeriveWitness.UnknownPredecessor(pair.Operation, pair.Predecessor), DerivationStage.Operations))
+                .ToSeq()
+            + Pairing(row.PreferProcess, row.PreferMachine).ToSeq());
+
+    // The grouping IS the duplicate census: one pass names every repeated identifier, so the first is the witness
+    // and the count comparison a hand accumulator threaded state to compute is the fold's own by-product.
+    private static Option<int> Duplicate(Seq<OperationDemand> operations) => operations
+        .Map(static demand => demand.Id)
+        .GroupBy(static id => id)
+        .Filter(static group => group.Count() > 1)
+        .Map(static group => group.Key)
+        .Head;
 
     private static Option<(int Operation, int Predecessor)> Dangling(Seq<OperationDemand> operations) {
-        Set<int> ids = operations.Map(static demand => demand.Id).ToSet();
+        Set<int> ids = toSet(operations.Map(static demand => demand.Id));
         return operations
             .Bind(demand => demand.Predecessors.Filter(id => !ids.Contains(id))
                 .Map(id => (Operation: demand.Id, Predecessor: id)).ToSeq())
             .Head;
     }
 
-    private static Fin<Unit> Pairing(Option<ProcessKind> process, Option<Machine> machine) =>
+    private static Option<Error> Pairing(Option<ProcessKind> process, Option<Machine> machine) =>
         (from admitted in process from instance in machine select (Process: admitted, Machine: instance))
             .Filter(static pair => !pair.Machine.Admits(pair.Process))
-            .Match(
-                Some: static pair => Fin.Fail<Unit>(new FabricationFault.InadmissiblePair(
-                    new RelationFault.ProcessMachine(pair.Process, pair.Machine))),
-                None: static () => Fin.Succ(unit));
-
-    private static Validation<Error, T> Gate<T>(DeriveWitness witness) =>
-        Fin.Fail<T>(Derivation.Reject(witness, DerivationStage.Operations)).ToValidation();
+            .Map(static pair => (Error)FabricationFault.Pairing(
+                new RelationFault.ProcessMachine(pair.Process, pair.Machine)));
 }
 
 // PlanDraft threads one value through the rail instead of eleven positional arguments.
@@ -430,29 +473,12 @@ public sealed record PlanDraft(
             input.Capability, Seq<ProcessKind>(), Seq<MachineMatch>(),
             OperationTopology.Create(Seq<OperationDemand>()),
             Seq<PlannedStep>(), None, None, None);
-
-    public PlanDraft With(
-        Seq<ProcessKind>? routing = null,
-        Seq<MachineMatch>? matches = null,
-        OperationTopology? topology = null,
-        Seq<PlannedStep>? steps = null,
-        Option<SetupSchedule>? setups = null,
-        Option<CapabilityRequirement>? requirement = null,
-        Option<LotReceipt>? lotReceipt = null) =>
-        this with {
-            Routing = routing ?? Routing,
-            Matches = matches ?? Matches,
-            Topology = topology ?? Topology,
-            Steps = steps ?? Steps,
-            Setups = setups ?? Setups,
-            Requirement = requirement ?? Requirement,
-            LotReceipt = lotReceipt ?? LotReceipt,
-        };
 }
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
 public static class Derivation {
-    public static Fin<FabricationResult> Plan(FabricationPolicy.Derive policy, FabricationInput input) =>
+    public static Fin<FabricationResult> Plan(
+        FabricationPolicy.Derive policy, FabricationInput input, FabricationTap? tap = null) =>
         from request in DerivePolicy.Admit(policy.Policy)
         from dfm in Manufacturability.Assess(request.Dfm)
         from _ in policy.Component.RepresentationKey == dfm.ComponentKey
@@ -461,27 +487,40 @@ public static class Derivation {
                 new DeriveWitness.ComponentMismatch(policy.Component.RepresentationKey, dfm.ComponentKey),
                 DerivationStage.Manufacturability))
         from result in request.Switch<Fin<FabricationResult>>(
-            state: (Component: policy.Component, Input: input, Dfm: dfm),
+            state: (Component: policy.Component, Input: input, Dfm: dfm, Tap: tap ?? FabricationTap.Silent),
             assessment: static (state, row) =>
                 from routed in RouteOf(state.Dfm, state.Component, None)
-                select Compose(PlanDraft.Of(state.Component, state.Input, row).With(routing: routed)),
+                select Compose(PlanDraft.Of(state.Component, state.Input, row) with { Routing = routed }),
             routing: static (state, row) =>
                 from routed in RouteOf(state.Dfm, state.Component, row.PreferProcess)
-                from matches in MatchOf(state.Component, row.Fleet, routed, row.PreferMachine)
-                select Compose(PlanDraft.Of(state.Component, state.Input, row).With(routing: routed, matches: matches)),
+                from matches in MatchOf(state.Component, row.Fleet, routed, row.PreferMachine, state.Tap)
+                select Compose(PlanDraft.Of(state.Component, state.Input, row) with {
+                    Routing = routed,
+                    Matches = matches,
+                }),
             fullPlan: static (state, row) =>
                 from routed in RouteOf(state.Dfm, state.Component, row.PreferProcess)
-                from capability in CapabilityOf(state.Input.Capability, row.Capability, routed.Head)
-                from matches in MatchOf(state.Component, row.Fleet, routed, row.PreferMachine)
+                // The capability gate answers for the LEADING process the routing elected; an empty routing has no
+                // process to gate and refuses here rather than reaching the verdict with a fabricated modality.
+                from leading in routed.Head.ToFin(new FabricationFault.RoutingInfeasible(
+                    state.Component.RepresentationKey, new FaultSubject.Stage(DerivationStage.Routing.Key)))
+                from capability in CapabilityOf(state.Input.Capability, row.Capability, leading)
+                from matches in MatchOf(state.Component, row.Fleet, routed, row.PreferMachine, state.Tap)
                 from joins in JoinsOf(state.Component, row.Assembly)
                 from operations in OperationsOf(row.Operations, joins)
                 from topology in TopologyOf(operations)
                 from setups in SetupsOf(row.Setups, topology)
                 from steps in StepsOf(state.Component, matches, topology, setups)
                 from lot in LotOf(row.Lot, state.Component, topology, matches, row.PredecessorCompletion)
-                select Compose(PlanDraft.Of(state.Component, state.Input, row)
-                    .With(routing: routed, matches: matches, topology: topology, setups: setups,
-                          steps: steps, requirement: Some(row.Capability), lotReceipt: Some(lot))))
+                select Compose(PlanDraft.Of(state.Component, state.Input, row) with {
+                    Routing = routed,
+                    Matches = matches,
+                    Topology = topology,
+                    Setups = setups,
+                    Steps = steps,
+                    Requirement = Some(row.Capability),
+                    LotReceipt = Some(lot),
+                }))
         select result;
 
     // Every plan-derivation rejection lowers onto the one gated mint: the witness admits against its own kind
@@ -500,14 +539,20 @@ public static class Derivation {
             : Fin.Succ(routed);
     }
 
+    // An ABSENT verdict is a request that never carried its capability evidence, not a process measured at zero
+    // Cpk: `CapabilityShortfall` states a measured magnitude, so seating a fabricated `0.0` in it publishes a
+    // measurement no instrument took. Absence answers on the policy-admission arm and only a real verdict that
+    // falls short raises the shortfall.
     private static Fin<CapabilityVerdict> CapabilityOf(
         Option<CapabilityVerdict> admitted,
         CapabilityRequirement required,
         ProcessKind process) =>
-        admitted.ToFin(new FabricationFault.CapabilityShortfall(process, 0.0, required.MinimumCpk))
+        admitted.ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Derivation, "derive:capability-verdict-absent"))
+            // The verdict attests capability alone — Cpk against its own demand plus the two fail-closed states —
+            // so the IT grade a request DEMANDS stays on the requirement, where the tolerance owner sets it, and no
+            // gate here reads a grade column the verdict does not carry.
             .Bind(verdict => verdict.Cpk >= required.MinimumCpk
                 && verdict.DemandedCpk >= required.MinimumCpk
-                && verdict.DemandedItGrade <= required.DemandedItGrade
                 && required.Gates.ForAll(gate => gate.Accepts(verdict))
                     ? Fin.Succ(verdict)
                     : Fin.Fail<CapabilityVerdict>(new FabricationFault.CapabilityShortfall(
@@ -517,8 +562,9 @@ public static class Derivation {
         AdmittedComponent component,
         MachineFleet fleet,
         Seq<ProcessKind> routed,
-        Option<Machine> preferred) =>
-        from matches in Fleet.Capable(component, fleet)
+        Option<Machine> preferred,
+        FabricationTap tap) =>
+        from matches in Fleet.Capable(component, fleet, tap)
           let admitted = matches
               .Filter(static match => match.Checks.Feasible)
               .Filter(match => routed.Contains(match.Process))
@@ -538,7 +584,7 @@ public static class Derivation {
             .Bind(demand => demand.Work.Axis.Connection(demand.Work).Map(connection => (Connection: connection, Demand: demand.Id)).ToSeq());
         long next = explicitOperations.IsEmpty
             ? 0L
-            : (long)explicitOperations.Map(static demand => demand.Id).Max() + 1L;
+            : (long)explicitOperations.Max(static demand => demand.Id) + 1L;
         Seq<AssemblyJoint> unclaimed = joins
             .Map(plan => plan.Joints.Filter(joint => !claimed.Exists(row => row.Connection == joint.Index)))
             .IfNone(Seq<AssemblyJoint>());
@@ -558,11 +604,10 @@ public static class Derivation {
                     .Map(static receipt => receipt.Duration))
                     .ToFin(Reject(new DeriveWitness.JoinReceiptMissing(row.Joint.Index), DerivationStage.Assembly))
                 from demand in OperationDemand.Join(row.Demand, row.Joint.Index, routing.Process, duration)
-                from ordered in demand.WithPredecessors(joins.Map(plan => plan.Precedence
+                from ordered in demand.WithPredecessors(joins.Map(plan => toSet(plan.Precedence
                     .Filter(edge => edge.Target.Joint == row.Joint.Index && edge.Source.Joint != row.Joint.Index)
                     .Bind(edge => demandOf.Filter(value => value.Connection == edge.Source.Joint)
-                        .Map(static value => value.Demand))
-                    .ToSet()).IfNone(Set<int>()))
+                        .Map(static value => value.Demand)))).IfNone(Set<int>()))
                 select ordered)
             .As()
             .Map(rows => explicitOperations + rows)
@@ -576,18 +621,29 @@ public static class Derivation {
         graph.AddVertexRange(operations.Map(static demand => demand.Id));
         graph.AddEdgeRange(operations.Bind(demand => demand.Predecessors
             .Map(predecessor => new SEdge<int>(predecessor, demand.Id))));
-        if (!graph.IsDirectedAcyclicGraph())
+        // A cycle refusal names the OPERATIONS a caller must break, and the strongly-connected labels the detector
+        // already computed are exactly that set; a vertex-and-edge count names nothing actionable. The extension
+        // FILLS its out parameter with one component label per vertex and returns the component count, so every
+        // vertex sharing a label with another sits on a cycle and the count itself decides nothing here.
+        if (!graph.IsDirectedAcyclicGraph()) {
+            _ = graph.StronglyConnectedComponents(out IDictionary<int, int> components);
+            Seq<int> cycle = toSeq(components)
+                .GroupBy(static row => row.Value)
+                .Filter(static group => group.Count() > 1)
+                .Bind(static group => group.Map(static row => row.Key))
+                .ToSeq();
             return Fin.Fail<OperationTopology>(Reject(
-                new DeriveWitness.OperationCycle(graph.VertexCount, graph.EdgeCount), DerivationStage.Operations));
+                new DeriveWitness.OperationCycle(cycle.ToArr()), DerivationStage.Operations));
+        }
+
         BidirectionalGraph<int, SEdge<int>> reduced = graph.ComputeTransitiveReduction();
         Map<int, OperationDemand> byId = toMap(operations.Map(static demand => (demand.Id, demand)));
-        return reduced.SourceFirstTopologicalSort().ToSeq()
+        return toSeq(reduced.SourceFirstTopologicalSort())
             .TraverseM(id =>
                 from demand in byId.Find(id).ToFin(Reject(new DeriveWitness.OperationAbsent(id), DerivationStage.Operations))
-                from reducedDemand in demand.Reprecede(reduced.InEdges(id).Map(static edge => edge.Source).ToSet())
+                from reducedDemand in demand.Reprecede(toSet(reduced.InEdges(id).Select(static edge => edge.Source)))
                 select reducedDemand)
             .As()
-            .Map(static rows => rows.ToSeq())
             .Map(static ordered => OperationTopology.Create(ordered));
     }
 
@@ -600,10 +656,24 @@ public static class Derivation {
                 .ThenBy(static match => match.Instance.Id))
             .Head;
 
+    // The lot-scheduling state one lap-phased pass threads. `Free` is the finite-capacity column: one instant per
+    // physical STATION, not per machine class, so a station already holding work pushes its next operation out.
+    private readonly record struct LotState(
+        Map<int, (Instant Release, Instant Finish)> Ends,
+        Map<MachineInstanceKey, Instant> Free,
+        Seq<InstanceReservation> Reservations,
+        Duration Work,
+        Instant Completion) {
+        public static LotState Seeded(Instant available) => new(
+            Map<int, (Instant, Instant)>(), Map<MachineInstanceKey, Instant>(),
+            Seq<InstanceReservation>(), Duration.Zero, available);
+    }
+
     // Lap phasing is the transfer semantics LotPolicy admits: a successor starts once its predecessor's first
     // transfer batch clears the buffer, so batching shortens lead time without shortening total work. Every
-    // instant advances through the assigned machine's AvailabilityPlan, so effort lands on the shop calendar
-    // at that machine's committed load rather than on a fictional continuously-staffed clock.
+    // instant advances through the ASSIGNED INSTANCE's own AvailabilityPlan and its own free-from clock, so effort
+    // lands on the shop calendar at that station's committed load and two operations routed to one physical
+    // machine never claim the same minutes — the contention a machine-class schedule cannot see.
     private static Fin<LotReceipt> LotOf(
         LotPolicy lot,
         AdmittedComponent component,
@@ -616,56 +686,153 @@ public static class Derivation {
             .As()
         let available = completed.Map(predecessor => predecessor + lot.TransferBuffer)
             .Fold(lot.Release, static (current, transferred) => transferred > current ? transferred : current)
+        from assignment in Assignment(component, topology, matches)
         from timeline in topology.Ordered.Fold(
-            Fin.Succ((Ends: Map<int, (Instant Release, Seq<int> Chain, Duration Effort)>(), Work: Duration.Zero,
-                      Chain: Duration.Zero, Completion: available, Critical: Seq<int>(), CriticalTail: int.MaxValue)),
+            Fin.Succ(LotState.Seeded(available)),
             (accumulated, operation) => accumulated.Bind(state =>
-                from plan in AssignedTo(matches, operation.Process)
-                    .Map(static match => match.Instance.Availability)
+                from seat in assignment.Find(operation.Id)
                     .ToFin(new FabricationFault.RoutingInfeasible(
                         component.RepresentationKey, new FaultSubject.Stage(DerivationStage.Fleet.Key)))
                 let effort = operation.DurationFor(lot)
-                let ready = operation.Predecessors.Fold(
-                    (At: available, Chain: Seq<int>(), Effort: Duration.Zero, Tail: int.MaxValue),
-                    (best, predecessor) => state.Ends.Find(predecessor)
-                        .Filter(row => Outranks(row.Release, row.Effort, predecessor, best.At, best.Effort, best.Tail))
-                        .Map(row => (At: row.Release, row.Chain, row.Effort, Tail: predecessor))
-                        .IfNone(best))
-                from finish in plan.Finish(ready.At, effort)
-                    .ToFin(Reject(new DeriveWitness.LotUnschedulable(operation.Id, ready.At, effort),
+                // Three clocks gate a start and the LATEST wins: the lot's own release, every predecessor's
+                // lap-phased transfer clearance, and the assigned station's free-from instant.
+                let ready = operation.Predecessors
+                    .Fold(available, (at, predecessor) => state.Ends.Find(predecessor)
+                        .Map(row => row.Release > at ? row.Release : at)
+                        .IfNone(at))
+                let start = state.Free.Find(seat.Instance).Map(free => free > ready ? free : ready).IfNone(ready)
+                from finish in seat.Availability.Finish(start, effort)
+                    .ToFin(Reject(new DeriveWitness.CapacityExhausted(
+                        operation.Id, matches.Count(match => match.Process == operation.Process), start, effort),
                         DerivationStage.Operations))
-                from release in plan.Finish(ready.At, operation.FirstBatchFor(lot))
+                from release in seat.Availability.Finish(start, operation.FirstBatchFor(lot))
                     .Map(cleared => cleared + lot.TransferBuffer)
-                    .ToFin(Reject(new DeriveWitness.LotUnschedulable(operation.Id, ready.At, effort),
+                    .ToFin(Reject(new DeriveWitness.LotUnschedulable(operation.Id, start, effort),
                         DerivationStage.Operations))
-                let chained = ready.Effort + effort
-                let path = ready.Chain + Seq(operation.Id)
-                let wins = Outranks(finish, chained, operation.Id,
-                    state.Completion, state.Chain, state.CriticalTail)
-                select (
-                    Ends: state.Ends.Add(operation.Id, (release, path, chained)),
-                    Work: state.Work + effort,
-                    Chain: wins ? chained : state.Chain,
-                    Completion: wins ? finish : state.Completion,
-                    Critical: wins ? path : state.Critical,
-                    CriticalTail: wins ? operation.Id : state.CriticalTail)))
+                select state with {
+                    Ends = state.Ends.Add(operation.Id, (release, finish)),
+                    Free = state.Free.AddOrUpdate(seat.Instance, finish),
+                    Reservations = state.Reservations
+                        .Add(new InstanceReservation(seat.Instance, operation.Id, start, finish)),
+                    Work = state.Work + effort,
+                    // Completion is the INDEPENDENT maximum finish, never the last-scheduled operation's: a
+                    // topological tail with a short operation would otherwise seal the lot before a parallel
+                    // branch finished.
+                    Completion = finish > state.Completion ? finish : state.Completion,
+                })
+        from critical in Critical(topology, lot)
         from admitted in timeline.Completion <= lot.Due
-            ? Fin.Succ(LotReceipt.Create(available, timeline.Completion, timeline.Work, timeline.Chain,
-                timeline.Critical, lot.BatchCount))
+            ? LotReceipt.Validate(available, timeline.Completion, timeline.Work, critical.Chain, critical.Path,
+                lot.BatchCount, timeline.Reservations, critical.Floats, out LotReceipt receipt).Admitted(receipt)
             : Fin.Fail<LotReceipt>(Reject(
                 new DeriveWitness.LotOverdue(timeline.Completion, lot.Due), DerivationStage.Operations))
         select admitted;
 
-    private static bool Outranks(
-        Instant candidateAt,
-        Duration candidateEffort,
-        int candidateOperation,
-        Instant heldAt,
-        Duration heldEffort,
-        int heldOperation) =>
-        candidateAt > heldAt
-        || candidateAt == heldAt && (candidateEffort > heldEffort
-            || candidateEffort == heldEffort && candidateOperation < heldOperation);
+    // One assignment pass over the whole topology, so the station a step posts to and the station the schedule
+    // reserved are read from ONE map rather than re-selected per fold step.
+    private static Fin<Map<int, (MachineInstanceKey Instance, AvailabilityPlan Availability)>> Assignment(
+        AdmittedComponent component,
+        OperationTopology topology,
+        Seq<MachineMatch> matches) =>
+        topology.Ordered
+            .TraverseM(operation => AssignedTo(matches, operation.Process)
+                .ToFin(new FabricationFault.RoutingInfeasible(
+                    component.RepresentationKey, new FaultSubject.Stage(DerivationStage.Fleet.Key)))
+                .Bind(match => MachineInstanceKey.Admit(match.Instance.Id)
+                    .Map(key => (operation.Id, Seat: (Instance: key, match.Instance.Availability)))))
+            .As()
+            .Map(static rows => toMap(rows));
+
+    // The critical path is a LONGEST path over the precedence DAG, which is exactly what the shipped critical
+    // relaxer computes: seeded at negative infinity with an inverted comparison, the shortest-path fold returns
+    // the longest chain. Early start is that distance; late start is the completion minus the longest chain
+    // FROM each operation, so float falls out of the same two walks rather than a hand-threaded tuple.
+    private static Fin<(Duration Chain, Seq<int> Path, Seq<OperationFloat> Floats)> Critical(
+        OperationTopology topology,
+        LotPolicy lot) {
+        AdjacencyGraph<int, SEdge<int>> forward = new(allowParallelEdges: false);
+        forward.AddVertexRange(topology.Ordered.Map(static demand => demand.Id));
+        forward.AddEdgeRange(topology.Ordered.Bind(demand =>
+            demand.Predecessors.Map(predecessor => new SEdge<int>(predecessor, demand.Id))));
+        Map<int, Duration> effort = toMap(topology.Ordered.Map(demand => (demand.Id, demand.DurationFor(lot))));
+        Func<SEdge<int>, double> weight = edge => effort.Find(edge.Source).IfNone(Duration.Zero).TotalSeconds;
+
+        Seq<int> roots = topology.Ordered.Filter(static demand => demand.Predecessors.IsEmpty)
+            .Map(static demand => demand.Id);
+        Map<int, double> early = Longest(forward, weight, roots);
+        // Both walks weight an edge by the effort of the operation it LEAVES. `Reversed` swaps the endpoints, so
+        // reading `edge.Target` there prices the predecessor rather than the successor and the tail of every root
+        // absorbs its own effort twice — which drives `Late` below `Early` and makes the receipt refuse every
+        // multi-operation lot. The reversed walk reads `edge.Source` for the same reason the forward one does.
+        Map<int, double> tail = Longest(Reversed(forward), weight,
+            topology.Ordered.Filter(demand => forward.OutDegree(demand.Id) == 0).Map(static demand => demand.Id));
+
+        // A vertex the walk never reached carries no measured start, and seating a fabricated zero publishes an
+        // early start no relaxation produced — so an unreachable operation refuses rather than reading as ready now.
+        return topology.Ordered
+            .Map(demand =>
+                from start in early.Find(demand.Id).ToFin(Derivation.Reject(
+                    new DeriveWitness.LotUnschedulable(demand.Id, lot.Release, demand.DurationFor(lot))))
+                from slack in tail.Find(demand.Id).ToFin(Derivation.Reject(
+                    new DeriveWitness.LotUnschedulable(demand.Id, lot.Release, demand.DurationFor(lot))))
+                select (Demand: demand, Early: start, Tail: slack))
+            .Traverse(identity)
+            .As()
+            .Map(rows => {
+                double span = rows.Fold(0.0, (longest, row) =>
+                    Math.Max(longest, row.Early + row.Demand.DurationFor(lot).TotalSeconds));
+                Seq<OperationFloat> floats = rows.Map(row => new OperationFloat(
+                    row.Demand.Id,
+                    Duration.FromSeconds(row.Early),
+                    Duration.FromSeconds(span - row.Tail - row.Demand.DurationFor(lot).TotalSeconds)));
+                // The critical set is the float NEAREST zero within the schedule's own resolution: an exact-zero
+                // equality over doubles built from seconds drops the very rows the chain runs through, and the
+                // receipt then refuses a nonzero chain that named no critical path.
+                Duration resolution = Duration.FromSeconds(span * CriticalFloatTolerance);
+                return (
+                    Duration.FromSeconds(span),
+                    floats.Filter(row => row.Float <= resolution && row.Float >= -resolution)
+                        .Map(static row => row.Operation),
+                    floats);
+            });
+    }
+
+    // The critical band as a FRACTION of the schedule's own span, so a long plan and a short one both read their
+    // chain at the resolution their arithmetic actually carries rather than at a fixed absolute epsilon.
+    private const double CriticalFloatTolerance = 1e-9;
+
+    // The critical relaxer IS the longest-path form: `DistanceRelaxers.CriticalDistance` seeds at `double.MinValue`
+    // and negates the comparison, so the DAG shortest-path fold returns the longest chain and its `Distances` map
+    // reads one double per vertex. The relaxer enters through the three-argument arity — graph, edge weight,
+    // relaxer — because the two-argument one takes the shortest-distance default. A synthetic super-source
+    // collapses a multi-root DAG onto one walk, so the distances shift by nothing and every root still reads zero.
+    private static Map<int, double> Longest(
+        AdjacencyGraph<int, SEdge<int>> graph,
+        Func<SEdge<int>, double> weight,
+        Seq<int> roots) {
+        const int Source = int.MinValue;
+        AdjacencyGraph<int, SEdge<int>> seeded = new(allowParallelEdges: false);
+        seeded.AddVertexRange(graph.Vertices);
+        seeded.AddEdgeRange(graph.Edges);
+        seeded.AddVertex(Source);
+        seeded.AddEdgeRange(roots.Map(root => new SEdge<int>(Source, root)));
+        DagShortestPathAlgorithm<int, SEdge<int>> walk = new(
+            seeded,
+            edge => edge.Source == Source ? 0.0 : weight(edge),
+            DistanceRelaxers.CriticalDistance);
+        walk.Compute(Source);
+        return toSeq(walk.Distances)
+            .Filter(static row => row.Key != Source && double.IsFinite(row.Value))
+            .Map(static row => (row.Key, row.Value))
+            .ToMap();
+    }
+
+    private static AdjacencyGraph<int, SEdge<int>> Reversed(AdjacencyGraph<int, SEdge<int>> source) {
+        AdjacencyGraph<int, SEdge<int>> graph = new(allowParallelEdges: false);
+        graph.AddVertexRange(source.Vertices);
+        graph.AddEdgeRange(source.Edges.Select(static edge => new SEdge<int>(edge.Target, edge.Source)));
+        return graph;
+    }
 
     private static Fin<Option<SetupSchedule>> SetupsOf(Option<SetupPlan> policy, OperationTopology topology) =>
         topology.IsEmpty
@@ -723,8 +890,7 @@ public static class Derivation {
         Option<SetupSchedule> setups) {
         Seq<(int Setup, Arr<int> Operations)> partitions = setups.Match(
             Some: schedule => Range(0, schedule.Setups.Count).ToSeq()
-                .Map(index => (Setup: index, Operations: schedule.Setups[index].Operations))
-                .ToSeq(),
+                .Map(index => (Setup: index, Operations: schedule.Setups[index].Operations)),
             None: () => Seq((Setup: 0, Operations: topology.Ordered.Map(static demand => demand.Id).ToArr())));
         Seq<(int Setup, ProcessKind Process, Arr<int> Operations)> work = partitions.Bind(partition =>
             topology.Ordered
@@ -738,14 +904,46 @@ public static class Derivation {
                         .Filter(demand => partition.Operations.Contains(demand.Id) && demand.Process == process)
                         .Map(static demand => demand.Id)
                         .ToArr())));
-        return work.Zip(Range(0, work.Count), static (row, order) => (row, order))
-            .Traverse(row => AssignedTo(matches, row.row.Process)
-                .ToFin(new FabricationFault.RoutingInfeasible(
-                    component.RepresentationKey, new FaultSubject.Stage(DerivationStage.Fleet.Key)))
-                .Bind(match => PlannedStep.Admit(row.order, row.row.Process, match.Instance.Kind,
-                    row.row.Setup, row.row.Operations, None)))
+        // The step carries the physical STATION the lot fold reserved, not just its machine class: a program posts
+        // to one controller, and a step naming only a class leaves the poster to re-select a station the schedule
+        // never priced.
+        Seq<(int Setup, ProcessKind Process, Arr<int> Operations, int Order)> ordered =
+            work.Map(static (row, order) => (row.Setup, row.Process, row.Operations, Order: order));
+        return Ordered(component, topology, ordered)
+            .Bind(_ => ordered
+                .Traverse(row => AssignedTo(matches, row.Process)
+                    .ToFin(new FabricationFault.RoutingInfeasible(
+                        component.RepresentationKey, new FaultSubject.Stage(DerivationStage.Fleet.Key)))
+                    .Bind(match => MachineInstanceKey.Admit(match.Instance.Id)
+                        .Bind(instance => PlannedStep.Admit(row.Order, row.Process, match.Instance.Kind,
+                            Some(instance), row.Setup, row.Operations, None))))
+                .As());
+    }
+
+    // `PlannedStep.Order` is a PROMISE the plan makes to every consumer that walks it — the traveler reads it as a
+    // total route order and refuses work recorded out of it — so the promise is PROVEN here, not merely assigned.
+    // Source-first ordering holds over operations, but the partition by setup and then by process re-groups them,
+    // and nothing in that re-grouping keeps a consumer's step behind its producer's. The proof is one pass: every
+    // operation's predecessors must sit in a step ordered no later than the step that consumes them.
+    private static Fin<Unit> Ordered(
+        AdmittedComponent component,
+        OperationTopology topology,
+        Seq<(int Setup, ProcessKind Process, Arr<int> Operations, int Order)> steps) {
+        Map<int, int> stepOf = steps.Fold(
+            Map<int, int>(),
+            static (held, step) => step.Operations.Fold(held, (inner, id) => inner.AddOrUpdate(id, step.Order)));
+        return steps
+            .Bind(step => toSeq(step.Operations)
+                .Bind(id => topology.ById.Find(id).Map(demand => demand.Predecessors).IfNone(Arr<int>()).ToSeq())
+                .Map(predecessor => (Step: step.Order, Predecessor: predecessor)))
+            .Map(row => AdmissionSlots.Gate(
+                stepOf.Find(row.Predecessor).ForAll(producer => producer <= row.Step),
+                new FabricationFault.RoutingInfeasible(
+                    component.RepresentationKey, new FaultSubject.Stage(DerivationStage.Operations.Key))))
+            .Traverse(identity)
             .As()
-            .Map(static steps => steps.ToSeq());
+            .ToFin()
+            .Map(static _ => unit);
     }
 
     // The preimage composes the `Rasm.Element` `CanonicalWriter`, the package's ONE byte codec: it normalizes `-0.0`
@@ -789,11 +987,10 @@ public static class Derivation {
         Framed(writer, capability, static (sink, value) => sink
             .Double(value.Cpk)
             .Double(value.DemandedCpk)
-            .Ordinal(value.DemandedItGrade)
             .Bool(value.ProcedureQualified)
             .Bool(value.MeasurementSystemSuitable));
-        Framed(writer, requirement, static (sink, value) => value.Gates
-            .OrderBy(static gate => gate.Key)
+        Framed(writer, requirement, static (sink, value) => toSeq(value.Gates
+            .OrderBy(static gate => gate.Key))
             .Fold(
                 sink.Double(value.MinimumCpk).Ordinal(value.DemandedItGrade).Ordinal(value.Gates.Count),
                 static (rail, gate) => rail.String(gate.Key)));
@@ -828,12 +1025,15 @@ public static class Derivation {
     }
 
     internal static void Write(CanonicalWriter writer, PlannedStep step) {
+        // The INSTANCE is an identity discriminant, not a routing note: a program posts to one controller, so two
+        // plans differing only in the station the lot fold reserved must not address as the same artifact.
         writer.Ordinal(step.Order)
             .String(step.Process.Key)
             .String(step.Machine.Key)
             .Ordinal(step.Setup)
             .Ordinal(step.Operations.Count);
         foreach (int operation in step.Operations.Order()) writer.Ordinal(operation);
+        Framed(writer, step.Instance, static (sink, instance) => sink.String(instance.ToValue()));
         Framed(writer, step.Program, static (sink, key) => { Write(sink, key); return sink; });
     }
 
@@ -844,18 +1044,13 @@ public static class Derivation {
             .Ordinal(route.Checks.Facts.Count);
         foreach (CapabilityFact fact in route.Checks.Facts
             .OrderBy(static value => value.Criterion.Key)
-            .ThenBy(static value => value.Switch(
-                satisfied: static row => row.Locus,
-                rejected: static row => row.Locus))) {
-            (double Demand, double Available, DemandUnit Unit, string Locus) evidence = fact.Switch(
-                satisfied: static row => (row.Demand, row.Available, row.Unit, row.Locus),
-                rejected: static row => (row.Demand, row.Available, row.Unit, row.Locus));
+            .ThenBy(static value => Evidence(value).Locus)) {
             writer.String(fact.Criterion.Key)
                 .Bool(fact.Pass)
-                .Double(evidence.Demand)
-                .Double(evidence.Available)
-                .String(evidence.Unit.Key)
-                .String(evidence.Locus);
+                .Double(fact.Demand)
+                .Double(fact.Available)
+                .String(fact.Unit.Key)
+                .String(fact.Locus);
         }
         writer.Double(route.EnvelopeHeadroom).Double(route.GradeMargin).Double(route.Score);
     }
@@ -868,6 +1063,9 @@ public static class Derivation {
 // Every projected fact keeps its type on the graph: counts are Integer, ratios and scores are Number, flags are
 // Boolean, dimensioned facts are SI-coerced MeasureValue quantities, and collections are List of Complex rows.
 // Stringifying a typed fact into Text is the deleted form — it forfeits the seam's own value vocabulary.
+// Every mm-carried magnitude reaches the `OfSi` slot through the UnitsNet family that owns its dimension, never a
+// transcribed power of ten: the seam federates identity at the `Dimension` 7-vector and the package owns the
+// scale, so the two never disagree. UnitsNet is spelled in full because its `Duration` collides with NodaTime's.
 public sealed class FabricationProjector(Seq<(NodeId Element, FabricationResult Fact)> facts) : IElementProjection {
     private static readonly Dimension Dimensionless = Dimension.Create(0, 0, 0, 0, 0, 0, 0);
     private static readonly Dimension LengthDim = Dimension.Create(1, 0, 0, 0, 0, 0, 0);
@@ -882,154 +1080,233 @@ public sealed class FabricationProjector(Seq<(NodeId Element, FabricationResult 
             .Map(deltas => deltas.Fold(GraphDelta.Empty.Reheader(ctx.Header), static (acc, delta) => acc.Merge(delta)))
             .ToFin();
 
+    // Each result case names its TABLE and nothing else; the arm carries no bag construction of its own.
     private static Fin<GraphDelta> Lower(NodeId element, FabricationResult fact, double tolerance) => fact.Switch(
         state: (Element: element, Tolerance: tolerance),
-        hiddenLineResult: static (state, hidden) => Emit(state, "HiddenLine", Seq(
-            Count("Visible", hidden.Visible.Count),
-            Count("Hidden", hidden.Hidden.Count),
-            Count("Silhouette", hidden.Silhouette.Count))),
-        motion: static (state, motion) => Emit(state, "Motion", Seq(
-                Count("Moves", motion.Moves.Count),
-                Count("JointSamples", motion.Joints.Count),
-                Count("CellRecords", motion.CellCode.Count)),
-            Seq(("Duration", TimeDim, motion.Duration))),
-        placement: static (state, nest) => Emit(state, "Placement", Seq(
-                Count("Parts", nest.Parts.Count),
-                Ratio("Utilization", nest.Utilization),
-                Count("Unplaced", nest.Unplaced),
-                Count("Remnants", nest.Remnants.Count),
-                Token("Key", nest.Key)),
-            Seq(("NestWasteArea", AreaDim,
-                nest.Remnants.Sum(static remnant => remnant.AreaMm2) / 1e6))),
-        additiveResult: static (state, additive) => Emit(state, "Additive", Seq(
-            Count("Moves", additive.Moves.Count),
-            Count("Layers", additive.Layers),
-            Count("Artifacts", additive.Artifacts.Count))),
-        verificationResult: static (state, verification) => Emit(state, "Verification", Seq(
-                Count("Snapshots", verification.Snapshots.Count),
-                Count("Gouges", verification.Gouges.Count),
-                Ratio("AirCutRatio", verification.AirCutRatio),
-                Token("ResidualKey", verification.Residual.Key)),
-            Seq(("UncutVolume", VolumeDim, verification.UncutVolume / 1e9),
-                ("OvercutVolume", VolumeDim, verification.OvercutVolume / 1e9))),
-        inspectionResult: static (state, inspection) => Emit(state, "Inspection", Seq(
-                Count("Features", inspection.Features.Count),
-                Count("Accepted", inspection.Features.Count(static feature => feature.Pass.Exists(static pass => pass))),
-                Count("Rejected", inspection.Features.Count(static feature => feature.Pass.Exists(static pass => !pass)))),
-            Seq(("MaxDeviation", LengthDim,
-                inspection.Features.Fold(0.0, static (maximum, feature) => Math.Max(maximum, feature.DeviationMm)) / 1e3))),
-        postedProgram: static (state, program) => Emit(state, "Program", Seq(
-            Count("Blocks", program.Blocks.Count),
-            Token("Key", program.Key))),
-        travelerDocument: static (state, traveler) => Emit(state, "Traveler", Seq(
-            Count("ComposedArtifacts", traveler.Composed.Count),
-            Token("Key", traveler.Key))),
-        fabricationPlan: static (state, plan) => Emit(
-            state,
-            "Plan",
-            PlanRows(plan),
-            PlanQuantities(plan)),
-        formedResult: static (state, formed) => Emit(state, "Formed", Seq(
-                Count("FlatLoops", formed.FlatPattern.Count),
-                Count("Bends", formed.Bends.Count),
-                Token("Key", formed.Key)),
-            Seq(("SpringbackMax", Dimensionless, formed.SpringbackMaxDeg * Math.PI / 180.0))));
+        hiddenLineResult: static (state, hidden) => Emit(state, "HiddenLine", HiddenLine, hidden),
+        motion: static (state, motion) => Emit(state, "Motion", Motion, motion),
+        placement: static (state, nest) => Emit(state, "Placement", Placement, nest),
+        additiveResult: static (state, additive) => Emit(state, "Additive", Additive, additive),
+        verificationResult: static (state, verification) => Emit(state, "Verification", Verification, verification),
+        inspectionResult: static (state, inspection) => Emit(state, "Inspection", Inspection, inspection),
+        postedProgram: static (state, program) => Emit(state, "Program", Program, program),
+        travelerDocument: static (state, traveler) => Emit(state, "Traveler", Traveler, traveler),
+        fabricationPlan: static (state, plan) => Emit(state, "Plan", PlanRows(plan), PlanQuantities(plan)),
+        formedResult: static (state, formed) => Emit(state, "Formed", Formed, formed));
+
+    // --- [TABLES]
+    // One row per bag key: the key, and the render that turns its own source into a typed value. A new fact is a
+    // row on its case's table; a hand-built tuple at a call site and a second bag-shaped helper are both the
+    // deleted form, and the lane the arms once fanned out reads as the table it always was.
+    private static readonly Table<FabricationResult.HiddenLineResult> HiddenLine = new(
+        Seq(Facts<FabricationResult.HiddenLineResult>.Integer("Runs", static row => row.Projection.Runs.Count),
+            Facts<FabricationResult.HiddenLineResult>.Integer("Characteristics", static row => row.Projection.Characteristics.Count),
+            Facts<FabricationResult.HiddenLineResult>.Integer("Compositions", static row => row.Projection.Composition.Count),
+            Facts<FabricationResult.HiddenLineResult>.Integer("Subjects", static row => row.Subjects.Count)),
+        Seq<Measure<FabricationResult.HiddenLineResult>>());
+
+    private static readonly Table<FabricationResult.Motion> Motion = new(
+        Seq(Facts<FabricationResult.Motion>.Integer("Moves", static row => row.Moves.Count),
+            Facts<FabricationResult.Motion>.Integer("Directives", static row => row.Directives.Count),
+            Facts<FabricationResult.Motion>.Integer("JointSamples", static row => row.Joints.Count),
+            Facts<FabricationResult.Motion>.Integer("CellRecords", static row => row.CellCode.Count),
+            Facts<FabricationResult.Motion>.Integer("Warnings", static row => row.Evidence.Warnings.Count)),
+        Seq(Facts<FabricationResult.Motion>.Quantity("Duration", TimeDim, static row => row.Duration)));
+
+    private static readonly Table<FabricationResult.Placement> Placement = new(
+        Seq(Facts<FabricationResult.Placement>.Integer("Parts", static row => row.Parts.Count),
+            Facts<FabricationResult.Placement>.Number("Utilization", static row => row.Utilization),
+            Facts<FabricationResult.Placement>.Integer("Unplaced", static row => row.Unplaced),
+            Facts<FabricationResult.Placement>.Integer("Remnants", static row => row.Remnants.Count),
+            Facts<FabricationResult.Placement>.Key("Key", static row => row.Key)),
+        Seq(Facts<FabricationResult.Placement>.Quantity("NestWasteArea", AreaDim, static row => UnitsNet.Area
+            .FromSquareMillimeters(row.Remnants.Sum(static remnant => remnant.AreaMm2)).SquareMeters)));
+
+    private static readonly Table<FabricationResult.AdditiveResult> Additive = new(
+        Seq(Facts<FabricationResult.AdditiveResult>.Integer("Moves", static row => row.Moves.Count),
+            Facts<FabricationResult.AdditiveResult>.Integer("Layers", static row => row.Layers),
+            Facts<FabricationResult.AdditiveResult>.Integer("Artifacts", static row => row.Artifacts.Count)),
+        Seq<Measure<FabricationResult.AdditiveResult>>());
+
+    private static readonly Table<FabricationResult.VerificationResult> Verification = new(
+        Seq(Facts<FabricationResult.VerificationResult>.Integer("Snapshots", static row => row.Snapshots.Count),
+            Facts<FabricationResult.VerificationResult>.Integer("Gouges", static row => row.Gouges.Count),
+            Facts<FabricationResult.VerificationResult>.Number("AirCutRatio", static row => row.AirCutRatio),
+            Facts<FabricationResult.VerificationResult>.Flag("Clean", static row => row.Clean),
+            Facts<FabricationResult.VerificationResult>.Key("ResidualKey", static row => row.Residual.Key)),
+        Seq(Facts<FabricationResult.VerificationResult>.Quantity("UncutVolume", VolumeDim,
+                static row => UnitsNet.Volume.FromCubicMillimeters(row.UncutVolume).CubicMeters),
+            Facts<FabricationResult.VerificationResult>.Quantity("OvercutVolume", VolumeDim,
+                static row => UnitsNet.Volume.FromCubicMillimeters(row.OvercutVolume).CubicMeters)));
+
+    private static readonly Table<FabricationResult.InspectionResult> Inspection = new(
+        Seq(Facts<FabricationResult.InspectionResult>.Integer("Features", static row => row.Features.Count),
+            Facts<FabricationResult.InspectionResult>.Integer("Accepted",
+                static row => row.Features.Count(static feature => feature.Pass.Exists(static pass => pass))),
+            Facts<FabricationResult.InspectionResult>.Integer("Rejected",
+                static row => row.Features.Count(static feature => feature.Pass.Exists(static pass => !pass)))),
+        Seq(Facts<FabricationResult.InspectionResult>.Quantity("MaxDeviation", LengthDim,
+            static row => UnitsNet.Length.FromMillimeters(
+                row.Features.Fold(0.0, static (maximum, feature) => Math.Max(maximum, feature.DeviationMm))).Meters)));
+
+    private static readonly Table<FabricationResult.PostedProgram> Program = new(
+        Seq(Facts<FabricationResult.PostedProgram>.Integer("Blocks", static row => row.Blocks.Count),
+            Facts<FabricationResult.PostedProgram>.Key("Key", static row => row.Key)),
+        Seq<Measure<FabricationResult.PostedProgram>>());
+
+    private static readonly Table<FabricationResult.TravelerDocument> Traveler = new(
+        Seq(Facts<FabricationResult.TravelerDocument>.Integer("ConsumedArtifacts", static row => row.Consumed.Count),
+            Facts<FabricationResult.TravelerDocument>.Integer("ProducedArtifacts", static row => row.Produced.Count),
+            Facts<FabricationResult.TravelerDocument>.Key("Key", static row => row.Key)),
+        Seq<Measure<FabricationResult.TravelerDocument>>());
+
+    private static readonly Table<FabricationResult.FormedResult> Formed = new(
+        Seq(Facts<FabricationResult.FormedResult>.Integer("FlatLoops", static row => row.FlatPattern.Count),
+            Facts<FabricationResult.FormedResult>.Integer("Bends", static row => row.Bends.Count),
+            Facts<FabricationResult.FormedResult>.Key("Key", static row => row.Key)),
+        // Plane angle is dimensionless in SI, and the radian magnitude reaches the slot through the UnitsNet family
+        // that owns the conversion, never a transcribed degree factor.
+        Seq(Facts<FabricationResult.FormedResult>.Quantity("SpringbackMax", Dimensionless,
+            static row => UnitsNet.Angle.FromDegrees(row.SpringbackMaxDeg).Radians)));
+
+    private static readonly Seq<Fact<PlannedStep>> StepColumns = Seq(
+        Facts<PlannedStep>.Integer("Order", static row => row.Order),
+        Facts<PlannedStep>.Token("Process", static row => row.Process.Key),
+        Facts<PlannedStep>.Token("Machine", static row => row.Machine.Key),
+        Facts<PlannedStep>.Integer("Setup", static row => row.Setup),
+        Facts<PlannedStep>.Ordinals("Operations", static row => row.Operations.ToSeq()));
+
+    private static readonly Seq<Fact<MachineMatch>> RouteColumns = Seq(
+        Facts<MachineMatch>.Token("Instance", static row => row.Instance.Id),
+        Facts<MachineMatch>.Token("Process", static row => row.Process.Key),
+        Facts<MachineMatch>.Number("Score", static row => row.Score));
+
+    private static readonly Seq<Fact<OperationDemand>> OperationColumns = Seq(
+        Facts<OperationDemand>.Integer("Id", static row => row.Id),
+        Facts<OperationDemand>.Token("Process", static row => row.Process.Key),
+        Facts<OperationDemand>.Integer("Quantity", static row => row.Quantity),
+        Facts<OperationDemand>.Ordinals("Predecessors", static row => toSeq(row.Predecessors.Order())));
+
+    private static readonly Seq<Fact<FabricationResult.FabricationPlan>> PlanColumns = Seq(
+        Facts<FabricationResult.FabricationPlan>.Token("Ceiling", static row => row.Ceiling.Key),
+        Facts<FabricationResult.FabricationPlan>.Tokens("Routing",
+            static row => row.Routing.Map(static process => process.Key)),
+        Facts<FabricationResult.FabricationPlan>.Key("PlanKey", static row => row.Key),
+        Facts<FabricationResult.FabricationPlan>.Tokens("RequestedArtifacts",
+            static row => toSeq(row.RequestedArtifacts.OrderBy(static artifact => artifact.Key).Select(static artifact => artifact.Key))),
+        Facts<FabricationResult.FabricationPlan>.Rows("Steps", "Step", StepColumns,
+            static row => toSeq(row.Steps.OrderBy(static step => step.Order))),
+        Facts<FabricationResult.FabricationPlan>.Rows("Routes", "Route", RouteColumns, static row => row.Routes),
+        Facts<FabricationResult.FabricationPlan>.Rows("Topology", "Operation", OperationColumns,
+            static row => row.Topology.Ordered));
+
+    // The optional payloads carry their OWN tables over their OWN types, so a present slot renders its rows and an
+    // absent one contributes none — no gate column, and no fallback magnitude standing in for a fact nobody measured.
+    private static readonly Seq<Fact<CapabilityVerdict>> CapabilityColumns = Seq(
+        Facts<CapabilityVerdict>.Number("CapabilityCpk", static row => row.Cpk),
+        Facts<CapabilityVerdict>.Number("CapabilityDemandedCpk", static row => row.DemandedCpk),
+        Facts<CapabilityVerdict>.Flag("ProcedureQualified", static row => row.ProcedureQualified),
+        Facts<CapabilityVerdict>.Flag("MeasurementSystemSuitable", static row => row.MeasurementSystemSuitable));
+
+    private static readonly Seq<Fact<CapabilityRequirement>> RequirementColumns = Seq(
+        Facts<CapabilityRequirement>.Number("RequiredCpk", static row => row.MinimumCpk),
+        Facts<CapabilityRequirement>.Integer("RequiredItGrade", static row => row.DemandedItGrade),
+        Facts<CapabilityRequirement>.Tokens("RequiredGates",
+            static row => toSeq(row.Gates.OrderBy(static gate => gate.Key).Select(static gate => gate.Key))));
+
+    private static readonly Seq<Fact<LotReceipt>> LotColumns = Seq(
+        Facts<LotReceipt>.Integer("LotAvailableTicks", static row => row.Available.ToUnixTimeTicks()),
+        Facts<LotReceipt>.Integer("LotCompletionTicks", static row => row.Completion.ToUnixTimeTicks()),
+        Facts<LotReceipt>.Integer("LotBatches", static row => row.Batches),
+        Facts<LotReceipt>.Ordinals("LotCriticalPath", static row => row.CriticalPath));
+
+    // Duration reaches SI through `Duration.TotalSeconds`, the carrier's own projection: a ticks quotient against
+    // `TimeSpan.TicksPerSecond` restates a conversion NodaTime already owns, once per column.
+    private static readonly Seq<Measure<LotReceipt>> LotQuantities = Seq(
+        Facts<LotReceipt>.Quantity("LotWork", TimeDim, static row => row.Work.TotalSeconds),
+        Facts<LotReceipt>.Quantity("LotChain", TimeDim, static row => row.Chain.TotalSeconds),
+        Facts<LotReceipt>.Quantity("LotLead", TimeDim, static row => row.Lead.TotalSeconds),
+        Facts<LotReceipt>.Quantity("LotSlack", TimeDim, static row => row.Slack.TotalSeconds),
+        Facts<LotReceipt>.Quantity("LotQueue", TimeDim, static row => row.Queue.TotalSeconds));
 
     private static Seq<(string Key, PropertyValue Value)> PlanRows(FabricationResult.FabricationPlan plan) =>
-        Seq(
-            Token("Ceiling", plan.Ceiling.Key),
-            ("Routing", (PropertyValue)new PropertyValue.List(plan.Routing.Map(static process => (PropertyValue)new PropertyValue.Text(process.Key)))),
-            Token("PlanKey", plan.Key),
-            ("RequestedArtifacts", (PropertyValue)new PropertyValue.List(plan.RequestedArtifacts
-                .OrderBy(static artifact => artifact.Key)
-                .Map(static artifact => (PropertyValue)new PropertyValue.Text(artifact.Key))
-                .ToSeq())),
-            ("Steps", (PropertyValue)new PropertyValue.List(plan.Steps.OrderBy(static step => step.Order).Map(static step =>
-                Complex("Step", Seq(
-                    Count("Order", step.Order),
-                    Token("Process", step.Process.Key),
-                    Token("Machine", step.Machine.Key),
-                    Count("Setup", step.Setup),
-                    ("Operations", (PropertyValue)new PropertyValue.List(
-                        step.Operations.Map(static operation => Count(operation)).ToSeq()))))).ToSeq())),
-            ("Routes", (PropertyValue)new PropertyValue.List(plan.Routes.Map(static route =>
-                Complex("Route", Seq(
-                    Token("Instance", route.Instance.Id),
-                    Token("Process", route.Process.Key),
-                    Ratio("Score", route.Score)))))),
-            ("Topology", (PropertyValue)new PropertyValue.List(plan.Topology.Ordered.Map(static demand =>
-                Complex("Operation", Seq(
-                    Count("Id", demand.Id),
-                    Token("Process", demand.Process.Key),
-                    Count("Quantity", demand.Quantity),
-                    ("Predecessors", (PropertyValue)new PropertyValue.List(
-                        demand.Predecessors.Order().Map(static predecessor => Count(predecessor)).ToSeq())))))))) +
-        plan.Capability.Match(
-            Some: static verdict => Seq(
-                Ratio("CapabilityCpk", verdict.Cpk),
-                Ratio("CapabilityDemandedCpk", verdict.DemandedCpk),
-                Count("CapabilityItGrade", verdict.DemandedItGrade),
-                Flag("ProcedureQualified", verdict.ProcedureQualified),
-                Flag("MeasurementSystemSuitable", verdict.MeasurementSystemSuitable)),
-            None: static () => Seq<(string, PropertyValue)>()) +
-        plan.Requirement.Match(
-            Some: static requirement => Seq(
-                Ratio("RequiredCpk", requirement.MinimumCpk),
-                Count("RequiredItGrade", requirement.DemandedItGrade),
-                ("RequiredGates", (PropertyValue)new PropertyValue.List(requirement.Gates
-                    .OrderBy(static gate => gate.Key)
-                    .Map(static gate => (PropertyValue)new PropertyValue.Text(gate.Key))
-                    .ToSeq()))),
-            None: static () => Seq<(string, PropertyValue)>()) +
-        plan.LotReceipt.Match(
-            Some: static lot => Seq(
-                ("LotAvailableTicks", (PropertyValue)new PropertyValue.Integer(lot.Available.ToUnixTimeTicks())),
-                ("LotCompletionTicks", (PropertyValue)new PropertyValue.Integer(lot.Completion.ToUnixTimeTicks())),
-                Count("LotBatches", lot.Batches),
-                ("LotCriticalPath", (PropertyValue)new PropertyValue.List(
-                    lot.CriticalPath.Map(static operation => Count(operation)).ToSeq()))),
-            None: static () => Seq<(string, PropertyValue)>());
+        Render(PlanColumns, plan)
+        + plan.Capability.Map(verdict => Render(CapabilityColumns, verdict)).IfNone(Seq<(string, PropertyValue)>())
+        + plan.Requirement.Map(requirement => Render(RequirementColumns, requirement)).IfNone(Seq<(string, PropertyValue)>())
+        + plan.LotReceipt.Map(lot => Render(LotColumns, lot)).IfNone(Seq<(string, PropertyValue)>());
 
     private static Seq<(string Key, Dimension Dimension, double Si)> PlanQuantities(FabricationResult.FabricationPlan plan) =>
-        plan.LotReceipt.Match(
-            Some: static lot => Seq(
-                ("LotWork", TimeDim, lot.Work.ToTimeSpan().Ticks / (double)TimeSpan.TicksPerSecond),
-                ("LotChain", TimeDim, lot.Chain.ToTimeSpan().Ticks / (double)TimeSpan.TicksPerSecond),
-                ("LotLead", TimeDim, lot.Lead.ToTimeSpan().Ticks / (double)TimeSpan.TicksPerSecond),
-                ("LotSlack", TimeDim, lot.Slack.ToTimeSpan().Ticks / (double)TimeSpan.TicksPerSecond),
-                ("LotQueue", TimeDim, lot.Queue.ToTimeSpan().Ticks / (double)TimeSpan.TicksPerSecond)),
-            None: static () => Seq<(string, Dimension, double)>());
+        plan.LotReceipt.Map(lot => Measured(LotQuantities, lot)).IfNone(Seq<(string, Dimension, double)>());
+
+    private readonly record struct Fact<TSource>(string Key, Func<TSource, PropertyValue> Render);
+
+    private readonly record struct Measure<TSource>(string Key, Dimension Dimension, Func<TSource, double> Si);
+
+    private readonly record struct Table<TSource>(Seq<Fact<TSource>> Facts, Seq<Measure<TSource>> Measures);
+
+    // The row vocabulary, fixed to one source type per table. Each member states which typed value the seam
+    // receives, so a count can never reach the graph as a Number and a flag can never reach it as Text.
+    private static class Facts<TSource> {
+        public static Fact<TSource> Integer(string key, Func<TSource, long> read) =>
+            new(key, row => new PropertyValue.Integer(read(row)));
+
+        public static Fact<TSource> Number(string key, Func<TSource, double> read) =>
+            new(key, row => new PropertyValue.Number(read(row)));
+
+        public static Fact<TSource> Flag(string key, Func<TSource, bool> read) =>
+            new(key, row => new PropertyValue.Boolean(read(row)));
+
+        public static Fact<TSource> Token(string key, Func<TSource, string> read) =>
+            new(key, row => new PropertyValue.Text(read(row)));
+
+        // A ContentKey is a keyed FAMILY beside a 128-bit digest, so it lands framed: the family keeps the
+        // vocabulary a reader resolves and the digest is the only token with no seam carrier. Interpolating the
+        // pair into one Text forfeits the family and leaves a consumer splitting a string back apart.
+        public static Fact<TSource> Key(string key, Func<TSource, ContentKey> read) =>
+            new(key, row => {
+                ContentKey content = read(row);
+                return Complex("ContentKey", Seq(
+                    ("Kind", (PropertyValue)new PropertyValue.Text(content.Kind.Key)),
+                    ("Digest", (PropertyValue)new PropertyValue.Text($"{content.Digest:x32}"))));
+            });
+
+        public static Fact<TSource> Tokens(string key, Func<TSource, Seq<string>> read) =>
+            new(key, row => new PropertyValue.List(read(row).Map(static value => (PropertyValue)new PropertyValue.Text(value))));
+
+        public static Fact<TSource> Ordinals(string key, Func<TSource, Seq<int>> read) =>
+            new(key, row => new PropertyValue.List(read(row).Map(static value => (PropertyValue)new PropertyValue.Integer(value))));
+
+        // A nested collection is the same row grammar one level down: each element renders through its own table.
+        public static Fact<TSource> Rows<TRow>(
+            string key, string usage, Seq<Fact<TRow>> columns, Func<TSource, Seq<TRow>> read) =>
+            new(key, row => new PropertyValue.List(
+                read(row).Map(element => Complex(usage, Render(columns, element)))));
+
+        public static Measure<TSource> Quantity(string key, Dimension dimension, Func<TSource, double> si) =>
+            new(key, dimension, si);
+    }
+
+    private static Seq<(string Key, PropertyValue Value)> Render<TSource>(Seq<Fact<TSource>> table, TSource source) =>
+        table.Map(row => (row.Key, row.Render(source)));
+
+    private static Seq<(string Key, Dimension Dimension, double Si)> Measured<TSource>(
+        Seq<Measure<TSource>> table, TSource source) =>
+        table.Map(row => (row.Key, row.Dimension, row.Si(source)));
 
     // Every seam row this package writes mints through the Element owner's own blessed producer scope, so the
     // fabrication key space cannot collide with a Bim or Compute spelling and a reader resolves one prefix rather
     // than guessing at a bare noun. A call-site PropertyName.Create here is the fork the seam custody ruling deletes.
     private static PropertyName Row(string name) => PropertyCategory.Fabrication.Row(name);
 
-    private static (string Key, PropertyValue Value) Count(string key, int value) =>
-        (key, new PropertyValue.Integer(value));
-
-    private static PropertyValue Count(int value) => new PropertyValue.Integer(value);
-
-    private static (string Key, PropertyValue Value) Ratio(string key, double value) =>
-        (key, new PropertyValue.Number(value));
-
-    private static (string Key, PropertyValue Value) Flag(string key, bool value) =>
-        (key, new PropertyValue.Boolean(value));
-
-    private static (string Key, PropertyValue Value) Token(string key, string value) =>
-        (key, new PropertyValue.Text(value));
-
-    private static (string Key, PropertyValue Value) Token(string key, ContentKey value) =>
-        (key, new PropertyValue.Text($"{value.Kind.Key}:{value.Digest:x32}"));
-
     private static PropertyValue Complex(string usage, Seq<(string Key, PropertyValue Value)> rows) =>
         new PropertyValue.Complex(usage, toMap(rows.Map(static row => (Row(row.Key), row.Value))));
 
-    private static Fin<GraphDelta> Emit(
+    private static Fin<GraphDelta> Emit<TSource>(
         (NodeId Element, double Tolerance) state,
         string set,
-        Seq<(string Key, PropertyValue Value)> properties) =>
-        Emit(state, set, properties, Seq<(string, Dimension, double)>());
+        Table<TSource> table,
+        TSource source) =>
+        Emit(state, set, Render(table.Facts, source), Measured(table.Measures, source));
 
     // Dimensioned rows ride the QuantitySet; every other row rides the PropertySet, and an SI coercion that
     // rejects a non-finite magnitude fails the whole projection rather than dropping the fact silently.
@@ -1106,3 +1383,4 @@ flowchart LR
 -->
 
 (none)
+

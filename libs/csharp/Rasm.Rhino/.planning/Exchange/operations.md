@@ -4,16 +4,18 @@
 
 ## [01]-[INDEX]
 
-- [02]-[LANE_AND_OUTPUT]: `ExchangeBudget` and `IoLane` the cross-document concurrency product; `CollisionRule`, `DirectoryRule`, and `OutputPolicy` the egress vocabulary and landing kernel.
+- [02]-[LANE_AND_OUTPUT]: `FieldOverride<T>` the folder-wide override vocabulary; `ExchangeBudget` and `IoLane` the cross-document concurrency product; `CollisionRule`, `DirectoryRule`, `OutputPolicy`, and `MutationTrace` the egress vocabulary, landing kernel, and residue cell.
 - [03]-[PRESET_COMPOSITION]: `PresetOperation` and `Presets.Commit` — the Persistence owner composed by `ExchangeOp.PresetCase`.
 - [04]-[GEOLOCATION]: `GeoPoint`, `EarthAnchor`, and `AnchorOp` — read, write, planes, and the model↔earth correspondence on one owner.
 - [05]-[TRANSACTION_RAIL]: `ExchangeOp`, `ExchangeFact`/`ExchangeReceipt`, `BatchPolicy`/`ConversionPolicy` with the `ExchangeHalt` cancellation carrier, and `Exchanges` — one session-proved dispatch plus the cross-document conversion fan.
 
 ## [02]-[LANE_AND_OUTPUT]
 
-- Owner: `ExchangeBudget` admits I/O degree and scheduler once. `IoLane` closes sequential and budgeted-parallel conversion. `CollisionRule`, `DirectoryRule`, and `OutputPolicy` settle and land every egress path under one declared collision, directory, staging, durability, and content-identity contract.
+- Owner: `FieldOverride<T>` is the folder's one three-state override vocabulary. `ExchangeBudget` admits I/O degree and scheduler once. `IoLane` closes sequential and budgeted-parallel conversion. `CollisionRule`, `DirectoryRule`, and `OutputPolicy` settle and land every egress path under one declared collision, directory, staging, durability, and content-identity contract. `MutationTrace` is the folder's one residue cell, armed by the exchange rail at bracket entry and by the archive rail at its landing hook.
+- Law: `FieldOverride<T>` states three intentions and no more — `Keep` leaves the host baseline standing, `Set` writes a gate plus its value, and `Clear` forces the gate off so the host inherits. `Apply` drives the paired write/inherit actions and `Accepts` admits only the `Set` payload, so a caller carrying an override never spells a second enable flag beside its value. The sheet and dial pages compose this owner; a per-page override union beside it is the deleted form.
+- Law: `MutationTrace` carries attempt and residue as one cell — `Enter` marks an attempt that an undo bracket or preset commit can still roll back, `Landing` marks the filesystem touch behind which no undo serial stands, and the reading step folds both into its own evidence. One trace type serves both rails, so a step's residue claim reads the same regardless of which rail observed it.
 - Law: direct host writers settle against the filesystem at dispatch instant, while staged artifacts validate, flush, and hash before the collision row atomically moves them onto an admitted destination; both return the settled `DocumentPath` on the receipt, so no fallible work follows commit and the caller never re-derives the ordinal.
-- Law: `Fail` and `AppendOrdinal` use no-clobber moves. `AppendOrdinal` retries its bounded candidate roster after a concurrent creator wins a seat and refuses on exhaustion with a typed fault; an unbounded rename loop is unrepresentable because the bound is a `Dimension` policy value.
+- Law: `Fail` and `AppendOrdinal` use no-clobber moves. `AppendOrdinal` walks its bounded candidate roster as one fold on the rail — a refusal whose candidate now exists lost the seat to a concurrent creator and the walk continues, any other refusal settles as the reported fault, and exhaustion is the seed fault; an unbounded rename loop is unrepresentable because the bound is a `Dimension` policy value, and an exception filter deciding continuation is the deleted form.
 - Law: `Land` is the sole staging kernel for every artifact this package writes itself — archive persistence and amendment, embedded-file extraction, fresh-archive geometry emission, and every publish delivery stage through it; a second temp-write-verify-move spelling beside it is the deleted form. Host writers that dispatch on the destination extension or mutate document identity (`RhinoDoc.Export`, `ExportSelected`, `Save`, `SaveAs`, the direct engines) write their settled path directly, because a `.partial` staging name forks the host's own format dispatch.
 - Boundary: filesystem probes, durable flush, cleanup, and atomic move stay inside `CollisionRule`, `DirectoryRule`, and `OutputPolicy.Land`; their ordered statements are the platform-forced file-kernel exemption.
 
@@ -30,6 +32,30 @@ using System.Runtime.InteropServices;
 namespace Rasm.Rhino.Exchange;
 
 // --- [TYPES] --------------------------------------------------------------------------------
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record FieldOverride<T> {
+    private FieldOverride() { }
+    public sealed record KeepCase : FieldOverride<T>;
+    public sealed record SetCase(T Value) : FieldOverride<T>;
+    public sealed record ClearCase : FieldOverride<T>;
+
+    public static FieldOverride<T> Keep { get; } = new KeepCase();
+
+    internal bool IsActive => this is not KeepCase;
+
+    internal Unit Apply(Action<T> set, Action inherit) => Switch(
+        (Set: set, Inherit: inherit),
+        keepCase: static (_, _) => unit,
+        setCase: static (write, field) => Op.Side(() => write.Set(field.Value)),
+        clearCase: static (write, _) => Op.Side(write.Inherit));
+
+    internal bool Accepts(Func<T, bool> admitted) => Switch(
+        state: admitted,
+        keepCase: static (_, _) => true,
+        setCase: static (accepts, field) => accepts(field.Value),
+        clearCase: static (_, _) => true);
+}
+
 [ComplexValueObject]
 [StructLayout(LayoutKind.Auto)]
 public readonly partial struct ExchangeBudget {
@@ -104,15 +130,20 @@ public sealed partial class CollisionRule {
         return Fin.Succ(value: path);
     });
 
-    private static Fin<DocumentPath> Append(string temporary, DocumentPath path, Dimension bound, Op op) => op.Catch(() => {
-        foreach (DocumentPath candidate in Candidates(path, bound)) {
-            try {
-                System.IO.File.Move(sourceFileName: temporary, destFileName: candidate.Value, overwrite: false);
-                return Fin.Succ(value: candidate);
-            } catch (System.IO.IOException) when (System.IO.File.Exists(candidate.Value)) { }
-        }
-        return Fin.Fail<DocumentPath>(error: op.InvalidResult(detail: $"collision bound {bound.Value} exhausted"));
-    });
+    // Bounded retry over the ordinal roster: a refused move whose candidate now exists lost the seat to a concurrent
+    // creator and the walk continues, while any other refusal settles as the reported fault instead of being masked
+    // by an exhaustion message the roster never reached.
+    private static Fin<DocumentPath> Append(string temporary, DocumentPath path, Dimension bound, Op op) =>
+        Candidates(path, bound).Fold(
+            (Settled: false, Outcome: Fin.Fail<DocumentPath>(error: op.InvalidResult(detail: $"collision bound {bound.Value} exhausted"))),
+            (state, candidate) => state.Settled
+                ? state
+                : Move(temporary: temporary, path: candidate, overwrite: false, op: op).Match(
+                    Succ: landed => (Settled: true, Outcome: Fin.Succ(value: landed)),
+                    Fail: failure => System.IO.File.Exists(path: candidate.Value)
+                        ? state
+                        : (Settled: true, Outcome: Fin.Fail<DocumentPath>(error: failure))))
+            .Outcome;
 
     private static Seq<DocumentPath> Candidates(DocumentPath path, Dimension bound) {
         string stem = System.IO.Path.Join(
@@ -138,6 +169,24 @@ public sealed partial class DirectoryRule {
 }
 
 // --- [MODELS] -------------------------------------------------------------------------------
+internal sealed class MutationTrace {
+    private readonly Atom<(bool Attempted, bool MayRemain)> cell = Atom((Attempted: false, MayRemain: false));
+
+    internal bool Attempted => cell.Value.Attempted;
+    internal bool MayRemain => cell.Value.MayRemain;
+
+    internal static MutationTrace Fresh() => new();
+
+    // Bracket entry: an attempt a rollback still owns, so residue stays false.
+    internal Fin<Unit> Enter(bool enabled) => enabled
+        ? Fin.Succ(value: ignore(cell.Swap(static held => (Attempted: true, MayRemain: held.MayRemain))))
+        : Fin.Succ(value: unit);
+
+    // Landing hook: the staging kernel has begun touching the filesystem and no undo serial stands behind it.
+    internal Fin<Unit> Landing() =>
+        Fin.Succ(value: ignore(cell.Swap(static _ => (Attempted: true, MayRemain: true))));
+}
+
 public sealed record Landed<TStage>(DocumentPath Target, UInt128 ContentKey, TStage Stage);
 
 [ComplexValueObject]
@@ -177,7 +226,7 @@ public sealed partial record OutputPolicy {
         Op? key = null) {
         Op op = key.OrDefault();
         return Validate(collision: collision, directory: directory, ordinalBound: ordinalBound, item: out OutputPolicy? policy) is null
-            ? Optional(policy).ToFin(Fail: op.InvalidInput())
+            ? op.Need(policy)
             : Fin.Fail<OutputPolicy>(error: op.InvalidInput());
     }
 
@@ -199,7 +248,7 @@ public sealed partial record OutputPolicy {
         Option<Func<byte[], Fin<Unit>>> validate = default,
         Op? key = null) {
         Op op = key.OrDefault();
-        return Optional(stage).ToFin(Fail: op.InvalidInput()).Bind(writer => {
+        return op.Need(stage).Bind(writer => {
             DocumentPath requested = codec.Map(row => DocumentPath.Create(value: row.EnsureExtension(path: target.Value))).IfNone(target);
             string directory = System.IO.Path.GetDirectoryName(requested.Value) ?? string.Empty;
             return Directory.Ensure(folder: directory, key: op).Bind(_ => {
@@ -255,9 +304,22 @@ public sealed partial record OutputPolicy {
 
 ## [03]-[PRESET_COMPOSITION]
 
-`PresetOperation` and `Presets.Commit` own construction planes, named positions, named layer states, roster counts, identity resolution, participating object ids, and stored transforms. `ExchangeOp.PresetCase` composes that owner without a second saved-state vocabulary or host-table interpreter.
+- Owner: `PresetOperation` and `Presets.Commit` own construction planes, named positions, named layer states, roster counts, identity resolution, participating object ids, and stored transforms. `ExchangeOp.PresetCase` composes that owner without a second saved-state vocabulary or host-table interpreter.
+- Law: `Run` routes a preset request before any exchange demand because `Presets.Commit` derives its own read, mutation, undo, and redraw needs from `PresetOperation.Execution`; this rail reads that same policy row for its own profile rather than predicting mutation from the case shape. Batch execution re-enters `Run` per case, so preset and exchange programs share ordered failure and halt receipts without nesting document demands.
+- Boundary: the composed seam is the Persistence surface below and nothing more — `PresetOperation` as the request, `PresetExecution` as its policy row, `Presets.Commit` as the entry, and `PresetAnswer` as the yield this rail wraps in one fact.
 
-`Exchanges.Run` routes a preset request before its exchange demand because `Presets.Commit` derives its own read, mutation, undo, and redraw needs. Batch execution re-enters `Run` per case, so preset and exchange programs share ordered failure and halt receipts without nesting document demands.
+```csharp signature
+// --- [COMPOSITION] --------------------------------------------------------------------------
+// The whole Persistence seam this rail reaches: `PresetOperation` the request, `PresetExecution` its policy row,
+// `Presets.Commit` the entry, `PresetAnswer` the yield. Every host table read and write stays behind that entry.
+using Rasm.Rhino.Persistence;
+
+internal static class PresetSeam {
+    internal static Fin<ExchangeFact> Commit(DocumentSession session, PresetOperation operation, Op op) =>
+        Presets.Commit(session: session, operation: operation, key: op)
+            .Map(static answer => (ExchangeFact)new ExchangeFact.PresetCase(Answer: answer));
+}
+```
 
 ## [04]-[GEOLOCATION]
 
@@ -355,7 +417,7 @@ public sealed partial record EarthAnchor {
             name: name,
             description: description,
             item: out EarthAnchor? anchor) is null
-            ? Optional(anchor).ToFin(Fail: op.InvalidInput())
+            ? op.Need(anchor)
             : Fin.Fail<EarthAnchor>(error: op.InvalidInput());
     }
 
@@ -428,7 +490,7 @@ public abstract partial record AnchorOp {
         readCase: static (ctx, _) => Anchored(ctx.Document, ctx.Op, AnchorDemand.Any, use: static (anchor, _, op) =>
             EarthAnchor.From(anchor: anchor, op: op).Map(static value => (AnchorYield)new AnchorYield.AnchorCase(Anchor: value))),
         writeCase: static (ctx, edit) =>
-            from anchor in Optional(edit.Anchor).ToFin(Fail: ctx.Op.InvalidInput())
+            from anchor in ctx.Op.Need(edit.Anchor)
             from _written in anchor.Write(document: ctx.Document, op: ctx.Op)
             select (AnchorYield)new AnchorYield.AnchorCase(Anchor: anchor),
         planeCase: static (ctx, _) => Anchored(ctx.Document, ctx.Op, AnchorDemand.Model, use: static (anchor, _, op) => {
@@ -508,9 +570,10 @@ public abstract partial record AnchorYield {
 
 ## [05]-[TRANSACTION_RAIL]
 
-- Owner: `ExchangeOp` closes import, export, save, write, geometry, preset, anchor, and program requests. `ExchangeFact` is the ONE outcome vocabulary — imported source, artifact, save, preset, and anchor evidence by payload shape — and `ExchangeReceipt` carries that fact stream beside its evidence and an `Option<ExchangeProgram>`, so a nested program is absence-or-presence rather than a parallel case in a second yield family every construction site builds twice. `ExchangeStep` and `ExchangeProgram` preserve ordered outcomes, halt state, mutation truth, and native evidence.
+- Owner: `ExchangeOp` closes the three routes one request can take — a document edit, a preset commit, a program — and `DocumentOp` closes the six edits the document dispatcher executes: import, export, save, write, geometry, anchor. `ExchangeFact` is the ONE outcome vocabulary — imported source, artifact, save, preset, and anchor evidence by payload shape — and `ExchangeReceipt` carries that fact stream beside its evidence and an `Option<ExchangeProgram>`, so a nested program is absence-or-presence rather than a parallel case in a second yield family every construction site builds twice. `ExchangeStep` and `ExchangeProgram` preserve ordered outcomes, halt state, mutation truth, and native evidence.
 - Entry: `Exchanges.Run(DocumentSession, ExchangeOp, Op?, ExchangeHalt)` owns session-bound work. `Exchanges.Run(Seq<(SessionSource, ExchangeOp)>, ConversionPolicy, CancellationToken, Op?)` owns cross-document conversion and awaits `Parallel.ForEachAsync` under the caller-supplied `ExchangeBudget`.
-- Law: `ExchangeOp.Profile` derives demand, mutation, and surface evidence in one generated dispatch; preset requests delegate execution to `Presets.Commit`, and batch requests re-enter `Run` per case so neither owner nests or weakens the other's capability proof.
+- Law: request families split by the rail that executes them, so every closed dispatch is total over what it actually runs. `Run` routes the three `ExchangeOp` cases — a preset delegates to `Presets.Commit`, a program re-enters `Run` per case, and an edit alone reaches the session demand — while `Dispatch` switches the six `DocumentOp` cases behind that demand. A refusal arm standing in a closed switch for a case the rail never receives is the deleted form, and a new route or a new edit lands in exactly one family.
+- Law: `DocumentOp.Profile` derives demand, mutation, and surface evidence in one generated dispatch, and `ExchangeOp.Profile` reads it through for an edit, folds it across a program, and answers a preset off `PresetOperation.Execution` — the Persistence owner's own policy row, never a re-derived mutation predicate.
 - Law: `MutationTrace` enters immediately before preset commit or `DocumentCommit.Sealed`; failed steps report that observed entry instead of predicting mutation from request shape. Owned records roll back on failure, command-owned records propagate failure, and successful receipts alone receive committed mutation evidence.
 - Law: the trace is `Option`-shaped because only a program step reads it — `Step` mints one per row and folds `Attempted` into its `ExchangeStep`, while the single-op entry passes `None` rather than recording an attempt into a cell nothing projects; committed mutation on that path is the `DocumentCommit.Sealed` stamp's own `MutationCase` with its real undo serial.
 - Law: cancellation is cooperative and case-bounded — `ExchangeHalt` composes every ambient and policy `CancellationToken`, `Run` refuses before snapshot acquisition, and each program fold observes the merged halt only between cases. `ExchangeProgram.Halted` is true only when cancellation prevented a case; a pre-dispatch halt has no mutation attempt and therefore earns no mutation evidence.
@@ -521,7 +584,7 @@ public abstract partial record AnchorYield {
 - Law: `GeometryCase` is a session-bound export that writes no live-document geometry — after the session proves export capability, a fresh `File3dm` receives the requested geometry rows and lands through `Archives.Land`, the archive rail's one `WriteWithLog`-hooked staging over `OutputPolicy.Land`, so the landed 3dm carries the same byte re-materialization parse proof every archive persistence carries; a failed write carries the native log in fault detail, and a successful non-empty log becomes `ExchangeEvidence.NativeCase` under the landed target.
 - Law: `ExportScope` gates selection by `CodecAbility.Selection` and owns one noninteractive `FileWriteOptions` carrier. Native `3dm`, `OBJ`, and `PLY` engines receive that carrier through one `Codecs.Apply`; every other selection row is refused before host contact.
 - Law: `BackupPolicy` closes no-backup, primary-backup, and complete auxiliary-backup behavior as rows on the existing document-write carrier; `FileWriteOptions.CreateBackupFiles` and `CreateOtherBackupFiles` receive those columns at the host edge.
-- Boundary: `RhinoDoc.Open` and every headless constructor belong to the Document session sources; an exchange request that names a document to acquire is a session construction at the call site, and this rail's batch runs against the session it was handed. `Parallel.ForEachAsync`, cancellation catch, and `DocumentSession` disposal statements are the platform-forced `Task` and resource exemptions.
+- Boundary: `RhinoDoc.Open` and every headless constructor belong to the Document session sources; an exchange request that names a document to acquire is a session construction at the call site, and this rail's batch runs against the session it was handed. `Parallel.ForEachAsync`, cancellation catch, and `DocumentSession` disposal statements are the platform-forced `Task` and resource exemptions; the parallel body writes one array seat per source-row index and nothing else, so receipt order is the row order by construction rather than a concurrent map re-sorted after the join, and an unwritten seat is a cancelled row the halt flag already accounts for.
 
 ```csharp signature
 // --- [TYPES] --------------------------------------------------------------------------------
@@ -605,7 +668,7 @@ public abstract partial record DocumentWritePolicy {
     internal Fin<Unit> Write(RhinoDoc document, string path, Op op) => Switch(
         (Document: document, Path: path, Op: op),
         saveAsCase: static (ctx, policy) =>
-            from content in Optional(policy.Content).ToFin(Fail: ctx.Op.InvalidInput())
+            from content in ctx.Op.Need(policy.Content)
             from saved in ctx.Op.Confirm(success: ctx.Document.SaveAs(
                 file3dmPath: ctx.Path,
                 version: policy.Version.Map(static value => value.Value).IfNone(0),
@@ -616,15 +679,15 @@ public abstract partial record DocumentWritePolicy {
                 useCompression: content.Compression))
             select saved,
         documentCase: static (ctx, policy) =>
-            from content in Optional(policy.Content).ToFin(Fail: ctx.Op.InvalidInput())
-            from backups in Optional(content.Backups).ToFin(Fail: ctx.Op.InvalidInput())
+            from content in ctx.Op.Need(policy.Content)
+            from backups in ctx.Op.Need(content.Backups)
             from written in ctx.Op.Confirm(success: ctx.Document.WriteFile(
                 path: ctx.Path,
                 options: Host(content: content, backups: backups)))
             select written,
         archiveCase: static (ctx, policy) =>
-            from content in Optional(policy.Content).ToFin(Fail: ctx.Op.InvalidInput())
-            from backups in Optional(content.Backups).ToFin(Fail: ctx.Op.InvalidInput())
+            from content in ctx.Op.Need(policy.Content)
+            from backups in ctx.Op.Need(content.Backups)
             from written in ctx.Op.Confirm(success: ctx.Document.Write3dmFile(
                 path: ctx.Path,
                 options: Host(content: content, backups: backups)))
@@ -651,19 +714,14 @@ public abstract partial record DocumentWritePolicy {
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record ExchangeOp {
-    private ExchangeOp() { }
-    public sealed record ImportCase(DocumentPath Source, Option<FileCodec> Codec, CodecTune Tune) : ExchangeOp;
-    public sealed record ExportCase(DocumentPath Target, ExportScope Scope, Option<FileCodec> Codec, CodecTune Tune, OutputPolicy Output) : ExchangeOp;
-    public sealed record SaveCase : ExchangeOp;
-    public sealed record WriteCase(DocumentPath Target, DocumentWritePolicy Policy, OutputPolicy Output) : ExchangeOp;
-    public sealed record GeometryCase(Seq<GeometryBase> Geometry, DocumentPath Target, ArchiveWritePolicy Policy, OutputPolicy Output) : ExchangeOp;
-    public sealed record PresetCase(PresetOperation Operation) : ExchangeOp;
-    public sealed record AnchorCase(AnchorOp Edit) : ExchangeOp;
-    public sealed record BatchCase(Seq<ExchangeOp> Program, BatchPolicy Policy) : ExchangeOp;
-
-    internal ExchangeHalt Halt(ExchangeHalt ambient) =>
-        this is BatchCase batch ? ambient.Merge(batch.Policy.Halt) : ambient;
+public abstract partial record DocumentOp {
+    private DocumentOp() { }
+    public sealed record ImportCase(DocumentPath Source, Option<FileCodec> Codec, CodecTune Tune) : DocumentOp;
+    public sealed record ExportCase(DocumentPath Target, ExportScope Scope, Option<FileCodec> Codec, CodecTune Tune, OutputPolicy Output) : DocumentOp;
+    public sealed record SaveCase : DocumentOp;
+    public sealed record WriteCase(DocumentPath Target, DocumentWritePolicy Policy, OutputPolicy Output) : DocumentOp;
+    public sealed record GeometryCase(Seq<GeometryBase> Geometry, DocumentPath Target, ArchiveWritePolicy Policy, OutputPolicy Output) : DocumentOp;
+    public sealed record AnchorCase(AnchorOp Edit) : DocumentOp;
 
     internal (Seq<SessionNeed> Needs, bool Mutates, string Surface) Profile => Switch<(Seq<SessionNeed>, bool, string)>(
         importCase: static _ => (SessionNeed.Mutation(undo: true, redraw: RedrawPolicy.None), true, nameof(ImportCase)),
@@ -671,12 +729,26 @@ public abstract partial record ExchangeOp {
         saveCase: static _ => (Seq(SessionNeed.Export), false, nameof(SaveCase)),
         writeCase: static _ => (Seq(SessionNeed.Export), false, nameof(WriteCase)),
         geometryCase: static _ => (Seq(SessionNeed.Export), false, nameof(GeometryCase)),
-        presetCase: static edit => edit.Operation.Mutation
-            ? (Seq(SessionNeed.Read, SessionNeed.Mutate, SessionNeed.Undo, SessionNeed.Redraw), true, nameof(PresetCase))
-            : (Seq(SessionNeed.Read), false, nameof(PresetCase)),
         anchorCase: static edit => edit.Edit is AnchorOp.WriteCase or AnchorOp.SunCase
             ? (SessionNeed.Mutation(undo: true, redraw: RedrawPolicy.None), true, nameof(AnchorCase))
-            : (Seq(SessionNeed.Read), false, nameof(AnchorCase)),
+            : (Seq(SessionNeed.Read), false, nameof(AnchorCase)));
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record ExchangeOp {
+    private ExchangeOp() { }
+    public sealed record EditCase(DocumentOp Edit) : ExchangeOp;
+    public sealed record PresetCase(PresetOperation Operation) : ExchangeOp;
+    public sealed record BatchCase(Seq<ExchangeOp> Program, BatchPolicy Policy) : ExchangeOp;
+
+    internal ExchangeHalt Halt(ExchangeHalt ambient) =>
+        this is BatchCase batch ? ambient.Merge(batch.Policy.Halt) : ambient;
+
+    internal (Seq<SessionNeed> Needs, bool Mutates, string Surface) Profile => Switch<(Seq<SessionNeed>, bool, string)>(
+        editCase: static edit => edit.Edit.Profile,
+        presetCase: static edit => edit.Operation.Execution.Mutation
+            ? (Seq(SessionNeed.Read, SessionNeed.Mutate, SessionNeed.Undo, SessionNeed.Redraw), true, nameof(PresetCase))
+            : (Seq(SessionNeed.Read), false, nameof(PresetCase)),
         batchCase: static batch => BatchProfile(batch));
 
     private static (Seq<SessionNeed> Needs, bool Mutates, string Surface) BatchProfile(BatchCase batch) => (
@@ -806,46 +878,44 @@ public static class Exchanges {
         Op op,
         ExchangeHalt halt,
         Option<MutationTrace> trace) {
-        return from admitted in Optional(request).ToFin(Fail: op.InvalidInput())
+        return from admitted in op.Need(request)
                let effective = admitted.Halt(ambient: halt)
                from receipt in effective.Requested
                    ? Fin.Succ(value: ExchangeReceipt.Programmed(steps: Seq<ExchangeStep>(), halted: true))
-                   : admitted switch {
-                       ExchangeOp.PresetCase preset => Optional(preset.Operation)
-                           .ToFin(Fail: op.InvalidInput())
+                   : admitted.Switch(
+                       (Session: session, Op: op, Halt: effective, Trace: trace),
+                       editCase: static (ctx, route) =>
+                           from edit in ctx.Op.Need(route.Edit)
+                           from snapshot in ctx.Session.Snapshot(key: ctx.Op)
+                           from demanded in ctx.Session.Demand(
+                               use: document => Recorded(
+                                   document: document,
+                                   edit: edit,
+                                   dirty: snapshot.Modified,
+                                   halt: ctx.Halt,
+                                   op: ctx.Op,
+                                   trace: ctx.Trace),
+                               key: ctx.Op,
+                               needs: [.. edit.Profile.Needs])
+                           select demanded,
+                       presetCase: static (ctx, route) => Optional(route.Operation)
+                           .ToFin(Fail: ctx.Op.InvalidInput())
                            .Bind(operation =>
-                               from _attempt in Entered(trace: trace, enabled: admitted.Profile.Mutates)
-                               from answer in Presets.Commit(
-                                   session: session,
-                                   operation: operation,
-                                   key: op)
-                               select answer)
-                           .Map(answer => ExchangeReceipt.One(fact: new ExchangeFact.PresetCase(Answer: answer))),
-                       ExchangeOp.BatchCase batch => Fin.Succ(value: Program(
-                           rows: batch.Program,
-                           halt: effective,
-                           continueOnError: batch.Policy.ContinueOnError,
+                               from _attempt in Entered(trace: ctx.Trace, enabled: operation.Execution.Mutation)
+                               from fact in PresetSeam.Commit(session: ctx.Session, operation: operation, op: ctx.Op)
+                               select ExchangeReceipt.One(fact: fact)),
+                       batchCase: static (ctx, route) => Fin.Succ(value: Program(
+                           rows: route.Program,
+                           halt: ctx.Halt,
+                           continueOnError: route.Policy.ContinueOnError,
                            one: (inner, index) => Step(
                                index: index,
                                run: innerTrace => Apply(
-                                   session: session,
+                                   session: ctx.Session,
                                    request: inner,
-                                   op: op,
-                                   halt: effective,
-                                   trace: innerTrace)))),
-                       _ => from snapshot in session.Snapshot(key: op)
-                            from demanded in session.Demand(
-                                use: document => Recorded(
-                                    document: document,
-                                    request: admitted,
-                                    dirty: snapshot.Modified,
-                                    halt: effective,
-                                    op: op,
-                                    trace: trace),
-                                key: op,
-                                needs: [.. admitted.Profile.Needs])
-                            select demanded,
-                   }
+                                   op: ctx.Op,
+                                   halt: ctx.Halt,
+                                   trace: innerTrace)))))
                select receipt;
     }
 
@@ -855,7 +925,7 @@ public static class Exchanges {
         System.Threading.CancellationToken cancellationToken = default,
         Op? key = null) {
         Op op = key.OrDefault();
-        return await Optional(policy).ToFin(Fail: op.InvalidInput()).Match(
+        return await op.Need(policy).Match(
             Succ: async admitted => {
                 ExchangeHalt effectiveHalt = admitted.Batch.Halt.Merge(ExchangeHalt.Of(token: cancellationToken));
                 Func<(SessionSource Source, ExchangeOp Request), int, ExchangeStep> one = (row, index) => Step(
@@ -871,7 +941,9 @@ public static class Exchanges {
                         continueOnError: admitted.Batch.ContinueOnError,
                         one: one));
                 }
-                System.Collections.Concurrent.ConcurrentDictionary<int, ExchangeStep> completed = [];
+                // One seat per source row: the parallel body writes its own index and nothing else, so the ordered
+                // receipt reads straight off the array and needs no concurrent map re-sorted after the join.
+                ExchangeStep?[] completed = new ExchangeStep?[rows.Count];
                 System.Threading.Tasks.ParallelOptions options = new() {
                     MaxDegreeOfParallelism = parallel.Budget.IoDegree.Value,
                     TaskScheduler = parallel.Budget.Scheduler,
@@ -888,7 +960,7 @@ public static class Exchanges {
                             return System.Threading.Tasks.ValueTask.CompletedTask;
                         });
                 } catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
-                Seq<ExchangeStep> ordered = toSeq(completed.OrderBy(static entry => entry.Key).Select(static entry => entry.Value));
+                Seq<ExchangeStep> ordered = toSeq(completed).Choose(static step => Optional(step));
                 return Fin.Succ(value: ExchangeReceipt.Programmed(
                     steps: ordered,
                     halted: ordered.Count < rows.Count));
@@ -909,7 +981,7 @@ public static class Exchanges {
 
     private static Fin<ExchangeReceipt> Recorded(
         RhinoDoc document,
-        ExchangeOp request,
+        DocumentOp edit,
         bool dirty,
         ExchangeHalt halt,
         Op op,
@@ -917,18 +989,18 @@ public static class Exchanges {
         if (halt.Requested) {
             return Fin.Succ(value: ExchangeReceipt.Programmed(steps: Seq<ExchangeStep>(), halted: true));
         }
-        if (!request.Profile.Mutates) {
-            return Dispatch(document: document, request: request, dirty: dirty, halt: halt, op: op);
+        if (!edit.Profile.Mutates) {
+            return Dispatch(document: document, operation: edit, dirty: dirty, op: op);
         }
         return from _attempt in Entered(trace: trace, enabled: true)
                from receipt in DocumentCommit.Sealed(
                    document: document,
-                   name: request.Profile.Surface,
+                   name: edit.Profile.Surface,
                    recordsUndo: true,
                    redraw: RedrawPolicy.None,
-                   run: () => Dispatch(document: document, request: request, dirty: dirty, halt: halt, op: op),
+                   run: () => Dispatch(document: document, operation: edit, dirty: dirty, op: op),
                    stamp: (value, serial) => value.Add(new ExchangeEvidence.MutationCase(
-                       Surface: request.Profile.Surface,
+                       Surface: edit.Profile.Surface,
                        Attempted: true,
                        Committed: true,
                        MayRemain: false,
@@ -959,7 +1031,7 @@ public static class Exchanges {
     }
 
     private static ExchangeStep Step(int index, Func<Option<MutationTrace>, Fin<ExchangeReceipt>> run) {
-        MutationTrace trace = new();
+        MutationTrace trace = MutationTrace.Fresh();
         return run(Some(trace)).Match<ExchangeStep>(
             Succ: receipt => new ExchangeStep.SucceededCase(
                 Index: index,
@@ -975,16 +1047,6 @@ public static class Exchanges {
     private static Fin<Unit> Entered(Option<MutationTrace> trace, bool enabled) =>
         trace.Map(held => held.Enter(enabled: enabled)).IfNone(Fin.Succ(value: unit));
 
-    private sealed class MutationTrace {
-        private readonly Atom<bool> attempted = Atom(false);
-
-        internal bool Attempted => attempted.Value;
-
-        internal Fin<Unit> Enter(bool enabled) => enabled
-            ? Fin.Succ(value: ignore(attempted.Swap(static _ => true)))
-            : Fin.Succ(value: unit);
-    }
-
     private static Fin<FileCodec> Settled(Option<FileCodec> codec, DocumentPath path, Op op) =>
         codec.Map(static row => Fin.Succ(value: row))
             .IfNone(() => Codecs.Detect(path: path.Value).ToFin(Fail: op.InvalidInput()));
@@ -992,11 +1054,11 @@ public static class Exchanges {
     private static Fin<UInt128> Keyed(string path, Op op) =>
         op.Catch(() => Fin.Succ(value: ContentHash.Of(canonicalBytes: System.IO.File.ReadAllBytes(path: path))));
 
-    private static Fin<ExchangeReceipt> Dispatch(RhinoDoc document, ExchangeOp request, bool dirty, ExchangeHalt halt, Op op) =>
-        request.Switch(
-            (Document: document, Dirty: dirty, Halt: halt, Op: op),
+    private static Fin<ExchangeReceipt> Dispatch(RhinoDoc document, DocumentOp operation, bool dirty, Op op) =>
+        operation.Switch(
+            (Document: document, Dirty: dirty, Op: op),
             importCase: static (ctx, edit) =>
-                from tune in Optional(edit.Tune).ToFin(Fail: ctx.Op.InvalidInput())
+                from tune in ctx.Op.Need(edit.Tune)
                 from codec in Settled(codec: edit.Codec, path: edit.Source, op: ctx.Op)
                 from _read in Codecs.Apply(
                     document: ctx.Document,
@@ -1007,9 +1069,9 @@ public static class Exchanges {
                     key: ctx.Op)
                 select ExchangeReceipt.One(fact: new ExchangeFact.ImportedCase(Source: edit.Source, Codec: codec)),
             exportCase: static (ctx, edit) =>
-                from scope in Optional(edit.Scope).ToFin(Fail: ctx.Op.InvalidInput())
-                from tune in Optional(edit.Tune).ToFin(Fail: ctx.Op.InvalidInput())
-                from output in Optional(edit.Output).ToFin(Fail: ctx.Op.InvalidInput())
+                from scope in ctx.Op.Need(edit.Scope)
+                from tune in ctx.Op.Need(edit.Tune)
+                from output in ctx.Op.Need(edit.Output)
                 from codec in Settled(codec: edit.Codec, path: edit.Target, op: ctx.Op)
                 from settled in output.Resolve(target: edit.Target, codec: codec, key: ctx.Op)
                 from carrier in scope.Carrier(codec: codec, op: ctx.Op)
@@ -1031,8 +1093,8 @@ public static class Exchanges {
                       select ExchangeReceipt.One(fact: new ExchangeFact.SaveCase(Written: true))
                     : Fin.Succ(value: ExchangeReceipt.One(fact: new ExchangeFact.SaveCase(Written: false))),
             writeCase: static (ctx, edit) =>
-                from output in Optional(edit.Output).ToFin(Fail: ctx.Op.InvalidInput())
-                from policy in Optional(edit.Policy).ToFin(Fail: ctx.Op.InvalidInput())
+                from output in ctx.Op.Need(edit.Output)
+                from policy in ctx.Op.Need(edit.Policy)
                 from codec in policy.Codec(target: edit.Target, op: ctx.Op)
                 from settled in output.Resolve(target: edit.Target, codec: Some(codec), key: ctx.Op)
                 from _written in policy.Write(document: ctx.Document, path: settled.Value, op: ctx.Op)
@@ -1041,8 +1103,8 @@ public static class Exchanges {
                     fact: new ExchangeFact.ArtifactCase(Target: settled, Codec: codec, ContentKey: keyed)),
             geometryCase: static (ctx, edit) =>
                 from _rows in guard(!edit.Geometry.IsEmpty, ctx.Op.InvalidInput()).ToFin()
-                from policy in Optional(edit.Policy).ToFin(Fail: ctx.Op.InvalidInput())
-                from output in Optional(edit.Output).ToFin(Fail: ctx.Op.InvalidInput())
+                from policy in ctx.Op.Need(edit.Policy)
+                from output in ctx.Op.Need(edit.Output)
                 from archived in Codecs.Archive.ToFin(Fail: ctx.Op.InvalidResult())
                 from landed in ctx.Op.Catch(() => {
                     using File3dm archive = new();
@@ -1061,12 +1123,10 @@ public static class Exchanges {
                         Succeeded: true,
                         Detail: text,
                         Target: Some(landed.Target))).ToSeq()),
-            presetCase: static (ctx, _) => Fin.Fail<ExchangeReceipt>(error: ctx.Op.InvalidInput()),
             anchorCase: static (ctx, edit) =>
-                Optional(edit.Edit).ToFin(Fail: ctx.Op.InvalidInput())
+                ctx.Op.Need(edit.Edit)
                     .Bind(request => request.Apply(document: ctx.Document, op: ctx.Op))
-                    .Map(yield => ExchangeReceipt.One(fact: new ExchangeFact.AnchorCase(Yield: yield))),
-            batchCase: static (ctx, _) => Fin.Fail<ExchangeReceipt>(error: ctx.Op.InvalidInput()));
+                    .Map(yield => ExchangeReceipt.One(fact: new ExchangeFact.AnchorCase(Yield: yield))));
 }
 ```
 
@@ -1082,10 +1142,10 @@ flowchart LR
     accTitle: Rhino exchange transaction rail
     accDescr: One session-proved exchange request dispatches through host operation families into one detached receipt, while cancellation gates entry and typed evidence records native, degradation, and mutation outcomes.
     Session["DocumentSession — lifetime, needs, Modified"] --> Entry["Exchanges.Run"]
-    Request["ExchangeOp — Import · Export · Save · Write · Geometry · Preset · Anchor · Batch"] --> Entry
+    Request["ExchangeOp — Edit · Preset · Batch"] --> Entry
     Halt["ExchangeHalt — case-boundary cancellation"] --> Entry
     Entry -->|"derived needs"| Demand{"Capability?"}
-    Demand -->|"read or export"| Dispatch{"Exchange case?"}
+    Demand -->|"read or export"| Dispatch{"DocumentOp case?"}
     Demand -->|"mutation"| Undo["DocumentCommit.Sealed"]
     Undo --> Dispatch
     Dispatch -->|"import or export"| Matrix["Codecs rows"]

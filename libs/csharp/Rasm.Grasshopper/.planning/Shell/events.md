@@ -176,10 +176,10 @@ internal sealed class Detachment(Action release) : IDisposable {
 
 internal static partial class UiEventsLog {
     [LoggerMessage(EventId = 4702, Level = LogLevel.Error, Message = "UI event publication faulted on {Source}: {Detail}")]
-    internal static partial void PublicationFault(ILogger logger, string source, string detail);
+    internal static partial void PublicationFault(ILogger logger, string source, [UserContent] string detail);
 
     [LoggerMessage(EventId = 4712, Level = LogLevel.Error, Message = "UI subscription teardown faulted: {Detail}")]
-    internal static partial void TeardownFault(ILogger logger, string detail);
+    internal static partial void TeardownFault(ILogger logger, [UserContent] string detail);
 }
 
 internal sealed class EventSink(Action<UiEvent> publish, Atom<Option<Error>> lastFault, Op operation) {
@@ -567,6 +567,8 @@ public sealed class EvidenceDrain : IDisposable {
                            AllowSynchronousContinuations = false,
                            FullMode = bound.FullMode,
                        },
+                       // `minted` assigns after CreateBounded returns; the callback cannot fire earlier because
+                       // no write precedes the assignment, so the null-conditional covers construction alone.
                        itemDropped: dropped => minted?.Account(fact: dropped, key: op));
                    minted = new EvidenceDrain(channel: bounded, onShed: onShed);
                    return Fin.Succ(minted);

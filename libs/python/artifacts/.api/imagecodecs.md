@@ -45,14 +45,17 @@ Every encoder knob that is not a scalar takes its member, its `int`, or its lowe
 |  [04]   | `SPNG`     | `FMT` `FILTER`                                 | `RGBA8` `RGBA16` `RGB8` `GA8` `GA16` `G8` decode-format request       |
 |  [05]   | `TIFF`     | `COMPRESSION` `PREDICTOR` `PHOTOMETRIC` + six  | `LZW`/`DEFLATE`/`ZSTD`/`WEBP`/`LERC`; `FLOATINGPOINT`; `EXTRASAMPLE`  |
 |  [06]   | `JPEGXL`   | `COLOR_SPACE` `PRIMARIES` `TRANSFER_FUNCTION`  | `RGB`/`GRAY`/`XYB`; `SRGB`/`BT2100`/`P3`; `LINEAR`/`PQ`/`HLG`/`GAMMA` |
-|  [07]   | `AVIF`     | `QUALITY` `SPEED` `PIXEL_FORMAT` + color tags  | `LOSSLESS`; `YUV444`/`YUV420`; `COLOR_PRIMARIES` = `BT709 BT601 BT470M BT470BG SMPTE240 GENERIC_FILM BT2020 XYZ SMPTE431 SMPTE432 EBU3213` (`SRGB` aliases `BT709`); `PQ`/`HLG`/`LINEAR` |
+|  [07]   | `AVIF`     | `QUALITY` `SPEED` `PIXEL_FORMAT` + color tags  | `LOSSLESS`; `YUV444`/`YUV420`; `COLOR_PRIMARIES`; `PQ`/`HLG`/`LINEAR` |
 |  [08]   | `BCN`      | `FORMAT`                                       | `BC1`-`BC5`, `BC6HU`, `BC6HS`, `BC7` — the decode block vocabulary    |
 |  [09]   | `CMS`      | `INTENT` `FLAGS` `PT`                          | four intents; black-point, gamut-check, soft-proof, copy-alpha flags  |
 |  [10]   | `HTJ2K`    | `TILEPART`                                     | an `IntFlag` over `RESOLUTIONS` and `COMPONENTS`                      |
-|  [11]   | `ULTRAHDR` | `CG` `CT` `CR` `CODEC` `USAGE`                 | `BT_2100`/`DISPLAY_P3`; `LINEAR`/`HLG`/`PQ`; `CODEC` lists JPEG/HEIF/AVIF yet only JPEG ENCODES on this build — the others raise `UltrahdrError: invalid output format` |
+|  [11]   | `ULTRAHDR` | `CG` `CT` `CR` `CODEC` `USAGE`                 | `BT_2100`/`DISPLAY_P3`; `LINEAR`/`HLG`/`PQ`; `CODEC` JPEG base alone  |
 |  [12]   | `ZLIB`     | `COMPRESSION`                                  | `NO`/`SPEED`/`DEFAULT`/`BEST`, mirrored on `ZLIBNG`                   |
 |  [13]   | `QUANTIZE` | `MODE`                                         | `bitgroom` `granularbr` `gbr` `bitround` `scale`                      |
 |  [14]   | `FLOAT24`  | `ROUND`                                        | rounding for the 24-bit repack, mirrored on `BFLOAT16`                |
+
+- `AVIF.COLOR_PRIMARIES`: `BT709 BT601 BT470M BT470BG SMPTE240 GENERIC_FILM BT2020 XYZ SMPTE431 SMPTE432 EBU3213`, `SRGB` aliasing `BT709`.
+- `ULTRAHDR.CODEC`: lists JPEG, HEIF, and AVIF, yet only JPEG encodes on this build — HEIF and AVIF raise `UltrahdrError: invalid output format`.
 
 ## [03]-[ENTRYPOINTS]
 
@@ -64,7 +67,7 @@ Every encoder knob that is not a scalar takes its member, its `int`, or its lowe
 
 | [INDEX] | [SURFACE]                                                                        | [CAPABILITY]                                         |
 | :-----: | :------------------------------------------------------------------------------- | :--------------------------------------------------- |
-|  [01]   | `exr_encode(data, /, level=None, *, compression=None, planar=None, frames=None)` | half, float, or uint32 EXR; `level` is PER-FAMILY: the ZIP band 0..9 on the zip rows (outside raises `EXR_ERR_INVALID_ARGUMENT`), DWA quality on the DWA rows |
+|  [01]   | `exr_encode(data, /, level=None, *, compression=None, planar=None, frames=None)` | half, float, or uint32 EXR; `level` reads PER-FAMILY |
 |  [02]   | `exr_decode(data, /, *, index=0, planar=None)`                                   | `index` picks the part; channel names are dropped    |
 |  [03]   | `rgbe_encode(data, /, *, header=None, rle=None)`                                 | Radiance `.hdr` from float32 `(H, W, 3)`             |
 |  [04]   | `rgbe_decode(data, /, *, header=None, rle=None)`                                 | inverse to float32; headerless needs shape via `out` |
@@ -81,9 +84,12 @@ Every encoder knob that is not a scalar takes its member, its `int`, or its lowe
 |  [15]   | `jpeg2k_encode` and `jpeg2k_decode`                                              | JPEG 2000 over openjpeg, beside the HTJ2K engine     |
 |  [16]   | `lerc_encode(data, /, level=None, *, masks, version, compression, …)`            | bounded-error raster; `level=0.0` is lossless        |
 |  [17]   | `lerc_decode(data, /, *, masks=None)`                                            | `masks=True` returns `(values, masks)`               |
-|  [18]   | `ultrahdr_encode(data, /, level=None, *, sdr, gamut, transfer, nits, …)`         | gain-map HDR from float16 or uint32 — JPEG base alone on this build; `ultrahdr_decode` returns linear RGBA float16 `(H, W, 4)` and `ultrahdr_check` sniffs, both live |
+|  [18]   | `ultrahdr_encode(data, /, level=None, *, sdr, gamut, transfer, nits, …)`         | gain-map HDR from float16 or uint32; JPEG base alone |
 |  [19]   | `qoi_encode(data, /)` and `qoi_decode`                                           | QOI 8-bit lossless RGB/RGBA ONLY; no quality knob    |
 |  [20]   | `bmp_encode(data, /, *, ppm=None)`                                               | BMP 8-bit gray/RGB/RGBA; the libvips saver gap       |
+
+- `exr_encode(level=)`: ZIP rows take the 0..9 band and raise `EXR_ERR_INVALID_ARGUMENT` outside it, DWA rows read the same argument as quality.
+- `ultrahdr_decode`: returns linear RGBA float16 `(H, W, 4)`, and `ultrahdr_check` sniffs — both live on this build.
 
 
 [ENTRYPOINT_SCOPE]: block-compressed texture DECODE
@@ -101,11 +107,14 @@ Every encoder knob that is not a scalar takes its member, its `int`, or its lowe
 - rail: color
 - [SHAPE]: static (module-level functions)
 
-| [INDEX] | [SURFACE]                                                                    | [CAPABILITY]                                        |
-| :-----: | :--------------------------------------------------------------------------- | :-------------------------------------------------- |
-|  [01]   | `cms_profile(profile, /, *, whitepoint, primaries, transferfunction, gamma)` | names the `srgb`/`rgb`/`gray`/`adobergb`/`xyz`/`null` set, yet only `srgb`/`adobergb`/`xyz` BUILD a transform on this build — `rgb`/`gray`/`null` construct a profile that then fails `cmsCreateTransform`, and every built transform is 3-channel |
-|  [02]   | `cms_profile_validate(profile, /, *, verbose=None) -> None`                  | raises `CmsError` on an invalid ICC blob            |
-|  [03]   | `cms_transform(data, /, profile, outprofile, *, intent, flags, outdtype, …)` | transform, retype, and re-planarize in one call; profiles are ICC BLOBS — a name string raises `CmsError`; `intent` speaks `CMS.INTENT` member names; a 4-band input DROPS its alpha band, so the caller splits alpha before the call and rejoins after |
+| [INDEX] | [SURFACE]                                                                    | [CAPABILITY]                                    |
+| :-----: | :--------------------------------------------------------------------------- | :---------------------------------------------- |
+|  [01]   | `cms_profile(profile, /, *, whitepoint, primaries, transferfunction, gamma)` | mint a profile from a name or an ICC blob       |
+|  [02]   | `cms_profile_validate(profile, /, *, verbose=None) -> None`                  | raises `CmsError` on an invalid ICC blob        |
+|  [03]   | `cms_transform(data, /, profile, outprofile, *, intent, flags, outdtype, …)` | transform, retype, and re-planarize in one call |
+
+- `cms_profile`: names the `srgb`/`rgb`/`gray`/`adobergb`/`xyz`/`null` set, yet only `srgb`/`adobergb`/`xyz` build a transform — `rgb`/`gray`/`null` construct a profile that then fails `cmsCreateTransform`, and every built transform is 3-channel.
+- `cms_transform`: profiles are ICC BLOBS and a name string raises `CmsError`; `intent` speaks `CMS.INTENT` member names; a 4-band input DROPS its alpha band, so the caller splits alpha before the call and rejoins after.
 
 
 [ENTRYPOINT_SCOPE]: vertex, array, and numeric-precision codecs

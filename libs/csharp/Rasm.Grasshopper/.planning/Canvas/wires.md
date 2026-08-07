@@ -13,7 +13,7 @@ Wire visuals for the Grasshopper boundary fold through one owner set — route g
 ## [02]-[ROUTES]
 
 - Owner: `WireRoute` `readonly record struct` `[BoundaryAdapter]` — the admitted route capsule holding one host `WireShape`. Admission is ONE polymorphic `Of` discriminating on input shape: an endpoint pair (`PointF`, `PointF`) routes raw points, and a pin-attribute pair (`IParameterAttributes`, `IParameterAttributes`) routes outlet-to-inlet — the host `Create` throws on a source without an outlet or a target without an inlet, so both arms run under `Op.Catch` and a refused pin surfaces as the typed fault. Capsule queries are the full geometry contract renamed to canonical verbs: `Nearest(PointF)` (`Project` — closest point on the route), `Gap(PointF)` (`DistanceTo`), `Crosses(RectangleF)` (`Intersects`), `Touches(PointF, float)` (`IsCoincident`), `Extent` (`Bounds`), and `Endpoints` (`Source`/`Target`).
-- Owner: `RouteStyle` — the custom-route seam over `WireShape.ShapeType`. `Install(Type, Op?)` admits one closed, concrete `WireShape` subtype with a public two-`PointF` constructor before assignment; this precludes abstract, open-generic, and constructor-late failures before the host reaches `Activator.CreateInstance`. `Reset` clears the slot and restores `WireShapeDefault`; `Current` reads the installed type as `Option<Type>`. `WireShapeDefault` is the public cubic-spline fallback and `CreateSpline(PointF, PointF)` mints its `BezierF`; the internal linear and biarc implementations are not extension surfaces. Every elbow, orthogonal, or bundled route lands as a public plugin-owned `WireShape` subclass installed through this seam.
+- Owner: `RouteStyle` — the custom-route seam over `WireShape.ShapeType`. `Install(Type, Op?)` → `Fin<IDisposable>` admits one closed, concrete `WireShape` subtype with a public two-`PointF` constructor before assignment — precluding abstract, open-generic, and constructor-late failures before the host reaches `Activator.CreateInstance` — and holds the PROCESS-GLOBAL slot under leased custody: the returned capsule restores the captured prior style exactly once, a second concurrent install refuses with `InvalidContext` instead of silently overriding a sibling plugin, and `Current` reads the installed type as `Option<Type>`. `WireShapeDefault` is the public cubic-spline fallback and `CreateSpline(PointF, PointF)` mints its `BezierF`; the internal linear and biarc implementations are not extension surfaces. Every elbow, orthogonal, or bundled route lands as a public plugin-owned `WireShape` subclass installed through this seam.
 - Owner: `Traced` — the route-set producer: `Traced.Of(Seq<(WireEnds Ends, IParameterAttributes Source, IParameterAttributes Target)> pins, Op key)` folds pin rows into `TracedRoutes` through the attribute admission arm — every routed pin lands in `Routes`, every refused pin lands in `Refused` as typed evidence beside its `WireEnds`, so a single detached pin never voids the pass: the draw fold strokes what routed and a diagnostics consumer folds what refused. Pin resolution — `Guid` to `IParameterAttributes` — is graph territory; the rows arrive resolved.
 - Law: a route is rebuilt when its endpoints move, never cached across layout — construction is two points and a spline mint, and the host repaints wires per frame anyway;
 - Boundary: wire creation, deletion, endpoint rewiring, and the split into `Shout`/`Listen` are `Document/graph.md`'s `GraphScope.Mutate`; the straighten NUDGE candidate (`SnappingAction.CreateStraightenWireAction`) is `Canvas/layout.md`'s row; this page owns route geometry and its rendering only.
@@ -56,21 +56,42 @@ public readonly record struct WireRoute {
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
 [BoundaryAdapter]
+// WireShape.ShapeType is PROCESS-GLOBAL host state — every canvas and every co-resident plugin reads one slot —
+// so installation is leased custody: the lease captures the prior style and its inverse restores it exactly,
+// refusing a second concurrent install rather than silently overriding a sibling's route.
 public static class RouteStyle {
+    private static readonly Atom<Option<IDisposable>> Seat = Atom(Option<IDisposable>.None);
+
     public static Option<Type> Current => Optional(WireShape.ShapeType);
 
-    public static Fin<Unit> Install(Type routeType, Op? key = null) {
+    public static Fin<IDisposable> Install(Type routeType, Op? key = null) {
         Op op = key.OrDefault();
         return from candidate in op.Need(value: routeType)
                from derived in guard(typeof(WireShape).IsAssignableFrom(candidate), op.InvalidInput()).ToFin()
                from closed in guard(!candidate.IsAbstract && !candidate.ContainsGenericParameters, op.InvalidInput()).ToFin()
                from constructible in guard(
                    candidate.GetConstructor([typeof(PointF), typeof(PointF)]) is not null, op.InvalidInput()).ToFin()
-               from _ in op.Catch(body: () => Fin.Succ(Op.Side(action: () => WireShape.ShapeType = candidate)))
-               select unit;
+               from installed in op.Catch(body: () => {
+                   Type? prior = WireShape.ShapeType;
+                   RouteRestore restore = new(Detach: () => {
+                       WireShape.ShapeType = prior;
+                       ignore(Seat.Swap(static _ => Option<IDisposable>.None));
+                   });
+                   return Seat.Swap(held => held.IsNone ? Some((IDisposable)restore) : held)
+                       .Filter(occupant => ReferenceEquals(occupant, restore))
+                       .Match(
+                           Some: _ => { WireShape.ShapeType = candidate; return Fin.Succ((IDisposable)restore); },
+                           None: () => Fin.Fail<IDisposable>(op.InvalidContext()));
+               })
+               select installed;
     }
 
-    public static Unit Reset() => Op.Side(action: static () => WireShape.ShapeType = null!);
+    private sealed record RouteRestore(Action Detach) : IDisposable {
+        private int released;
+        public void Dispose() => Op.SideWhen(
+            condition: Interlocked.Exchange(ref released, 1) == 0,
+            action: Detach);
+    }
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
@@ -163,12 +184,12 @@ public static class WireSkinLens {
         Option<Color> selectedOpposite = default, Option<Color> selectedGlow = default,
         Option<EdgeDescription> outerEdge = default, Option<EdgeDescription> innerEdge = default) =>
         skin.Modify(
-            normal: normal.MatchUnsafe(Some: static c => c, None: static () => (Color?)null),
-            selected: selected.MatchUnsafe(Some: static c => c, None: static () => (Color?)null),
-            selectedOpposite: selectedOpposite.MatchUnsafe(Some: static c => c, None: static () => (Color?)null),
-            selectedGlow: selectedGlow.MatchUnsafe(Some: static c => c, None: static () => (Color?)null),
-            outerEdge: outerEdge.MatchUnsafe(Some: static e => e, None: static () => null),
-            innerEdge: innerEdge.MatchUnsafe(Some: static e => e, None: static () => null));
+            normal: normal.Match<Color?>(Some: static c => c, None: static () => null),
+            selected: selected.Match<Color?>(Some: static c => c, None: static () => null),
+            selectedOpposite: selectedOpposite.Match<Color?>(Some: static c => c, None: static () => null),
+            selectedGlow: selectedGlow.Match<Color?>(Some: static c => c, None: static () => null),
+            outerEdge: outerEdge.Match<EdgeDescription?>(Some: static e => e, None: static () => null),
+            innerEdge: innerEdge.Match<EdgeDescription?>(Some: static e => e, None: static () => null));
 }
 
 [BoundaryAdapter]
@@ -228,7 +249,7 @@ flowchart LR
 | [INDEX] | [CONCERN]        | [OWNER]                     | [KIND]                                     | [RAIL]                       | [CASES] |
 | :-----: | :--------------- | :-------------------------- | :----------------------------------------- | :--------------------------- | :-----: |
 |  [01]   | route geometry   | `WireRoute`                 | admitted capsule, one polymorphic `Of`     | `Of → Fin<WireRoute>`        |    2    |
-|  [02]   | custom routes    | `RouteStyle`                | gated host `ShapeType` seam                | `Install → Fin<Unit>`        |    1    |
+|  [02]   | custom routes    | `RouteStyle`                | leased host `ShapeType` custody            | `Install → Fin<IDisposable>` |    1    |
 |  [03]   | route production | `Traced` + `TracedRoutes`   | partial-success fold over pin rows         | `Of → TracedRoutes`          |    1    |
 |  [04]   | wire picking     | `WirePick`                  | pick-map point read + marquee fuzz fold    | `At → Fin<Option<WireEnds>>` |    2    |
 |  [05]   | pen resolution   | `WirePens` + `WireSkinLens` | out-pair lift + optional-detail projection | pure                         |    2    |

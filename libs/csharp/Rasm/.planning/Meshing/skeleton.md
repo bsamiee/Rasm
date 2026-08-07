@@ -348,6 +348,9 @@ public static class Skeletonize {
             Point3d p = arena.Position(survivors[nId]);
             (nx[nId], ny[nId], nz[nId]) = (p.X, p.Y, p.Z);
         }
+        (int[] arcFrom, int[] arcTo, int[] arcOrigin, int[] arcComponent) =
+            (new int[tree.Length], new int[tree.Length], new int[tree.Length], new int[tree.Length]);
+        for (int a = 0; a < tree.Length; a++) { (arcFrom[a], arcTo[a]) = (tree[a].Source, tree[a].Target); }
         for (int o = 0; o < state.Merged.Length; o++) {
             int nId = dense[Home(state.Merged, o)];
             double d = state.Original[o].DistanceTo(arena.Position(survivors[nId]));
@@ -357,16 +360,61 @@ public static class Skeletonize {
             if (d < best[nId]) { (best[nId], witness[nId]) = (d, o); }
         }
         for (int nId = 0; nId < nodes; nId++) { radius[nId] /= double.Max(count[nId], 1); }
+        (double[] sectionA, double[] sectionB) = Section();
 
-        (int[] arcFrom, int[] arcTo, int[] arcOrigin, int[] arcComponent) =
-            (new int[tree.Length], new int[tree.Length], new int[tree.Length], new int[tree.Length]);
         for (int a = 0; a < tree.Length; a++) {
-            (arcFrom[a], arcTo[a]) = (tree[a].Source, tree[a].Target);
             arcOrigin[a] = seed[tree[a].Source];
             arcComponent[a] = components[tree[a].Source];
         }
-        CurveSkeleton skeleton = new(nx, ny, nz, radius, witness, arcFrom, arcTo, arcOrigin, arcComponent);
+        CurveSkeleton skeleton = new(nx, ny, nz, radius, sectionA, sectionB, witness, arcFrom, arcTo, arcOrigin, arcComponent);
         return policy.SmoothBranches ? Smooth(skeleton) : skeleton;
+
+        // The section ellipse needs the witness the radius pass elects, so the merge set is walked a second time:
+        // first to fix each node's centre, mean clearance, and witness, then to project the set into that node's
+        // arc-normal plane. Tangent per node is the sign-aligned sum of its incident tree directions, so a degree-2
+        // interior node takes its chain direction and a leaf its single arc's. Semiaxes are sqrt(2*lambda) over the
+        // in-plane second moment, so an isotropic ring at distance r answers (r, r) and SectionB meets Radius; the
+        // eigenvalues are frame-invariant, so the witness pins the basis without deciding the measure.
+        (double[], double[]) Section() {
+            (double[] major, double[] minor) = (new double[nodes], new double[nodes]);
+            Vector3d[] tangent = new Vector3d[nodes];
+            for (int arc = 0; arc < tree.Length; arc++) {
+                Vector3d step = new Point3d(nx[arcTo[arc]], ny[arcTo[arc]], nz[arcTo[arc]])
+                    - new Point3d(nx[arcFrom[arc]], ny[arcFrom[arc]], nz[arcFrom[arc]]);
+                if (!step.Unitize()) { continue; }
+                foreach (int end in (ReadOnlySpan<int>)[arcFrom[arc], arcTo[arc]]) {
+                    tangent[end] += tangent[end].IsTiny() || tangent[end] * step >= 0.0 ? step : -step;
+                }
+            }
+            (Vector3d[] across, Vector3d[] normal) = (new Vector3d[nodes], new Vector3d[nodes]);
+            for (int nId = 0; nId < nodes; nId++) {
+                Vector3d t = tangent[nId];
+                if (!t.Unitize()) { t = Vector3d.ZAxis; }
+                Vector3d toward = state.Original[witness[nId]] - new Point3d(nx[nId], ny[nId], nz[nId]);
+                Vector3d inPlane = toward - ((toward * t) * t);
+                if (!inPlane.Unitize()) {
+                    inPlane = Vector3d.CrossProduct(t, double.Abs(t.X) < 0.9 ? Vector3d.XAxis : Vector3d.YAxis);
+                    inPlane.Unitize();
+                }
+                (across[nId], normal[nId]) = (inPlane, Vector3d.CrossProduct(t, inPlane));
+            }
+            (double[] mUU, double[] mUV, double[] mVV) = (new double[nodes], new double[nodes], new double[nodes]);
+            for (int o = 0; o < state.Merged.Length; o++) {
+                int nId = dense[Home(state.Merged, o)];
+                Vector3d spread = state.Original[o] - new Point3d(nx[nId], ny[nId], nz[nId]);
+                (double u, double v) = (spread * across[nId], spread * normal[nId]);
+                (mUU[nId], mUV[nId], mVV[nId]) = (mUU[nId] + (u * u), mUV[nId] + (u * v), mVV[nId] + (v * v));
+            }
+            for (int nId = 0; nId < nodes; nId++) {
+                double inverse = 1.0 / double.Max(count[nId], 1);
+                (double uu, double uv, double vv) = (mUU[nId] * inverse, mUV[nId] * inverse, mVV[nId] * inverse);
+                double mid = (uu + vv) * 0.5;
+                double half = (uu - vv) * 0.5;
+                double band = double.Sqrt((half * half) + (uv * uv));
+                (major[nId], minor[nId]) = (double.Sqrt(double.Max(2.0 * (mid + band), 0.0)), double.Sqrt(double.Max(2.0 * (mid - band), 0.0)));
+            }
+            return (major, minor);
+        }
     }
 
     // One IInterpolation pass per maximal degree-2 chain: chord-length-parameterized robust cubic per coordinate, interior nodes re-sampled, junctions/endpoints pinned.

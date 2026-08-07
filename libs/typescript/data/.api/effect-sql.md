@@ -23,7 +23,7 @@
 
 | [INDEX] | [SYMBOL]                                           | [TYPE_FAMILY]       | [CONSUMER_BOUNDARY]                                          |
 | :-----: | :------------------------------------------------- | :------------------ | :----------------------------------------------------------- |
-|  [01]   | `SqlClient` (interface, extends `Constructor`)     | `Context.Tag`       | the neutral client every row yields; `runtime/work` `SqlClient` port |
+|  [01]   | `SqlClient` (interface, extends `Constructor`)     | `Context.Tag`       | neutral client every row yields; `runtime/work` port         |
 |  [02]   | `SqlClient.MakeOptions`                            | driver config       | a driver assembles the client from this (fields in lead)     |
 |  [03]   | `SqlClient.safe` / `.withoutTransforms()`          | client variant      | `safe` for SafeQL; `withoutTransforms` drops name transforms |
 |  [04]   | `Connection` / `Connection.Acquirer`               | driver surface      | the leased connection statements run on (members in lead)    |
@@ -50,13 +50,13 @@
 - `SqlSchema`/`SqlResolver` parse-not-validate: a request `Schema` validates input, a result `Schema` decodes the untyped `Connection.Row`, and a decode miss rides `ParseError` on the `Effect` channel. `SqlResolver<T, I, A, E, R>`/`SqlRequest<T, A, E>` layer `effect`'s `Request`/`RequestResolver` batching with a `spanLink` per request inside a `sql.Resolver.batch <tag>` window span.
 - `Model.VariantsDatabase` (`select`/`insert`/`update`) splits from `Model.VariantsJson` (`json`/`jsonCreate`/`jsonUpdate`); `SqlError` is the one tagged fault the rail fails into.
 
-| [INDEX] | [SYMBOL]                                        | [TYPE_FAMILY]   | [CONSUMER_BOUNDARY]                                             |
-| :-----: | :---------------------------------------------- | :-------------- | :-------------------------------------------------------------- |
-|  [01]   | `SqlError` (tagged `YieldableError`)            | fault rail      | driver failure on the `Effect` channel; `value/fault` `FaultClass` rows classify |
-|  [02]   | `ResultLengthMismatch`                          | tagged error    | `SqlResolver.ordered` guard — result count ≠ request count      |
-|  [03]   | `SqlResolver` / `SqlRequest`                    | batched request | a resolver over `RequestResolver` (generics in lead)            |
-|  [04]   | `Model.Any` / `Model.AnyNoContext`              | model bound     | constraint `makeRepository`/`makeDataLoaders` accept            |
-|  [05]   | `Model.VariantsDatabase` / `Model.VariantsJson` | variant axis    | DB-variant trio vs JSON-variant trio (members in lead)          |
+| [INDEX] | [SYMBOL]                                        | [TYPE_FAMILY]   | [CONSUMER_BOUNDARY]                                              |
+| :-----: | :---------------------------------------------- | :-------------- | :--------------------------------------------------------------- |
+|  [01]   | `SqlError` (tagged `YieldableError`)            | fault rail      | driver failure on the `Effect` channel; `value/fault` classifies |
+|  [02]   | `ResultLengthMismatch`                          | tagged error    | `SqlResolver.ordered` guard — result count ≠ request count       |
+|  [03]   | `SqlResolver` / `SqlRequest`                    | batched request | a resolver over `RequestResolver` (generics in lead)             |
+|  [04]   | `Model.Any` / `Model.AnyNoContext`              | model bound     | constraint `makeRepository`/`makeDataLoaders` accept             |
+|  [05]   | `Model.VariantsDatabase` / `Model.VariantsJson` | variant axis    | DB-variant trio vs JSON-variant trio (members in lead)           |
 
 [PUBLIC_TYPE_SCOPE]: the `Model` variant-schema field families
 - `Model.Class` derives one struct into six wire variants, a field's per-variant presence its type; `Field`/`FieldOnly`/`FieldExcept`/`fieldEvolve`/`fieldFromKey` build, narrow, and rename a variant field set, and `Override` forces a value into a generated variant. Journal events, snapshot headers, projection rows, and ledger rows compose from the field families below, never a hand-written per-entity trio.
@@ -80,12 +80,12 @@
 
 | [INDEX] | [SURFACE]                                             | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                         |
 | :-----: | :---------------------------------------------------- | :------------- | :---------------------------------------------------------- |
-|  [01]   | `` sql`… ${id}` `` → `Statement<A>`                   | run/project    | every read/write; `.stream` for `read/fold` cursors     |
+|  [01]   | `` sql`… ${id}` `` → `Statement<A>`                   | run/project    | every read/write; `.stream` for `read/fold` cursors         |
 |  [02]   | `sql.insert`/`sql.update`/`sql.updateValues`          | build DML      | `journal/append` insert + RETURNING; `updateValues` pg-only |
 |  [03]   | `sql.in`/`sql.and`/`sql.or`/`sql.csv`/`sql.join`      | clause build   | keyset/facet WHERE in `retrieve/hybrid`; `csv` for ORDER BY |
 |  [04]   | `sql.onDialect` / `sql.onDialectOrElse`               | dialect branch | emit pg vs sqlite SQL from one definition (arms in lead)    |
 |  [05]   | `sql.unsafe`/`sql.literal`/`Statement.unsafeFragment` | escape hatch   | provably-safe literal splice the fragment API can't express |
-|  [06]   | `Statement.compile(withoutTransform?)`                | reflect        | `lane/capability` probe, telemetry span attrs, SafeQL check  |
+|  [06]   | `Statement.compile(withoutTransform?)`                | reflect        | `lane/capability` probe, telemetry span attrs, SafeQL check |
 |  [07]   | `setTransformer`/`withTransformer`                    | name transform | Layer-wide snake↔camel mapping; off in raw passes           |
 |  [08]   | `SqlStream.asyncPauseResume(register, bufferSize?)`   | cursor stream  | backpressured async-emit a driver wraps its `pg-cursor` in  |
 
@@ -93,14 +93,14 @@
 - `sql.withTransaction(effect)` leases one connection for every inner statement, nesting to savepoints by `TransactionConnection` depth; `sql.reserve` yields `Effect<Connection, SqlError, Scope>` for LISTEN/NOTIFY, COPY, and advisory locks.
 - `sql.reactive(keys, effect)` and `sql.reactiveMailbox(keys, effect)` (over `@effect/experimental` `Reactivity`) re-emit a `Stream`/`ReadonlyMailbox` when `Reactivity.invalidate(keys)` fires — the `read/live` read-your-writes signal; `SqlClient.make(options)` returns `Effect<SqlClient, never, Reactivity>` and `makeWithTransaction(opts)` is the driver's transaction machinery.
 
-| [INDEX] | [SURFACE]                             | [ENTRY_FAMILY]   | [CONSUMER_BOUNDARY]                                                   |
-| :-----: | :------------------------------------ | :--------------- | :-------------------------------------------------------------------- |
-|  [01]   | `sql.withTransaction(effect)`         | transaction      | `journal/append` — OCC append + `outbox` + ledger claim atomic        |
-|  [02]   | `SqlClient.makeWithTransaction(opts)` | driver txn       | driver transaction machinery; nested depth → savepoint (opts in lead) |
-|  [03]   | `sql.reserve`                         | lease conn       | scoped raw-connection lease for LISTEN/NOTIFY, COPY, advisory locks   |
-|  [04]   | `sql.reactive(keys, effect)`          | reactive read    | `read/live` — re-run when `Reactivity.invalidate(keys)` fires    |
-|  [05]   | `sql.reactiveMailbox(keys, effect)`   | reactive mailbox | pull-model reactive consumer; `read/live` owns the reactive read lanes         |
-|  [06]   | `SqlClient.make(options)`             | assemble client  | a driver builds the neutral client from `MakeOptions`                 |
+| [INDEX] | [SURFACE]                             | [ENTRY_FAMILY]   | [CONSUMER_BOUNDARY]                                                    |
+| :-----: | :------------------------------------ | :--------------- | :--------------------------------------------------------------------- |
+|  [01]   | `sql.withTransaction(effect)`         | transaction      | `journal/append` — OCC append + `outbox` + ledger claim atomic         |
+|  [02]   | `SqlClient.makeWithTransaction(opts)` | driver txn       | driver transaction machinery; nested depth → savepoint (opts in lead)  |
+|  [03]   | `sql.reserve`                         | lease conn       | scoped raw-connection lease for LISTEN/NOTIFY, COPY, advisory locks    |
+|  [04]   | `sql.reactive(keys, effect)`          | reactive read    | `read/live` — re-run when `Reactivity.invalidate(keys)` fires          |
+|  [05]   | `sql.reactiveMailbox(keys, effect)`   | reactive mailbox | pull-model reactive consumer; `read/live` owns the reactive read lanes |
+|  [06]   | `SqlClient.make(options)`             | assemble client  | a driver builds the neutral client from `MakeOptions`                  |
 
 [ENTRYPOINT_SCOPE]: schema-typed query and batching resolver
 - `SqlSchema` typed query: input `Schema` in, result `Schema` out, `ParseError` on the error channel — `findAll`/`findOne` (→ `Option`)/`single` (→ `A | NoSuchElement`)/`void`, each `{ Request, Result, execute }`.
@@ -109,7 +109,7 @@
 | [INDEX] | [SURFACE]                                     | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                                |
 | :-----: | :-------------------------------------------- | :------------- | :----------------------------------------------------------------- |
 |  [01]   | `SqlSchema.findAll`/`findOne`/`single`/`void` | typed query    | projection reads into `state`; one query, arity in ctor            |
-|  [02]   | `SqlResolver.ordered(tag, opts)`              | batch resolver | 1:1 order-matched (`ResultLengthMismatch`) — `read/fold`       |
+|  [02]   | `SqlResolver.ordered(tag, opts)`              | batch resolver | 1:1 order-matched (`ResultLengthMismatch`) — `read/fold`           |
 |  [03]   | `SqlResolver.grouped(tag, opts)`              | batch resolver | 1:N grouped by key — `retrieve/hybrid` fan-in of per-key sets      |
 |  [04]   | `SqlResolver.findById(tag, opts)` → `Option`  | batch resolver | id→`Option` DataLoader; `withContext: true` threads a `Schema` req |
 |  [05]   | `SqlResolver.void(tag, opts)`                 | batch resolver | batched write, no decode — windowed touch/complete                 |
@@ -131,12 +131,12 @@
 - `SqlEventJournal.layer({ eventLogTable?, remotesTable? })` → `Layer<EventJournal, SqlError, SqlClient>`; `SqlEventLogServer.layerStorage({ entryTablePrefix?, remoteIdTable?, insertBatchSize? })` → `Layer<EventLogServer.Storage, SqlError, SqlClient | EventLogEncryption>`, `layerStorageSubtle(options?)` the zero-knowledge Web-Crypto variant; `SqlPersistedQueue.layerStore({ tableName?, pollInterval?, lockRefreshInterval?, lockExpiration? })` → `Layer<PersistedQueueStore, SqlError, SqlClient>`.
 - these bind the SQL spine under `@effect/experimental`'s overlay Tags (`.api/effect-experimental.md`): the overlay accelerates local-first reads, the SQL journal stays the record of truth.
 
-| [INDEX] | [SURFACE]                                        | [ENTRY_FAMILY]    | [CONSUMER_BOUNDARY]                                         |
-| :-----: | :----------------------------------------------- | :---------------- | :---------------------------------------------------------- |
-|  [01]   | `SqlEventJournal.layer(opts)`                    | journal store     | durable-node `EventJournal` entry store                     |
-|  [02]   | `SqlEventLogServer.layerStorage(opts)`           | sync server store | E2E-encrypted sync-server storage; `serve/live` mounts it    |
-|  [03]   | `SqlEventLogServer.layerStorageSubtle(options?)` | sync server store | zero-knowledge Web-Crypto variant, no `EventLogEncryption`  |
-|  [04]   | `SqlPersistedQueue.layerStore(opts)`             | durable queue     | `runtime/work` durable-job store — SKIP-LOCKED poll + lease refresh |
+| [INDEX] | [SURFACE]                                        | [ENTRY_FAMILY]    | [CONSUMER_BOUNDARY]                                           |
+| :-----: | :----------------------------------------------- | :---------------- | :------------------------------------------------------------ |
+|  [01]   | `SqlEventJournal.layer(opts)`                    | journal store     | durable-node `EventJournal` entry store                       |
+|  [02]   | `SqlEventLogServer.layerStorage(opts)`           | sync server store | E2E-encrypted sync-server storage; `serve/live` mounts it     |
+|  [03]   | `SqlEventLogServer.layerStorageSubtle(options?)` | sync server store | zero-knowledge Web-Crypto variant, no `EventLogEncryption`    |
+|  [04]   | `SqlPersistedQueue.layerStore(opts)`             | durable queue     | `runtime/work` durable-job store; SKIP-LOCKED + lease refresh |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

@@ -96,25 +96,25 @@
 
 [ENTRYPOINT_SCOPE]: raster IO and algorithms
 
-| [INDEX] | [SURFACE]                                                                                   | [SHAPE]  | [CAPABILITY]             |
-| :-----: | :------------------------------------------------------------------------------------------ | :------- | :----------------------- |
-|  [01]   | `Dataset.ReadRaster(int×4, T[], int×2, int, int[], int×3, RasterIOExtraArg?) -> CPLErr`     | instance | windowed multi-band read |
-|  [02]   | `Dataset.GetGeoTransform(double[])`                                                         | instance | affine out               |
-|  [03]   | `Dataset.GetExtent(Envelope, SpatialReference) -> CPLErr`                                   | instance | dataset extent           |
-|  [04]   | `Dataset.GetExtentWGS84LongLat(Envelope) -> CPLErr`                                         | instance | WGS84 extent             |
-|  [05]   | `Dataset.BuildOverviews(string, int[]) -> int`                                              | instance | pyramid                  |
-|  [06]   | `Gdal.Warp(string, Dataset[], GDALWarpAppOptions)`                                          | static   | reproject/mosaic         |
-|  [07]   | `Gdal.wrapper_GDALTranslate(string, Dataset, GDALTranslateOptions)`                         | static   | transcode                |
-|  [08]   | `Gdal.wrapper_GDALDEMProcessing(string, Dataset, string, string, GDALDEMProcessingOptions)` | static   | terrain analysis         |
-|  [09]   | `Gdal.wrapper_GDALContourDestName(string, Dataset, GDALContourOptions)`                     | static   | contour vectorize        |
-|  [10]   | `Gdal.BuildVRT(string, Dataset[], GDALBuildVRTOptions)`                                     | static   | virtual mosaic           |
-|  [11]   | `Driver.Create(string, int, int, int, DataType, string[]) -> Dataset`                       | instance | new raster               |
-|  [12]   | `Driver.CreateCopy(string, Dataset, int, string[]) -> Dataset`                              | instance | copy/transcode           |
+| [INDEX] | [SURFACE]                                                                                        | [SHAPE]  | [CAPABILITY]             |
+| :-----: | :----------------------------------------------------------------------------------------------- | :------- | :----------------------- |
+|  [01]   | `Dataset.ReadRaster(int×4, T[], int×2, int, int[], int×3, RasterIOExtraArg?) -> CPLErr`          | instance | windowed multi-band read |
+|  [02]   | `Dataset.GetGeoTransform(double[])`                                                              | instance | affine out               |
+|  [03]   | `Dataset.GetExtent(Envelope, SpatialReference) -> CPLErr`                                        | instance | dataset extent           |
+|  [04]   | `Dataset.GetExtentWGS84LongLat(Envelope) -> CPLErr`                                              | instance | WGS84 extent             |
+|  [05]   | `Dataset.BuildOverviews(string, int[]) -> int`                                                   | instance | pyramid                  |
+|  [06]   | `Gdal.Warp(string, Dataset[], GDALWarpAppOptions, +progress)`                                    | static   | reproject/mosaic         |
+|  [07]   | `Gdal.wrapper_GDALTranslate(string, Dataset, GDALTranslateOptions, +progress)`                   | static   | transcode                |
+|  [08]   | `Gdal.wrapper_GDALDEMProcessing(string, Dataset, string×2, GDALDEMProcessingOptions, +progress)` | static   | terrain analysis         |
+|  [09]   | `Gdal.wrapper_GDALContourDestName(string, Dataset, GDALContourOptions, +progress)`               | static   | contour vectorize        |
+|  [10]   | `Gdal.BuildVRT(string, Dataset[], GDALBuildVRTOptions, +progress)`                               | static   | virtual mosaic           |
+|  [11]   | `Driver.Create(string, int, int, int, DataType, string[]) -> Dataset`                            | instance | new raster               |
+|  [12]   | `Driver.CreateCopy(string, Dataset, int, string[]) -> Dataset`                                   | instance | copy/transcode           |
 
 - `Dataset.ReadRaster`/`Band.ReadRaster` are per-type overloads over `byte[]`/`short[]`/`int[]`/`float[]`/`double[]` (and a `nint`+`DataType` untyped form), never a generic `<T>`; `WriteRaster` mirrors them. `bufXSize`/`bufYSize` differing from the window triggers on-read resampling, the kernel selected by `RasterIOExtraArg`.
 - `Dataset` shape/lifecycle: `RasterXSize` `RasterYSize` `RasterCount` `GetRasterBand(int)` `GetProjection`/`SetProjection` `SetGeoTransform` `SetSpatialRef` `GetDriver` `FlushCache` `Close` `GetThreadSafeDataset(int)`. `Driver` write/identity: `CreateVector` `CreateMultiDimensional` `Delete` `Rename` `CopyFiles` `ShortName` `LongName`.
 - `Envelope` is `OSGeo.OGR.Envelope` (`MinX`/`MaxX`/`MinY`/`MaxY`), not the NTS type; a windowed read derives its tile extent off the re-anchored affine corners, never the source-dataset call.
-- `Warp`/`wrapper_GDAL*`/`BuildVRT` each take a trailing `(GDALProgressFuncDelegate, string)` progress pair and return `Dataset`. `Warp` options: `-t_srs` `-r` `-te` `-tr`; `BuildOverviews` kernels: `"AVERAGE"` `"GAUSS"` `"CUBIC"`; DEM modes: `"hillshade"` `"slope"` `"aspect"`, color relief.
+- `+progress` abbreviates the trailing `(GDALProgressFuncDelegate callback, string callbackData)` pair every `Warp`/`wrapper_GDAL*`/`BuildVRT` overload requires; no arity-shortened overload exists, so a caller wanting no progress passes `(null, null)`. `Warp` options: `-t_srs` `-r` `-te` `-tr`; `BuildOverviews` kernels: `"AVERAGE"` `"GAUSS"` `"CUBIC"`; DEM modes: `"hillshade"` `"slope"` `"aspect"`, color relief.
 
 [ENTRYPOINT_SCOPE]: band metadata and palette/RAT legend
 
@@ -168,14 +168,15 @@
 
 [ENTRYPOINT_SCOPE]: OSR reprojection (PROJ pipeline)
 
-| [INDEX] | [SURFACE]                                                                                        | [SHAPE]  | [CAPABILITY]       |
-| :-----: | :----------------------------------------------------------------------------------------------- | :------- | :----------------- |
-|  [01]   | `SpatialReference.ImportFromEPSG(int) -> int`                                                    | instance | EPSG import        |
-|  [02]   | `SpatialReference.SetFromUserInput(string) -> int`                                               | instance | CRS parse          |
-|  [03]   | `SpatialReference.SetAxisMappingStrategy(AxisMappingStrategy)`                                   | instance | axis order         |
-|  [04]   | `CoordinateTransformation(SpatialReference, SpatialReference, CoordinateTransformationOptions?)` | ctor     | build pipeline     |
-|  [05]   | `CoordinateTransformation.TransformPoints(int, double[], double[], double[])`                    | instance | batch transform    |
-|  [06]   | `Geometry.TransformTo(SpatialReference) -> int`                                                  | instance | geometry transform |
+| [INDEX] | [SURFACE]                                                                                        | [SHAPE]  | [CAPABILITY]           |
+| :-----: | :----------------------------------------------------------------------------------------------- | :------- | :--------------------- |
+|  [01]   | `SpatialReference.ImportFromEPSGA(int) -> int`                                                   | instance | axis-true EPSG import  |
+|  [02]   | `SpatialReference.ImportFromEPSG(int) -> int`                                                    | instance | EPSG, lon/lat pre-swap |
+|  [03]   | `SpatialReference.SetFromUserInput(string) -> int`                                               | instance | CRS parse              |
+|  [04]   | `SpatialReference.SetAxisMappingStrategy(AxisMappingStrategy)`                                   | instance | axis order             |
+|  [05]   | `CoordinateTransformation(SpatialReference, SpatialReference, CoordinateTransformationOptions?)` | ctor     | build pipeline         |
+|  [06]   | `CoordinateTransformation.TransformPoints(int, double[], double[], double[])`                    | instance | batch transform        |
+|  [07]   | `Geometry.TransformTo(SpatialReference) -> int`                                                  | instance | geometry transform     |
 
 - `SpatialReference` construction: `ImportFromEPSGA` `ImportFromWkt` `ImportFromProj4` `ImportFromESRI` `ImportFromUrl` `ImportFromXML` `SetWellKnownGeogCS` `SetUTM`; export: `ExportToWkt` `ExportToPrettyWkt` `ExportToProj4` `ExportToPROJJSON`; identity: `IsProjected` `IsGeographic` `IsSame` `GetAuthorityCode` `GetAuthorityName`; dynamics: `IsDynamic` `GetCoordinateEpoch` `SetCoordinateEpoch(double)` carry the plate-motion datum epoch.
 - `Geometry.TransformTo(SpatialReference)` reprojects in place through PROJ; `Geometry.Transform(CoordinateTransformation)` applies a prebuilt pipeline.
@@ -193,7 +194,7 @@
 - OSR reprojection is the escalation path parallel to managed `ProjNET`: `ProjNET` owns CRS and datum transforms for managed planar geometry, OSR owns reprojection inside `Gdal.Warp`/`Geometry.TransformTo`/`Dataset.GetExtent` pipelines and the PROJ datum-grid or `IsDynamic`/`GetCoordinateEpoch` plate-motion cases. Every OSR CRS applies `SetAxisMappingStrategy(OAMS_TRADITIONAL_GIS_ORDER)`.
 
 [STACKING]:
-- `NetTopologySuite`(`.api/api-nettopologysuite.md`): `Geometry.ExportToWkb`/`CreateFromWkb(wkbNDR)` ↔ `NetTopologySuite.IO.WKBReader.Read`/`WKBWriter.Write` is the canonical bidirectional bridge; universal vector ingest enters as OGR features and the planar algebra, index, and predicates run on NTS after the wire hop.
+- `NetTopologySuite`(`.api/api-nettopologysuite`): `Geometry.ExportToWkb`/`CreateFromWkb(wkbNDR)` ↔ `NetTopologySuite.IO.WKBReader.Read`/`WKBWriter.Write` is the canonical bidirectional bridge; universal vector ingest enters as OGR features and the planar algebra, index, and predicates run on NTS after the wire hop.
 - `ProjNET`(`.api/api-projnet.md`): OSR is the escalation counterpart. A transform the managed engine cannot express — a PROJ grid-shift or dynamic/plate-motion datum — escalates to a one-shot `CoordinateTransformation`; `ProjNET` owns every transform that stays managed.
 - `NetTopologySuite.IO.Esri.Shapefile`(`.api/api-nts-esri-shapefile.md`): the managed codec is the default for `.shp` (no native dependency); GDAL's `"ESRI Shapefile"` driver is the path only for formats the managed codec does not cover.
 - within-lib: `wrapper_GDALContourDestName` and `RasterizeLayer` cross the raster/vector boundary — a DEM becomes contour `Layer`s (then NTS geometry) and NTS footprints rasterize into a `Band`.

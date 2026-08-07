@@ -6,33 +6,50 @@
 
 ## [01]-[INDEX]
 
-- [02]-[FORMAT_AXIS]: format/codec/extension rows; capability, companion, and `Frame` basis-change columns.
+- [02]-[FORMAT_AXIS]: format/codec/extension rows; capability, write-capability, detect-precedence, companion, and `Frame` basis-change columns.
 
 ## [02]-[FORMAT_AXIS]
 
-- Owner: `InterchangeFormat` the format vocabulary keyed by media-type, extension, and key; `InterchangeCodec` the codec-owner vocabulary discriminating the managed package or companion reading and writing a row; `KhrExtension` the glTF extension axis on its `KhrSlot`/`KhrEncoder` discriminant; `BasisChange` the per-importer signed-permutation basis carrying positions and normals alike onto the canonical kernel frame; `FrameNormalization` the static surface coercing every imported coordinate onto that frame.
-- Auto: `Detect` resolves one row from a key, media type, path, bare dotted extension, or compound suffix with zero call-site branching; `Companion` folds the format flag and the codec flag into the one predicate the import fold reads; `FrameNormalization.Canonicalize` applies a row's `BasisChange` to a position or a normal buffer alike, and `FlipsWinding` reports the mirror case (negative determinant) driving the import fold's triangle-order reversal rather than the kernel negating one component unrewound.
+- Owner: `InterchangeFormat` the format vocabulary keyed by media-type, extension, and key, its `DetectRank` column the declared precedence among rows sharing one of those keys and its `RoundTrippable` derivation the both-directions predicate the wire narrows on; `InterchangeDirection` the two-value axis the ONE `Admitted` capability gate keys on; `InterchangeCodec` the codec-owner vocabulary discriminating the managed package or companion reading and writing a row; `KhrExtension` the glTF extension axis on its `KhrSlot`/`KhrEncoder`/`Writable` discriminants; `BasisChange` the per-importer signed-permutation basis carrying positions and normals alike onto the canonical kernel frame; `FrameNormalization` the static surface coercing every imported coordinate onto that frame.
+- Auto: `Detect` resolves one row from a key, media type, path, bare dotted extension, or compound suffix with zero call-site branching, a contended media type or extension resolving on the `DetectRank` column both frozen indexes read; `Admitted` answers the whole capability question for one direction — the catalogue-pending state, the companion-bound degradation, and the plain read-only or write-only refusal, each its own `Model/faults#DETAIL_ROSTER` row read off the row's own columns; `Companion` folds the format flag and the codec flag into the one predicate the import fold reads; `FrameNormalization.Canonicalize` applies a row's `BasisChange` to a position or a normal buffer alike, and `FlipsWinding` reports the mirror case (negative determinant) driving the import fold's triangle-order reversal rather than the kernel negating one component unrewound.
 - Packages: SharpGLTF.Core, SharpGLTF.Toolkit, SharpGLTF.Runtime, GeometryGymIFC_Core, Openize.Drako, Alimer.Bindings.MeshOptimizer, geometry3Sharp, Ply.Net, AssimpNetter, dotbim, Themis.Las, UniversalSceneDescription, NetTopologySuite, NetTopologySuite.IO.Esri.Shapefile, NetTopologySuite.IO.VectorTiles, NetTopologySuite.IO.VectorTiles.Mapbox, SharpKml.Core, bertt.CityJSON, FlatGeobuf, GISBlox.IO.GeoParquet, MaxRev.Gdal.Core, ACadSharp, HoneybeeSchema, DragonflySchema, NREL.OpenStudio.macOS-arm64, Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm
-- Growth: a new interchange format is one `InterchangeFormat` row (media-type, extensions, capability columns, codec owner, `TessellationRequiresCompanion`, `Frame`, `StepProtocol`); a new IFC wire form GeometryGym emits — a serialization, a container over an existing one, or both — is one `Projection/egress#IFC_EGRESS` `IfcWireForm` row named as the `Serialization` value on one GeometryGym-codec row, never a call-site format ladder and never a container column beside it; a new managed codec is one `InterchangeCodec` row; a new glTF capability is one `KhrExtension` row on its `KhrSlot`/`KhrEncoder` discriminant, its `Registrar` closure set only for a caller-supplied non-in-box `JsonSerializable`; a new ingest frame is one `BasisChange` static row, never a per-axis branch; a not-yet-decompiled format admits as a `CataloguePending` candidate row naming its package (`ifc5`/`Ifc5Pending` the standing example), promoted in place when the catalogue lands.
-- Boundary: format selection is row data resolved through `Detect`, never a call-site extension switch — a parallel `GltfImporter`/`IfcImporter`/`GltfExporter` family is the deleted form. `CanImport`/`CanExport` fault a write-only or read-only direction at the boundary rather than mid-codec, and every `true` column names its realizing arm: mesh/scene emit through the `export#EXPORT_RAIL` `BimExport.Export` codec `Switch`, IFC emit through `ExportIfc`→`Projection/egress#IFC_EGRESS` `SemanticProjector.Emit`, geospatial-vector read/write through the `Semantics/geospatial#VECTOR_INGEST` `GeoVector.Read`/`GeoVector.Write` fold, raster read through `#RASTER_INGEST`. Each flag flips WITH its realizing arm and never before, so a flag with no arm is the rejected PHANTOM, each row carrying its own phantom reason on its sub-bullet below, and IFC and glTF rows stay bidirectional because GeometryGym and SharpGLTF are symmetric over their serializations. `TessellationRequiresCompanion` is `true` exactly on the IFC/STEP/native rows because GeometryGym carries no tessellation kernel — a managed IFC geometry evaluation is the rejected form — and the codec owner is the `InterchangeCodec` discriminant, not a delegate field, because the codec capsules carry no runtime state the row owns.
-- [STEP_PROTOCOLS]: `StepProtocol` disambiguates AP203 (config-controlled 3D design), AP214 (automotive core), and AP242 (model-based 3D engineering, the merged successor) sharing the `step-iso10303` codec and the `.step`/`.stp`/`.p21` set, `StepProtocol.None` on every non-STEP row keeping the column total. All three carry `CanExport=false` — no managed STEP writer is admitted, the in-process BCL-only `StepReader` being an import-only Part-21 entity-instance reader and a re-author the rejected form (`IxMilia.Step`/`StepFileParser` absent from NuGet, `STPLoader` net35/`AForge`-coupled, `DevelApp.StepParser` a regex grammar engine, a native OpenCASCADE reader in-process breaking the firebreak). `step-iso10303` drops its `CataloguePackage` marker (`Managed=true`) for the admitted in-process semantic-graph leg yet keeps `Companion=true` because the B-rep/NURBS geometry leg routes to the Compute companion; `BimIo.ImportStep` lands product structure in-process and the geometry hop crosses `tessellation#TESSELLATION_BRIDGE` as the IFC request does.
-- [IFC_ZIP_CONTAINER]: `ifc-zip` carries the SAME STEP serialization the `ifc` row does, inside the zip container `DatabaseIfc.WriteStream` opens off its own entry extension — one `ZipArchive` over the caller's stream holding one `<stem>.ifc` entry — so the container is the `Projection/egress#IFC_EGRESS` `IfcWireForm.StepZip` row and never a second column on this table; `.ifczip` is the buildingSMART container extension and `application/x-ifczip` its registered media type, so `Detect` resolves the row by either. `CanExport=true` names the `SemanticProjector.Emit` seal, while `CanImport=false` holds because the ingest fold sniffs a schema header off raw bytes and no arm unzips a container entry ahead of that sniff — the flag flips WITH that arm, per the realizing-arm law; a caller-side `ZipArchive` over an emitted `.ifc` artifact is the deleted second container owner.
+- Growth: a new interchange format is one `InterchangeFormat` row (media-type, extensions, capability columns, codec owner, `TessellationRequiresCompanion`, `Frame`, `StepProtocol`, and `DetectRank` only where it contends for a key another row already holds); a new IFC wire form GeometryGym emits — a serialization, a container over an existing one, or both — is one `Projection/egress#IFC_EGRESS` `IfcWireForm` row named as the `Serialization` value on one GeometryGym-codec row, carrying its own `Seal` and `Admit` delegates, never a call-site format ladder and never a container column beside it; a new managed codec is one `InterchangeCodec` row; a new glTF capability is one `KhrExtension` row on its `KhrSlot`/`KhrEncoder`/`Writable` discriminants, an import-only extension entering `Writable=false` rather than staying off the roster; a new ingest frame is one `BasisChange` static row, never a per-axis branch; a not-yet-decompiled format admits as a `CataloguePending` candidate row naming its package, promoted in place when the catalogue lands.
+- Boundary: format selection is row data resolved through `Detect`, never a call-site extension switch — a parallel `GltfImporter`/`IfcImporter`/`GltfExporter` family is the deleted form. Capability is ONE gate: `Admitted(format, direction, key)` reads the catalogue-pending state, the companion binding, and the direction column off the row, so `BimIo.ImportGeometry`/`ImportIfc`/`ImportStep` and `BimExport.Export`/`ExportIfc` each compose it once and no entrypoint re-spells a pending-then-capability ladder whose order decided which message an operator read. Each capability column — a format row's `CanImport`/`CanExport`, a `KhrExtension` row's `Writable` — flips WITH its realizing arm and never before, so a `true` with no arm is the rejected PHANTOM and a `false` is the row's declared one-way vocabulary, each row carrying its own reason on its sub-bullet below; `RoundTrippable` is the derived both-directions predicate the `wire#WIRE_PROJECTION` seal and negotiation narrow on, so a row that reads but cannot write is unreachable to a wire that must round-trip. Every `true` names its realizing arm: mesh/scene emit through the `export#EXPORT_RAIL` `BimExport.Export` codec `Switch`, IFC emit and admission through the `Projection/egress#IFC_EGRESS` `IfcWireForm` row's own `Seal`/`Admit` pair, geospatial-vector read/write through the `Semantics/geospatial#VECTOR_INGEST` `GeoVector.Read`/`GeoVector.Write` fold, raster read through `#RASTER_INGEST`. `TessellationRequiresCompanion` is `true` exactly on the IFC/STEP/native rows because GeometryGym carries no tessellation kernel — a managed IFC geometry evaluation is the rejected form — and the codec owner is the `InterchangeCodec` discriminant, not a delegate field, because the codec capsules carry no runtime state the row owns.
+- [STEP_PROTOCOLS]: `StepProtocol` disambiguates AP203 (config-controlled 3D design), AP214 (automotive core), and AP242 (model-based 3D engineering, the merged successor) sharing the `step-iso10303` codec and the `.step`/`.stp`/`.p21` set, `StepProtocol.None` on every non-STEP row keeping the column total. All three carry `CanExport=false` — no managed STEP writer is admitted, the in-process BCL-only `StepReader` being an import-only Part-21 entity-instance reader and a re-author the rejected form (`IxMilia.Step`/`StepFileParser` absent from NuGet, `STPLoader` RID-unsafe, `DevelApp.StepParser` a regex grammar engine, a native OpenCASCADE reader in-process breaking the firebreak). `step-iso10303` drops its `CataloguePackage` marker (`Managed=true`) for the admitted in-process semantic-graph leg yet keeps `Companion=true` because the B-rep/NURBS geometry leg routes to the Compute companion; `BimIo.ImportStep` lands product structure in-process and the geometry hop crosses `tessellation#TESSELLATION_BRIDGE` as the IFC request does.
+- [IFC_ZIP_CONTAINER]: `ifc-zip` carries the SAME STEP serialization the `ifc` row does, inside the zip container the `Projection/egress#IFC_EGRESS` `IfcWireForm.StepZip` row's own `Seal` writes and its own `Admit` unzips — one `ZipArchive` over the stream holding one `<stem>.ifc` entry — so the container is that row and never a second column on this table; `.ifczip` is the buildingSMART container extension and `application/x-ifczip` its registered media type, so `Detect` resolves the row by either. BOTH capability flags stand because the wire form carries BOTH delegates: the `Admit` half is what lets the ingest reach the entry bytes before the schema sniff, so the row round-trips and a caller-side `ZipArchive` over an emitted `.ifc` artifact is the deleted second container owner.
 - [IGES_DISTINCT]: IGES is not an ISO 10303 protocol — its ANSI section-based grammar shares neither the STEP physical-file token grammar nor the GeometryGym entity surface, so the `iges` row carries the distinct `iges-ansi` companion codec and routes its B-rep/NURBS evaluation through the Compute companion (no managed IGES reader admitted); an `iges` row on `step-iso10303` hands `StepReader` a `StepProtocol.None` and a grammar it cannot parse, the deleted form.
-- [GLTF_EXTENSION_ROWS]: `KhrExtension` carries each glTF extension SharpGLTF.Core serializes in-box as one row on its `KhrSlot`/`KhrEncoder` discriminant. In-box geometry/material/texture/scene/metadata rows carry `Registrar=None` because SharpGLTF.Core auto-registers them and authors them only through the public `Material`/`MaterialChannel`/`Texture`/`Node`/`MeshGpuInstancing`/`ModelRoot` surface — the `KHR_materials_*` and texture classes are `internal` (only `TextureTransform`/`XmpPackets`/`PunctualLight`/`MeshGpuInstancing` public), so an `ExtensionsFactory.RegisterExtension<Material, MaterialSpecular>(...)` over an internal type is the rejected form, and a `Registrar=None` row for an absent extension (`KHR_gaussian_splatting`/`KHR_materials_variants`/`KHR_mesh_quantization`) is the rejected phantom. `Registrar` is reserved for a caller-supplied custom extension from `JsonSerializable`, never an in-box type.
-- [TEXTURE_SLOT_STATUS]: every `KhrSlot.Texture` row names its realizing arm at `export#EXPORT_RAIL`, so the slot carries no capability flag without one. `KHR_texture_transform` realizes through the Toolkit `TextureBuilder.WithTransform` frame a `ChannelImage` carries; `KHR_texture_basisu`, `EXT_texture_webp`, and `MSFT_texture_dds` realize through the CONTAINER of the already-sealed bytes the composing edge binds — `TextureBuilder.PrimaryImage` reads PNG, JPG, DDS, WEBP, and KTX2, so the row is the extension the chosen container obliges rather than a codec this branch owns, and `Rasm.Bim` encodes no image on either rail. Registration reads the UNION of the `InterchangePolicy` roster and the payload's own obliged rows, so a bound map registers its extension even where the policy omitted it. `FallbackImage` admits PNG and JPG alone, so a consumer lacking one of the three container extensions reads the core-format fallback rather than an unresolvable texture — the fallback is the row's honest degradation, never a second material.
-- [MATERIAL_SLOT_STATUS]: every `KhrSlot.Material` row states whether an arm fills it, because a rostered extension nothing writes serializes nothing and a policy preset carrying it declares a capability its own producer cannot exercise. `KHR_materials_transmission` realizes off the seam `AppearanceSummary.Transmissive` bit the `export#EXPORT_RAIL` `MaterialFinish.Author` writes; `KHR_materials_specular`, `_clearcoat`, `_sheen`, `_iridescence`, `_anisotropy`, and `_diffuse_transmission` realize through the `GltfChannel` rows a bound map resolves onto — a coat, sheen, iridescence, anisotropy, or subsurface map obliges its own extension at `ChannelImage.Obliges`, so the row and its arm land together. `KHR_materials_volume`, `_dispersion`, `_ior`, and `_emissive_strength` carry NO arm: the seam summary is the one factor source and it drops the volume thickness, the dispersion factor, and the refraction magnitude, while the emissive binding writes unit strength — each row waits on a finish column carrying its magnitude, and until then no policy preset rosters it. `KHR_materials_unlit` and `KHR_materials_pbrSpecularGlossiness` stay IMPORT vocabulary alone — the exporter selects `WithMetallicRoughnessShader` on every material and the Toolkit marks `WithSpecularGlossinessShader` obsolete behind Khronos's own deprecation, so authoring either is the rejected form.
+- [GLTF_EXTENSION_ROWS]: `KhrExtension` carries each glTF extension SharpGLTF.Core serializes in-box as one row on its `KhrSlot`/`KhrEncoder`/`Writable` discriminants. Registration is NOT a row concern: SharpGLTF.Core's process-global `ExtensionsFactory` already carries the in-box KHR/EXT set and authors it only through the public `Material`/`MaterialChannel`/`Texture`/`Node`/`MeshGpuInstancing`/`ModelRoot` surface, and the `KHR_materials_*` and texture classes are `internal` (only `TextureTransform`/`XmpPackets`/`PunctualLight`/`MeshGpuInstancing` public), so an `ExtensionsFactory.RegisterExtension<Material, MaterialSpecular>(...)` over an internal type is the rejected form. The retired per-row `Registrar` closure was a column every row signed `None` and a `Fin` rail whose failure arm no row could reach — the write path is the `Writables` NARROWING alone; a row for an absent extension (`KHR_gaussian_splatting`/`KHR_materials_variants`/`KHR_mesh_quantization`) is the rejected phantom.
+- [EXTENSION_CAPABILITY]: `Writable` declares each row's WRITE capability, so a row this branch reads and never authors is DECLARED read vocabulary, the `export#EXPORT_RAIL` registration union narrows through `Writables`, and no rostered-but-unfillable row reads as support. `KhrSlot.Scene` and `KhrSlot.Metadata` rows sign `false` — this rail authors no scene object, light, animation channel, or XMP packet; a `KhrSlot.Material` row signs `false` wherever the seam summary drops its magnitude.
+- [TEXTURE_SLOT_STATUS]: every `KhrSlot.Texture` row signs `Writable=true` against a named realizing arm at `export#EXPORT_RAIL`. `KHR_texture_transform` realizes through the Toolkit `TextureBuilder.WithTransform` frame a `ChannelImage` carries; `KHR_texture_basisu`, `EXT_texture_webp`, and `MSFT_texture_dds` realize through the CONTAINER of the already-sealed bytes the composing edge binds — `TextureBuilder.PrimaryImage` reads PNG, JPG, DDS, WEBP, and KTX2, so the row is the extension the chosen container obliges rather than a codec this branch owns, and `Rasm.Bim` encodes no image on either rail. Registration reads the UNION of the `InterchangePolicy` roster and the payload's own obliged rows, so a bound map registers its extension even where the policy omitted it. `FallbackImage` admits PNG and JPG alone, so a consumer lacking one of the three container extensions reads the core-format fallback rather than an unresolvable texture — the fallback is the row's honest degradation, never a second material.
+- [MATERIAL_SLOT_STATUS]: each `KhrSlot.Material` row's `Writable` column IS the statement of whether an arm fills it. `KHR_materials_transmission` realizes off the seam `AppearanceSummary.Transmissive` bit the `export#EXPORT_RAIL` `MaterialFinish.Author` writes; `KHR_materials_specular`, `_clearcoat`, `_sheen`, `_iridescence`, `_anisotropy`, and `_diffuse_transmission` realize through the `GltfChannel` rows a bound map resolves onto — a coat, sheen, iridescence, anisotropy, or subsurface map obliges its own extension at `ChannelImage.Obliges`, so the row and its arm land together. `KHR_materials_volume`, `_dispersion`, `_ior`, and `_emissive_strength` sign `Writable=false`: the seam summary is the one factor source and it drops the volume thickness, the dispersion factor, and the refraction magnitude, while the emissive binding writes unit strength — each row returns to `true` the moment a finish column carries its magnitude. `KHR_materials_unlit` and `KHR_materials_pbrSpecularGlossiness` stay IMPORT vocabulary alone — the exporter selects `WithMetallicRoughnessShader` on every material and the Toolkit marks `WithSpecularGlossinessShader` obsolete behind Khronos's own deprecation, so authoring either is the rejected form.
 - [COMPRESSION_ROWS]: `Openize.Drako` (`KHR_draco_mesh_compression`) and `Alimer.Bindings.MeshOptimizer` (`KHR_meshopt_compression`) own encode and decode on the `KhrEncoder` discriminant because SharpGLTF.Core ships no compression codec — the `export#EXPORT_RAIL` `GlbBytes` switch drives the encode half and the `import#IMPORT_RAIL` `Decompress` pre-decode branch the symmetric decode half, so both rows are bidirectional and a per-extension importer/exporter type is the deleted form.
-- [MESH_TEXT_ROWS]: `geometry3Sharp` (pure-managed netstandard2.0, ALC-safe) grounds the `Stl`/`Obj`/`Off` decode, import-only (`CanExport=false`) because the mesh egress is the GLB rail, not `geometry3Sharp`'s writer; `geometry3Sharp` ships no PLY or 3MF reader, so `PLY` is the dedicated `ply-net` codec naming `Ply.Net` (`PlyParser.Parse` over the immutable `Header`/`Dataset`/`PropertyData` graph) retiring the BCL `PlyReader`, and 3MF moves to `scene-exchange`.
+- [MESH_TEXT_ROWS]: `geometry3Sharp` (pure-managed, ALC-safe) grounds the `Stl`/`Obj`/`Off` decode, import-only (`CanExport=false`) because the mesh egress is the GLB rail, not `geometry3Sharp`'s writer; `geometry3Sharp` ships no PLY or 3MF reader, so `PLY` is the dedicated `ply-net` codec naming `Ply.Net` (`PlyParser.Parse` over the immutable `Header`/`Dataset`/`PropertyData` graph) retiring the BCL `PlyReader`, and 3MF moves to `scene-exchange`.
 - [SCENE_EXCHANGE_ROWS]: `AssimpNetter` (shipping its own osx-arm64 `libassimp.dylib`, RID-coupled but the one admitted owner) covers the formats no other Bim codec owns — FBX, Collada, and the standalone 3MF read leg — through one disposable `AssimpContext` and its `PostProcessSteps` transform algebra; `Fbx`/`Collada` are import-and-export (`CanImport=true`/`CanExport=true`) and `ThreeMf` import-only because the Assimp 3MF leg reads but does not write, faulting the export fold at the boundary. Each scene-exchange row carries its KEY as the AssimpNetter `exportFormatId` (`fbx`/`collada`/`3mf`), pinning the Collada row key to `collada` — a `dae` key handed to `ExportToBlob` misses the export matrix, the `.dae` extension alone owning `Detect` — and the export arm guards through `IsExportFormatSupported`. `lib3mf` (native C++) and `Aspose.3D` (closed) are rejected, a second managed FBX/Collada lib beside `AssimpNetter` the rejected form retiring the former `Ufbx`/`Collada141` candidates; a per-format `StlImporter`/`PlyImporter`/`FbxImporter` family is the deleted form.
-- [ACAD_CODEC]: `ACadSharp` (pure-managed AnyCPU IL, osx-arm64-safe) is the in-process DWG+DXF reader, so the `Dwg` row routes `.dwg`/`.dxf` to the managed `acad-sharp` codec (`CanImport=true`/`CanExport=false` — read-only ingress, host-bound DWG/DXF write staying Rhino-native, `TessellationRequiresCompanion=false`) rather than the `native-companion` two-hop; the `import#IMPORT_RAIL` `BimIo` decode arm folds the mesh-bearing `MESH`/`3DFACE`/`POLYFACE_MESH`/`POLYGON_MESH`/`INSERT` entities onto the `ImportedGeometry` triangle soup (the `LINE`/`LWPOLYLINE`/`CIRCLE`/`ARC` 2D profiles being `csharp:Rasm.Fabrication`'s `Loop` concern, never this arm), promoting by row data not an `if(dwg)` branch. `netDxf` is not admitted because `ACadSharp` supersedes it over both formats, a second managed CAD lib the rejected form, and the native-coupled `Aspose.CAD`/`Teigha`/`ODA` readers break the ALC firebreak.
-- [DOTBIM_CODEC]: `dotbim` (pure-managed netstandard2.0, STJ wire, zero native payload) is the only admitted codec whose WIRE expresses instancing — `File` owns a shared `Mesh` pool with placed `Element` instances referencing a pool `MeshId` by a rigid `Vector`+quaternion `Rotation`, a validated `Guid`, a `Type`, an RGBA `Color`, and a `string`→`string` `Info` bag, so N repeated objects serialize as N placements over ONE mesh. Bidirectional: import resolves each `Element.MeshId` against the pool and bakes the placement transform; export pools distinct geometry by content key, decomposes onto `Vector`/`Rotation`, stamps the seam GlobalId onto `Element.Guid` and the classification onto `Type`, and round-trips IFC tags through `Info`. `File.Read`/`File.Save` are PATH-BOUND (`.bim`-enforced, no stream overload), so the byte arms cross a temp path as the `usd-stage` codec does, and the typed setters validate at assignment (`Color` 0..255, `MeshId >= 0`, malformed `Guid`) so an invalid model faults at build before `Save`.
+- [ACAD_CODEC]: `ACadSharp` (pure-managed AnyCPU IL, osx-arm64-safe) is the in-process DWG+DXF reader, so the `Dwg` row routes `.dwg`/`.dxf` to the managed `acad-sharp` codec (`CanImport=true`/`CanExport=false` — read-only ingress, host-bound DWG/DXF write staying Rhino-native, `TessellationRequiresCompanion=false`) rather than the `native-companion` two-hop; the `import#IMPORT_RAIL` `BimIo` decode arm folds the mesh-bearing `MESH`/`3DFACE`/`POLYFACE_MESH`/`POLYGON_MESH`/`INSERT` entities onto the `ImportedGeometry` triangle soup (the `LINE`/`LWPOLYLINE`/`CIRCLE`/`ARC` 2D profiles being `Rasm.Fabrication`'s `Loop` concern, never this arm), promoting by row data not an `if(dwg)` branch. `netDxf` is not admitted because `ACadSharp` supersedes it over both formats, a second managed CAD lib the rejected form, and the native-coupled `Aspose.CAD`/`Teigha`/`ODA` readers break the ALC firebreak.
+- [DOTBIM_CODEC]: `dotbim` (pure-managed, STJ wire, zero native payload) is the only admitted codec whose WIRE expresses instancing — `File` owns a shared `Mesh` pool with placed `Element` instances referencing a pool `MeshId` by a rigid `Vector`+quaternion `Rotation`, a validated `Guid`, a `Type`, an RGBA `Color`, and a `string`→`string` `Info` bag, so N repeated objects serialize as N placements over ONE mesh. Bidirectional: import resolves each `Element.MeshId` against the pool and bakes the placement transform; export pools distinct geometry by content key, decomposes onto `Vector`/`Rotation`, stamps the seam GlobalId onto `Element.Guid` and the classification onto `Type`, and round-trips IFC tags through `Info`. `File.Read`/`File.Save` are PATH-BOUND (`.bim`-enforced, no stream overload), so the byte arms cross a temp path as the `usd-stage` codec does, and the typed setters validate at assignment (`Color` 0..255, `MeshId >= 0`, malformed `Guid`) so an invalid model faults at build before `Save`.
 - [POINT_CLOUD_AND_GEOSPATIAL]: `Themis.Las` is the `point-cloud` codec — the ASPRS LAS reader the `reconstruct#RECONSTRUCTION` scan-to-BIM front decodes through, `Unofficial.laszip.netstandard` composing in for the compressed `.laz` so one ingest path reads `.las` and `.laz`. That row stays import-only because no rail composes the catalogued `LasWriter` yet, a point-cloud egress being `reconstruct#RECONSTRUCTION` growth over its point carrier, never a mesh-rail LAS dump. `shp`/`gpkg`/`geojson`/`cityjson`/`fgb`/`geoparquet`/`kml`/`kmz`/`mvt` are the `geospatial-vector` codec the `Semantics/geospatial#VECTOR_INGEST` owner decodes and `GeoVector.Write` re-emits over `NetTopologySuite.IO.Esri.Shapefile`/`bertt.CityJSON`/`FlatGeobuf`/`GISBlox.IO.GeoParquet`, the `MaxRev.Gdal.Core` OGR path with `SharpKml.Core` the admitted managed `.kml`/`.kmz` upgrade, and `NetTopologySuite.IO.VectorTiles.Mapbox` over `.mvt`/`.pbf`; `cityjson` is import-only because the planar `GeoFeature` egress cannot re-emit the 3D city hierarchy while `fgb`/`geoparquet` round-trip. `MaxRev.Gdal.Core` raster is the `geospatial-raster` codec `Semantics/geospatial#RASTER_INGEST` reads, import-only until a raster egress arm composes the GDAL `CreateCopy` write.
 - [USD_PEER]: `UsdStage` layer composition carries the USD scene through the `UsdGeomMesh`/`UsdGeomXformable`/`UsdShadeMaterialBindingAPI` schemas while GeometryGym carries the BIM semantics, so the `usd-stage` codec is a scene-graph peer, never a BIM-semantic replacement — deriving `BimElement`/`IfcClass` from USD prim type names is the named boundary violation, the `SWIGTYPE_p_*`/`*PINVOKE` interop types never entering canonical owners and a stage op with no matching RID native payload faulting `BimFault.CapabilityMiss`. `usdz` carries `CanExport=false` because the `UniversalSceneDescription` binding ships `UsdStage.Export` over `.usd`/`.usda`/`.usdc` and no `.usdz` packaging member, so a `CreateNew("*.usdz")` author is the rejected phantom while `.usdz` READS through the package layer. `Frame` stays the Y-up default a metadata-less stage falls to, USD's `upAxis` being per-stage metadata (`UsdGeom.UsdGeomGetStageUpAxis`), so the import `Usd` arm selects the basis per stage and a Z-up CAD/BIM export lands canonical with no row edit.
 - [ENERGY_MODEL_ROWS]: `HoneybeeSchema` (HBJSON), `DragonflySchema` (DFJSON), and `NREL.OpenStudio.macOS-arm64` (OSM/gbXML/IDF) are the `energy-model` codec whose realizing arms live on the `Energy/` folder — `CanImport` is the `Energy/projector#ENERGY_PROJECTOR` raise, the hbjson/dfjson `CanExport` the `Energy/derive#MODEL_DERIVE` BIM-to-BEM lower, and the osm/gbxml/idf emit rides `Energy/derive#TRANSLATE_MATRIX` over an OSM-family SOURCE, never the graph, so those rows carry `CanExport=false` per the realizing-arm law. These rows never enter the `BimIo` mesh/scene fold (a format row's arm may live on any rail), `TessellationRequiresCompanion=false` because an energy model carries no BRep, and the frames are Identity.
+- [CATALOGUE_PENDING]: `CataloguePackage` is a bare package IDENTIFIER, so the `import#IMPORT_RAIL` pending fault derives from that id and a design note seated there reaches every caller as an unkeyable message body. `saf-xlsx` names an ADMITTED distribution, pending only until its `ExcelModel`↔`Model/structural#STRUCTURAL_PROJECTION` arms land; `ifc5-ecs` awaits a toolkit no registry ships, so its row signs both capability flags false and the wire filter excludes it.
+- [DETECT_PRECEDENCE]: `DetectRank` is the DECLARED precedence `Detect` resolves a contended key on, defaulting `0` so an uncontended row omits it. AP242 — the merged successor — outranks AP214 and AP203 on the shared `.step` set, and the armed COBie row outranks the pending SAF row on the shared `xlsx` media type. Ranking on the `StepProtocol` enum VALUE read a schema token as a precedence scale, so both `xlsx` rows tied and `MaxBy` seated them by accident.
 - [ROW_PROMOTION]: one codec admit promotes one row — a candidate flips its `CanImport`/`CanExport` and drops the `CataloguePackage` marker, the `import#IMPORT_RAIL`/`export#EXPORT_RAIL` folds gain one `InterchangeCodec`-keyed arm grounded against the named package with zero new `BimIo`/`BimExport` entrypoint, and the managed-versus-companion split reads from `TessellationRequiresCompanion` (managed grounds its decode inline, companion routes the geometry hop to `tessellation#TESSELLATION_BRIDGE`), never an `if(ifc)`/`if(step)` branch. This row promotion deletes a parallel `GltfImporter`/`StlImporter`/`StepImporter` family, a per-format codec entrypoint, and a second `BimIo` fold. Chunked simulation-field, FastCDC geometry-delta, and content-addressed artifact codecs stay at `Rasm.Compute/Runtime/codecs`, consumed at the seam, never re-minted here.
 
 ```csharp signature
+// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+using System.Collections.Frozen;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using LanguageExt;
+using Rasm.Bim.Model;                          // BimFault + the Detail roster every refusal here raises through
+using Rasm.Bim.Projection;                     // IfcWireForm — the egress row the Serialization column carries
+using Rasm.Domain;
+using Thinktecture;
+using static LanguageExt.Prelude;
 
+namespace Rasm.Bim;
+
+// --- [TYPES] ------------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
@@ -51,55 +68,72 @@ public sealed partial class InterchangeCodec {
     public static readonly InterchangeCodec AcadSharp = new("acad-sharp", managed: true, companion: false, cataloguePackage: Option<string>.None);
     public static readonly InterchangeCodec IgesAnsi = new("iges-ansi", managed: false, companion: true, cataloguePackage: Option<string>.None);
     public static readonly InterchangeCodec UsdStage = new("usd-stage", managed: true, companion: false, cataloguePackage: Option<string>.None);
-    public static readonly InterchangeCodec Saf = new("saf-xlsx", managed: true, companion: false, cataloguePackage: "StructuralAnalysisFormat admitted; the ExcelModel<->seam-payload arms land as the row promotion");
+    public static readonly InterchangeCodec Saf = new("saf-xlsx", managed: true, companion: false, pending: true, cataloguePackage: "StructuralAnalysisFormat");
     public static readonly InterchangeCodec CobieXlsx = new("cobie-xlsx", managed: true, companion: false, cataloguePackage: Option<string>.None);
     public static readonly InterchangeCodec EnergyModel = new("energy-model", managed: true, companion: false, cataloguePackage: Option<string>.None);
-    public static readonly InterchangeCodec Ifc5Pending = new("ifc5-ecs", managed: false, companion: false, cataloguePackage: "no admitted IFC5/IFCX toolkit; GeometryGym is IFC2x3-IFC4.x only");
+    // The recorded IFC5 negative, decompile-proven at the installed GeometryGymIFC_Core pin: a raw byte scan of the
+    // assembly holds zero `ifcx`/`ifc5` occurrences and `ReleaseVersion` tops at `IFC4X4_DRAFT`, so NO admitted
+    // toolkit carries an `.ifcx` ECS admission and the row is pending with no candidate package to name. The gate
+    // re-probes as freshness work on a release shipping IFC5 members, never as standing research debt.
+    public static readonly InterchangeCodec Ifc5Pending = new("ifc5-ecs", managed: false, companion: false, pending: true, cataloguePackage: Option<string>.None);
 
     public bool Managed { get; }
     public bool Companion { get; }
-    public Option<string> CataloguePackage { get; }
 
-    public bool CataloguePending => CataloguePackage.IsSome;
+    // Pending is its OWN column — a row can await arms for an admitted distribution (saf-xlsx, package named) or
+    // await a toolkit no registry ships (ifc5-ecs, package absent), so deriving pending from package presence
+    // conflates the two states and silently disarms the packageless gate. The ctor defaults it false, so only
+    // the candidate rows spell it.
+    public bool Pending { get; }
+
+    // Candidate package identifier alone — the token the pending fault message names so an operator reads WHICH
+    // distribution a row awaits. Design rationale rides the [CATALOGUE_PENDING] card bullet, never this column: a
+    // sentence seated here reaches every caller as a fault-message body no consumer can key on.
+    public Option<string> CataloguePackage { get; }
 }
 
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 public sealed partial class KhrExtension {
-    public static readonly KhrExtension DracoMeshCompression = new("KHR_draco_mesh_compression", KhrSlot.Compression, encoder: KhrEncoder.Draco, registrar: Option<Action>.None);
-    public static readonly KhrExtension MeshoptCompression = new("KHR_meshopt_compression", KhrSlot.Compression, encoder: KhrEncoder.Meshopt, registrar: Option<Action>.None);
-    public static readonly KhrExtension MeshGpuInstancing = new("EXT_mesh_gpu_instancing", KhrSlot.Geometry, encoder: KhrEncoder.None, registrar: Option<Action>.None);
-    public static readonly KhrExtension TextureTransform = new("KHR_texture_transform", KhrSlot.Texture, encoder: KhrEncoder.None, registrar: Option<Action>.None);
-    public static readonly KhrExtension TextureBasisu = new("KHR_texture_basisu", KhrSlot.Texture, encoder: KhrEncoder.None, registrar: Option<Action>.None);
-    public static readonly KhrExtension TextureWebp = new("EXT_texture_webp", KhrSlot.Texture, encoder: KhrEncoder.None, registrar: Option<Action>.None);
-    public static readonly KhrExtension TextureDds = new("MSFT_texture_dds", KhrSlot.Texture, encoder: KhrEncoder.None, registrar: Option<Action>.None);
-    public static readonly KhrExtension LightsPunctual = new("KHR_lights_punctual", KhrSlot.Scene, encoder: KhrEncoder.None, registrar: Option<Action>.None);
-    public static readonly KhrExtension NodeVisibility = new("KHR_node_visibility", KhrSlot.Scene, encoder: KhrEncoder.None, registrar: Option<Action>.None);
-    public static readonly KhrExtension AnimationPointer = new("KHR_animation_pointer", KhrSlot.Scene, encoder: KhrEncoder.None, registrar: Option<Action>.None);
-    public static readonly KhrExtension XmpJsonLd = new("KHR_xmp_json_ld", KhrSlot.Metadata, encoder: KhrEncoder.None, registrar: Option<Action>.None);
-    public static readonly KhrExtension MaterialsUnlit = new("KHR_materials_unlit", KhrSlot.Material, encoder: KhrEncoder.None, registrar: Option<Action>.None);
-    public static readonly KhrExtension MaterialsSpecular = new("KHR_materials_specular", KhrSlot.Material, encoder: KhrEncoder.None, registrar: Option<Action>.None);
-    public static readonly KhrExtension MaterialsIor = new("KHR_materials_ior", KhrSlot.Material, encoder: KhrEncoder.None, registrar: Option<Action>.None);
-    public static readonly KhrExtension MaterialsIridescence = new("KHR_materials_iridescence", KhrSlot.Material, encoder: KhrEncoder.None, registrar: Option<Action>.None);
-    public static readonly KhrExtension MaterialsSheen = new("KHR_materials_sheen", KhrSlot.Material, encoder: KhrEncoder.None, registrar: Option<Action>.None);
-    public static readonly KhrExtension MaterialsClearcoat = new("KHR_materials_clearcoat", KhrSlot.Material, encoder: KhrEncoder.None, registrar: Option<Action>.None);
-    public static readonly KhrExtension MaterialsTransmission = new("KHR_materials_transmission", KhrSlot.Material, encoder: KhrEncoder.None, registrar: Option<Action>.None);
-    public static readonly KhrExtension MaterialsVolume = new("KHR_materials_volume", KhrSlot.Material, encoder: KhrEncoder.None, registrar: Option<Action>.None);
-    public static readonly KhrExtension MaterialsAnisotropy = new("KHR_materials_anisotropy", KhrSlot.Material, encoder: KhrEncoder.None, registrar: Option<Action>.None);
-    public static readonly KhrExtension MaterialsDispersion = new("KHR_materials_dispersion", KhrSlot.Material, encoder: KhrEncoder.None, registrar: Option<Action>.None);
-    public static readonly KhrExtension MaterialsDiffuseTransmission = new("KHR_materials_diffuse_transmission", KhrSlot.Material, encoder: KhrEncoder.None, registrar: Option<Action>.None);
-    public static readonly KhrExtension MaterialsEmissiveStrength = new("KHR_materials_emissive_strength", KhrSlot.Material, encoder: KhrEncoder.None, registrar: Option<Action>.None);
-    public static readonly KhrExtension MaterialsPbrSpecularGlossiness = new("KHR_materials_pbrSpecularGlossiness", KhrSlot.Material, encoder: KhrEncoder.None, registrar: Option<Action>.None);
+    // Writable=true names a row an export arm FILLS; Writable=false declares a row this branch READS and never
+    // authors, so the roster stays the honest import vocabulary rather than an implied write capability.
+    public static readonly KhrExtension DracoMeshCompression = new("KHR_draco_mesh_compression", KhrSlot.Compression, encoder: KhrEncoder.Draco, writable: true);
+    public static readonly KhrExtension MeshoptCompression = new("KHR_meshopt_compression", KhrSlot.Compression, encoder: KhrEncoder.Meshopt, writable: true);
+    public static readonly KhrExtension MeshGpuInstancing = new("EXT_mesh_gpu_instancing", KhrSlot.Geometry, encoder: KhrEncoder.None, writable: true);
+    public static readonly KhrExtension TextureTransform = new("KHR_texture_transform", KhrSlot.Texture, encoder: KhrEncoder.None, writable: true);
+    public static readonly KhrExtension TextureBasisu = new("KHR_texture_basisu", KhrSlot.Texture, encoder: KhrEncoder.None, writable: true);
+    public static readonly KhrExtension TextureWebp = new("EXT_texture_webp", KhrSlot.Texture, encoder: KhrEncoder.None, writable: true);
+    public static readonly KhrExtension TextureDds = new("MSFT_texture_dds", KhrSlot.Texture, encoder: KhrEncoder.None, writable: true);
+    public static readonly KhrExtension LightsPunctual = new("KHR_lights_punctual", KhrSlot.Scene, encoder: KhrEncoder.None, writable: false);
+    public static readonly KhrExtension NodeVisibility = new("KHR_node_visibility", KhrSlot.Scene, encoder: KhrEncoder.None, writable: false);
+    public static readonly KhrExtension AnimationPointer = new("KHR_animation_pointer", KhrSlot.Scene, encoder: KhrEncoder.None, writable: false);
+    public static readonly KhrExtension XmpJsonLd = new("KHR_xmp_json_ld", KhrSlot.Metadata, encoder: KhrEncoder.None, writable: false);
+    public static readonly KhrExtension MaterialsUnlit = new("KHR_materials_unlit", KhrSlot.Material, encoder: KhrEncoder.None, writable: false);
+    public static readonly KhrExtension MaterialsSpecular = new("KHR_materials_specular", KhrSlot.Material, encoder: KhrEncoder.None, writable: true);
+    public static readonly KhrExtension MaterialsIor = new("KHR_materials_ior", KhrSlot.Material, encoder: KhrEncoder.None, writable: false);
+    public static readonly KhrExtension MaterialsIridescence = new("KHR_materials_iridescence", KhrSlot.Material, encoder: KhrEncoder.None, writable: true);
+    public static readonly KhrExtension MaterialsSheen = new("KHR_materials_sheen", KhrSlot.Material, encoder: KhrEncoder.None, writable: true);
+    public static readonly KhrExtension MaterialsClearcoat = new("KHR_materials_clearcoat", KhrSlot.Material, encoder: KhrEncoder.None, writable: true);
+    public static readonly KhrExtension MaterialsTransmission = new("KHR_materials_transmission", KhrSlot.Material, encoder: KhrEncoder.None, writable: true);
+    public static readonly KhrExtension MaterialsVolume = new("KHR_materials_volume", KhrSlot.Material, encoder: KhrEncoder.None, writable: false);
+    public static readonly KhrExtension MaterialsAnisotropy = new("KHR_materials_anisotropy", KhrSlot.Material, encoder: KhrEncoder.None, writable: true);
+    public static readonly KhrExtension MaterialsDispersion = new("KHR_materials_dispersion", KhrSlot.Material, encoder: KhrEncoder.None, writable: false);
+    public static readonly KhrExtension MaterialsDiffuseTransmission = new("KHR_materials_diffuse_transmission", KhrSlot.Material, encoder: KhrEncoder.None, writable: true);
+    public static readonly KhrExtension MaterialsEmissiveStrength = new("KHR_materials_emissive_strength", KhrSlot.Material, encoder: KhrEncoder.None, writable: false);
+    public static readonly KhrExtension MaterialsPbrSpecularGlossiness = new("KHR_materials_pbrSpecularGlossiness", KhrSlot.Material, encoder: KhrEncoder.None, writable: false);
 
     public KhrSlot Slot { get; }
     public KhrEncoder Encoder { get; }
-    public Option<Action> Registrar { get; }
 
-    public Fin<KhrExtension> Register(Op key) =>
-        Registrar.Match(
-            Some: register => Try.lift(() => { register(); return this; }).Run().MapFail(error => new BimFault.ModelRejected(key, error.Message)),
-            None: () => Fin.Succ(this));
+    // Declared WRITE capability per row — the one column the export#EXPORT_RAIL registration union filters on, so a
+    // read-only row can never reach a written extension block. Each row flips WITH the arm that fills it, exactly as
+    // a format row's capability flag does, so a preset naming a false row governs nothing and reads as nothing.
+    public bool Writable { get; }
+
+    // Rows an export arm fills: a caller's InterchangePolicy roster and a payload's own obliged rows both narrow
+    // through this set, so registration never carries a row no producer can serialize.
+    public static Seq<KhrExtension> Writables => toSeq(Items.Where(static row => row.Writable));
 }
 
 public enum KhrSlot : byte { Compression = 0, Geometry = 1, Texture = 2, Scene = 3, Material = 4, Metadata = 5 }
@@ -115,14 +149,15 @@ public sealed partial class InterchangeFormat {
     public static readonly InterchangeFormat Ifc = new("ifc", mediaType: "application/x-step", extensions: Seq(".ifc"), canImport: true, canExport: true, codec: InterchangeCodec.GeometryGym, tessellationRequiresCompanion: true, frame: BasisChange.Identity, stepProtocol: StepProtocol.None, serialization: IfcWireForm.Step);
     public static readonly InterchangeFormat IfcXml = new("ifc-xml", mediaType: "application/ifc+xml", extensions: Seq(".ifcxml"), canImport: true, canExport: true, codec: InterchangeCodec.GeometryGym, tessellationRequiresCompanion: true, frame: BasisChange.Identity, stepProtocol: StepProtocol.None, serialization: IfcWireForm.Xml);
     public static readonly InterchangeFormat IfcJson = new("ifc-json", mediaType: "application/ifc+json", extensions: Seq(".ifcjson"), canImport: true, canExport: true, codec: InterchangeCodec.GeometryGym, tessellationRequiresCompanion: true, frame: BasisChange.Identity, stepProtocol: StepProtocol.None, serialization: IfcWireForm.Json);
-    // Zipped STEP repeats the `ifc` row's serialization under the container GeometryGym's own stream writer opens
-    // off its entry extension — one Projection/egress#IFC_EGRESS IfcWireForm row carries both, so no container
-    // column joins this table. Write-only: no decode arm unzips a container entry ahead of the schema sniff, and
-    // CanImport flips WITH that arm.
-    public static readonly InterchangeFormat IfcZip = new("ifc-zip", mediaType: "application/x-ifczip", extensions: Seq(".ifczip"), canImport: false, canExport: true, codec: InterchangeCodec.GeometryGym, tessellationRequiresCompanion: true, frame: BasisChange.Identity, stepProtocol: StepProtocol.None, serialization: IfcWireForm.StepZip);
-    public static readonly InterchangeFormat StepAp203 = new("step-ap203", mediaType: "application/step", extensions: Seq(".step", ".stp", ".p21"), canImport: true, canExport: false, codec: InterchangeCodec.StepIso10303, tessellationRequiresCompanion: true, frame: BasisChange.Identity, stepProtocol: StepProtocol.Ap203);
-    public static readonly InterchangeFormat StepAp214 = new("step-ap214", mediaType: "application/step", extensions: Seq(".step", ".stp", ".p21"), canImport: true, canExport: false, codec: InterchangeCodec.StepIso10303, tessellationRequiresCompanion: true, frame: BasisChange.Identity, stepProtocol: StepProtocol.Ap214);
-    public static readonly InterchangeFormat StepAp242 = new("step-ap242", mediaType: "application/step", extensions: Seq(".step", ".stp", ".p21"), canImport: true, canExport: false, codec: InterchangeCodec.StepIso10303, tessellationRequiresCompanion: true, frame: BasisChange.Identity, stepProtocol: StepProtocol.Ap242);
+    // Zipped STEP repeats the `ifc` row's serialization under a container the Projection/egress#IFC_EGRESS
+    // IfcWireForm row owns on BOTH delegates — Seal writes the entry, Admit unzips it ahead of the schema sniff —
+    // so no container column joins this table and both capability flags stand against real arms.
+    public static readonly InterchangeFormat IfcZip = new("ifc-zip", mediaType: "application/x-ifczip", extensions: Seq(".ifczip"), canImport: true, canExport: true, codec: InterchangeCodec.GeometryGym, tessellationRequiresCompanion: true, frame: BasisChange.Identity, stepProtocol: StepProtocol.None, serialization: IfcWireForm.StepZip);
+    // AP203, AP214, and AP242 share one media type and one extension set, so each spells the DetectRank that seats
+    // it: AP242 is the merged successor a bare `.step` resolves to, AP203 and AP214 reachable by their own keys.
+    public static readonly InterchangeFormat StepAp203 = new("step-ap203", mediaType: "application/step", extensions: Seq(".step", ".stp", ".p21"), canImport: true, canExport: false, codec: InterchangeCodec.StepIso10303, tessellationRequiresCompanion: true, frame: BasisChange.Identity, stepProtocol: StepProtocol.Ap203, detectRank: 1);
+    public static readonly InterchangeFormat StepAp214 = new("step-ap214", mediaType: "application/step", extensions: Seq(".step", ".stp", ".p21"), canImport: true, canExport: false, codec: InterchangeCodec.StepIso10303, tessellationRequiresCompanion: true, frame: BasisChange.Identity, stepProtocol: StepProtocol.Ap214, detectRank: 2);
+    public static readonly InterchangeFormat StepAp242 = new("step-ap242", mediaType: "application/step", extensions: Seq(".step", ".stp", ".p21"), canImport: true, canExport: false, codec: InterchangeCodec.StepIso10303, tessellationRequiresCompanion: true, frame: BasisChange.Identity, stepProtocol: StepProtocol.Ap242, detectRank: 3);
     public static readonly InterchangeFormat Iges = new("iges", mediaType: "model/iges", extensions: Seq(".igs", ".iges"), canImport: true, canExport: false, codec: InterchangeCodec.IgesAnsi, tessellationRequiresCompanion: true, frame: BasisChange.Identity, stepProtocol: StepProtocol.None);
     public static readonly InterchangeFormat Stl = new("stl", mediaType: "model/stl", extensions: Seq(".stl"), canImport: true, canExport: false, codec: InterchangeCodec.MeshText, tessellationRequiresCompanion: false, frame: BasisChange.Identity, stepProtocol: StepProtocol.None);
     public static readonly InterchangeFormat ThreeMf = new("3mf", mediaType: "model/3mf", extensions: Seq(".3mf"), canImport: true, canExport: false, codec: InterchangeCodec.SceneExchange, tessellationRequiresCompanion: false, frame: BasisChange.YUpToCanonical, stepProtocol: StepProtocol.None);
@@ -149,8 +184,9 @@ public sealed partial class InterchangeFormat {
     // flip WITH the ExcelModel<->seam-payload arms (Model/structural#STRUCTURAL_PROJECTION payloads), never before.
     public static readonly InterchangeFormat Saf = new("saf", mediaType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", extensions: Seq(".saf.xlsx"), canImport: false, canExport: false, codec: InterchangeCodec.Saf, tessellationRequiresCompanion: false, frame: BasisChange.Identity, stepProtocol: StepProtocol.None);
     // COBie FM-handover XLSX — WRITE-ONLY, GRAPH-SOURCED: the export#COBIE_EMIT CobieEmit.Export author (the
-    // ExportPayload codec Switch routes it there; a COBie spreadsheet is never a geometry import source).
-    public static readonly InterchangeFormat Cobie = new("cobie", mediaType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", extensions: Seq(".cobie.xlsx"), canImport: false, canExport: true, codec: InterchangeCodec.CobieXlsx, tessellationRequiresCompanion: false, frame: BasisChange.Identity, stepProtocol: StepProtocol.None);
+    // ExportPayload codec Switch routes it there; a COBie spreadsheet is never a geometry import source). This row
+    // shares its office-spreadsheet media type with `saf`, so DetectRank seats it ahead of that pending row.
+    public static readonly InterchangeFormat Cobie = new("cobie", mediaType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", extensions: Seq(".cobie.xlsx"), canImport: false, canExport: true, codec: InterchangeCodec.CobieXlsx, tessellationRequiresCompanion: false, frame: BasisChange.Identity, stepProtocol: StepProtocol.None, detectRank: 1);
     // Energy-model rows (the Energy/ folder the realizing owner): HBJSON/DFJSON raise+lower, OSM/gbXML/IDF raise-only
     // against the graph — their emit rides the energy Translate matrix over an OSM-family SOURCE, so CanExport stays
     // false until the graph-egress arm lands (the flag flips WITH the arm). Ladybug/OSM/gbXML are Z-up: Identity frame.
@@ -183,22 +219,62 @@ public sealed partial class InterchangeFormat {
 
     public Seq<string> Extensions => extensions;
 
-    public bool CataloguePending => Codec.CataloguePending && !CanImport && !CanExport;
+    // Row-level pending state reads its codec's own column AND both capability flags in one hop. A same-named
+    // forwarding property on InterchangeCodec restated `Pending` under a second name, so a reader tracing the flag
+    // landed on an alias before reaching the column that decides.
+    public bool CataloguePending => Codec.Pending && !CanImport && !CanExport;
 
     // Geometry leg crosses the companion bridge when EITHER the format declares it (IFC/STEP/IGES/native)
     // OR the codec's own geometry read is companion-bound; the import fold reads this one predicate, not two.
     public bool Companion => TessellationRequiresCompanion || Codec.Companion;
 
+    // Both directions on one row. The wire#WIRE_PROJECTION seal and negotiation narrow on THIS rather than on
+    // CanExport alone, because a wire that must re-admit what it emitted is answering a two-way question and a
+    // one-way row silently satisfied the one-way test.
+    public bool RoundTrippable => CanExport && CanImport;
+
+    // Direction-keyed capability read: the column a direction asks about, so the ONE gate below never spells a
+    // per-direction branch and a third direction is impossible rather than untested.
+    public bool Admits(InterchangeDirection direction) =>
+        direction == InterchangeDirection.Import ? CanImport : CanExport;
+
+    // THE capability gate every entrypoint composes — BimIo.ImportGeometry/ImportIfc/ImportStep and
+    // BimExport.Export/ExportIfc alike. Ordering is the whole point: a catalogue-pending row implies both flags
+    // false, so the pending row must answer FIRST or the plain refusal shadows the richer package-naming message —
+    // exactly the ordering each entrypoint used to re-spell and could re-order independently. A companion-bound
+    // codec refused in a direction it cannot serve lowers CapabilityMiss (the rail cannot reach an evaluator),
+    // where a managed one lowers CodecReject (the row declares one-way vocabulary), so the arm follows the ROW
+    // rather than the call site.
+    public static Fin<InterchangeFormat> Admitted(InterchangeFormat format, InterchangeDirection direction, Op key) =>
+        format.CataloguePending
+            ? Fin.Fail<InterchangeFormat>(Pending(direction).At(key, format.Key, format.Codec.CataloguePackage.IfNone("")))
+        : format.Admits(direction) ? Fin.Succ(format)
+        : format.Companion
+            ? Fin.Fail<InterchangeFormat>(Companionless(direction).At(key, format.Key))
+            : Fin.Fail<InterchangeFormat>(Detail.DirectionUnsupported.At(key, direction.ToString(), format.Key));
+
+    static Detail Pending(InterchangeDirection direction) =>
+        direction == InterchangeDirection.Import ? Detail.ImportCataloguePending : Detail.ExportCataloguePending;
+
+    static Detail Companionless(InterchangeDirection direction) =>
+        direction == InterchangeDirection.Import ? Detail.ImportNeedsCompanion : Detail.ExportNeedsHost;
+
     public bool IsCanonicalFrame => Frame.IsIdentity;
+
+    // Declared precedence among rows sharing a media type or an extension, the ctor's `int detectRank = 0` arg so an
+    // uncontended row omits the column. BOTH resolvers below read this ONE column: ranking on the StepProtocol enum
+    // VALUE read a schema-vocabulary token as a precedence scale, so the two spreadsheet rows both signing None tied
+    // and resolved by roster accident. Rank is a DOMAIN statement per row — see [DETECT_PRECEDENCE].
+    public int DetectRank { get; }
 
     static readonly FrozenDictionary<string, InterchangeFormat> ByExtension =
         Items.SelectMany(static row => row.extensions.Map(ext => (ext, row)))
             .GroupBy(static pair => pair.ext, StringComparer.OrdinalIgnoreCase)
-            .ToFrozenDictionary(static group => group.Key, static group => group.MaxBy(static pair => (int)pair.row.StepProtocol).row, StringComparer.OrdinalIgnoreCase);
+            .ToFrozenDictionary(static group => group.Key, static group => group.MaxBy(static pair => pair.row.DetectRank).row, StringComparer.OrdinalIgnoreCase);
 
     static readonly FrozenDictionary<string, InterchangeFormat> ByMediaType =
         Items.GroupBy(static row => row.MediaType, StringComparer.OrdinalIgnoreCase)
-            .ToFrozenDictionary(static group => group.Key, static group => group.MaxBy(static row => (int)row.StepProtocol)!, StringComparer.OrdinalIgnoreCase);
+            .ToFrozenDictionary(static group => group.Key, static group => group.MaxBy(static row => row.DetectRank)!, StringComparer.OrdinalIgnoreCase);
 
     static readonly FrozenDictionary<string, InterchangeFormat> ByKey =
         Items.ToFrozenDictionary(static row => row.Key, static row => row, StringComparer.OrdinalIgnoreCase);
@@ -209,7 +285,7 @@ public sealed partial class InterchangeFormat {
         : ByExtension.TryGetValue(ExtensionOf(pathOrMediaTypeOrKey), out var byExt) ? Fin.Succ(byExt)
         : CompoundSuffix(pathOrMediaTypeOrKey).Match(
             Some: Fin.Succ,
-            None: () => Fin.Fail<InterchangeFormat>(new BimFault.CodecReject(key, $"interchange-format-miss:{pathOrMediaTypeOrKey}")));
+            None: () => Fin.Fail<InterchangeFormat>(Detail.InterchangeFormatMiss.At(key, pathOrMediaTypeOrKey)));
 
     static string ExtensionOf(string input) =>
         Path.GetExtension(input) is { Length: > 0 } ext ? ext
@@ -222,11 +298,11 @@ public sealed partial class InterchangeFormat {
     static Option<InterchangeFormat> CompoundSuffix(string input) =>
         input.Contains('/')
             ? Option<InterchangeFormat>.None
-            : ByExtension
-                .Where(pair => input.EndsWith(pair.Key, StringComparison.OrdinalIgnoreCase))
-                .OrderByDescending(static pair => pair.Key.Length)
-                .Select(static pair => pair.Value)
-                .ToSeq().Head;
+            : ByExtension.Aggregate(
+                (Length: 0, Format: Option<InterchangeFormat>.None),
+                (best, pair) => pair.Key.Length > best.Length && input.EndsWith(pair.Key, StringComparison.OrdinalIgnoreCase)
+                    ? (pair.Key.Length, Some(pair.Value))
+                    : best).Format;
 }
 
 // Basis change onto the canonical kernel frame (Z-up, right-handed) is a signed axis permutation: each
@@ -267,7 +343,12 @@ public readonly record struct BasisChange(sbyte CanonicalX, sbyte CanonicalY, sb
 
 public enum StepProtocol : byte { None = 0, Ap203 = 203, Ap214 = 214, Ap242 = 242 }
 
-public static partial class FrameNormalization {
+// The two directions a capability gate asks about. A bool parameter read identically at both call sites and let a
+// caller pass the wrong polarity with nothing to name the mistake.
+public enum InterchangeDirection : byte { Import = 0, Export = 1 }
+
+// --- [OPERATIONS] -------------------------------------------------------------------------
+public static class FrameNormalization {
     // Span kernel (the platform-forced exemption): applies the row's basis change to the leading vec3 of each
     // stride-spaced element in place — a position buffer and a normal buffer are each canonicalized by a SEPARATE
     // call over their own strided view (the one orthogonal signed permutation carries both), so a fully interleaved

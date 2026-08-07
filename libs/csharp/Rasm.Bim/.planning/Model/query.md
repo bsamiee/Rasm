@@ -1,10 +1,12 @@
 # [BIM_ELEMENT_SET]
 
-The set-algebraic element query is one `ElementSet.Query(ElementGraph, ElementPredicate)` fold over the seam `ElementGraph`. `ElementPredicate` owns boolean composition directly, `SetOperation` collapses union/intersection/difference behind one graph-identity-gated `Combine`, and `Where` refines the current set through the same predicate algebra. Incidence covers every neutral `Relationship` case plus the wire-name-parameterized `ByGeneric` long tail, and every related endpoint is a `NodeMatch` exact identity or nested predicate. `ValueMatch` decides the typed `PropertyValue` family, including typed members inside `Enumerated` and `List`; `Pattern` admits regex syntax before construction, `RangeBound` carries inclusive/exclusive bound identity, and measure comparisons require equal `Dimension`. The query is total; `Combine` rails cross-graph composition and `Bake` rails graph derivation.
+`ElementPredicate` is the ONE selection language over the seam `Graph/element#ELEMENT_GRAPH` `ElementGraph` — a closed query algebra `ElementSet` folds graph-bound, `PredicateCodec` carries as a versionable wire, and `StoreLowering` lowers onto the persisted flat projection. One boundary holds this page: no second selection surface exists. Any refinement the algebra cannot express lands as one new arm, never as an untyped escape hatch, and the store phase answers a SUPERSET its in-process residue narrows so live graph and durable estate resolve one question identically.
+
+Selection composes settled owners. `Model/spatial#SPATIAL_STRUCTURE` `SpatialStructure.Ancestry` owns the up-chain and seam `ElementGraph.ContainerOf` the direct container; seam `ValueBag<V>.Merge` owns the effective property stream under its stamped `InheritanceMode`; `Model/elements#IFC_CLASS` owns the entity-class token; `Relations/relation#EDGE_ALGEBRA` owns the incidence beside its `Generic` long tail [NEUTRAL_EDGE_RULING]. Rails stay typed — `Combine` gates cross-graph composition, `PredicateCodec.Admit` re-runs every gate, faults lift `Model/faults#FAULT_BAND` BARE.
 
 ## [01]-[INDEX]
 
-- [02]-[ELEMENT_SET]: the `ElementPredicate` closed union over the full five-kind seam edge algebra, the `NodeMatch` incidence-target restriction, the `SpatialReach` containment-reach discriminant, the `ObjectAttribute`/`ValueMatch` value-restriction vocabulary, and the invariant-held `ElementSet` fold over the seam `ElementGraph`.
+- [02]-[ELEMENT_SET]: `ElementPredicate` the closed union over the whole neutral seam edge algebra, the `NodeMatch` incidence-target restriction, the `SpatialReach` containment-reach discriminant, the `ObjectAttribute`/`ValueMatch` value-restriction vocabulary, and the invariant-held `ElementSet` fold over the seam `ElementGraph`.
 - [03]-[PREDICATE_WIRE]: the `PredicateWire` typed versionable wire form of the closed predicate union — `[JsonDerivedType]`-discriminated wire records mirroring every arm with primitive payloads — and the `PredicateCodec` one-owner correspondence (`Seal` the total lowering, `Admit` the railed re-admission through the standing gates), so a UI-authored filter, a saved view, and a coordination rule travel as data and evaluate in C#.
 - [04]-[PREDICATE_PUSHDOWN]: the `StorePlan` predicate-to-SQL lowering over the persisted BimOpenSchema flat projection — the store-expressible subset lowered to one parameterized DuckDB statement over the suffixed fact tables, the residue folded in-process over the returned candidates — so the SAME selection language spans the live graph and the durable estate under the two-phase broad/narrow law.
 
@@ -12,9 +14,9 @@ The set-algebraic element query is one `ElementSet.Query(ElementGraph, ElementPr
 
 - Owner: `ElementPredicate` is the one closed query algebra over classification, value, topology, composition, assignment, connection, void, assessment, and generic-wire incidence. `NodeMatch` carries either an exact `NodeId` or a recursive predicate. `SpatialReach`, `ObjectAttribute`, `ValueSource`, `RangeBound`, and `ValueMatch` are the policy vocabularies its arms compose. `ElementSet` owns graph-bound selection, refinement, set algebra, effective-value reads, baking, and measured aggregation; no wrapper duplicates the predicate identity.
 - Entry: `ElementSet.Query(ElementGraph graph, ElementPredicate predicate)` folds the predicate over `graph.ObjectNodes`; `ElementPredicate.And`/`Or`/`AndNot` flatten the boolean closure; `ElementSet.Combine(ElementSet other, SetOperation operation, Op key)` applies one set-operation row after proving both sets share the same graph; `Where` refines the current set; `Bake(Op key)` traverses the selected objects through the seam derivation rail.
-- Auto: `Match` dispatches the Thinktecture generated total `Switch` carrying the `(graph, obj)` state tuple into every arm — `ByClass`/`ByDomain`/`ByPredefinedType` read the `Node.Object`'s generic `Classification("ifc", code)` the projector stamps (resolving the `Model/elements#IFC_CLASS` `IfcClass` row for the `IfcDomain` partition), `ByClassification` the `Classification.Within` branch-containment over the primary pair and the co-applied `Classifications` set, `ByKind` the `ObjectKind` occurrence/type discriminant, `ByAttribute` the attribute rows whose key satisfies the name restriction lifted through `ObjectAttribute.Read`, `ByProperty` the effective `PropertyValue` stream (occurrence bags merged with type bags via the seam `PropertyBag.Merge`/`QuantityBag.Merge` under the stamped `InheritanceMode`, the set-name and property-name each decided by their own `ValueMatch` so a patterned `Pset_.*` facet lowers whole, over BOTH the `PropertySet` and `QuantitySet` bags), `ByMaterial` the `Associate`-bound `Material` node's composition material set, and the incidence arms the neutral edges through the O(degree) `EdgesAt` index with every related endpoint decided by `MatchesNode` — `Exact` an id equality, `Matching` a `Find<Node.Object>` resolve recursing the same `Match`, a non-`Object` target failing the nested probe structurally; `BySpatialContainer` under `SpatialReach.Ancestry` recurses the single-parent `Contain`/`Aggregate` up-chain (`ParentOf` → `InAncestry`, cycle-guarded, depth the spatial nesting depth) so a space-contained element matches its storey; the `All`/`Any`/`Not` arms recurse the same `Match` so the boolean closure is one total dispatch; a new arm breaks every `Match` site at compile time until added, so a missing query dimension is a build error, not a silent fallthrough.
-- Growth: a new query dimension is one `ElementPredicate` arm folded by the same set algebra and one matching `Match` Switch arm (`ByClassificationSystem` and the `ByGeneric` wire-name arm the standing exemplars — the IDS system-only facet and the whole rostered `Generic` long tail each landed as one arm pair); a new value-restriction is one `ValueMatch` arm the value-bearing arms already fold (`Digits` the standing exemplar — xs:totalDigits/fractionDigits over the canonical rendering); a new rostered `Generic` family is ZERO query edits — `ByGeneric` parameterizes the wire-name; a new cross-page value read composes `ElementSet.ValuesOf` over the `ValueSource` axis and a cross-page set AGGREGATE composes `ElementSet.SumOf` (the zone rollup and the system demand accumulation are its two standing consumers), never a re-derived bag merge or a manual `double` fold; a new queryable object attribute is one `ObjectAttribute` row (only when the seam `Node.Object` gains the column); a new incidence flavor is a `SubKind` value the existing arm already parameterizes — `ByComposed`/`ByVoided`/`ByConnected` take the seam sub-kind vocabularies as payload, so a new `ComposeKind`/`VoidKind`/`ConnectKind` row is ZERO query edits; a new set combinator is one `SetOperation` row the derived trio and the gated `Combine` share; never a `Get<Dimension>` operation family and never a parallel selection surface.
-- Boundary: `ElementPredicate` is the expression owner and `ElementSet` is minted only by `Query`, `Where`, or a graph-identity-gated `Combine`; a one-field query wrapper, public arbitrary-set constructor, arity family, or cross-graph `NodeId` merge is invalid. `ByProperty` carries independent set/name/value restrictions, every incidence target is a `NodeMatch`, and the Review and Planning consumers compose this same surface.
+- Auto: `Match` is the Thinktecture generated total `Switch` carrying the `(graph, obj)` state into every arm, so a missing query dimension is a build error at every `Match` site rather than a silent fallthrough. Classification arms decide over the primary `Classification` pair AND the co-applied `Classifications` set, so a secondary standard-system code never escapes a branch-containment facet; `ByProperty` decides set-name, property-name, and value through three independent `ValueMatch` restrictions over BOTH bag kinds on occurrence and type, so a patterned `Pset_.*` facet lowers whole without a heavy `Bake`; the incidence arms read the O(degree) `EdgesAt` index and decide every related endpoint through `MatchesNode`, whose `Matching` case recurses the same `Match` on the resolved `Node.Object` so a non-`Object` target fails the nested probe structurally; `BySpatialContainer` reads its `SpatialReach` row's own chain projection, so the reach vocabulary owns the walk and the arm owns none of it; the `All`/`Any`/`Not` arms recurse `Match`, making the boolean closure one total dispatch.
+- Growth: a new query dimension is one `ElementPredicate` arm folded by the same set algebra and one matching `Match` Switch arm (`ByClassificationSystem` and the `ByGeneric` wire-name arm the standing exemplars — the IDS system-only facet and the whole rostered `Generic` long tail each landed as one arm pair); a new value-restriction is one `ValueMatch` arm the value-bearing arms already fold (`Digits` the standing exemplar — xs:totalDigits/fractionDigits over the canonical rendering); a new rostered `Generic` family is ZERO query edits — `ByGeneric` parameterizes the wire-name; a new cross-page value read composes `ElementSet.ValuesOf` over the `ValueSource` axis and a cross-page set AGGREGATE composes `ElementSet.SumOf` (the zone rollup and the system demand accumulation are its two standing consumers), never a re-derived bag merge or a manual `double` fold; a new queryable object attribute is one `ObjectAttribute` row (only when the seam `Node.Object` gains the column); a new incidence flavor is a `SubKind` value the existing arm already parameterizes — `ByComposed`/`ByVoided`/`ByConnected` take the seam sub-kind vocabularies as payload, so a new `ComposeKind`/`VoidKind`/`ConnectKind` row is ZERO query edits; a new set combinator is one `SetOperation` row the derived trio and the gated `Combine` share; a new containment reach is one `SpatialReach` row carrying its chain delegate; the chainage axis is ZERO arms — a station band is `ByProperty` with a `Range` restriction over the station row the `Model/spatial#LINEAR_POSITIONING` positioning reader and the `Semantics/geospatial#GEOSPATIAL_SEAM` corridor stamp each land dimensioned on their own bag, an offset band the same `Range` over the offset row, and the alignment identity an `Exact` text restriction beside them, so "every element between station 2+400 and 3+100" and "everything within 8 m of centreline" compose the standing arms and an `AlongAlignment`-shaped arm is the second selection surface both owning pages already rule out; never a `Get<Dimension>` operation family and never a parallel selection surface.
+- Boundary: `ElementPredicate` is the expression owner and `ElementSet` is minted only by `Query`, `Where`, or a graph-identity-gated `Combine`; a one-field query wrapper, public arbitrary-set constructor, arity family, or cross-graph `NodeId` merge is invalid. `ByProperty` carries independent set/name/value restrictions, every incidence target is a `NodeMatch`, and the Review and Planning consumers compose this same surface. Spatial up-chain law is NOT this page's: `SpatialReach.Ancestry` composes the `Model/spatial#SPATIAL_STRUCTURE` ancestor law and `SpatialReach.Direct` the seam `ElementGraph.ContainerOf` read, so a local `Contain`/`Aggregate` walk here is the third copy of one traversal and the deleted form. `Range` decides ONLY over a `PropertyValue.Measure` sharing the bound's `Dimension`, so reachability by a magnitude facet is the STAMPING owner's obligation — a projector landing a station, an offset, or any other magnitude as a bare `Number` mints a row no range restriction can ever reach — and widening the restriction to swallow an undimensioned candidate is the deleted form that admits a length against a pressure bound.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
@@ -38,13 +40,18 @@ using NodeSet = LanguageExt.HashSet<Rasm.Element.Graph.NodeId>;   // the selecti
 namespace Rasm.Bim.Model;
 
 // --- [TYPES] ------------------------------------------------------------------------------
-// The containment reach: Direct the one Compose.Contain parent, Ancestry the transitive Contain/Aggregate
-// up-chain — an element contained in a space matches its storey under Ancestry (the level-membership law a
-// direct-parent join structurally misses), and the IDS PartOf container facet lowers transitively.
+// Each containment-reach row carries its OWN chain projection as delegate data, so the BySpatialContainer arm
+// selects a reach and never spells a walk: Direct reads the seam's single Compose.Contain parent, Ancestry the
+// Model/spatial#SPATIAL_STRUCTURE up-chain law (an element contained in a space matches its storey — the
+// level-membership a direct-parent join structurally misses, and the transitive lowering the IDS PartOf container
+// facet takes). A third reach is one row; a second walk anywhere is the fork the delegate column deletes.
 [SmartEnum<string>]
 public sealed partial class SpatialReach {
-    public static readonly SpatialReach Direct = new("direct");
-    public static readonly SpatialReach Ancestry = new("ancestry");
+    public static readonly SpatialReach Direct   = new("direct",   static (graph, node) => graph.ContainerOf(node).ToSeq());
+    public static readonly SpatialReach Ancestry = new("ancestry", static (graph, node) => SpatialStructure.Ancestry(graph, node));
+
+    [UseDelegateFromConstructor]
+    public partial Seq<NodeId> Chain(ElementGraph graph, NodeId node);
 }
 
 // The queryable direct-attribute vocabulary the ByAttribute arm reads off a Node.Object, keyed by the IFC
@@ -121,7 +128,10 @@ public abstract partial record ValueMatch {
     // A multi-valued candidate (IfcPropertyEnumeratedValue / IfcPropertyListValue) satisfies when ANY selected
     // member satisfies — spread BEFORE the restriction decides, so a Pattern never false-matches across the
     // joined-list Render and an Exact reaches the member, the IDS any-of law over multi-valued properties.
-    public bool Matches(PropertyValue value) => Spread(value).Exists(Decide);
+    // Present decides on EXISTENCE and short-circuits ahead of the spread: the arms invoke Matches only on a
+    // resolved candidate, so the whole recursive flatten is pure cost, and an EMPTY list would spread to nothing
+    // and report a resolved candidate absent.
+    public bool Matches(PropertyValue value) => this is Present || Spread(value).Exists(Decide);
 
     private static Seq<PropertyValue> Spread(PropertyValue value) => value switch {
         PropertyValue.Enumerated e => e.Selected.Bind(Spread),
@@ -178,16 +188,13 @@ public abstract partial record ValueMatch {
     // space excludes the leading integer zero of a sub-unity rendering: 0.123 carries three digits, not four),
     // fraction those after the point; a non-numeric candidate or a scientific rendering (magnitude exceeding any
     // digits facet) never satisfies, so the facet decides value-space presentation without a locale-forked string.
-    private static bool InDigits(PropertyValue v, Digits m) {
-        if (v is not PropertyValue.Measure measure) { return false; }
-        string text = Math.Abs(measure.Value.Si).ToString("R", CultureInfo.InvariantCulture);
-        if (text.Contains('E') || text.Contains('e')) { return false; }
-        int point = text.IndexOf('.');
-        int fraction = point < 0 ? 0 : text.Length - point - 1;
-        int total = text.Count(char.IsAsciiDigit) - (text.StartsWith("0.", StringComparison.Ordinal) ? 1 : 0);
-        return m.Total.Match(Some: t => total <= t, None: static () => true)
-            && m.Fraction.Match(Some: f => fraction <= f, None: static () => true);
-    }
+    private static bool InDigits(PropertyValue v, Digits m) =>
+        v is PropertyValue.Measure measure
+        && Math.Abs(measure.Value.Si).ToString("R", CultureInfo.InvariantCulture) is var text
+        && !text.AsSpan().ContainsAny('E', 'e')
+        && text.IndexOf('.') is var point
+        && m.Total.ForAll(t => text.Count(char.IsAsciiDigit) - (text.StartsWith("0.", StringComparison.Ordinal) ? 1 : 0) <= t)
+        && m.Fraction.ForAll(f => (point < 0 ? 0 : text.Length - point - 1) <= f);
 }
 
 [Union]
@@ -233,8 +240,8 @@ public abstract partial record ValueSource {
 }
 
 // The closed predicate algebra: one arm per query dimension over the seam graph, the All/Any/Not boolean
-// closure recursing the same Match. The incidence arms span the seam's FIVE neutral edge kinds by the
-// projector's directionality, sub-kinds ride as payload — never a typed IfcRel* case, never a per-flavor arm.
+// closure recursing the same Match. The incidence arms span the seam's neutral edge cases by the projector's
+// directionality, sub-kinds riding as payload — never a typed IfcRel* case, never a per-flavor arm.
 [Union]
 public abstract partial record ElementPredicate {
     private ElementPredicate() { }
@@ -305,9 +312,12 @@ public sealed record ElementSet {
     // The one cross-set meet: two independently-minted sets (a federation join, a saved selection replayed against
     // a reloaded snapshot) prove they share ONE graph before any id algebra — a cross-graph merge would mint ids
     // the graph never declares, a silently-corrupt selection no downstream Objects read could distinguish from an
-    // honest empty refinement.
+    // honest empty refinement. The gate is CONTENT identity through the seam ContentAddress.OfGraph — the address
+    // folding the semantic header and every node and edge, order-independently — because the reloaded snapshot
+    // this meet exists to serve is a different instance of the same graph, which a bare ReferenceEquals refuses
+    // outright. Reference identity stays the leading fast path for the same-instance case, never the verdict.
     public Fin<ElementSet> Combine(ElementSet other, SetOperation operation, Op key) =>
-        ReferenceEquals(Graph, other.Graph)
+        ReferenceEquals(Graph, other.Graph) || ContentAddress.OfGraph(Graph) == ContentAddress.OfGraph(other.Graph)
             ? Fin.Succ(new ElementSet(Graph, operation.Apply(Ids, other.Ids)))
             : Fin.Fail<ElementSet>(new BimFault.ModelRejected(key, $"set-cross-graph:{operation.Key}"));
 
@@ -342,10 +352,7 @@ public sealed record ElementSet {
         byProperty:         static (s, p) => EffectiveValues(s.graph, s.obj.Id, p.Set, p.Name).Exists(v => p.Restriction.Matches(v)),
         byMaterial:         static (s, p) => s.graph.MaterialsOf(s.obj.Id)
                                                  .Exists(m => m.Composition.Materials.Exists(id => p.Restriction.Matches(new PropertyValue.Text(id.Value)))),
-        bySpatialContainer: static (s, p) => p.Reach == SpatialReach.Direct
-                                                 ? toSeq(s.graph.EdgesAt(s.obj.Id)).Exists(e => e is Relationship.Compose c && c.IsContainment && c.Part == s.obj.Id
-                                                       && MatchesNode(s.graph, p.Container, c.Whole))
-                                                 : InAncestry(s.graph, p.Container, s.obj.Id, new NodeSet()),
+        bySpatialContainer: static (s, p) => p.Reach.Chain(s.graph, s.obj.Id).Exists(whole => MatchesNode(s.graph, p.Container, whole)),
         byComposed:         static (s, p) => toSeq(s.graph.EdgesAt(s.obj.Id)).Exists(e => e is Relationship.Compose c && c.SubKind == p.SubKind && c.Part == s.obj.Id
                                                  && MatchesNode(s.graph, p.Whole, c.Whole)),
         byType:             static (s, p) => toSeq(s.graph.EdgesAt(s.obj.Id)).Exists(e => e is Relationship.Assign { SubKind: var k } a && k == AssignKind.TypeDefinition
@@ -377,22 +384,6 @@ public sealed record ElementSet {
     private static bool MatchesNode(ElementGraph graph, NodeMatch target, NodeId candidate) => target.Switch(
         exact:    id   => id == candidate,
         matching: pred => graph.Find<Node.Object>(candidate).Exists(o => Match(graph, o, pred)));
-
-    // The single-parent spatial up-chain, read per candidate off the seam incidence — the SAME chain the
-    // Model/spatial Ancestors axis walks over its prebuilt tree. An element crosses its Aggregate host to reach
-    // the spatial ancestors (a curtain-wall panel is on the storey through its wall), the Contain parent winning
-    // when a malformed graph carries both. Cycle-guarded so a malformed graph terminates, not recurses.
-    private static bool InAncestry(ElementGraph graph, NodeMatch target, NodeId node, NodeSet seen) =>
-        ParentOf(graph, node).Exists(parent =>
-            !seen.Contains(parent)
-            && (MatchesNode(graph, target, parent) || InAncestry(graph, target, parent, seen.Add(parent))));
-
-    private static Option<NodeId> ParentOf(ElementGraph graph, NodeId node) =>
-        WholeOf(graph, node, ComposeKind.Contain) | WholeOf(graph, node, ComposeKind.Aggregate);
-
-    private static Option<NodeId> WholeOf(ElementGraph graph, NodeId node, ComposeKind kind) =>
-        toSeq(graph.EdgesAt(node)).Choose(e =>
-            e is Relationship.Compose c && c.SubKind == kind && c.Part == node ? Some(c.Whole) : Option<NodeId>.None).Head;
 
     // The PUBLIC effective-value read over one node — the ONE exposure of the private EffectiveValues fold a
     // cross-page consumer (Review/coordination#COORDINATION Unique) composes instead of re-deriving the seam
@@ -437,7 +428,7 @@ public sealed record ElementSet {
     }
 
     private static Seq<PropertyValue> Named<V>(Map<PropertyName, V> values, ValueMatch name, Func<V, PropertyValue> lift) =>
-        toSeq(values).Choose(pair => name.Matches(new PropertyValue.Text(pair.Key.Value)) ? Some(lift(pair.Value)) : Option<PropertyValue>.None);
+        toSeq(values.AsIterable()).Choose(pair => name.Matches(new PropertyValue.Text(pair.Key.Value)) ? Some(lift(pair.Value)) : Option<PropertyValue>.None);
 
     // ONE edge walk gathers BOTH bag kinds a node's own Assign{PropertyDefinition} edges attach — the (Props, Qty)
     // shape the seam Bake.TypeBagsOf reads — so the property and quantity resolution share one walk; the caller reaches
@@ -475,15 +466,16 @@ public sealed record ElementSet {
 - Owner: `PredicateWire` the typed, versionable wire form of the closed predicate union — one `[JsonDerivedType]`-discriminated sealed family whose case names ARE the discriminators and whose payloads are primitives, so the wire is authorable in a browser filter builder, storable as a saved view, and carried on a `Review/coordination#COORDINATION` rule as data; `PredicateCodec` the ONE correspondence owner carrying both directions — `Seal` the total domain→wire lowering, `Admit` the railed wire→domain re-admission — never direction-named sibling owners. The Model→Ui seam widens from result transport (`GlobalIdSet` — the answer) to question transport (the predicate — the query); the TypeScript peers meet the wire as bytes, the standing cross-runtime posture every package wire holds.
 - Entry: `PredicateCodec.Seal(ElementPredicate predicate)` lowers every arm onto its wire record — total, because every domain payload admits a primitive projection (a `SmartEnum` key, a `NodeId` value, a rendered `PropertyValue`); `PredicateCodec.Admit(PredicateWire wire, Op key)` re-admits the wire through the STANDING gates — `Pattern.Of` re-compiles a pattern facet, `IfcClass.Resolve` re-admits a class key, the sub-kind vocabularies re-admit through their generated `Validate` — `Fin<T>` faulting `BimFault.ModelRejected` typed on any unadmittable payload, so a hostile or stale wire never mints an unevaluable predicate.
 - Auto: the wire family closes over the SAME arm set as the union — the boolean closure recursing wire-side exactly as the domain closure recurses — and the `ValueMatchWire`/`NodeMatchWire`/`RangeBoundWire` sub-families mirror their vocabularies; measure-valued payloads travel as `(double Si, string Type, int[7] Dimension)` triples re-admitted through `MeasureValue.OfSi` over `Dimension.Create`, so the wire never carries an `IfcValue` or a locale-rendered number.
-- Receipt: the sealed wire is the shareable-selection artifact — a saved view replayed against a reloaded snapshot re-admits and re-queries, a UI-authored coordination rule carries its applicability/requirement pair as two wires, and the `[04]-[PREDICATE_PUSHDOWN]` store plan lowers an ADMITTED predicate, so a UI-authored query executes at store scale with zero second selection surface.
+- Receipt: the sealed wire is the shareable-selection artifact — a saved view replayed against a reloaded snapshot re-admits and re-queries, a UI-authored coordination rule carries its applicability/requirement pair as two wires, and the store plan lowers an ADMITTED predicate, so a UI-authored query executes at store scale with zero second selection surface.
 - Packages: System.Text.Json (`[JsonDerivedType]`/`[JsonPolymorphic]` — the closed-family polymorphic contract), Rasm.Element, Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm.
 - Growth: a new predicate arm is one wire record + one `Seal` arm + one `Admit` arm — the total switches break loudly at compile time until both land; a wire-schema widening is ADDITIVE (a new derived type never re-keys an existing discriminator), the versionable property every package wire holds.
-- Boundary: the wire family is protocol-shaped at the edge and the interior union carries NO codec attributes — `PredicateWire` is the DTO family, `ElementPredicate` never serializes directly; re-admission is ADMISSION (every gate re-runs — a pattern re-compiles, a class key re-resolves) so a wire minted by an older vocabulary faults typed instead of resurrecting a retired arm; the codec is one owner with both directions and a `ToWire`/`FromWire` sibling pair or a per-arm converter family is the deleted form.
+- Boundary: the wire family is protocol-shaped at the edge and the interior union carries NO codec attributes — `PredicateWire` is the DTO family, `ElementPredicate` never serializes directly; re-admission is ADMISSION (every gate re-runs — a pattern re-compiles, a class key re-resolves) so a wire minted by an older vocabulary faults typed instead of resurrecting a retired arm; the codec is one owner with both directions and a `ToWire`/`FromWire` sibling pair or a per-arm converter family is the deleted form. Direction splits asymmetrically BY OWNERSHIP: `Seal` dispatches the closed interior unions through their generated `Switch` and needs no rail, while `Admit` pattern-matches the genuinely OPEN wire families and faults typed on an unregistered record — a match-all arm on the closed side is the deleted form that lowers an unrostered restriction to a predicate selecting everything.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
 using System.Text.Json.Serialization;
 using LanguageExt;
+using LanguageExt.UnsafeValueAccess;
 using Rasm.Element.Assessment;
 using Rasm.Element.Classification;
 using Rasm.Element.Graph;
@@ -587,9 +579,9 @@ public static class PredicateCodec {
         byComposed:         static (_, p) => new ByComposedWire(p.SubKind.Key, SealNode(p.Whole)),
         byType:             static (_, p) => new ByTypeWire(SealNode(p.Type)),
         byZone:             static (_, p) => new ByZoneWire(SealNode(p.Group)),
-        byConnected:        static (_, p) => new ByConnectedWire(SealNode(p.Other), p.Kind.Map(static k => k.Key).IfNoneUnsafe((string?)null)),
+        byConnected:        static (_, p) => new ByConnectedWire(SealNode(p.Other), p.Kind.Map(static k => k.Key).ValueUnsafe()),
         byVoided:           static (_, p) => new ByVoidedWire(p.SubKind.Key, SealNode(p.Other)),
-        byAssessment:       static (_, p) => new ByAssessmentWire(p.Discipline.Key, p.Outcome.Map(static o => o.Key).IfNoneUnsafe((string?)null)),
+        byAssessment:       static (_, p) => new ByAssessmentWire(p.Discipline.Key, p.Outcome.Map(static o => o.Key).ValueUnsafe()),
         byGeneric:          static (_, p) => new ByGenericWire(p.WireName, SealNode(p.Other)),
         all:                static (_, p) => new AllWire([.. p.Operands.Map(Seal)]),
         any:                static (_, p) => new AnyWire([.. p.Operands.Map(Seal)]),
@@ -599,8 +591,8 @@ public static class PredicateCodec {
         ByClassWire w => IfcClass.Resolve(w.Class, key).Map(static ElementPredicate (c) => new ElementPredicate.ByClass(c)),
         ByDomainWire w => Vocab(IfcDomain.TryGet(w.Domain, out IfcDomain? d) ? d : null, w.Domain, key).Map(static ElementPredicate (d) => new ElementPredicate.ByDomain(d)),
         ByPredefinedTypeWire w => IfcClass.Resolve(w.Class, key).Map(ElementPredicate (c) => new ElementPredicate.ByPredefinedType(c, PredefinedType.Create(w.Token))),
-        ByClassificationWire w => FinSucc<ElementPredicate>(new ElementPredicate.ByClassification(Classification.Create(w.System, w.Code, "", None, None, None))),
-        ByClassificationSystemWire w => FinSucc<ElementPredicate>(new ElementPredicate.ByClassificationSystem(w.System)),
+        ByClassificationWire w => Fin.Succ<ElementPredicate>(new ElementPredicate.ByClassification(Classification.Create(w.System, w.Code, "", None, None, None))),
+        ByClassificationSystemWire w => Fin.Succ<ElementPredicate>(new ElementPredicate.ByClassificationSystem(w.System)),
         ByKindWire w => Vocab(ObjectKind.TryGet(w.Kind, out ObjectKind? k) ? k : null, w.Kind, key).Map(static ElementPredicate (k) => new ElementPredicate.ByKind(k)),
         ByAttributeWire w => (AdmitMatch(w.Attribute, key), AdmitMatch(w.Restriction, key)).Apply(static ElementPredicate (a, r) => new ElementPredicate.ByAttribute(a, r)).As(),
         ByPropertyWire w => (AdmitMatch(w.Set, key), AdmitMatch(w.Name, key), AdmitMatch(w.Restriction, key)).Apply(static ElementPredicate (s, n, r) => new ElementPredicate.ByProperty(s, n, r)).As(),
@@ -616,32 +608,35 @@ public static class PredicateCodec {
         AllWire w => toSeq(w.Operands).TraverseM(o => Admit(o, key)).As().Map(static ElementPredicate (ops) => new ElementPredicate.All(ops)),
         AnyWire w => toSeq(w.Operands).TraverseM(o => Admit(o, key)).As().Map(static ElementPredicate (ops) => new ElementPredicate.Any(ops)),
         NotWire w => Admit(w.Operand, key).Map(static ElementPredicate (op) => new ElementPredicate.Not(op)),
-        _ => FinFail<ElementPredicate>(new BimFault.ModelRejected(key, $"predicate-wire-unknown:{wire.GetType().Name}")),
+        _ => Fin.Fail<ElementPredicate>(new BimFault.ModelRejected(key, $"predicate-wire-unknown:{wire.GetType().Name}")),
     };
 
-    static ValueMatchWire SealMatch(ValueMatch match) => match switch {
-        ValueMatch.Present => new PresentWire(),
-        ValueMatch.Exact { Value: PropertyValue.Measure m } => new ExactMeasureWire(SealMeasure(m.Value)),
-        ValueMatch.Exact e => new ExactTextWire(e.Value.Render()),
-        ValueMatch.Pattern p => new PatternWire(p.Expression),
-        ValueMatch.Range r => new RangeWire(r.Lower.Map(SealBound).IfNoneUnsafe((BoundWire?)null), r.Upper.Map(SealBound).IfNoneUnsafe((BoundWire?)null)),
-        ValueMatch.OneOf o => new OneOfWire([.. o.Allowed]),
-        ValueMatch.Length l => new LengthWire(l.Min.ToNullable(), l.Max.ToNullable()),
-        ValueMatch.Digits d => new DigitsWire(d.Total.ToNullable(), d.Fraction.ToNullable()),
-        _ => new PresentWire(),
-    };
+    // TOTAL over the closed ValueMatch union through its generated Switch, never a type-pattern ladder: a match-all
+    // fallthrough arm silently widened an unrostered restriction to Present, so a wire round-trip returned a
+    // predicate selecting the whole graph. The generated dispatch makes a new restriction a build error here.
+    static ValueMatchWire SealMatch(ValueMatch match) => match.Switch<Unit, ValueMatchWire>(
+        state:   unit,
+        present: static (_, _) => new PresentWire(),
+        exact:   static (_, m) => m.Value is PropertyValue.Measure measure
+                                      ? new ExactMeasureWire(SealMeasure(measure.Value))
+                                      : new ExactTextWire(m.Value.Render()),
+        pattern: static (_, m) => new PatternWire(m.Expression),
+        range:   static (_, m) => new RangeWire(m.Lower.Map(SealBound).ValueUnsafe(), m.Upper.Map(SealBound).ValueUnsafe()),
+        oneOf:   static (_, m) => new OneOfWire([.. m.Allowed]),
+        length:  static (_, m) => new LengthWire(m.Min.ToNullable(), m.Max.ToNullable()),
+        digits:  static (_, m) => new DigitsWire(m.Total.ToNullable(), m.Fraction.ToNullable()));
 
     static Fin<ValueMatch> AdmitMatch(ValueMatchWire wire, Op key) => wire switch {
-        PresentWire => FinSucc<ValueMatch>(new ValueMatch.Present()),
-        ExactTextWire w => FinSucc<ValueMatch>(new ValueMatch.Exact(new PropertyValue.Text(w.Value))),
+        PresentWire => Fin.Succ<ValueMatch>(new ValueMatch.Present()),
+        ExactTextWire w => Fin.Succ<ValueMatch>(new ValueMatch.Exact(new PropertyValue.Text(w.Value))),
         ExactMeasureWire w => AdmitMeasure(w.Value, key).Map(static ValueMatch (m) => new ValueMatch.Exact(new PropertyValue.Measure(m))),
         PatternWire w => ValueMatch.Pattern.Of(w.Expression, key),
         RangeWire w => (Optional(w.Lower).Traverse(b => AdmitBound(b, key)).As(), Optional(w.Upper).Traverse(b => AdmitBound(b, key)).As())
             .Apply(static ValueMatch (lo, hi) => new ValueMatch.Range(lo, hi)).As(),
-        OneOfWire w => FinSucc<ValueMatch>(new ValueMatch.OneOf(toSeq(w.Allowed))),
-        LengthWire w => FinSucc<ValueMatch>(new ValueMatch.Length(Optional(w.Min), Optional(w.Max))),
-        DigitsWire w => FinSucc<ValueMatch>(new ValueMatch.Digits(Optional(w.Total), Optional(w.Fraction))),
-        _ => FinFail<ValueMatch>(new BimFault.ModelRejected(key, $"value-match-wire-unknown:{wire.GetType().Name}")),
+        OneOfWire w => Fin.Succ<ValueMatch>(new ValueMatch.OneOf(toSeq(w.Allowed))),
+        LengthWire w => Fin.Succ<ValueMatch>(new ValueMatch.Length(Optional(w.Min), Optional(w.Max))),
+        DigitsWire w => Fin.Succ<ValueMatch>(new ValueMatch.Digits(Optional(w.Total), Optional(w.Fraction))),
+        _ => Fin.Fail<ValueMatch>(new BimFault.ModelRejected(key, $"value-match-wire-unknown:{wire.GetType().Name}")),
     };
 
     static NodeMatchWire SealNode(NodeMatch node) => node.Switch(
@@ -650,10 +645,10 @@ public static class PredicateCodec {
 
     static Fin<NodeMatch> AdmitNode(NodeMatchWire wire, Op key) => (wire.Exact, wire.Matching) switch {
         ({ } raw, null) => NodeId.Validate(raw, null, out NodeId? id) is { } fault
-            ? FinFail<NodeMatch>(fault)
-            : FinSucc<NodeMatch>(id!),
+            ? Fin.Fail<NodeMatch>(fault)
+            : Fin.Succ<NodeMatch>(id!),
         (null, { } predicate) => Admit(predicate, key).Map(static NodeMatch (p) => p),
-        _ => FinFail<NodeMatch>(new BimFault.ModelRejected(key, "node-match-wire-ambiguous")),
+        _ => Fin.Fail<NodeMatch>(new BimFault.ModelRejected(key, "node-match-wire-ambiguous")),
     };
 
     static MeasureWire SealMeasure(MeasureValue measure) => new(measure.Si, measure.Type.Value,
@@ -667,7 +662,7 @@ public static class PredicateCodec {
         wire.Dimension is [var l, var m, var t, var i, var th, var n, var j]
             ? MeasureValue.OfSi(QuantityType.Create(wire.Type), Dimension.Create(l, m, t, i, th, n, j), wire.Si)
                 .MapFail(_ => (Error)new BimFault.ModelRejected(key, $"measure-wire-reject:{wire.Type}"))
-            : FinFail<MeasureValue>(new BimFault.ModelRejected(key, $"measure-wire-dimension:{wire.Type}"));
+            : Fin.Fail<MeasureValue>(new BimFault.ModelRejected(key, $"measure-wire-dimension:{wire.Type}"));
 
     static Fin<RangeBound> AdmitBound(BoundWire wire, Op key) =>
         AdmitMeasure(wire.Value, key).Map(m => wire.Inclusive ? (RangeBound)new RangeBound.Inclusive(m) : new RangeBound.Exclusive(m));
@@ -679,22 +674,51 @@ public static class PredicateCodec {
 
 ## [04]-[PREDICATE_PUSHDOWN]
 
-- Owner: `StorePlan` the store-side evaluation artifact — ONE parameterized SQL statement over the persisted BimOpenSchema flat fact tables plus the in-process `Residue` predicate — and `StoreLowering.Lower` the two-phase split of the closed union: the store-expressible subset lowers to SQL, the residue folds in-process over the returned candidates, and the split is SOUND by construction (the SQL phase selects a SUPERSET — a conjunction narrows with its expressible conjuncts and parks the rest on the residue; a disjunction lowers only when EVERY operand lowers, else the whole branch is residue; a negation lowers only over a lowerable operand) — the same broad/narrow law the geospatial H3 prefilter holds at bit parity.
-- Entry: `StoreLowering.Lower(ElementPredicate predicate, Op key)` folds the union into a `StorePlan` — `Sql` the one `SELECT DISTINCT e.GlobalId FROM Entities_4 e …` statement whose predicates join the suffixed fact tables (`Strings_1` by `rowid` for the string-index columns, `StringParameters_8`/`DoubleParameters_6` through `Descriptors_2` for the property facts), `Parameters` the positional value list (every dynamic value a parameter — raw-string interpolation into engine SQL is the deleted form the Persistence trust gate names), `Residue` the predicate remainder re-checked in-process; the executing lane is the `csharp:Rasm.Persistence/Query/columnar#COLUMNAR_LANE` analytical session, and the returned GlobalId candidates re-enter the algebra as `ByAttribute(GlobalId, OneOf(candidates)).And(residue)` over the materialized graph, so the store phase and the in-process phase agree bit-for-bit on the final set.
-- Auto: the expressible arms are the flat projection's own axes — `ByClass` compares the `Category` fact, `ByDomain` expands to the roster's class-key partition (`IfcClass.Items` filtered by `Domain`, one `IN` parameter list), `ByClassificationSystem`/`ByClassification` compare the classification facts, `ByAttribute` over `GlobalId`/`Name` compares the entity columns, and `ByProperty` with exact set/name restrictions lowers `Exact`/`OneOf`/`Range` onto the parameter tables (`Value` string equality through the `Strings_1` join, numeric bounds on `DoubleParameters_6.Value` — SI magnitudes by the fact convention); every incidence, zone, spatial, patterned, and nested-`Matching` arm is residue — graph topology stays the graph's.
-- Receipt: the `StorePlan` is the estate-scale query evidence — "every fire-rated door on any current model" runs WHERE the data rests, saved queries and federation-wide reporting execute the same closed algebra, and the plan's `Residue` names exactly what ran in-process so the split is auditable per query.
-- Packages: Rasm.Element, LanguageExt.Core, Rasm; the fact-table vocabulary is the `Ara3D.BimOpenSchema` record surface (`Entity(LocalId, GlobalId, Document, Name, Category)`, `ParameterString`/`ParameterDouble(Entity, Descriptor, Value)`, `ParameterDescriptor(Name, Units, Group, Type)`, `EntityRelation(EntityA, EntityB, RelationType)` — decompile-verified; the `<Name>_<n>` projection-ordinal table names and the single-column `Strings` adapter are the `libs/csharp/Rasm.Persistence/.api/api-ara3d-bimopenschema.md` `[IMPLEMENTATION_LAW]` law, that catalogue owning the package at the Persistence tier).
-- Growth: a new expressible arm is one `Fragment` case in the lowering fold (the SQL text and its parameter rows), zero executor edits; a new fact column is the flat projection's row and one comparison fragment; never a second selection language and never a store-side predicate vocabulary beside the union.
-- Boundary: the lowering emits SQL TEXT + parameters and never opens a connection — execution is the Persistence analytical lane's (the `ColumnarSession` refcounted anchor, the `Query/lane#READ_ROUTING` staleness gate), so the plan crosses the seam as data on the standing `BimOpenSchema` projection edge; the FACT CONVENTION is Bim's half of that seam — `GlobalId` = the node `ExternalId`, `Category` = the `"ifc"` classification code, a parameter descriptor `Name` = the `{Set}.{Name}` dot-path with `ParameterDouble.Value` the SI magnitude — the BIM-typed projection `columnar.md` rules Bim-implemented; the residue split is a correctness law, not an optimization: a lowering that narrows the superset (an `Any` with one residue operand lowered as its expressible operands alone) silently drops rows and is the deleted form.
+- Owner: `StorePlan` the store-side evaluation artifact — ONE parameterized SQL statement over the persisted BimOpenSchema flat fact tables and the in-process `Residue` predicate — and `StoreLowering.Lower` the two-phase split of the closed union: the store-expressible subset lowers to SQL, the residue folds in-process over the returned candidates, and the split is SOUND by construction (the SQL phase selects a SUPERSET — a conjunction narrows with its expressible conjuncts and parks the rest on the residue; a disjunction lowers only when EVERY operand lowers, else the whole branch is residue; a negation lowers only over a lowerable operand whose clause is TOTAL, because SQL's third value makes `NOT` over a nullable fact column exclude exactly the absent-column rows the negation selects) — the same broad/narrow law the geospatial H3 prefilter holds at bit parity.
+- Entry: `StoreLowering.Lower(ElementPredicate predicate, Op key)` folds the union into a `StorePlan` — `Sql` the one `SELECT DISTINCT e.GlobalId` statement over the `FactTable.Entities` scan whose predicates join the remaining rows (`Strings` by `rowid` for the string-index columns, `StringParameters`/`DoubleParameters` through `Descriptors` for the property facts), `Parameters` the positional value list (every dynamic value a parameter — raw-string interpolation into engine SQL is the deleted form the Persistence trust gate names), `Residue` the predicate remainder re-checked in-process; the executing lane is the `Rasm.Persistence/Query/columnar#COLUMNAR_LANE` analytical session, and the returned GlobalId candidates re-enter the algebra as `ByAttribute(GlobalId, OneOf(candidates)).And(residue)` over the materialized graph, so the store phase and the in-process phase agree bit-for-bit on the final set.
+- Auto: the expressible arms are the flat projection's own axes — `ByClass` compares the `Category` fact, `ByDomain` expands to the roster's class-key partition (`IfcClass.Items` filtered by `Domain`, one `IN` parameter list), `ByClassificationSystem`/`ByClassification` compare the classification facts, `ByAttribute` over `GlobalId`/`Name` compares the entity columns, and `ByProperty` with exact set/name restrictions lowers `Exact`/`OneOf`/`Range` onto the parameter tables (`Value` string equality through the `FactTable.Strings` join, numeric bounds on the `FactTable.DoubleParameters` `Value` column — SI magnitudes by the fact convention); every incidence, zone, spatial, patterned, and nested-`Matching` arm is residue — graph topology stays the graph's. `IN` lists narrow only over a NON-EMPTY value set: an empty set lowers to the canonical FALSE predicate through the one `InFragment` mint, because emitting `IN ()` breaks the statement and dropping the fragment widens the superset into a scan the residue never narrows.
+- Receipt: the `StorePlan` is the estate-scale query evidence — "every fire-rated door on any current model" runs WHERE the data rests, saved queries and federation-wide reporting execute the same closed algebra, and the plan's `Residue` names exactly what ran in-process so the split is auditable per query. Chainage pushes DOWN whole: an exact set/name `ByProperty` carrying a `Range` lowers onto the `FactTable.DoubleParameters` SI-magnitude column and the alignment identity beside it onto the string join, so a station band over a whole infrastructure estate is one statement with an empty residue.
+- Packages: Rasm.Element, LanguageExt.Core, Thinktecture.Runtime.Extensions (the `FactTable` `[SmartEnum<string>]` row table), Rasm; the fact-table vocabulary is the `Ara3D.BimOpenSchema` record surface (`Entity(LocalId, GlobalId, Document, Name, Category)`, `ParameterString`/`ParameterDouble(Entity, Descriptor, Value)`, `ParameterDescriptor(Name, Units, Group, Type)`, `EntityRelation(EntityA, EntityB, RelationType)` — decompile-verified; the `<Name>_<n>` projection-ordinal identifiers and the single-column `Strings` adapter are the `libs/csharp/Rasm.Persistence/.api/api-ara3d-bimopenschema.md` `[IMPLEMENTATION_LAW]` law, that catalogue owning the package at the Persistence tier).
+- Growth: a new expressible arm is one `Fragment` case in the lowering fold (the SQL text, its parameter rows, and its totality verdict), zero executor edits; a new fact column is the flat projection's row and one comparison fragment; a re-ordered serializer projection is one `FactTable` `Ordinal` edit and zero fragment edits; never a second selection language and never a store-side predicate vocabulary beside the union.
+- Boundary: the lowering emits SQL TEXT + parameters and never opens a connection — execution is the Persistence analytical lane's (the `ColumnarSession` refcounted anchor, the `Query/lane#READ_ROUTING` staleness gate), so the plan crosses the seam as data on the standing `BimOpenSchema` projection edge; the FACT CONVENTION is Bim's half of that seam — `GlobalId` = the node `ExternalId`, `Category` = the `"ifc"` classification code, a parameter descriptor `Name` = the `{Set}.{Name}` dot-path with `ParameterDouble.Value` the SI magnitude, and every parameter fact the EFFECTIVE value with its type→occurrence merge already resolved under the stamped `InheritanceMode` — the BIM-typed projection `columnar.md` rules Bim-implemented; that materialization is what makes the SQL phase provably a SUPERSET, because an occurrence-only projection puts a `ByProperty` lowering UNDER the in-process answer by dropping every type-inherited value, and a residue narrows but never widens; the table IDENTIFIER is the other half — the `<Stem>_<Ordinal>` name is a serializer emit-order fact the Persistence catalogue owns, so every fragment derives it from a `FactTable` row and a transcribed suffixed literal is the deleted form that survives a re-ordered projection as a name still resolving against the wrong table; the residue split is a correctness law, not an optimization: a lowering that narrows the superset silently drops rows the residue can never recover and is the deleted form — an `Any` lowered as its expressible operands alone, and a `NOT` lowered over a non-total clause, are its two standing instances, the second being why `Fragment` carries a totality verdict rather than a `NOT` wrapper trusting SQL comparison to be two-valued.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
 using LanguageExt;
 using Rasm.Element.Properties;
+using Thinktecture;
 using Op = Rasm.Domain.Op;
 using static LanguageExt.Prelude;
 
 namespace Rasm.Bim.Model;
+
+// --- [TYPES] ------------------------------------------------------------------------------
+// Each row pairs a joined flat-projection table's stem with the serializer's fixed
+// IDataSet.Tables emit ORDINAL that the `<Stem>_<Ordinal>` DuckDB identifier carries — the projection-ordinal law
+// libs/csharp/Rasm.Persistence/.api/api-ara3d-bimopenschema.md owns. Every fragment derives its identifier from a
+// row here, so a re-ordered projection moves ONE row and the whole plan follows; a transcribed `Entities_4`
+// literal survives that re-order as a name that still resolves, silently skewing the plan onto another table.
+//
+// SOUNDNESS: the parameter tables materialize the EFFECTIVE value — every occurrence row carrying its
+// type→occurrence merge already resolved under the stamped InheritanceMode — which is the fact convention's
+// half of the seam and the condition under which the SQL phase is provably a SUPERSET. Materializing the
+// occurrence's OWN entries alone would make a ByProperty lowering miss every type-inherited value, putting the
+// store phase UNDER the in-process answer, and a residue narrows but never widens: the two-phase split has no
+// recovery from a lowering that drops rows. The property lane the projection writes is therefore the same
+// stream EffectiveValues folds, and the two phases decide one question over one value space.
+[SmartEnum<string>]
+public sealed partial class FactTable {
+    public static readonly FactTable Strings          = new("Strings",          1);
+    public static readonly FactTable Descriptors      = new("Descriptors",      2);
+    public static readonly FactTable Entities         = new("Entities",         4);
+    public static readonly FactTable DoubleParameters = new("DoubleParameters", 6);
+    public static readonly FactTable StringParameters = new("StringParameters", 8);
+
+    public int Ordinal { get; }
+    public string Identifier { get; }
+
+    private FactTable(string key, int ordinal) : this(key) => (Ordinal, Identifier) = (ordinal, $"{key}_{ordinal}");
+}
 
 // --- [MODELS] -----------------------------------------------------------------------------
 // The store-side evaluation artifact: one parameterized statement, the positional parameter values, and the
@@ -704,26 +728,30 @@ public sealed record StorePlan(string Sql, Seq<object> Parameters, Option<Elemen
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static class StoreLowering {
-    // One fragment per expressible arm: the WHERE clause text over the aliased fact tables plus its parameter rows.
-    // A None fragment IS the residue verdict for that sub-tree.
-    readonly record struct Fragment(string Where, Seq<object> Parameters);
+    // One fragment per expressible arm: the WHERE clause text over the aliased fact tables, its parameter rows, and
+    // whether the clause is TOTAL — decides TRUE or FALSE for every row, never SQL's third value. Totality is the
+    // column that makes negation soundly lowerable: an `EXISTS` never evaluates UNKNOWN, while a comparison against a
+    // nullable fact column does, and `NOT (UNKNOWN)` is UNKNOWN, so a naive `NOT` over a nullable scalar EXCLUDES
+    // exactly the rows whose column is absent — narrowing the superset the residue can never widen back, the one
+    // failure this two-phase split has no recovery from. A None fragment IS the residue verdict for that sub-tree.
+    readonly record struct Fragment(string Where, Seq<object> Parameters, bool Total);
 
     public static StorePlan Lower(ElementPredicate predicate, Op key) {
         (Option<Fragment> store, Option<ElementPredicate> residue) = Split(predicate);
         return store.Match(
-            Some: fragment => new StorePlan(
-                $"SELECT DISTINCT e.GlobalId FROM Entities_4 e WHERE {fragment.Where}", fragment.Parameters, residue),
-            None: () => new StorePlan("SELECT DISTINCT e.GlobalId FROM Entities_4 e", Seq<object>(), residue));
+            Some: fragment => new StorePlan($"{EntityScan} WHERE {fragment.Where}", fragment.Parameters, residue),
+            None: () => new StorePlan(EntityScan, Seq<object>(), residue));
     }
 
     // The sound two-phase split: And narrows with its expressible conjuncts and parks the rest as residue;
-    // Or lowers only whole; Not lowers only over a lowerable operand; a leaf lowers by its own fragment arm.
+    // Or lowers only whole; Not lowers only over a lowerable AND total operand; a leaf lowers by its own fragment
+    // arm. A composite is total only where BOTH halves are — one UNKNOWN operand poisons the whole clause.
     static (Option<Fragment> Store, Option<ElementPredicate> Residue) Split(ElementPredicate predicate) => predicate switch {
         ElementPredicate.All all => all.Operands.Map(Split).Fold(
             (Store: Option<Fragment>.None, Residue: Option<ElementPredicate>.None),
             static (acc, part) => (
                 Store: acc.Store.Match(
-                    Some: held => part.Store.Map(next => new Fragment($"({held.Where}) AND ({next.Where})", held.Parameters + next.Parameters)).IfNone(held),
+                    Some: held => part.Store.Map(next => new Fragment($"({held.Where}) AND ({next.Where})", held.Parameters + next.Parameters, held.Total && next.Total)).IfNone(held),
                     None: () => part.Store),
                 Residue: acc.Residue.Match(
                     Some: held => part.Residue.Map(held.And).IfNone(held),
@@ -731,12 +759,14 @@ public static class StoreLowering {
         ElementPredicate.Any any => any.Operands.Map(Split) is var parts
             && parts.ForAll(static p => p.Store.IsSome && p.Residue.IsNone)
                 ? (parts.Choose(static p => p.Store).Fold(Option<Fragment>.None, static (acc, next) => acc.Match(
-                    Some: held => Some(new Fragment($"({held.Where}) OR ({next.Where})", held.Parameters + next.Parameters)),
+                    Some: held => Some(new Fragment($"({held.Where}) OR ({next.Where})", held.Parameters + next.Parameters, held.Total && next.Total)),
                     None: () => Some(next))), Option<ElementPredicate>.None)
                 : (Option<Fragment>.None, Some(predicate)),
+        // Negation parks a non-total operand WHOLE: a clause answering UNKNOWN drops every row whose fact column
+        // is absent, and those rows are precisely the ones the negation selects.
         ElementPredicate.Not not => Split(not.Operand) switch {
-            ({ IsSome: true } inner, { IsNone: true }) when inner.Case is Fragment fragment =>
-                (Some(new Fragment($"NOT ({fragment.Where})", fragment.Parameters)), Option<ElementPredicate>.None),
+            ({ IsSome: true } inner, { IsNone: true }) when inner.Case is Fragment { Total: true } fragment =>
+                (Some(new Fragment($"NOT ({fragment.Where})", fragment.Parameters, Total: true)), Option<ElementPredicate>.None),
             _ => (Option<Fragment>.None, Some(predicate)),
         },
         _ => Leaf(predicate).Match(
@@ -745,23 +775,25 @@ public static class StoreLowering {
     };
 
     // The expressible leaves over the verified fact columns; every other leaf answers None and rides the residue.
+    // The entity-column comparisons are NON-total (a NULL Category, Name, or GlobalId answers UNKNOWN); every
+    // parameter-fact leaf lowers through EXISTS and is total by construction.
     static Option<Fragment> Leaf(ElementPredicate predicate) => predicate switch {
-        ElementPredicate.ByClass c => Some(new Fragment(CategoryEquals, Seq<object>(c.Class.Key))),
-        ElementPredicate.ByDomain d => toSeq(IfcClass.Items).Filter(row => row.Domain == d.Domain).Map(static row => (object)row.Key).ToSeq() is var keys
-            ? Some(new Fragment($"{CategoryColumn} IN ({string.Join(",", keys.Map(static _ => "?"))})", keys)) : None,
-        ElementPredicate.ByAttribute { Attribute: ValueMatch.Exact { Value: PropertyValue.Text { Value: "GlobalId" } } } a => a.Restriction switch {
-            ValueMatch.Exact { Value: PropertyValue.Text t } => Some(new Fragment("e.GlobalId = ?", Seq<object>(t.Value))),
-            ValueMatch.OneOf o => Some(new Fragment($"e.GlobalId IN ({string.Join(",", o.Allowed.Map(static _ => "?"))})", o.Allowed.Map(static v => (object)v))),
-            _ => None,
-        },
-        ElementPredicate.ByAttribute { Attribute: ValueMatch.Exact { Value: PropertyValue.Text { Value: "Name" } } } a => a.Restriction switch {
-            ValueMatch.Exact { Value: PropertyValue.Text t } => Some(new Fragment(NameEquals, Seq<object>(t.Value))),
-            _ => None,
-        },
+        ElementPredicate.ByClass c => Some(new Fragment(CategoryEquals, Seq<object>(c.Class.Key), Total: false)),
+        ElementPredicate.ByDomain d => Some(InFragment(CategoryColumn,
+            toSeq(IfcClass.Items).Filter(row => row.Domain == d.Domain).Map(static row => (object)row.Key))),
+        // ONE row-keyed attribute leaf over the EntityColumns table: the two arms that differed only by which
+        // column they compared collapse, and the key is the ObjectAttribute ROW rather than a "GlobalId"/"Name"
+        // literal a roster rename leaves silently resolving against a column the vocabulary no longer names.
+        ElementPredicate.ByAttribute { Attribute: ValueMatch.Exact { Value: PropertyValue.Text key } } a
+            when EntityColumns.Find(key.Value) is { IsSome: true, Case: string column } => a.Restriction switch {
+                ValueMatch.Exact { Value: PropertyValue.Text t } => Some(new Fragment($"{column} = ?", Seq<object>(t.Value), Total: false)),
+                ValueMatch.OneOf o => Some(InFragment(column, o.Allowed.Map(static v => (object)v))),
+                _ => None,
+            },
         ElementPredicate.ByProperty { Set: ValueMatch.Exact { Value: PropertyValue.Text set }, Name: ValueMatch.Exact { Value: PropertyValue.Text name } } p => p.Restriction switch {
-            ValueMatch.Exact { Value: PropertyValue.Text t } => Some(new Fragment(StringParameterEquals, Seq<object>($"{set.Value}.{name.Value}", t.Value))),
+            ValueMatch.Exact { Value: PropertyValue.Text t } => Some(new Fragment(StringParameterEquals, Seq<object>($"{set.Value}.{name.Value}", t.Value), Total: true)),
             ValueMatch.Range r => RangeFragment($"{set.Value}.{name.Value}", r),
-            ValueMatch.Present => Some(new Fragment(ParameterPresent, Seq<object>($"{set.Value}.{name.Value}", $"{set.Value}.{name.Value}"))),
+            ValueMatch.Present => Some(new Fragment(ParameterPresent, Seq<object>($"{set.Value}.{name.Value}", $"{set.Value}.{name.Value}"), Total: true)),
             _ => None,
         },
         _ => None,
@@ -778,18 +810,36 @@ public static class StoreLowering {
         return bounds.IsEmpty
             ? None
             : Some(new Fragment(
-                $"EXISTS (SELECT 1 FROM DoubleParameters_6 p JOIN Descriptors_2 d ON p.Descriptor = d.rowid JOIN Strings_1 dn ON d.Name = dn.rowid WHERE p.Entity = e.rowid AND dn.Strings = ? AND {string.Join(" AND ", bounds.Map(static b => b.Clause))})",
-                ((object)descriptor).Cons(bounds.Map(static b => b.Value))));
+                $"EXISTS (SELECT 1 FROM {FactTable.DoubleParameters.Identifier} p JOIN {FactTable.Descriptors.Identifier} d ON p.Descriptor = d.rowid JOIN {FactTable.Strings.Identifier} dn ON d.Name = dn.rowid WHERE p.Entity = e.rowid AND dn.Strings = ? AND {string.Join(" AND ", bounds.Map(static b => b.Clause))})",
+                ((object)descriptor).Cons(bounds.Map(static b => b.Value)),
+                Total: true));
     }
 
-    // The verified fact joins: string-index columns resolve through the single-column Strings_1 adapter by rowid,
-    // parameters join their entity by the append-ordinal rowid — the projection-ordinal law
-    // libs/csharp/Rasm.Persistence/.api/api-ara3d-bimopenschema.md names, never a bare table name.
-    const string CategoryColumn = "(SELECT s.Strings FROM Strings_1 s WHERE s.rowid = e.Category)";
-    const string CategoryEquals = "(SELECT s.Strings FROM Strings_1 s WHERE s.rowid = e.Category) = ?";
-    const string NameEquals = "(SELECT s.Strings FROM Strings_1 s WHERE s.rowid = e.Name) = ?";
-    const string StringParameterEquals = "EXISTS (SELECT 1 FROM StringParameters_8 p JOIN Descriptors_2 d ON p.Descriptor = d.rowid JOIN Strings_1 dn ON d.Name = dn.rowid JOIN Strings_1 sv ON p.Value = sv.rowid WHERE p.Entity = e.rowid AND dn.Strings = ? AND sv.Strings = ?)";
-    const string ParameterPresent = "EXISTS (SELECT 1 FROM StringParameters_8 p JOIN Descriptors_2 d ON p.Descriptor = d.rowid JOIN Strings_1 dn ON d.Name = dn.rowid WHERE p.Entity = e.rowid AND dn.Strings = ?) OR EXISTS (SELECT 1 FROM DoubleParameters_6 q JOIN Descriptors_2 qd ON q.Descriptor = qd.rowid JOIN Strings_1 qn ON qd.Name = qn.rowid WHERE q.Entity = e.rowid AND qn.Strings = ?)";
+    // Empty value sets are the EMPTY relation and lower to the dialect's canonical FALSE predicate: `IN ()` is a
+    // syntax error that fails the whole statement, and dropping the fragment instead would WIDEN the superset into
+    // a scan the residue never narrows. A domain no rostered class carries and an empty OneOf both land here — and
+    // that constant IS total, where the populated `IN` over a nullable entity column is not.
+    static Fragment InFragment(string column, Seq<object> values) =>
+        values.IsEmpty
+            ? new Fragment(FalsePredicate, Seq<object>(), Total: true)
+            : new Fragment($"{column} IN ({string.Join(",", values.Map(static _ => "?"))})", values, Total: false);
+
+    // Verified fact joins, every table identifier derived from its FactTable row: string-index columns resolve
+    // through the single-column Strings adapter by rowid and parameters join their entity by the append-ordinal
+    // rowid. Interpolated statics rather than consts — the identifier is a derived row read, never a literal.
+    const string FalsePredicate = "1 = 0";
+    static readonly string EntityScan = $"SELECT DISTINCT e.GlobalId FROM {FactTable.Entities.Identifier} e";
+    static readonly string CategoryColumn = $"(SELECT s.Strings FROM {FactTable.Strings.Identifier} s WHERE s.rowid = e.Category)";
+    static readonly string CategoryEquals = $"{CategoryColumn} = ?";
+    static readonly string NameColumn = $"(SELECT s.Strings FROM {FactTable.Strings.Identifier} s WHERE s.rowid = e.Name)";
+
+    // The store-expressible attribute rows keyed by their ObjectAttribute row. Tag and ObjectType carry no entity
+    // column on the flat projection, so they stay residue by ABSENCE from this table rather than by a match arm.
+    static readonly Map<string, string> EntityColumns = toMap(Seq(
+        (ObjectAttribute.GlobalId.Key, "e.GlobalId"),
+        (ObjectAttribute.Name.Key, NameColumn)));
+    static readonly string StringParameterEquals = $"EXISTS (SELECT 1 FROM {FactTable.StringParameters.Identifier} p JOIN {FactTable.Descriptors.Identifier} d ON p.Descriptor = d.rowid JOIN {FactTable.Strings.Identifier} dn ON d.Name = dn.rowid JOIN {FactTable.Strings.Identifier} sv ON p.Value = sv.rowid WHERE p.Entity = e.rowid AND dn.Strings = ? AND sv.Strings = ?)";
+    static readonly string ParameterPresent = $"EXISTS (SELECT 1 FROM {FactTable.StringParameters.Identifier} p JOIN {FactTable.Descriptors.Identifier} d ON p.Descriptor = d.rowid JOIN {FactTable.Strings.Identifier} dn ON d.Name = dn.rowid WHERE p.Entity = e.rowid AND dn.Strings = ?) OR EXISTS (SELECT 1 FROM {FactTable.DoubleParameters.Identifier} q JOIN {FactTable.Descriptors.Identifier} qd ON q.Descriptor = qd.rowid JOIN {FactTable.Strings.Identifier} qn ON qd.Name = qn.rowid WHERE q.Entity = e.rowid AND qn.Strings = ?)";
 }
 ```
 

@@ -344,7 +344,8 @@ public static class PointInTimeRestore {
                     .MapFail(_ => new RecoveryFault.VerifyFailed(route.Key, row.Hash, ContentAddress.Of(UInt128.Zero)))))
         .Bind(verified => target.Continues(ctx.ArchiveTimeline)
             ? Fin<string>.Succ($"<verified:{verified.Count}-checkpoints:tl{target.Timeline}>")
-            : Fin<string>.Fail(new RecoveryFault.TimelineDivergence(route.Key, target.Timeline, ctx.ArchiveTimeline)));
+            : Fin<string>.Fail(new RecoveryFault.TimelineDivergence(route.Key, target.Timeline, ctx.ArchiveTimeline)))
+        .As();
 
     // Rebuild the inline authoritative `GraphProjection` for the restored model (`RebuildSingleStreamAsync` re-folds its
     // co-transactional aggregate from zero), then bring up EVERY daemon-managed ASYNC analytical lane (the `Query/columnar`

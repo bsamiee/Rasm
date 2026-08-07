@@ -5,7 +5,7 @@
 ## [01]-[INDEX]
 
 - [02]-[PROJECTION_FRAME]: `ProjectionFrame` — the value-only camera family and its `ViewportInfo` rig.
-- [03]-[DRAWING_POLICY]: `DrawingFeature`, `DrawingRejoin`, `DrawingThreads`, `DrawingSection`, `ProjectionSubject`, `DrawingLaw`, `ProjectionPacing`, `SilhouetteFrame` — flag rows, subjects, pacing, and the silhouette eye.
+- [03]-[DRAWING_POLICY]: `DrawingFeature`, `DrawingRejoin`, `DrawingThreads`, `ProjectionSubject`, `DrawingLaw`, `ProjectionPacing`, `SilhouetteFrame` — flag rows, subjects, pacing, and the silhouette eye.
 - [04]-[OPERATION_RAIL]: `ProjectionSlot`, `ProjectionOp`, and the `Projections.Build` entry.
 - [05]-[SURFACE_LEDGER]: the page's owner table.
 
@@ -13,10 +13,10 @@
 
 - Owner: `ProjectionFrame` `[Union]` closes the four frame sources — a sampled `CameraSnapshot`, a synthetic `CameraPose` over subject bounds, a drafting-plane plan, and an explicit parallel direction; `Rig` is the one site minting the disposable `ViewportInfo` every host compute consumes.
 - Law: the frame is a sampled value, never a live viewport — a `RhinoViewport` or `ViewportLease` never crosses this rail; live sampling is the Viewport rail's `CameraSnapshot.Take`, and the `Snapshot`/`Pose` cases consume that rail's value shapes as the ruled Modeling counter-edge, so a headless drawing and a viewport-true drawing enter one union.
-- Law: the seat is verified member by member — `SetCameraLocation`, `SetCameraDirection`, and `SetCameraUp` each answer `bool` and fold through one confirmation, the projection transition selects `ChangeToParallelProjection`/`ChangeToPerspectiveProjection`/`ChangeToTwoPointPerspectiveProjection` off the pose's `ProjectionKind` row, and `SetFrustumNearFar(BoundingBox)` derives the clip range from the subject bounds, so no frustum scalar is hand-derived.
+- Law: the seat is verified member by member — `SetCameraLocation(Point3d)`, `SetCameraDirection(Vector3d)`, `SetCameraUp(Vector3d)`, and `SetFrustumNearFar(BoundingBox)` each answer `bool` on `Rhino.DocObjects.ViewportInfo` and every one rides the same short-circuit chain into one confirmation, so a refused seat step is a typed `InvalidResult` and never a discarded return; the projection transition selects `ChangeToParallelProjection`/`ChangeToPerspectiveProjection`/`ChangeToTwoPointPerspectiveProjection` off the pose's `ProjectionKind` row inside that chain, and the bounds overload derives the clip range from the subject so no frustum scalar is hand-derived and the point-and-distance, near-far, and full six-scalar overloads stay unused.
 - Law: `Rig` transfers a detached frame only after every seat step succeeds; one ownership bracket disposes each refused or exceptional frame before the typed fault leaves.
 - Law: `Directed` requires its up vector — a local orthogonalization fallback is the killed form the camera page names, so an explicit up crosses the case and the plan case reads the drafting plane's own `YAxis`.
-- Law: the lens seat performs no optics arithmetic — `LensAngle` writes onto the seated frame's `CameraAngle` and the 35mm lens length reads back off `Camera35mmLensLength`, so the half-frame diagonal is the host's own constant rather than a transcribed literal this page could drift from; the perspective target distance reads the pose's admitted target, never a magic depth.
+- Law: the lens seat performs no optics arithmetic — `LensAngle` is the FULL vertical view angle and `ViewportInfo.CameraAngle` holds its HALF (live-proven 13.4957 deg = atan(12/50) at 50mm, identical on `RhinoViewport.CameraAngle`), so the seat halves on write exactly as `Viewport/camera.md` doubles on read; the 35mm lens length reads back off `Camera35mmLensLength`, so the half-frame diagonal is the host's own constant rather than a transcribed literal this page could drift from, and the perspective target distance reads the pose's admitted target, never a magic depth.
 - Boundary: screen landing is not this owner — a consumer placing the flattened drawing on a sheet composes `ViewTransforms.Mapping` over `ViewMapping` on the Viewport rail; this frame ends at the projection compute.
 
 ```csharp
@@ -101,9 +101,11 @@ public abstract partial record ProjectionFrame {
             }
         });
 
-    // The 35mm half-frame diagonal is the host's own constant, never a transcribed literal: writing the half-diagonal
-    // angle onto the frame and reading `Camera35mmLensLength` back yields exactly the lens length Rhino itself computes,
-    // so a bundle that re-rates the frame size re-rates this page with it and no optics arithmetic lives here.
+    // `LensAngle` carries the FULL vertical view angle while `ViewportInfo.CameraAngle` holds its HALF — live-proven at
+    // 13.4957 deg = atan(12/50) for a 50mm lens, identical on `RhinoViewport.CameraAngle` — so the seat halves and a 1:1
+    // write silently doubles the field of view. The 35mm half-frame diagonal stays the host's own constant, never a
+    // transcribed literal: reading `Camera35mmLensLength` back off the seated frame yields the lens length Rhino itself
+    // computes, so a bundle that re-rates the frame size re-rates this page with it and no optics arithmetic lives here.
     private static double Lens(ViewportInfo frame, LensAngle angle) {
         frame.CameraAngle = (double)angle / 2.0;
         return frame.Camera35mmLensLength;
@@ -113,10 +115,10 @@ public abstract partial record ProjectionFrame {
 
 ## [03]-[DRAWING_POLICY]
 
-- Owner: `ProjectionSubject` carries one drawing source as a row — leased handle, optional admitted placement, per-subject clip planes, and the section row; `DrawingFeature` closes every `HiddenLineDrawingParameters` flag as a membership vocabulary, `DrawingRejoin` and `DrawingThreads` close the two compute behaviors, `DrawingLaw` fuses them into one value; `ProjectionPacing` is the cancellable-compute policy row; `SilhouetteFrame` closes the three silhouette eye modalities.
+- Owner: `ProjectionSubject` carries one drawing source as a row — leased handle, optional admitted placement, per-subject clip planes, and the occluding grant; `DrawingFeature` closes every `HiddenLineDrawingParameters` flag as a membership vocabulary, `DrawingRejoin` and `DrawingThreads` close the two compute behaviors, `DrawingLaw` fuses them into one value; `ProjectionPacing` is the cancellable-compute policy row; `SilhouetteFrame` closes the three silhouette eye modalities.
 - Law: placement is admitted, never raw — a subject motion enters as `TransformSpec` and lowers through `Placement.Build`, so `TransformSpec.PlanarProjection` and `DirectionalProjection` are the projection-transform spellings and a directly constructed host `Transform` bypassing kernel admission is the deleted form.
 - Law: the tag channel is the correspondence — every subject registers under its ordinal, so segment-to-source and point-to-source maps are host evidence read back from `HiddenLineDrawingObject.Tag`, never a geometry re-match.
-- Law: no drawing flag travels as a bare bool — the five `HiddenLineDrawingParameters` toggles are `DrawingFeature` rows carrying their own writer column and enter as one `FrozenSet`, so `Rig` folds `DrawingFeature.Items` once and a new host flag is one row; `AbsoluteTolerance` reads the regime, a tolerance knob beside the law is the deleted form, and the public occluding flag is `OccludingSectionOption` — the same-named list member is host-internal. Rejoin and threading are compute behavior rather than parameter state, so they stay their own two-row vocabularies, and the per-subject occluding grant is a `DrawingSection` row on the subject.
+- Law: no drawing flag travels as a bare bool — the five `HiddenLineDrawingParameters` toggles are `DrawingFeature` rows carrying their own writer column and enter as one `FrozenSet`, so `Rig` folds `DrawingFeature.Items` once and a new host flag is one row; `AbsoluteTolerance` reads the regime, a tolerance knob beside the law is the deleted form, and the public occluding flag is `OccludingSectionOption` — the same-named list member is host-internal. Rejoin and threading are compute behavior rather than parameter state, so they stay their own two-row vocabularies; the per-subject occluding grant is NOT — it is one bit of parameter state the host reads off the `AddGeometry` argument, and a two-row class over it carries no column beyond the bit, so it travels as a named `bool` on the subject exactly as the sibling curve and mesh rails spell their two-state grants.
 - Law: pacing is ONE value and cancellation ONE spelling — `ProjectionPacing` fuses the token, optional progress, and the thread row, and `Outline` and `Draft` carry a bare `CancellationToken` whose `default` IS the host's own `CancellationToken.None`; an `Option<CancellationToken>` stacks a second absence on a value that already models it. Every short host overload delegates verbatim to its long form with `null` progress or planes and `CancellationToken.None`, so this page composes the long form alone and no arm branches to pick an overload.
 
 ```csharp
@@ -149,14 +151,6 @@ public sealed partial class DrawingThreads {
     internal bool Native { get; }
 }
 
-[SmartEnum<int>]
-public sealed partial class DrawingSection {
-    public static readonly DrawingSection Plain = new(key: 0, native: false);
-    public static readonly DrawingSection Occluding = new(key: 1, native: true);
-
-    internal bool Native { get; }
-}
-
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record SilhouetteFrame {
     private SilhouetteFrame() { }
@@ -173,12 +167,12 @@ public sealed record ProjectionPacing(
     public static readonly ProjectionPacing Unpaced = new(
         Cancel: CancellationToken.None, Progress: None, Threads: DrawingThreads.Parallel);
 
-    internal IProgress<double>? Reporter => Progress.IfNoneUnsafe((IProgress<double>?)null);
+    internal IProgress<double>? Reporter => Progress.ValueUnsafe();
 }
 
 public sealed record ProjectionSubject(
     GeometryHandle Geometry,
-    DrawingSection Section,
+    bool Occluding,
     Option<TransformSpec> Placement = default,
     Seq<Plane> Clips = default);
 
@@ -206,6 +200,7 @@ public sealed record DrawingLaw(
 
 - Owner: `ProjectionSlot` `[SmartEnum<int>]` — the consequence vocabulary over host visibility classes, correspondence streams, and capture products; `ProjectionOp` `[Union]` — the drawing, silhouette, and draft verbs; `Projections` — the one entry folding any operation spread into one `Built<ProjectionSlot>`.
 - Law: products detach before the engine dies — every segment curve duplicates out of the disposable `HiddenLineDrawing` onto an owned handle inside the compute window, silhouette curves own directly because `Silhouette.Compute` returns fresh geometry, and the drawing, its `ViewportInfo`, and every mid-fold failure release symmetrically.
+- Law: evidence forces before the engine dies too — `Seq` projection is lazy, so every harvest read over a `HiddenLineDrawingSegment`, `HiddenLineDrawingPoint`, or `Silhouette` closes with `Strict()` inside the `using` scope that owns the native; an unforced map escaping into `BuildReceipt` reads freed memory at the consumer's first enumeration, and the detached-product law alone does not cover it because evidence carries no handle to detach.
 - Law: classification is total host evidence — the six-value segment visibility maps onto the six visibility slots with an out-of-roster host value landing on the `Unresolved` floor, `SilhouetteType` crosses as a per-product kind stream, per-side surface fills cross as paired code groups, and scene-silhouette membership rides `IsSceneSilhouette` ordinals, so a consumer partitions the drawing without re-testing geometry.
 - Law: correspondence maps survive — the subject ordinal registered at `AddGeometry` returns through `ParentCurve.SourceObject.Tag`, curve and point component indices land as `ComponentRows`, drawing points carry source and visibility streams beside their marks, and `WorldToHiddenLine` plus the host-computed drawing bounds land as frame facts, so sheet placement composes evidence rather than re-projecting.
 - Law: clipping planes cross one admission fold — drawing-global, subject-selective, and outline clip sets traverse `AcceptInput` applicatively, and each arm hands the admitted sequence to the one host overload it composes; an empty admitted set reaches the host as an empty plane list, which the native reads exactly as the no-planes short form does.
@@ -257,7 +252,7 @@ public abstract partial record ProjectionOp {
     internal Fin<ProjectionOp> Admitted(Op key) =>
         guard(this switch {
             Drawing row => !row.Subjects.IsEmpty
-                && row.Subjects.ForAll(static subject => subject is { Geometry: not null, Section: not null })
+                && row.Subjects.ForAll(static subject => subject.Geometry is not null)
                 && row.Frame is not null
                 && row.Law is { Features: not null, Rejoin: not null, Pacing: { Threads: not null } },
             Outline row => row.Subject is not null && row.Frame is not null && Enum.IsDefined(row.Kinds),
@@ -313,7 +308,7 @@ public abstract partial record ProjectionOp {
                                         ctx.Model.Absolute.Value, ctx.Model.Angle.Value,
                                         ctx.Clips.AsIterable(), ctx.Edit.Cancel));
                             })
-                            select built)
+                            select built))
                        select built;
             },
             draft: static (model, edit) => {
@@ -333,11 +328,11 @@ public abstract partial record ProjectionOp {
             .Traverse(spec => Placement.Build(spec: spec, context: Some(model), key: op)).As()
         from clips in AdmittedClips(subject.Clips, op)
         from _ in op.Confirm(success: (motion.Case, clips.IsEmpty) switch {
-            (Transform placed, true) => parameters.AddGeometry(native, placed, ordinal, subject.Section.Native),
+            (Transform placed, true) => parameters.AddGeometry(native, placed, ordinal, subject.Occluding),
             (Transform placed, false) => parameters.AddGeometryAndPlanes(
-                native, placed, ordinal, subject.Section.Native, [.. clips]),
-            (_, true) => parameters.AddGeometry(native, ordinal, subject.Section.Native),
-            (_, false) => parameters.AddGeometryAndPlanes(native, ordinal, subject.Section.Native, [.. clips]),
+                native, placed, ordinal, subject.Occluding, [.. clips]),
+            (_, true) => parameters.AddGeometry(native, ordinal, subject.Occluding),
+            (_, false) => parameters.AddGeometryAndPlanes(native, ordinal, subject.Occluding, [.. clips]),
         })
         select unit;
 
@@ -347,58 +342,66 @@ public abstract partial record ProjectionOp {
         return Optional(computed).ToFin(Fail: op.InvalidResult()).Bind(drawing => {
             using (drawing) {
                 if (law.Rejoin.Native) { drawing.RejoinCompatibleVisible(); }
-                Seq<HiddenLineDrawingSegment> segments = toSeq(drawing.Segments);
-                Seq<HiddenLineDrawingPoint> points = toSeq(drawing.Points);
+                Seq<HiddenLineDrawingSegment> segments = toSeq(drawing.Segments).Strict();
+                Seq<HiddenLineDrawingPoint> points = toSeq(drawing.Points).Strict();
                 BuildReceipt<ProjectionSlot> evidence = Harvested(
                     segments: segments,
                     points: points,
                     frame: drawing.WorldToHiddenLine,
                     bounds: drawing.BoundingBox(includeHidden: law.Features.Contains(DrawingFeature.HiddenCurves)));
                 return ModelGate.OwnMany(
-                        built: segments.Map(static segment => (GeometryBase)segment.CurveGeometry.Duplicate()),
+                        built: segments.Map(static segment => (GeometryBase)segment.CurveGeometry.Duplicate()).Strict(),
                         key: op, allowEmpty: true)
                     .Map(owned => Built<ProjectionSlot>.Of(operation: op, Products: owned, Evidence: evidence));
             }
         });
     }
 
+    // Every native read forces inside the caller's `using` scope: a `Seq` projection is lazy, so an unforced map would
+    // dereference `HiddenLineDrawing` members after the engine is disposed and hand the consumer freed memory.
     private static BuildReceipt<ProjectionSlot> Harvested(
         Seq<HiddenLineDrawingSegment> segments,
         Seq<HiddenLineDrawingPoint> points,
         Transform frame,
         BoundingBox bounds) {
-        Seq<(ProjectionSlot Slot, int Ordinal)> classified = segments
-            .Map((segment, ordinal) => (Slot: ProjectionSlot.Classify(visibility: segment.SegmentVisibility), Ordinal: ordinal));
+        Seq<(ProjectionSlot Slot, int Ordinal, bool Outline)> classified = segments
+            .Map(static (segment, ordinal) => (
+                Slot: ProjectionSlot.Classify(visibility: segment.SegmentVisibility),
+                Ordinal: ordinal,
+                Outline: segment.IsSceneSilhouette))
+            .Strict();
         BuildReceipt<ProjectionSlot> classes = classified
-            .Map(static row => row.Slot).Distinct()
+            .Map(static row => row.Slot).Distinct().Strict()
             .Fold(BuildReceipt<ProjectionSlot>.Empty, (receipt, slot) => {
-                Seq<int> members = classified.Filter(row => row.Slot == slot).Map(static row => row.Ordinal);
+                Seq<int> members = classified.Filter(row => row.Slot == slot).Map(static row => row.Ordinal).Strict();
                 return receipt
                     + BuildReceipt<ProjectionSlot>.Of(slot: slot, body: new BuildBody.Tally(Count: members.Count))
                     + BuildReceipt<ProjectionSlot>.Of(slot: slot, body: new BuildBody.Components(Indices: members));
             });
-        Seq<int> outlined = classified.Filter(row => segments[row.Ordinal].IsSceneSilhouette).Map(static row => row.Ordinal);
+        Seq<int> outlined = classified.Filter(static row => row.Outline).Map(static row => row.Ordinal).Strict();
         return classes
             + BuildReceipt<ProjectionSlot>.Of(slot: ProjectionSlot.Sourced, body: new BuildBody.SourceMap(
-                Axis: SourceAxis.Subject, Rows: segments.Map(static segment => (int)segment.ParentCurve.SourceObject.Tag)))
+                Axis: SourceAxis.Subject,
+                Rows: segments.Map(static segment => (int)segment.ParentCurve.SourceObject.Tag).Strict()))
             + BuildReceipt<ProjectionSlot>.Of(slot: ProjectionSlot.Sourced, body: new BuildBody.ComponentRows(
-                Indices: segments.Map(static segment => segment.ParentCurve.SourceObjectComponentIndex)))
+                Indices: segments.Map(static segment => segment.ParentCurve.SourceObjectComponentIndex).Strict()))
             + BuildReceipt<ProjectionSlot>.Of(slot: ProjectionSlot.Kinds, body: new BuildBody.SourceMap(
-                Axis: SourceAxis.Kind, Rows: segments.Map(static segment => (int)segment.ParentCurve.SilhouetteType)))
+                Axis: SourceAxis.Kind,
+                Rows: segments.Map(static segment => (int)segment.ParentCurve.SilhouetteType).Strict()))
             + BuildReceipt<ProjectionSlot>.Of(slot: ProjectionSlot.Fills, body: new BuildBody.SourceGroups(
                 Axis: SourceAxis.Kind,
-                Groups: segments.Map(static segment => toSeq(segment.CurveSideFills).Map(static fill => (int)fill))))
+                Groups: segments.Map(static segment => toSeq(segment.CurveSideFills).Map(static fill => (int)fill).Strict()).Strict()))
             + BuildReceipt<ProjectionSlot>.Of(slot: ProjectionSlot.Outline, body: new BuildBody.Components(Indices: outlined))
             + BuildReceipt<ProjectionSlot>.Of(slot: ProjectionSlot.Frame, body: new BuildBody.Motion(Value: frame))
             + BuildReceipt<ProjectionSlot>.Of(slot: ProjectionSlot.Bounds, body: new BuildBody.Bounds(Value: bounds))
             + BuildReceipt<ProjectionSlot>.Of(slot: ProjectionSlot.Marks, body: new BuildBody.Marks(
-                Points: points.Map(static point => point.Location)))
+                Points: points.Map(static point => point.Location).Strict()))
             + BuildReceipt<ProjectionSlot>.Of(slot: ProjectionSlot.Marks, body: new BuildBody.SourceMap(
-                Axis: SourceAxis.Subject, Rows: points.Map(static point => (int)point.SourceObject.Tag)))
+                Axis: SourceAxis.Subject, Rows: points.Map(static point => (int)point.SourceObject.Tag).Strict()))
             + BuildReceipt<ProjectionSlot>.Of(slot: ProjectionSlot.Marks, body: new BuildBody.ComponentRows(
-                Indices: points.Map(static point => point.SourceObjectComponentIndex)))
+                Indices: points.Map(static point => point.SourceObjectComponentIndex).Strict()))
             + BuildReceipt<ProjectionSlot>.Of(slot: ProjectionSlot.Marks, body: new BuildBody.SourceMap(
-                Axis: SourceAxis.Kind, Rows: points.Map(static point => (int)point.PointVisibility)));
+                Axis: SourceAxis.Kind, Rows: points.Map(static point => (int)point.PointVisibility).Strict()));
     }
 
     internal static Fin<Seq<Plane>> AdmittedClips(Seq<Plane> clips, Op key) =>
@@ -414,10 +417,10 @@ public abstract partial record ProjectionOp {
                 BuildReceipt<ProjectionSlot>.Of(slot: ProjectionSlot.Kinds, body: new BuildBody.SourceMap(
                     Axis: SourceAxis.Kind,
                     Rows: captured.Filter(static outline => outline.Curve is not null)
-                        .Map(static outline => (int)outline.SilhouetteType)))
+                        .Map(static outline => (int)outline.SilhouetteType).Strict()))
                 + BuildReceipt<ProjectionSlot>.Of(slot: slot, body: new BuildBody.ComponentRows(
                     Indices: captured.Filter(static outline => outline.Curve is not null)
-                        .Map(static outline => outline.GeometryComponentIndex)));
+                        .Map(static outline => outline.GeometryComponentIndex).Strict()));
             return ModelGate.OwnMany(
                     built: captured.Choose(static outline => Optional((GeometryBase?)outline.Curve)),
                     key: op, allowEmpty: true)
@@ -440,17 +443,17 @@ public static class Projections {
 
 ## [05]-[SURFACE_LEDGER]
 
-| [INDEX] | [CONCERN]           | [OWNER]                         | [FORM]                                              | [ENTRY]                 |
-| :-----: | :------------------ | :------------------------------ | :-------------------------------------------------- | :---------------------- |
-|  [01]   | projection frame    | `ProjectionFrame`               | snapshot / pose / plan / directed value frames      | frame payloads          |
-|  [02]   | drawing sources     | `ProjectionSubject`             | handle with placement, clips, section row          | `ProjectionOp.Drawing`        |
-|  [03]   | drawing flags       | `DrawingFeature`                | writer-column rows folded from one membership set  | `DrawingLaw.Rig`              |
-|  [04]   | compute behavior    | `DrawingRejoin`/`DrawingThreads`| two-row native grants, never bare bools            | `Computed`                    |
-|  [05]   | cancellable compute | `ProjectionPacing`              | token, optional progress, and thread row           | `DrawingLaw.Pacing`           |
-|  [06]   | silhouette eye      | `SilhouetteFrame`               | eye point, parallel direction, or rigged frame     | `ProjectionOp.Outline`        |
-|  [07]   | classified evidence | `ProjectionSlot`                | visibility, correspondence, frame, and bounds facts | `Built<ProjectionSlot>`       |
-|  [08]   | admission           | `ProjectionOp.Admitted`         | whole-roster payload gate before dispatch          | `Projections.Build`           |
-|  [09]   | projection verbs    | `ProjectionOp`                  | one flat `[Union]` under total generated dispatch  | `Projections.Build`           |
+| [INDEX] | [CONCERN]           | [OWNER]                          | [FORM]                                              | [ENTRY]                 |
+| :-----: | :------------------ | :------------------------------- | :-------------------------------------------------- | :---------------------- |
+|  [01]   | projection frame    | `ProjectionFrame`                | snapshot / pose / plan / directed value frames      | frame payloads          |
+|  [02]   | drawing sources     | `ProjectionSubject`              | handle with placement, clips, occluding grant       | `ProjectionOp.Drawing`  |
+|  [03]   | drawing flags       | `DrawingFeature`                 | writer-column rows folded from one membership set   | `DrawingLaw.Rig`        |
+|  [04]   | compute behavior    | `DrawingRejoin`/`DrawingThreads` | two-row native grants, never bare bools             | `Computed`              |
+|  [05]   | cancellable compute | `ProjectionPacing`               | token, optional progress, and thread row            | `DrawingLaw.Pacing`     |
+|  [06]   | silhouette eye      | `SilhouetteFrame`                | eye point, parallel direction, or rigged frame      | `ProjectionOp.Outline`  |
+|  [07]   | classified evidence | `ProjectionSlot`                 | visibility, correspondence, frame, and bounds facts | `Built<ProjectionSlot>` |
+|  [08]   | admission           | `ProjectionOp.Admitted`          | whole-roster payload gate before dispatch           | `Projections.Build`     |
+|  [09]   | projection verbs    | `ProjectionOp`                   | one flat `[Union]` under total generated dispatch   | `Projections.Build`     |
 
 ## [06]-[RESEARCH]
 

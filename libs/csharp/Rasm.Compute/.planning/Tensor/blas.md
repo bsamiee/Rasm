@@ -15,12 +15,12 @@ Rasm.Compute dense linear-algebra lane: BLAS-class dense linear algebra over the
 
 - Owner: `ComparerAccessors.StringOrdinal` accessor; `LinearProvider` `[SmartEnum<string>]` RID-keyed MathNet-provider rows carrying the `Control.TryUse*` probe and `Control.Use*` activate delegates as inline row columns; `DenseSubstrate` `[SmartEnum<string>]` the execution-substrate axis choosing the managed `Matrix<double>` route or the native `torch.linalg` ATen leg, each carrying its `Available` probe and a substrate-determinism tag; `FactorRoute` `[Union]` shape-spine whose cases carry ONLY per-occurrence factorization policy (mode, orthogonalization law, symmetricity) while the operand `Matrix<double>` rides the entrypoint argument; `Admission` the one-pass finite/symmetry/singular gate with the modified Gram-Schmidt realization; `TolerancePolicy` the scale-derived threshold record seeded O(n²) from `‖A‖_F` and refined through `WithSigma` where an `Svd` handle is already held; `SketchPolicy` the seeded randomized range-finder policy; `Factorization` `[Union]` the held decomposition family, including the range basis required to solve through a randomized sketch; `AtenFloor`/`AtenDense` the native-substrate runtime probe and route-discriminated `torch.linalg` solve leg — `cholesky_ex`/`ldl_factor_ex`/`solve_ex` info-gated one-shots, the full-tuple `lstsq` whose reported rank always gates rank-deficiency and whose singular-value floor binds only where the driver yields the spectrum (the driverless surface runs CPU `gelsy`, whose singular-values tensor is empty), the disposable `HeldFactor` owner over the `lu_factor`/`lu_solve` pair, and the all-dense `torch.einsum` contraction; `DenseRoute`/`DenseOps` the shape-routed solve, held-handle refinement, and spectral folds over MathNet `Matrix<double>`; `SolveTerminal` `[Union]` partitioning the verdict so budget-exhaustion survives as a retryable case.
 - Cases: `LinearProvider` rows managed · native-openblas · native-mkl (3); `DenseSubstrate` rows managed · native-aten (2); `FactorRoute` cases `DefinitePsd` · `SquarePivoting` · `Orthonormal` · `Spectral` · `RankRevealing` (5); `Factorization` cases `Lu` · `Qr` · `Cholesky` · `Svd` · `Evd` · `Sketched` (6); `DenseOps.Decompose` `FactorizationKind.Switch` arms lu · qr · cholesky · svd · evd (5); `SolveTerminal` cases `Admitted` · `Exhausted` (2).
-- Entry: `public static Fin<Vector<double>> Solve(FactorRoute route, Matrix<double> operand, Vector<double> rhs, TolerancePolicy tol)` — the route-spine entry gates the operand, realizes `Orthonormal.Modified` through the in-page modified Gram-Schmidt kernel, otherwise dispatches the selected substrate, and recomputes the true relative residual against the original operator; `public static Fin<Factorization> Decompose(Matrix<double> matrix, FactorizationKind kind)` drives the generated total `FactorizationKind.Switch` for the held-handle path; `public static Fin<(Factorization Sketch, double Truncation)> Sketch(Matrix<double> a, SketchPolicy policy)` builds a seed-replayable randomized range finder and retains both `Q` and the small `Svd` in `Factorization.Sketched`, so `Factorization.Solve(Matrix<double>)` applies `Qᵀrhs` before the reduced solve instead of misrepresenting the small factor as a factorization of `A`; `public static Fin<(IterationStatus Verdict, Vector<double> Field, int Refinements, double Residual)> Refine(Matrix<double> matrix, ISolver<double> held, Vector<double> rhs, TolerancePolicy tol, int cap)` streams N triangular solves through one held factorization; `public static Fin<SolveTerminal> Conditioned(FactorRoute primary, FactorRoute secondary, Matrix<double> operand, Vector<double> rhs, TolerancePolicy tol)` recovers the conditioning fallback from the route value.
-- Auto: `LinearProvider.Select` and `DenseSubstrate.Select` run once at composition together — the former binds `LinearAlgebraControl.Provider` for the managed leg, the latter picks `NativeAten` where `AtenFloor.Resident` proves the native bring-up by RUNNING it (the one-shot probe sets the ATen OpenMP thread count, pins `set_default_dtype(Float64)`, and materializes one witness tensor), falling to `Managed` with its refusal class folded onto the determinism tag otherwise; the two axes are orthogonal — the ATen leg replaces the whole `Matrix<double>` solve, never the MathNet provider behind it. `DenseRoute.Solve` branches on `DenseSubstrate.Active.Native`, route-discriminating the native `torch.linalg` factorization by the SAME `FactorRoute` case the managed leg switches on, never a `kind switch` cascade and never a per-call provider switch. `TolerancePolicy.Derive` seeds `SigmaMax` from `‖A‖_F` (`TensorPrimitives.Norm` over the flat column-major span, the O(n²) upper bound `σ_max ≤ ‖A‖_F`) and `‖b‖∞` from `TensorPrimitives.MaxMagnitude` — a fresh O(n³) `Svd` per tolerance derivation is the deleted hidden decomposition — refining through `WithSigma(Svd<double>)` exactly where a held handle already exists, so every threshold travels as one named record on the receipt and the dense residual path uses the one zero-alloc span primitive, never the allocating MathNet reduction; symmetry forces through `(A + A.Transpose()) * 0.5` before the definite kernel because `IsSymmetric()` compares by exact `!=`.
-- Receipt: every dense solve materializes the `Factorization` `ComputeReceipt` case carrying provider key, decomposition kind, the taken `FactorRoute` variant, the `TolerancePolicy` record, the recomputed true relative residual, the `DeterminismTag` substrate/provider/parallelism string (the `DenseSubstrate.Active.DeterminismTag` ATen-vs-managed prefix folded onto the provider triple so a cross-substrate cache hit is a distinct fingerprint), row and column extents, zero nnz, and `dense` format; emission rides the sink port at the composition edge.
+- Entry: `public static Fin<DenseSolve> Solve(FactorRoute route, Matrix<double> operand, Vector<double> rhs, TolerancePolicy tol, DenseSubstrate substrate)` — the route-spine entry gates the operand, realizes `Orthonormal.Modified` through the in-page modified Gram-Schmidt kernel, otherwise dispatches the substrate it was HANDED, degrades a declining native leg onto the managed terminal, and recomputes the true relative residual against the original operator once into the returned carrier; `public static Fin<Factorization> Decompose(Matrix<double> matrix, FactorizationKind kind)` drives the generated total `FactorizationKind.Switch` for the held-handle path; `public static Fin<(Factorization Sketch, double Truncation)> Sketch(Matrix<double> a, SketchPolicy policy)` builds a seed-replayable randomized range finder and retains both `Q` and the small `Svd` in `Factorization.Sketched`, so `Factorization.Solve(Matrix<double>)` applies `Qᵀrhs` before the reduced solve instead of misrepresenting the small factor as a factorization of `A`; `public static Fin<(IterationStatus Verdict, Vector<double> Field, int Refinements, double Residual)> Refine(Matrix<double> matrix, ISolver<double> held, Vector<double> rhs, TolerancePolicy tol, int cap)` streams N triangular solves through one held factorization; `public static Fin<SolveTerminal> Conditioned(FactorRoute primary, FactorRoute secondary, Matrix<double> operand, Vector<double> rhs, TolerancePolicy tol, DenseSubstrate substrate)` recovers the conditioning fallback from the route value, reading each attempt's already-witnessed residual.
+- Auto: `LinearProvider.Select` and `DenseSubstrate.Select` run once at composition together — the former binds `LinearAlgebraControl.Provider` for the managed leg, the latter picks `NativeAten` where `AtenFloor.Resident` proves the native bring-up by RUNNING it (the one-shot probe sets the ATen OpenMP thread count, pins `set_default_dtype(Float64)`, and materializes one witness tensor), falling to `Managed` with its refusal class folded onto the determinism tag otherwise; the two axes are orthogonal — the ATen leg replaces the whole `Matrix<double>` solve, never the MathNet provider behind it. The selected row THREADS from composition as an argument rather than resting in a process static, so a signature declares every input the solve reads. `DenseRoute.Solve` branches on that argument's `Native` column, route-discriminating the native `torch.linalg` factorization by the SAME `FactorRoute` case the managed leg switches on, never a `kind switch` cascade and never a per-call provider switch. `TolerancePolicy.Derive` seeds `SigmaMax` from `‖A‖_F` (`TensorPrimitives.Norm` over the flat column-major span, the O(n²) upper bound `σ_max ≤ ‖A‖_F`) and `‖b‖∞` from `TensorPrimitives.MaxMagnitude` — a fresh O(n³) `Svd` per tolerance derivation is the deleted hidden decomposition — refining through `WithSigma(Svd<double>)` exactly where a held handle already exists, so every threshold travels as one named record on the receipt and the dense residual path uses the one zero-alloc span primitive, never the allocating MathNet reduction; symmetry forces through `(A + A.Transpose()) * 0.5` before the definite kernel because `IsSymmetric()` compares by exact `!=`.
+- Receipt: every dense solve materializes the `Factorization` `ComputeReceipt` case carrying provider key, decomposition kind, the taken `FactorRoute` variant, the `TolerancePolicy` record, the recomputed true relative residual, the `DeterminismTag` substrate/provider/parallelism string (the SERVING `DenseSubstrate.DeterminismTag` ATen-vs-managed prefix folded onto the provider triple so a cross-substrate cache hit is a distinct fingerprint), row and column extents, zero nnz, and `dense` format; emission rides the sink port at the composition edge.
 - Packages: MathNet.Numerics, MathNet.Numerics.Providers.MKL, MathNet.Numerics.Providers.OpenBLAS, TorchSharp, libtorch-cpu, HyperJet (the LM canonical exact-Jacobian scalar-AD leg), System.Numerics.Tensors, Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm (project, the kernel `SpectralFilter` weight algebra), BCL inbox
 - Growth: a new MathNet provider is one `LinearProvider` row with its RID predicate, rank, and inline `Control.TryUse*`/`Control.Use*` columns; a new execution substrate is one `DenseSubstrate` row with its `Available` probe and solve leg; a new operand shape is one `FactorRoute` case and one `DenseRoute.Solve`/`AtenDense.Solve` arm; a new decomposition is one `Factorization` case, one `FactorizationKind` row, and one `Decompose` `Switch` arm the generated total Switch breaks at compile time until it lands; a new sketch posture (Nyström, single-pass streaming) is one `SketchPolicy` row with its `Sketch` arm, never a sibling decomposition owner; a new eigenbasis weight is one kernel `SpectralFilter` case at `Rasm/Numerics/spectral#FILTER_ALGEBRA`, never a lane-local weight vocabulary; zero new surface.
-- Boundary: the shape-spine union `FactorRoute` and the held-handle decomposition union `Factorization` are distinct C# symbols; an unused `computeVectors` knob on the solve route is deleted because every rank-revealing solve requires vectors internally, while `QRMethod` and modified-orthogonalization policy remain load-bearing case data. Identical operand `Matrix<double>` payloads never repeat on cases: the operand has ONE owner at the entrypoint. `Orthonormal` seats modified Gram-Schmidt as the `Modified` discriminant and collapses the built-in absolute/magnitude-squared/scale-relative rank thresholds into its one convention, never a sixth sibling factory. Every element carrier stays monomorphic `double` because the `struct, IEquatable<T>, IFormattable` family excludes `INumber<T>`, so a generic-math route signature is decorative. `Admission` gates the flat column-major `Values` span through `TensorPrimitives.IsFiniteAll`/`IsNaNAny`/`IsInfinityAny` in one vectorized pass, never a strided per-element loop, and symmetry forces with `(A + A.Transpose()) * 0.5` before the call, never `MapIndexedInplace` self-averaging that mutates the backing array sequentially so a mirror entry is already modified when read. Singularity reads from `Cholesky<double>.DeterminantLn` because the determinant product underflows to zero with no signal, reflection tests `det < 0.0` never `det != 1.0`, and a `QR` construction checks the factor buffers all-finite because a near-zero column norm divides through and fills `Q`/`R` with `NaN` while `IsFullRank` still returns `true`. `TolerancePolicy` derives every threshold from operator and right-hand-side scale, so a bare per-module absolute literal in `1e-4..1e-8` is the unreplayable defect; conditioning rank is `Svd<double>.Rank` (`σ_max.EpsilonOf() · max(m,n)`) and never shares its slot with `Evd<double>.Rank`, and `ConditionNumber` is guarded against `+Inf` before gating because it is `+Inf` for rank-deficient operators. Iterative refinement forms its residual against the ORIGINAL operator in working precision through the in-place `Multiply(field, scratch)`/`Subtract` overloads streaming into one pre-sized `dx`/`scratch` pair, never against reconstructed factors which carry exactly the rounding error the correction cancels and never the allocating `held.Solve(rhs)` overload inside the loop; `Inverse()` in a hot loop is rejected because it clones the factors and an `n²` identity crossing the large-object threshold at `n ≥ 104`, so a solve against an identity rides the retained pivoting handle with reused buffers. `SolveTerminal` maps budget-exhaustion to the `Exhausted` case carrying the partial iterate so the caller's relaxed-criterion retry survives, never `Fin.Fail`. `AtenFloor` admits its substrate by EXECUTION, never by inventory: the vendored CPU payload resolves its OpenMP dependency through an absolute path outside the package, so the host process must carry the consolidated payload directory on the platform dynamic-library search path before its first `torch` touch — dyld fixes that path at process start and no library call adds to it later, which is why the floor probes instead of asserting, and why loading the aggregate and the CPU library together is the rejected shortcut (the aggregate already pulls the CPU library, so a second registration aborts the process on a duplicate-priority key rather than failing a rail). `DenseSubstrate` degrades a refused floor onto its managed row with the refusal class on the tag — one row behaviour, never a new surface and never a throw. Managed, native-OpenBLAS, and native-ATen legs diverge at the bit level, so the receipt `DeterminismTag` folds both the `DenseSubstrate.Active.DeterminismTag` substrate prefix and the provider type/parallelism triple, the `SolveDedupKey` folds that whole tag, and a dedup key omitting either dimension is the named correctness defect because a cross-substrate or cross-provider cache hit returns bit-divergent numbers. `DenseOps` composes MathNet `Matrix<double>`/`Vector<double>` directly — a package-local `RasmMatrix`/`DenseMatrix` wrapper is the deleted form mirroring the tensor-lane no-`TensorService` law.
+- Boundary: the shape-spine union `FactorRoute` and the held-handle decomposition union `Factorization` are distinct C# symbols; an unused `computeVectors` knob on the solve route is deleted because every rank-revealing solve requires vectors internally, while `QRMethod` and modified-orthogonalization policy remain load-bearing case data. Identical operand `Matrix<double>` payloads never repeat on cases: the operand has ONE owner at the entrypoint. `Orthonormal` seats modified Gram-Schmidt as the `Modified` discriminant and collapses the built-in absolute/magnitude-squared/scale-relative rank thresholds into its one convention, never a sixth sibling factory. Every element carrier stays monomorphic `double` because the `struct, IEquatable<T>, IFormattable` family excludes `INumber<T>`, so a generic-math route signature is decorative. `Admission` gates the flat column-major `Values` span through `TensorPrimitives.IsFiniteAll`/`IsNaNAny`/`IsInfinityAny` in one vectorized pass, never a strided per-element loop, and symmetry forces with `(A + A.Transpose()) * 0.5` before the call, never `MapIndexedInplace` self-averaging that mutates the backing array sequentially so a mirror entry is already modified when read. Singularity reads from `Cholesky<double>.DeterminantLn` because the determinant product underflows to zero with no signal, reflection tests `det < 0.0` never `det != 1.0`, and a `QR` construction checks the factor buffers all-finite because a near-zero column norm divides through and fills `Q`/`R` with `NaN` while `IsFullRank` still returns `true`. `TolerancePolicy` derives every threshold from operator and right-hand-side scale, so a bare per-module absolute literal in `1e-4..1e-8` is the unreplayable defect; conditioning rank is `Svd<double>.Rank` (`σ_max.EpsilonOf() · max(m,n)`) and never shares its slot with `Evd<double>.Rank`, and `ConditionNumber` is guarded against `+Inf` before gating because it is `+Inf` for rank-deficient operators. Iterative refinement forms its residual against the ORIGINAL operator in working precision through the in-place `Multiply(field, scratch)`/`Subtract` overloads streaming into one pre-sized `dx`/`scratch` pair, never against reconstructed factors which carry exactly the rounding error the correction cancels and never the allocating `held.Solve(rhs)` overload inside the loop; `Inverse()` in a hot loop is rejected because it clones the factors and an `n²` identity crossing the large-object threshold at `n ≥ 104`, so a solve against an identity rides the retained pivoting handle with reused buffers. `SolveTerminal` maps budget-exhaustion to the `Exhausted` case carrying the partial iterate so the caller's relaxed-criterion retry survives, never `Fin.Fail`. The rank-revealing route runs on BOTH substrates: a rank-deficient `lstsq` verdict is the native leg DECLINING the operand — `gelsy` gives its minimum-norm answer no meaning at deficient rank — so the managed `Svd` pseudo-inverse serves it as the route's terminal, and the receipt tag records the substrate that served rather than the one first asked. `AtenFloor` admits its substrate by EXECUTION, never by inventory: the vendored CPU payload resolves its OpenMP dependency through an absolute path outside the package, so the host process must carry the consolidated payload directory on the platform dynamic-library search path before its first `torch` touch — dyld fixes that path at process start and no library call adds to it later, which is why the floor probes instead of asserting, and why loading the aggregate and the CPU library together is the rejected shortcut (the aggregate already pulls the CPU library, so a second registration aborts the process on a duplicate-priority key rather than failing a rail). `DenseSubstrate` degrades a refused floor onto its managed row with the refusal class on the tag — one row behaviour, never a new surface and never a throw — and the selected row is a VALUE the composition threads, never a mutable process static: an ambient cell let two compositions in one process overwrite each other's choice, made a substrate unpinnable without mutating the world, and stamped receipts with whatever the cell held at read time instead of what served the solve. Managed, native-OpenBLAS, and native-ATen legs diverge at the bit level, so the receipt `DeterminismTag` folds both the serving `DenseSubstrate.DeterminismTag` substrate prefix and the provider type/parallelism triple, the `SolveDedupKey` folds that whole tag, and a dedup key omitting either dimension is the named correctness defect because a cross-substrate or cross-provider cache hit returns bit-divergent numbers. `DenseOps` composes MathNet `Matrix<double>`/`Vector<double>` directly — a package-local `RasmMatrix`/`DenseMatrix` wrapper is the deleted form mirroring the tensor-lane no-`TensorService` law.
 
 ```csharp signature
 [SmartEnum<string>]
@@ -53,8 +53,8 @@ public sealed partial class LinearProvider {
         byte[] tag = Encoding.UTF8.GetBytes(DeterminismTag);
         byte[] frame = GC.AllocateUninitializedArray<byte>(tag.Length + 16);
         tag.CopyTo(frame, 0);
-        BinaryPrimitives.WriteUInt64LittleEndian(frame.AsSpan(tag.Length), (ulong)problemDigest);
-        BinaryPrimitives.WriteUInt64LittleEndian(frame.AsSpan(tag.Length + 8), (ulong)(problemDigest >> 64));
+        BinaryPrimitives.WriteUInt64LittleEndian(frame.AsSpan(tag.Length), ContentHash.Half(problemDigest, 0));
+        BinaryPrimitives.WriteUInt64LittleEndian(frame.AsSpan(tag.Length + 8), ContentHash.Half(problemDigest, 1));
         return XxHash128.HashToUInt128(frame);
     }
 }
@@ -72,12 +72,14 @@ public sealed partial class DenseSubstrate {
     public bool Native { get; }
     public bool Available => probe();
 
-    public static DenseSubstrate Active { get; private set; } = Managed;
-
     // Native ATen leg is the osx-arm64 dense substrate the x64-only OpenBLAS/MKL providers cannot serve; the
-    // MathNet Matrix<double> route stays the managed cold-start terminal. Selection runs once at composition.
+    // MathNet Matrix<double> route stays the managed cold-start terminal. Selection runs once at composition and
+    // the WINNER THREADS as a value from there: a mutable process static made every solve read ambient state no
+    // signature declared, so two compositions in one process fought over one cell, a test could not pin a
+    // substrate without mutating the world, and the determinism tag on a receipt named whatever the static held
+    // at read time rather than what served the solve.
     public static DenseSubstrate Select() =>
-        Active = NativeAten.Available ? Bind(NativeAten) : Bind(Managed);
+        NativeAten.Available ? Bind(NativeAten) : Bind(Managed);
 
     static DenseSubstrate Bind(DenseSubstrate s) { s.activate(); return s; }
 
@@ -268,18 +270,19 @@ public static class AtenDense {
     }
 
     // Definite and spectral routes symmetrize before ingress, then select native factorization by the same
-    // `FactorRoute` case as the managed leg.
-    public static Fin<Vector<double>> Solve(FactorRoute route, Matrix<double> matrix, Vector<double> rhs, TolerancePolicy tol) {
+    // `FactorRoute` case as the managed leg. `None` is this substrate DECLINING the operand — the managed
+    // terminal then serves it — where a fault is the operand itself refusing on both.
+    public static Fin<Option<Vector<double>>> Solve(FactorRoute route, Matrix<double> matrix, Vector<double> rhs, TolerancePolicy tol) {
         using DisposeScope scope = torch.NewDisposeScope();
         using IDisposable noGrad = torch.inference_mode(true);
         Matrix<double> operand = route is FactorRoute.DefinitePsd or FactorRoute.Spectral ? Admission.Symmetrize(matrix) : matrix;
         Tensor a = torch.from_array(operand.ToColumnMajorArray(), ScalarType.Float64).reshape(operand.ColumnCount, operand.RowCount).t();
         Tensor b = torch.from_array(rhs.AsArray() ?? rhs.ToArray(), ScalarType.Float64).reshape(rhs.Count, 1);
         return route.Switch(
-            definitePsd:    _ => Spd(a, b),
-            squarePivoting: _ => General(a, b),
+            definitePsd:    _ => Spd(a, b).Map(static x => Some(x)),
+            squarePivoting: _ => General(a, b).Map(static x => Some(x)),
             orthonormal:    _ => LeastSquares(a, b, tol),
-            spectral:       _ => SymmetricIndefinite(a, b),
+            spectral:       _ => SymmetricIndefinite(a, b).Map(static x => Some(x)),
             rankRevealing:  _ => LeastSquares(a, b, tol));
     }
 
@@ -313,14 +316,19 @@ public static class AtenDense {
     // `lstsq` rank always gates; the sigma floor binds only where the driver yields the spectrum — the
     // driverless TorchSharp surface runs CPU `gelsy`, which reports rank but returns EMPTY singular values,
     // so an unconditional finite-sigma demand rejects every least-squares solve.
-    static Fin<Vector<double>> LeastSquares(Tensor a, Tensor b, TolerancePolicy tol) {
+    //
+    // A rank-deficient verdict is a DECLINE, not a refusal of the problem: `gelsy` gives the minimum-norm answer
+    // no meaning at deficient rank, while the managed `Svd` route's pseudo-inverse solves exactly that shape. So
+    // the rank-revealing route runs on BOTH substrates with the managed leg as its terminal, and the serving
+    // substrate — never the one first asked — is what the receipt's determinism tag records.
+    static Fin<Option<Vector<double>>> LeastSquares(Tensor a, Tensor b, TolerancePolicy tol) {
         (Tensor solution, Tensor residuals, Tensor rank, Tensor singular) = torch.linalg.lstsq(a, b);
         long observed = rank.NumberOfElements > 0 ? rank.ReadCpuInt64(0) : Math.Min(a.shape[0], a.shape[1]);
         Option<double> sigmaMin = singular.NumberOfElements > 0 ? Some(singular.ReadCpuDouble(singular.NumberOfElements - 1)) : None;
         bool sigmaAdmits = sigmaMin.Match(Some: s => double.IsFinite(s) && s >= tol.RankFloor, None: () => true);
         return observed == Math.Min(a.shape[0], a.shape[1]) && sigmaAdmits
-            ? Egress(solution)
-            : Fin.Fail<Vector<double>>(new ComputeFault.ModelRejected($"<aten-lstsq-rank-deficient:rank={observed}:sigma-min={sigmaMin.Map(static s => s.ToString("e3")).IfNone("absent")}:floor={tol.RankFloor:e3}>"));
+            ? Egress(solution).Map(static x => Some(x))
+            : Fin.Succ(Option<Vector<double>>.None);
     }
 
     // `lu_factor` pays O(n³) once; `lu_solve` streams right-hand sides and its adjoint mode recovers the
@@ -372,15 +380,25 @@ public static class AtenDense {
         Fin.Succ(Vector<double>.Build.DenseOfArray(x.reshape(x.NumberOfElements).data<double>().ToArray()));
 }
 
+// Solution, the substrate that actually SERVED it, and the witnessed residual travel as one value: the receipt
+// needs all three and each is measured exactly once here, so a caller that re-derived the residual paid a second
+// GEMV for a number the gate already had and a caller reading a substrate off ambient state named the wrong leg
+// whenever the native leg declined.
+public sealed record DenseSolve(Vector<double> X, DenseSubstrate Served, double Residual);
+
 public static class DenseRoute {
     // Substrate legs return an unwitnessed solution; one original-operator gate gives either leg an identical
-    // typed residual rejection.
-    public static Fin<Vector<double>> Solve(FactorRoute route, Matrix<double> operand, Vector<double> rhs, TolerancePolicy tol) =>
+    // typed residual rejection. The native leg's `None` is a decline, so the managed terminal serves and the
+    // carrier records it.
+    public static Fin<DenseSolve> Solve(FactorRoute route, Matrix<double> operand, Vector<double> rhs, TolerancePolicy tol, DenseSubstrate substrate) =>
         Admission.Admit(operand).Bind(_ =>
-            (route is FactorRoute.Orthonormal { Modified: true }
-                ? Admission.Modified(operand, rhs, tol.RankFloor)
-                : DenseSubstrate.Active.Native ? AtenDense.Solve(route, operand, rhs, tol) : Managed(route, operand, rhs, tol))
-                .Bind(x => Witness(operand, x, rhs, tol)));
+            route is FactorRoute.Orthonormal { Modified: true }
+                ? Admission.Modified(operand, rhs, tol.RankFloor).Bind(x => Witness(operand, x, rhs, tol, DenseSubstrate.Managed))
+                : substrate.Native
+                    ? AtenDense.Solve(route, operand, rhs, tol).Bind(served => served.Match(
+                        Some: x => Witness(operand, x, rhs, tol, substrate),
+                        None: () => Managed(route, operand, rhs, tol).Bind(x => Witness(operand, x, rhs, tol, DenseSubstrate.Managed))))
+                    : Managed(route, operand, rhs, tol).Bind(x => Witness(operand, x, rhs, tol, DenseSubstrate.Managed)));
 
     static Fin<Vector<double>> Managed(FactorRoute route, Matrix<double> operand, Vector<double> rhs, TolerancePolicy tol) =>
         route.Switch<(Matrix<double> A, double Floor), Fin<ISolver<double>>>(
@@ -392,15 +410,17 @@ public static class DenseRoute {
                 rankRevealing:  static (s, _) => Fin.Succ((ISolver<double>)s.A.Svd(computeVectors: true)))
             .Map(solver => solver.Solve(rhs));
 
-    public static Fin<SolveTerminal> Conditioned(FactorRoute primary, FactorRoute secondary, Matrix<double> operand, Vector<double> rhs, TolerancePolicy tol) =>
-        Solve(primary, operand, rhs, tol)
-            .Map(x => (SolveTerminal)new SolveTerminal.Admitted(x, Relative(operand, x, rhs)))
-            .BindFail(_ => Solve(secondary, operand, rhs, tol).Map(x => (SolveTerminal)new SolveTerminal.Admitted(x, Relative(operand, x, rhs))));
+    // Both attempts read the residual the witness already measured — re-running the GEMV here paid a second
+    // O(n²) pass to recompute a number the gate had just computed and admitted on.
+    public static Fin<SolveTerminal> Conditioned(FactorRoute primary, FactorRoute secondary, Matrix<double> operand, Vector<double> rhs, TolerancePolicy tol, DenseSubstrate substrate) =>
+        Solve(primary, operand, rhs, tol, substrate)
+            .BindFail(_ => Solve(secondary, operand, rhs, tol, substrate))
+            .Map(static solved => (SolveTerminal)new SolveTerminal.Admitted(solved.X, solved.Residual));
 
-    static Fin<Vector<double>> Witness(Matrix<double> a, Vector<double> x, Vector<double> rhs, TolerancePolicy tol) =>
+    static Fin<DenseSolve> Witness(Matrix<double> a, Vector<double> x, Vector<double> rhs, TolerancePolicy tol, DenseSubstrate served) =>
         Relative(a, x, rhs) is var residual && tol.Admits(residual)
-            ? Fin.Succ(x)
-            : Fin.Fail<Vector<double>>(new ComputeFault.ModelRejected($"<witness-fail:residual={residual:e3}:cap={tol.ResidualCap:e3}>"));
+            ? Fin.Succ(new DenseSolve(x, served, residual))
+            : Fin.Fail<DenseSolve>(new ComputeFault.ModelRejected($"<witness-fail:substrate={served.Key}:residual={residual:e3}:cap={tol.ResidualCap:e3}>"));
 
     static double Relative(Matrix<double> a, Vector<double> x, Vector<double> rhs) {
         Vector<double> residual = rhs - a.Multiply(x);
@@ -422,8 +442,8 @@ public static class DenseOps {
             svd: static m => Fin.Succ<Factorization>(new Factorization.Svd(m.Svd(computeVectors: true))),
             evd: static m => Fin.Succ<Factorization>(new Factorization.Evd(m.Evd())));
 
-    public static IO<Fin<Matrix<double>>> Gemm(Matrix<double> left, Matrix<double> right, ShardPlan plan) =>
-        plan.Lower(left, right);
+    public static IO<Fin<ShardOutcome>> Gemm(Matrix<double> left, Matrix<double> right, ShardDispatch dispatch) =>
+        dispatch.Lower(left, right);
 
     // Halko range capture computes `Y = (A·Aᵀ)^q·A·Ω`, thin-QR, then the small SVD of `QᵀA`.
     // A-posteriori `‖A − Q·QᵀA‖_F/‖A‖_F` rejects insufficient sketch rank.
@@ -480,10 +500,12 @@ public static class DenseOps {
         return field;
     }
 
-    public static ComputeReceipt.Factorization Receipt(LinearProvider provider, FactorRoute route, FactorizationKind kind, TolerancePolicy tol, double residual, int rows, int cols, CorrelationId correlation, Duration elapsed) =>
+    // Tag folds the SERVING substrate off the solve carrier, so a native leg that declined and degraded to the
+    // managed terminal keys as the managed run it was rather than the accelerated one it was asked to be.
+    public static ComputeReceipt.Factorization Receipt(LinearProvider provider, FactorRoute route, FactorizationKind kind, TolerancePolicy tol, DenseSolve solved, int rows, int cols, CorrelationId correlation, Duration elapsed) =>
         new(provider.Key, kind.Key, rows, cols, 0L, "dense") {
             Scope = new ReceiptScope.Execution(correlation, WorkLane.Background, Substrate.CpuTensor, AllocationClass.PooledMemory, elapsed),
-            RouteVariant = route.GetType().Name, DeterminismTag = $"{DenseSubstrate.Active.DeterminismTag}|{provider.DeterminismTag}", ResidualCap = tol.ResidualCap, TrueResidual = residual,
+            RouteVariant = route.GetType().Name, DeterminismTag = $"{solved.Served.DeterminismTag}|{provider.DeterminismTag}", ResidualCap = tol.ResidualCap, TrueResidual = solved.Residual,
         };
 }
 ```
@@ -567,8 +589,8 @@ public static class LevenbergMarquardt {
 ### [02.2]-[SPECTRAL_LAW]
 
 - Owner: `SpectralResult` `[Union]` carrying distinct dense-symmetric and dense-general cases — the `Symmetricity` flag selects five output axes together (eigenvector norm, real versus block-diagonal `D`, single-column versus column-pair encoding, ascending versus Schur-deflation order, working versus norm-gated solve); `SpectralOps.Decompose` the one constructor projecting `Evd<double>` onto the matched `SpectralResult` case; `SpectralOps.Modal` the Schur-pair decoder; `SpectralOps.Defect` the block eigen-residual; the kernel `Rasm/Numerics/spectral#FILTER_ALGEBRA` `SpectralFilter` `[Union]` the ONE eigenvalue-weight vocabulary this lane composes through its public `Weight(double)` and partial-monoid `Compose`.
-- Entry: `public static SpectralResult Decompose(Matrix<double> a, Evd<double> evd, Symmetricity sym)` builds the `Symmetric` case from the real eigenvalues and the orthonormal vectors for a symmetric/Hermitian spectrum and the `General` case decoding the Schur pairs for the nonsymmetric spectrum, each carrying its block defect; `public static Matrix<Complex> Modal(Matrix<double> packed, Vector<Complex> values)` decodes real conjugate pairs from adjacent columns dispatched on `Math.Sign(values[j].Imaginary)`; `public static double Defect(Matrix<double> a, Matrix<double> vectors, Matrix<double> d)` computes `(A·V − V·D).FrobeniusNorm()`; `public static Fin<Vector<double>> Filtered(Evd<double> evd, double zeroFloor, params ReadOnlySpan<SpectralFilter> chain)` fuses the chain through `SpectralFilter.Compose` and applies the fused weight, carrying the weight sum as evidence — one entrypoint over the singular, plural, and empty call, the empty spread yielding `SpectralFilter.Identity` because the partial monoid supplies the unit.
-- Auto: `Decompose` is the single producer of `SpectralResult` — `SpectralOps.Modal`/`Defect`/`Filtered` are the per-axis kernels it composes and never independent return surfaces, so the result-union owner is always constructed and never unwired; `Modal` reads `Column(j)`+`Column(j+1)` for a positive-imaginary pair and `Column(j-1)`+`Column(j)` for a negative-imaginary pair, never `Column(j)` whole because that discards the imaginary half; `Defect` is the one signal both the managed throw rail and the native in-band info-code rail surface identically since no built-in eigen residual exists; `Filtered` fuses its chain before any spectrum walk so a non-composable pair rails at the fold instead of silently applying the last filter alone, then weights each `EigenValues` entry through the fused `SpectralFilter.Weight` excluding the zero mode (`|λ| < ε_zero ? 0.0 : Weight(λ)`, excluded never clamped) and fails a fully-excluded spectrum rather than reading it as a zero signal.
+- Entry: `public static SpectralResult Decompose(Matrix<double> a, Evd<double> evd, Symmetricity sym)` builds the `Symmetric` case from the real eigenvalues and the orthonormal vectors for a symmetric/Hermitian spectrum and the `General` case decoding the Schur pairs for the nonsymmetric spectrum, each carrying its block defect; `public static Matrix<Complex> Modal(Matrix<double> packed, Vector<Complex> values)` decodes real conjugate pairs from adjacent columns dispatched on `Math.Sign(values[j].Imaginary)`; `public static double Defect(Matrix<double> a, Matrix<double> vectors, Matrix<double> d)` computes `(A·V − V·D).FrobeniusNorm()`; `public static Fin<Vector<double>> Filtered(Evd<double> evd, double zeroFloor, double massFloor, params ReadOnlySpan<SpectralFilter> chain)` fuses the chain through `SpectralFilter.Compose` and applies the fused weight under two independent floors — an eigenvalue magnitude excluding the null space and a summed-weight magnitude gating emptiness — carrying the weight sum as evidence — one entrypoint over the singular, plural, and empty call, the empty spread yielding `SpectralFilter.Identity` because the partial monoid supplies the unit.
+- Auto: `Decompose` is the single producer of `SpectralResult` — `SpectralOps.Modal`/`Defect`/`Filtered` are the per-axis kernels it composes and never independent return surfaces, so the result-union owner is always constructed and never unwired; `Modal` reads `Column(j)`+`Column(j+1)` for a positive-imaginary pair and `Column(j-1)`+`Column(j)` for a negative-imaginary pair, never `Column(j)` whole because that discards the imaginary half, and the backward read needs no bound guard because the real Schur reduction emits every conjugate pair positive-first, so index zero can never carry a negative imaginary part; `Defect` is the one signal both the managed throw rail and the native in-band info-code rail surface identically since no built-in eigen residual exists; `Filtered` fuses its chain before any spectrum walk so a non-composable pair rails at the fold instead of silently applying the last filter alone, then weights each `EigenValues` entry through the fused `SpectralFilter.Weight` excluding the zero mode (`|λ| < ε_zero ? 0.0 : Weight(λ)`, excluded never clamped) and fails a spectrum whose summed weight falls below its OWN floor rather than reading it as a zero signal.
 - Boundary: `EigenValues` interprets `EigenVectors` because no parallel pairing array exists; nonsymmetric columns `Normalize(2)` before any modal weight because recovered columns are raw triangular solutions with arbitrary per-column norms; Hermitian eigenvectors stay complex because projecting them to real parts is incorrect; the library `Determinant`/`Rank`/`IsFullRank` are rejected in domain logic because `Determinant` short-circuits to `0.0` the moment any eigenvalue crosses the absolute zero test; eigenvalue equality is never asserted tighter than the convergence band because the exceptional-shift escape bakes the literal `0.964` into the last bits; only `DenseMatrix` reaches the native `EigenDecomp` and the managed `Evd` kernels are serial regardless of degree, so sign, ordering, and last bits differ across the seam and provider-mismatched eigenvector comparison short-circuits to span equivalence; `SpectralResult` is the only spectral return — a raw `Matrix<Complex>`/`double`/`Fin<Vector<double>>` leaking the spectral verdict past the owner is the deleted form because the consumer must dispatch on the `Symmetric`/`General` case to read the right `D` shape and ordering contract. Eigenvalue weights belong to the kernel vocabulary alone: a lane-local `EigenFilter` `[SmartEnum<string>]` carrying `passthrough`/`sqrt`/`inverse`/`inv-sqrt`/`exp`/`heat` weight lambdas is the DELETED form — it shadowed `SpectralFilter` (`passthrough` ≡ `IdentityCase`, `heat` ≡ `HeatCase` at unit time, `sqrt`/`inverse`/`inv-sqrt` ≡ `Power(½)`/`Power(−1)`/`Power(−½)`, `exp` ≡ `AmplifyCase`) while forfeiting parameterized time, the `Wave`/`Diffusion` cases, and `Compose`, and no alias or forwarding row survives it; this lane composes the kernel owner and NEVER enumerates its cases, so a new weight form lands as one kernel case with zero edit here.
 
 ```csharp signature
@@ -599,6 +621,10 @@ public static class SpectralOps {
         return (aComplex.Multiply(modal) - modal.Multiply(dComplex)).FrobeniusNorm();
     }
 
+    // INVARIANT the `j - 1` read stands on: MathNet's real Schur reduction writes each conjugate pair as
+    // `e[k] = +z, e[k + 1] = -z` with `z = sqrt(|discriminant|)` non-negative, so the POSITIVE imaginary part
+    // always occupies the lower index and a negative-imaginary eigenvalue always has a partner at `j - 1`.
+    // `j == 0` therefore cannot be negative-imaginary and the backward read cannot underflow.
     public static Matrix<Complex> Modal(Matrix<double> packed, Vector<Complex> values) =>
         Matrix<Complex>.Build.DenseOfColumns(
             Enumerable.Range(0, values.Count).Select(j =>
@@ -613,13 +639,17 @@ public static class SpectralOps {
 
     // Kernel `SpectralFilter.Weight` is the one transfer function; the chain fuses through the partial-monoid
     // `Compose` BEFORE the spectrum walk, so a non-composable pair rails instead of applying the last filter alone.
-    public static Fin<Vector<double>> Filtered(Evd<double> evd, double zeroFloor, params ReadOnlySpan<SpectralFilter> chain) =>
+    // TWO floors, because the quantities are unrelated: `zeroFloor` is an EIGENVALUE magnitude below which the
+    // mode is the operator's null space and excludes, while `massFloor` is a summed-WEIGHT magnitude below which
+    // the filtered basis carries no signal. One value serving both tied a null-space cutoff to a transfer-function
+    // total, so tightening the zero-mode exclusion silently tightened the emptiness verdict on a different scale.
+    public static Fin<Vector<double>> Filtered(Evd<double> evd, double zeroFloor, double massFloor, params ReadOnlySpan<SpectralFilter> chain) =>
         Fused(chain).Bind(filter =>
             evd.EigenValues.Map(static v => v.Real).ToArray() is var spectrum
             && spectrum.Select(lambda => Math.Abs(lambda) < zeroFloor ? 0.0 : filter.Weight(lambda)).ToArray() is var weights
-            && TensorPrimitives.Sum<double>(weights) is var mass && Math.Abs(mass) >= zeroFloor
+            && TensorPrimitives.Sum<double>(weights) is var mass && Math.Abs(mass) >= massFloor
                 ? Fin.Succ(Vector<double>.Build.DenseOfArray(weights))
-                : Fin.Fail<Vector<double>>(new ComputeFault.ModelRejected($"<spectrum-fully-excluded:mass={mass:e3}>")));
+                : Fin.Fail<Vector<double>>(new ComputeFault.ModelRejected($"<spectrum-fully-excluded:mass={mass:e3}:floor={massFloor:e3}>")));
 
     // `Identity` is the monoid unit, so the empty spread is total and the singular call fuses to itself.
     static Fin<SpectralFilter> Fused(ReadOnlySpan<SpectralFilter> chain) =>
@@ -638,13 +668,16 @@ public static class SpectralOps {
 - Receipt: the `Factorization` `ComputeReceipt` case (provider, kind, route variant, tolerance, true residual, determinism tag, symbolic fill, rows, cols, nnz, format) is the per-solve evidence; the `rasm.compute.solve.factorizations` and `rasm.compute.solve.residual` instruments are owned by `Runtime/receipts#RECEIPT_UNION` `ReceiptSurface.Instruments` as settled vocabulary and never re-declared here; the `OnlineStat` accumulator is the numeric-lane moment owner whose skewness/kurtosis evidence feeds the residual histogram tail.
 - Packages: System.Numerics.Tensors, Rasm.Persistence (project), LanguageExt.Core, BCL inbox
 - Growth: a new claim dimension is one column on the existing `BenchmarkClaim`; a new solve instrument is one row on `ReceiptSurface.Instruments`; a new moment is one field on `OnlineStat` with one merge term; zero new surface.
-- Boundary: provider rank is the `BenchmarkClaim` `Provider` column gated exactly like the SIMD and partition claims — a static native default beside the claim is the named defect; the claim is resolved by the Persistence `ModelResultIndex.Claim` owner whose recency horizon and clock are closed inside the index and threaded in, never re-resolved and never a second horizon; the solve instruments live on the `ReceiptSurface.Instruments` stream and a second numeric-lane-local instrument owner is the deleted form; the online residual accumulator accumulates to fourth order (mean, M2, M3, M4) and serializes for distributed aggregation because parallel online moments accumulate to fourth order, records the running-versus-moving distinction and the `MomentNormalizer` Bessel-versus-population policy enum because unmarked mixing silently corrupts every downstream confidence computation, and one pushed `NaN` permanently poisons every moment so the stream guards at admission through the same all-finite predicate the operands cross; the merge identity holds only to the floating-point merge envelope.
+- Boundary — native BLAS is unreachable on every estate RID at the pinned adapter version, and the rows stay because the gate is what proves it. osx-arm64 answers `false` to every `Control.TryUseNative*` and resolves managed, since neither adapter ships an osx-arm64 payload. linux-x64 has a payload that cannot pass: `MathNet.Numerics.MKL.Linux-x64` tops out at native revision 9 while `MathNet.Numerics.Providers.MKL` holds a `MinimumCompatibleRevision` of 15 and throws `NotSupportedException("MKL Native Provider too old")` on load, and no OpenBLAS payload exists for a non-Windows RID at all — the stock system `libopenblas` exports no `query_capability`, which is the first symbol the adapter's own `IsAvailable` reads, so it is not a substitutable shim. win-x64 is the sole arm where a compatible payload could land. The rows are therefore honest fail-closed capability: each `Available` probe answers `false`, `Select` falls to `Managed`, and a benchmark claim asserting native rank fails its gate rather than degrading silently — deleting them would forfeit the win-x64 arm and re-open a claim nothing checks.
+- Boundary: provider rank is the `BenchmarkClaim` `Provider` column gated exactly like the SIMD and partition claims — a static native default beside the claim is the named defect; the claim is resolved by the Persistence `ModelResultIndex.Claim` owner whose recency horizon and clock are closed inside the index and threaded in, never re-resolved and never a second horizon; the solve instruments live on the `ReceiptSurface.Instruments` stream and a second numeric-lane-local instrument owner is the deleted form; the online residual accumulator accumulates to fourth order (mean, M2, M3, M4) and serializes for distributed aggregation because parallel online moments accumulate to fourth order, records the running-versus-moving distinction and the `MomentNormalizer` Bessel-versus-population policy enum because unmarked mixing silently corrupts every downstream confidence computation, and one pushed `NaN` permanently poisons every moment so the stream guards at admission through the same all-finite predicate the operands cross — and COUNTS what it turned away, because silently returning the prior state made a producer emitting nothing but sentinels indistinguishable from a lane nobody pushed, and that count merges on every arm including the empty one; the merge identity holds only to the floating-point merge envelope.
 
 ```csharp signature
-[SmartEnum]
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class MomentNormalizer {
-    public static readonly MomentNormalizer Sample = new(static (m2, count) => count > 1 ? m2 / (count - 1) : 0.0);
-    public static readonly MomentNormalizer Population = new(static (m2, count) => count > 0 ? m2 / count : 0.0);
+    public static readonly MomentNormalizer Sample = new("sample", static (m2, count) => count > 1 ? m2 / (count - 1) : 0.0);
+    public static readonly MomentNormalizer Population = new("population", static (m2, count) => count > 0 ? m2 / count : 0.0);
 
     private readonly Func<double, long, double> variance;
 
@@ -659,12 +692,15 @@ public readonly record struct SolveProvenance(string ProviderTag, string Provide
         ProviderTag == other.ProviderTag && ProviderType == other.ProviderType && Parallelism == other.Parallelism;
 }
 
-public sealed record OnlineStat(long Count, double Mean, double M2, double M3, double M4) {
-    public static readonly OnlineStat Empty = new(0L, 0.0, 0.0, 0.0, 0.0);
+// `Rejected` counts what the finite guard turned away. Silently returning the prior state made a stream of pure
+// `NaN` indistinguishable from a stream nobody pushed, so a reader could not tell a healthy quiet lane from a
+// producer emitting nothing but sentinels — the count is the diagnostic that separates them.
+public sealed record OnlineStat(long Count, double Mean, double M2, double M3, double M4, long Rejected) {
+    public static readonly OnlineStat Empty = new(0L, 0.0, 0.0, 0.0, 0.0, 0L);
 
     public OnlineStat Push(double value) {
         if (!double.IsFinite(value)) {
-            return this;
+            return this with { Rejected = Rejected + 1L };
         }
 
         long n = Count + 1;
@@ -676,12 +712,14 @@ public sealed record OnlineStat(long Count, double Mean, double M2, double M3, d
         double m4 = M4 + term1 * deltaN2 * (n * n - 3 * n + 3) + 6 * deltaN2 * M2 - 4 * deltaN * M3;
         double m3 = M3 + term1 * deltaN * (n - 2) - 3 * deltaN * M2;
         double m2 = M2 + term1;
-        return new OnlineStat(n, mean, m2, m3, m4);
+        return new OnlineStat(n, mean, m2, m3, m4, Rejected);
     }
 
+    // Rejections merge on every arm INCLUDING the empty one: two lanes that admitted nothing and rejected
+    // thousands must not combine to a receipt reading zero rejections.
     public static OnlineStat Combine(OnlineStat a, OnlineStat b) =>
         (a.Count + b.Count, b.Mean - a.Mean) switch {
-            (0L, _) => Empty,
+            (0L, _) => Empty with { Rejected = a.Rejected + b.Rejected },
             (var n, var delta) => Merged(a, b, n, delta),
         };
 
@@ -694,7 +732,7 @@ public sealed record OnlineStat(long Count, double Mean, double M2, double M3, d
             + 3 * delta * (na * b.M2 - nb * a.M2) / nn;
         double m4 = a.M4 + b.M4 + delta2 * delta2 * na * nb * (na * na - na * nb + nb * nb) / (nn * nn * nn)
             + 6 * delta2 * (na * na * b.M2 + nb * nb * a.M2) / (nn * nn) + 4 * delta * (na * b.M3 - nb * a.M3) / nn;
-        return new OnlineStat(n, mean, m2, m3, m4);
+        return new OnlineStat(n, mean, m2, m3, m4, a.Rejected + b.Rejected);
     }
 
     public double Variance(MomentNormalizer normalizer) => normalizer.Variance(M2, Count);
@@ -709,4 +747,4 @@ public sealed record OnlineStat(long Count, double Mean, double M2, double M3, d
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
 -->
 
-- [NATIVE_PROVIDER_EXECUTION]-[BLOCKED]: does `Control.TryUseNativeOpenBLAS()`/`TryUseNativeMKL()` return `true` and `LinearAlgebraControl.Provider` bind the native `ILinearAlgebraProvider`, and does the CSparse native sparse path load; a win-x64/linux-x64 host carrying the native asset, both rows dormant on osx-arm64.
+(none)

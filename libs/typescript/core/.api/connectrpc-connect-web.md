@@ -33,12 +33,12 @@
 
 [ENTRYPOINT_SCOPE]: the two `(options) -> Transport` factories the `protocol` value selects, one per client, and the `fetch`/`interceptors` seams threaded through the options
 
-| [INDEX] | [SURFACE]                         | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                                 |
-| :-----: | :-------------------------------- | :------------- | :------------------------------------------------------------------ |
-|  [01]   | `createConnectTransport`          | connect arm    | `protocol:"connect"` — JSON-default, `useHttpGet`-capable           |
-|  [02]   | `createGrpcWebTransport`          | grpc-web arm   | `protocol:"grpc-web"` — binary-default, gRPC gateway compat         |
-|  [03]   | `{ fetch: instrumentedFetch }`    | fetch seam     | `net/client` policy + `@effect/opentelemetry` `traceparent` egress  |
-|  [04]   | `{ interceptors: [trace, auth] }` | onion          | the shared `connect` `Interceptor` chain applied to every call      |
+| [INDEX] | [SURFACE]                         | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                                |
+| :-----: | :-------------------------------- | :------------- | :----------------------------------------------------------------- |
+|  [01]   | `createConnectTransport`          | connect arm    | `protocol:"connect"` — JSON-default, `useHttpGet`-capable          |
+|  [02]   | `createGrpcWebTransport`          | grpc-web arm   | `protocol:"grpc-web"` — binary-default, gRPC gateway compat        |
+|  [03]   | `{ fetch: instrumentedFetch }`    | fetch seam     | `net/client` policy + `@effect/opentelemetry` `traceparent` egress |
+|  [04]   | `{ interceptors: [trace, auth] }` | onion          | the shared `connect` `Interceptor` chain applied to every call     |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

@@ -13,8 +13,10 @@
 
 - Owner: `FieldValue` closes the payload alternatives, and `FieldCarrier` rows bind each case to its host field type, raw payload type, boxing projection, range order, declaration delegates, write delegate, and recovery projection.
 - Law: `FieldCarrier.Items` derives field-type and payload-type lookup from one correspondence; boxing and scalar-range admission dispatch through that same row, so ordinary carrier growth adds one value case and one behavior row.
+- Law: recovery is keyed, never scanned — the generated `Type` key is the union CASE type `FieldValue.Carrier` reads, so the two recovery axes fold once off `Items` into their own field-type and payload-type indexes and a payload answers its carrier in one hit.
 - Law: `FieldCarrier.Declare` captures native declaration failures; `Bytes` uses the value-only `Add` overload and rejects textured or filename presentation.
-- Law: `Null` recovers `NullField`, `DBNull.Value`, and `null` payloads — every shape its declared payload type routes to it — preserves a `NullField` census row, and boxes to `null` for object-typed parameter seams; payload-typed dictionary `Write` refuses because no `Set` overload exists for `NullField`.
+- Law: a host hole is a row VALUE — `WriteHole` names the payload-to-field pair the host publishes no route for, and `Write` refuses on it before any host call, so the roster stays total and the absence reads as a host limit rather than an omitted case.
+- Law: `Null` recovers `NullField`, `DBNull.Value`, and `null` payloads — every shape its declared payload type routes to it — preserves a `NullField` census row, and boxes to `null` for object-typed parameter seams; it declares through `FieldDictionary.Add` yet carries the one `WriteHole` in the roster, because the host publishes no `Set` overload reaching a `NullField` — so a null field is declarable and readable but never writable, and a consumer replaces the value by re-declaring rather than setting.
 - Boundary: `Color4f` rides the union as the host color seam value — field payloads are content-parameter truth, and a domain color composes the kernel `PerceptualColor` owner at the consumer that treats it as color, never inside the parameter carrier.
 
 ```csharp signature
@@ -160,7 +162,8 @@ public sealed partial class FieldCarrier {
         declare: static (declaration, payload, key) => declaration.Presentation is FieldPresentation.Plain && payload is byte[] bytes
             ? key.Catch(() => { _ = declaration.Fields.Add(declaration.Name, bytes); return Fin.Succ(value: unit); })
             : Fin.Fail<Unit>(error: key.InvalidInput()),
-        write: static (fields, name, payload, key) => payload is byte[] bytes
+        writeHole: None,
+        store: static (fields, name, payload, key) => payload is byte[] bytes
             ? key.Catch(() => { fields.Set(name, bytes); return Fin.Succ(value: unit); })
             : Fin.Fail<Unit>(error: key.InvalidInput()));
     public static readonly FieldCarrier Null = new(
@@ -175,10 +178,17 @@ public sealed partial class FieldCarrier {
             plain: static (ctx, _) => ctx.Op.Catch(() => { _ = ctx.Declaration.Fields.Add(ctx.Declaration.Name, ctx.Declaration.Prompt, ctx.Declaration.Section); return Fin.Succ(value: unit); }),
             textured: static (ctx, row) => ctx.Op.Catch(() => { _ = ctx.Declaration.Fields.AddTextured(ctx.Declaration.Name, ctx.Declaration.Prompt, row.TreatAsLinear, ctx.Declaration.Section); return Fin.Succ(value: unit); }),
             filename: static (ctx, _) => Fin.Fail<Unit>(error: ctx.Op.InvalidInput())),
-        write: static (_, _, _, key) => Fin.Fail<Unit>(error: key.Unsupported(geometryType: typeof(FieldValue), outputType: typeof(Unit))));
+        writeHole: Some((From: typeof(FieldValue.Null), To: typeof(NullField))),
+        store: static (_, _, _, key) => Fin.Fail<Unit>(
+            error: key.Unsupported(geometryType: typeof(FieldValue.Null), outputType: typeof(NullField))));
 
     public Type FieldType { get; }
     public Type PayloadType { get; }
+
+    // Host hole as a VALUE: `FieldDictionary` publishes no `Set` overload reaching a `NullField`, so the null row has no
+    // write route at all. The pair names that hole once, `Write` refuses on it before any host call, and the roster stays
+    // total — an omitted case would read as an oversight rather than a host limit.
+    internal Option<(Type From, Type To)> WriteHole { get; }
 
     [UseDelegateFromConstructor]
     internal partial object? Box(FieldValue value);
@@ -193,14 +203,29 @@ public sealed partial class FieldCarrier {
     internal partial Fin<Unit> Declare(FieldDeclaration declaration, object? payload, Op key);
 
     [UseDelegateFromConstructor]
-    internal partial Fin<Unit> Write(FieldDictionary fields, string name, object? payload, Op key);
+    internal partial Fin<Unit> Store(FieldDictionary fields, string name, object? payload, Op key);
+
+    internal Fin<Unit> Write(FieldDictionary fields, string name, object? payload, Op key) =>
+        WriteHole.Match(
+            Some: hole => Fin.Fail<Unit>(error: key.Unsupported(geometryType: hole.From, outputType: hole.To)),
+            None: () => Store(fields: fields, name: name, payload: payload, key: key));
+
+    // The generated `Type` key is the UNION CASE type — that is the key `FieldValue.Carrier` already reads. Recovery
+    // arrives holding a host `Field` or a raw payload instead, so the two recovery axes are their own indexes folded once
+    // off `Items` behind a lazy cell rather than a per-payload scan of the roster.
+    private static readonly Lazy<(HashMap<Type, FieldCarrier> ByField, HashMap<Type, FieldCarrier> ByPayload)> Index = new(
+        static () => toSeq(Items).Fold(
+            (ByField: HashMap<Type, FieldCarrier>(), ByPayload: HashMap<Type, FieldCarrier>()),
+            static (state, row) => (
+                ByField: state.ByField.Add(row.FieldType, row),
+                ByPayload: state.ByPayload.Add(row.PayloadType, row))),
+        LazyThreadSafetyMode.ExecutionAndPublication);
 
     internal static Fin<FieldValue> Recover(object? payload, Op key) =>
         payload is null
             ? Null.Read(payload: null, key: key)
-            : toSeq(Items)
-                .Filter(row => payload is Field ? row.FieldType == payload.GetType() : row.PayloadType == payload.GetType())
-                .Head
+            : (payload is Field ? Index.Value.ByField : Index.Value.ByPayload)
+                .Find(payload.GetType())
                 .ToFin(Fail: key.InvalidResult(detail: payload.GetType().Name))
                 .Bind(row => row.Read(payload: payload, key: key));
 
@@ -238,7 +263,8 @@ public sealed partial class FieldCarrier {
                         ? ctx.Op.Catch(() => { _ = ctx.Declaration.Fields.AddFilename(ctx.Declaration.Name, path, ctx.Declaration.Prompt, ctx.Declaration.Section); return Fin.Succ(value: unit); })
                         : Fin.Fail<Unit>(error: ctx.Op.InvalidInput()))
                 : Fin.Fail<Unit>(error: op.InvalidInput()),
-            write: (fields, name, payload, op) => payload is T value
+            writeHole: None,
+            store: (fields, name, payload, op) => payload is T value
                 ? op.Catch(() => { write(fields, name, value); return Fin.Succ(value: unit); })
                 : Fin.Fail<Unit>(error: op.InvalidInput()));
 }
@@ -375,7 +401,7 @@ public static class DynamicFields {
 - Law: each `ParamScope` case reaches its corresponding host endpoint; child-slot and direct extra-requirement semantics remain distinct cases.
 - Law: name resolution stays host-owned — `ChildSlotNameFromParamName`/`ParamNameFromChildSlotName` answer the correspondence at the consulting site, and no local table mirrors it.
 - Law: a parameter or child-slot name never enters as a literal — `PbrChannel` and `ContentParameter` are the two admitted name vocabularies and `ParamScope` takes one of them, so the only `string` a caller supplies is the extra-requirement key the host itself leaves open.
-- Law: `PbrChannel` keys on the host texture type because the PBR name space is DERIVED, not rostered — every child-slot name resolves through `ChildSlotNames.PhysicallyBased.FromTextureType` and every PBR parameter name but `pbr-brdf` forwards to that same child-slot name, so one key column answers both axes and a second parallel roster is the deleted form; `ContentParameter` reads `ParameterNames.PhysicallyBased.BRDF` — the one PBR property that answers a literal instead of forwarding — beside the basic-material `const` names, the only genuinely enumerated parameters the host declares, so no row hand-copies a name the host itself publishes.
+- Law: `PbrChannel` keys on the host texture type because the PBR name space is DERIVED, not rostered — every child-slot name resolves through `ChildSlotNames.PhysicallyBased.FromTextureType` and every PBR parameter name but `pbr-brdf` forwards to that same child-slot name, so one key column answers both axes and a second parallel roster is the deleted form. `pbr-brdf` is the one PBR property answering a literal instead of forwarding, so it is a `PbrChannel` row carrying that literal on the derived-key vocabulary it belongs to — `Name` answers it and `Slot` refuses it, because a parameter forwarding to no child slot cannot spell one. `ContentParameter` is therefore the basic-material `const` names alone, the only genuinely enumerated parameters the host declares, so no row hand-copies a name the host itself publishes.
 - Law: `Child(RenderMaterial.StandardChildSlots)` composes `TextureTypeFromSlot` then the same resolver, so the slot enum stays the vocabulary `Render/kinds.md` `[02]` rules it and this page mints no slot wrapper; the resolver answers an unmapped type with an empty string, and that sentinel projects to a typed fault at the one read site rather than reaching the host as a blank slot name.
 - Law: reads recover typed — a `ParamScope` read boxes through the host and immediately classifies into `FieldValue` by runtime payload type, so `object` dies at this seam.
 - Law: `FieldCensus.Of` traverses `FieldDictionary` once and projects value, texture bounds, usage grants, and visibility per field.
@@ -412,9 +438,15 @@ public abstract partial record FieldBinding {
 }
 
 // `ChildSlotNames.PhysicallyBased.FromTextureType` derives every child-slot name and all but one PBR parameter name, so this
-// owner keys on the host texture type and reads each name once rather than mirroring the derived roster.
+// owner keys on the host texture type and reads each name once rather than mirroring the derived roster. `BRDF` is that one
+// exception — `ParameterNames.PhysicallyBased.BRDF` answers the literal `pbr-brdf` and forwards to no child slot — so it
+// enters as the row keyed on the otherwise-unused `TextureType.None` carrying its literal, and `Slot` refuses it: a parameter
+// with no child slot cannot spell one, and seating it in the basic-material roster instead would file a PBR name under the
+// vocabulary the host declares for `RenderMaterial.BasicMaterialParameterNames`.
 [SmartEnum<TextureType>]
 public sealed partial class PbrChannel {
+    public static readonly PbrChannel Brdf = new(
+        key: TextureType.None, literal: Some(global::Rhino.Render.ParameterNames.PhysicallyBased.BRDF));
     public static readonly PbrChannel BaseColor = new(key: TextureType.Bitmap);
     public static readonly PbrChannel Subsurface = new(key: TextureType.PBR_Subsurface);
     public static readonly PbrChannel SubsurfaceScatteringColor = new(key: TextureType.PBR_SubsurfaceScattering);
@@ -439,16 +471,23 @@ public sealed partial class PbrChannel {
     public static readonly PbrChannel AmbientOcclusion = new(key: TextureType.PBR_AmbientOcclusion);
     public static readonly PbrChannel Alpha = new(key: TextureType.PBR_Alpha);
 
-    // Host truth: the resolver answers an unmapped type with an empty string, so the sentinel projects at this one read site.
-    internal Fin<string> Name(Op key) => key.Catch(() =>
-        Optional(global::Rhino.Render.ChildSlotNames.PhysicallyBased.FromTextureType(textureType: Key))
-            .Filter(static name => !string.IsNullOrWhiteSpace(name))
-            .ToFin(Fail: key.InvalidResult(detail: Key.ToString())));
+    internal Option<string> Literal { get; }
+
+    // The parameter axis: a literal row answers its own name, every derived row forwards to its child-slot name.
+    internal Fin<string> Name(Op key) => Literal.Match(Some: Fin.Succ, None: () => Slot(key: key));
+
+    // The child-slot axis. Host truth: the resolver answers an unmapped type with an empty string, so the sentinel projects
+    // at this one read site, and a literal row has no child slot to answer at all.
+    internal Fin<string> Slot(Op key) => Literal.IsSome
+        ? Fin.Fail<string>(error: key.Unsupported(geometryType: typeof(PbrChannel), outputType: typeof(TextureType)))
+        : key.Catch(() =>
+            Optional(global::Rhino.Render.ChildSlotNames.PhysicallyBased.FromTextureType(textureType: Key))
+                .Filter(static name => !string.IsNullOrWhiteSpace(name))
+                .ToFin(Fail: key.InvalidResult(detail: Key.ToString())));
 }
 
 [SmartEnum<string>]
 public sealed partial class ContentParameter {
-    public static readonly ContentParameter Brdf = new(global::Rhino.Render.ParameterNames.PhysicallyBased.BRDF);
     public static readonly ContentParameter Ambient = new(RenderMaterial.BasicMaterialParameterNames.Ambient);
     public static readonly ContentParameter Emission = new(RenderMaterial.BasicMaterialParameterNames.Emission);
     public static readonly ContentParameter FlamingoLibrary = new(RenderMaterial.BasicMaterialParameterNames.FlamingoLibrary);
@@ -472,21 +511,21 @@ public abstract partial record ParamScope {
 
     public static Fin<ParamScope> Named(ContentParameter parameter) {
         Op op = Op.Of(name: nameof(ParamScope));
-        return Optional(parameter).ToFin(Fail: op.InvalidInput())
+        return op.Need(parameter)
             .Map(static admitted => (ParamScope)new NamedCase(Parameter: admitted.Key));
     }
 
     public static Fin<ParamScope> Named(PbrChannel channel) {
         Op op = Op.Of(name: nameof(ParamScope));
-        return from active in Optional(channel).ToFin(Fail: op.InvalidInput())
+        return from active in op.Need(channel)
                from name in active.Name(key: op)
                select (ParamScope)new NamedCase(Parameter: name);
     }
 
     public static Fin<ParamScope> Child(PbrChannel channel, string requirement) {
         Op op = Op.Of(name: nameof(ParamScope));
-        return from active in Optional(channel).ToFin(Fail: op.InvalidInput())
-               from slot in active.Name(key: op)
+        return from active in op.Need(channel)
+               from slot in active.Slot(key: op)
                from admittedRequirement in op.AcceptText(value: requirement)
                select (ParamScope)new ChildCase(ChildSlot: slot, Requirement: admittedRequirement);
     }
@@ -573,8 +612,8 @@ public sealed record FieldCensus(Arr<FieldPortrait> Rows) : IDetachedDocumentRes
 |  [04]   | parameter binding | `FieldBinding`     | admitted direct and child-slot cases                      | `Of` / `Bind`                  |
 |  [05]   | parameter routes  | `ParamScope`       | named, child-slot, and direct-extra cases                 | `Named` / `Child` / `Extra`    |
 |  [06]   | field census      | `FieldCensus`      | one-pass dictionary walk to detached `FieldPortrait` rows | `Of(fields, key)`              |
-|  [07]   | pbr name space    | `PbrChannel`       | texture-type keyed, host-resolved slot and param names    | `Name(key)`                    |
-|  [08]   | basic param names | `ContentParameter` | host `BRDF` plus the basic-material name constants        | `ParamScope.Named`             |
+|  [07]   | pbr name space    | `PbrChannel`       | texture-type keyed, host-resolved slot and param names    | `Name` / `Slot`                |
+|  [08]   | basic param names | `ContentParameter` | the basic-material name constants                         | `ParamScope.Named`             |
 
 ## [06]-[RESEARCH]
 

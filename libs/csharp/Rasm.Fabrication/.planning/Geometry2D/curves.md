@@ -1,33 +1,31 @@
 # [RASM_FABRICATION_CURVES]
 
-`CurveAlgebra` owns manufacturing admission, generated side-pass fields, planar region projection, and witnessed lowering for free-form curves. Kernel curves, arc forests, and canonical `Loop` values retain their owning semantics across every seam.
+`CurveAlgebra` owns manufacturing admission and witnessed lowering for free-form curves. Kernel curves, arc forests, and canonical `Loop` values retain their owning semantics across every seam.
 
 ## [01]-[INDEX]
 
-- [02]-[CURVE_ALGEBRA]: `CurveSource`, `PassPolicy`, `CurveLowering`, `CurveOp`, `CurveTrace`, and the single `CurveAlgebra.Apply` operation owner.
+- [02]-[CURVE_ALGEBRA]: `CurveSource`, `CurveLowering`, `CurveOp`, `CurveTrace`, and the single `CurveAlgebra.Apply` operation owner.
 
 ## [02]-[CURVE_ALGEBRA]
 
-- Owner: `SampleClosure` replaces the raw closure knob with open and closed policy rows and owns canonical vertex and fitted-sample projection. `CurveSource` closes sample, arc-outline, and line-sourced chord admission. `PassPolicy` admits one progression generator instead of a caller-authored distance roster, and carries the generated distances it admitted. `CurveLowering` closes chord and recovered-arc egress. `CurveOp` contains only manufacturing concerns; consumers compose the kernel `Parametric.Apply` owner directly.
-- Cases: `PassProgression` carries count, maximum-step, and geometric generators. `CurveOp` carries admission, passes, region resolution, and lowering. `CurveTrace` carries fitted admission evidence, pass provenance, oriented regions, or lowering evidence.
-- Law: `Parametric.Fill` resolves nonzero-winding regions through `ArrangementResult.Overlay`; generated-total narrowing rejects volumetric result cases. Every oriented `Chain` removes only one tolerance-equal closure duplicate and re-enters through `Loop.Admit`, preserving outer and hole orientation with the kernel `BooleanReceipt`.
-- Entry: `CurveAlgebra.Apply(CurveOp)` is the sole public operation, and every case carries its own `Op?` key. `CurveAlgebra` narrows kernel unions only through generated-total `Switch` expressions.
-- Auto: closed sample admission normalizes one closure vertex before appending exactly one closing sample. Outline admission composes `ArcProjection.Lower`; chord admission composes `ArcProjection.Recover`. `PassPolicy` generates its admitted distances, and factory validation regenerates the progression to reject divergent stored state; uses read `Distances` without derivation. Every split offset retains pass and output ordinals. Lowering measures each chord's midpoint deviation and optionally recovers residual biarcs under the same requested error.
-- Receipt: `CurveAdmissionReceipt` retains sample cardinality or the complete arc bridge receipt. `PassReceipt` retains generated distances, all `RefineReceipt` values, split-output provenance, and trim census. `CurveLoweringReceipt` discriminates chord-only and recovered-arc evidence without an optional recovery field.
-- Packages: `Rasm.Parametric` supplies the complete `ParametricOp` and `ParametricResult` algebras, `Nurbs.Of`, `NurbsWire.CurveThrough`, `Parametric.Apply`, and `Parametric.Fill`; `Rasm.Meshing` supplies `ArrangementResult`, `Chain`, and `BooleanReceipt`; `ArcAlgebra.Densify` supplies both exact-to-chord and chord-to-arc projection; `System.Numerics.Tensors` supplies batch finite gates; `LanguageExt` supplies validation, traversal, immutable collections, and typed rails; `Thinktecture` generates every closed request, result, progression, and value owner.
-- Growth: a new kernel operation remains a `ParametricOp` case on its owning surface; a manufacturing-only modality adds one `CurveOp` and one `CurveTrace` case; a pass distribution or lowering form adds one generated case and one total dispatch arm without a new entrypoint or parallel carrier.
-- Boundary: free-form fitting, evaluation, refinement, splitting, and arrangement stay kernel-owned. `CurveAlgebra` owns closure normalization, manufacturing progression, typed union projection, approximation evidence, and canonical `Loop` egress; no host or provider carrier escapes.
+- Owner: `SampleClosure` replaces the raw closure knob with open and closed policy rows and owns canonical vertex and fitted-sample projection. `CurveSource` closes sample, arc-outline, and line-sourced chord admission. `CurveLowering` closes chord and recovered-arc egress. `CurveOp` contains only manufacturing concerns; consumers compose the kernel `Parametric.Apply` owner directly.
+- Cases: `CurveOp` carries admission and lowering. `CurveTrace` carries fitted admission evidence or lowering evidence.
+- Law: planar region resolution over free-form loops is the kernel `Arrangement` owner's, reached directly: a page-local case that forwarded `Parametric.Fill` and re-terminated its chains added no manufacturing decision, and the arc and line bands own the region walks every consumer actually issues. A pass distribution is likewise `Toolpath/turning`'s, whose `SweepKind` rows generate roughing and finishing passes from their own process law.
+- Entry: `CurveAlgebra.Apply(CurveOp)` is the sole public operation, and every case carries its own `Op?` key — the kernel entry's own provenance shape, taken verbatim at the boundary it crosses.
+- Law: `Narrowed` is the ONE kernel-union narrowing gate. Narrowing asks one question — is the returned case the requested one — so a generated total `Switch` whose every other arm returns the same refusal spells that question once per case; the type test spells it once per CALL, and a kernel union gaining a case grows this page by nothing.
+- Auto: closed sample admission normalizes one closure vertex before appending exactly one closing sample. Outline admission composes `ArcProjection.Lower`; chord admission composes `ArcProjection.Recover`. Lowering measures each chord's midpoint deviation and optionally recovers residual biarcs under the same requested error.
+- Receipt: `CurveAdmissionReceipt` retains sample cardinality or the complete arc bridge receipt. `CurveLoweringReceipt` discriminates chord-only and recovered-arc evidence without an optional recovery field.
+- Packages: `Rasm.Parametric` supplies the complete `ParametricOp` and `ParametricResult` algebras, `Nurbs.Of`, `NurbsWire.CurveThrough`, and `Parametric.Apply`; `ArcAlgebra.Densify` supplies both exact-to-chord and chord-to-arc projection; `LanguageExt` supplies validation, traversal, immutable collections, and typed rails; `Thinktecture` generates every closed request, result, and value owner.
+- Growth: a new kernel operation remains a `ParametricOp` case on its owning surface; a manufacturing-only modality adds one `CurveOp` and one `CurveTrace` case; a lowering form adds one generated case and one total dispatch arm without a new entrypoint or parallel carrier.
+- Boundary: free-form fitting, evaluation, refinement, splitting, and arrangement stay kernel-owned. `CurveAlgebra` owns closure normalization, typed union projection, approximation evidence, and canonical `Loop` egress; no host or provider carrier escapes.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
 using System.Linq;
-using System.Numerics.Tensors;
-using Foundation.CSharp.Analyzers.Contracts;
 using LanguageExt;
 using LanguageExt.Common;
 using Rasm.Domain;
 using Rasm.Fabrication.Process;
-using Rasm.Meshing;
 using Rasm.Numerics;
 using Rasm.Parametric;
 using Rhino.Geometry;
@@ -37,16 +35,6 @@ using static LanguageExt.Prelude;
 namespace Rasm.Fabrication.Geometry2D;
 
 // --- [VOCABULARY] ---------------------------------------------------------------------------------------------------------------------------------
-[SmartEnum<string>]
-public sealed partial class PassSide {
-    public static readonly PassSide Left = new("left", 1.0);
-    public static readonly PassSide Right = new("right", -1.0);
-
-    private double Sign { get; }
-
-    internal double Signed(double distance) => Sign * distance;
-}
-
 [SmartEnum<string>]
 public sealed partial class SampleClosure {
     public static readonly SampleClosure Open = new("open", false);
@@ -70,103 +58,6 @@ public sealed partial class SampleClosure {
     }
 }
 
-[Union]
-public abstract partial record PassProgression {
-    public sealed record Count(int Passes) : PassProgression;
-    public sealed record MaximumStep(double Step) : PassProgression;
-    public sealed record Geometric(int Passes, double Ratio) : PassProgression;
-}
-
-// Progression owns the distance sequence; admission rejects every supplied sequence that diverges from it.
-[ComplexValueObject]
-public sealed partial class PassPolicy {
-    public double Total { get; }
-    public PassProgression Progression { get; }
-    public RefinePolicy Refine { get; }
-    public Arr<double> Distances { get; }
-
-    public static Validation<Error, PassPolicy> Admit(
-        double total,
-        PassProgression progression,
-        RefinePolicy refine) =>
-        Generate(total, progression)
-            .ToValidation()
-            .Bind(distances =>
-                Validate(total, progression, refine, distances, out PassPolicy? policy) is null
-                    ? Validation<Error, PassPolicy>.Success(policy!)
-                    : Validation<Error, PassPolicy>.Fail(
-                        new FabricationFault.PolicyInadmissible(FabConcern.Geometry2D, "curve-passes:policy")));
-
-    [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(
-        ref ValidationError? validationError,
-        ref double total,
-        ref PassProgression progression,
-        ref RefinePolicy refine,
-        ref Arr<double> distances) =>
-        validationError = double.IsFinite(total)
-            && total > 0.0
-            && progression is not null
-            && refine is not null
-            && refine.IsValid
-            && Generated(total, progression, distances)
-                ? null
-                : new ValidationError(message: "Pass policy requires a finite total, generated distances, and refinement.");
-
-    private static bool Generated(double total, PassProgression progression, Arr<double> distances) =>
-        Generate(total, progression).Match(
-            Succ: expected => expected.SequenceEqual(distances),
-            Fail: static _ => false);
-
-    private static Fin<Arr<double>> Generate(double total, PassProgression progression) => progression is null
-        ? Fin.Fail<Arr<double>>(new FabricationFault.PolicyInadmissible(FabConcern.Geometry2D, "curve-passes:progression"))
-        : progression.Switch(
-            count: request => CountDistances(total, request.Passes),
-            maximumStep: request => MaximumDistances(total, request.Step),
-            geometric: request => GeometricDistances(total, request.Passes, request.Ratio));
-
-    private static Fin<Arr<double>> CountDistances(double total, int passes) =>
-        passes is >= 1 and <= Array.MaxLength
-            ? AdmitDistances(Range(1, passes).ToSeq().Map(pass => total * ((double)pass / passes)).ToArr(), total)
-            : Fin.Fail<Arr<double>>(new FabricationFault.PolicyInadmissible(FabConcern.Geometry2D, "curve-passes:count"));
-
-    private static Fin<Arr<double>> MaximumDistances(double total, double step) {
-        double passes = Math.Ceiling(total / step);
-        return double.IsFinite(step) && step > 0.0
-            && double.IsFinite(passes) && passes is >= 1.0 and <= Array.MaxLength
-                ? CountDistances(total, (int)passes)
-                : Fin.Fail<Arr<double>>(new FabricationFault.PolicyInadmissible(FabConcern.Geometry2D, "curve-passes:step"));
-    }
-
-    private static Fin<Arr<double>> GeometricDistances(double total, int passes, double ratio) {
-        if (passes is < 1 or > Array.MaxLength || !double.IsFinite(ratio) || ratio <= 0.0)
-            return Fin.Fail<Arr<double>>(new FabricationFault.PolicyInadmissible(FabConcern.Geometry2D, "curve-passes:geometric"));
-        Arr<double> weights = ratio <= 1.0
-            ? Range(0, passes).ToSeq().Map(pass => Math.Pow(ratio, pass)).ToArr()
-            : Range(0, passes).ToSeq().Map(pass => Math.Pow(ratio, pass - passes + 1)).ToArr();
-        double scale = total / weights.Sum();
-        Arr<double> generated = weights
-            .Scan(0.0, (distance, weight) => distance + (weight * scale))
-            .Tail
-            .ToArr();
-        Arr<double> distances = new([.. generated.Take(generated.Count - 1), total]);
-        return AdmitDistances(distances, total);
-    }
-
-    private static Fin<Arr<double>> AdmitDistances(Arr<double> distances, double total) =>
-        Admissible(distances, total)
-            ? Fin.Succ(distances)
-            : Fin.Fail<Arr<double>>(new FabricationFault.PolicyInadmissible(FabConcern.Geometry2D, "curve-passes:distances"));
-
-    private static bool Admissible(Arr<double> distances, double total) =>
-        !distances.IsEmpty
-        && TensorPrimitives.IsFiniteAll<double>(distances.ToArray())
-        && distances.ForAll(static distance => distance > 0.0)
-        && Range(1, distances.Count - 1).ForAll(index => distances[index] > distances[index - 1])
-        && distances[distances.Count - 1] == total;
-
-}
-
 // --- [OWNERS] -------------------------------------------------------------------------------------------------------------------------------------
 [Union]
 public abstract partial record CurveSource {
@@ -188,18 +79,6 @@ public abstract partial record CurveLowering {
 [Union]
 public abstract partial record CurveOp {
     public sealed record Admit(CurveSource Source, Op? Key) : CurveOp;
-    public sealed record Passes(
-        NurbsForm.Curve Profile,
-        Plane Frame,
-        PassSide Side,
-        PassPolicy Policy,
-        Op? Key) : CurveOp;
-    public sealed record Region(
-        Arr<NurbsForm.Curve> Loops,
-        Axis Plane,
-        Context Tolerance,
-        ArrangementPolicy Policy,
-        Op? Key) : CurveOp;
     public sealed record Lower(
         NurbsForm.Curve Path,
         CurveLowering Lowering,
@@ -215,14 +94,6 @@ public abstract partial record CurveAdmissionReceipt {
     public sealed record Chords(RecoverReceipt Receipt) : CurveAdmissionReceipt;
 }
 
-public sealed record PassCurve(int Pass, int Output, double Distance, NurbsForm.Curve Curve);
-
-public sealed record PassReceipt(
-    Arr<double> Distances,
-    Arr<RefineReceipt> Refinements,
-    int TrimmedCrossings,
-    int KeptSegments);
-
 [Union]
 public abstract partial record CurveLoweringReceipt {
     public sealed record Chords(
@@ -237,8 +108,6 @@ public abstract partial record CurveLoweringReceipt {
 [Union]
 public abstract partial record CurveTrace {
     public sealed record Fitted(NurbsForm.Curve Curve, CurveAdmissionReceipt Receipt) : CurveTrace;
-    public sealed record Passes(Arr<PassCurve> Curves, PassReceipt Receipt) : CurveTrace;
-    public sealed record Regions(Seq<Loop> Loops, BooleanReceipt Receipt) : CurveTrace;
     public sealed record Lowered(Loop Loop, CurveLoweringReceipt Receipt) : CurveTrace;
 }
 
@@ -246,8 +115,6 @@ public abstract partial record CurveTrace {
 public static class CurveAlgebra {
     public static Fin<CurveTrace> Apply(CurveOp operation) => operation.Switch(
         admit: static request => Admit(request.Source, request.Key),
-        passes: static request => Passes(request),
-        region: static request => Region(request),
         lower: static request => Lower(request));
 
     private static Fin<CurveTrace> Admit(CurveSource source, Op? key) => source.Switch(
@@ -278,7 +145,9 @@ public static class CurveAlgebra {
         chords: request =>
             from trace in ArcAlgebra.Densify(new ArcProjection.Recover(
                 request.Profile, request.FitError, request.ProbeFloor))
-            from receipt in trace.RecoveredReceipt.ToFin(
+            // `ArcTrace` publishes one projection — the densified receipt — so the recovery case reads its own
+            // arm directly rather than a symmetric projection its owner deliberately refused to mint.
+            from receipt in (trace is ArcTrace.Recovered recovered ? Some(recovered.Receipt) : None).ToFin(
                 new FabricationFault.PolicyInadmissible(FabConcern.Geometry2D, "curve-admit:chords"))
             let closure = SampleClosure.From(request.Profile.Closed)
             from fitted in Fit(
@@ -298,39 +167,11 @@ public static class CurveAlgebra {
         points.Count < policy.Degree + 1
             ? Fin.Fail<CurveTrace>(new GeometryFault.DegenerateInput(Kind.Curve, None, "curve-admit:samples").ToError())
             : Nurbs.Of(new NurbsWire.CurveThrough(points, policy), key)
-                .Bind(form => AsCurve(form, "curve-admit:form"))
+                .Bind(static form => Narrowed<NurbsForm, NurbsForm.Curve>(form, "curve-admit:form"))
                 .Bind(curve => closure.IsClosed && !curve.IsClosed
                     ? Fin.Fail<NurbsForm.Curve>(new GeometryFault.DegenerateInput(Kind.Curve, None, "curve-admit:closure").ToError())
                     : Fin.Succ(curve))
                 .Map<CurveTrace>(curve => new CurveTrace.Fitted(curve, receipt));
-
-    private static Fin<CurveTrace> Passes(CurveOp.Passes request) =>
-        request.Policy.Distances
-            .MapIndexed((pass, distance) => Parametric.Apply(new ParametricOp.Offset(
-                    request.Profile,
-                    request.Frame,
-                    request.Side.Signed(distance),
-                    request.Policy.Refine), request.Key)
-                .Bind(result => AsOffsets(result, "curve-passes:offset"))
-                .Map(offset => (Pass: pass, Distance: distance, Offset: offset)))
-            .Traverse(static result => result)
-            .As()
-            .Map<CurveTrace>(results => new CurveTrace.Passes(
-                new Arr<PassCurve>([.. results.SelectMany(result => result.Offset.Curves
-                    .Select((curve, output) => new PassCurve(result.Pass, output, result.Distance, curve)))]),
-                new PassReceipt(
-                    request.Policy.Distances,
-                    results.Map(static result => result.Offset.Receipt).ToArr(),
-                    results.Sum(static result => result.Offset.TrimmedCrossings),
-                    results.Sum(static result => result.Offset.KeptSegments))));
-
-    private static Fin<CurveTrace> Region(CurveOp.Region request) =>
-        request.Loops.IsEmpty || request.Loops.Exists(static curve => !curve.IsClosed)
-            ? Fin.Fail<CurveTrace>(new GeometryFault.DegenerateInput(Kind.Curve, None, "curve-region:open-loop").ToError())
-            : from result in Parametric.Fill(request.Loops, request.Plane, request.Policy, request.Key)
-              from overlay in AsOverlay(result, "curve-region:overlay")
-              from loops in overlay.Loops.Traverse(chain => LowerChain(chain, request.Tolerance)).As()
-              select (CurveTrace)new CurveTrace.Regions(loops.ToSeq(), overlay.Receipt);
 
     private static Fin<CurveTrace> Lower(CurveOp.Lower request) => request.Lowering.Switch(
         chords: lowering => Divide(request, lowering.Rule)
@@ -343,7 +184,7 @@ public static class CurveAlgebra {
                 row.Chords,
                 lowering.Error,
                 lowering.ProbeFloor))
-            from receipt in trace.RecoveredReceipt.ToFin(
+            from receipt in (trace is ArcTrace.Recovered recovered ? Some(recovered.Receipt) : None).ToFin(
                 new FabricationFault.PolicyInadmissible(FabConcern.Geometry2D, "curve-lower:recover"))
             select (CurveTrace)new CurveTrace.Lowered(
                 receipt.Result,
@@ -359,7 +200,7 @@ public static class CurveAlgebra {
         CurveOp.Lower request,
         DivideRule rule) =>
         from result in Parametric.Apply(new ParametricOp.Divide(request.Path, rule), request.Key)
-        from division in AsDivision(result, "curve-lower:division")
+        from division in Narrowed<ParametricResult, ParametricResult.Division>(result, "curve-lower:division")
         let vertices = SampleClosure.From(request.Path.IsClosed).Vertices(division.Points, request.Tolerance)
         from chords in Loop.Admit(
             vertices,
@@ -374,58 +215,26 @@ public static class CurveAlgebra {
         ParametricResult.Division division) {
         double deviation = division.Parameters.Count < 2
             ? 0.0
-            : Range(0, division.Parameters.Count - 1).ToSeq().Map(index => {
+            : Range(0, division.Parameters.Count - 1).ToSeq().Max(index => {
                 double parameter = (division.Parameters[index] + division.Parameters[index + 1]) / 2.0;
                 Point3d point = curve.PointAt(parameter);
                 Line chord = new(division.Points[index], division.Points[index + 1]);
                 return chord.DistanceTo(point, limitToFiniteSegment: true);
-            }).Max();
+            });
         return double.IsFinite(deviation)
             ? Fin.Succ(deviation)
             : Fin.Fail<double>(new GeometryFault.DegenerateInput(Kind.Curve, None, "curve-lower:deviation").ToError());
     }
 
-    private static Fin<Loop> LowerChain(Chain chain, Context tolerance) {
-        Arr<Point3d> points = new([.. chain.Points]);
-        Arr<Point3d> vertices = SampleClosure.From(chain.Closed).Vertices(points, tolerance);
-        return chain.Closed
-            ? Loop.Admit(vertices, closed: true, toArr(Enumerable.Repeat(0.0, vertices.Count)), tolerance)
-            : Fin.Fail<Loop>(new GeometryFault.DegenerateInput(Kind.Curve, None, "curve-region:open-result").ToError());
-    }
-
-    private static Fin<NurbsForm.Curve> AsCurve(NurbsForm form, string locus) => form.Switch(
-        state: (Error)new FabricationFault.PolicyInadmissible(FabConcern.Geometry2D, locus),
-        curve: static (_, curve) => Fin.Succ(curve),
-        surface: static (error, _) => Fin.Fail<NurbsForm.Curve>(error));
-
-    private static Fin<ParametricResult.Offsets> AsOffsets(ParametricResult result, string locus) => result.Switch(
-        state: (Error)new FabricationFault.PolicyInadmissible(FabConcern.Geometry2D, locus),
-        sample: static (error, _) => Fin.Fail<ParametricResult.Offsets>(error),
-        measured: static (error, _) => Fin.Fail<ParametricResult.Offsets>(error),
-        division: static (error, _) => Fin.Fail<ParametricResult.Offsets>(error),
-        stationField: static (error, _) => Fin.Fail<ParametricResult.Offsets>(error),
-        pieces: static (error, _) => Fin.Fail<ParametricResult.Offsets>(error),
-        refit: static (error, _) => Fin.Fail<ParametricResult.Offsets>(error),
-        offsets: static (_, offsets) => Fin.Succ(offsets),
-        crossings: static (error, _) => Fin.Fail<ParametricResult.Offsets>(error));
-
-    private static Fin<ParametricResult.Division> AsDivision(ParametricResult result, string locus) => result.Switch(
-        state: (Error)new FabricationFault.PolicyInadmissible(FabConcern.Geometry2D, locus),
-        sample: static (error, _) => Fin.Fail<ParametricResult.Division>(error),
-        measured: static (error, _) => Fin.Fail<ParametricResult.Division>(error),
-        division: static (_, division) => Fin.Succ(division),
-        stationField: static (error, _) => Fin.Fail<ParametricResult.Division>(error),
-        pieces: static (error, _) => Fin.Fail<ParametricResult.Division>(error),
-        refit: static (error, _) => Fin.Fail<ParametricResult.Division>(error),
-        offsets: static (error, _) => Fin.Fail<ParametricResult.Division>(error),
-        crossings: static (error, _) => Fin.Fail<ParametricResult.Division>(error));
-
-    private static Fin<ArrangementResult.Overlay> AsOverlay(ArrangementResult result, string locus) => result.Switch(
-        state: (Error)new FabricationFault.PolicyInadmissible(FabConcern.Geometry2D, locus),
-        boolean: static (error, _) => Fin.Fail<ArrangementResult.Overlay>(error),
-        overlay: static (_, overlay) => Fin.Succ(overlay),
-        complex: static (error, _) => Fin.Fail<ArrangementResult.Overlay>(error));
-
+    // ONE narrowing gate over every kernel union this page reads. Narrowing asks a single question — is the
+    // returned case the one this call requested — and a generated total `Switch` whose every other arm returns the
+    // same refusal answers that question by re-spelling it once per case, so a kernel union gaining a case grows
+    // this page by nothing and the refusal has one locus per call site rather than one per arm.
+    private static Fin<TCase> Narrowed<TResult, TCase>(TResult result, string locus)
+        where TCase : class, TResult =>
+        result is TCase typed
+            ? Fin.Succ(typed)
+            : Fin.Fail<TCase>(new FabricationFault.PolicyInadmissible(FabConcern.Geometry2D, locus));
 }
 ```
 

@@ -37,15 +37,15 @@ All mistakes/problems/oversights that are structural are abstracted/defined and 
 
 [STANDARDS_ROUTING]: Use the route-owned standard for the file being edited:
 
-| [INDEX] | [FILE_TYPE]                | [ROUTE]                        | [LOCATION_TO_USE]              | [NAMING_SCHEMA]                |
-| :-----: | :------------------------- | :----------------------------- | :----------------------------- | :----------------------------- |
-|  [01]   | C# production (`.cs`)      | Docs: `docs/stacks/csharp`     | `libs/csharp`                  | `PascalCase`                   |
-|  [02]   | Python (`.py`)             | Docs: `docs/stacks/python`     | `libs/python`                  | `snake_case`                   |
-|  [03]   | TypeScript (`.ts`, `.tsx`) | Docs: `docs/stacks/typescript` | `libs/typescript`              | `camelCase`                    |
-|  [04]   | Bash/sh (`.sh`, `.bash`)   | Skill: `coding-bash`           | [ANY]                          | `kebab-case`                   |
-|  [05]   | SQL (`.sql`)               | Skill: `coding-pg`             | [ANY]                          | `snake_case`                   |
-|  [06]   | Markdown (`.md`)           | Skill: `docgen`                | [ANY]                          | `kebab-case`                   |
-|  [07]   | Mermaid                    | Skill: `mermaid-diagramming`   | Inside `.md` and `.html` pages | [N/A]                          |
+| [INDEX] | [FILE_TYPE]                | [ROUTE]                        | [LOCATION_TO_USE]              | [NAMING_SCHEMA] |
+| :-----: | :------------------------- | :----------------------------- | :----------------------------- | :-------------- |
+|  [01]   | C# production (`.cs`)      | Docs: `docs/stacks/csharp`     | `libs/csharp`                  | `PascalCase`    |
+|  [02]   | Python (`.py`)             | Docs: `docs/stacks/python`     | `libs/python`                  | `snake_case`    |
+|  [03]   | TypeScript (`.ts`, `.tsx`) | Docs: `docs/stacks/typescript` | `libs/typescript`              | `camelCase`     |
+|  [04]   | Bash/sh (`.sh`, `.bash`)   | Skill: `coding-bash`           | [ANY]                          | `kebab-case`    |
+|  [05]   | SQL (`.sql`)               | Skill: `coding-pg`             | [ANY]                          | `snake_case`    |
+|  [06]   | Markdown (`.md`)           | Skill: `docgen`                | [ANY]                          | `kebab-case`    |
+|  [07]   | Mermaid                    | Skill: `mermaid-diagramming`   | Inside `.md` and `.html` pages | [N/A]           |
 
 [TOOL_ROUTING]:
 - [ALWAYS]: use `ast-grep` skill on every code surface — outline before reading source, structural search over grep, rewrites, and durable rules.

@@ -38,8 +38,9 @@ Every AEC peer projects its foreign source through `IElementProjection`, Persist
 [PROJECTION]:
 - [16]-[PROJECTION](.planning/Projection/projection.md): Cross-stratum projector and constraint floors under one `Assemble` composition apps wire.
 - [17]-[ADDRESS](.planning/Projection/address.md): `ContentAddress` codec and order-independent graph addressing over the kernel seed-zero hash.
-- [18]-[FAULTS](.planning/Projection/fault.md): Cross-federation band registry, the `ElementFault` union lowered onto the result rail, and the seam-wide `AdmissionSlots` accumulating-slot algebra.
+- [18]-[FAULTS](.planning/Projection/fault.md): Cross-federation band registry, `ElementFault` union, and `AdmissionSlots` accumulating-slot algebra.
 - [19]-[OBSERVE](.planning/Projection/observe.md): `ElementHookRail` typed graph-fact tap with kernel-band spans and the `GraphInstrument` projection.
+- [20]-[AUDIT](.planning/Projection/audit.md): `ModelAudit` completeness grade folding coverage ratios and integrity sweeps into one typed receipt.
 
 ## [02]-[DOMAIN_PACKAGES]
 

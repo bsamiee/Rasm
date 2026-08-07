@@ -5,7 +5,7 @@ Camera ownership (`Rasm.Rhino.Viewport`) separates kernel pose and intent, sessi
 ## [01]-[INDEX]
 
 - [02]-[SCOPE_LEASE]: `ViewportBorrowMode` the broadcast redraw-suppression gate and `ViewportLease` the session-gated borrow over the Document-owned `ViewportTarget` address.
-- [03]-[POSE_MODEL]: `CameraPose` over the kernel `VectorFrame`, `LensAngle`, `ProjectionKind` classification, and the pose read/write pair on one owner.
+- [03]-[POSE_MODEL]: `CameraPose` over the kernel `VectorFrame`, `LensAngle`, the `ProjectionKind` rows, and `CameraSeat` — the host-handle classification and seat owner behind the pose read/write pair.
 - [04]-[HOST_ROWS]: `CameraFrustum`, `DepthProbe`, `VisibilityProbe`, `CameraDof`, `CPlaneState`, `DetailLength`, and `ViewMapping`.
 - [05]-[SNAPSHOT]: `CameraSnapshot` — the `ViewportInfo` value adapter with staleness evidence and the restore seam.
 
@@ -164,15 +164,18 @@ public sealed class ViewportLease : IDetachedDocumentResult {
 
 ## [03]-[POSE_MODEL]
 
-- Owner: `CameraPose` composes `VectorFrame`, target, `LensAngle`, and the observable `ProjectionKind` rows `Parallel`, `Perspective`, and `TwoPoint`. RhinoCommon exposes no reflected read predicate, so reflected projection remains an explicit `ProjectionChange.ReflectedCase` command and never masquerades as readable pose state.
-- Entry: `CameraPose.Read(ViewportLease, Op?)` projects the live camera through the lease; `CameraPose.Of(VectorFrame, Point3d, LensAngle, ProjectionKind, Op?)` admits a synthetic pose; `CameraPose.Admit` is the shared outer storage seam consumed by writes and tracks; `Write(ViewportLease, Op?)` enters `Cameras.Apply`, which proves the requested `ProjectionKind` already matches the live viewport and composes the one internal `SeatOn` triplet. Projection transitions remain explicit `CameraOp.ProjectionCase` operations because RhinoCommon exposes no reflected read predicate and its perspective transition consumes a lens-length contract distinct from `CameraAngle`.
+- Owner: `CameraPose` composes `VectorFrame`, target, `LensAngle`, and the observable `ProjectionKind` rows `Parallel`, `Perspective`, and `TwoPoint`; `CameraSeat` owns every member that takes a host handle — projection classification, the projection-match probe, and the seat triplet. RhinoCommon exposes no reflected read predicate, so reflected projection remains an explicit `ProjectionChange.ReflectedCase` command and never masquerades as readable pose state.
+- Entry: `CameraPose.Read(ViewportLease, Op?)` projects the live camera through the lease; `CameraPose.Of(VectorFrame, Point3d, LensAngle, ProjectionKind, Op?)` admits a synthetic pose; `CameraPose.Admit` is the shared outer storage seam consumed by writes and tracks; `Write(ViewportLease, Op?)` enters `Cameras.Apply`, which proves the requested `ProjectionKind` already matches the live viewport through `CameraSeat.Accepts` and composes the one `CameraSeat.Seat` triplet. Projection transitions remain explicit `CameraOp.ProjectionCase` operations because RhinoCommon exposes no reflected read predicate and its perspective transition consumes a lens-length contract distinct from `CameraAngle`.
+- Law: `CameraPose` and `ProjectionKind` cross to `Rasm.Rhino.Modeling` as VALUE-ONLY shapes, so neither carries a member taking a `RhinoViewport` — a classification or seat hung on the crossing record hands a consuming stratum a host handle the value contract denies it, and `CameraSeat` is where every such member lives.
 - Law: the frame is read through `RhinoViewport.GetCameraFrame(frame: out Plane)` and admitted through `VectorFrame.Of` — a second local frame construction beside the kernel owner is the killed census defect; an up-vector fallback resolves through `ViewportInfo.CalculateCameraUpDirection(location:, direction:, angle:)`, never a hand-rolled orthogonalization.
 - Law: the pose write orders direction before angle and refuses `updateTargetLocation` on the direction write so the admitted target survives the seat; a mismatched projection is a typed refusal rather than a pose that silently omits one declared field, and the write returns the post-write `ChangeCounter`.
+- Law: `LensAngle` carries the FULL vertical view angle in radians and BOTH host carriers — `RhinoViewport.CameraAngle` and `ViewportInfo.CameraAngle` — hold its HALF, live-proven at 13.4957 deg = atan(12/50) for a 50mm lens and identical on the two carriers. The read doubles, the seat halves, and a 1:1 crossing at either arm halves or doubles the field of view silently; `Modeling/projection.md` writes the same half onto its own frame.
 - Law: architectural view conventions are NOT pose recipes here — `Rasm.Drawing` `ViewConvention.Pose` computes the convention pose from a subject bounds through the kernel catalog rows, and this owner only admits and seats the projected `ViewPose`; a bounds-relative multiplier or elevation constant in this package is the killed `Architecture.cs` form.
 - Boundary: reading and writing cross the same lease; a pose is a value, so two reads of a mutated viewport differ by construction and no cached pose masquerades as live state.
 
 ```csharp
 // --- [TYPES] --------------------------------------------------------------------------------
+// Radians, FULL vertical view angle: both host carriers hold its half, so the read doubles and the seat halves.
 [ValueObject<double>]
 public readonly partial struct LensAngle {
     [BoundaryAdapter]
@@ -188,15 +191,6 @@ public sealed partial class ProjectionKind {
     public static readonly ProjectionKind Parallel = new(key: 0);
     public static readonly ProjectionKind Perspective = new(key: 1);
     public static readonly ProjectionKind TwoPoint = new(key: 2);
-
-    internal static ProjectionKind Classify(RhinoViewport viewport) =>
-        (viewport.IsPerspectiveProjection, viewport.IsTwoPointPerspectiveProjection, viewport.IsParallelProjection) switch {
-            (_, true, _) => TwoPoint,
-            (true, false, _) => Perspective,
-            _ => Parallel,
-        };
-
-    internal bool Accepts(RhinoViewport viewport) => this == Classify(viewport: viewport);
 }
 
 // --- [MODELS] -------------------------------------------------------------------------------
@@ -223,8 +217,8 @@ public readonly record struct CameraPose(VectorFrame Frame, Point3d Target, Lens
         row.Viewport.GetCameraFrame(frame: out Plane plane)
             ? (from admitted in VectorFrame.Of(origin: plane.Origin, normal: -plane.ZAxis, xHint: Some(plane.XAxis), context: context, key: key)
                from target in key.AcceptValue(value: row.Viewport.CameraTarget)
-               from angle in key.AcceptValidated<LensAngle>(candidate: row.Viewport.CameraAngle)
-               select new CameraPose(Frame: admitted, Target: target, Angle: angle, Projection: ProjectionKind.Classify(viewport: row.Viewport)))
+               from angle in key.AcceptValidated<LensAngle>(candidate: 2.0 * row.Viewport.CameraAngle)
+               select new CameraPose(Frame: admitted, Target: target, Angle: angle, Projection: CameraSeat.Classify(viewport: row.Viewport)))
             : Fin.Fail<CameraPose>(key.InvalidResult()));
 
     public Fin<uint> Write(ViewportLease lease, Op? key = null) {
@@ -241,10 +235,26 @@ public readonly record struct CameraPose(VectorFrame Frame, Point3d Target, Lens
                    motionCase: _ => Fin.Fail<(uint Before, uint After)>(op.InvalidResult()))
                select serial.After;
     }
+}
 
-    internal Unit SeatOn(RhinoViewport viewport) {
-        _ = Seat(viewport: viewport, target: Target, location: Frame.Value.Origin, direction: Frame.Value.ZAxis);
-        viewport.CameraAngle = (double)Angle;
+// --- [OPERATIONS] ---------------------------------------------------------------------------
+// The one host-handle owner for pose values: every member taking a `RhinoViewport` lives here, so the shapes crossing
+// to `Rasm.Rhino.Modeling` stay value-only.
+internal static class CameraSeat {
+    internal static ProjectionKind Classify(RhinoViewport viewport) =>
+        (viewport.IsPerspectiveProjection, viewport.IsTwoPointPerspectiveProjection, viewport.IsParallelProjection) switch {
+            (_, true, _) => ProjectionKind.TwoPoint,
+            (true, false, _) => ProjectionKind.Perspective,
+            _ => ProjectionKind.Parallel,
+        };
+
+    internal static bool Accepts(ProjectionKind projection, RhinoViewport viewport) =>
+        projection == Classify(viewport: viewport);
+
+    // The host slot holds the half this value states in full — the same half `Modeling/projection.md` writes onto its frame.
+    internal static Unit Seat(RhinoViewport viewport, CameraPose pose) {
+        _ = Seat(viewport: viewport, target: pose.Target, location: pose.Frame.Value.Origin, direction: pose.Frame.Value.ZAxis);
+        viewport.CameraAngle = (double)pose.Angle / 2.0;
         return unit;
     }
 
@@ -558,7 +568,7 @@ public sealed partial class CPlaneState {
             .As()
             .ToFin()
             .Bind(ink => key.Catch(() => Fin.Succ(Create(
-                name: Optional(cplane.Name).Filter(static value => value.Length > 0),
+                name: Op.Text(cplane.Name),
                 plane: cplane.Plane,
                 gridSpacing: cplane.GridSpacing,
                 snapSpacing: cplane.SnapSpacing,

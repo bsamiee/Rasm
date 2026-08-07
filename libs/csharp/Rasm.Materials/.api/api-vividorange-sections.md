@@ -36,7 +36,7 @@
 |  [06]   | `FaceReinforcementLayer`       | class         | places a layout along one section face |
 |  [07]   | `PerimeterReinforcementLayer`  | class         | places a layout around the perimeter   |
 |  [08]   | `MinimumReinforcementSpacing`  | class         | EC2 minimum clear-spacing rule         |
-|  [09]   | `BarDiameter`                  | enum          | EN-10080 D6..D50 diameter catalogue    |
+|  [09]   | `BarDiameter`                  | enum          | `None` sentinel then EN-10080 D6..D50  |
 
 - `BarDiameter` and `SectionFace` are `VividOrange.ISections` floor types; the rest resolve to this assembly.
 
@@ -65,15 +65,15 @@
 
 [ENTRYPOINT_SCOPE]: build a section
 
-| [INDEX] | [SURFACE]                                                           | [SHAPE]  | [CAPABILITY]                       |
-| :-----: | :------------------------------------------------------------------ | :------- | :--------------------------------- |
-|  [01]   | `new Section(IProfile, IMaterial)`                                  | ctor     | plain section                      |
-|  [02]   | `new ConcreteSection(IProfile, IMaterial)`                          | ctor     | bare RC section                    |
-|  [03]   | `new ConcreteSection(IProfile, IMaterial, IRebar, Length?, IList?)` | ctor     | RC section, bar promoted to `Link` |
-|  [04]   | `new ConcreteSection(IProfile, IMaterial, ILink, Length?, IList?)`  | ctor     | RC section with explicit stirrup   |
-|  [05]   | `ConcreteSection.AddRebarLayer(IReinforcementLayer)`                | instance | route a face or perimeter layer    |
-|  [06]   | `ConcreteSection.ClearRebars()`                                     | instance | clear every added layer            |
-|  [07]   | `ConcreteSection.Rebars`                                            | property | collected positioned bars          |
+| [INDEX] | [SURFACE]                                                             | [SHAPE]  | [CAPABILITY]                            |
+| :-----: | :-------------------------------------------------------------------- | :------- | :-------------------------------------- |
+|  [01]   | `new Section(IProfile, IMaterial)`                                    | ctor     | plain section                           |
+|  [02]   | `new ConcreteSection(IProfile, IMaterial)`                            | ctor     | bare RC section                         |
+|  [03]   | `new ConcreteSection(IProfile, IMaterial, IRebar[, Length[, IList]])` | ctor     | three overloads, bar promoted to `Link` |
+|  [04]   | `new ConcreteSection(IProfile, IMaterial, ILink[, Length[, IList]])`  | ctor     | three overloads with explicit stirrup   |
+|  [05]   | `ConcreteSection.AddRebarLayer(IReinforcementLayer)`                  | instance | route a face or perimeter layer         |
+|  [06]   | `ConcreteSection.ClearRebars()`                                       | instance | clear every added layer                 |
+|  [07]   | `ConcreteSection.Rebars`                                              | property | collected positioned bars               |
 
 - `AddRebarLayer` routes `Top`/`Bottom` to the top-bottom set, `Left`/`Right` to the side set, `Sides` to both sides, and a perimeter layer to the perimeter set.
 
@@ -91,6 +91,7 @@
 |  [08]   | `layer.GetRebars(ILocalPolyline2d) -> IList<...>`          | instance | materialize positioned bars                 |
 |  [09]   | `new MinimumReinforcementSpacing(NationalAnnex)`           | ctor     | select the EC2 annex                        |
 |  [10]   | `spacing.GetMinimumReinforcementSpacing(Length) -> Length` | instance | EC2 minimum clear spacing                   |
+|  [11]   | `Link.MinimumMandrelDiameter -> Length`                    | property | EC2 mandrel floor off the link diameter     |
 
 - `GetPath` offsets the face or perimeter inward by cover and the bar radius.
 

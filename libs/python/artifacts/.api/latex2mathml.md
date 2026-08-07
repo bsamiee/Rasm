@@ -17,14 +17,14 @@
 
 [ENTRYPOINT_SCOPE]: LaTeX -> MathML egress
 
-`convert` answers a standalone MathML string; `convert_to_element` answers the same content as a live `ET.Element` for a consumer composing one XML tree without a reparse. `display` selects `inline` versus `block` layout intent; `xmlns` stamps the MathML namespace.
+`convert` answers a standalone MathML string; `convert_to_element` answers the same content as a live `ET.Element` for a consumer composing one XML tree without a reparse. `display` selects `inline` (the default) versus `block` layout intent, `xmlns` stamps the MathML namespace, and `parent` grafts the result into a caller-owned tree.
 
-| [INDEX] | [MEMBER]                                                            | [KIND]    | [ROLE]                                                            |
-| :-----: | :------------------------------------------------------------------ | :-------- | :---------------------------------------------------------------- |
-|  [01]   | `converter.convert(latex, xmlns=…, display='inline', parent=None)`  | serialize | LaTeX -> MathML `str`                                             |
-|  [02]   | `converter.convert_to_element(latex, xmlns=…, display=…, parent=…)` | compose   | LaTeX -> MathML `ET.Element`; `parent=` grafts into a caller tree |
-|  [03]   | `walker.walk(data, display='inline', macros=None) -> list[Node]`    | parse     | tokenized LaTeX -> node list, the pre-XML intermediate            |
-|  [04]   | `tokenizer.tokenize(...)`                                           | parse     | raw LaTeX token stream the walker consumes                        |
+| [INDEX] | [MEMBER]                                                      | [KIND]    | [ROLE]                                                 |
+| :-----: | :------------------------------------------------------------ | :-------- | :----------------------------------------------------- |
+|  [01]   | `converter.convert(latex, xmlns, display, parent)`            | serialize | LaTeX -> MathML `str`                                  |
+|  [02]   | `converter.convert_to_element(latex, xmlns, display, parent)` | compose   | LaTeX -> MathML `ET.Element`                           |
+|  [03]   | `walker.walk(data, display, macros) -> list[Node]`            | parse     | tokenized LaTeX -> node list, the pre-XML intermediate |
+|  [04]   | `tokenizer.tokenize(...)`                                     | parse     | raw LaTeX token stream the walker consumes             |
 
 [FAULT_SCOPE]: the typed grammar-exception family
 

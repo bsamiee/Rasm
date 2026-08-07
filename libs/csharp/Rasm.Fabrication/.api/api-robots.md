@@ -76,21 +76,21 @@
 
 [PUBLIC_TYPE_SCOPE]: the motion-policy value members a dynamics law maps onto — both are `init`-only, so a caller derives from the static `Default` through a `with` expression and never constructs a partial policy.
 
-| [INDEX] | [SYMBOL]                    | [UNIT]      | [CAPABILITY]                                                   |
-| :-----: | :-------------------------- | :---------- | :------------------------------------------------------------- |
-|  [01]   | `Speed.TranslationSpeed`    | mm/s        | TCP linear velocity ceiling                                    |
-|  [02]   | `Speed.RotationSpeed`       | rad/s       | TCP angular velocity ceiling                                   |
-|  [03]   | `Speed.TranslationExternal` | mm/s        | linear external-axis velocity ceiling                          |
-|  [04]   | `Speed.RotationExternal`    | rad/s       | rotary external-axis velocity ceiling                          |
-|  [05]   | `Speed.TranslationAccel`    | mm/s²       | TCP linear acceleration ceiling                                |
-|  [06]   | `Speed.AxisAccel`           | rad/s²      | joint angular acceleration ceiling                             |
-|  [07]   | `Speed.Time`                | s           | fixed waypoint duration; overrides the velocity ceilings       |
-|  [08]   | `Speed.Default`             | static      | 100 mm/s, π rad/s, 5000/6π external, 2500 mm/s², 4π rad/s²     |
-|  [09]   | `Zone.Distance`             | mm          | blend radius at the waypoint                                   |
-|  [10]   | `Zone.Rotation`             | rad         | orientation blend tolerance                                    |
-|  [11]   | `Zone.RotationExternal`     | rad         | rotary external-axis blend tolerance                           |
-|  [12]   | `Zone.IsFlyBy`              | derived     | `Distance > 0.001`                                             |
-|  [13]   | `Zone.Default`              | static      | zero distance, so the default target is an exact stop          |
+| [INDEX] | [SYMBOL]                    | [UNIT]  | [CAPABILITY]                                               |
+| :-----: | :-------------------------- | :------ | :--------------------------------------------------------- |
+|  [01]   | `Speed.TranslationSpeed`    | mm/s    | TCP linear velocity ceiling                                |
+|  [02]   | `Speed.RotationSpeed`       | rad/s   | TCP angular velocity ceiling                               |
+|  [03]   | `Speed.TranslationExternal` | mm/s    | linear external-axis velocity ceiling                      |
+|  [04]   | `Speed.RotationExternal`    | rad/s   | rotary external-axis velocity ceiling                      |
+|  [05]   | `Speed.TranslationAccel`    | mm/s²   | TCP linear acceleration ceiling                            |
+|  [06]   | `Speed.AxisAccel`           | rad/s²  | joint angular acceleration ceiling                         |
+|  [07]   | `Speed.Time`                | s       | fixed waypoint duration; overrides the velocity ceilings   |
+|  [08]   | `Speed.Default`             | static  | 100 mm/s, π rad/s, 5000/6π external, 2500 mm/s², 4π rad/s² |
+|  [09]   | `Zone.Distance`             | mm      | blend radius at the waypoint                               |
+|  [10]   | `Zone.Rotation`             | rad     | orientation blend tolerance                                |
+|  [11]   | `Zone.RotationExternal`     | rad     | rotary external-axis blend tolerance                       |
+|  [12]   | `Zone.IsFlyBy`              | derived | `Distance > 0.001`                                         |
+|  [13]   | `Zone.Default`              | static  | zero distance, so the default target is an exact stop      |
 
 - `Speed`: every axis is a ceiling the look-ahead planner respects, so a `Time` above zero pins the waypoint duration and the velocity columns stop governing — a dynamics law writes one or the other, never both.
 - `Zone.Rotation`/`RotationExternal`: nullable ctor parameters defaulting off `Distance`, so a policy setting distance alone still yields a coherent orientation blend; the properties themselves read `double`.
@@ -138,18 +138,18 @@
 
 [PUBLIC_TYPE_SCOPE]: the planned-trajectory and simulation-cursor receipts at member depth — `SystemTarget` is the per-waypoint planner row, `SimulationPose` the between-waypoint cursor `Animate` advances.
 
-| [INDEX] | [SYMBOL]                              | [SHAPE]  | [CAPABILITY]                                                    |
-| :-----: | :------------------------------------ | :------- | :-------------------------------------------------------------- |
-|  [01]   | `SystemTarget.ProgramTargets`         | property | `IReadOnlyList<ProgramTarget>`: one row per `MechanicalGroup`   |
-|  [02]   | `SystemTarget.Index`                  | property | `int`: ordinal into `Program.Targets`                           |
-|  [03]   | `SystemTarget.TotalTime`              | property | `double`: planned seconds elapsed at this waypoint              |
-|  [04]   | `SystemTarget.DeltaTime`              | property | `double`: planned seconds spent reaching it                     |
-|  [05]   | `SystemTarget.Planes`                 | property | `Plane[]` flattened over every group                            |
-|  [06]   | `SystemTarget.Joints`                 | property | `double[]` radians flattened over every group                   |
-|  [07]   | `SimulationPose.Kinematics`           | property | `IReadOnlyList<KinematicSolution>`: one per group at the cursor |
-|  [08]   | `SimulationPose.TargetIndex`          | property | `int`: the waypoint the cursor sits at or between               |
-|  [09]   | `SimulationPose.CurrentTime`          | property | `double`: the provider's own clock reading in seconds           |
-|  [10]   | `SimulationPose.GetLastPlane(int)`    | instance | flange `Plane` for one group index                              |
+| [INDEX] | [SYMBOL]                           | [SHAPE]  | [CAPABILITY]                                                    |
+| :-----: | :--------------------------------- | :------- | :-------------------------------------------------------------- |
+|  [01]   | `SystemTarget.ProgramTargets`      | property | `IReadOnlyList<ProgramTarget>`: one row per `MechanicalGroup`   |
+|  [02]   | `SystemTarget.Index`               | property | `int`: ordinal into `Program.Targets`                           |
+|  [03]   | `SystemTarget.TotalTime`           | property | `double`: planned seconds elapsed at this waypoint              |
+|  [04]   | `SystemTarget.DeltaTime`           | property | `double`: planned seconds spent reaching it                     |
+|  [05]   | `SystemTarget.Planes`              | property | `Plane[]` flattened over every group                            |
+|  [06]   | `SystemTarget.Joints`              | property | `double[]` radians flattened over every group                   |
+|  [07]   | `SimulationPose.Kinematics`        | property | `IReadOnlyList<KinematicSolution>`: one per group at the cursor |
+|  [08]   | `SimulationPose.TargetIndex`       | property | `int`: the waypoint the cursor sits at or between               |
+|  [09]   | `SimulationPose.CurrentTime`       | property | `double`: the provider's own clock reading in seconds           |
+|  [10]   | `SimulationPose.GetLastPlane(int)` | instance | flange `Plane` for one group index                              |
 
 - `SystemTarget.Planes`/`Joints`: `FlattenToArray` over every mechanical group, so a positional index is group-ambiguous once a cell carries a positioner or track; a per-group read indexes `ProgramTargets[g].Kinematics`.
 - `SimulationPose.TargetIndex`: the member is `TargetIndex`, never `Index` — `SystemTarget` is the type carrying `Index`, and a cursor read spelling `Index` binds nothing.

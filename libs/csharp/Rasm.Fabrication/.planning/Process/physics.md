@@ -1,14 +1,14 @@
-# [RASM_FABRICATION_CUT_PARAMETER]
+# [RASM_FABRICATION_PHYSICS]
 
-`ProcessPhysics` admits one case-shaped request, resolves the material-family baseline with grade overrides, evaluates state-dependent constitutive laws, and returns one `ProcessBudget` case. `Material` owns family identity and baseline physics; `MaterialSpec` owns grade evidence, structural and thermal properties, overrides, and certificate identity.
+`ProcessPhysics` admits one case-shaped request, resolves the family baseline with grade overrides, evaluates state-dependent constitutive laws, and returns one `ProcessBudget` case. This page owns the physics SHAPES, the admission law, and the derivation — never a catalog of equipment or grades. Tool assets are `Tooling/magazine`'s; material baselines and grades are caller-mounted registry rows, so the shop's real catalog never becomes a compiled fiction on the physics floor.
 
-`PhysicsRequest` makes evidence structural: subtractive work carries equipment, operation, and coolant; beam, jet, extrusion, deposition, joining, and erosion carry compatible equipment; resin, powder, and forming carry no irrelevant slot. Each case declares `Kind` and `Extents`, so one admission proves family agreement and positive magnitudes.
+`Material` is the family vocabulary alone, each row carrying the `MaterialClass` that decides which physics families the family can answer at all. `MaterialBaseline` pairs a family with its per-`PhysicsKind` constitutive preset, `MaterialRegistry` admits the mounted baselines and grade rows once, and `MaterialSpec` overlays a grade's own overrides on its family baseline. A preset is caller data over the shapes this page owns; the page ships no grade.
 
-`Material.Physics` keys on each law's own `Kind`, so a family cannot declare one physics case and carry another. Budget dispatch reads request and law as one discriminant.
+`PhysicsRequest` makes evidence structural: subtractive work carries equipment, operation, and coolant; beam, jet, extrusion, deposition, joining, and erosion carry compatible equipment; resin, powder, and forming carry no irrelevant slot. `Kind`, `Extents`, and `Equipment` are BASE positional columns each case supplies from its own payload, so no case declares an override body.
 
-`Tool.Admit` proves equipment geometry. `Coating` scales speed and wear; tool ceilings cap spindle and depth; stickout and shank modulus yield deflection and stability; runout raises edge load; helix resolves axial force; approach angle sets turning chip thickness; grit scales grinding energy. `CoolantResponse` maps delivery to speed, life, and evacuation factors.
+`Tool.Admit` proves equipment geometry and `Tool.Admits(Operation)` proves the form-and-feed correspondence one place, so the subtractive fold dispatches on tool form alone. `Coating` scales speed and wear and caps interface temperature; tool ceilings cap spindle and depth; stickout and shank modulus yield deflection and stability; runout raises edge load; helix resolves axial force; approach angle sets turning chip thickness; grit scales grinding energy. `CoolantDelivery` carries its own speed, life, and evacuation response as family columns, so no second medium table exists.
 
-`ConstitutiveLaw` evaluates temperature, hardness, strain, rate, moisture, and grain response through `MathNet.Numerics`. `BudgetEnergy` resolves traversal to joules and seconds, forming per stroke, and constant-surface-speed turning to `RadiusDependent` power, speed, and feed.
+`ConstitutiveLaw` evaluates temperature, hardness, strain, rate, moisture, and grain response through `MathNet.Numerics`, holding ONE interpolant per curve and reporting which axes SATURATED at their preset edge. `BudgetEnergy` resolves traversal to joules and seconds, forming per stroke, and constant-surface-speed turning to `RadiusDependent` power, speed, and feed. `SurfaceSpeed` is the one forward-and-inverse cutting-speed pair the whole package composes.
 
 `UnitsNet` admits quantities and duration once and composes power-duration energy. Interior numerics use canonical machining units.
 
@@ -16,25 +16,31 @@ Wire posture: HOST-LOCAL. `ProcessBudget` cases and `MaterialSpec` cross only in
 
 ## [01]-[INDEX]
 
-- [02]-[CUT_PARAMETER]: `Coating`, `CoolantResponse`, `ProcessRange`, `RangeReceipt`, `EquipmentEnvelope`, `ToolClass`, `Tool`, `FeedLaw`, `Operation`, `ResponseAxis`, `ResponseInterpolation`, `ConstitutiveState`, `ResponseCurve`, `ConstitutiveLaw`, `ModalityPhysics`, `Material`, `CertificateClass`, `TemperState`, `MechanicalDatum`, `ThermalDatum`, `GradeIdentity`, `MaterialSpec`, `PhysicsRequest`, `BudgetEnergy`, `BudgetEvidence`, `ProcessBudget`, `PhysicsQuantity`, `PhysicsIngress`, `PhysicsAdmission`, and `ProcessPhysics`.
+- [02]-[EQUIPMENT]: `Coating`, `ToolClass`, `ToolForm`, `Tool`, `FeedLaw`, `OperationFamily`, `Operation`, `ProcessRange`, `RangeReceipt`, `EquipmentEnvelope`.
+- [03]-[CONSTITUTIVE]: `ResponseAxis`, `ResponseInterpolation`, `ConstitutiveState`, `ResponseCurve`, `ConstitutiveLaw`, `ModalityPhysics`.
+- [04]-[MATERIAL_REGISTRY]: `MaterialClass`, `Material`, `CertificateClass`, `TemperState`, `MechanicalDatum`, `ThermalDatum`, `GradeIdentity`, `MaterialBaseline`, `MaterialSpec`, `MaterialRegistry`.
+- [05]-[BUDGET_SHAPE]: `PhysicsRequest`, `BudgetEnergy`, `CutterMechanics`, `BudgetEvidence`, `ProcessBudget`.
+- [06]-[TEXT_ADMISSION]: `PhysicsQuantity`, `PhysicsIngress`, `PhysicsAdmission`.
+- [07]-[BUDGET_FOLD]: `SurfaceSpeed` and `ProcessPhysics`.
 
-## [02]-[CUT_PARAMETER]
+## [02]-[EQUIPMENT]
 
-- Owner: `Tool`, `Operation`, and `Coating` own bounded equipment and feed vocabularies; `CoolantResponse` owns the cutting response of the Process-family `CoolantDelivery` medium; `ConstitutiveLaw` owns state response; `ModalityPhysics` owns family baselines and its own `PhysicsKind`; `MechanicalDatum`, `ThermalDatum`, and `GradeIdentity` own the grade datum `MaterialSpec` composes with family overrides; `PhysicsRequest` owns exact runtime evidence; `BudgetEnergy` owns clock closure; and `ProcessBudget` owns derived limits.
-- Cases: `ModalityPhysics` and `ProcessBudget` distinguish subtractive, thermal, abrasive, fused-filament, deposition, joining, erosion, resin, powder, and forming physics. `ProcessBudget.Turning` remains distinct because constant-surface-speed RPM resolves against workpiece radius at motion time, and `BudgetEnergy.RadiusDependent` carries that unclosed clock as a typed case rather than an absent value.
-- Entry: `ProcessPhysics.Budget(PhysicsRequest)` is the one runtime fold. `ProcessPhysics.Admit(PhysicsIngress)` is the one textual boundary; its union case selects key or quantity admission without parallel entrypoints.
-- Auto: `MaterialSpec.Admit` proves every grade-override key equals its law's own kind before overlaying family baselines, and a traceable `CertificateClass` forces heat identity and certificate key present. Budget derivation evaluates constitutive response once per state, resolves current before nominal before derived equipment settings, bounds each selection against the equipment range and tool ceiling, rejects contradictory floors, records each applied clamp, admits every mounted head through `Tool.Admit`, rejects spent equipment, and derives radial chip thinning, deflection, chatter-free depth, heat input, and volumetric energy density from the admitted columns.
-- Receipt: every `ProcessBudget` case carries process-specific outputs with `BudgetEvidence`, which records evaluated material state, power, the `BudgetEnergy` closure, the admitted grade, the tool identity, and every `RangeReceipt` with its admitted range, derived value, resolved value, and clamp witnesses.
-- Packages: `ProcessKind`, `PhysicsKind`, `EquipmentEnvelope`, `FabricationFault`, Thinktecture.Runtime.Extensions, `UnitsNet`, `MathNet.Numerics`, LanguageExt.Core, and BCL inbox compose directly.
-- Growth: a production grade is one `MaterialSpec`; a family is one `Material` row; constitutive variation is `ConstitutiveLaw` data; a delivery medium is one `CoolantResponse` table row against the family `CoolantDelivery` vocabulary; a response dimension is one `ResponseAxis` row with one `ConstitutiveState` column; and a new physics family is one `PhysicsKind` row, one input case, one law case, one budget case, and one joint-pattern arm.
-- Boundary: family identity, grade evidence, equipment variant, physics input, and budget remain distinct timing regimes. No union case carries an inapplicable optional field, and every admitted equipment and constitutive column reaches a calculation or a receipt. Equipment, quantity, and grade rejections mint through `FabricationFault.Equipment`, so the witness clears its own kind predicate before the fault exists; `GeometryFault` covers degenerate geometry alone.
+- Owner: `Tool` owns the equipment SHAPE, its geometric admission, and its form-and-feed correspondence; `Operation` owns the feed law and engagement fractions; `Coating` owns surface response; `ProcessRange` owns the machine's own bounds and `RangeReceipt` what a derivation did with them.
+- Law: this page declares NO tool instance. A shop's assemblies live at `Tooling/magazine`, which admits every candidate through `Tool.Admit` before it reaches a request; a compiled tool roster here is a fiction the shop never mounted and is the deleted form.
+- Cases: `Tool` distinguishes rotary, wheel, saw blade, turning insert, and process head. `Surface`, `SpindleCeiling`, and `DepthCeiling` are BASE positional columns each case supplies from its own geometry, so a form declares no override body and a new form is one case with its three arguments.
+- Auto: `Tool.Admits(Operation)` pairs a tool FORM against an `OperationFamily` and its feed law, so the subtractive fold dispatches on form alone and the process-versus-tool ladder it replaced cannot drift from the feed vocabulary.
+- Receipt: `RangeReceipt` carries the admitted range, the derived value, the resolved value, and every clamp witness, so a budget states which bound overrode the material's own answer.
+- Boundary: a ceiling the equipment never published is `None` on both tool axes, never a sentinel maximum a clamp reads as a measurement; `ProcessRange` bounds resolve through one `Bound` fold and every ceiling through the one `Capped` cap inside it.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
+using System;
 using System.Globalization;
 using LanguageExt;
 using LanguageExt.Common;
+using LanguageExt.Traits;
 using MathNet.Numerics.Interpolation;
+using Rasm.Element.Projection;
 using Thinktecture;
 using UnitsNet;
 using static LanguageExt.Prelude;
@@ -54,58 +60,179 @@ public sealed partial class Coating {
 
     public double SpeedFactor { get; }
     public double WearFactor { get; }
+
+    // The interface temperature the coating survives. A derived cutting-zone temperature above it is what the
+    // subtractive budget reports as its thermal margin, so the column is a limit the fold reads, not a datum sheet.
     public double InterfaceC { get; }
 }
 
-[ComplexValueObject]
-public sealed partial class CoolantResponse {
-    public double SpeedFactor { get; }
-    public double LifeFactor { get; }
-    public double Evacuation { get; }
+[SmartEnum<string>]
+public sealed partial class ToolClass {
+    public static readonly ToolClass Thermal = new("thermal", Set(PhysicsKind.Thermal));
+    public static readonly ToolClass Abrasive = new("abrasive", Set(PhysicsKind.Abrasive));
+    public static readonly ToolClass Extrusion = new("extrusion", Set(PhysicsKind.Fff));
+    public static readonly ToolClass WireElectrode = new("wire-electrode", Set(PhysicsKind.Erosion));
+    public static readonly ToolClass Deposition = new("deposition", Set(PhysicsKind.Deposition, PhysicsKind.Joining));
 
-    // CoolantDelivery is the Process family vocabulary; its pressure, temperature, and concentration columns
-    // identify the medium, and this table states what that medium does to the cut.
-    private static readonly Map<CoolantDelivery, CoolantResponse> Table = Map(
-        (CoolantDelivery.Dry, Create(0.70, 0.55, 0.30)),
-        (CoolantDelivery.Flood, Create(1.00, 1.00, 0.85)),
-        (CoolantDelivery.Mist, Create(0.95, 0.90, 0.70)),
-        (CoolantDelivery.MinimumQuantity, Create(0.98, 0.95, 0.65)),
-        (CoolantDelivery.ThroughTool, Create(1.15, 1.35, 1.00)),
-        (CoolantDelivery.HighPressure, Create(1.30, 1.60, 1.00)),
-        (CoolantDelivery.Cryogenic, Create(1.45, 2.10, 0.90)));
+    public Set<PhysicsKind> Physics { get; }
+    public bool Admits(PhysicsKind physics) => Physics.Contains(physics);
+}
 
-    public static CoolantResponse For(CoolantDelivery delivery) =>
-        Table.Find(delivery).IfNone(() => Create(1.0, 1.0, 1.0));
+[SmartEnum<string>]
+public sealed partial class OperationFamily {
+    public static readonly OperationFamily Milling = new("milling");
+    public static readonly OperationFamily Drilling = new("drilling");
+    public static readonly OperationFamily Turning = new("turning");
+    public static readonly OperationFamily Grinding = new("grinding");
+    public static readonly OperationFamily Sawing = new("sawing");
+}
 
-    [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(
-        ref ValidationError? validationError,
-        ref double speedFactor,
-        ref double lifeFactor,
-        ref double evacuation) {
-        if (Seq(speedFactor, lifeFactor).Exists(static value => !double.IsFinite(value) || value <= 0.0)
-            || !double.IsFinite(evacuation) || evacuation is <= 0.0 or > 1.0)
-            validationError = new ValidationError("coolant-response");
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record FeedLaw {
+    private FeedLaw() { }
+
+    public sealed record Chip(double PerTooth) : FeedLaw;
+    public sealed record PerRevolution(double Millimeters) : FeedLaw;
+    public sealed record Pitch(double MillimetersPerRevolution) : FeedLaw;
+    public sealed record SurfaceRatio(double Fraction) : FeedLaw;
+}
+
+[SmartEnum<string>]
+public sealed partial class Operation {
+    public static readonly Operation Contour = new("contour", OperationFamily.Milling, new FeedLaw.Chip(0.05), engagement: 1.0, axial: 1.0);
+    public static readonly Operation Pocket = new("pocket", OperationFamily.Milling, new FeedLaw.Chip(0.04), engagement: 0.5, axial: 0.5);
+    public static readonly Operation Slot = new("slot", OperationFamily.Milling, new FeedLaw.Chip(0.035), engagement: 1.0, axial: 0.5);
+    public static readonly Operation Face = new("face", OperationFamily.Milling, new FeedLaw.Chip(0.08), engagement: 0.7, axial: 0.1);
+    public static readonly Operation Chamfer = new("chamfer", OperationFamily.Milling, new FeedLaw.Chip(0.05), engagement: 0.2, axial: 0.1);
+    public static readonly Operation Trochoidal = new("trochoidal", OperationFamily.Milling, new FeedLaw.Chip(0.06), engagement: 0.1, axial: 1.0);
+    public static readonly Operation FormMill = new("form-mill", OperationFamily.Milling, new FeedLaw.Chip(0.04), engagement: 0.3, axial: 0.2);
+    public static readonly Operation Engrave = new("engrave", OperationFamily.Milling, new FeedLaw.Chip(0.02), engagement: 0.1, axial: 0.05);
+    public static readonly Operation Drill = new("drill", OperationFamily.Drilling, new FeedLaw.Chip(0.03), engagement: 1.0, axial: 1.0);
+    public static readonly Operation Bore = new("bore", OperationFamily.Drilling, new FeedLaw.Chip(0.04), engagement: 0.05, axial: 1.0);
+    public static readonly Operation Ream = new("ream", OperationFamily.Drilling, new FeedLaw.Chip(0.08), engagement: 0.02, axial: 1.0);
+    public static readonly Operation Tap = new("tap", OperationFamily.Drilling, new FeedLaw.Pitch(1.0), engagement: 1.0, axial: 1.0);
+    public static readonly Operation Counterbore = new("counterbore", OperationFamily.Drilling, new FeedLaw.Chip(0.05), engagement: 0.8, axial: 0.4);
+    public static readonly Operation Countersink = new("countersink", OperationFamily.Drilling, new FeedLaw.Chip(0.04), engagement: 0.5, axial: 0.2);
+    public static readonly Operation SpotDrill = new("spot-drill", OperationFamily.Drilling, new FeedLaw.Chip(0.03), engagement: 0.5, axial: 0.1);
+    public static readonly Operation RoughTurn = new("rough-turn", OperationFamily.Turning, new FeedLaw.PerRevolution(0.2), engagement: 0.5, axial: 0.3);
+    public static readonly Operation FinishTurn = new("finish-turn", OperationFamily.Turning, new FeedLaw.PerRevolution(0.08), engagement: 0.1, axial: 0.1);
+    public static readonly Operation Part = new("part", OperationFamily.Turning, new FeedLaw.PerRevolution(0.06), engagement: 1.0, axial: 0.2);
+    public static readonly Operation Groove = new("groove", OperationFamily.Turning, new FeedLaw.PerRevolution(0.08), engagement: 1.0, axial: 0.3);
+    public static readonly Operation Thread = new("thread", OperationFamily.Turning, new FeedLaw.Pitch(1.5), engagement: 0.3, axial: 0.2);
+    public static readonly Operation SurfaceGrind = new("surface-grind", OperationFamily.Grinding, new FeedLaw.SurfaceRatio(0.01), engagement: 1.0, axial: 0.02);
+    public static readonly Operation SawCut = new("saw-cut", OperationFamily.Sawing, new FeedLaw.Chip(0.002), engagement: 1.0, axial: 0.5);
+
+    public OperationFamily Family { get; }
+    public FeedLaw Feed { get; }
+    public double Engagement { get; }
+    public double Axial { get; }
+}
+
+// Every ceiling column is a base positional argument, so a tool form declares no override body and a new form is
+// one case supplying its own three geometry answers. Both ceilings are `Option` because a process head bounds
+// neither: a sentinel maximum would read to every clamp as a measured limit the equipment never published.
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record Tool(string Key, Coating Surface, Option<double> SpindleCeiling, Option<double> DepthCeiling) {
+    public sealed record Rotary(
+        string Key,
+        double Diameter,
+        int Flutes,
+        Coating Coating,
+        double CornerRadius,
+        double HelixAngle,
+        double Stickout,
+        double Runout,
+        double MaxDepthOfCut,
+        double MaxRpm,
+        double ShankModulusMpa) : Tool(Key, Coating, Some(MaxRpm), Some(MaxDepthOfCut)) {
+        // Slenderness cubed is the cantilever-stiffness term the chatter ceiling scales on.
+        public double Slenderness => Stickout / Diameter;
     }
+
+    public sealed record Wheel(string Key, double Diameter, double Width, int Grit, double MaxRpm)
+        : Tool(Key, Coating.Uncoated, Some(MaxRpm), Some(Width)) {
+        // Finer grit removes less per grain, so specific energy rises with grit number.
+        public double SpecificEnergyFactor => Math.Sqrt(Grit / 60.0);
+    }
+
+    public sealed record SawBlade(string Key, double Diameter, double Kerf, int Teeth, double MaxRpm)
+        : Tool(Key, Coating.Uncoated, Some(MaxRpm), Some(Diameter * 0.4));
+
+    public sealed record Turning(
+        string Key,
+        double NoseRadius,
+        double CuttingEdgeLength,
+        double ApproachAngleDeg,
+        Coating Coating,
+        double MaxDepthOfCut) : Tool(Key, Coating, None, Some(Math.Min(MaxDepthOfCut, CuttingEdgeLength * 0.75))) {
+        // ISO 3685 chip-thickness law: h = f * sin(kappa); the approach angle spreads feed across the edge.
+        public double ChipThicknessRatio => Math.Sin(ApproachAngleDeg * Math.PI / 180.0);
+    }
+
+    // A process head bounds neither spindle nor depth — its reach is the physics law's, not the tool's — so both
+    // ceilings are absent and the one `Capped` fold reads the derived value through unchanged.
+    public sealed record Head(string Key, double Diameter, ToolClass Class)
+        : Tool(Key, Coating.Uncoated, None, None);
+
+    // The ONE form-and-feed correspondence: an operation family names which tool form can answer it and the feed
+    // law names how. The subtractive fold reads this and dispatches on form alone, so no process-versus-tool
+    // ladder restates the pairing.
+    public bool Admits(Operation operation) => Switch(
+        state: operation,
+        rotary: static (op, _) => op.Family == OperationFamily.Milling || op.Family == OperationFamily.Drilling,
+        wheel: static (op, _) => op.Family == OperationFamily.Grinding && op.Feed is FeedLaw.SurfaceRatio,
+        sawBlade: static (op, _) => op.Family == OperationFamily.Sawing && op.Feed is FeedLaw.Chip,
+        turning: static (op, _) => op.Family == OperationFamily.Turning,
+        head: static (_, _) => false);
+
+    public static Fin<Tool> Admit(Tool candidate) => candidate.Switch(
+        rotary: static tool => Positive(tool.Diameter) && tool.Flutes > 0
+            && Bounded(tool.CornerRadius, 0.0, tool.Diameter * 0.5) && Bounded(tool.HelixAngle, 0.0, 90.0)
+            && Positive(tool.Stickout) && Bounded(tool.Runout, 0.0, tool.Diameter * 0.05)
+            && Positive(tool.MaxDepthOfCut) && Positive(tool.MaxRpm) && Positive(tool.ShankModulusMpa)
+                ? Fin.Succ((Tool)tool) : Invalid(tool, nameof(Rotary)),
+        wheel: static tool => Positive(tool.Diameter) && Positive(tool.Width) && tool.Grit > 0 && Positive(tool.MaxRpm)
+                ? Fin.Succ((Tool)tool) : Invalid(tool, nameof(Wheel)),
+        sawBlade: static tool => Positive(tool.Diameter) && Positive(tool.Kerf)
+            && tool.Kerf < tool.Diameter && tool.Teeth > 0 && Positive(tool.MaxRpm)
+                ? Fin.Succ((Tool)tool) : Invalid(tool, nameof(SawBlade)),
+        turning: static tool => Bounded(tool.NoseRadius, 0.0, tool.CuttingEdgeLength)
+            && Positive(tool.CuttingEdgeLength) && tool.ApproachAngleDeg is > 0.0 and < 180.0
+            && Positive(tool.ChipThicknessRatio) && Positive(tool.MaxDepthOfCut)
+                ? Fin.Succ((Tool)tool) : Invalid(tool, nameof(Turning)),
+        head: static tool => Positive(tool.Diameter)
+                ? Fin.Succ((Tool)tool) : Invalid(tool, nameof(Head)));
+
+    private static bool Positive(double value) => double.IsFinite(value) && value > 0.0;
+
+    private static bool Bounded(double value, double low, double high) =>
+        double.IsFinite(value) && value >= low && value <= high;
+
+    private static Fin<Tool> Invalid(Tool candidate, string axis) =>
+        Fin.Fail<Tool>(FabricationFault.Equipment(new EquipmentWitness.Geometry(candidate, axis)));
 }
 
 [ComplexValueObject]
+[ValidationError<FabricationFault>]
 public readonly partial struct ProcessRange {
     public Option<double> Minimum { get; }
     public Option<double> Maximum { get; }
     public Option<double> Nominal { get; }
     public Option<double> Current { get; }
 
-    public double Resolve(double derived) => Current.IsSome
-        ? Current.IfNone(derived)
-        : Nominal.IfNone(derived);
+    public double Resolve(double derived) => Current.IfNone(() => Nominal.IfNone(derived));
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Option<double> minimum,
-        ref Option<double> maximum, ref Option<double> nominal, ref Option<double> current) {
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(
+        ref FabricationFault? validationError,
+        ref Option<double> minimum,
+        ref Option<double> maximum,
+        ref Option<double> nominal,
+        ref Option<double> current) {
         Seq<double> values = minimum.ToSeq().Concat(maximum).Concat(nominal).Concat(current);
-        validationError = values.Exists(static value => !double.IsFinite(value) || value < 0.0)
-            || (minimum, maximum).Apply(static (lo, hi) => lo > hi).IfNone(false)
-            ? new ValidationError(message: "process-range") : null;
+        if (values.Exists(static value => !double.IsFinite(value) || value < 0.0)
+            || (minimum, maximum).Apply(static (lo, hi) => lo > hi).IfNone(false))
+            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Tooling, "process-range");
     }
 }
 
@@ -122,160 +249,18 @@ public sealed record EquipmentEnvelope(
     ProcessRange Feed,
     ProcessRange Spindle,
     bool Spent);
+```
 
-[SmartEnum<string>]
-public sealed partial class ToolClass {
-    public static readonly ToolClass Thermal = new("thermal", Set(PhysicsKind.Thermal));
-    public static readonly ToolClass Abrasive = new("abrasive", Set(PhysicsKind.Abrasive));
-    public static readonly ToolClass Extrusion = new("extrusion", Set(PhysicsKind.Fff));
-    public static readonly ToolClass WireElectrode = new("wire-electrode", Set(PhysicsKind.Erosion));
-    public static readonly ToolClass Deposition = new("deposition", Set(PhysicsKind.Deposition, PhysicsKind.Joining));
+## [03]-[CONSTITUTIVE]
 
-    public Set<PhysicsKind> Physics { get; }
-    public bool Admits(PhysicsKind physics) => Physics.Contains(physics);
-}
+- Owner: `ConstitutiveLaw` owns state response; `ResponseCurve` owns one axis's interpolated factor and the ONE interpolant it holds; `ModalityPhysics` owns the per-family law shape and its own `PhysicsKind`.
+- Cases: `ModalityPhysics` distinguishes subtractive, thermal, abrasive, fused-filament, deposition, joining, erosion, resin, powder, and forming physics. `Kind` is a BASE positional column, so no case declares an override body.
+- Law: `ResponseAxis` is the STATE VOCABULARY a preset curve keys on, not a roster of populated tables — a mounted preset decides which axes carry curves, and an axis with no curve in a given registry is simply unused by that shop, never a claim this page failed to keep.
+- Auto: a curve builds its `IInterpolation` once and HOLDS it, so evaluating a law across a pass costs one build rather than one per sample; the held interpolant is derived from the admitted knots, so it stays out of equality and every codec.
+- Receipt: `At` clamps a state onto the knot span and `Saturated` reports which axes clamped, so a budget publishes the axes it EXTRAPOLATED past instead of silently reading an edge factor as a measured one.
+- Packages: `MathNet.Numerics` `Interpolate.Linear`, `.CubicSplineMonotone`, `.CubicSplineRobust`.
 
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record Tool(string Key) {
-    public static readonly Tool Endmill3 = new Rotary("endmill-3mm", 3.0, 2, Coating.TiAlN, 0.2, 30.0, 18.0, 0.005, 6.0, 24_000.0, 600_000.0);
-    public static readonly Tool Endmill6 = new Rotary("endmill-6mm", 6.0, 3, Coating.TiAlN, 0.5, 35.0, 30.0, 0.008, 12.0, 18_000.0, 600_000.0);
-    public static readonly Tool Endmill10 = new Rotary("endmill-10mm", 10.0, 4, Coating.TiAlN, 0.8, 38.0, 45.0, 0.010, 20.0, 15_000.0, 600_000.0);
-    public static readonly Tool Ballnose6 = new Rotary("ballnose-6mm", 6.0, 2, Coating.TiAlN, 3.0, 30.0, 32.0, 0.008, 3.0, 20_000.0, 600_000.0);
-    public static readonly Tool FaceMill50 = new Rotary("face-mill-50mm", 50.0, 5, Coating.AlCrN, 0.8, 0.0, 45.0, 0.012, 6.0, 4_800.0, 210_000.0);
-    public static readonly Tool Drill6 = new Rotary("drill-6mm", 6.0, 2, Coating.TiN, 0.0, 28.0, 36.0, 0.012, 30.0, 9_000.0, 600_000.0);
-    public static readonly Tool Reamer6 = new Rotary("reamer-6mm", 6.0, 6, Coating.TiN, 0.0, 8.0, 40.0, 0.006, 30.0, 3_000.0, 210_000.0);
-    public static readonly Tool TapM6 = new Rotary("tap-m6", 6.0, 4, Coating.TiN, 0.0, 0.0, 35.0, 0.008, 24.0, 1_200.0, 210_000.0);
-    public static readonly Tool BoringBar12 = new Rotary("boring-bar-12mm", 12.0, 1, Coating.CBN, 0.4, 0.0, 60.0, 0.006, 1.0, 6_000.0, 600_000.0);
-    public static readonly Tool TurningInsert = new Turning("turning-insert", 0.8, 8.0, 95.0, Coating.TiAlN, 6.0);
-    public static readonly Tool GrindingWheel200 = new Wheel("grinding-wheel-200mm", 200.0, 25.0, grit: 60, maxRpm: 4800.0);
-    public static readonly Tool ColdSawBlade300 = new SawBlade("cold-saw-blade-300mm", 300.0, 2.5, teeth: 180, maxRpm: 3600.0);
-    public static readonly Tool LaserHead = new Head("laser-head", 0.1, ToolClass.Thermal);
-    public static readonly Tool PlasmaTorch = new Head("plasma-torch", 1.5, ToolClass.Thermal);
-    public static readonly Tool WaterjetNozzle = new Head("waterjet-nozzle", 0.76, ToolClass.Abrasive);
-    public static readonly Tool FffNozzle = new Head("fff-nozzle", 0.4, ToolClass.Extrusion);
-    public static readonly Tool EdmWire = new Head("edm-wire-0.25mm", 0.25, ToolClass.WireElectrode);
-    public static readonly Tool DepositionHead = new Head("deposition-head", 1.2, ToolClass.Deposition);
-
-    public sealed record Rotary(
-        string Key,
-        double Diameter,
-        int Flutes,
-        Coating Coating,
-        double CornerRadius,
-        double HelixAngle,
-        double Stickout,
-        double Runout,
-        double MaxDepthOfCut,
-        double MaxRpm,
-        double ShankModulusMpa) : Tool(Key) {
-        public override Coating Surface => Coating;
-        public override double SpindleCeiling => MaxRpm;
-        public override double DepthCeiling => MaxDepthOfCut;
-        // Slenderness cubed is the cantilever-stiffness term the chatter ceiling scales on.
-        public double Slenderness => Stickout / Diameter;
-    }
-
-    public sealed record Wheel(string Key, double Diameter, double Width, int Grit, double MaxRpm) : Tool(Key) {
-        public override double SpindleCeiling => MaxRpm;
-        public override double DepthCeiling => Width;
-        // Finer grit removes less per grain, so specific energy rises with grit number.
-        public double SpecificEnergyFactor => Math.Sqrt(Grit / 60.0);
-    }
-
-    public sealed record SawBlade(string Key, double Diameter, double Kerf, int Teeth, double MaxRpm) : Tool(Key) {
-        public override double SpindleCeiling => MaxRpm;
-        public override double DepthCeiling => Diameter * 0.4;
-    }
-
-    public sealed record Turning(
-        string Key,
-        double NoseRadius,
-        double CuttingEdgeLength,
-        double ApproachAngleDeg,
-        Coating Coating,
-        double MaxDepthOfCut) : Tool(Key) {
-        public override Coating Surface => Coating;
-        public override double DepthCeiling => Math.Min(MaxDepthOfCut, CuttingEdgeLength * 0.75);
-        // ISO 3685 chip-thickness law: h = f * sin(kappa); the approach angle spreads feed across the edge.
-        public double ChipThicknessRatio => Math.Sin(ApproachAngleDeg * Math.PI / 180.0);
-    }
-
-    public sealed record Head(string Key, double Diameter, ToolClass Class) : Tool(Key) {
-        public override double DepthCeiling => double.PositiveInfinity;
-    }
-
-    public virtual Coating Surface => Coating.Uncoated;
-    public virtual double SpindleCeiling => double.PositiveInfinity;
-    public abstract double DepthCeiling { get; }
-
-    public static Fin<Tool> Admit(Tool candidate) => candidate.Switch(
-        rotary: static tool => Positive(tool.Diameter) && tool.Flutes > 0
-            && Bounded(tool.CornerRadius, 0.0, tool.Diameter * 0.5) && Bounded(tool.HelixAngle, 0.0, 90.0)
-            && Positive(tool.Stickout) && Bounded(tool.Runout, 0.0, tool.Diameter * 0.05)
-            && Positive(tool.MaxDepthOfCut) && Positive(tool.MaxRpm) && Positive(tool.ShankModulusMpa)
-                ? Fin.Succ((Tool)tool) : Invalid(tool, nameof(Rotary)),
-        wheel: static tool => Positive(tool.Diameter) && Positive(tool.Width) && tool.Grit > 0 && Positive(tool.MaxRpm)
-                ? Fin.Succ((Tool)tool) : Invalid(tool, nameof(Wheel)),
-        sawBlade: static tool => Positive(tool.Diameter) && Positive(tool.Kerf)
-            && tool.Kerf < tool.Diameter && tool.Teeth > 0 && Positive(tool.MaxRpm)
-                ? Fin.Succ((Tool)tool) : Invalid(tool, nameof(SawBlade)),
-        turning: static tool => Bounded(tool.NoseRadius, 0.0, tool.CuttingEdgeLength)
-            && Positive(tool.CuttingEdgeLength) && double.IsFinite(tool.ApproachAngleDeg)
-            && tool.ApproachAngleDeg is > 0.0 and < 180.0 && Positive(tool.ChipThicknessRatio)
-            && Positive(tool.MaxDepthOfCut)
-                ? Fin.Succ((Tool)tool) : Invalid(tool, nameof(Turning)),
-        head: static tool => Positive(tool.Diameter) && tool.Class is not null
-                ? Fin.Succ((Tool)tool) : Invalid(tool, nameof(Head)));
-
-    private static bool Positive(double value) => double.IsFinite(value) && value > 0.0;
-
-    private static bool Bounded(double value, double low, double high) =>
-        double.IsFinite(value) && value >= low && value <= high;
-
-    private static Fin<Tool> Invalid(Tool candidate, string axis) =>
-        Fin.Fail<Tool>(FabricationFault.Equipment(new EquipmentWitness.Geometry(candidate, axis)));
-}
-
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record FeedLaw {
-    private FeedLaw() { }
-
-    public sealed record Chip(double PerTooth) : FeedLaw;
-    public sealed record PerRevolution(double Millimeters) : FeedLaw;
-    public sealed record Pitch(double MillimetersPerRevolution) : FeedLaw;
-    public sealed record SurfaceRatio(double Fraction) : FeedLaw;
-}
-
-[SmartEnum<string>]
-public sealed partial class Operation {
-    public static readonly Operation Contour = new("contour", new FeedLaw.Chip(0.05), engagement: 1.0, axial: 1.0);
-    public static readonly Operation Pocket = new("pocket", new FeedLaw.Chip(0.04), engagement: 0.5, axial: 0.5);
-    public static readonly Operation Slot = new("slot", new FeedLaw.Chip(0.035), engagement: 1.0, axial: 0.5);
-    public static readonly Operation Face = new("face", new FeedLaw.Chip(0.08), engagement: 0.7, axial: 0.1);
-    public static readonly Operation Drill = new("drill", new FeedLaw.Chip(0.03), engagement: 1.0, axial: 1.0);
-    public static readonly Operation Bore = new("bore", new FeedLaw.Chip(0.04), engagement: 0.05, axial: 1.0);
-    public static readonly Operation Ream = new("ream", new FeedLaw.Chip(0.08), engagement: 0.02, axial: 1.0);
-    public static readonly Operation Tap = new("tap", new FeedLaw.Pitch(1.0), engagement: 1.0, axial: 1.0);
-    public static readonly Operation Chamfer = new("chamfer", new FeedLaw.Chip(0.05), engagement: 0.2, axial: 0.1);
-    public static readonly Operation Trochoidal = new("trochoidal", new FeedLaw.Chip(0.06), engagement: 0.1, axial: 1.0);
-    public static readonly Operation RoughTurn = new("rough-turn", new FeedLaw.PerRevolution(0.2), engagement: 0.5, axial: 0.3);
-    public static readonly Operation FinishTurn = new("finish-turn", new FeedLaw.PerRevolution(0.08), engagement: 0.1, axial: 0.1);
-    public static readonly Operation Part = new("part", new FeedLaw.PerRevolution(0.06), engagement: 1.0, axial: 0.2);
-    public static readonly Operation Groove = new("groove", new FeedLaw.PerRevolution(0.08), engagement: 1.0, axial: 0.3);
-    public static readonly Operation Thread = new("thread", new FeedLaw.Pitch(1.5), engagement: 0.3, axial: 0.2);
-    public static readonly Operation Counterbore = new("counterbore", new FeedLaw.Chip(0.05), engagement: 0.8, axial: 0.4);
-    public static readonly Operation Countersink = new("countersink", new FeedLaw.Chip(0.04), engagement: 0.5, axial: 0.2);
-    public static readonly Operation SpotDrill = new("spot-drill", new FeedLaw.Chip(0.03), engagement: 0.5, axial: 0.1);
-    public static readonly Operation FormMill = new("form-mill", new FeedLaw.Chip(0.04), engagement: 0.3, axial: 0.2);
-    public static readonly Operation Engrave = new("engrave", new FeedLaw.Chip(0.02), engagement: 0.1, axial: 0.05);
-    public static readonly Operation SurfaceGrind = new("surface-grind", new FeedLaw.SurfaceRatio(0.01), engagement: 1.0, axial: 0.02);
-    public static readonly Operation SawCut = new("saw-cut", new FeedLaw.Chip(0.002), engagement: 1.0, axial: 0.5);
-
-    public FeedLaw Feed { get; }
-    public double Engagement { get; }
-    public double Axial { get; }
-}
-
+```csharp signature
 // --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class ResponseAxis {
@@ -302,6 +287,7 @@ public sealed partial class ResponseInterpolation {
 }
 
 [ComplexValueObject]
+[ValidationError<FabricationFault>]
 public sealed partial class ConstitutiveState {
     public double TemperatureC { get; }
     public double Hardness { get; }
@@ -312,7 +298,7 @@ public sealed partial class ConstitutiveState {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref ValidationError? validationError,
+        ref FabricationFault? validationError,
         ref double temperatureC,
         ref double hardness,
         ref double strainRate,
@@ -322,62 +308,78 @@ public sealed partial class ConstitutiveState {
         if (!double.IsFinite(temperatureC)
             || Seq(hardness, strainRate, strain, grainSizeUm).Exists(static value => !double.IsFinite(value) || value < 0.0)
             || !double.IsFinite(moistureFraction) || moistureFraction is < 0.0 or > 1.0)
-            validationError = new ValidationError("constitutive-state");
+            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Process, "constitutive-state");
     }
 }
 
 [ComplexValueObject]
+[ValidationError<FabricationFault>]
 public sealed partial class ResponseCurve {
     public ResponseAxis Axis { get; }
     public Arr<double> Inputs { get; }
     public Arr<double> Factors { get; }
     public ResponseInterpolation Interpolation { get; }
 
+    // One interpolant per curve, held on first read. A pass evaluating a law over hundreds of states rebuilt a
+    // spline per sample before this handle existed; the handle is DERIVED from the admitted knots, so it stays out
+    // of construction, equality, and every codec.
+    [IgnoreMember]
+    private IInterpolation? fit;
+
     public double At(ConstitutiveState state) =>
-        Interpolation.Create(Inputs.ToArray(), Factors.ToArray())
+        (fit ??= Interpolation.Create(Inputs.ToArray(), Factors.ToArray()))
             .Interpolate(Math.Clamp(Axis.Select(state), Inputs[0], Inputs[^1]));
+
+    // The state fell outside the knots and the read saturated at an edge factor. A budget publishes this so a
+    // caller reading an edge value knows the preset never covered its state.
+    public bool Saturates(ConstitutiveState state) =>
+        Axis.Select(state) < Inputs[0] || Axis.Select(state) > Inputs[^1];
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref ValidationError? validationError,
+        ref FabricationFault? validationError,
         ref ResponseAxis axis,
         ref Arr<double> inputs,
         ref Arr<double> factors,
         ref ResponseInterpolation interpolation) {
-        bool ordered = inputs.Zip(inputs.Skip(1), static (first, second) => first < second).ForAll(static value => value);
-        if (axis is null || interpolation is null || inputs.Count != factors.Count || inputs.Count < 2
+        Seq<double> ordinates = toSeq(inputs);
+        bool ordered = ordinates.Zip(ordinates.Skip(1), static (first, second) => first < second).ForAll(identity);
+        if (inputs.Count != factors.Count || inputs.Count < 2
             || inputs.Exists(static value => !double.IsFinite(value))
             || factors.Exists(static value => !double.IsFinite(value) || value <= 0.0)
             || !ordered)
-            validationError = new ValidationError("response-curve");
+            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Process, "response-curve");
     }
 }
 
 [ComplexValueObject]
+[ValidationError<FabricationFault>]
 public sealed partial class ConstitutiveLaw {
     public double Reference { get; }
     public Arr<ResponseCurve> Responses { get; }
 
     public double At(ConstitutiveState state) =>
-        Responses.Fold(Reference, (value, response) => value * response.At(state));
+        Responses.Fold(Reference, static (value, response) => value * response.At(state));
+
+    public Seq<ResponseAxis> Saturated(ConstitutiveState state) =>
+        toSeq(Responses).Filter(response => response.Saturates(state)).Map(static response => response.Axis);
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref ValidationError? validationError,
+        ref FabricationFault? validationError,
         ref double reference,
         ref Arr<ResponseCurve> responses) {
-        if (!double.IsFinite(reference) || reference <= 0.0 || responses.Exists(static response => response is null))
-            validationError = new ValidationError("constitutive-law");
+        if (!double.IsFinite(reference) || reference <= 0.0)
+            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Process, "constitutive-law");
     }
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record ModalityPhysics {
-    private ModalityPhysics() { }
-
-    public sealed record Subtractive(ConstitutiveLaw SurfaceSpeed, ConstitutiveLaw SpecificCuttingForce, ConstitutiveLaw TaylorExponent) : ModalityPhysics {
-        public override PhysicsKind Kind => PhysicsKind.Subtractive;
-    }
+public abstract partial record ModalityPhysics(PhysicsKind Kind) {
+    public sealed record Subtractive(
+        ConstitutiveLaw SurfaceSpeed,
+        ConstitutiveLaw SpecificCuttingForce,
+        ConstitutiveLaw TaylorExponent) : ModalityPhysics(PhysicsKind.Subtractive);
 
     public sealed record Thermal(
         ConstitutiveLaw KerfWidth,
@@ -385,18 +387,14 @@ public abstract partial record ModalityPhysics {
         ConstitutiveLaw AssistPressure,
         ConstitutiveLaw CutSpeed,
         ConstitutiveLaw Power,
-        ConstitutiveLaw HeatAffectedWidth) : ModalityPhysics {
-        public override PhysicsKind Kind => PhysicsKind.Thermal;
-    }
+        ConstitutiveLaw HeatAffectedWidth) : ModalityPhysics(PhysicsKind.Thermal);
 
     public sealed record Abrasive(
         ConstitutiveLaw JetPressure,
         ConstitutiveLaw AbrasiveRate,
         ConstitutiveLaw TraverseSpeed,
         ConstitutiveLaw SpecificEnergy,
-        ConstitutiveLaw TaperRatio) : ModalityPhysics {
-        public override PhysicsKind Kind => PhysicsKind.Abrasive;
-    }
+        ConstitutiveLaw TaperRatio) : ModalityPhysics(PhysicsKind.Abrasive);
 
     public sealed record Fff(
         ConstitutiveLaw MeltTemp,
@@ -404,9 +402,7 @@ public abstract partial record ModalityPhysics {
         ConstitutiveLaw ExtrusionWidth,
         ConstitutiveLaw LayerHeight,
         ConstitutiveLaw PrintSpeed,
-        ConstitutiveLaw Power) : ModalityPhysics {
-        public override PhysicsKind Kind => PhysicsKind.Fff;
-    }
+        ConstitutiveLaw Power) : ModalityPhysics(PhysicsKind.Fff);
 
     public sealed record Deposition(
         ConstitutiveLaw Power,
@@ -414,9 +410,7 @@ public abstract partial record ModalityPhysics {
         ConstitutiveLaw TravelSpeed,
         ConstitutiveLaw Standoff,
         ConstitutiveLaw InterpassTemp,
-        ConstitutiveLaw DilutionRatio) : ModalityPhysics {
-        public override PhysicsKind Kind => PhysicsKind.Deposition;
-    }
+        ConstitutiveLaw DilutionRatio) : ModalityPhysics(PhysicsKind.Deposition);
 
     public sealed record Joining(
         ConstitutiveLaw Current,
@@ -425,9 +419,7 @@ public abstract partial record ModalityPhysics {
         ConstitutiveLaw TravelSpeed,
         ConstitutiveLaw Standoff,
         ConstitutiveLaw InterpassTemp,
-        ConstitutiveLaw ArcEfficiency) : ModalityPhysics {
-        public override PhysicsKind Kind => PhysicsKind.Joining;
-    }
+        ConstitutiveLaw ArcEfficiency) : ModalityPhysics(PhysicsKind.Joining);
 
     public sealed record Erosion(
         ConstitutiveLaw DischargeCurrent,
@@ -435,25 +427,19 @@ public abstract partial record ModalityPhysics {
         ConstitutiveLaw PulseOn,
         ConstitutiveLaw PulseOff,
         ConstitutiveLaw WireFeed,
-        ConstitutiveLaw OverburnRatio) : ModalityPhysics {
-        public override PhysicsKind Kind => PhysicsKind.Erosion;
-    }
+        ConstitutiveLaw OverburnRatio) : ModalityPhysics(PhysicsKind.Erosion);
 
     public sealed record Resin(
         ConstitutiveLaw Exposure,
         ConstitutiveLaw CureDepth,
         ConstitutiveLaw LiftHeight,
-        ConstitutiveLaw Power) : ModalityPhysics {
-        public override PhysicsKind Kind => PhysicsKind.Resin;
-    }
+        ConstitutiveLaw Power) : ModalityPhysics(PhysicsKind.Resin);
 
     public sealed record Powder(
         ConstitutiveLaw LaserPower,
         ConstitutiveLaw HatchSpacing,
         ConstitutiveLaw ScanSpeed,
-        ConstitutiveLaw LayerThickness) : ModalityPhysics {
-        public override PhysicsKind Kind => PhysicsKind.Powder;
-    }
+        ConstitutiveLaw LayerThickness) : ModalityPhysics(PhysicsKind.Powder);
 
     public sealed record Forming(
         ConstitutiveLaw KFactor,
@@ -461,146 +447,72 @@ public abstract partial record ModalityPhysics {
         ConstitutiveLaw MinBendRadiusFactor,
         ConstitutiveLaw FlowStress,
         ConstitutiveLaw StrainHardening,
-        ConstitutiveLaw AnisotropyRatio) : ModalityPhysics {
-        public override PhysicsKind Kind => PhysicsKind.Forming;
-    }
+        ConstitutiveLaw AnisotropyRatio) : ModalityPhysics(PhysicsKind.Forming);
+}
+```
 
-    public abstract PhysicsKind Kind { get; }
+## [04]-[MATERIAL_REGISTRY]
+
+- Owner: `Material` owns family identity alone; `MaterialClass` owns which physics families a family can answer; `MaterialBaseline` owns one family's mounted constitutive preset; `MaterialRegistry` owns the admitted baseline and grade rows; `MaterialSpec` owns a grade's evidence, datums, overrides, and resolved physics.
+- Law: a GRADE is admitted registry DATA, never a compiled instance. A shop mounts its own baselines and grades once at composition, so the physics floor carries the shapes and the overlay rule and no constant catalog that drifts from the mill certificate it claims to describe.
+- Auto: `MaterialSpec.Admit` proves every grade-override key equals its law's own kind and that the baseline already answers that kind before overlaying, and a traceable `CertificateClass` forces heat identity and certificate key present.
+- Cases: `MaterialClass` names the physics families the class can carry, so `Material.Admits(ProcessKind)` answers the process-material correspondence `RelationFault.ProcessMaterial` refuses on.
+- Receipt: `MechanicalDatum` and `ThermalDatum` reach the budget: the machinability index scales surface speed, the Hollomon pair drives forming flow stress, the plastic strain ratio and elongation bound limit strain, thermal diffusivity closes the cutting-zone temperature margin, and every remaining datum column rides `BudgetEvidence.Material` as the grade evidence a receipt attests.
+- Boundary: family identity, grade evidence, equipment variant, physics input, and budget remain distinct timing regimes.
+
+```csharp signature
+// --- [MATERIAL_REGISTRY]
+[SmartEnum<string>]
+public sealed partial class MaterialClass {
+    public static readonly MaterialClass LightMetal = new("light-metal",
+        Set(PhysicsKind.Subtractive, PhysicsKind.Thermal, PhysicsKind.Abrasive, PhysicsKind.Erosion,
+            PhysicsKind.Deposition, PhysicsKind.Joining, PhysicsKind.Forming, PhysicsKind.Powder));
+    public static readonly MaterialClass FerrousMetal = new("ferrous-metal",
+        Set(PhysicsKind.Subtractive, PhysicsKind.Thermal, PhysicsKind.Abrasive, PhysicsKind.Erosion,
+            PhysicsKind.Deposition, PhysicsKind.Joining, PhysicsKind.Forming, PhysicsKind.Powder));
+    public static readonly MaterialClass Superalloy = new("superalloy",
+        Set(PhysicsKind.Subtractive, PhysicsKind.Abrasive, PhysicsKind.Erosion,
+            PhysicsKind.Deposition, PhysicsKind.Joining, PhysicsKind.Powder));
+    public static readonly MaterialClass Polymer = new("polymer",
+        Set(PhysicsKind.Subtractive, PhysicsKind.Thermal, PhysicsKind.Fff, PhysicsKind.Resin));
+    public static readonly MaterialClass Composite = new("composite",
+        Set(PhysicsKind.Subtractive, PhysicsKind.Abrasive));
+    public static readonly MaterialClass Wood = new("wood", Set(PhysicsKind.Subtractive, PhysicsKind.Thermal));
+    public static readonly MaterialClass Ceramic = new("ceramic", Set(PhysicsKind.Abrasive));
+
+    public Set<PhysicsKind> Physics { get; }
 }
 
+// Family identity alone. What a family DOES under each physics kind is a mounted `MaterialBaseline`, so this
+// vocabulary never carries a constant a shop did not supply.
 [SmartEnum<string>]
 public sealed partial class Material {
-    public static readonly Material Aluminium = new("aluminium", Laws(
-        Cut(300.0, 700.0, 0.25, ResponseAxis.Hardness, Arr(0.0, 100.0), Arr(1.1, 0.75)),
-        new ModalityPhysics.Thermal(Law(1.0), Law(0.3), Law(10.0), Law(4000.0), Law(3500.0), Law(0.35)),
-        new ModalityPhysics.Abrasive(Law(380.0), Law(0.45), Law(250.0), Law(45.0), Law(0.06)),
-        new ModalityPhysics.Erosion(Law(10.0), Law(24.0), Law(6.0), Law(10.0), Law(10.0), Law(0.020)),
-        new ModalityPhysics.Deposition(Law(3200.0), Law(3.2), Law(420.0), Law(10.0), Law(120.0), Law(0.25)),
-        new ModalityPhysics.Joining(Law(180.0), Law(23.0), Law(8.5), Law(420.0), Law(12.0), Law(120.0), Law(0.80)),
-        new ModalityPhysics.Forming(Law(0.43), Law(0.98), Law(1.5), Law(280.0), Law(0.20), Law(0.70))));
-    public static readonly Material Magnesium = new("magnesium", Laws(
-        Cut(500.0, 400.0, 0.30),
-        new ModalityPhysics.Forming(Law(0.42), Law(0.96), Law(5.0), Law(230.0), Law(0.16), Law(0.60))));
-    public static readonly Material Brass = new("brass", Laws(
-        Cut(400.0, 900.0, 0.28),
-        new ModalityPhysics.Erosion(Law(11.0), Law(22.0), Law(6.0), Law(10.0), Law(11.0), Law(0.018)),
-        new ModalityPhysics.Forming(Law(0.44), Law(0.98), Law(1.0), Law(340.0), Law(0.35), Law(0.85))));
-    public static readonly Material Copper = new("copper", Laws(
-        Cut(250.0, 1100.0, 0.22),
-        new ModalityPhysics.Erosion(Law(12.0), Law(22.0), Law(7.0), Law(9.0), Law(12.0), Law(0.016)),
-        new ModalityPhysics.Forming(Law(0.44), Law(0.99), Law(1.0), Law(310.0), Law(0.42), Law(0.90))));
-    public static readonly Material Zinc = new("zinc", Laws(
-        Cut(350.0, 500.0, 0.30),
-        new ModalityPhysics.Forming(Law(0.42), Law(0.97), Law(1.5), Law(260.0), Law(0.25), Law(0.75))));
-    public static readonly Material MildSteel = new("mild-steel", Laws(
-        Cut(90.0, 1800.0, 0.22, ResponseAxis.Hardness, Arr(0.0, 100.0), Arr(1.15, 0.7),
-            ResponseAxis.StrainRate, Arr(0.0, 1000.0), Arr(1.0, 1.18)),
-        new ModalityPhysics.Thermal(Law(1.2), Law(0.5), Law(8.0), Law(2000.0), Law(5000.0), Law(0.55)),
-        new ModalityPhysics.Abrasive(Law(380.0), Law(0.45), Law(180.0), Law(65.0), Law(0.08)),
-        new ModalityPhysics.Erosion(Law(9.0), Law(26.0), Law(5.0), Law(11.0), Law(9.0), Law(0.022)),
-        new ModalityPhysics.Deposition(Law(2400.0), Law(2.0), Law(350.0), Law(10.0), Law(250.0), Law(0.30)),
-        new ModalityPhysics.Joining(Law(260.0), Law(31.0), Law(9.0), Law(350.0), Law(15.0), Law(250.0), Law(0.85)),
-        new ModalityPhysics.Forming(Law(0.44), Law(0.99), Law(1.0), Law(360.0), Law(0.22), Law(1.00))));
-    public static readonly Material Stainless = new("stainless", Laws(
-        Cut(45.0, 2400.0, 0.20, ResponseAxis.Temperature, Arr(20.0, 600.0), Arr(1.0, 0.55),
-            ResponseAxis.StrainRate, Arr(0.0, 1000.0), Arr(1.0, 1.22)),
-        new ModalityPhysics.Thermal(Law(0.9), Law(0.8), Law(14.0), Law(1500.0), Law(6200.0), Law(0.45)),
-        new ModalityPhysics.Abrasive(Law(380.0), Law(0.45), Law(150.0), Law(75.0), Law(0.09)),
-        new ModalityPhysics.Erosion(Law(8.0), Law(28.0), Law(4.0), Law(12.0), Law(8.0), Law(0.024)),
-        new ModalityPhysics.Deposition(Law(2800.0), Law(2.4), Law(300.0), Law(10.0), Law(150.0), Law(0.28)),
-        new ModalityPhysics.Joining(Law(210.0), Law(29.0), Law(7.5), Law(300.0), Law(12.0), Law(150.0), Law(0.80)),
-        new ModalityPhysics.Forming(Law(0.45), Law(0.97), Law(2.0), Law(520.0), Law(0.45), Law(0.95))));
-    public static readonly Material CastIron = new("cast-iron", Laws(
-        Cut(120.0, 1400.0, 0.25, ResponseAxis.Hardness, Arr(0.0, 100.0), Arr(1.05, 0.65)),
-        new ModalityPhysics.Thermal(Law(1.4), Law(0.9), Law(8.0), Law(1200.0), Law(5200.0), Law(0.70)),
-        new ModalityPhysics.Abrasive(Law(380.0), Law(0.45), Law(160.0), Law(70.0), Law(0.09))));
-    public static readonly Material ToolSteel = new("tool-steel", Laws(
-        Cut(35.0, 3200.0, 0.18, ResponseAxis.Hardness, Arr(20.0, 65.0), Arr(1.0, 0.35)),
-        new ModalityPhysics.Erosion(Law(7.0), Law(30.0), Law(3.5), Law(13.0), Law(7.0), Law(0.026)),
-        new ModalityPhysics.Abrasive(Law(400.0), Law(0.5), Law(110.0), Law(88.0), Law(0.10))));
-    public static readonly Material Inconel = new("inconel", Laws(
-        Cut(22.0, 3600.0, 0.15, ResponseAxis.Temperature, Arr(20.0, 800.0), Arr(1.0, 0.72),
-            ResponseAxis.StrainRate, Arr(0.0, 1000.0), Arr(1.0, 1.30)),
-        new ModalityPhysics.Abrasive(Law(410.0), Law(0.55), Law(70.0), Law(105.0), Law(0.11)),
-        new ModalityPhysics.Erosion(Law(6.0), Law(30.0), Law(3.0), Law(14.0), Law(6.0), Law(0.026)),
-        new ModalityPhysics.Deposition(Law(2600.0), Law(2.0), Law(220.0), Law(9.0), Law(150.0), Law(0.22)),
-        new ModalityPhysics.Joining(Law(150.0), Law(26.0), Law(5.5), Law(220.0), Law(10.0), Law(150.0), Law(0.75)),
-        new ModalityPhysics.Powder(Law(280.0), Law(0.10), Law(48_000.0), Law(0.04))));
-    public static readonly Material Titanium = new("titanium", Laws(
-        Cut(35.0, 2800.0, 0.16, ResponseAxis.Temperature, Arr(20.0, 600.0), Arr(1.0, 0.80)),
-        new ModalityPhysics.Abrasive(Law(400.0), Law(0.5), Law(90.0), Law(95.0), Law(0.10)),
-        new ModalityPhysics.Erosion(Law(6.0), Law(30.0), Law(3.0), Law(14.0), Law(6.0), Law(0.025)),
-        new ModalityPhysics.Deposition(Law(2200.0), Law(1.8), Law(240.0), Law(9.0), Law(120.0), Law(0.20)),
-        new ModalityPhysics.Joining(Law(160.0), Law(27.0), Law(5.0), Law(240.0), Law(10.0), Law(120.0), Law(0.70)),
-        new ModalityPhysics.Forming(Law(0.46), Law(0.93), Law(3.0), Law(820.0), Law(0.08), Law(2.20))));
-    public static readonly Material Cfrp = new("cfrp", Laws(
-        Cut(200.0, 600.0, 0.35),
-        new ModalityPhysics.Abrasive(Law(340.0), Law(0.35), Law(320.0), Law(28.0), Law(0.12))));
-    public static readonly Material Acrylic = new("acrylic", Laws(
-        Cut(500.0, 180.0, 0.40),
-        new ModalityPhysics.Thermal(Law(0.2), Law(0.05), Law(0.5), Law(12000.0), Law(120.0), Law(0.15))));
-    public static readonly Material Plywood = new("plywood", Laws(
-        Cut(600.0, 120.0, 0.45),
-        new ModalityPhysics.Thermal(Law(0.3), Law(0.1), Law(0.6), Law(8000.0), Law(90.0), Law(0.60))));
-    public static readonly Material Mdf = new("mdf", Laws(
-        Cut(650.0, 100.0, 0.45),
-        new ModalityPhysics.Thermal(Law(0.35), Law(0.12), Law(0.6), Law(7000.0), Law(110.0), Law(0.65))));
-    public static readonly Material Foam = new("foam", Laws(Cut(900.0, 25.0, 0.60)));
-    public static readonly Material Glass = new("glass", Laws(
-        new ModalityPhysics.Abrasive(Law(300.0), Law(0.30), Law(200.0), Law(38.0), Law(0.14))));
-    public static readonly Material PlaFilament = new("pla-filament", Laws(
-        new ModalityPhysics.Fff(Law(210.0), Law(15.0), Law(0.45), Law(0.2), Law(3600.0), Law(45.0))));
-    public static readonly Material AbsFilament = new("abs-filament", Laws(
-        new ModalityPhysics.Fff(Law(245.0), Law(25.0), Law(0.45), Law(0.2), Law(3000.0), Law(60.0))));
-    public static readonly Material PetgFilament = new("petg-filament", Laws(
-        new ModalityPhysics.Fff(Law(240.0), Law(20.0), Law(0.45), Law(0.2), Law(2400.0), Law(55.0))));
-    public static readonly Material NylonFilament = new("nylon-filament", Laws(
-        new ModalityPhysics.Fff(Law(260.0), Law(30.0), Law(0.45), Law(0.2), Law(2100.0), Law(70.0))));
-    public static readonly Material PhotopolymerResin = new("photopolymer-resin", Laws(
-        new ModalityPhysics.Resin(Law(2.5), Law(0.1), Law(5.0), Law(120.0))));
-    public static readonly Material Ss316Powder = new("ss316-powder", Laws(
-        new ModalityPhysics.Powder(Law(200.0), Law(0.12), Law(54_000.0), Law(0.03))));
-    public static readonly Material AlSi10MgPowder = new("alsi10mg-powder", Laws(
-        new ModalityPhysics.Powder(Law(370.0), Law(0.19), Law(78_000.0), Law(0.03))));
-    public static readonly Material Ti64Powder = new("ti64-powder", Laws(
-        new ModalityPhysics.Powder(Law(280.0), Law(0.14), Law(72_000.0), Law(0.03))));
+    public static readonly Material Aluminium = new("aluminium", MaterialClass.LightMetal);
+    public static readonly Material Magnesium = new("magnesium", MaterialClass.LightMetal);
+    public static readonly Material Titanium = new("titanium", MaterialClass.LightMetal);
+    public static readonly Material Brass = new("brass", MaterialClass.FerrousMetal);
+    public static readonly Material Copper = new("copper", MaterialClass.FerrousMetal);
+    public static readonly Material Zinc = new("zinc", MaterialClass.FerrousMetal);
+    public static readonly Material MildSteel = new("mild-steel", MaterialClass.FerrousMetal);
+    public static readonly Material Stainless = new("stainless", MaterialClass.FerrousMetal);
+    public static readonly Material CastIron = new("cast-iron", MaterialClass.FerrousMetal);
+    public static readonly Material ToolSteel = new("tool-steel", MaterialClass.FerrousMetal);
+    public static readonly Material Inconel = new("inconel", MaterialClass.Superalloy);
+    public static readonly Material Cfrp = new("cfrp", MaterialClass.Composite);
+    public static readonly Material Acrylic = new("acrylic", MaterialClass.Polymer);
+    public static readonly Material Plywood = new("plywood", MaterialClass.Wood);
+    public static readonly Material Mdf = new("mdf", MaterialClass.Wood);
+    public static readonly Material Foam = new("foam", MaterialClass.Polymer);
+    public static readonly Material Glass = new("glass", MaterialClass.Ceramic);
+    public static readonly Material Filament = new("filament", MaterialClass.Polymer);
+    public static readonly Material Resin = new("resin", MaterialClass.Polymer);
+    public static readonly Material MetalPowder = new("metal-powder", MaterialClass.FerrousMetal);
 
-    public Map<PhysicsKind, ModalityPhysics> Physics { get; }
+    public MaterialClass Class { get; }
 
-    // ModalityPhysics.Kind keys the map, so a row cannot declare one physics family and carry another.
-    private static Map<PhysicsKind, ModalityPhysics> Laws(params ReadOnlySpan<ModalityPhysics> rows) =>
-        toMap(Iterable<ModalityPhysics>.FromSpan(rows).Map(static row => (row.Kind, row)));
-
-    private static ConstitutiveLaw Law(double value) => ConstitutiveLaw.Create(value, Arr<ResponseCurve>.Empty);
-
-    private static ConstitutiveLaw Law(double value, ResponseAxis axis, Arr<double> inputs, Arr<double> factors) =>
-        ConstitutiveLaw.Create(value, Arr(ResponseCurve.Create(axis, inputs, factors, ResponseInterpolation.Monotone)));
-
-    private static ModalityPhysics.Subtractive Cut(double surfaceSpeed, double specificForce, double taylor) =>
-        new(Law(surfaceSpeed), Law(specificForce), Law(taylor));
-
-    private static ModalityPhysics.Subtractive Cut(
-        double surfaceSpeed,
-        double specificForce,
-        double taylor,
-        ResponseAxis speedAxis,
-        Arr<double> speedInputs,
-        Arr<double> speedFactors) =>
-        new(Law(surfaceSpeed, speedAxis, speedInputs, speedFactors), Law(specificForce), Law(taylor));
-
-    private static ModalityPhysics.Subtractive Cut(
-        double surfaceSpeed,
-        double specificForce,
-        double taylor,
-        ResponseAxis speedAxis,
-        Arr<double> speedInputs,
-        Arr<double> speedFactors,
-        ResponseAxis forceAxis,
-        Arr<double> forceInputs,
-        Arr<double> forceFactors) =>
-        new(Law(surfaceSpeed, speedAxis, speedInputs, speedFactors),
-            Law(specificForce, forceAxis, forceInputs, forceFactors),
-            Law(taylor));
+    // The process-material correspondence `RelationFault.ProcessMaterial` refuses on: a process names one physics
+    // kind, and the family's class names which kinds it can answer at all.
+    public bool Admits(ProcessKind process) => Class.Physics.Contains(process.Physics);
 }
 
 [SmartEnum<string>]
@@ -630,6 +542,7 @@ public sealed partial class TemperState {
 }
 
 [ComplexValueObject]
+[ValidationError<FabricationFault>]
 public sealed partial class MechanicalDatum {
     public double ElasticModulusMpa { get; }
     public double PoissonRatio { get; }
@@ -645,9 +558,16 @@ public sealed partial class MechanicalDatum {
 
     public double ShearModulusMpa => ElasticModulusMpa / (2.0 * (1.0 + PoissonRatio));
 
+    // Hollomon: sigma = K * eps^n at the evaluated plastic strain — the flow stress a forming budget prices work on.
+    public double FlowStressMpa(double plasticStrain) =>
+        StrengthCoefficientMpa * Math.Pow(Math.Max(plasticStrain, double.Epsilon), StrainHardeningExponent);
+
+    // Lankford anisotropy raises the attainable draw strain above uniaxial elongation; both columns bound it.
+    public double LimitStrain => ElongationRatio * (1.0 + PlasticStrainRatio) * 0.5;
+
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref ValidationError? validationError,
+        ref FabricationFault? validationError,
         ref double elasticModulusMpa,
         ref double poissonRatio,
         ref double yieldStrengthMpa,
@@ -659,21 +579,20 @@ public sealed partial class MechanicalDatum {
         ref double strengthCoefficientMpa,
         ref double plasticStrainRatio,
         ref double machinabilityIndex) {
-        if (Seq(elasticModulusMpa, yieldStrengthMpa, ultimateStrengthMpa, strengthCoefficientMpa)
+        if (Seq(elasticModulusMpa, yieldStrengthMpa, ultimateStrengthMpa, strengthCoefficientMpa,
+                fractureToughnessMpaM, plasticStrainRatio, machinabilityIndex)
                 .Exists(static value => !double.IsFinite(value) || value <= 0.0)
             || !double.IsFinite(poissonRatio) || poissonRatio is <= -1.0 or >= 0.5
             || !double.IsFinite(hardness) || hardness < 0.0
             || !double.IsFinite(elongationRatio) || elongationRatio is < 0.0 or > 1.0
-            || !double.IsFinite(fractureToughnessMpaM) || fractureToughnessMpaM <= 0.0
             || !double.IsFinite(strainHardeningExponent) || strainHardeningExponent is < 0.0 or > 1.0
-            || !double.IsFinite(plasticStrainRatio) || plasticStrainRatio <= 0.0
-            || !double.IsFinite(machinabilityIndex) || machinabilityIndex <= 0.0
             || ultimateStrengthMpa < yieldStrengthMpa)
-            validationError = new ValidationError("material-spec:mechanical");
+            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Tooling, "material-spec:mechanical");
     }
 }
 
 [ComplexValueObject]
+[ValidationError<FabricationFault>]
 public sealed partial class ThermalDatum {
     public double DensityKgM3 { get; }
     public double ConductivityWMK { get; }
@@ -683,12 +602,21 @@ public sealed partial class ThermalDatum {
     public double LatentHeatFusionJKg { get; }
     public double Emissivity { get; }
 
-    // Fourier diffusivity governs heat-affected width and interpass cooling; it is never admitted twice.
-    public double DiffusivityMm2S => ConductivityWMK / (DensityKgM3 * SpecificHeatJKgK) * 1e6;
+    // Fourier diffusivity governs heat-affected width and interpass cooling; it is never admitted twice. The
+    // quotient is L2T-1, a dimension the UnitsNet registry names no family for and whose three operands compose
+    // through no cross-quantity operator, so the SI quotient stays bare; its mm2 egress still reads that scale
+    // off the Area family rather than transcribing one, so no factor drifts from the unit it converts.
+    private static readonly double SquareMillimetersPerSquareMeter = Area.FromSquareMeters(1.0).SquareMillimeters;
+
+    public double DiffusivityMm2S => ConductivityWMK / (DensityKgM3 * SpecificHeatJKgK) * SquareMillimetersPerSquareMeter;
+
+    // Volumetric heat capacity closes the cutting-zone temperature rise from specific cutting energy: the chip
+    // carries the work away, so the zone rise is energy per unit volume over this capacity.
+    public double VolumetricHeatCapacityJMm3K => DensityKgM3 * SpecificHeatJKgK / 1e9;
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref ValidationError? validationError,
+        ref FabricationFault? validationError,
         ref double densityKgM3,
         ref double conductivityWMK,
         ref double specificHeatJKgK,
@@ -699,11 +627,12 @@ public sealed partial class ThermalDatum {
         if (Seq(densityKgM3, conductivityWMK, specificHeatJKgK, thermalExpansionPerC, meltingC, latentHeatFusionJKg)
                 .Exists(static value => !double.IsFinite(value) || value <= 0.0)
             || !double.IsFinite(emissivity) || emissivity is < 0.0 or > 1.0)
-            validationError = new ValidationError("material-spec:thermal");
+            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Tooling, "material-spec:thermal");
     }
 }
 
 [ComplexValueObject]
+[ValidationError<FabricationFault>]
 public sealed partial class GradeIdentity {
     public string Grade { get; }
     public string Designation { get; }
@@ -715,7 +644,7 @@ public sealed partial class GradeIdentity {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref ValidationError? validationError,
+        ref FabricationFault? validationError,
         ref string grade,
         ref string designation,
         ref TemperState temper,
@@ -724,14 +653,36 @@ public sealed partial class GradeIdentity {
         ref Option<string> lotNumber,
         ref Option<ContentKey> certificateKey) {
         // A traceable certificate class is a promise the heat identity and its content key must both keep.
-        if (string.IsNullOrWhiteSpace(grade) || string.IsNullOrWhiteSpace(designation)
-            || temper is null || certificate is null
+        if (!Witness.Keyed(grade) || !Witness.Keyed(designation)
             || (certificate.Traceable && (heatNumber.IsNone || certificateKey.IsNone)))
-            validationError = new ValidationError("material-spec:grade");
+            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Tooling, "material-spec:grade");
+    }
+}
+
+// The mounted preset for one family. `ModalityPhysics.Kind` keys the map, so a preset cannot declare one physics
+// family and carry another, and a class that does not admit a kind cannot mount a law for it.
+[ComplexValueObject]
+[ValidationError<FabricationFault>]
+public sealed partial class MaterialBaseline {
+    public Material Family { get; }
+    public Map<PhysicsKind, ModalityPhysics> Physics { get; }
+
+    public static Fin<MaterialBaseline> Admit(Material family, Seq<ModalityPhysics> laws) =>
+        Validate(family, toMap(laws.Map(static law => (law.Kind, law))), out MaterialBaseline baseline)
+            .Admitted(baseline);
+
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(
+        ref FabricationFault? validationError,
+        ref Material family,
+        ref Map<PhysicsKind, ModalityPhysics> physics) {
+        if (physics.IsEmpty || !physics.ForAll(row => row.Key == row.Value.Kind && family.Class.Physics.Contains(row.Key)))
+            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Tooling, "material-baseline");
     }
 }
 
 [ComplexValueObject]
+[ValidationError<FabricationFault>]
 public sealed partial class MaterialSpec {
     public Material Family { get; }
     public GradeIdentity Identity { get; }
@@ -742,45 +693,86 @@ public sealed partial class MaterialSpec {
     public bool Admits(PhysicsKind physics) => Physics.ContainsKey(physics);
 
     public static Fin<MaterialSpec> Admit(
-        Material family,
+        MaterialBaseline baseline,
         GradeIdentity identity,
         MechanicalDatum mechanical,
         ThermalDatum thermal,
-        Map<PhysicsKind, ModalityPhysics> gradeOverrides) {
-        if (family is null || identity is null || mechanical is null || thermal is null)
-            return Fin.Fail<MaterialSpec>(FabricationFault.Equipment(
-                new EquipmentWitness.Grade("material-spec:grade-override")));
-
-        bool overridesValid = gradeOverrides.AsIterable().Fold(
-            true,
-            (valid, pair) => valid && pair.Value is not null && pair.Key == pair.Value.Kind
-                && family.Physics.ContainsKey(pair.Key));
-        if (!overridesValid)
-            return Fin.Fail<MaterialSpec>(FabricationFault.Equipment(
-                new EquipmentWitness.Grade("material-spec:grade-override")));
-
-        Map<PhysicsKind, ModalityPhysics> physics = gradeOverrides.AsIterable()
-            .Fold(family.Physics, static (state, pair) => state.AddOrUpdate(pair.Key, pair.Value));
-        return Validate(family, identity, mechanical, thermal, physics, out MaterialSpec admitted) is { } error
-            ? Fin.Fail<MaterialSpec>(FabricationFault.Equipment(new EquipmentWitness.Grade(error.ToString())))
-            : Fin.Succ(admitted);
-    }
+        Map<PhysicsKind, ModalityPhysics> gradeOverrides) =>
+        AdmissionSlots
+            .Gate(gradeOverrides.ForAll(row => row.Key == row.Value.Kind && baseline.Physics.ContainsKey(row.Key)),
+                FabricationFault.Equipment(new EquipmentWitness.Grade("material-spec:grade-override")))
+            .As()
+            .ToFin()
+            .Bind(_ => Validate(
+                baseline.Family,
+                identity,
+                mechanical,
+                thermal,
+                gradeOverrides.AsIterable().Fold(baseline.Physics, static (state, row) => state.AddOrUpdate(row.Key, row.Value)),
+                out MaterialSpec admitted).Admitted(admitted));
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref ValidationError? validationError,
+        ref FabricationFault? validationError,
         ref Material family,
         ref GradeIdentity identity,
         ref MechanicalDatum mechanical,
         ref ThermalDatum thermal,
         ref Map<PhysicsKind, ModalityPhysics> physics) {
-        if (family is null || identity is null || mechanical is null || thermal is null || physics.IsEmpty)
-            validationError = new ValidationError("material-spec");
+        if (physics.IsEmpty)
+            validationError = FabricationFault.Equipment(new EquipmentWitness.Grade("material-spec"));
     }
 }
 
+// The shop's mounted catalog, admitted ONCE at composition. A lookup answers on the rail, so a caller asking for
+// an unmounted family or grade reads a typed refusal rather than a silently defaulted law.
+public sealed class MaterialRegistry {
+    private MaterialRegistry(Map<Material, MaterialBaseline> baselines, Map<string, MaterialSpec> grades) =>
+        (Baselines, Grades) = (baselines, grades);
+
+    public Map<Material, MaterialBaseline> Baselines { get; }
+    public Map<string, MaterialSpec> Grades { get; }
+
+    public static Fin<MaterialRegistry> Admit(Seq<MaterialBaseline> baselines, Seq<MaterialSpec> grades) =>
+        (AdmissionSlots.Gate(baselines.Map(static row => row.Family).Distinct().Count == baselines.Count,
+            FabricationFault.Equipment(new EquipmentWitness.Grade("material-registry:baseline-duplicate"))),
+         AdmissionSlots.Gate(grades.Map(static row => row.Identity.Grade).Distinct().Count == grades.Count,
+            FabricationFault.Equipment(new EquipmentWitness.Grade("material-registry:grade-duplicate"))))
+            .Apply(static (_, _) => unit)
+            .As()
+            .ToFin()
+            .Map(_ => new MaterialRegistry(
+                toMap(baselines.Map(static row => (row.Family, row))),
+                toMap(grades.Map(static row => (row.Identity.Grade, row)))));
+
+    public Fin<MaterialBaseline> Baseline(Material family) => Baselines
+        .Find(family)
+        .ToFin(FabricationFault.Equipment(new EquipmentWitness.Grade($"material-registry:{family.Key}")));
+
+    public Fin<MaterialSpec> Grade(string grade) => Grades
+        .Find(grade)
+        .ToFin(FabricationFault.Equipment(new EquipmentWitness.Grade("material-registry:grade")));
+}
+```
+
+## [05]-[BUDGET_SHAPE]
+
+- Owner: `PhysicsRequest` owns exact runtime evidence; `BudgetEnergy` owns clock closure; `CutterMechanics` owns the rotary-only mechanics terms; `BudgetEvidence` owns the receipt; `ProcessBudget` owns derived limits.
+- Cases: `ProcessBudget.Turning` remains distinct because constant-surface-speed RPM resolves against workpiece radius at motion time, and `BudgetEnergy.RadiusDependent` carries that unclosed clock as a typed case rather than an absent value.
+- Law: a form with no mechanics answer publishes NONE, never a zero. A grinding wheel has no helix, so it has no axial force; a saw has no shank cantilever, so it has no deflection — a zero in those slots is forged evidence a downstream gate reads as a measured safe value.
+- Auto: `Kind`, `Extents`, and `Equipment` are base positional columns, so a request case is one declaration and its own payload supplies all three.
+- Receipt: `BudgetEvidence` records evaluated material state, power, energy closure, admitted grade, tool identity, every `RangeReceipt`, and the response axes that SATURATED at their preset edge.
+
+```csharp signature
+// --- [BUDGET_SHAPE]
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record PhysicsRequest(ProcessKind Process, MaterialSpec Material, ConstitutiveState State) {
+public abstract partial record PhysicsRequest(
+    ProcessKind Process,
+    MaterialSpec Material,
+    ConstitutiveState State,
+    PhysicsKind Kind,
+    Seq<double> Extents,
+    Option<UInt128> Equipment) {
     public sealed record Subtractive(
         ProcessKind Process,
         MaterialSpec Material,
@@ -788,121 +780,75 @@ public abstract partial record PhysicsRequest(ProcessKind Process, MaterialSpec 
         EquipmentEnvelope Assembly,
         Operation Operation,
         CoolantDelivery Delivery,
-        double PathLengthMm) : PhysicsRequest(Process, Material, State) {
-        public override PhysicsKind Kind => PhysicsKind.Subtractive;
-        public override Seq<double> Extents => Seq(PathLengthMm);
-        public override Option<UInt128> Equipment => Some(Assembly.Identity);
-    }
+        double PathLengthMm)
+        : PhysicsRequest(Process, Material, State, PhysicsKind.Subtractive, Seq(PathLengthMm), Some(Assembly.Identity));
 
-    public sealed record Thermal(ProcessKind Process, MaterialSpec Material, ConstitutiveState State, EquipmentEnvelope Head, double CutLengthMm)
-        : PhysicsRequest(Process, Material, State) {
-        public override PhysicsKind Kind => PhysicsKind.Thermal;
-        public override Seq<double> Extents => Seq(CutLengthMm);
-        public override Option<UInt128> Equipment => Some(Head.Identity);
-    }
+    public sealed record Thermal(
+        ProcessKind Process, MaterialSpec Material, ConstitutiveState State, EquipmentEnvelope Head, double CutLengthMm)
+        : PhysicsRequest(Process, Material, State, PhysicsKind.Thermal, Seq(CutLengthMm), Some(Head.Identity));
 
-    public sealed record Abrasive(ProcessKind Process, MaterialSpec Material, ConstitutiveState State, EquipmentEnvelope Head, double CutLengthMm)
-        : PhysicsRequest(Process, Material, State) {
-        public override PhysicsKind Kind => PhysicsKind.Abrasive;
-        public override Seq<double> Extents => Seq(CutLengthMm);
-        public override Option<UInt128> Equipment => Some(Head.Identity);
-    }
+    public sealed record Abrasive(
+        ProcessKind Process, MaterialSpec Material, ConstitutiveState State, EquipmentEnvelope Head, double CutLengthMm)
+        : PhysicsRequest(Process, Material, State, PhysicsKind.Abrasive, Seq(CutLengthMm), Some(Head.Identity));
 
-    public sealed record Fff(ProcessKind Process, MaterialSpec Material, ConstitutiveState State, EquipmentEnvelope Head, double PathLengthMm)
-        : PhysicsRequest(Process, Material, State) {
-        public override PhysicsKind Kind => PhysicsKind.Fff;
-        public override Seq<double> Extents => Seq(PathLengthMm);
-        public override Option<UInt128> Equipment => Some(Head.Identity);
-    }
+    public sealed record Fff(
+        ProcessKind Process, MaterialSpec Material, ConstitutiveState State, EquipmentEnvelope Head, double PathLengthMm)
+        : PhysicsRequest(Process, Material, State, PhysicsKind.Fff, Seq(PathLengthMm), Some(Head.Identity));
 
-    public sealed record Deposition(ProcessKind Process, MaterialSpec Material, ConstitutiveState State, EquipmentEnvelope Head, double PathLengthMm)
-        : PhysicsRequest(Process, Material, State) {
-        public override PhysicsKind Kind => PhysicsKind.Deposition;
-        public override Seq<double> Extents => Seq(PathLengthMm);
-        public override Option<UInt128> Equipment => Some(Head.Identity);
-    }
+    public sealed record Deposition(
+        ProcessKind Process, MaterialSpec Material, ConstitutiveState State, EquipmentEnvelope Head, double PathLengthMm)
+        : PhysicsRequest(Process, Material, State, PhysicsKind.Deposition, Seq(PathLengthMm), Some(Head.Identity));
 
-    public sealed record Joining(ProcessKind Process, MaterialSpec Material, ConstitutiveState State, EquipmentEnvelope Head, double SeamLengthMm)
-        : PhysicsRequest(Process, Material, State) {
-        public override PhysicsKind Kind => PhysicsKind.Joining;
-        public override Seq<double> Extents => Seq(SeamLengthMm);
-        public override Option<UInt128> Equipment => Some(Head.Identity);
-    }
+    public sealed record Joining(
+        ProcessKind Process, MaterialSpec Material, ConstitutiveState State, EquipmentEnvelope Head, double SeamLengthMm)
+        : PhysicsRequest(Process, Material, State, PhysicsKind.Joining, Seq(SeamLengthMm), Some(Head.Identity));
 
-    public sealed record Erosion(ProcessKind Process, MaterialSpec Material, ConstitutiveState State, EquipmentEnvelope Head, double PathLengthMm)
-        : PhysicsRequest(Process, Material, State) {
-        public override PhysicsKind Kind => PhysicsKind.Erosion;
-        public override Seq<double> Extents => Seq(PathLengthMm);
-        public override Option<UInt128> Equipment => Some(Head.Identity);
-    }
+    public sealed record Erosion(
+        ProcessKind Process, MaterialSpec Material, ConstitutiveState State, EquipmentEnvelope Head, double PathLengthMm)
+        : PhysicsRequest(Process, Material, State, PhysicsKind.Erosion, Seq(PathLengthMm), Some(Head.Identity));
 
     public sealed record Resin(ProcessKind Process, MaterialSpec Material, ConstitutiveState State, double AreaMm2)
-        : PhysicsRequest(Process, Material, State) {
-        public override PhysicsKind Kind => PhysicsKind.Resin;
-        public override Seq<double> Extents => Seq(AreaMm2);
-    }
+        : PhysicsRequest(Process, Material, State, PhysicsKind.Resin, Seq(AreaMm2), None);
 
     public sealed record Powder(ProcessKind Process, MaterialSpec Material, ConstitutiveState State, double LayerAreaMm2)
-        : PhysicsRequest(Process, Material, State) {
-        public override PhysicsKind Kind => PhysicsKind.Powder;
-        public override Seq<double> Extents => Seq(LayerAreaMm2);
-    }
+        : PhysicsRequest(Process, Material, State, PhysicsKind.Powder, Seq(LayerAreaMm2), None);
 
-    public sealed record Forming(ProcessKind Process, MaterialSpec Material, ConstitutiveState State, double ThicknessMm, double BendLengthMm)
-        : PhysicsRequest(Process, Material, State) {
-        public override PhysicsKind Kind => PhysicsKind.Forming;
-        public override Seq<double> Extents => Seq(ThicknessMm, BendLengthMm);
-    }
-
-    public abstract PhysicsKind Kind { get; }
-    public abstract Seq<double> Extents { get; }
-    public virtual Option<UInt128> Equipment => None;
+    public sealed record Forming(
+        ProcessKind Process, MaterialSpec Material, ConstitutiveState State, double ThicknessMm, double BendLengthMm)
+        : PhysicsRequest(Process, Material, State, PhysicsKind.Forming, Seq(ThicknessMm, BendLengthMm), None);
 
     // One admission owns common family and extent law plus each case's mounted payload.
-    public static Fin<PhysicsRequest> Admit(PhysicsRequest candidate) {
-        if (candidate is null || candidate.Process is null || candidate.Material is null || candidate.State is null)
-            return Missing("payload");
-        if (candidate.Process.Physics != candidate.Kind
-            || !candidate.Extents.ForAll(static value => double.IsFinite(value) && value > 0.0))
-            return Fin.Fail<PhysicsRequest>(new FabricationFault.InadmissiblePair(
-                new RelationFault.ProcessMaterial(candidate.Process, candidate.Material.Family)));
-
-        return candidate.Switch(
-            subtractive: static row => row.Operation is null || row.Delivery is null
-                ? Missing("subtractive")
-                : Mounted(row, row.Assembly, Some(row.Operation)),
-            thermal: static row => Mounted(row, row.Head, None),
-            abrasive: static row => Mounted(row, row.Head, None),
-            fff: static row => Mounted(row, row.Head, None),
-            deposition: static row => Mounted(row, row.Head, None),
-            joining: static row => Mounted(row, row.Head, None),
-            erosion: static row => Mounted(row, row.Head, None),
-            resin: static row => Fin.Succ<PhysicsRequest>(row),
-            powder: static row => Fin.Succ<PhysicsRequest>(row),
-            forming: static row => Fin.Succ<PhysicsRequest>(row));
-    }
+    public static Fin<PhysicsRequest> Admit(PhysicsRequest candidate) =>
+        candidate.Process.Physics != candidate.Kind
+        || !candidate.Extents.ForAll(static value => double.IsFinite(value) && value > 0.0)
+            ? Fin.Fail<PhysicsRequest>(FabricationFault.Pairing(
+                new RelationFault.ProcessMaterial(candidate.Process, candidate.Material.Family)))
+            : candidate.Switch(
+                subtractive: static row => Mounted(row, row.Assembly, Some(row.Operation)),
+                thermal: static row => Mounted(row, row.Head, None),
+                abrasive: static row => Mounted(row, row.Head, None),
+                fff: static row => Mounted(row, row.Head, None),
+                deposition: static row => Mounted(row, row.Head, None),
+                joining: static row => Mounted(row, row.Head, None),
+                erosion: static row => Mounted(row, row.Head, None),
+                resin: static row => Fin.Succ<PhysicsRequest>(row),
+                powder: static row => Fin.Succ<PhysicsRequest>(row),
+                forming: static row => Fin.Succ<PhysicsRequest>(row));
 
     private static Fin<PhysicsRequest> Mounted(
         PhysicsRequest request,
         EquipmentEnvelope assembly,
-        Option<Operation> operation) {
-        if (assembly is null || assembly.Tool is null || assembly.Feed is null || assembly.Spindle is null)
-            return Missing("equipment");
-        if (assembly.Spent)
-            return Fin.Fail<PhysicsRequest>(FabricationFault.Equipment(
-                new EquipmentWitness.Spent(assembly.Identity, operation)));
-        return Tool.Admit(assembly.Tool).Bind(tool => request.Kind == PhysicsKind.Subtractive
-            ? Fin.Succ(request)
-            : tool is Tool.Head head && head.Class.Admits(request.Kind)
+        Option<Operation> operation) =>
+        assembly.Spent
+            ? Fin.Fail<PhysicsRequest>(FabricationFault.Equipment(
+                new EquipmentWitness.Spent(assembly.Identity, operation)))
+            : Tool.Admit(assembly.Tool).Bind(tool => request.Kind == PhysicsKind.Subtractive
                 ? Fin.Succ(request)
-                : Fin.Fail<PhysicsRequest>(FabricationFault.Equipment(
-                    new EquipmentWitness.HeadPhysics(
-                        request.Kind, Optional(tool as Tool.Head).Map(static mounted => mounted.Class)))));
-    }
-
-    private static Fin<PhysicsRequest> Missing(string locus) =>
-        Fin.Fail<PhysicsRequest>(FabricationFault.Equipment(
-            new EquipmentWitness.Grade($"physics-request:{locus}")));
+                : tool is Tool.Head head && head.Class.Admits(request.Kind)
+                    ? Fin.Succ(request)
+                    : Fin.Fail<PhysicsRequest>(FabricationFault.Equipment(
+                        new EquipmentWitness.HeadPhysics(
+                            request.Kind, Optional(tool as Tool.Head).Map(static mounted => mounted.Class)))));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -930,19 +876,31 @@ public abstract partial record BudgetEnergy {
         perStroke: static _ => Option<double>.None);
 
     public static Fin<BudgetEnergy> Admit(BudgetEnergy candidate) =>
-        candidate is not null && candidate.Switch(
+        candidate.Switch(
             resolved: static row => NonNegative(row.Joules) && NonNegative(row.Seconds),
             radiusDependent: static row => NonNegative(row.PowerW)
                 && NonNegative(row.SurfaceSpeedMPerMin) && NonNegative(row.FeedPerRevolutionMm),
             perStroke: static row => NonNegative(row.Joules))
             ? Fin.Succ(candidate)
-            : Fin.Fail<BudgetEnergy>(FabricationFault.Equipment(
-                new EquipmentWitness.Grade("budget-energy")));
+            : Fin.Fail<BudgetEnergy>(FabricationFault.Equipment(new EquipmentWitness.Grade("budget-energy")));
 
     private static bool NonNegative(double value) => double.IsFinite(value) && value >= 0.0;
 }
 
+// The mechanics only a cantilevered rotary cutter has. A wheel, a saw, and a turning insert publish NONE, so no
+// consumer reads a forged zero as a measured deflection or an unbounded stability limit.
+public sealed record CutterMechanics(
+    double AxialForceN,
+    double ChipThinningFactor,
+    double DeflectionMm,
+    double StabilityLimitMm,
+    double CuttingZoneC,
+    double InterfaceCeilingC) {
+    public double ThermalMargin => InterfaceCeilingC - CuttingZoneC;
+}
+
 [ComplexValueObject]
+[ValidationError<FabricationFault>]
 public sealed partial class BudgetEvidence {
     public ConstitutiveState State { get; }
     public double PowerW { get; }
@@ -950,23 +908,28 @@ public sealed partial class BudgetEvidence {
     public MaterialSpec Material { get; }
     public Option<UInt128> ToolIdentity { get; }
     public Arr<RangeReceipt> Ranges { get; }
+
+    // The response axes whose state fell outside the mounted preset's knots: the factor read is an EDGE value, so
+    // a caller pricing on it knows the preset never covered the state it asked about.
+    public Arr<ResponseAxis> Extrapolated { get; }
+
     public Arr<EquipmentWitness> Clamped => Ranges.Bind(static range => range.Clamped);
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref ValidationError? validationError,
+        ref FabricationFault? validationError,
         ref ConstitutiveState state,
         ref double powerW,
         ref BudgetEnergy energy,
         ref MaterialSpec material,
         ref Option<UInt128> toolIdentity,
-        ref Arr<RangeReceipt> ranges) {
-        if (state is null || material is null || BudgetEnergy.Admit(energy).IsFail
+        ref Arr<RangeReceipt> ranges,
+        ref Arr<ResponseAxis> extrapolated) {
+        if (BudgetEnergy.Admit(energy).IsFail
             || !double.IsFinite(powerW) || powerW < 0.0
-            || !ranges.ForAll(static range => range is not null && range.Bound is not null
-                && double.IsFinite(range.Derived) && range.Derived >= 0.0
+            || !ranges.ForAll(static range => double.IsFinite(range.Derived) && range.Derived >= 0.0
                 && double.IsFinite(range.Resolved) && range.Resolved >= 0.0))
-            validationError = new ValidationError("budget-evidence");
+            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Tooling, "budget-evidence");
     }
 }
 
@@ -981,10 +944,8 @@ public abstract partial record ProcessBudget {
         double WidthOfCut,
         double MaterialRemovalRate,
         double TangentialForceN,
-        double AxialForceN,
-        double ChipThinningFactor,
-        double DeflectionMm,
-        double StabilityLimitMm,
+        double ToolLifeMinutes,
+        Option<CutterMechanics> Mechanics,
         BudgetEvidence Evidence) : ProcessBudget;
     public sealed record Turning(
         double SurfaceSpeed,
@@ -993,6 +954,7 @@ public abstract partial record ProcessBudget {
         double NoseRadius,
         double ChipThicknessMm,
         double TangentialForceN,
+        double ToolLifeMinutes,
         BudgetEvidence Evidence) : ProcessBudget;
     public sealed record Thermal(
         double PierceTime,
@@ -1017,7 +979,17 @@ public abstract partial record ProcessBudget {
     public sealed record Powder(double LaserPower, double HatchSpacing, double ScanSpeed, double LayerThickness, double VolumetricEnergyDensity, BudgetEvidence Evidence) : ProcessBudget;
     public sealed record Formed(double TensileRm, double KFactor, double SpringbackRatio, double MinBendRadiusFactor, double FlowStressMpa, double LimitStrain, BudgetEvidence Evidence) : ProcessBudget;
 }
+```
 
+## [06]-[TEXT_ADMISSION]
+
+- Owner: `PhysicsQuantity` owns the quantity axes and their parse; `PhysicsIngress` owns the raw text shape; `PhysicsAdmission` owns the admitted result.
+- Entry: `ProcessPhysics.Admit(PhysicsIngress)` is the ONE textual boundary in the package. A plane outside `Process` reaches it through `Process/owner#RUN_DISPATCH` `QuantityArrow`, which re-raises on the caller's own plane; a `PhysicsQuantity.<axis>.Admit` call at a consuming page is a second boundary answering on a foreign plane and is the deleted form.
+- Auto: `Canonical` projects the admitted quantity onto the `Fin<double>` rail one place, so the arrow never re-walks the union.
+- Boundary: every parse runs under the invariant culture, so a shop locale never re-reads a stored dimension differently.
+
+```csharp signature
+// --- [TEXT_ADMISSION]
 [SmartEnum<string>]
 public sealed partial class PhysicsQuantity {
     public static readonly PhysicsQuantity Feed = Of<Speed>(
@@ -1028,15 +1000,18 @@ public sealed partial class PhysicsQuantity {
         "length", UnitsNet.Length.TryParse, static value => (double)value.Millimeters);
     public static readonly PhysicsQuantity Pressure = Of<UnitsNet.Pressure>(
         "pressure", UnitsNet.Pressure.TryParse, static value => (double)value.Bars);
-    public static readonly PhysicsQuantity Power = Of<UnitsNet.Power>("power", UnitsNet.Power.TryParse, static value => (double)value.Watts);
+    public static readonly PhysicsQuantity Power = Of<UnitsNet.Power>(
+        "power", UnitsNet.Power.TryParse, static value => (double)value.Watts);
     public static readonly PhysicsQuantity Temperature = Of<UnitsNet.Temperature>(
         "temperature", UnitsNet.Temperature.TryParse, static value => (double)value.DegreesCelsius);
-    public static readonly PhysicsQuantity Force = Of<UnitsNet.Force>("force", UnitsNet.Force.TryParse, static value => (double)value.Newtons);
-    public static readonly PhysicsQuantity Energy = Of<UnitsNet.Energy>("energy", UnitsNet.Energy.TryParse, static value => (double)value.Joules);
+    public static readonly PhysicsQuantity Force = Of<UnitsNet.Force>(
+        "force", UnitsNet.Force.TryParse, static value => (double)value.Newtons);
+    public static readonly PhysicsQuantity Energy = Of<UnitsNet.Energy>(
+        "energy", UnitsNet.Energy.TryParse, static value => (double)value.Joules);
     public static readonly PhysicsQuantity Duration = Of<UnitsNet.Duration>(
         "duration", UnitsNet.Duration.TryParse, static value => (double)value.Seconds);
 
-    public Func<string, Fin<double>> Admit { get; }
+    internal Func<string, Fin<double>> Parse { get; }
 
     private delegate bool TryQuantity<T>(string? text, IFormatProvider? provider, out T value);
 
@@ -1048,96 +1023,135 @@ public sealed partial class PhysicsQuantity {
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record PhysicsIngress {
+    private PhysicsIngress() { }
+
     public sealed record Keys(string Process, string Material, string Operation) : PhysicsIngress;
     public sealed record Quantity(PhysicsQuantity Kind, string Text) : PhysicsIngress;
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record PhysicsAdmission {
+    private PhysicsAdmission() { }
+
     public sealed record Keys(ProcessKind Process, Material Material, Operation Operation) : PhysicsAdmission;
     public sealed record Quantity(PhysicsQuantity Kind, double Canonical) : PhysicsAdmission;
+
+    // The one scalar projection: a keyed admission carries no magnitude, so it answers on the rail rather than a
+    // sentinel the arrow would have to sniff.
+    public Fin<double> Canonical => Switch(
+        keys: static _ => Fin.Fail<double>(FabricationFault.Equipment(new EquipmentWitness.Quantity("scalar", "keys"))),
+        quantity: static row => Fin.Succ(row.Canonical));
+}
+```
+
+## [07]-[BUDGET_FOLD]
+
+- Owner: `SurfaceSpeed` owns the forward-and-inverse cutting-speed pair the WHOLE package composes; `ProcessPhysics` owns the runtime fold, the range bound, and the clock.
+- Law: `n = vc * 1000 / (pi * D)` and its inverse live HERE and nowhere else. A spindle-speed derivation at `Kinematics/fleet`, `Posting/program`, or `Tooling/cuttingdata` composes this pair over the CUTTING diameter — a shank diameter is not a cutting diameter and produces a surface speed the cut never sees.
+- Law: one traversal clock closes every extent-over-rate budget. Thermal, abrasive, erosion, and deposition legs compose `Traversal`; an inline `extent / rate * 60.0` beside it is the deleted form.
+- Auto: the request case dispatches OUTER and binds its own law case, so no tuple pattern goes non-total and no hard cast reaches a runtime type check. A request whose law family disagrees answers `RelationFault.ProcessMaterial` on the gated mint.
+- Auto: budget derivation evaluates constitutive response once per state, resolves current before nominal before derived equipment settings, bounds each selection against the equipment range and tool ceiling, rejects a floor above the ceiling, records each applied clamp, admits every mounted head through `Tool.Admit`, rejects spent equipment, and derives radial chip thinning, deflection, chatter-free depth, cutting-zone temperature margin, Taylor tool life, heat input, and volumetric energy density from the admitted columns.
+- Receipt: Taylor tool life reads the family's own exponent law scaled by the coating's wear factor and the coolant's life factor, so all three columns reach one published number instead of sitting unread.
+- Boundary: `GeometryFault` covers degenerate geometry alone; equipment, quantity, and grade rejections mint through `FabricationFault.Equipment`, so the witness clears its own kind predicate before the fault exists.
+
+```csharp signature
+// --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
+// The ONE cutting-speed pair. Both directions live together so an inverse can never drift from its forward, and
+// the diameter argument is always the CUTTING diameter — the shank never enters this relation.
+public static class SurfaceSpeed {
+    public static double Rpm(double metersPerMinute, double cuttingDiameterMm) =>
+        metersPerMinute * 1000.0 / (Math.PI * Math.Max(cuttingDiameterMm, double.Epsilon));
+
+    public static double MetersPerMinute(double rpm, double cuttingDiameterMm) =>
+        rpm * Math.PI * cuttingDiameterMm / 1000.0;
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
 public static class ProcessPhysics {
-    // Material.Physics keys on each law's own Kind and PhysicsRequest.Admit proves the process agrees, so the
-    // request case and the resolved law case are one discriminant by construction.
+    // The REQUEST case dispatches and binds its own law: `Material.Physics` keys on each law's own `Kind` and
+    // `PhysicsRequest.Admit` proves the process agrees, so the pairing is total by construction and the arm needs
+    // no tuple pattern, no default case, and no cast that could throw.
     public static Fin<ProcessBudget> Budget(PhysicsRequest request) =>
         from admitted in PhysicsRequest.Admit(request)
         from physics in admitted.Material.Physics.Find(admitted.Kind)
-            .ToFin(new FabricationFault.InadmissiblePair(new RelationFault.ProcessMaterial(admitted.Process, admitted.Material.Family)))
-        from budget in (admitted, physics) switch {
-            (PhysicsRequest.Subtractive row, ModalityPhysics.Subtractive law) => Subtractive(row, law),
-            (PhysicsRequest.Thermal row, ModalityPhysics.Thermal law) => Thermal(row, (Tool.Head)row.Head.Tool, law),
-            (PhysicsRequest.Abrasive row, ModalityPhysics.Abrasive law) => Abrasive(row, (Tool.Head)row.Head.Tool, law),
-            (PhysicsRequest.Fff row, ModalityPhysics.Fff law) => Fff(row, (Tool.Head)row.Head.Tool, law),
-            (PhysicsRequest.Deposition row, ModalityPhysics.Deposition law) => Deposition(row, law),
-            (PhysicsRequest.Joining row, ModalityPhysics.Joining law) => Joining(row, law),
-            (PhysicsRequest.Erosion row, ModalityPhysics.Erosion law) => Erosion(row, (Tool.Head)row.Head.Tool, law),
-            (PhysicsRequest.Resin row, ModalityPhysics.Resin law) => Fin.Succ(Resin(row, law)),
-            (PhysicsRequest.Powder row, ModalityPhysics.Powder law) => Fin.Succ(Powder(row, law)),
-            (PhysicsRequest.Forming row, ModalityPhysics.Forming law) => Fin.Succ(Formed(row, law)),
-            var (row, _) => Fin.Fail<ProcessBudget>(new FabricationFault.InadmissiblePair(
-                new RelationFault.ProcessMaterial(row.Process, row.Material.Family))),
-        }
+            .ToFin(FabricationFault.Pairing(new RelationFault.ProcessMaterial(admitted.Process, admitted.Material.Family)))
+        from budget in admitted.Switch(
+            state: physics,
+            subtractive: static (law, row) => Law<ModalityPhysics.Subtractive>(law, row).Bind(l => Subtractive(row, l)),
+            thermal: static (law, row) => Law<ModalityPhysics.Thermal>(law, row).Bind(l => Head(row.Head).Bind(head => Thermal(row, head, l))),
+            abrasive: static (law, row) => Law<ModalityPhysics.Abrasive>(law, row).Bind(l => Head(row.Head).Bind(head => Abrasive(row, head, l))),
+            fff: static (law, row) => Law<ModalityPhysics.Fff>(law, row).Bind(l => Head(row.Head).Bind(head => Fff(row, head, l))),
+            deposition: static (law, row) => Law<ModalityPhysics.Deposition>(law, row).Bind(l => Deposition(row, l)),
+            joining: static (law, row) => Law<ModalityPhysics.Joining>(law, row).Bind(l => Joining(row, l)),
+            erosion: static (law, row) => Law<ModalityPhysics.Erosion>(law, row).Bind(l => Head(row.Head).Bind(head => Erosion(row, head, l))),
+            resin: static (law, row) => Law<ModalityPhysics.Resin>(law, row).Map(l => Resin(row, l)),
+            powder: static (law, row) => Law<ModalityPhysics.Powder>(law, row).Map(l => Powder(row, l)),
+            forming: static (law, row) => Law<ModalityPhysics.Forming>(law, row).Map(l => Formed(row, l)))
         select budget;
 
-    public static Fin<PhysicsAdmission> Admit(PhysicsIngress ingress) =>
-        ingress.Switch(
-            keys: static input =>
-                (AdmitKey<ProcessKind>(input.Process),
-                 AdmitKey<Material>(input.Material),
-                 AdmitKey<Operation>(input.Operation))
-                    .Apply(static (process, material, operation) =>
-                        (PhysicsAdmission)new PhysicsAdmission.Keys(process, material, operation))
-                    .As().ToFin(),
-            quantity: static input => input.Kind.Admit(input.Text)
-                .Map(value => (PhysicsAdmission)new PhysicsAdmission.Quantity(input.Kind, value)));
+    public static Fin<PhysicsAdmission> Admit(PhysicsIngress ingress) => ingress.Switch(
+        keys: static input =>
+            (Admission.Of<ProcessKind, string>(input.Process).ToValidation(),
+             Admission.Of<Material, string>(input.Material).ToValidation(),
+             Admission.Of<Operation, string>(input.Operation).ToValidation())
+                .Apply(static (process, material, operation) =>
+                    (PhysicsAdmission)new PhysicsAdmission.Keys(process, material, operation))
+                .As().ToFin(),
+        quantity: static input => input.Kind.Parse(input.Text)
+            .Map(value => (PhysicsAdmission)new PhysicsAdmission.Quantity(input.Kind, value)));
 
-    private static K<Validation<Error>, TAxis> AdmitKey<TAxis>(string key)
-        where TAxis : class, IObjectFactory<TAxis, string, ValidationError> =>
-        ProcessFamily.Admit<TAxis>(key).ToValidation();
+    private static Fin<TLaw> Law<TLaw>(ModalityPhysics physics, PhysicsRequest request)
+        where TLaw : ModalityPhysics =>
+        physics is TLaw typed
+            ? Fin.Succ(typed)
+            : Fin.Fail<TLaw>(FabricationFault.Pairing(
+                new RelationFault.ProcessMaterial(request.Process, request.Material.Family)));
 
+    private static Fin<Tool.Head> Head(EquipmentEnvelope envelope) =>
+        envelope.Tool is Tool.Head head
+            ? Fin.Succ(head)
+            : Fin.Fail<Tool.Head>(FabricationFault.Equipment(new EquipmentWitness.Geometry(envelope.Tool, nameof(Tool.Head))));
+
+    // The tool FORM alone selects the arm; `Tool.Admits(Operation)` already proved the operation family and its
+    // feed law belong to that form, so no process-versus-tool ladder repeats the correspondence here.
     private static Fin<ProcessBudget> Subtractive(PhysicsRequest.Subtractive input, ModalityPhysics.Subtractive law) =>
-        from budget in (input.Assembly.Tool, input.Process) switch {
-            (Tool.Rotary tool, var process) when process != ProcessKind.Grind && process != ProcessKind.Saw && process != ProcessKind.Turn =>
-                input.Operation.Feed switch {
-                    FeedLaw.Chip feed => Rotary(input, law, tool, feed.PerTooth),
-                    FeedLaw.Pitch feed => Rotary(input, law, tool, feed.MillimetersPerRevolution / Math.Max(tool.Flutes, 1)),
-                    _ => Invalid(input.Operation, tool),
-                },
-            (Tool.Wheel tool, ProcessKind process) when process == ProcessKind.Grind && input.Operation.Feed is FeedLaw.SurfaceRatio ratio =>
-                Wheel(input, law, tool, ratio.Fraction),
-            (Tool.SawBlade tool, ProcessKind process) when process == ProcessKind.Saw && input.Operation.Feed is FeedLaw.Chip chip =>
-                Saw(input, law, tool, chip.PerTooth),
-            (Tool.Turning tool, ProcessKind process) when process == ProcessKind.Turn =>
-                input.Operation.Feed switch {
-                    FeedLaw.PerRevolution feed => Turn(input, law, tool, feed.Millimeters),
-                    FeedLaw.Pitch feed => Turn(input, law, tool, feed.MillimetersPerRevolution),
-                    _ => Invalid(input.Operation, tool),
-                },
-            var (tool, _) => Invalid(input.Operation, tool),
-        }
-        select budget;
+        !input.Assembly.Tool.Admits(input.Operation)
+            ? Invalid(input.Operation, input.Assembly.Tool)
+            : input.Assembly.Tool.Switch(
+                state: (Input: input, Law: law),
+                rotary: static (s, tool) => Rotary(s.Input, s.Law, tool),
+                wheel: static (s, tool) => Wheel(s.Input, s.Law, tool),
+                sawBlade: static (s, tool) => Saw(s.Input, s.Law, tool),
+                turning: static (s, tool) => Turn(s.Input, s.Law, tool),
+                head: static (s, tool) => Invalid(s.Input.Operation, tool));
 
-    private static Fin<ProcessBudget> Rotary(PhysicsRequest.Subtractive input, ModalityPhysics.Subtractive law, Tool.Rotary tool, double perTooth) {
+    // Feed per tooth over any feed law a rotary form admits: a pitch spreads across the flute count, a chip load
+    // is already per tooth. The correspondence is proved upstream, so an unreachable law reads as zero engagement.
+    private static double PerTooth(FeedLaw feed, int flutes) => feed switch {
+        FeedLaw.Chip row => row.PerTooth,
+        FeedLaw.Pitch row => row.MillimetersPerRevolution / Math.Max(flutes, 1),
+        _ => 0.0,
+    };
+
+    private static Fin<ProcessBudget> Rotary(PhysicsRequest.Subtractive input, ModalityPhysics.Subtractive law, Tool.Rotary tool) {
         ConstitutiveState state = input.State;
+        MechanicalDatum datum = input.Material.Mechanical;
+        double perTooth = PerTooth(input.Operation.Feed, tool.Flutes);
         double width = Math.Min(input.Operation.Engagement * tool.Diameter, tool.Diameter);
-        CoolantResponse coolant = CoolantResponse.For(input.Delivery);
-        double evacuation = input.Operation.Engagement >= 1.0 ? coolant.Evacuation : 1.0;
-        double depth = Math.Min(input.Operation.Axial * tool.Diameter, tool.DepthCeiling * evacuation);
+        double evacuation = input.Operation.Engagement >= 1.0 ? input.Delivery.Evacuation : 1.0;
+        double depth = Capped(input.Operation.Axial * tool.Diameter, tool.DepthCeiling.Map(limit => limit * evacuation));
         // Radial chip thinning: below half-diameter engagement the arc shortens the actual chip, so the
         // programmed per-tooth load must rise to hold the intended chip thickness.
         double thinning = width < tool.Diameter * 0.5 && width > 0.0
             ? tool.Diameter / (2.0 * Math.Sqrt(width * (tool.Diameter - width)))
             : 1.0;
-        double surfaceSpeed = law.SurfaceSpeed.At(state) * tool.Surface.SpeedFactor * coolant.SpeedFactor;
+        double surfaceSpeed = law.SurfaceSpeed.At(state) * tool.Surface.SpeedFactor
+            * input.Delivery.SpeedFactor * datum.MachinabilityIndex;
         double specificForce = law.SpecificCuttingForce.At(state);
         return
             from spindleBound in Bound(PhysicsQuantity.Spindle, input.Assembly.Spindle, tool.SpindleCeiling,
-                surfaceSpeed * 1000.0 / (Math.PI * tool.Diameter))
+                SurfaceSpeed.Rpm(surfaceSpeed, tool.Diameter))
             let spindle = spindleBound.Resolved
-            from feedBound in Bound(PhysicsQuantity.Feed, input.Assembly.Feed, double.PositiveInfinity,
+            from feedBound in Bound(PhysicsQuantity.Feed, input.Assembly.Feed, None,
                 spindle * perTooth * thinning * tool.Flutes)
             let feed = feedBound.Resolved
             let chipLoad = perTooth * thinning + tool.Runout
@@ -1145,58 +1159,72 @@ public static class ProcessPhysics {
             let axial = tangential * Math.Tan(tool.HelixAngle * Math.PI / 180.0)
             let inertia = Math.PI * Math.Pow(tool.Diameter, 4.0) / 64.0
             let stiffness = 3.0 * tool.ShankModulusMpa * inertia / Math.Pow(tool.Stickout, 3.0)
-            let deflection = tangential / stiffness
-            let stability = stiffness / Math.Max(specificForce * width, double.Epsilon)
             let power = tangential * feed / 60_000.0
             select (ProcessBudget)new ProcessBudget.Subtractive(
-                spindle, feed, depth, width, depth * width * feed, tangential, axial, thinning, deflection, stability,
-                Evidence(input, power, Traversal(power, input.PathLengthMm, feed), Arr(spindleBound, feedBound)));
+                spindle, feed, depth, width, depth * width * feed, tangential,
+                ToolLife(law, input, state, surfaceSpeed),
+                Some(new CutterMechanics(
+                    axial,
+                    thinning,
+                    tangential / stiffness,
+                    stiffness / Math.Max(specificForce * width, double.Epsilon),
+                    ZoneTemperature(specificForce, input.Material.Thermal, state),
+                    tool.Surface.InterfaceC)),
+                Evidence(input, law, power, Traversal(power, input.PathLengthMm, feed), Arr(spindleBound, feedBound)));
     }
 
-    private static Fin<ProcessBudget> Wheel(PhysicsRequest.Subtractive input, ModalityPhysics.Subtractive law, Tool.Wheel tool, double ratio) {
+    private static Fin<ProcessBudget> Wheel(PhysicsRequest.Subtractive input, ModalityPhysics.Subtractive law, Tool.Wheel tool) {
         ConstitutiveState state = input.State;
-        CoolantResponse coolant = CoolantResponse.For(input.Delivery);
         double width = input.Operation.Engagement * tool.Width;
-        double depth = Math.Min(input.Operation.Axial * tool.Width, tool.DepthCeiling);
+        double depth = Capped(input.Operation.Axial * tool.Width, tool.DepthCeiling);
         double specificForce = law.SpecificCuttingForce.At(state) * tool.SpecificEnergyFactor;
+        double surfaceSpeed = law.SurfaceSpeed.At(state) * input.Delivery.SpeedFactor;
         return
             from spindleBound in Bound(PhysicsQuantity.Spindle, input.Assembly.Spindle, tool.SpindleCeiling,
-                law.SurfaceSpeed.At(state) * coolant.SpeedFactor * 1000.0 / (Math.PI * tool.Diameter))
+                SurfaceSpeed.Rpm(surfaceSpeed, tool.Diameter))
             let spindle = spindleBound.Resolved
-            from feedBound in Bound(PhysicsQuantity.Feed, input.Assembly.Feed, double.PositiveInfinity, spindle * ratio)
+            from feedBound in Bound(PhysicsQuantity.Feed, input.Assembly.Feed, None,
+                spindle * ((FeedLaw.SurfaceRatio)input.Operation.Feed).Fraction)
             let feed = feedBound.Resolved
             let tangential = specificForce * depth * width
             let power = tangential * feed / 60_000.0
             select (ProcessBudget)new ProcessBudget.Subtractive(
-                spindle, feed, depth, width, depth * width * feed, tangential, 0.0, 1.0, 0.0, tool.DepthCeiling,
-                Evidence(input, power, Traversal(power, input.PathLengthMm, feed), Arr(spindleBound, feedBound)));
+                spindle, feed, depth, width, depth * width * feed, tangential,
+                ToolLife(law, input, state, surfaceSpeed), None,
+                Evidence(input, law, power, Traversal(power, input.PathLengthMm, feed), Arr(spindleBound, feedBound)));
     }
 
-    private static Fin<ProcessBudget> Saw(PhysicsRequest.Subtractive input, ModalityPhysics.Subtractive law, Tool.SawBlade tool, double perTooth) {
+    private static Fin<ProcessBudget> Saw(PhysicsRequest.Subtractive input, ModalityPhysics.Subtractive law, Tool.SawBlade tool) {
         ConstitutiveState state = input.State;
-        CoolantResponse coolant = CoolantResponse.For(input.Delivery);
-        double depth = Math.Min(input.Operation.Axial * tool.Diameter, tool.DepthCeiling);
+        double depth = Capped(input.Operation.Axial * tool.Diameter, tool.DepthCeiling);
+        double surfaceSpeed = law.SurfaceSpeed.At(state) * input.Delivery.SpeedFactor;
         return
             from spindleBound in Bound(PhysicsQuantity.Spindle, input.Assembly.Spindle, tool.SpindleCeiling,
-                law.SurfaceSpeed.At(state) * coolant.SpeedFactor * 1000.0 / (Math.PI * tool.Diameter))
+                SurfaceSpeed.Rpm(surfaceSpeed, tool.Diameter))
             let spindle = spindleBound.Resolved
-            from feedBound in Bound(PhysicsQuantity.Feed, input.Assembly.Feed, double.PositiveInfinity,
-                spindle * perTooth * tool.Teeth)
+            from feedBound in Bound(PhysicsQuantity.Feed, input.Assembly.Feed, None,
+                spindle * PerTooth(input.Operation.Feed, 1) * tool.Teeth)
             let feed = feedBound.Resolved
             let tangential = law.SpecificCuttingForce.At(state) * depth * tool.Kerf
             let power = tangential * feed / 60_000.0
             select (ProcessBudget)new ProcessBudget.Subtractive(
-                spindle, feed, depth, tool.Kerf, depth * tool.Kerf * feed, tangential, 0.0, 1.0, 0.0, tool.DepthCeiling,
-                Evidence(input, power, Traversal(power, input.PathLengthMm, feed), Arr(spindleBound, feedBound)));
+                spindle, feed, depth, tool.Kerf, depth * tool.Kerf * feed, tangential,
+                ToolLife(law, input, state, surfaceSpeed), None,
+                Evidence(input, law, power, Traversal(power, input.PathLengthMm, feed), Arr(spindleBound, feedBound)));
     }
 
-    private static Fin<ProcessBudget> Turn(PhysicsRequest.Subtractive input, ModalityPhysics.Subtractive law, Tool.Turning tool, double feed) {
+    private static Fin<ProcessBudget> Turn(PhysicsRequest.Subtractive input, ModalityPhysics.Subtractive law, Tool.Turning tool) {
         ConstitutiveState state = input.State;
-        CoolantResponse coolant = CoolantResponse.For(input.Delivery);
-        double depth = Math.Min(input.Operation.Axial * tool.CuttingEdgeLength, tool.DepthCeiling);
-        double surfaceSpeed = law.SurfaceSpeed.At(state) * tool.Surface.SpeedFactor * coolant.SpeedFactor;
+        double depth = Capped(input.Operation.Axial * tool.CuttingEdgeLength, tool.DepthCeiling);
+        double surfaceSpeed = law.SurfaceSpeed.At(state) * tool.Surface.SpeedFactor
+            * input.Delivery.SpeedFactor * input.Material.Mechanical.MachinabilityIndex;
+        double feedPerRev = input.Operation.Feed switch {
+            FeedLaw.PerRevolution row => row.Millimeters,
+            FeedLaw.Pitch row => row.MillimetersPerRevolution,
+            _ => 0.0,
+        };
         return
-            from feedBound in Bound(PhysicsQuantity.Feed, input.Assembly.Feed, double.PositiveInfinity, feed)
+            from feedBound in Bound(PhysicsQuantity.Feed, input.Assembly.Feed, None, feedPerRev)
             let boundedFeed = feedBound.Resolved
             // ISO 3685: the undeformed chip thickness is the feed resolved onto the approach angle.
             let chip = boundedFeed * tool.ChipThicknessRatio
@@ -1204,58 +1232,57 @@ public static class ProcessPhysics {
             let power = tangential * surfaceSpeed / 60.0
             select (ProcessBudget)new ProcessBudget.Turning(
                 surfaceSpeed, boundedFeed, depth, tool.NoseRadius, chip, tangential,
-                Evidence(input, power, new BudgetEnergy.RadiusDependent(power, surfaceSpeed, boundedFeed),
-                    Arr(feedBound)));
+                ToolLife(law, input, state, surfaceSpeed),
+                Evidence(input, law, power, new BudgetEnergy.RadiusDependent(power, surfaceSpeed, boundedFeed), Arr(feedBound)));
     }
 
     private static Fin<ProcessBudget> Thermal(PhysicsRequest.Thermal input, Tool.Head head, ModalityPhysics.Thermal law) {
         ConstitutiveState state = input.State;
         double pierce = law.PierceTime.At(state);
         double power = law.Power.At(state);
-        return Bound(PhysicsQuantity.Feed, input.Head.Feed, double.PositiveInfinity, law.CutSpeed.At(state))
-            .Map(bound => {
-                double seconds = pierce + input.CutLengthMm / Math.Max(bound.Resolved, double.Epsilon) * 60.0;
-                return (ProcessBudget)new ProcessBudget.Thermal(
-                    pierce, Math.Max(head.Diameter, law.KerfWidth.At(state)), bound.Resolved,
-                    law.AssistPressure.At(state), law.HeatAffectedWidth.At(state),
-                    Evidence(input, power, Clock(power, seconds), Arr(bound)));
-            });
+        return Bound(PhysicsQuantity.Feed, input.Head.Feed, None, law.CutSpeed.At(state))
+            .Map(bound => (ProcessBudget)new ProcessBudget.Thermal(
+                pierce, Math.Max(head.Diameter, law.KerfWidth.At(state)), bound.Resolved,
+                law.AssistPressure.At(state), law.HeatAffectedWidth.At(state),
+                Evidence(input, law, power,
+                    Clock(power, pierce + Seconds(input.CutLengthMm, bound.Resolved)), Arr(bound))));
     }
 
     private static Fin<ProcessBudget> Abrasive(PhysicsRequest.Abrasive input, Tool.Head head, ModalityPhysics.Abrasive law) {
         ConstitutiveState state = input.State;
-        // Mixing-tube bore sets the kerf; taper is the entry-to-exit width ratio the law carries.
+        // Mixing-tube bore sets the kerf; taper is the entry-to-exit width ratio the law carries, scaled by the
+        // grade's own fracture toughness — a tougher material resists jet divergence and tapers less.
         double kerf = head.Diameter * 1.15;
-        return Bound(PhysicsQuantity.Feed, input.Head.Feed, double.PositiveInfinity, law.TraverseSpeed.At(state))
+        double taper = law.TaperRatio.At(state) / Math.Sqrt(input.Material.Mechanical.FractureToughnessMpaM);
+        return Bound(PhysicsQuantity.Feed, input.Head.Feed, None, law.TraverseSpeed.At(state))
             .Map(bound => {
                 // SpecificEnergy is joules per square millimetre of cut face, so power follows the face rate.
                 double power = law.SpecificEnergy.At(state) * kerf * bound.Resolved / 60.0;
-                double seconds = input.CutLengthMm / Math.Max(bound.Resolved, double.Epsilon) * 60.0;
                 return (ProcessBudget)new ProcessBudget.Abrasive(
                     law.JetPressure.At(state), law.AbrasiveRate.At(state), bound.Resolved,
-                    head.Diameter, kerf, law.TaperRatio.At(state),
-                    Evidence(input, power, Clock(power, seconds), Arr(bound)));
+                    head.Diameter, kerf, taper,
+                    Evidence(input, law, power, Clock(power, Seconds(input.CutLengthMm, bound.Resolved)), Arr(bound)));
             });
     }
 
     private static Fin<ProcessBudget> Fff(PhysicsRequest.Fff input, Tool.Head head, ModalityPhysics.Fff law) {
         ConstitutiveState state = input.State;
         double power = law.Power.At(state);
-        return Bound(PhysicsQuantity.Feed, input.Head.Feed, double.PositiveInfinity, law.PrintSpeed.At(state))
+        return Bound(PhysicsQuantity.Feed, input.Head.Feed, None, law.PrintSpeed.At(state))
             .Map(bound => (ProcessBudget)new ProcessBudget.Fff(
                 Math.Max(head.Diameter, law.ExtrusionWidth.At(state)), law.LayerHeight.At(state), bound.Resolved,
                 law.MeltTemp.At(state), law.BondWindow.At(state),
-                Evidence(input, power, Traversal(power, input.PathLengthMm, bound.Resolved), Arr(bound))));
+                Evidence(input, law, power, Traversal(power, input.PathLengthMm, bound.Resolved), Arr(bound))));
     }
 
     private static Fin<ProcessBudget> Deposition(PhysicsRequest.Deposition input, ModalityPhysics.Deposition law) {
         ConstitutiveState state = input.State;
         double power = law.Power.At(state);
-        return Bound(PhysicsQuantity.Feed, input.Head.Feed, double.PositiveInfinity, law.TravelSpeed.At(state))
+        return Bound(PhysicsQuantity.Feed, input.Head.Feed, None, law.TravelSpeed.At(state))
             .Map(bound => (ProcessBudget)new ProcessBudget.Deposition(
                 power, law.WireFeedRate.At(state), bound.Resolved, law.Standoff.At(state),
                 law.InterpassTemp.At(state), law.DilutionRatio.At(state),
-                Evidence(input, power, Traversal(power, input.PathLengthMm, bound.Resolved), Arr(bound))));
+                Evidence(input, law, power, Traversal(power, input.PathLengthMm, bound.Resolved), Arr(bound))));
     }
 
     private static Fin<ProcessBudget> Joining(PhysicsRequest.Joining input, ModalityPhysics.Joining law) {
@@ -1264,14 +1291,14 @@ public static class ProcessPhysics {
         double voltage = law.Voltage.At(state);
         double efficiency = law.ArcEfficiency.At(state);
         double power = current * voltage;
-        return Bound(PhysicsQuantity.Feed, input.Head.Feed, double.PositiveInfinity, law.TravelSpeed.At(state))
+        return Bound(PhysicsQuantity.Feed, input.Head.Feed, None, law.TravelSpeed.At(state))
             .Map(bound => {
                 // ISO/TR 18491 arc energy is kJ per millimetre of seam at the resolved travel speed.
                 double heatInput = power * efficiency * 60.0 / Math.Max(bound.Resolved, double.Epsilon) / 1000.0;
                 return (ProcessBudget)new ProcessBudget.Joining(
                     current, voltage, law.WireFeedRate.At(state), bound.Resolved,
                     law.Standoff.At(state), law.InterpassTemp.At(state), heatInput,
-                    Evidence(input, power, Traversal(power, input.SeamLengthMm, bound.Resolved), Arr(bound)));
+                    Evidence(input, law, power, Traversal(power, input.SeamLengthMm, bound.Resolved), Arr(bound)));
             });
     }
 
@@ -1281,17 +1308,13 @@ public static class ProcessPhysics {
         double gap = law.GapVoltage.At(state);
         double pulseOn = law.PulseOn.At(state);
         double pulseOff = law.PulseOff.At(state);
-        double duty = pulseOn / (pulseOn + pulseOff);
         // Discharge power is the gap voltage across the discharge current, gated by the pulse duty ratio.
-        double power = gap * current * duty;
+        double power = gap * current * (pulseOn / (pulseOn + pulseOff));
         double overburn = law.OverburnRatio.At(state);
-        return Bound(PhysicsQuantity.Feed, input.Head.Feed, double.PositiveInfinity, law.WireFeed.At(state))
-            .Map(bound => {
-                double seconds = input.PathLengthMm / Math.Max(bound.Resolved, double.Epsilon) * 60.0;
-                return (ProcessBudget)new ProcessBudget.Erosion(
-                    current, gap, pulseOn, pulseOff, bound.Resolved, head.Diameter + 2.0 * overburn,
-                    Evidence(input, power, Clock(power, seconds), Arr(bound)));
-            });
+        return Bound(PhysicsQuantity.Feed, input.Head.Feed, None, law.WireFeed.At(state))
+            .Map(bound => (ProcessBudget)new ProcessBudget.Erosion(
+                current, gap, pulseOn, pulseOff, bound.Resolved, head.Diameter + 2.0 * overburn,
+                Evidence(input, law, power, Clock(power, Seconds(input.PathLengthMm, bound.Resolved)), Arr(bound))));
     }
 
     private static ProcessBudget Resin(PhysicsRequest.Resin input, ModalityPhysics.Resin law) {
@@ -1300,7 +1323,7 @@ public static class ProcessPhysics {
         double power = law.Power.At(state);
         return new ProcessBudget.Resin(
             exposure, law.CureDepth.At(state), law.LiftHeight.At(state),
-            Evidence(input, power, Clock(power, exposure), Arr<RangeReceipt>.Empty));
+            Evidence(input, law, power, Clock(power, exposure), Arr<RangeReceipt>.Empty));
     }
 
     private static ProcessBudget Powder(PhysicsRequest.Powder input, ModalityPhysics.Powder law) {
@@ -1311,59 +1334,121 @@ public static class ProcessPhysics {
         double layer = law.LayerThickness.At(state);
         // Volumetric energy density is the LPBF process window's governing scalar; scan speed is per second here.
         double density = power / Math.Max(speed / 60.0 * hatch * layer, double.Epsilon);
-        double seconds = input.LayerAreaMm2 / Math.Max(hatch, double.Epsilon) / Math.Max(speed, double.Epsilon) * 60.0;
+        // The scan clock is the swept LENGTH over the scan rate: a layer's area divided by its hatch spacing IS
+        // that length, so the one traversal owner closes it with no second inline division.
+        double seconds = Seconds(input.LayerAreaMm2 / Math.Max(hatch, double.Epsilon), speed);
         return new ProcessBudget.Powder(
-            power, hatch, speed, layer, density, Evidence(input, power, Clock(power, seconds), Arr<RangeReceipt>.Empty));
+            power, hatch, speed, layer, density,
+            Evidence(input, law, power, Clock(power, seconds), Arr<RangeReceipt>.Empty));
     }
 
     private static ProcessBudget Formed(PhysicsRequest.Forming input, ModalityPhysics.Forming law) {
         ConstitutiveState state = input.State;
-        double flow = law.FlowStress.At(state);
-        double hardening = law.StrainHardening.At(state);
+        MechanicalDatum datum = input.Material.Mechanical;
+        // The mounted flow-stress law scales the grade's own Hollomon response at the evaluated plastic strain,
+        // so the preset carries the family shape and the certificate carries the grade's K and n.
+        double flow = law.FlowStress.At(state) * datum.FlowStressMpa(state.Strain) / datum.YieldStrengthMpa;
         double energy = flow * input.ThicknessMm * input.ThicknessMm * input.BendLengthMm / 1000.0;
         return new ProcessBudget.Formed(
-            input.Material.Mechanical.UltimateStrengthMpa, law.KFactor.At(state), law.SpringbackRatio.At(state),
-            law.MinBendRadiusFactor.At(state), flow, hardening * law.AnisotropyRatio.At(state),
-            Evidence(input, 0.0, new BudgetEnergy.PerStroke(energy), Arr<RangeReceipt>.Empty));
+            datum.UltimateStrengthMpa, law.KFactor.At(state), law.SpringbackRatio.At(state),
+            law.MinBendRadiusFactor.At(state), flow,
+            datum.LimitStrain * law.AnisotropyRatio.At(state) * law.StrainHardening.At(state),
+            Evidence(input, law, 0.0, new BudgetEnergy.PerStroke(energy), Arr<RangeReceipt>.Empty));
     }
+
+    // Taylor: VT^n = C, so life falls with the n-th root of the speed ratio against the law's own reference. The
+    // coating's wear factor and the coolant's life factor multiply the surviving minutes.
+    private static double ToolLife(
+        ModalityPhysics.Subtractive law,
+        PhysicsRequest.Subtractive input,
+        ConstitutiveState state,
+        double surfaceSpeed) {
+        double exponent = law.TaylorExponent.At(state);
+        double reference = law.SurfaceSpeed.At(state);
+        return Math.Pow(reference / Math.Max(surfaceSpeed, double.Epsilon), 1.0 / Math.Max(exponent, double.Epsilon))
+            / Math.Max(input.Assembly.Tool.Surface.WearFactor, double.Epsilon)
+            * input.Delivery.LifeFactor;
+    }
+
+    // Cutting-zone rise: the specific cutting energy per unit volume divided by the grade's volumetric heat
+    // capacity, seated on the evaluated state temperature. The coating's `InterfaceC` is what this is compared to.
+    private static double ZoneTemperature(double specificForceNMm2, ThermalDatum thermal, ConstitutiveState state) =>
+        state.TemperatureC + specificForceNMm2 / Math.Max(thermal.VolumetricHeatCapacityJMm3K, double.Epsilon) / 1000.0;
 
     private static Fin<RangeReceipt> Bound(
         PhysicsQuantity bound,
         ProcessRange range,
-        double ceiling,
+        Option<double> ceiling,
         double derived) {
         double selected = range.Resolve(derived);
-        double capped = Math.Min(selected, ceiling);
+        double capped = Capped(selected, ceiling);
         // A floor above the equipment ceiling is unsatisfiable, and the bound it breaches is the CEILING — naming
         // `capped` instead reports a floor above a value the floor may legitimately sit below, which the witness's
-        // own `RangeFloor` predicate reads as a contradiction. The minimum binds through the probe, so no absent
-        // floor reaches the witness as a self-equal pair the gate would refuse.
-        if (range.Minimum.Filter(minimum => minimum > ceiling) is { IsSome: true, Case: double floor })
-            return Fin.Fail<RangeReceipt>(FabricationFault.Equipment(
-                new EquipmentWitness.RangeFloor(bound, ceiling, floor)).ToError());
+        // own predicate reads as a contradiction. The minimum binds through the probe, so no absent floor reaches
+        // the witness as a self-equal pair the gate would refuse.
+        Option<(double Ceiling, double Floor)> unsatisfiable =
+            (ceiling, range.Minimum).Apply(static (limit, floor) => (Ceiling: limit, Floor: floor))
+                .Filter(static pair => pair.Floor > pair.Ceiling);
+        if (unsatisfiable.IsSome)
+            return unsatisfiable.Match(
+                Some: pair => Fin.Fail<RangeReceipt>(FabricationFault.Equipment(
+                    new EquipmentWitness.Range(bound, RangeSide.Floor, pair.Ceiling, pair.Floor))),
+                None: () => Fin.Succ(new RangeReceipt(bound, range, derived, capped, Arr<EquipmentWitness>.Empty)));
+
         double floored = range.Minimum.Map(min => Math.Max(min, capped)).IfNone(capped);
         double bounded = range.Maximum.Map(max => Math.Min(max, floored)).IfNone(floored);
         Arr<EquipmentWitness> witnesses =
-            (floored > capped ? Arr<EquipmentWitness>(new EquipmentWitness.RangeFloor(bound, capped, floored)) : Arr<EquipmentWitness>.Empty)
-            + (bounded < capped ? Arr<EquipmentWitness>(new EquipmentWitness.RangeCeiling(bound, capped, bounded)) : Arr<EquipmentWitness>.Empty);
+            (floored > capped ? Arr<EquipmentWitness>(new EquipmentWitness.Range(bound, RangeSide.Floor, capped, floored)) : Arr<EquipmentWitness>.Empty)
+            + (bounded < capped ? Arr<EquipmentWitness>(new EquipmentWitness.Range(bound, RangeSide.Ceiling, capped, bounded)) : Arr<EquipmentWitness>.Empty);
         return Fin.Succ(new RangeReceipt(bound, range, derived, bounded, witnesses));
     }
 
+    // The ONE ceiling fold. An absent ceiling is a bound the equipment never published, so the derived value passes
+    // through unchanged; every depth arm and the range bound read this rather than a sentinel maximum a `Math.Min`
+    // would silently treat as a measured limit.
+    private static double Capped(double derived, Option<double> ceiling) =>
+        ceiling.Map(limit => Math.Min(derived, limit)).IfNone(derived);
+
+    // The ONE traversal clock. Every extent-over-rate budget composes it; an inline division beside it is the
+    // deleted duplicate that lets one leg forget the minutes-to-seconds scale.
+    private static double Seconds(double extentMm, double rateMmPerMin) =>
+        extentMm / Math.Max(rateMmPerMin, double.Epsilon) * 60.0;
+
     private static BudgetEnergy Traversal(double powerW, double extentMm, double rateMmPerMin) =>
-        Clock(powerW, extentMm / Math.Max(rateMmPerMin, double.Epsilon) * 60.0);
+        Clock(powerW, Seconds(extentMm, rateMmPerMin));
 
     private static BudgetEnergy Clock(double powerW, double seconds) =>
         new BudgetEnergy.Resolved((Power.FromWatts(powerW) * Duration.FromSeconds(seconds)).Joules, seconds);
 
     private static BudgetEvidence Evidence(
         PhysicsRequest input,
+        ModalityPhysics law,
         double powerW,
         BudgetEnergy energy,
         Arr<RangeReceipt> ranges) =>
-        BudgetEvidence.Create(input.State, powerW, energy, input.Material, input.Equipment, ranges);
+        BudgetEvidence.Create(
+            input.State, powerW, energy, input.Material, input.Equipment, ranges, Saturated(law, input.State));
+
+    // Which axes read an EDGE factor. The law's own curves answer, so the receipt names the preset's coverage gap
+    // rather than publishing a clamped factor as a measured one.
+    private static Arr<ResponseAxis> Saturated(ModalityPhysics law, ConstitutiveState state) => law.Switch(
+        state: state,
+        subtractive: static (s, row) => Axes(s, row.SurfaceSpeed, row.SpecificCuttingForce, row.TaylorExponent),
+        thermal: static (s, row) => Axes(s, row.KerfWidth, row.PierceTime, row.AssistPressure, row.CutSpeed, row.Power, row.HeatAffectedWidth),
+        abrasive: static (s, row) => Axes(s, row.JetPressure, row.AbrasiveRate, row.TraverseSpeed, row.SpecificEnergy, row.TaperRatio),
+        fff: static (s, row) => Axes(s, row.MeltTemp, row.BondWindow, row.ExtrusionWidth, row.LayerHeight, row.PrintSpeed, row.Power),
+        deposition: static (s, row) => Axes(s, row.Power, row.WireFeedRate, row.TravelSpeed, row.Standoff, row.InterpassTemp, row.DilutionRatio),
+        joining: static (s, row) => Axes(s, row.Current, row.Voltage, row.WireFeedRate, row.TravelSpeed, row.Standoff, row.InterpassTemp, row.ArcEfficiency),
+        erosion: static (s, row) => Axes(s, row.DischargeCurrent, row.GapVoltage, row.PulseOn, row.PulseOff, row.WireFeed, row.OverburnRatio),
+        resin: static (s, row) => Axes(s, row.Exposure, row.CureDepth, row.LiftHeight, row.Power),
+        powder: static (s, row) => Axes(s, row.LaserPower, row.HatchSpacing, row.ScanSpeed, row.LayerThickness),
+        forming: static (s, row) => Axes(s, row.KFactor, row.SpringbackRatio, row.MinBendRadiusFactor, row.FlowStress, row.StrainHardening, row.AnisotropyRatio));
+
+    private static Arr<ResponseAxis> Axes(ConstitutiveState state, params ReadOnlySpan<ConstitutiveLaw> laws) =>
+        Iterable<ConstitutiveLaw>.FromSpan(laws).Bind(law => law.Saturated(state)).Distinct().ToArr();
 
     private static Fin<ProcessBudget> Invalid(Operation operation, Tool equipment) =>
-        Fin.Fail<ProcessBudget>(new FabricationFault.InadmissiblePair(new RelationFault.OperationEquipment(operation, equipment)));
+        Fin.Fail<ProcessBudget>(FabricationFault.Pairing(new RelationFault.OperationEquipment(operation, equipment)));
 }
 ```
 
@@ -1377,24 +1462,26 @@ config:
 ---
 flowchart LR
     accTitle: Constitutive physics and budget flow
-    accDescr: Material family baselines keyed by each law's own physics kind combine with the grade datum, constitutive state, equipment columns, and coolant delivery into one admitted request whose joint dispatch returns a process-specific budget carrying its clamp witnesses and energy closure.
-    Family["Material.Physics keyed by ModalityPhysics.Kind"] --> Spec["MaterialSpec.Admit"]
+    accDescr: Mounted family baselines keyed by each law's own physics kind combine with the grade datum, constitutive state, equipment columns, and coolant delivery into one admitted request whose case dispatch returns a process-specific budget carrying its clamp witnesses, saturated axes, and energy closure.
+    Registry["MaterialRegistry — mounted MaterialBaseline rows"] --> Spec["MaterialSpec.Admit — grade overrides over the baseline"]
     Grade["GradeIdentity + MechanicalDatum + ThermalDatum"] --> Spec
-    Spec --> Request["PhysicsRequest case — Kind + Extents"]
+    Spec --> Request["PhysicsRequest case — Kind + Extents + Equipment"]
     State["ConstitutiveState — temperature, hardness, strain, rate, moisture, grain"] --> Request
     Tool["EquipmentEnvelope range + Tool ceilings + Coating"] --> Request
-    Delivery["Coolant — speed, life, evacuation"] --> Request
-    Request --> Admit["PhysicsRequest.Admit — process family and extents"]
-    Admit --> Budget["ProcessPhysics.Budget — joint (request, law) dispatch"]
+    Delivery["CoolantDelivery — speed, life, evacuation"] --> Request
+    Request --> Admit["PhysicsRequest.Admit — process family, extents, mounted head"]
+    Admit --> Budget["ProcessPhysics.Budget — request case binds its own law"]
     Budget --> Bound["Bound — machine range against tool ceiling"]
     Bound --> Receipt["ProcessBudget + BudgetEvidence"]
-    Bound -->|floor or ceiling overrode the material| Clamped["EquipmentWitness.RangeFloor / RangeCeiling"]
+    Bound -->|floor or ceiling overrode the material| Clamped["EquipmentWitness.Range"]
     Clamped --> Receipt
     Budget --> Energy["BudgetEnergy — Resolved · RadiusDependent · PerStroke"]
     Energy --> Receipt
+    Budget --> Saturated["ResponseAxis rows read at a preset edge"]
+    Saturated --> Receipt
 ```
 
-## [03]-[RESEARCH]
+## [08]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.

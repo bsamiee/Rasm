@@ -216,7 +216,7 @@ public abstract partial record TextAnswer {
 
 ## [03]-[INTERPRETER]
 
-Document mutations run inside the document undo bracket. Object mutations group each store by object: attribute groups fold through one detached map and one `TableOp.Amend`, while geometry groups fold through one staged clone and one `TableOp.Replace`; no live `RhinoObject` or mutable string collection escapes.
+Document mutations run inside the document undo bracket over one seeded fold: `ReadDocument` censuses the string table once, each mutation advances the folded flat and section maps beside its delta, and one closing census proves the batch. Object mutations group each store by object: attribute groups fold through one detached map and one `TableOp.Amend`, while geometry groups fold through one staged clone and one `TableOp.Replace`; no live `RhinoObject` or mutable string collection escapes.
 
 Rhino's mutable text, clone, undo, and object-table calls form the platform-forced statement seam. Generated `Switch` dispatch retains operation, address, store, edit, and filter identity until each host call; search matches derive from set membership, so an unmatched object is structurally unspellable.
 
@@ -238,7 +238,7 @@ public static class Texts {
         Op? key = null) {
         Op op = key.OrDefault();
         return from owner in Optional(session).ToFin(Fail: op.MissingContext())
-               from request in Optional(operation).ToFin(Fail: op.InvalidInput())
+               from request in op.Need(operation)
                from active in Admit(request, op)
                from answer in active.Switch<(DocumentSession Session, Op Op), Fin<TextAnswer>>(
                 state: (owner, op),
@@ -251,6 +251,7 @@ public static class Texts {
                     use: document => read.ObjectIds
                         .Map(id => ReadObject(document, id, state.Op))
                         .Traverse(static value => value)
+                        .As()
                         .Map<TextAnswer>(static values => new TextAnswer.ObjectsCase(values)),
                     key: state.Op,
                     needs: SessionNeed.Read),
@@ -276,7 +277,7 @@ public static class Texts {
             .Map<TextOperation>(static admitted => new TextOperation.SearchCase(admitted)));
 
     private static Fin<TextMutationBatch> Admit(TextMutationBatch batch, Op op) =>
-        Optional(batch).ToFin(Fail: op.InvalidInput())
+        op.Need(batch)
             .Bind(active => active.Switch<Op, Fin<TextMutationBatch>>(
                 state: op,
                 documentCase: static (op, document) => Admit(
@@ -291,7 +292,7 @@ public static class Texts {
                     .Map<TextMutationBatch>(static mutations => new TextMutationBatch.ObjectsCase(mutations))));
 
     private static Fin<TextSearch> Admit(TextSearch search, Op op) =>
-        from source in Optional(search).ToFin(Fail: op.InvalidInput())
+        from source in op.Need(search)
         from key in op.AcceptValidated<TextKey>(source.Key.Value)
         from pattern in op.AcceptValidated<TextValue>(source.Pattern.Value)
         from policy in Admit(source.Policy, op)
@@ -299,7 +300,7 @@ public static class Texts {
         select new TextSearch(key, pattern, policy, filter);
 
     private static Fin<TextSearchPolicy> Admit(TextSearchPolicy policy, Op op) =>
-        from source in Optional(policy).ToFin(Fail: op.InvalidInput())
+        from source in op.Need(policy)
         from _stores in guard(source.Stores.ForAll(static store => store is not null), op.InvalidInput()).ToFin()
         from admitted in op.AcceptValidated<TextSearchPolicy>(
             TextSearchPolicy.Validate(source.Stores, source.Comparison, out TextSearchPolicy? value),
@@ -307,7 +308,7 @@ public static class Texts {
         select admitted;
 
     private static Fin<TextObjectFilter> Admit(TextObjectFilter filter, Op op) =>
-        Optional(filter).ToFin(Fail: op.InvalidInput())
+        op.Need(filter)
             .Bind(active => active.Switch<Op, Fin<TextObjectFilter>>(
                 state: op,
                 kindsCase: static (_, kinds) => Fin.Succ<TextObjectFilter>(new TextObjectFilter.KindsCase(kinds.Kinds)),
@@ -316,31 +317,31 @@ public static class Texts {
                     .Map<TextObjectFilter>(static settings => new TextObjectFilter.EnumeratorCase(settings))));
 
     private static Fin<TextMutation> Admit(TextMutation mutation, Op op) =>
-        from source in Optional(mutation).ToFin(Fail: op.InvalidInput())
+        from source in op.Need(mutation)
         from address in Admit(source.Address, op)
         from edit in Admit(source.Edit, op)
         select new TextMutation(address, edit);
 
     private static Fin<TextAddress> Admit(TextAddress address, Op op) =>
-        Optional(address).ToFin(Fail: op.InvalidInput())
+        op.Need(address)
             .Bind(active => active.Switch<Op, Fin<TextAddress>>(
                 state: op,
                 documentKeyCase: static (op, document) => op.AcceptValidated<TextKey>(document.Key.Value)
                     .Map<TextAddress>(static key => new TextAddress.DocumentKeyCase(key)),
                 documentSectionCase: static (op, document) =>
-                    from source in Optional(document.Address).ToFin(Fail: op.InvalidInput())
+                    from source in op.Need(document.Address)
                     from section in op.AcceptValidated<TextSection>(
                         TextSection.Validate(source.Section, source.Entry, out TextSection? value),
                         value)
                     select (TextAddress)new TextAddress.DocumentSectionCase(section),
                 objectCase: static (op, value) =>
                     from _id in guard(value.ObjectId != Guid.Empty, op.InvalidInput()).ToFin()
-                    from store in Optional(value.Store).ToFin(Fail: op.InvalidInput())
+                    from store in op.Need(value.Store)
                     from key in op.AcceptValidated<TextKey>(value.Key.Value)
                     select (TextAddress)new TextAddress.ObjectCase(value.ObjectId, store, key)));
 
     private static Fin<TextEdit> Admit(TextEdit edit, Op op) =>
-        Optional(edit).ToFin(Fail: op.InvalidInput())
+        op.Need(edit)
             .Bind(active => active.Switch<Op, Fin<TextEdit>>(
                 state: op,
                 setCase: static (op, write) => op.AcceptValidated<TextValue>(write.Value.Value)
@@ -364,6 +365,11 @@ public static class Texts {
             from changes in CommitObjectPlans(state.Session, plans, state.Op)
             select (TextAnswer)new TextAnswer.MutationCase(new TextMutationReceipt(changes)));
 
+    private sealed record DocumentTextFold(
+        HashMap<TextKey, TextValue> Flat,
+        HashMap<TextSection, TextValue> Sections,
+        Seq<TextDelta> Evidence);
+
     private static Fin<Seq<TextDelta>> MutateDocuments(
         RhinoDoc document,
         Seq<TextMutation> mutations,
@@ -373,9 +379,21 @@ public static class Texts {
             name: nameof(Commit),
             recordsUndo: true,
             redraw: RedrawPolicy.None,
-            run: () => mutations
-                .Map(mutation => MutateDocument(document, mutation, op))
-                .Traverse(static change => change),
+            // ONE host census seeds the batch and ONE closes it. A per-probe prior read walked `Strings.Count`
+            // calling `GetKey(index)`, so every mutation cost a full table scan and every batch cost two per
+            // mutation; the seeded maps ARE the document's text state, each applied mutation advances them, and the
+            // next mutation reads its prior from the fold. The closing census proves the whole batch at once —
+            // strictly stronger than the per-mutation re-read it replaces, which proved only the last write.
+            run: () =>
+                from seed in ReadDocument(document, op)
+                from folded in mutations.Fold(
+                    Fin.Succ(value: new DocumentTextFold(seed.Flat, seed.Sections, Seq<TextDelta>())),
+                    (state, mutation) => state.Bind(fold => MutateDocument(document, fold, mutation, op)))
+                from settled in ReadDocument(document, op)
+                from _proof in guard(
+                    settled.Flat == folded.Flat && settled.Sections == folded.Sections,
+                    op.InvalidResult(detail: "Document text postcondition failed.")).ToFin()
+                select folded.Evidence,
             stamp: static (changes, _) => changes,
             op: op);
 
@@ -384,18 +402,18 @@ public static class Texts {
         Seq<TextMutation> mutations,
         Op op) =>
         from attributeGroups in ObjectGroups(mutations, static store => store.SearchRoute.Attributes, op)
-        from attributes in attributeGroups.OrderBy(static group => group.Key)
-            .Map(group => op.Catch(() => Optional(document.Objects.FindId(group.Key))
-                .ToFin(Fail: op.InvalidResult(detail: $"Object '{group.Key}' does not exist.")))
-                .Bind(value => PlanAttributes(value, group.Value, op)))
+        from attributes in toSeq(attributeGroups.AsIterable().OrderBy(static group => group.Key)
+                .Select(group => op.Catch(() => Optional(document.Objects.FindId(group.Key))
+                    .ToFin(Fail: op.InvalidResult(detail: $"Object '{group.Key}' does not exist.")))
+                    .Bind(value => PlanAttributes(value, group.Value, op))))
             .Traverse(static plan => plan)
         from geometryGroups in ObjectGroups(mutations, static store => store.SearchRoute.Geometry, op)
-        from geometry in geometryGroups.OrderBy(static group => group.Key)
-            .Map(group => op.Catch(() => Optional(document.Objects.FindId(group.Key))
-                .ToFin(Fail: op.InvalidResult(detail: $"Object '{group.Key}' does not exist.")))
-                .Bind(value => PlanGeometry(value, group.Value, op)))
+        from geometry in toSeq(geometryGroups.AsIterable().OrderBy(static group => group.Key)
+                .Select(group => op.Catch(() => Optional(document.Objects.FindId(group.Key))
+                    .ToFin(Fail: op.InvalidResult(detail: $"Object '{group.Key}' does not exist.")))
+                    .Bind(value => PlanGeometry(value, group.Value, op))))
             .Traverse(static plan => plan)
-        select attributes.Concat(geometry).ToSeq();
+        select attributes.Concat(geometry);
 
     private static Fin<HashMap<Guid, Seq<TextMutation>>> ObjectGroups(
         Seq<TextMutation> mutations,
@@ -425,45 +443,57 @@ public static class Texts {
         from _owner in guard(admitted.ForAll(mutation => belongs(mutation.Address)), op.InvalidInput()).ToFin()
         select admitted;
 
-    private static Fin<TextDelta> MutateDocument(RhinoDoc document, TextMutation mutation, Op op) =>
-        mutation.Address.Switch<(RhinoDoc Document, TextMutation Mutation, Op Op), Fin<TextDelta>>(
-            state: (document, mutation, op),
+    private static Fin<DocumentTextFold> MutateDocument(
+        RhinoDoc document,
+        DocumentTextFold fold,
+        TextMutation mutation,
+        Op op) =>
+        mutation.Address.Switch<
+            (RhinoDoc Document, DocumentTextFold Fold, TextMutation Mutation, Op Op),
+            Fin<DocumentTextFold>>(
+            state: (document, fold, mutation, op),
             documentKeyCase: static (state, key) => ApplyDocument(
-                state.Mutation,
-                () => ReadFlat(state.Document, key.Key, state.Op),
-                value => state.Document.Strings.SetString(key.Key.Value, value),
-                () => state.Document.Strings.Delete(key.Key.Value),
-                state.Op),
+                    state.Mutation,
+                    state.Fold.Flat.Find(key.Key),
+                    value => state.Document.Strings.SetString(key.Key.Value, value),
+                    () => state.Document.Strings.Delete(key.Key.Value),
+                    state.Op)
+                .Map(delta => state.Fold with {
+                    Flat = delta.Current.Match(
+                        Some: value => state.Fold.Flat.AddOrUpdate(key.Key, value),
+                        None: () => state.Fold.Flat.Remove(key.Key)),
+                    Evidence = state.Fold.Evidence.Add(delta),
+                }),
             documentSectionCase: static (state, section) => ApplyDocument(
-                state.Mutation,
-                () => ReadSection(state.Document, section.Address, state.Op),
-                value => state.Document.Strings.SetString(section.Address.Section, section.Address.Entry, value),
-                () => state.Document.Strings.Delete(section.Address.Section, section.Address.Entry),
-                state.Op),
-            objectCase: static (state, _) => Fin.Fail<TextDelta>(state.Op.InvalidInput()));
+                    state.Mutation,
+                    state.Fold.Sections.Find(section.Address),
+                    value => state.Document.Strings.SetString(section.Address.Section, section.Address.Entry, value),
+                    () => state.Document.Strings.Delete(section.Address.Section, section.Address.Entry),
+                    state.Op)
+                .Map(delta => state.Fold with {
+                    Sections = delta.Current.Match(
+                        Some: value => state.Fold.Sections.AddOrUpdate(section.Address, value),
+                        None: () => state.Fold.Sections.Remove(section.Address)),
+                    Evidence = state.Fold.Evidence.Add(delta),
+                }),
+            objectCase: static (state, _) => Fin.Fail<DocumentTextFold>(state.Op.InvalidInput()));
 
     private static Fin<TextDelta> ApplyDocument(
         TextMutation mutation,
-        Func<Fin<Option<TextValue>>> read,
+        Option<TextValue> prior,
         Func<string, string> set,
         Action delete,
         Op op) =>
-        from prior in op.Catch(read)
-        let expected = mutation.Edit.Result
-        from applied in op.Catch(() => mutation.Edit.Switch<Unit>(
-            setCase: write => {
-                _ = set(write.Value.Value);
-                return unit;
-            },
-            deleteCase: _ => {
-                delete();
-                return unit;
-            }))
-        from current in op.Catch(read)
-        from delta in current == expected
-            ? Fin.Succ(new TextDelta(mutation.Address, prior, current))
-            : Fin.Fail<TextDelta>(op.InvalidResult(detail: "Document text postcondition failed."))
-        select delta;
+        op.Catch(() => mutation.Edit.Switch<Unit>(
+                setCase: write => {
+                    _ = set(write.Value.Value);
+                    return unit;
+                },
+                deleteCase: _ => {
+                    delete();
+                    return unit;
+                }))
+            .Map(_ => new TextDelta(mutation.Address, prior, mutation.Edit.Result));
 
     private static Fin<(TableOp Operation, Seq<TextDelta> Evidence)> PlanAttributes(
         RhinoObject source,
@@ -556,11 +586,16 @@ public static class Texts {
             setCase: write => set(address.Key.Value, write.Value.Value),
             deleteCase: _ => delete(address.Key.Value))))
         from current in op.Catch(() => Value(get(address.Key.Value), op))
-        // The accepted branch verifies the STORED value against the intended one, exactly as the document rail does: a host
-        // write that returns true while storing something else is a silent divergence the receipt would otherwise publish.
-        from delta in (accepted && current == mutation.Edit.Result) || prior == current
+        // The STORED value is the whole verdict, exactly as the document rail's closing census is: a host `true` that
+        // wrote something else is a silent divergence, and a host `false` settles ONLY when the key already holds what
+        // the request asked for — deleting an absent key, or writing the value already there. A refusal that leaves an
+        // EFFECTIVE change unapplied is a typed failure; the prior/current pair it leaves identical proves the write
+        // never landed, never that the write was unnecessary.
+        from delta in current == mutation.Edit.Result
             ? Fin.Succ(new TextDelta(mutation.Address, prior, current))
-            : Fin.Fail<TextDelta>(op.InvalidResult(detail: $"Object text mutation '{address.Key.Value}' was rejected."))
+            : Fin.Fail<TextDelta>(op.InvalidResult(detail: accepted
+                ? $"Object text mutation '{address.Key.Value}' stored a value the request did not ask for."
+                : $"Object text mutation '{address.Key.Value}' was refused with the intended value unwritten."))
         select delta;
 
     private static Fin<TextAddress.ObjectCase> ObjectAddress(TextAddress address, Op op) =>
@@ -590,7 +625,8 @@ public static class Texts {
                                    Value: value))
                        select row;
             })
-            .Traverse(static row => row))
+            .Traverse(static row => row)
+            .As())
             .Bind(rows => rows.Fold(
                 Fin.Succ(value: (Flat: HashMap<TextKey, TextValue>(), Sections: HashMap<TextSection, TextValue>())),
                 (state, row) => state.Bind(maps => row.Flat.Match(
@@ -630,15 +666,14 @@ public static class Texts {
         from geometry in search.Policy.SearchRoute.Geometry
             ? Find(document, search, ObjectTextStore.Geometry, op)
             : Fin.Succ(HashSet<Guid>())
-        from matches in op.Catch(() => Fin.Succ(value: attributes.Union(geometry)
+        from matches in op.Catch(() => Fin.Succ(value: toSeq(attributes.Union(geometry)
             .OrderBy(static id => id)
-            .Map(id => TextMatch.Create(
+            .Select(id => TextMatch.Create(
                 id,
                 toSeq(ObjectTextStore.Items)
                     .Filter(store => (store.SearchRoute.Attributes && attributes.Contains(id))
                         || (store.SearchRoute.Geometry && geometry.Contains(id)))
-                    .ToHashSet()))
-            .ToSeq()))
+                    .ToHashSet())))))
         select matches;
 
     private static Fin<HashSet<Guid>> Find(
@@ -646,7 +681,7 @@ public static class Texts {
         TextSearch search,
         ObjectTextStore store,
         Op op) =>
-        from route in Optional(store).ToFin(Fail: op.InvalidInput()).Map(static active => active.SearchRoute)
+        from route in op.Need(store).Map(static active => active.SearchRoute)
         from values in op.Catch(() => Fin.Succ(value: search.Filter.Switch<(
                 RhinoDoc Document,
                 TextSearch Search,
@@ -661,18 +696,6 @@ public static class Texts {
         select Optional(values).IfNone(Array.Empty<RhinoObject>())
             .Map(static value => value.Id)
             .ToHashSet();
-
-    private static Fin<Option<TextValue>> ReadFlat(RhinoDoc document, TextKey key, Op op) =>
-        toSeq(Enumerable.Range(0, document.Strings.Count))
-            .Exists(index => string.Equals(document.Strings.GetKey(index), key.Value, StringComparison.Ordinal))
-            ? Value(document.Strings.GetValue(key.Value), op)
-            : Fin.Succ(value: Option<TextValue>.None);
-
-    private static Fin<Option<TextValue>> ReadSection(RhinoDoc document, TextSection address, Op op) =>
-        document.Strings.GetEntryNames(address.Section)
-            .Exists(entry => string.Equals(entry, address.Entry, StringComparison.Ordinal))
-            ? Value(document.Strings.GetValue(address.Section, address.Entry), op)
-            : Fin.Succ(value: Option<TextValue>.None);
 
     private static Fin<HashMap<TextKey, TextValue>> Freeze(Func<NameValueCollection> read, Op op) =>
         op.Catch(() => Fin.Succ(value: read())).Bind(source =>
@@ -700,7 +723,7 @@ public static class Texts {
 
 ## [04]-[LIFECYCLE]
 
-`TextOperation` admits once, `Texts.Commit` resolves one session, and the active case selects pure read, wildcard search, document undo, or object-table commit. Host-key folds reject canonical collisions before map insertion. Object plans admit complete evidence before `Tables.Commit`, and each attribute callback must reproduce its planned delta before host mutation. Mutation receipts derive from the same clones and native values sent to the host, and their counts include only prior/current transitions.
+`TextOperation` admits once, `Texts.Commit` resolves one session, and the active case selects pure read, wildcard search, document undo, or object-table commit. Host-key folds reject canonical collisions before map insertion. A document batch reads the string table twice regardless of length — once to seed the fold, once to settle it — and a divergence between the folded and settled maps fails the whole bracket. Object plans admit complete evidence before `Tables.Commit`, and each attribute callback must reproduce its planned delta before host mutation. Every object write settles on the stored value alone: a host acceptance that stored something else and a host refusal that left an intended change unwritten are both typed failures. Mutation receipts derive from the same clones and native values sent to the host, and their counts include only prior/current transitions.
 
 Search policy remains one value across admission and projects `SearchRoute` and `CaseSensitive` only inside `FindByUserString`. Store rows retain independent host routing, and each match carries the exact contributing row set.
 

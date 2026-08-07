@@ -219,8 +219,8 @@ public static class IconOwner {
                    glideCase: static (s, c) => Gate(icon: s.Icon, state: c.State, key: s.Key)
                        .Bind(_ => s.Key.Catch(body: () => Fin.Succ(Op.Side(action: () => s.Icon.MoveState(
                            c.Value, Named(state: c.State),
-                           c.Span.MatchUnsafe(Some: static span => (Duration?)span, None: static () => null),
-                           c.Curve.MatchUnsafe(Some: static curve => (Motion?)curve, None: static () => null))))))), key: op)
+                           c.Span.Match<Duration?>(Some: static span => span, None: static () => null),
+                           c.Curve.Match<Motion?>(Some: static curve => curve, None: static () => null))))))), key: op)
                select settled;
     }
 
@@ -272,7 +272,7 @@ public static class IconOwner {
                 values: notes.Errors.Map(static row => $"{row.Description} ({row.Line},{row.Column})"))));
 
     private static string? Named(Option<string> state) =>
-        state.MatchUnsafe(Some: static name => name, None: static () => null);
+        state.Match<string?>(Some: static name => name, None: static () => null);
 
     private static Fin<Unit> Gate(IIcon icon, Option<string> state, Op key) =>
         state.Match(

@@ -417,7 +417,7 @@ public static class View {
                     .Apply(new IntersectOp.SegmentTriangle(new Line(seed, camera.Eye), soup.V[soup.F[f].A], soup.V[soup.F[f].B], soup.V[soup.F[f].C], policy.Narrow), key)
                     .Map(static r => r is IntersectResult.Points p ? p.Hits.Count : 0))
                 .As()
-                .Map(static counts => counts.Sum()));
+                .Map(static counts => counts.Fold(0, static (total, count) => total + count)));
 
     // Each edge splits at its crossings, the count threads seed → +Delta, endpoints project ONCE
     // (the one rounding seam); hidden runs land only under emitHidden, the histogram folds every run.

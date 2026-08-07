@@ -42,7 +42,7 @@ Rasm.Materials/            # AEC-DOMAIN materials projector; refs {Rasm, Rasm.El
 │   ├── Press.cs           # Bake engine over the batched plane evaluator and its content-identity veto
 │   └── Gpu.cs             # Surfaceless bake device and the closed WGSL module table with its golden vectors
 ├── Properties/            # Typed engineering-property source lowered onto the seam property sets
-│   ├── Properties.cs      # Intrinsic mechanical, thermal, acoustic, and fire measurements
+│   ├── Properties.cs      # Intrinsic mechanical, thermal, acoustic, and fire measurements + the mix-keyed durability table
 │   ├── Sustainability.cs  # Lifecycle impact, unit-cost basis, and classification rows
 │   └── Assessment.cs      # Dated declaration records and the assessed-over-published resolution
 └── Projection/            # One IElementProjection onto the Rasm.Element seam + the observability, benchmark, and analytics projections
@@ -54,7 +54,7 @@ Rasm.Materials/            # AEC-DOMAIN materials projector; refs {Rasm, Rasm.El
 
 VividOrange grounds the structural section, capacity, and rebar data in-folder, never a hand-keyed literal; the per-page consumption law lives on the owning pages. Return type names the rail: a `SurfaceShade`/`Unicolour` carrier where the result is total, `Fin<T>` where a banded fault routes, the seam `Fin<GraphDelta>` from the projector.
 
-C# is the sole producer of the appearance wire vocabulary — `Appearance/Interchange` mints each document once as an `IAppearanceWire` whose `CorpusBorne` column states whether a `tests/contracts/MANIFEST.md` entry is owed, and the TypeScript and Python peers decode the corpus-borne pair. One wire crosses INBOUND: the python-minted `AssetSetManifest` lands at `Raster/Set` `SetIngest.Peer` as classification input, the `python:artifacts/graphic/texture` counterpart edge the artifacts branch registers at its own end.
+C# is the sole producer of the appearance wire vocabulary — `Appearance/Interchange` mints each document once as an `IAppearanceWire` whose `CorpusBorne` column states whether a `tests/contracts/MANIFEST.md` entry is owed, and the TypeScript and Python peers decode the corpus-borne pair. Two wires cross INBOUND: the python-minted `AssetSetManifest` lands at `Raster/Set` `SetIngest.Peer` as classification input (the `python:artifacts/graphic/texture` counterpart edge the artifacts branch registers at its own end), and the `python:data`-minted `DeclarationRecord` — the `tests/contracts/MANIFEST.md` `[02.26]` domain contract — lands at `Properties/Assessment` `DeclarationWire.Decode` as the product-declaration transport reaching `AssessmentSet.Of` unchanged.
 
 ## [02]-[STRATA]
 
@@ -138,6 +138,8 @@ flowchart LR
     Projection e3@-->|"[SHAPE]: DetailSchema"| Bim
     Component e4@<-->|"[SHAPE]: ProfileRef"| Element
     Component e5@-->|"[PORT]: IIfcTypeReconciler"| Bim
+    Bim e9@-->|"[SHAPE]: TypeCandidate"| Component
+    Bim e10@-->|"[SHAPE]: TextureRoster"| Appearance
     Properties e6@<-->|"[SHAPE]: MaterialPropertySet"| Element
     Appearance e7@-->|"[CONTENT_KEY]: AppearanceSummary"| Element
     Component e8@<-->|"[SHAPE]: DetailSchema"| Element
@@ -153,7 +155,7 @@ config:
 ---
 flowchart LR
     accTitle: Materials platform, compute, and cross-runtime seams
-    accDescr: Materials sub-domain owners exchanging capacity, property, appearance, capture, telemetry, benchmark, and analytics wires plus artifact content keys with the kernel almanac, compute, the app host spine, the persistence store plane, the render host, the Python data peer, and the TypeScript core and viewer peers, one edge per contract family labeled by kind.
+    accDescr: Materials sub-domain owners exchanging capacity, property, appearance, capture, telemetry, benchmark, and analytics wires plus artifact content keys with the kernel almanac, compute, the app host spine, the persistence store plane, the render host, the Python artifacts and runtime peers, and the TypeScript core and viewer peers, one edge per contract family labeled by kind.
     subgraph materials[RASM.MATERIALS]
         Component[Component families]
         Properties[Property source]
@@ -165,8 +167,8 @@ flowchart LR
     AppHost{{Rasm.AppHost}}
     AppUi([Rasm.AppUi])
     Persistence([Rasm.Persistence])
-    DataPeer([python:data])
     PyArtifacts([python:artifacts])
+    PyData([python:data])
     PyRuntime([python:runtime])
     Core([typescript:core])
     Ui([typescript:ui])
@@ -176,7 +178,6 @@ flowchart LR
     Rasm e19@-->|"[SHAPE]: SpectralArena"| Raster
     Component e1@-->|"[WIRE]: SectionCapacity"| Compute
     Properties e2@-->|"[WIRE]: MaterialPropertySet"| Compute
-    DataPeer e3@-->|"[WIRE]: Assessment"| Properties
     Appearance e11@-->|"[WIRE]: StageRequest"| Compute
     Compute e12@-->|"[WIRE]: StageResult"| Appearance
     Appearance e4@-->|"[BOUNDARY]: LayeredBsdf + SurfaceShade + EnvironmentLight + TextureSet"| AppUi
@@ -186,11 +187,12 @@ flowchart LR
     Appearance e15@-->|"[WIRE]: TextureSetWire"| PyRuntime
     Appearance e6@-->|"[WIRE]: OpenPbrGroupsWire"| Ui
     PyArtifacts e16@-->|"[WIRE]: AssetSetManifest"| Raster
+    PyData e20@-->|"[WIRE]: DeclarationRecord"| Properties
     Host e7@-->|"[WIRE]: CaptureSource"| Appearance
     Projection e8@-->|"[PORT]: TelemetryContributorPort"| AppHost
     Projection e9@-->|"[WIRE]: BenchmarkReceipt"| AppHost
     Projection e10@-->|"[WIRE]: AnalyticsSchema"| Persistence
-    Raster e17@-->|"[CONTENT_KEY]: ArtifactIndexRow"| Persistence
+    Raster e17@-->|"[CONTENT_KEY]: TextureSet"| Persistence
 ```
 
 ## [04]-[ROUTING]
@@ -217,6 +219,7 @@ flowchart LR
 |  [18]   | new bake subject or execution lane  | `Raster/press.md`           | one `PressSubject` case or one `PressBackend` row                 |
 |  [19]   | new photo-to-PBR capture modality   | `Appearance/acquisition.md` | one `CaptureSource` case and its `CaptureMethod` receipt row      |
 |  [20]   | new declaration modality or EPD row | `Properties/assessment.md`  | one `AssessmentRecord` case with its `Admit` and resolution arms  |
+|  [21]   | new durability binder or mix        | `Properties/properties.md`  | one `CementType` row plus its published `DurabilityMix` entries   |
 
 ## [05]-[BOUNDARIES]
 
@@ -230,10 +233,10 @@ Boundaries state one positive ownership line each at the folder's own grain — 
 - `SEED_ROW_LAW` seats standards data as in-fence C# under per-column provenance, and every seed row flows the one catalogue-to-solver rail.
 - `ComponentProjector.Project` stamps `Classification`/`PredefinedType` off its `IfcBinding` row, seed-excluded so a later attach never re-keys.
 - Model authors mint Occurrence `Object`s and `Rasm.Bim` ingests `IfcElementType` into the same Type; the `Bake` inheritance is the seam's.
+- `IIfcTypeReconciler` closes one loop: Bim's `ExportTypeCandidates` feeds `ComponentCatalogue.AdmitImported` by contract, never reference.
 - Model owners stay host-neutral: none holds a host curve or transform, and run and layout geometry lands in `Rasm.Generation` at the app root.
 - `Rasm.Element` owns material-composition vocabulary, the perceptual owner color, and UnitsNet admits once per declared edge riding `MeasureValue`.
 - Each concern composes its admitted engine, and a kernel the ecosystem leaves unowned lands hand-authored at its owning page.
 - Every out-of-gamut, non-finite, or degenerate result rails to its banded fault, never a propagated NaN or sentinel.
 - Composition-root decorators tap `MaterialsFact` onto `MaterialsHooks`, so owners emit nothing; `MaterialsDescriptors` rides the kernel SLO algebra.
-- The `e12` `StageResult` wire carries Compute's two measured columns whole — `ParityFresh` gates the `InferGolden` tap so memoized deltas never
-  count as observations, and `Coverage` is the mosaic acceptance floor; a re-freeze dropping either column re-opens the counted-but-unmeasured defect.
+- `e12` `StageResult` carries the `ParityFresh` observation gate and the `Coverage` mosaic floor whole; dropping either counts unmeasured.

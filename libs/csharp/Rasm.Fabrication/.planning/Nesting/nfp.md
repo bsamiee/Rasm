@@ -19,7 +19,8 @@
 - Cases: `PlacementConstraint` carries precedence, grouping, separation, adjacency, containment, stock eligibility, and keep-out facts, each occurrence carrying its own `ConstraintForce`.
 - Law: one `StockFacts` projection derives common body facts, and one `StockTraits` projection derives physicality, nestability, rectangular extent policy, gauge, and grain; a new modality answers remnant and stock consumers through one case arm.
 - Law: `ConstraintForce.Required` rejects a candidate and fails delivery; `ConstraintForce.Preferred` admits the candidate and rides `NestObjective` as weighted penalty.
-- Packages: `Rasm` supplies `Deterministic` (the ONE draw owner), `ChartAtlas`/`UvIsland.Boundary`, and the `Chain` loop carrier; the `Geometry2D` owner supplies morphology, Boolean, measure, and the cell diagram; `LanguageExt` supplies admission, traversal, and the `Fin` rail; `Thinktecture` supplies the generated stock, constraint, and mode families; `UnitsNet` supplies material quantities.
+- Law: six objective weights fan onto one comparable number and every term reaches it DIMENSIONLESS. `NestBasis` carries all three nondimensionalizers — the characteristic length the cut and shared-edge terms divide through, the currency reference the cost term does, and the violation ceiling the constraint term does — on the scoring INPUT, never on `NestEvidence`, because a derived reference on the carrier is a scoring input wearing an evidence column; the basis derives once per solve from the admitted inventory and policy and threads on `SearchState`.
+- Packages: `Rasm` supplies `Deterministic` (the ONE draw owner), `ChartAtlas`/`UvIsland.Boundary`, and the `Chain` loop carrier; the `Geometry2D` owner supplies morphology, Boolean, measure, and the cell diagram; `LanguageExt` supplies admission, traversal, and the `Fin` rail; `Thinktecture` supplies the generated stock, constraint, and mode families; `UnitsNet` supplies material quantities and the `Length` ratio the objective's characteristic-length nondimensionalization takes.
 - Growth: a stock modality, constraint, candidate source, objective, or search algorithm lands as one case or row consumed by the existing folds.
 
 ## [03]-[CONFIGURATION_SPACE]
@@ -30,7 +31,8 @@
 - Law: `PolygonAlgebra.Apply(new PolygonOp.Morphology(...))` proposes line-space candidates; `ArcAlgebra.Apply(new ArcOp.Inspect(...))` decides containment, exclusion, and collision on the original bulged loops.
 - Law: pair identity includes canonical loop geometry, tolerance, rotation, clearance, and chord error; inner-fit identity substitutes stock identity and edge allowance.
 - Law: collision envelopes carry half the combined clearance and kerf; stock-boundary feasibility adds edge allowance without weakening part-part or exclusion checks.
-- Law: `PairMemo` content-keys the pair matrix under the same `PairTable.Key` identities through the branch `HybridCache` surface — the runtime-carried instance is the in-process tier, a durable L2 federates at the Persistence cache seam, hit and miss counts settle on `NestEvidence` and fire as the engine memo rows, and a failed build throws through the awaited factory so a fault never caches; the runtime cancellation token rides `GetOrBuild` into the awaited cache call, and a cancelled solve rethrows `OperationCanceledException` rather than caching or fault-converting; inner-fit rows stay direct because an empty locus is a verdict, not a cacheable polygon.
+- Law: `PairMemo` content-keys the pair matrix under the same `PairTable.Key` identities through the branch `HybridCache` surface — the runtime-carried instance is the in-process tier, a durable L2 federates at the Persistence cache seam, hit and miss counts settle on `NestEvidence` and fire as the engine memo rows, and a failed build throws through the awaited factory so a fault never caches; the runtime cancellation token rides `GetOrBuild` into the awaited cache call and an abandoned solve LOWERS to the typed fault the package's run fold already reads, never rethrowing on the async channel; inner-fit rows stay direct because an empty locus is a verdict, not a cacheable polygon.
+- Law: abandonment is a typed fault on this page's own concern, matching the kernel arrangement band, which lowers its native `MANIFOLD_CANCELLED` status and its managed stage reads onto ONE `GeometryFault.RunAbandoned` case rather than a vocabulary per route; the nesting counterpart is `FabricationFault.RunAbandoned(FabConcern.Nesting, done, witness)` — the abandonment case `Process/faults` mints at offset 56 and `Process/owner` raises at its stage boundaries — so a `Nest.Solve` inside that fold answers on the `Fin` rail it declares and a caller never brackets the entry for an escaping `OperationCanceledException`. `PolicyInadmissible` stays the policy/parameter-admission arm and never carries a cancel; a geometry fault is never borrowed for abandonment and the kernel's band is never borrowed for a Fabrication-lane cancel.
 - Auto: `ParallelHelper.For2D` fills uncached independent pair slots; memoized rows await one `HybridCache` task per identity outside the synchronous kernel, and `TraverseM` returns the first typed geometry failure without partial cache publication.
 - Packages: the `Geometry2D` owner supplies `PolygonOp.Morphology` and the arc-exact inspection rail; `Rasm` supplies the kernel Minkowski walk beneath it; `Microsoft.Extensions.Caching.Hybrid` supplies the pair memo; `CommunityToolkit.HighPerformance` supplies the parallel pair fill.
 - Boundary: an empty pair morphology remains a typed fault, an empty inner-fit locus is the absent-key verdict that no position admits the part, and every returned topology component survives the projection.
@@ -38,6 +40,8 @@
 ## [04]-[SEARCH]
 
 - Owner: `ConstraintGraph` proves precedence acyclic, derives closure for ordering, and precomputes the reduction rank the ordering fold reads.
+- Law: exactly TWO of the seven placement constraints mint precedence edges — `Precedes` orders its pair directly and `Inside` orders an outer part before the part it contains. The other five are ORDER-FREE by construction: `Together`, `Separate`, `Adjacent`, `StockOnly`, and `KeepOut` each constrain WHERE a candidate may sit, never when, so they gate at `Accept` against the placed set and a precedence edge for any of them would forbid a placement the geometry admits.
+- Law: the transitive CLOSURE and the transitive REDUCTION are both retained as receipt data on the graph — `InDegree` over the closure is the ordering's primary key and the reduction's own topological sort IS the `rank` column its tertiary key reads — so neither walk's output is computed and dropped.
 - Owner: `CandidateSource` composes NFP vertices, inner-fit boundaries, arc-native contacts, stock extrema, and relaxed Voronoi centroids into one slot-keyed frontier; its `Absolute` column decides which rows can seed an empty stock.
 - Auto: `PlacementMode.Compile` emits one `SearchProgram`; `SearchOp` folds order, branch, breed, mutate, cool, relax, bound, and select steps over one `SearchState`.
 - Auto: `SearchState.Evidence.Evaluated` counts exact decisions across every active run, and `SearchOp.Bounded` halts the stochastic sub-program at `NestPolicy.EvaluationBudget`.
@@ -49,8 +53,10 @@
 ## [05]-[DELIVERY]
 
 - Law: the content preimage covers every `PartTransform` member including `Instance`, so two placements differing only by instance never collide on one key.
-- Entry: `Nest.Solve` admits profiles, inventory, and policy, then dispatches resolved rectangular plans or true-shape search on one `Fin` rail; the run spine passes the `FabricationTap`, defaulting silent for headless callers, and threads the runtime `CancellationToken` through the pair-memo lane into `HybridCache.GetOrCreateAsync`, so an in-flight cancel surfaces as cancellation on the async channel, never a geometry fault.
-- Entry: `Nest.Charts` admits atlas distortion and reconstructs every island boundary cycle.
+- Law: the evidence digest covers what the artifact IS, never what the search measured about it. A column DERIVED from geometry the placement key already covers — the shared-edge overlap, the pierce census — and a column describing the run rather than the result — the memo hit and miss counters — stay out of the preimage, so refining a measure or changing a cache tier can never re-key a landed plan.
+- Entry: `Nest.Solve` admits profiles, inventory, and policy, then dispatches resolved rectangular plans or true-shape search on one `Fin` rail; the run spine passes the `FabricationTap`, defaulting silent for headless callers, and threads the runtime `CancellationToken` through the pair-memo lane into `HybridCache.GetOrCreateAsync`, so an in-flight cancel surfaces as the typed abandonment fault on the same `Fin` rail every other outcome takes.
+- Entry: `NestBench.Workload` admits the `nfp-placement` measured workload — search lane, live inventory, part and budget floors — and `NestBench.Run` is the fold the corpus gate times against `FabricationBenchClaims.NfpPlacement`; measurement and receipt projection stay the bench edge's under the AppHost claim-field map.
+- Entry: `Nest.Charts` admits atlas distortion and reconstructs every island boundary cycle. `Nest.Rings` is the ONE `Chain`-to-`Loop` termination in the package — `Forming/sheet` composes it rather than re-admitting the same kernel carrier, because the walk that produced the chain already owns winding and once-counted edges and a second termination forks the admitted context.
 - Receipt: `NestEvidence` retains solver, objective, inventory multiplicity, pair witnesses, constraint verdicts, candidate census, unplaced reasons, consumed cost, and the used-to-stock area basis; the settled evidence fires the `FabricationFact.Engine.Of` candidate, evaluated, rejected, memo-hit, and memo-miss rows through `Process/telemetry#FACT_PROJECTION` as kind `engine`.
 - Receipt: `FabricationResult.Placement` projects transforms, utilization, unplaced count, remnants, and the evidence-derived content key.
 - Packages: the `Rasm.Element` `CanonicalWriter` is the ONE byte codec every preimage on this page composes — stock and pair identity, evidence digest, placement key — so a `-0.0`, a NaN payload, or a string boundary can never fork identity between two of them, and a `:R`/`:x32` text render of a scalar under a content key is the deleted form; `Rasm` supplies `ContentHash` for the placement preimage and `UvIsland.Boundary` for the atlas projection; `Rasm.Fabrication.Process` supplies the fault taxonomy and the telemetry tap; `CommunityToolkit.HighPerformance` supplies the parallel pair fill.
@@ -58,8 +64,7 @@
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
-using System.Collections.Frozen;
-using System.Threading.Tasks;
+using CavalierContours.Core;
 using CavalierContours.Polyline;
 using CommunityToolkit.HighPerformance.Helpers;
 using LanguageExt;
@@ -73,8 +78,11 @@ using Rasm.Element.Projection;
 using Rasm.Fabrication.Geometry2D;
 using Rasm.Fabrication.Process;
 using Rasm.Meshing;
+using Rasm.Numerics;
 using Rasm.Processing;
 using Rhino.Geometry;
+using System.Collections.Frozen;
+using System.Threading.Tasks;
 using Thinktecture;
 using static LanguageExt.Prelude;
 
@@ -138,44 +146,75 @@ internal sealed partial class SearchProgram {
     public Seq<SearchOp> Steps { get; }
 
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Seq<SearchOp> steps) =>
-        validationError = steps.IsEmpty ? new ValidationError(message: "search program is empty") : null;
+    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref Seq<SearchOp> steps) =>
+        validationError = steps.IsEmpty ? new FabricationFault.PolicyInadmissible(FabConcern.Nesting, "nest:search-program") : null;
 }
 
 [SmartEnum<string>]
 public sealed partial class NestObjective {
-    public static readonly NestObjective Yield = new("yield", ObjectiveWeights.Create(1.0, 0.0, 0.0, 0.0, 1.0));
-    public static readonly NestObjective Cut = new("cut", ObjectiveWeights.Create(0.0, 1.0, 0.0, 0.0, 1.0));
-    public static readonly NestObjective Remnant = new("remnant", ObjectiveWeights.Create(0.0, 0.0, 1.0, 0.0, 1.0));
-    public static readonly NestObjective Cost = new("cost", ObjectiveWeights.Create(0.0, 0.0, 0.0, 1.0, 1.0));
-    public static readonly NestObjective Balanced = new("balanced", ObjectiveWeights.Create(1.0, 1.0, 1.0, 1.0, 1.0));
+    public static readonly NestObjective Yield = new("yield", ObjectiveWeights.Create(1.0, 0.0, 0.0, 0.0, 0.0, 1.0));
+    public static readonly NestObjective Cut = new("cut", ObjectiveWeights.Create(0.0, 1.0, 0.0, 0.0, 1.0, 1.0));
+    public static readonly NestObjective Remnant = new("remnant", ObjectiveWeights.Create(0.0, 0.0, 1.0, 0.0, 0.0, 1.0));
+    public static readonly NestObjective Cost = new("cost", ObjectiveWeights.Create(0.0, 0.0, 0.0, 1.0, 0.0, 1.0));
+    public static readonly NestObjective Balanced = new("balanced", ObjectiveWeights.Create(1.0, 1.0, 1.0, 1.0, 1.0, 1.0));
 
     public ObjectiveWeights Weights { get; }
 
-    public double Score(NestEvidence evidence) {
-        double area = Math.Max(evidence.StockArea, double.Epsilon), scale = Math.Sqrt(area);
-        return (Weights.Yield * evidence.Utilization) - (Weights.Cut * evidence.CutLength / scale)
-            + (Weights.Remnant * evidence.RemnantValue / area) - (Weights.Cost * evidence.StockCost / area)
-            - (Weights.Constraint * evidence.ConstraintPenalty);
+    // Six weights fan onto ONE comparable number, so every term reaches it dimensionless. Millimetres are this
+    // page's declared carrier — the extent, gauge, and resolution columns all spell it — and the SCORING BASIS
+    // supplies both nondimensionalizers: the characteristic length the cut and shared-edge terms divide through,
+    // and the cost reference the currency term divides through. Both ride the scoring INPUT rather than the
+    // evidence, because every `NestEvidence` column enters the content preimage and a derived reference on the
+    // carrier moves every key already minted. With the cost reference threaded, the currency term is like-over-like
+    // exactly as the other five are and the structural divergence that term once carried retires.
+    public double Score(NestEvidence evidence, NestBasis basis) {
+        double area = Math.Max(evidence.StockArea, double.Epsilon);
+        return (Weights.Yield * evidence.Utilization)
+            - (Weights.Cut * (UnitsNet.Length.FromMillimeters(evidence.CutLength) / basis.Reference))
+            + (Weights.Remnant * evidence.RemnantValue / area)
+            - (Weights.Cost * (evidence.StockCost / basis.Cost))
+            // A shared cut edge is one pierce and one traverse the program never pays for, so the term rewards the
+            // collinear overlap `Nesting/linking` measured over the placed set at equal yield.
+            + (Weights.SharedEdge * (UnitsNet.Length.FromMillimeters(evidence.SharedEdge) / basis.Reference))
+            // The penalty is a COUNT of violations weighted by force, and an unnormalized count reached this sum at
+            // whatever magnitude the constraint roster happened to have — a five-constraint run swamped the yield
+            // term four times over under equal weights. Its own ceiling is the reference.
+            - (Weights.Constraint * evidence.ConstraintPenalty / basis.Constraint);
+    }
+}
+
+// The scoring basis: the characteristic length every length term divides through, the currency reference the cost
+// term does, and the violation ceiling the constraint term does. Derived ONCE per solve from the admitted
+// inventory and policy and threaded, never recomputed per candidate and never seated on the digested carrier.
+public readonly record struct NestBasis(UnitsNet.Length Reference, double Cost, double Constraint) {
+    public static NestBasis Of(Seq<Stock> inventory, NestPolicy policy) {
+        double area = Math.Max(inventory.Sum(static stock => stock.Facts.AreaMm2), double.Epsilon);
+        return new NestBasis(
+            UnitsNet.Length.FromMillimeters(Math.Sqrt(area)),
+            Math.Max(inventory.Sum(static stock => stock.Facts.Cost), double.Epsilon),
+            // The penalty's own ceiling under unit force: every admitted constraint violated once, plus every
+            // requested instance left unplaced by one.
+            Math.Max(policy.Constraints.Count + policy.Parts.Sum(static row => row.Quantity), 1));
     }
 }
 
 [ComplexValueObject]
+[ValidationError<FabricationFault>]
 public sealed partial class ObjectiveWeights {
     public double Yield { get; }
     public double Cut { get; }
     public double Remnant { get; }
     public double Cost { get; }
+    public double SharedEdge { get; }
     public double Constraint { get; }
 
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double yield, ref double cut,
-        ref double remnant, ref double cost, ref double constraint) {
-        Seq<double> weights = Seq(yield, cut, remnant, cost, constraint);
-        validationError = weights.Exists(static weight => !double.IsFinite(weight) || weight < 0.0)
-            || weights.Sum() <= 0.0
-                ? new ValidationError(message: "objective weights are outside the admitted domain")
-                : null;
+    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref double yield, ref double cut,
+        ref double remnant, ref double cost, ref double sharedEdge, ref double constraint) {
+        Seq<double> weights = Seq(yield, cut, remnant, cost, sharedEdge, constraint);
+        if (weights.Exists(static weight => !double.IsFinite(weight) || weight < 0.0)
+            || weights.Fold(0.0, static (sum, weight) => sum + weight) <= 0.0)
+            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Nesting, "objective-weights");
     }
 }
 
@@ -220,16 +259,17 @@ public sealed partial class CandidateOrder {
 }
 
 [ComplexValueObject]
+[ValidationError<FabricationFault>]
 public sealed partial class CandidateWeights {
     public double X { get; }
     public double Y { get; }
     public double Contact { get; }
 
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double x, ref double y, ref double contact) =>
+    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref double x, ref double y, ref double contact) =>
         validationError = !double.IsFinite(x) || x < 0.0 || !double.IsFinite(y) || y < 0.0
             || !double.IsFinite(contact) || contact < 0.0 || x + y + contact <= 0.0
-                ? new ValidationError(message: "candidate weights are outside the admitted domain")
+                ? new FabricationFault.PolicyInadmissible(FabConcern.Nesting, "nest:candidate-weights")
                 : null;
 }
 
@@ -286,6 +326,7 @@ public sealed partial class ProximityMetric {
 }
 
 [ComplexValueObject]
+[ValidationError<FabricationFault>]
 public sealed partial class PartRule {
     public int PartId { get; }
     public int Quantity { get; }
@@ -295,16 +336,17 @@ public sealed partial class PartRule {
     public int Priority { get; }
 
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int partId, ref int quantity,
+    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref int partId, ref int quantity,
         ref Option<MaterialId> material, ref Seq<double> angles, ref Option<double> grainAxis, ref int priority) =>
         validationError = partId < 0 || quantity < 1 || angles.IsEmpty || angles.Exists(static angle => !double.IsFinite(angle))
             || angles.Distinct().Count != angles.Count
             || grainAxis.Exists(static angle => !double.IsFinite(angle))
-                ? new ValidationError(message: "part rule is outside the admitted domain")
+                ? new FabricationFault.PolicyInadmissible(FabConcern.Nesting, "nest:part-rule")
                 : null;
 }
 
 [ComplexValueObject]
+[ValidationError<FabricationFault>]
 public sealed partial class StockBody {
     public MaterialId Material { get; }
     public Context Tolerance { get; }
@@ -316,12 +358,12 @@ public sealed partial class StockBody {
     public double Cost { get; }
 
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref MaterialId material, ref Context tolerance,
+    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref MaterialId material, ref Context tolerance,
         ref Seq<Loop> region, ref Seq<Loop> exclusions, ref string piece, ref string lot, ref Option<string> heat, ref double cost) =>
         validationError = !tolerance.IsValid || region.IsEmpty || region.ForAll(static loop => loop.Winding() != Sign.Positive)
             || region.Concat(exclusions).Exists(loop => !loop.Closed || loop.Count < 3 || loop.Tolerance != tolerance)
             || string.IsNullOrWhiteSpace(piece) || string.IsNullOrWhiteSpace(lot) || !double.IsFinite(cost) || cost < 0.0
-                ? new ValidationError(message: "stock body is outside the admitted domain")
+                ? new FabricationFault.PolicyInadmissible(FabConcern.Nesting, "nest:stock-body")
                 : null;
 }
 
@@ -446,16 +488,16 @@ public abstract partial record Stock {
         new(physical, physical && nestable && area > 0.0, rectangular, gauge, grain);
 
     // Each modality writes its bounded discriminator token then its own scalars through the codec; field ORDER is
-    // the page's and stays, while the hand-counted string lengths go — `String` already frames by UTF-8 byte count.
+    // the page's and stays, while the hand-counted string lengths go — `String` already frames by UTF-8 byte count
+    // and `FabricationCanon.Maybe` already frames absence as a presence bit ahead of the payload.
     CanonicalWriter IdentitySalt(CanonicalWriter writer) => Switch(
         state: writer,
-        sheet: static (sink, row) => Nest.Maybe(BodyKey(sink.String("sheet"), row.Body).Double(row.Thickness), row.GrainAxis),
-        plate: static (sink, row) => Nest.Maybe(BodyKey(sink.String("plate"), row.Body).Double(row.Thickness), row.GrainAxis),
-        roll: static (sink, row) => Nest.Maybe(
-            BodyKey(sink.String("roll"), row.Body).Double(row.Width).Double(row.AvailableLength), row.GrainAxis),
-        coil: static (sink, row) => Nest.Maybe(
-            BodyKey(sink.String("coil"), row.Body).Double(row.Width).Double(row.AvailableLength).Double(row.Thickness),
-            row.GrainAxis),
+        sheet: static (sink, row) => BodyKey(sink.String("sheet"), row.Body).Double(row.Thickness).Maybe(row.GrainAxis, Scalar),
+        plate: static (sink, row) => BodyKey(sink.String("plate"), row.Body).Double(row.Thickness).Maybe(row.GrainAxis, Scalar),
+        roll: static (sink, row) => BodyKey(sink.String("roll"), row.Body)
+            .Double(row.Width).Double(row.AvailableLength).Maybe(row.GrainAxis, Scalar),
+        coil: static (sink, row) => BodyKey(sink.String("coil"), row.Body)
+            .Double(row.Width).Double(row.AvailableLength).Double(row.Thickness).Maybe(row.GrainAxis, Scalar),
         barStock: static (sink, row) => BodyKey(sink.String("bar"), row.Body)
             .Double(row.Diameter).Double(row.Length).Double(row.EndAllowance),
         tubeStock: static (sink, row) => BodyKey(sink.String("tube"), row.Body)
@@ -464,18 +506,21 @@ public abstract partial record Stock {
         billet: static (sink, row) => BodyKey(sink.String("billet"), row.Body).Double(row.Depth),
         filament: static (sink, row) => BodyKey(sink.String("filament"), row.Body)
             .Double(row.Diameter).Double(row.SpoolLength),
-        fromRemnant: static (sink, row) => Nest.Maybe(
-            Nest.Maybe(
-                Nest.Maybe(sink.String("remnant").U128(row.Remnant.Identity), row.Remnant.Profile.GaugeMm),
-                row.Remnant.Profile.GrainAxisRadians),
-            row.Remnant.Profile.CostPerSquareMillimeter));
+        fromRemnant: static (sink, row) => sink.String("remnant").U128(row.Remnant.Identity)
+            .Maybe(row.Remnant.Profile.GaugeMm, Scalar)
+            .Maybe(row.Remnant.Profile.GrainAxisRadians, Scalar)
+            .Maybe(row.Remnant.Profile.CostPerSquareMillimeter, Scalar));
 
-    static CanonicalWriter BodyKey(CanonicalWriter writer, StockBody body) =>
-        Nest.Maybe(writer.String(body.Material.Value).String(body.Piece).String(body.Lot), body.Heat)
-            .Double(body.Cost);
+    static CanonicalWriter BodyKey(CanonicalWriter writer, StockBody body) => writer
+        .String(body.Material.Value).String(body.Piece).String(body.Lot)
+        .Maybe(body.Heat, static (held, heat) => held.String(heat))
+        .Double(body.Cost);
+
+    static CanonicalWriter Scalar(CanonicalWriter writer, double value) => writer.Double(value);
 }
 
 [ComplexValueObject]
+[ValidationError<FabricationFault>]
 public sealed partial class NestPolicy {
     public PlacementMode Mode { get; }
     public Seq<PartRule> Parts { get; }
@@ -489,21 +534,22 @@ public sealed partial class NestPolicy {
     public double EdgeAllowance { get; }
     public double RectangleResolution { get; }
     public int PairBatchFloor { get; }
+    public int PairConcurrency { get; }
     public int EvaluationBudget { get; }
 
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref PlacementMode mode, ref Seq<PartRule> parts,
+    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref PlacementMode mode, ref Seq<PartRule> parts,
         ref Seq<PlacementConstraint> constraints, ref FrozenSet<CandidateSource> candidates, ref CandidateOrder frontier,
         ref NestObjective objective,
         ref double clearance, ref double chordError, ref double kerf, ref double edgeAllowance,
-        ref double rectangleResolution, ref int pairBatchFloor, ref int evaluationBudget) =>
-        validationError = parts.IsEmpty || parts.GroupBy(static row => row.PartId).Exists(static group => group.Count() != 1)
+        ref double rectangleResolution, ref int pairBatchFloor, ref int pairConcurrency, ref int evaluationBudget) =>
+        validationError = parts.IsEmpty || toSeq(parts.GroupBy(static row => row.PartId)).Exists(static group => group.Count() != 1)
             || candidates.Count == 0 || !double.IsFinite(clearance) || clearance < 0.0 || !double.IsFinite(chordError)
             || chordError <= 0.0 || !double.IsFinite(kerf) || kerf < 0.0 || !double.IsFinite(edgeAllowance)
             || edgeAllowance < 0.0 || !double.IsFinite(rectangleResolution) || rectangleResolution <= 0.0
-            || pairBatchFloor < 1 || evaluationBudget < 1 || !Admits(mode)
+            || pairBatchFloor < 1 || pairConcurrency < 1 || evaluationBudget < 1 || !Admits(mode)
             || !candidates.Any(static source => source.Absolute)
-                ? new ValidationError(message: "nest policy is outside the admitted domain")
+                ? new FabricationFault.PolicyInadmissible(FabConcern.Nesting, "nest:nest-policy")
                 : null;
 
     static bool Admits(PlacementMode mode) => mode.Switch(
@@ -540,13 +586,14 @@ public readonly record struct NfpWitness(UInt128 Pair, UInt128 Fixed, UInt128 Or
     NfpMethod Method, double ChordError, double Clearance, double Kerf, int Components, int Holes);
 
 [ComplexValueObject]
+[ValidationError<FabricationFault>]
 public sealed partial class NoFitPolygon {
     public Seq<Loop> Locus { get; }
     public UInt128 Identity { get; }
     public NfpWitness Witness { get; }
 
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Seq<Loop> locus, ref UInt128 identity,
+    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref Seq<Loop> locus, ref UInt128 identity,
         ref NfpWitness witness) =>
         validationError = locus.IsEmpty || identity == UInt128.Zero || identity != witness.Pair
             || witness.Fixed == UInt128.Zero || witness.Orbiting == UInt128.Zero
@@ -556,7 +603,7 @@ public sealed partial class NoFitPolygon {
             || witness.Method.Exact == (witness.ChordError > 0.0)
             || !double.IsFinite(witness.ChordError) || witness.ChordError < 0.0 || !double.IsFinite(witness.Clearance)
             || witness.Clearance < 0.0 || !double.IsFinite(witness.Kerf) || witness.Kerf < 0.0
-                ? new ValidationError(message: "no-fit polygon is outside the admitted domain")
+                ? new GeometryFault.DegenerateInput(Kind.Polyline, None, "nest:nfp").ToFabrication()
                 : null;
 }
 
@@ -591,10 +638,18 @@ public abstract partial record ConstraintVerdict {
         satisfied: static _ => false,
         violated: static row => row.Rule.Force.Blocking);
 }
+// The five DIGESTED measure columns carry the page's declared millimetre basis as bare doubles — square
+// millimetres on the three area columns, millimetres on `CutLength`, the caller's price basis on `StockCost` —
+// because `Digest` writes every one of them into the content preimage. A typed carrier on a digested column moves
+// bytes; conversion belongs at the derivation that needs it, which is why `NestObjective.Score` lifts its
+// characteristic length locally. `SharedEdge`, `Pierces`, and the two memo counters are deliberately OUTSIDE that
+// preimage: the first two are functions of the placed geometry the placement key already covers whole, so
+// digesting them would re-key every landed plan the day the collinearity measure is refined, and the memo counters
+// are run instrumentation that describes the search rather than the artifact.
 public sealed record NestEvidence(PlacementMode Mode, NestObjective Objective, Seq<UInt128> Stock, Seq<NfpWitness> Pairs,
     Seq<ConstraintVerdict> Constraints, Seq<UnplacedReason> Unplaced, int Candidates, int Evaluated, int Rejected,
     double UsedArea, double StockArea, double CutLength, double RemnantValue, double StockCost,
-    int MemoHits = 0, int MemoMisses = 0) {
+    double SharedEdge = 0.0, int Pierces = 0, int MemoHits = 0, int MemoMisses = 0) {
     public double Utilization => StockArea > 0.0 ? Math.Clamp(UsedArea / StockArea, 0.0, 1.0) : 0.0;
     public double ConstraintPenalty => Constraints.Sum(static row => row.Penalty)
         + Unplaced.Count(static row => row is UnplacedReason.Constraint);
@@ -615,29 +670,36 @@ internal abstract partial record PlacementDecision {
 internal sealed record Genome(Seq<PartInstance> Order, HashMap<PartInstance, double> Rotation);
 internal sealed record SearchRun(Seq<Placed> Placed, Seq<UnplacedReason> Unplaced, Seq<ConstraintVerdict> Constraints,
     int Candidates, int Evaluated, int Rejected);
-internal sealed record SearchState(Seq<Genome> Population, Seq<SearchRun> Runs, NestEvidence Evidence,
+internal sealed record SearchState(Seq<Genome> Population, Seq<SearchRun> Runs, NestEvidence Evidence, NestBasis Basis,
     ulong Random, double Temperature, int VoronoiIterations, double VoronoiStrength);
 internal sealed record NestReceipt(Seq<PartTransform> Placements, Seq<Remnant> Remnants, NestEvidence Evidence, ContentKey Key);
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
 public static class Nest {
+    // Search seeds: no draw consumed, no annealing heat, one relaxation pass at full strength. Each is the zero of
+    // the axis its own program step moves, so none is a tuned value and none belongs on a policy row.
+    private const ulong DrawSeed = 0UL;
+    private const double HeatSeed = 0.0;
+    private const int RelaxationSeed = 1;
+    private const double StrengthSeed = 1.0;
+
     public static ValueTask<Fin<FabricationResult>> Solve(
         FabricationPolicy.Nest policy, FabricationInput input, FabricationTap? tap = null, Option<HybridCache> memo = default,
         CancellationToken cancel = default) {
         Fin<Arr<Loop>> admitted = input.Profiles.IsEmpty
-            ? Fin.Fail<Arr<Loop>>(FabricationFault.Nest(NestFault.EmptyCutList, 0).ToError())
+            ? Fin.Fail<Arr<Loop>>(FabricationFault.Nested(new NestWitness.EmptyCutList()).ToError())
             : input.Profiles.ToSeq().Map((loop, index) => (loop, index))
                 .TraverseM(row => Admit(row.loop, row.index)).As().Map(static rows => rows.ToArr());
         return admitted.Match(
-            Succ: parts => input.Plan.Match(
+            Succ: parts => policy.Plan.Match(
                 Some: plan => ValueTask.FromResult(Honor(parts, plan)),
-                None: () => input.Inventory.IsEmpty
-                    ? ValueTask.FromResult(Fin.Fail<FabricationResult>(FabricationFault.StockOverflow(parts.Count, 0).ToError()))
-                    : input.Inventory.Filter(static stock => stock.Nestable && !stock.Region.IsEmpty) is Seq<Stock> inventory
+                None: () => policy.Inventory.IsEmpty
+                    ? ValueTask.FromResult(Fin.Fail<FabricationResult>(new FabricationFault.StockOverflow(parts.Count, 0).ToError()))
+                    : policy.Inventory.Filter(static stock => stock.Nestable && !stock.Region.IsEmpty) is Seq<Stock> inventory
                         && !inventory.IsEmpty
                         ? PlaceProjected(parts, inventory, policy.Nesting, tap ?? FabricationTap.Silent,
                             memo.Map(static cache => new PairMemo(cache)), cancel)
-                        : ValueTask.FromResult(Fin.Fail<FabricationResult>(FabricationFault.StockOverflow(parts.Count, 0).ToError()))),
+                        : ValueTask.FromResult(Fin.Fail<FabricationResult>(new FabricationFault.StockOverflow(parts.Count, 0).ToError()))),
             Fail: static error => ValueTask.FromResult(Fin.Fail<FabricationResult>(error)));
     }
 
@@ -665,13 +727,13 @@ public static class Nest {
     internal static Fin<FabricationResult> Honor(Arr<Loop> parts, NestPlan plan) =>
         plan.Placements.TraverseM(row =>
             row.PartId < 0 || row.PartId >= parts.Count
-                ? Fin.Fail<PartTransform>(FabricationFault.NoFit(row.PartId, Seq<double>()).ToError())
+                ? Fin.Fail<PartTransform>(new FabricationFault.NoFit(row.PartId, Seq<double>()).ToError())
                 : Rotated(parts[row.PartId], row.RotationRadians).Bind(part =>
                     PartTransform.Admit(row.PartId, row.Instance, row.XMm - part.Bound().Min.X,
                         row.YMm - part.Bound().Min.Y, row.RotationRadians, row.SheetIndex, mirrored: false))).As()
             .Bind(placed => toSeq(parts).Head
                 .Filter(_ => !placed.IsEmpty)
-                .ToFin(FabricationFault.StockOverflow(parts.Count, plan.Yield.SheetCount).ToError())
+                .ToFin(new FabricationFault.StockOverflow(parts.Count, plan.Yield.SheetCount).ToError())
                 .Map(seed => (FabricationResult)new FabricationResult.Placement(placed, plan.Yield.UtilizationRatio,
                     plan.Yield.UnplacedCount, Seq<Remnant>(),
                     KeyOf(placed, Seq<Remnant>(), plan.Evidence.Digest, seed.Tolerance))));
@@ -681,30 +743,23 @@ public static class Nest {
     // `Ordinal(count)` before every collection. A page-local `Write` family forks byte identity the first time two
     // pages frame a double differently, and a `:R` or `:X32` render of a scalar puts a format-shaped preimage under
     // a content key — so the salt is a fluent contribution over the same writer, never rendered text.
-    internal static UInt128 Identity(Seq<Loop> loops, Context tolerance, Func<CanonicalWriter, CanonicalWriter> salt) {
-        CanonicalWriter writer = new(tolerance.Absolute.Value);
-        salt(writer.Double(tolerance.Absolute.Value).Double(tolerance.Angular.Value));
-        writer.Ordinal(loops.Count);
-        foreach (Loop loop in loops.OrderByDescending(static row => Math.Abs(row.Area())).ThenBy(static row => row.Count)
-            .ThenBy(static row => row.Bound().Min.X).ThenBy(static row => row.Bound().Min.Y)
-            .ThenBy(static row => row, Comparer<Loop>.Create(CanonicalCompare))) {
-            writer.Ordinal(loop.Count);
-            int start = CanonicalStart(loop);
-            foreach (int index in toSeq(Enumerable.Range(0, loop.Count)).Map(offset => (start + offset) % loop.Count)) {
-                Point3d point = loop.At(index);
-                writer.Double(point.X).Double(point.Y).Double(point.Z).Double(loop.BulgeAt(index));
-            }
-        }
-        return ContentKey.Of(EgressKind.StockSnapshot, writer.ToBytes().Span).Digest;
-    }
+    internal static UInt128 Identity(Seq<Loop> loops, Context tolerance, Func<CanonicalWriter, CanonicalWriter> salt) =>
+        ContentKey.Of(
+            EgressKind.StockSnapshot,
+            salt(new CanonicalWriter(tolerance.Absolute.Value)
+                    .Double(tolerance.Absolute.Value).Double(tolerance.Angular.Value))
+                .Rows(Ordered(loops), static (held, loop) => loop.CanonicalBytes(held))
+                .ToBytes().Span).Digest;
 
-    // Absence is a presence bit, never a `double.NaN` sentinel: the codec canonicalizes every NaN to one pattern,
-    // so a sentinel and a measured NaN address identically.
-    internal static CanonicalWriter Maybe(CanonicalWriter writer, Option<double> value) =>
-        value.Match(Some: number => writer.Bool(true).Double(number), None: () => writer.Bool(false));
+    // Set identity needs a deterministic ORDER, and each loop's own canonical preimage IS that key: `Loop.Canonical`
+    // is rotation-canonical and tolerance-quantized, so the digest of one loop totally orders the set. The area,
+    // count, bound, and vertex-by-vertex comparator family this replaces re-derived that same canonical rotation at
+    // every comparison, quadratically, and forked the byte convention against every sibling page.
+    private static Seq<Loop> Ordered(Seq<Loop> loops) => toSeq(loops.OrderBy(Preimage));
 
-    internal static CanonicalWriter Maybe(CanonicalWriter writer, Option<string> value) =>
-        value.Match(Some: text => writer.Bool(true).String(text), None: () => writer.Bool(false));
+    private static UInt128 Preimage(Loop loop) => ContentKey.Of(
+        EgressKind.StockSnapshot,
+        loop.CanonicalBytes(new CanonicalWriter(loop.Tolerance.Absolute.Value)).ToBytes().Span).Digest;
 
     // Exactness is a property of the OPERANDS, never a policy wish: the line-space Minkowski walk is exact on loops
     // that carry no bulge, and lowering introduces chord error only where an arc exists. A pair of bulge-free
@@ -716,35 +771,6 @@ public static class Nest {
             .Exists(static loop => loop.Bulges.Exists(static bulge => bulge != 0.0))
                 ? NfpMethod.ChordProjected
                 : NfpMethod.ArcExact;
-
-    private static int CanonicalCompare(Loop left, Loop right) {
-        int leftStart = CanonicalStart(left), rightStart = CanonicalStart(right);
-        for (int offset = 0; offset < left.Count; offset++) {
-            int order = VertexCompare(left, (leftStart + offset) % left.Count, right, (rightStart + offset) % right.Count);
-            if (order != 0) return order;
-        }
-        return 0;
-    }
-
-    private static int CanonicalStart(Loop loop) {
-        int start = 0;
-        for (int index = 1; index < loop.Count; index++)
-            if (VertexCompare(loop, index, loop, start) < 0) start = index;
-        return start;
-    }
-
-    private static int VertexCompare(Loop left, int leftIndex, Loop right, int rightIndex) {
-        Point3d a = left.At(leftIndex), b = right.At(rightIndex);
-        foreach (int order in new[] { ScalarCompare(a.X, b.X), ScalarCompare(a.Y, b.Y), ScalarCompare(a.Z, b.Z),
-                     ScalarCompare(left.BulgeAt(leftIndex), right.BulgeAt(rightIndex)) })
-            if (order != 0) return order;
-        return 0;
-    }
-
-    private static int ScalarCompare(double left, double right) {
-        int order = left.CompareTo(right);
-        return order != 0 ? order : BitConverter.DoubleToInt64Bits(left).CompareTo(BitConverter.DoubleToInt64Bits(right));
-    }
 
     static ValueTask<Fin<NestReceipt>> Place(
         Arr<Loop> parts, Seq<Stock> inventory, NestPolicy policy, Option<PairMemo> memo = default,
@@ -806,9 +832,14 @@ public static class Nest {
                     ? Fin.Succ(inner)
                     : Apply(op, inner, scope.parts, scope.inventory, scope.variants, scope.pairs, scope.policy,
                         scope.graph)).As(),
-            rectangular: static (scope, row) => NestRun.FromProfiles(scope.parts, scope.inventory, scope.policy.Parts, row.Strategy,
-                row.StrategyBudget, row.StrategyDepth, row.StockLimit, row.OrientationBudget,
-                scope.policy.PairBatchFloor, scope.policy.RectangleResolution, scope.policy.Kerf, scope.policy.EdgeAllowance)
+            rectangular: static (scope, row) => NestRun.FromProfiles(
+                    scope.parts,
+                    scope.inventory,
+                    scope.policy.Parts,
+                    row.Strategy,
+                    new RectangularBudget(row.StrategyBudget, row.StrategyDepth, row.StockLimit, row.OrientationBudget,
+                        scope.policy.PairBatchFloor),
+                    new RectangularGrid(scope.policy.RectangleResolution, scope.policy.Kerf, scope.policy.EdgeAllowance))
                 .Bind(StockNest.Pack).Bind(plan => FromPlan(scope.state, scope.parts, plan)));
 
     static Fin<SearchState> Decode(SearchState state, Arr<Loop> parts, Seq<Stock> inventory,
@@ -847,11 +878,11 @@ public static class Nest {
                 }), expanded.Evaluated))
                 : Scanning(run.Placed, scan => Candidates(part, genome, run.Placed, inventory, variants, pairs, policy,
                     state.VoronoiIterations, state.VoronoiStrength)
-                    .Map(rows => rows.OrderBy((policy.Mode is PlacementMode.BottomLeft
+                    .Map(rows => toSeq(rows.OrderBy((policy.Mode is PlacementMode.BottomLeft
                         ? CandidateOrder.BottomLeft
-                        : policy.Frontier).Rank).ToSeq())
+                        : policy.Frontier).Rank)))
                     .Map(rows => (Candidates: rows.Count,
-                        Rows: rows.Take(policy.EvaluationBudget - expanded.Evaluated).ToSeq()))
+                        Rows: rows.Take(policy.EvaluationBudget - expanded.Evaluated)))
                     .Bind(result => result.Rows.TraverseM(candidate => Exact(
                         candidate, run.Placed, scan, inventory, variants, policy, graph)).As()
                         .Map(decisions => (result.Candidates, result.Rows,
@@ -881,19 +912,23 @@ public static class Nest {
                             }),
                         Evaluated: expanded.Evaluated + result.Rows.Count))
                     .Map(result => (expanded.Runs.Concat(result.Runs), result.Evaluated)))).As()
-        .Map(branches => (branches.Runs
-            .OrderByDescending(run => policy.Objective.Score(Evidence(run, state.Evidence)))
-            .Take(width).ToSeq(), branches.Evaluated));
+        .Map(branches => (toSeq(branches.Runs
+            .OrderByDescending(run => policy.Objective.Score(Evidence(run, state.Evidence), state.Basis))
+            .Take(width)), branches.Evaluated));
 
     // Placed parts ARE the ONE recurring subject of a branch's whole candidate sweep, so their vertex structure
     // precomputes once per branch and every candidate position folds over it. Branches with nothing placed carry
     // no subject to scan.
-    static Fin<T> Scanning<T>(Seq<Placed> placed, Func<Option<PolygonScan>, Fin<T>> body) {
-        if (placed.IsEmpty)
-            return body(None);
-        return PolygonScan.Of(placed.Map(static row => row.Envelope), PolygonFill.NonZero, Op.Of(name: nameof(Scanning)))
-            .Bind(scan => { using (scan) { return body(Some(scan)); } });
-    }
+    // The scan handle never outlives one branch fold, so `PolygonScan.Scan` — the owner's own bracketed entry —
+    // owns its lifetime; a hand-rolled `Of` plus `using` here was that bracket re-spelled at the caller.
+    static Fin<T> Scanning<T>(Seq<Placed> placed, Func<Option<PolygonScan>, Fin<T>> body) =>
+        placed.IsEmpty
+            ? body(None)
+            : PolygonScan.Scan(
+                placed.Map(static row => row.Envelope),
+                PolygonFill.NonZero,
+                scan => body(Some(scan)),
+                Op.Of(name: nameof(Scanning)));
 
     static Fin<PlacementDecision> Exact(Candidate candidate, Seq<Placed> placed, Option<PolygonScan> scan,
         Seq<Stock> inventory, HashMap<(int PartId, long Angle), Variant> variants, NestPolicy policy, ConstraintGraph graph) =>
@@ -961,18 +996,18 @@ public static class Nest {
                 .Bind(variant => toSeq(policy.Candidates.OrderBy(static source => source.Key))
                     .TraverseM(source => source.Generate(new CandidateRequest(part, variant, angle, placed, inventory,
                         pairs, policy, voronoiIterations, voronoiStrength))).As())
-                .Map(static rows => rows.Bind(identity)
-                    .DistinctBy(static row => (row.StockSlot, row.Point.X, row.Point.Y, row.Rotation)).ToSeq()));
+                .Map(static rows => toSeq(rows.Bind(identity)
+                    .DistinctBy(static row => (row.StockSlot, row.Point.X, row.Point.Y, row.Rotation)))));
 
     // Free-space seeds are the relaxed cell centroids of the stock outline and everything already placed on it —
     // one `PolygonOp.Cells` request per sheet, the outline its own clip ring, so this lane mints no diagram.
     internal static Fin<Seq<Candidate>> VoronoiCandidates(PartInstance part, Variant variant, double angle,
         Seq<Placed> placed, Seq<Stock> inventory, int iterations, double strength) =>
         inventory.Map(static (stock, slot) => (stock, slot)).TraverseM(row => {
-            Seq<Point3d> points = row.stock.Region.Bind(static loop => toSeq(loop.Vertices))
+            Seq<Point3d> points = toSeq(row.stock.Region.Bind(static loop => toSeq(loop.Vertices))
                 .Concat(placed.Filter(placedRow => placedRow.Transform.SheetIndex == row.slot)
                     .Bind(static placedRow => toSeq(placedRow.Shape.Vertices)))
-                .DistinctBy(static point => (point.X, point.Y)).ToSeq();
+                .DistinctBy(static point => (point.X, point.Y)));
             Vector3d anchor = variant.Rotated.Bound().Center - Point3d.Origin;
             return points.Count < 3 || row.stock.Region.IsEmpty
                 ? Fin.Succ(Seq<Candidate>())
@@ -995,13 +1030,13 @@ public static class Nest {
             : Fin.Succ(state with { VoronoiIterations = iterations, VoronoiStrength = strength });
 
     static SearchState Seed(SearchState state, Seq<PartRule> rules, int population, int seed) {
-        Seq<PartInstance> canonical = rules.OrderByDescending(static row => row.Priority)
-            .Bind(row => toSeq(Enumerable.Range(0, row.Quantity)).Map(ordinal => new PartInstance(row.PartId, ordinal))).ToSeq();
+        Seq<PartInstance> canonical = toSeq(rules.OrderByDescending(static row => row.Priority)
+            .SelectMany(row => Enumerable.Range(0, row.Quantity).Select(ordinal => new PartInstance(row.PartId, ordinal))));
         // Every genome draw is a LANE, not a packed key: (seed+index, partId, ordinal) enters the kernel stream
         // whole, so neighbouring part pairs cannot collide the way a shifted-XOR pack of the same fields does.
         Seq<Genome> genomes = toSeq(Enumerable.Range(0, population)).Map(index => new Genome(
-            index == 0 ? canonical : canonical.OrderBy(part => Deterministic.Stream(
-                lanes: [part.PartId, part.Ordinal], seed: seed + index)).ToSeq(),
+            index == 0 ? canonical : toSeq(canonical.OrderBy(part => Deterministic.Stream(
+                lanes: [part.PartId, part.Ordinal], seed: seed + index))),
             toHashMap(canonical.Map(part => {
                 ulong stream = Deterministic.Stream(lanes: [part.PartId, part.Ordinal], seed: seed + index);
                 return (part, rules.Find(row => row.PartId == part.PartId)
@@ -1012,7 +1047,7 @@ public static class Nest {
 
     static SearchState Breed(SearchState state) => state with {
         Population = state.Population.Zip(state.Population.Rev(), static (left, right) => left with {
-            Order = left.Order.Map((part, index) => (index & 1) == 0 ? part : right.Order[index]).Distinct().Concat(left.Order).Distinct().ToSeq(),
+            Order = left.Order.Map((part, index) => (index & 1) == 0 ? part : right.Order[index]).Distinct().Concat(left.Order).Distinct(),
         }),
     };
 
@@ -1036,7 +1071,7 @@ public static class Nest {
         if (state.Runs.IsEmpty) return state;
         double next = state.Temperature > 0.0 ? state.Temperature * factor : temperature;
         Seq<(SearchRun Run, double Score)> ranked = toSeq(state.Runs
-            .Map(run => (run, objective.Score(Evidence(run, state.Evidence))))
+            .Map(run => (run, objective.Score(Evidence(run, state.Evidence), state.Basis)))
             .OrderByDescending(static row => row.Item2));
         return ranked.Head.Match(
             Some: best => {
@@ -1055,7 +1090,7 @@ public static class Nest {
     }
 
     static SearchState Select(SearchState state, NestObjective objective, int width) => state with {
-        Runs = toSeq(state.Runs.OrderByDescending(run => objective.Score(Evidence(run, state.Evidence))).Take(width)),
+        Runs = toSeq(state.Runs.OrderByDescending(run => objective.Score(Evidence(run, state.Evidence), state.Basis)).Take(width)),
     };
 
     static Fin<SearchState> Initial(Seq<Stock> inventory, NestPolicy policy, ConstraintGraph graph) {
@@ -1067,7 +1102,10 @@ public static class Nest {
         NestEvidence evidence = new(policy.Mode, policy.Objective, inventory.Map(static stock => stock.Identity), Seq<NfpWitness>(),
             policy.Constraints.Map(static rule => (ConstraintVerdict)new ConstraintVerdict.Satisfied(rule)), Seq<UnplacedReason>(), 0, 0, 0,
             0.0, 0.0, 0.0, 0.0, 0.0);
-        return Fin.Succ(new SearchState(Seq(genome), Seq<SearchRun>(), evidence, 0, 0.0, 1, 1.0f));
+        // Seeds are the search's own zero: no draw consumed, no annealing heat, one relaxation pass, and full
+        // relaxation strength — the program's own `Cool` and `Relax` steps move every one of them from here.
+        return Fin.Succ(new SearchState(Seq(genome), Seq<SearchRun>(), evidence, NestBasis.Of(inventory, policy),
+            Random: DrawSeed, Temperature: HeatSeed, VoronoiIterations: RelaxationSeed, VoronoiStrength: StrengthSeed));
     }
 
     static Fin<SearchState> FromPlan(SearchState state, Arr<Loop> parts, NestPlan plan) =>
@@ -1090,16 +1128,18 @@ public static class Nest {
     }
 
     static Fin<NestReceipt> Deliver(SearchState state, Arr<Loop> parts, Seq<Stock> inventory, NestPolicy policy, ConstraintGraph graph) =>
-        state.Runs.OrderByDescending(run => policy.Objective.Score(Evidence(run, state.Evidence))).Head
-            .ToFin(FabricationFault.StockOverflow(parts.Count, inventory.Count).ToError())
+        state.Runs.Fold(Option<SearchRun>.None, (best, run) => best
+                .Filter(held => policy.Objective.Score(Evidence(held, state.Evidence), state.Basis)
+                    >= policy.Objective.Score(Evidence(run, state.Evidence), state.Basis)).IfNone(run))
+            .ToFin(new FabricationFault.StockOverflow(parts.Count, inventory.Count).ToError())
             .Bind(best => best.Placed.IsEmpty
-                ? Fin.Fail<NestReceipt>(FabricationFault.StockOverflow(parts.Count, inventory.Count).ToError())
+                ? Fin.Fail<NestReceipt>(new FabricationFault.StockOverflow(parts.Count, inventory.Count).ToError())
                 : best.Placed.TraverseM(row => row.Transform.Apply(parts[row.Part.PartId])).As().Bind(_ => graph.Verdicts(best.Placed).Bind(verdicts =>
                 verdicts.Exists(static verdict => verdict.Blocking)
                     ? Fin.Fail<NestReceipt>(new FabricationFault.PolicyInadmissible(FabConcern.Nesting, "nest:constraint-verdict"))
-                    : best.Placed.GroupBy(static row => row.Transform.SheetIndex).ToSeq().Map(static group => toSeq(group))
+                    : toSeq(best.Placed.GroupBy(static row => row.Transform.SheetIndex)).Map(static group => toSeq(group))
                         .TraverseM(rows => rows.Head.ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Nesting, "nest:stock-group"))
-                            .Bind(head => Remnant.From(head.Stock, rows.Map(static row => row.Shape),
+                            .Bind(head => Remnants.From(head.Stock, rows.Map(static row => row.Shape),
                                 policy.Clearance + policy.Kerf))).As()
                     .Map(remnants => remnants.Bind(identity))
                     // The codec opens on the placed geometry's own admitted grid, so every preimage this run mints
@@ -1117,23 +1157,34 @@ public static class Nest {
     static FabricationResult Project(NestReceipt receipt) => new FabricationResult.Placement(receipt.Placements,
         receipt.Evidence.Utilization, receipt.Evidence.Unplaced.Count, receipt.Remnants, receipt.Key);
 
-    static NestEvidence Evidence(SearchRun run, NestEvidence basis) => basis with {
-        Constraints = run.Constraints,
-        Unplaced = run.Unplaced,
-        Candidates = run.Candidates,
-        Evaluated = Math.Max(basis.Evaluated, run.Evaluated),
-        Rejected = run.Rejected,
-        UsedArea = run.Placed.Sum(static row => Math.Abs(row.Shape.Area())),
-        StockArea = Consumed(run).Sum(static stock => stock.Area),
-        CutLength = run.Placed.Sum(static row => row.Shape.Length()),
-        StockCost = Consumed(run).Sum(static stock => stock.Cost),
-    };
+    // The shared-edge measure and the pierce census come from the ONE `Nesting/linking` owner over the placed
+    // shapes: a collinear overlap between two placed profiles is one cut the program runs once, so the objective
+    // reads a measure the link plane produced rather than a second collinearity walk minted here.
+    static NestEvidence Evidence(SearchRun run, NestEvidence basis) {
+        CommonLineReceipt shared = CommonLine.Measure(run.Placed.Map(static row => row.Shape));
+        return basis with {
+            Constraints = run.Constraints,
+            Unplaced = run.Unplaced,
+            Candidates = run.Candidates,
+            Evaluated = Math.Max(basis.Evaluated, run.Evaluated),
+            Rejected = run.Rejected,
+            UsedArea = run.Placed.Sum(static row => Math.Abs(row.Shape.Area())),
+            StockArea = Consumed(run).Sum(static stock => stock.Area),
+            CutLength = run.Placed.Sum(static row => row.Shape.Length()),
+            StockCost = Consumed(run).Sum(static stock => stock.Cost),
+            SharedEdge = shared.OverlapMm,
+            Pierces = shared.Pierces,
+        };
+    }
 
-    static Seq<Stock> Consumed(SearchRun run) => run.Placed.GroupBy(static row => row.Transform.SheetIndex)
-        .Choose(static group => toSeq(group).Head.Map(static row => row.Stock)).ToSeq();
+    static Seq<Stock> Consumed(SearchRun run) => toSeq(run.Placed.GroupBy(static row => row.Transform.SheetIndex))
+        .Choose(static group => toSeq(group).Head.Map(static row => row.Stock));
 
     // Field ORDER is the page's and stays; the codec is the Element writer, so every double here carries the same
-    // `-0.0`/NaN canon the geometry identity already writes and the two preimages can never fork on framing.
+    // `-0.0`/NaN canon the geometry identity already writes and the two preimages can never fork on framing. Unit
+    // identity is FROZEN by the same law: every scalar the writer digests is a bare millimetre-basis double, the
+    // basis is stated once at the evidence declaration, and lifting one of them to a typed quantity would move
+    // the preimage bytes and fork every content key already minted against it.
     static UInt128 Digest(NestEvidence evidence, Context tolerance) {
         double grid = tolerance.Absolute.Value;
         CanonicalWriter writer = new(grid);
@@ -1180,14 +1231,14 @@ public static class Nest {
     static CanonicalWriter ConstraintWrite(CanonicalWriter writer, PlacementConstraint rule) => rule.Switch(
         state: writer.String(rule.Force.Key),
         precedes: static (w, row) => w.String("precedes").Ordinal(row.Before).Ordinal(row.After),
-        together: static (w, row) => row.Parts.Order().Fold(
+        together: static (w, row) => toSeq(row.Parts.Order()).Fold(
             w.String("together").Ordinal(row.Parts.Count), static (acc, part) => acc.Ordinal(part)),
         separate: static (w, row) => w.String("separate").Ordinal(row.Left).Ordinal(row.Right)
             .Double(row.Distance).String(row.Metric.Key),
         adjacent: static (w, row) => w.String("adjacent").Ordinal(row.Left).Ordinal(row.Right)
             .Double(row.MaximumDistance).String(row.Metric.Key),
         inside: static (w, row) => w.String("inside").Ordinal(row.Inner).Ordinal(row.Outer),
-        stockOnly: static (w, row) => toSeq(row.Stock).Order().Fold(
+        stockOnly: static (w, row) => toSeq(row.Stock.Order()).Fold(
             w.String("stock").Ordinal(row.Part).Ordinal(row.Stock.Count), static (acc, stock) => acc.U128(stock)),
         keepOut: static (w, row) => w.String("keep-out").U128(row.Stock)
             .U128(row.Region.Head.Map(loop => Identity(row.Region, loop.Tolerance, static salt => salt.String("keep-out")))
@@ -1219,7 +1270,7 @@ public static class Nest {
     }
 
     static Fin<Loop> Admit(Loop loop, int index) => !loop.Closed
-        ? Fin.Fail<Loop>(FabricationFault.OpenLoop(FabConcern.Nesting, index).ToError())
+        ? Fin.Fail<Loop>(new FabricationFault.OpenLoop(FabConcern.Nesting, index).ToError())
         : loop.Count < 3 || loop.Vertices.Exists(static point => !double.IsFinite(point.X) || !double.IsFinite(point.Y) || !double.IsFinite(point.Z))
             || loop.Bulges.Exists(static bulge => !double.IsFinite(bulge))
                 ? Fin.Fail<Loop>(new GeometryFault.DegenerateInput(Kind.Polyline, index, $"nest:profile:{index}").ToError())
@@ -1247,14 +1298,14 @@ public static class Nest {
 
     internal static Fin<Seq<Loop>> ArcShapeOffset(Seq<Loop> loops, double distance) =>
         loops.Head.ToFin(new GeometryFault.DegenerateInput(Kind.Polyline, None, "nest:arc-offset-empty").ToError())
-            .Bind(head => ArcForest.Admit(loops, head.Tolerance, head.Plane).ToFin())
+            .Bind(head => ArcForest.Admit(loops, head.Tolerance, head.Plane))
                 .Bind(forest => ArcAlgebra.Apply(new ArcOp.Offset(new ArcOffsetSource.Forest(forest), distance)))
             .Bind(static trace => trace is ArcTrace.Forest forest
                 ? Fin.Succ(forest.Result.Loops)
                 : Fin.Fail<Seq<Loop>>(new FabricationFault.PolicyInadmissible(FabConcern.Nesting, "nest:arc-offset-trace")));
 
     internal static Fin<ArcRelation> Relate(Loop first, Loop second) =>
-        ArcForest.Admit(Seq(first, second), first.Tolerance, first.Plane).ToFin()
+        ArcForest.Admit(Seq(first, second), first.Tolerance, first.Plane)
             .Bind(forest => ArcAlgebra.Apply(new ArcOp.Inspect(forest, new ArcProbe.Pair(first, second))))
             .Bind(static trace => trace is ArcTrace.Inspection { Result: ArcInspection.Pair pair }
                 ? Fin.Succ(pair.Relation)
@@ -1302,10 +1353,34 @@ public static class Nest {
 
     // Kernel `UvIsland.Boundary` owns the island walk — once-counted edges, face-inherited winding, outer CCW and
     // holes CW — so this owner only terminates its Chain carrier into the Loop atom at the admitted context.
-    static Fin<Seq<Loop>> Rings(Seq<Chain> chains, Context tolerance) =>
+    internal static Fin<Seq<Loop>> Rings(Seq<Chain> chains, Context tolerance) =>
         chains.TraverseM(chain => Loop.Admit(
             toSeq(chain.Points).ToArr(), chain.Closed, Arr<double>(), tolerance)).As();
 
+}
+
+// The nfp-placement measuring case for the FabricationBenchClaims.NfpPlacement no-regression claim: the
+// workload aggregate arrives admitted through its own factories, and this gate proves only what makes a
+// measured run non-degenerate — the true-shape search lane rather than a resolved plan, live nestable
+// inventory, and literal part and budget floors — so a trivial workload cannot stamp the claim. The
+// measured fold is the exact entry the claim's lane columns spell; measurement columns and the receipt
+// projection stay the bench edge's under the AppHost claim-field map.
+public static class NestBench {
+    public const int PartFloor = 12;
+    public const int BudgetFloor = 1024;
+
+    public static Fin<(FabricationPolicy.Nest Policy, FabricationInput Input)> Workload(
+        FabricationPolicy.Nest policy, FabricationInput input) =>
+        policy.Plan.IsNone
+        && policy.Inventory.Exists(static stock => stock.Nestable && !stock.Region.IsEmpty)
+        && input.Profiles.Count >= PartFloor
+        && policy.Nesting.EvaluationBudget >= BudgetFloor
+            ? Fin.Succ((policy, input))
+            : Fin.Fail<(FabricationPolicy.Nest, FabricationInput)>(
+                new FabricationFault.PolicyInadmissible(FabConcern.Nesting, "bench:nfp-placement"));
+
+    public static ValueTask<Fin<FabricationResult>> Run((FabricationPolicy.Nest Policy, FabricationInput Input) workload) =>
+        Nest.Solve(workload.Policy, workload.Input);
 }
 
 // --- [CONFIGURATION_SPACE] -------------------------------------------------------------------------------------------------------------------------
@@ -1337,10 +1412,15 @@ internal sealed class PairMemo(HybridCache cache) {
             _ = census.Swap(count => built ? (count.Hits, count.Misses + 1) : (count.Hits + 1, count.Misses));
             return Fin.Succ(polygon);
         }
-        // Cancellation is the runtime's contract, never a geometry fault: the runtime token rides
-        // GetOrCreateAsync and an in-flight cancel rethrows on the async channel undisguised.
+        // Abandonment lowers onto the SAME typed rail every other outcome takes, matching the kernel arrangement
+        // band's one-case posture: an escaping OperationCanceledException would make the whole Fin-returning nest
+        // entry partial and step outside the run fold that already reads a cancelled run as a typed fault. The arm
+        // stays separate from the general catch because a cancel is an abandonment, not a memo defect. Done reads
+        // 0.0 structurally: the abandoned pair-memo computation completed none of its own work, and the run-grain
+        // fraction belongs to the run fold's stage boundaries, never this interior leg.
         catch (OperationCanceledException) {
-            throw;
+            return Fin.Fail<NoFitPolygon>(
+                new FabricationFault.RunAbandoned(FabConcern.Nesting, Done: 0.0, Witness: "nest:pair-memo"));
         }
         catch (Exception error) {
             return Fin.Fail<NoFitPolygon>(
@@ -1363,7 +1443,7 @@ internal static class PairTable {
         return results.ToSeq().TraverseM(identity).As()
             .Bind(pairs => Inner(toSeq(rows), inventory, policy).Map(inner => pairs.Concat(inner)))
             .Map(static found => toHashMap(found.DistinctBy(static row => row.Identity)
-                .Map(static row => (row.Identity, row))));
+                .Select(static row => (row.Identity, row))));
     }
 
     static Fin<NoFitPolygon>[] Parallel(Variant[] variants, NestPolicy policy) {
@@ -1373,18 +1453,23 @@ internal static class PairTable {
         return results;
     }
 
+    // The memoized fan is BOUNDED by policy: a variant roster of n starts n^2 cache lookups, and materializing
+    // every one as a live task before awaiting any of them saturates the pool and the L2 connection at the exact
+    // moment a large job most needs both. `PairConcurrency` is the admitted ceiling and the cancellation token
+    // rides each awaited lookup, so an abandoned solve stops the fan rather than draining it.
     static async ValueTask<Fin<NoFitPolygon>[]> Cached(Variant[] variants, NestPolicy policy, PairMemo memo, CancellationToken cancel) {
-        Task<Fin<NoFitPolygon>>[] pending = new Task<Fin<NoFitPolygon>>[checked(variants.Length * variants.Length)];
-        for (int i = 0; i < variants.Length; i++)
-            for (int j = 0; j < variants.Length; j++) {
-                Variant fixedPart = variants[i], orbiting = variants[j];
+        Fin<NoFitPolygon>[] results = new Fin<NoFitPolygon>[checked(variants.Length * variants.Length)];
+        await System.Threading.Tasks.Parallel.ForEachAsync(
+            Enumerable.Range(0, results.Length),
+            new ParallelOptions { CancellationToken = cancel, MaxDegreeOfParallelism = policy.PairConcurrency },
+            async (slot, token) => {
+                Variant fixedPart = variants[slot / variants.Length], orbiting = variants[slot % variants.Length];
                 UInt128 identity = Key(fixedPart, orbiting, policy);
-                pending[(i * variants.Length) + j] = memo.GetOrBuild(
-                    identity,
-                    () => Built(fixedPart, orbiting, identity, policy),
-                    cancel).AsTask();
-            }
-        return await Task.WhenAll(pending).ConfigureAwait(false);
+                results[slot] = await memo
+                    .GetOrBuild(identity, () => Built(fixedPart, orbiting, identity, policy), token)
+                    .ConfigureAwait(false);
+            }).ConfigureAwait(false);
+        return results;
     }
 
     public static UInt128 Key(Variant fixedPart, Variant orbiting, NestPolicy policy) =>
@@ -1427,13 +1512,8 @@ internal static class PairTable {
                     select admitted)).As()
             .Map(static rows => rows.Choose(identity).ToSeq());
 
-    internal static Fin<NoFitPolygon> Admit(Seq<Loop> locus, UInt128 identity, NfpWitness witness) {
-        ValidationError? error = NoFitPolygon.Validate(locus, identity, witness, out NoFitPolygon? polygon);
-        return error is null && polygon is not null
-            ? Fin.Succ(polygon)
-            : Fin.Fail<NoFitPolygon>(new GeometryFault.DegenerateInput(Kind.Polyline, None, "nest:nfp").ToError()
-                + Error.New(Optional(error).Map(static value => value.Message).IfNone("unadmitted")));
-    }
+    internal static Fin<NoFitPolygon> Admit(Seq<Loop> locus, UInt128 identity, NfpWitness witness) =>
+        NoFitPolygon.Validate(locus, identity, witness, out NoFitPolygon polygon).Admitted(polygon);
 
     readonly struct PairAction(Variant[] variants, Fin<NoFitPolygon>[] results, NestPolicy policy) : IAction2D {
         public void Invoke(int i, int j) {

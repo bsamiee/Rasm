@@ -52,7 +52,7 @@ public abstract partial record SettingsSource : IDisposable {
         Switch(
             context: (Borrow: borrow, Op: key),
             live: static (ctx, source) =>
-                from session in Optional(source.Session).ToFin(Fail: ctx.Op.InvalidInput())
+                from session in ctx.Op.Need(source.Session)
                 from result in session.Demand(
                     use: document =>
                         from settings in Optional(document.RenderSettings).ToFin(Fail: ctx.Op.MissingContext())
@@ -62,14 +62,14 @@ public abstract partial record SettingsSource : IDisposable {
                     needs: [SessionNeed.Read])
                 select result,
             archived: static (ctx, source) =>
-                from archive in Optional(source.Archive).ToFin(Fail: ctx.Op.InvalidInput())
+                from archive in ctx.Op.Need(source.Archive)
                 from result in ctx.Op.Catch(() =>
                     from settings in Optional(archive.Settings.RenderSettings).ToFin(Fail: ctx.Op.MissingContext())
                     from output in ctx.Borrow(settings)
                     select output)
                 select result,
             detached: static (ctx, source) =>
-                from settings in Optional(source.Settings).ToFin(Fail: ctx.Op.InvalidInput())
+                from settings in ctx.Op.Need(source.Settings)
                 from result in ctx.Op.Catch(() => ctx.Borrow(settings.Resource))
                 select result);
 
@@ -77,7 +77,7 @@ public abstract partial record SettingsSource : IDisposable {
         Switch(
             context: (Name: name, Borrow: borrow, Op: key),
             live: static (ctx, source) =>
-                from session in Optional(source.Session).ToFin(Fail: ctx.Op.InvalidInput())
+                from session in ctx.Op.Need(source.Session)
                 from receipt in session.Demand(
                     use: document => DocumentCommit.Sealed(
                         document: document,
@@ -94,14 +94,14 @@ public abstract partial record SettingsSource : IDisposable {
                     needs: SessionNeed.Mutation(undo: true, redraw: RedrawPolicy.None).ToArray())
                 select receipt,
             archived: static (ctx, source) =>
-                from archive in Optional(source.Archive).ToFin(Fail: ctx.Op.InvalidInput())
+                from archive in ctx.Op.Need(source.Archive)
                 from receipt in ctx.Op.Catch(() =>
                     from settings in Optional(archive.Settings.RenderSettings).ToFin(Fail: ctx.Op.MissingContext())
                     from axes in ctx.Borrow(settings)
                     select new SettingsReceipt(Applied: axes, UndoRecord: None))
                 select receipt,
             detached: static (ctx, source) =>
-                from settings in Optional(source.Settings).ToFin(Fail: ctx.Op.InvalidInput())
+                from settings in ctx.Op.Need(source.Settings)
                 from axes in ctx.Op.Catch(() => ctx.Borrow(settings.Resource))
                 select new SettingsReceipt(Applied: axes, UndoRecord: None));
 
@@ -116,7 +116,8 @@ public abstract partial record SettingsSource : IDisposable {
 
 ## [03]-[STATE_RECORDS]
 
-- Owner: `SubOwners` is the one custody window over the seven `RenderSettings` sub-owners — every read and every apply borrows the same seven wrappers for one bracket, so the state and its evidence sample one instant and a per-property re-read cannot tear the snapshot. Each total-state owner carries one-pass `Of` and whole-state `Apply`; boundary guards reject invalid scalar, vector, key, and case combinations before host mutation. `SunEvidence` owns derived vector, hash, and light custody, while `WorkflowEvidence` owns reciprocal gamma and hash without treating either as replay input.
+- Owner: `SubOwners` is the one custody window over the seven `RenderSettings` sub-owners — `Within` owns the bracket, so every read and every apply the body asks for borrows the same seven wrappers, the state and its evidence sample one instant, and a per-property re-read cannot tear the snapshot.
+- Law: a borrow never releases the window — the bracket does. A read-then-write body is therefore ONE window, and a compensated edit reads its prior state and applies its plan against the same wrapper set instead of two unsynchronized opens. Each total-state owner carries one-pass `Of` and whole-state `Apply`; boundary guards reject invalid scalar, vector, key, and case combinations before host mutation. `SunEvidence` owns derived vector, hash, and light custody, while `WorkflowEvidence` owns reciprocal gamma and hash without treating either as replay input.
 - Law: a sub-owner property answers a FRESH non-owning wrapper on every read and its `Dispose` is `GC.SuppressFinalize` alone, so custody is a finalizer retirement, never a native release — the seven-wrapper window is what makes the read coherent, and a free-floating sub-owner never enters it because disposing one suppresses its only delete path.
 - Law: applies are total state, never a patch — every `Apply` re-asserts its full field set, so an absent field cannot silently clear and a configuration travels as one replayable value between documents, archives, and free-floating carriers.
 - Law: sun position follows host mode — automatic state writes geolocation, timezone, daylight saving, and moment before clearing manual control; manual state admits either the host angle pair or vector setter after enabling manual control. Readback canonicalizes manual state to angles, while vector and hash detach as evidence.
@@ -150,14 +151,22 @@ public sealed record SubOwners : IDisposable {
     internal RenderChannels Channels { get; }
 
     internal static Fin<TOut> Within<TOut>(RenderSettings settings, Func<SubOwners, Fin<TOut>> borrow, Op key) =>
-        from active in Optional(settings).ToFin(Fail: key.InvalidInput())
-        from activeBorrow in Optional(borrow).ToFin(Fail: key.InvalidInput())
+        from active in key.Need(settings)
+        from activeBorrow in key.Need(borrow)
         from owners in key.Catch(() => Fin.Succ(value: new SubOwners(settings: active)))
-        from result in owners.Use(borrow: activeBorrow, key: key)
+        from result in Bracketed(owners: owners, borrow: activeBorrow, key: key)
         select result;
 
-    private Fin<TOut> Use<TOut>(Func<SubOwners, Fin<TOut>> borrow, Op key) {
-        using (this) return key.Catch(() => borrow(this));
+    // The window's release belongs to the BRACKET, never to a borrow. `Within` opens the seven wrappers once, runs whatever
+    // sequence of borrows the body asks against that one instant, and retires the finalizer registrations on exit — so a
+    // read-then-write body is expressible over ONE coherent wrapper set. A borrow disposing its own receiver made a second
+    // consecutive borrow inexpressible and forced every read-then-write caller into two unsynchronized windows.
+    private static Fin<TOut> Bracketed<TOut>(SubOwners owners, Func<SubOwners, Fin<TOut>> borrow, Op key) {
+        try {
+            return key.Catch(() => borrow(owners));
+        } finally {
+            owners.Dispose();
+        }
     }
 
     // Host truth: every sub-owner read off a `RenderSettings` is a NON-OWNING wrapper — the private `Dispose(bool)` body is
@@ -391,6 +400,14 @@ public readonly record struct WorkflowEvidence(float PostGammaReciprocal, uint H
         new(PostGammaReciprocal: workflow.PostProcessGammaReciprocal, Hash: workflow.Hash);
 }
 
+// `DitherMethod` is the `Rasm.Rhino.Render` namespace's ONE dither vocabulary: the settings sub-owner and the Display render
+// window both bind these rows, and a second owner keyed on the native enum beside it is the deleted form. The roster is the
+// whole of `Dithering.Methods`.
+//
+// Host truth: `Dithering.Method` is a TWO-state native variant wearing a three-row enum. The getter answers
+// `FloydSteinberg` for any non-zero and `SimpleNoise` otherwise — it never answers `None` — and the setter writes `1` for
+// anything but `SimpleNoise`, so writing `None` reads back as `FloydSteinberg`. `None` is therefore an admissible INPUT row
+// that does not round-trip, and `Dithering.Enabled` is the real off switch a consumer wanting no dithering writes.
 [SmartEnum<string>]
 public sealed partial class DitherMethod {
     public static readonly DitherMethod None = new("none", Dithering.Methods.None);
@@ -632,7 +649,7 @@ public abstract partial record RenderOutput {
         Op op = key.OrDefault();
         return from admittedSize in Size2i.Of(width: size.Width, height: size.Height, key: op)
                from admittedDpi in op.Positive(value: dpi)
-               from admittedUnits in Optional(units).ToFin(Fail: op.InvalidInput())
+               from admittedUnits in op.Need(units)
                select (RenderOutput)new FixedCase(
                    Size: admittedSize,
                    Dpi: admittedDpi,
@@ -748,7 +765,7 @@ public sealed record RenderConfig(
 
     internal Fin<Unit> Apply(RenderSettings settings, Op key) {
         RenderConfig self = this;
-        return from output in Optional(self.Output).ToFin(Fail: key.InvalidInput()).Bind(value => value.Admit(key))
+        return from output in key.Need(self.Output).Bind(value => value.Admit(key))
                from _ in guard(
                    self.Source is { IsValid: true }
                    && self.Environments is not null
@@ -782,9 +799,10 @@ public sealed record RenderConfig(
 
 ## [04]-[SUN_ASTRONOMY]
 
-- Owner: `SunProblem` closes direction, altitude, Julian day, twilight, tint, and host-location modalities; `SunSolution` closes vector, scalar, color, and optional location egress; `SunSolver.Solve` is the sole entry.
+- Owner: `SunProblem` closes direction, altitude, Julian day, twilight, tint, and machine-location modalities; `SunCapability` is the grant a machine-facts read presents; `SunSolution` closes vector, scalar, color, and optional location egress; `SunSolver.Solve` is the sole entry.
 - Law: each problem dispatches directly to its verified host static, and provider failure or invalid admission stays on the `Fin<SunSolution>` rail.
-- Boundary: the georeference invariant — `Sun.North`/`Latitude`/`Longitude` re-encoded from `EarthAnchorPoint` after an anchor write — is the Exchange rail's earth-sync owner; this page never writes the anchor.
+- Law: every problem but `Here` is pure over its supplied arguments — `Here` reads the machine's own geolocation service, so it carries the `SunCapability.MachineLocation` grant and admission refuses the case without it; a machine-facts read reached implicitly through a coordinate solve is the deleted form.
+- Boundary: the georeference invariant — `Sun.North`/`Latitude`/`Longitude` re-encoded from `EarthAnchorPoint` after an anchor write — is the Exchange rail's earth-sync owner; this page never writes the anchor, and `Here` only reads the machine.
 
 ```csharp signature
 // --- [TYPES] --------------------------------------------------------------------------------
@@ -798,7 +816,7 @@ public abstract partial record SunProblem {
     public sealed record Julian(double TimeZoneHours, int DaylightMinutes, DateTime Moment, double Hours) : SunProblem;
     public sealed record Twilight : SunProblem;
     public sealed record Color(double AltitudeDegrees) : SunProblem;
-    public sealed record Location : SunProblem;
+    public sealed record Here(SunCapability Grant) : SunProblem;
 
     internal bool IsValid => Switch(
         direction: static problem => Coordinate(problem.Latitude, problem.Longitude),
@@ -808,7 +826,7 @@ public abstract partial record SunProblem {
         julian: static problem => Time(problem.TimeZoneHours, problem.DaylightMinutes, problem.Hours),
         twilight: static _ => true,
         color: static problem => double.IsFinite(problem.AltitudeDegrees),
-        location: static _ => true);
+        here: static problem => problem.Grant == SunCapability.MachineLocation);
 
     private static bool Coordinate(double latitude, double longitude) =>
         double.IsFinite(latitude) && latitude is >= -90d and <= 90d
@@ -817,6 +835,15 @@ public abstract partial record SunProblem {
     private static bool Time(double zone, int daylight, double hours) =>
         double.IsFinite(zone) && zone is >= -24d and <= 24d
         && daylight is >= 0 and <= 1440 && double.IsFinite(hours);
+}
+
+// `Sun.Here(out double, out double)` reads the MACHINE's geolocation service — where the running computer is — not the
+// document, not the earth anchor, and not the astronomy model every other problem evaluates over supplied coordinates. That
+// is a host-facts capability rather than a solve input, so it enters only as the grant a caller names, and an implicit
+// machine read inside an otherwise-pure solve is the deleted form.
+[SmartEnum<string>]
+public sealed partial class SunCapability {
+    public static readonly SunCapability MachineLocation = new("machine-location");
 }
 
 [SmartEnum<bool>]
@@ -840,7 +867,7 @@ public abstract partial record SunSolution : IDetachedDocumentResult {
 public static class SunSolver {
     public static Fin<SunSolution> Solve(SunProblem problem, Op? key = null) {
         Op op = key.OrDefault();
-        return from active in Optional(problem).ToFin(Fail: op.InvalidInput())
+        return from active in op.Need(problem)
                from _ in guard(active.IsValid, op.InvalidInput()).ToFin()
                from solution in active.Switch(
             context: op,
@@ -869,7 +896,7 @@ public static class SunSolver {
                 return PerceptualColor.OfRgb(tint.R, tint.G, tint.B, tint.A, state)
                     .Map(static value => (SunSolution)new SunSolution.Color(value));
             }),
-            location: static (state, _) => state.Catch(() => Fin.Succ<SunSolution>(new SunSolution.Location(
+            here: static (state, _) => state.Catch(() => Fin.Succ<SunSolution>(new SunSolution.Location(
                 global::Rhino.Render.Sun.Here(out double latitude, out double longitude)
                     ? Some((latitude, longitude))
                     : Option<(double, double)>.None))))
@@ -881,7 +908,7 @@ public static class SunSolver {
 ## [05]-[EDIT_RAIL]
 
 - Owner: `SettingsRequest` closes read, edit, and copy; `SettingsResult` keeps state and receipt egress explicit; `Settings.Run` is the sole entry over every `SettingsSource` origin.
-- Law: each request enters its source once; edit and whole-state replay lower through one `SettingsEdit` program inside one compensated mutation grant over a single `SubOwners` window, and copy crosses sources as ONE detached `RenderState` read inside the source borrow — the total-state record IS the replayable carrier, so no duplicate aggregate is minted and no live aggregate outlives its window.
+- Law: each request enters its source once; edit and whole-state replay lower through one `SettingsEdit` program inside one compensated mutation grant over a single `SubOwners` window, and copy crosses sources as exactly one source read-window plus one target write-window — the total-state record IS the replayable carrier, so no duplicate aggregate is minted and no live aggregate outlives its window.
 - Law: a failed edit sequence restores the pre-borrow total state before the fault leaves — the prior `RenderState` is the compensation record for every source, archive and detached included, with the live bracket's undo rollback layered above it; a restore failure appends onto the primary fault, never replaces it.
 - Law: `SettingsReceipt.Applied` names changed axes, and live mutations stamp the same receipt through `UndoBracket`.
 - Boundary: `RenderSettings.PostEffects : PostEffectCollection` is a separate host sub-owner whose configuration rows belong to the Display render page.
@@ -952,18 +979,18 @@ public abstract partial record SettingsEdit {
     internal Fin<Unit> Apply(SubOwners owners, Op op) =>
         Switch(
             (Owners: owners, Op: op),
-            frame: static (context, edit) => Optional(edit.Config).ToFin(Fail: context.Op.InvalidInput())
+            frame: static (context, edit) => context.Op.Need(edit.Config)
                 .Bind(config => config.Apply(settings: context.Owners.Settings, key: context.Op)),
-            ground: static (context, edit) => Optional(edit.State).ToFin(Fail: context.Op.InvalidInput())
+            ground: static (context, edit) => context.Op.Need(edit.State)
                 .Bind(state => state.Apply(ground: context.Owners.Ground, key: context.Op)),
             sky: static (context, edit) => edit.State.Apply(sky: context.Owners.Sky, key: context.Op),
-            daylight: static (context, edit) => Optional(edit.State).ToFin(Fail: context.Op.InvalidInput())
+            daylight: static (context, edit) => context.Op.Need(edit.State)
                 .Bind(state => state.Apply(sun: context.Owners.Daylight, key: context.Op)),
             workflow: static (context, edit) => edit.State.Apply(workflow: context.Owners.Workflow, key: context.Op),
             dither: static (context, edit) => edit.State.Apply(dither: context.Owners.Dither, key: context.Op),
-            guides: static (context, edit) => Optional(edit.State).ToFin(Fail: context.Op.InvalidInput())
+            guides: static (context, edit) => context.Op.Need(edit.State)
                 .Bind(state => state.Apply(frame: context.Owners.Guides, key: context.Op)),
-            channels: static (context, edit) => Optional(edit.State).ToFin(Fail: context.Op.InvalidInput())
+            channels: static (context, edit) => context.Op.Need(edit.State)
                 .Bind(state => state.Apply(channels: context.Owners.Channels, key: context.Op)));
 }
 
@@ -986,10 +1013,10 @@ public abstract partial record SettingsResult : IDetachedDocumentResult {
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
 public static class Settings {
-    public static Fin<SettingsResult> Run(SettingsSource source, SettingsRequest request) {
-        Op op = Op.Of();
-        return from activeSource in Optional(source).ToFin(Fail: op.InvalidInput())
-               from activeRequest in Optional(request).ToFin(Fail: op.InvalidInput())
+    public static Fin<SettingsResult> Run(SettingsSource source, SettingsRequest request, Op? key = null) {
+        Op op = key.OrDefault();
+        return from activeSource in op.Need(source)
+               from activeRequest in op.Need(request)
                from result in activeRequest.Switch(
                    context: (Source: activeSource, Op: op),
                    read: static (state, _) => state.Source.Use(
@@ -1052,8 +1079,11 @@ public static class Settings {
 
     // `RenderState` IS the detached replayable carrier, so the source borrow yields it directly; a `Duplicate()` lease would
     // mint a second native, re-read the same total state off it, and carry a live aggregate the detached marker cannot type.
+    // Two sub-owner windows total and no more: ONE read window over the source, ONE write window over the target whose prior
+    // read and whose apply are two borrows of the same seven wrappers, so the compensation record and the state it restores
+    // sample one instant. `RenderState.Use` between them is the detached value's own disposal bracket, not a third window.
     private static Fin<SettingsReceipt> Copy(SettingsSource source, SettingsSource target, Op op) =>
-        from activeTarget in Optional(target).ToFin(Fail: op.InvalidInput())
+        from activeTarget in op.Need(target)
         from state in source.Use(
             borrow: settings => SubOwners.Within(
                 settings: settings, borrow: owners => ReadState(owners, op), key: op),
@@ -1126,8 +1156,8 @@ public sealed class AmbientWatch : IDisposable {
         Func<AmbientFact, Fin<Unit>> sink) {
         Op op = Op.Of(name: nameof(AmbientWatch));
         Atom<FailureLedger<AmbientFailure>> ledger = Atom(FailureLedger<AmbientFailure>.Empty);
-        return from activeRetention in Optional(retention).ToFin(Fail: op.InvalidInput())
-               from activeSink in Optional(sink).ToFin(Fail: op.InvalidInput())
+        return from activeRetention in op.Need(retention)
+               from activeSink in op.Need(sink)
                from _ in guard(
                    !slots.IsEmpty
                    && slots.ForAll(static slot => slot is not null),
@@ -1192,18 +1222,20 @@ public sealed class AmbientWatch : IDisposable {
 
 ## [07]-[SURFACE_LEDGER]
 
-| [INDEX] | [CONCERN]        | [OWNER]                              | [FORM]                    | [ENTRY]           |
-| :-----: | :--------------- | :----------------------------------- | :------------------------ | :---------------- |
-|  [01]   | live origin      | `SettingsSource.Live`                | document borrow           | `Use` / `Mutate`  |
-|  [02]   | archive origin   | `SettingsSource.Archived`            | archive borrow            | `Use` / `Mutate`  |
-|  [03]   | detached origin  | `SettingsSource.Detached`            | owned borrow              | `Use` / `Mutate`  |
-|  [04]   | sub-owner window | `SubOwners`                          | one borrow of all seven   | `Within`          |
-|  [05]   | state            | state owners                         | total projection          | `Of` / `Apply`    |
-|  [06]   | aggregate config | `RenderConfig`                       | correlated configuration  | `Of` / `Apply`    |
-|  [07]   | astronomy        | `SunProblem` / `SunSolution`         | closed request/result     | `SunSolver.Solve` |
-|  [08]   | settings rail    | `SettingsRequest` / `SettingsResult` | correlated request/result | `Settings.Run`    |
-|  [09]   | mutation receipt | `SettingsAxis` / `SettingsReceipt`   | changed axes with undo    | `Settings.Run`    |
-|  [10]   | broadcasts       | `AmbientSlot` / `AmbientFailure`     | verified failure ledger   | `AmbientWatch.Of` |
+| [INDEX] | [CONCERN]         | [OWNER]                              | [FORM]                             | [ENTRY]           |
+| :-----: | :---------------- | :----------------------------------- | :--------------------------------- | :---------------- |
+|  [01]   | live origin       | `SettingsSource.Live`                | document borrow                    | `Use` / `Mutate`  |
+|  [02]   | archive origin    | `SettingsSource.Archived`            | archive borrow                     | `Use` / `Mutate`  |
+|  [03]   | detached origin   | `SettingsSource.Detached`            | owned borrow                       | `Use` / `Mutate`  |
+|  [04]   | sub-owner window  | `SubOwners`                          | bracket-owned seven-wrapper borrow | `Within`          |
+|  [05]   | state             | state owners                         | total projection                   | `Of` / `Apply`    |
+|  [06]   | aggregate config  | `RenderConfig`                       | correlated configuration           | `Of` / `Apply`    |
+|  [07]   | dither vocabulary | `DitherMethod`                       | the one `Dithering.Methods` owner  | `Of(native, key)` |
+|  [08]   | astronomy         | `SunProblem` / `SunSolution`         | closed request/result              | `SunSolver.Solve` |
+|  [09]   | machine location  | `SunCapability`                      | grant the `Here` case names        | `SunSolver.Solve` |
+|  [10]   | settings rail     | `SettingsRequest` / `SettingsResult` | correlated request/result          | `Settings.Run`    |
+|  [11]   | mutation receipt  | `SettingsAxis` / `SettingsReceipt`   | changed axes with undo             | `Settings.Run`    |
+|  [12]   | broadcasts        | `AmbientSlot` / `AmbientFailure`     | verified failure ledger            | `AmbientWatch.Of` |
 
 ## [08]-[RESEARCH]
 

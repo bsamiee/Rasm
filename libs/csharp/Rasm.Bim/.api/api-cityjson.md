@@ -115,10 +115,10 @@ CityJSONSeq is newline-delimited — one JSON object per line, a metadata header
 - `GetVerticesEnvelope()` dequantizes to the NTS `Envelope` and Z-range for the document AABB without walking the geometry tree.
 
 [STACKING]:
-- `api-nettopologysuite`(`libs/csharp/.api/api-nettopologysuite.md`): `ToFeatures`/`ToPolygons` return `NetTopologySuite.Features.Feature` and `Geometries.Polygon`, and `GetVerticesEnvelope()` an `Envelope` — a dataset lands on the NTS `Geometry`/`Envelope`/STRtree algebra as one more NTS-Feature source beside the shapefile and GeoPackage codecs (`api-nts-esri-shapefile`).
-- `api-projnet`(`libs/csharp/.api/api-projnet.md`): `Metadata.ReferenceSystem` drives the ProjNET datum/projection leg, reprojecting dequantized vertices into the shared projected frame before urban context federates with the BIM model.
-- `api-sharpgltf-3dtiles`(`libs/csharp/.api/api-sharpgltf-3dtiles.md`), `api-subtree`: dequantized solid/surface geometry tessellates into the `Exchange/export` glTF/3D-Tiles delivery pipeline, sharing the projected frame the georeference leg establishes.
-- `api-hashing`(`libs/csharp/.api/api-hashing.md`): a `CityJsonWriter.Write` string's UTF-8 bytes mint the urban-context snapshot content key on the shared content-identity rail.
+- `NetTopologySuite`(`.api/api-nettopologysuite`): `ToFeatures`/`ToPolygons` return `NetTopologySuite.Features.Feature` and `Geometries.Polygon`, and `GetVerticesEnvelope()` an `Envelope` — a dataset lands on the NTS `Geometry`/`Envelope`/STRtree algebra as one more NTS-Feature source beside the shapefile and GeoPackage codecs (`.api/api-nts-esri-shapefile`).
+- `ProjNET`(`.api/api-projnet`): `Metadata.ReferenceSystem` drives the ProjNET datum/projection leg, reprojecting dequantized vertices into the shared projected frame before urban context federates with the BIM model.
+- `SharpGLTF.3DTiles`(`.api/api-sharpgltf-3dtiles`), `subtree`(`.api/api-subtree`): dequantized solid/surface geometry tessellates into the `Exchange/export` glTF/3D-Tiles delivery pipeline, sharing the projected frame the georeference leg establishes.
+- `System.IO.Hashing`(`.api/api-hashing`): a `CityJsonWriter.Write` string's UTF-8 bytes mint the urban-context snapshot content key on the shared content-identity rail.
 - within-lib: `CityJsonDocument.ToFeatures(lod)` composes the full decode in one fold — walking `CityObjects`, applying `Transform` per `CoordinateZ`, triangulating each `Geometry` through `PolygonCreator` into a `MultiPolygon`, and packing `CityObject.Attributes` into the NTS `AttributesTable`.
 
 [LOCAL_ADMISSION]:

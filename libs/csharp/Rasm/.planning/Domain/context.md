@@ -61,11 +61,11 @@ public readonly partial struct AngleTolerance {
 ## [03]-[MODEL_CONTEXT]
 
 - Owner: `ModelUnit` is the admitted unit regime — defined `UnitSystem`, positive finite meters per unit, required custom name; `Context` binds one `ModelUnit` to the three admitted tolerances.
-- Entry: the `Context.Of` family accepts scalar tolerances with `UnitSystem` or `LengthUnit`, derives defaults from either unit carrier, and retains `Millimeters()` as the context-free default; `ScaleTo(Context)` divides the admitted meters-per-unit values after admitting the target; `ModelUnit.Convert(value, from, to, key)` is the ONE dynamic-conversion seam onto the UnitsNet vocabulary (guarded `UnitConverter.TryConvert`, typed refusal on an unregistered pair) and `ModelUnit.Converter<TQuantity>(from, to, key)` its hot-path row caching one `UnitConverter.Default.GetConversionFunction<TQuantity>` delegate per pair — `ScaleTo` stays the one scale owner, so unit identity and cross-context rescale never merge into one hand-kept factor.
+- Entry: the `Context.Of` family accepts scalar tolerances with `UnitSystem` or `LengthUnit`, derives defaults from either unit carrier, and retains `Millimeters()` as the context-free default; `ScaleTo(Context)` divides the admitted meters-per-unit values after admitting the target; `ModelUnit.Convert(value, from, to, key)` is the ONE dynamic-conversion seam onto the UnitsNet vocabulary (guarded `UnitConverter.TryConvert`, typed refusal on an unregistered pair) and `ModelUnit.Converter<TQuantity>(from, to, key)` its hot-path row resolving one `UnitConverter.Default.TryGetConversionFunction<TQuantity>` delegate per pair onto that same rail — `ScaleTo` stays the one scale owner, so unit identity and cross-context rescale never merge into one hand-kept factor.
 - Cases: `UnitSystem` ingress admits defined built-in rows; `LengthUnit` ingress admits built-in and custom rows, preserving custom name and scale; incomplete `CustomUnits`, `Unset`, `None`, and undefined ordinals fail before context construction.
 - Auto: `Fractional` (the arc-length tolerance feeding `Curve.GetLength`/`NormalizedLengthParameters`) and `MeshIntersectionTolerance` (host-coefficient-scaled, read by every mesh-intersection call) derive once here; `Fractional` and the default relative tolerance both floor on `EpsilonPolicy.SqrtEpsilon` because they are dimensionless relative gates, while the absolute default rides the host distance default through the admitted unit scale — a bare per-module literal standing for either is unreplayable across operators.
 - Law: `Of(RhinoDoc?)` is the document-coupled boundary adapter, projecting the document tolerances and units so custom scale and name survive unchanged.
-- Packages: Thinktecture.Runtime.Extensions (`[ValueObject<double>]`), LanguageExt.Core (`Validation`, `Fin`, applicative `Apply`), `Numerics/atoms` (`EpsilonPolicy` — the named epsilon rows every guard floor and relative default read), RhinoCommon (`LengthUnit`, `UnitSystem`, `RhinoDoc`, `RhinoMath` host defaults, `Intersection`), UnitsNet (`UnitConverter`, `IQuantity` — the unit-bridge seam).
+- Packages: Thinktecture.Runtime.Extensions (`[ValueObject<double>]`), LanguageExt.Core (`Validation`, `Fin`, applicative `Apply`), `Numerics/atoms` (`EpsilonPolicy` — the named epsilon rows every guard floor and relative default read), RhinoCommon (`LengthUnit`, `UnitSystem`, `RhinoDoc`, `RhinoMath` host defaults, `Intersection`), UnitsNet (`UnitConverter`, `ConversionFunction`, `IQuantity` — the unit-bridge seam).
 - Growth: a new model-space fact (a fourth tolerance, a grid-resolution policy, a document epoch) is one validated slot and one factory argument on the scalar floor, inherited by every derived factory.
 - Boundary: `Context` threads explicitly — a parameter on synchronous rails, inside `Env` on `Eff` pipelines (`rails.md` Op law), never a global default; `Analyze.From`/`Analyze.In` (`Analysis/query.md`) forward over the `Of` family, `Env` carrying the constructed `Context`.
 
@@ -133,10 +133,16 @@ public sealed record ModelUnit {
         UnitsNet.UnitConverter.TryConvert(value, from, to, out double converted) && double.IsFinite(d: converted)
             ? Fin.Succ(value: converted)
             : Fin.Fail<double>(error: key.OrDefault().InvalidInput());
-    // Converter is the hot-path row: one cached conversion delegate resolved once per (from, to) pair off the default
-    // registry, so a per-sample projection pays a delegate call, never a registry lookup.
+    // Converter is the hot-path row: ONE registry probe resolves the (from, to) delegate and a per-sample projection
+    // calls it, so the dictionary lookup leaves the loop. The probe is the NON-THROWING twin — `GetConversionFunction`
+    // raises on an unregistered pair, and a raise funnelled back onto the rail is exception-style control flow in
+    // domain logic, where the registry already answers the same question as a verdict. The registry stores every
+    // conversion as the TYPELESS `ConversionFunction` (`IQuantity -> IQuantity`), so the projection re-narrows each
+    // result and the per-call cost is one boxed crossing — the delegate identity, not this row, owns that shape.
     public static Fin<Func<TQuantity, TQuantity>> Converter<TQuantity>(Enum from, Enum to, Op? key = null) where TQuantity : UnitsNet.IQuantity =>
-        key.OrDefault().Catch(() => new Func<TQuantity, TQuantity>(UnitsNet.UnitConverter.Default.GetConversionFunction<TQuantity>(from, to).Invoke));
+        UnitsNet.UnitConverter.Default.TryGetConversionFunction<TQuantity>(from, to, out UnitsNet.ConversionFunction? conversion)
+            ? Fin.Succ<Func<TQuantity, TQuantity>>(value: quantity => (TQuantity)conversion(quantity))
+            : Fin.Fail<Func<TQuantity, TQuantity>>(error: key.OrDefault().InvalidInput());
 }
 
 public sealed record Context {

@@ -8,20 +8,20 @@ This is the terminal stack surface, so it composes the finalized corpus as settl
 
 This table routes an interaction concern to its owning surface; the most specific row wins.
 
-| [INDEX] | [CONCERN]                   | [OWNER]                            | [REJECTED_FORM]                 |
-| :-----: | :-------------------------- | :--------------------------------- | :------------------------------ |
-|  [01]   | process UI modality         | surface row + one mount fold       | per-host boot fork              |
-|  [02]   | screens and navigation      | catalog row + nav-verb union       | per-surface router              |
-|  [03]   | dock arrangement            | factory verbs + workspace rails    | view-layer layout mutation      |
-|  [04]   | view state and activation   | OAPH + `WhenActivated` scope       | constructor stream wiring       |
-|  [05]   | view-model question         | `Interaction<TInput,TOutput>`      | view-model-owned dialog         |
-|  [06]   | user-facing validity        | owned slot rows + error-info bridge | screen-side re-validation      |
-|  [07]   | interactive verbs           | one command-intent row table       | per-surface command registries  |
-|  [08]   | verb availability           | seeded `CombineLatest` fold        | `CanExecute(parameter)` logic   |
-|  [09]   | live collection to screen   | `SortAndBind` edge + row contract  | snapshot re-query               |
-|  [10]   | modal and notice            | presentation gate + dialog session | free-floating modal window      |
-|  [11]   | theme application           | one idempotent variant fold        | captured brush, per-window swap |
-|  [12]   | automation, locale, gesture | intent-key derivation              | literal names at surfaces       |
+| [INDEX] | [CONCERN]                   | [OWNER]                             | [REJECTED_FORM]                 |
+| :-----: | :-------------------------- | :---------------------------------- | :------------------------------ |
+|  [01]   | process UI modality         | surface row + one mount fold        | per-host boot fork              |
+|  [02]   | screens and navigation      | catalog row + nav-verb union        | per-surface router              |
+|  [03]   | dock arrangement            | factory verbs + workspace rails     | view-layer layout mutation      |
+|  [04]   | view state and activation   | OAPH + `WhenActivated` scope        | constructor stream wiring       |
+|  [05]   | view-model question         | `Interaction<TInput,TOutput>`       | view-model-owned dialog         |
+|  [06]   | user-facing validity        | owned slot rows + error-info bridge | screen-side re-validation       |
+|  [07]   | interactive verbs           | one command-intent row table        | per-surface command registries  |
+|  [08]   | verb availability           | seeded `CombineLatest` fold         | `CanExecute(parameter)` logic   |
+|  [09]   | live collection to screen   | `SortAndBind` edge + row contract   | snapshot re-query               |
+|  [10]   | modal and notice            | presentation gate + dialog session  | free-floating modal window      |
+|  [11]   | theme application           | one idempotent variant fold         | captured brush, per-window swap |
+|  [12]   | automation, locale, gesture | intent-key derivation               | literal names at surfaces       |
 
 ## [02]-[SURFACE_MOUNT]
 

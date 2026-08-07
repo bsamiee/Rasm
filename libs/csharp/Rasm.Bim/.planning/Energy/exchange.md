@@ -1,6 +1,6 @@
 # [BIM_ENERGY_EXCHANGE]
 
-`EnergyExchange.Apply(EnergyOp)` is the building-energy-model exchange entry: it raises HBJSON/DFJSON/OSM/gbXML/IDF documents onto the seam `Rasm.Element/Graph/element#ELEMENT_GRAPH` `ElementGraph` as graph content, lowers graph content back to the two managed authoring schemas, and translates between the OSM-centric formats — the semantic MODEL-EXCHANGE leg of the `[ENERGY_MODEL_EXCHANGE]` group. Energy SIMULATION — the conditioned annual OSM, the EnergyPlus run, the results `SqlFile` — is `csharp:Rasm.Compute/Analysis/energy`'s and never re-authored here: this folder moves MODELS, that page runs them, aligned by the seam graph and never coupled.
+`EnergyExchange.Apply(EnergyOp)` is the building-energy-model exchange entry: it raises HBJSON/DFJSON/OSM/gbXML/IDF documents onto the seam `Rasm.Element/Graph/element#ELEMENT_GRAPH` `ElementGraph` as graph content, lowers graph content back to the two managed authoring schemas, and translates between the OSM-centric formats — the semantic MODEL-EXCHANGE leg of the `[ENERGY_MODEL_EXCHANGE]` group. Energy SIMULATION — the conditioned annual OSM, the EnergyPlus run, the results `SqlFile` — is `Rasm.Compute/Analysis/energy`'s and never re-authored here: this folder moves MODELS, that page runs them, aligned by the seam graph and never coupled.
 
 Three sibling owners realize the arms: `Energy/projector#ENERGY_PROJECTOR` `EnergyProjector : IElementProjection` raises, `Energy/derive#MODEL_DERIVE` `EnergyDerive` lowers to a honeybee envelope or dragonfly massing, and `Energy/derive#TRANSLATE_MATRIX` `EnergyTranslate` translates over the OSM-centric `(source, target)` table.
 
@@ -18,10 +18,10 @@ Faults route the existing `Model/faults#FAULT_BAND` `BimFault` arms — band 260
 
 ## [02]-[ENERGY_EXCHANGE]
 
-- Owner: `EnergyExchange` the one exchange entry; `EnergyOp` the closed request `[Union]` (`Raise`/`Lower`/`Translate`); `EnergyOutcome` the two-case result (`Raised` graph+delta+footprint blobs, `Emitted` the content-keyed artifact); `EnergyDoc` the foreign-document carrier keyed on pure byte content; `EnergyArtifact` the emitted document carrying the optional seam graph pedigree; `EnergyScope`/`EnergyLeg`/`EnergyReceipt` the request and evidence vocabulary.
+- Owner: `EnergyExchange` the one exchange entry; `EnergyOp` the closed request `[Union]` (`Raise`/`Lower`/`Translate`); `EnergyOutcome` the two-case result (`Raised` graph+delta+footprint blobs, `Emitted` the content-keyed artifact); `EnergyDoc` the foreign-document carrier keyed on pure byte content; `EnergyArtifact` the emitted document carrying the optional seam graph pedigree; `EnergyScope`/`EnergyLeg`/`EnergyReceipt` the request and evidence vocabulary; `EnergyReason`/`EnergyNote` the degrade vocabulary all three legs note into that receipt; `ArtifactKey` the object-plane address value object the events envelope and the results join both read.
 - Entry: `EnergyExchange.Apply(EnergyOp op)` → `Fin<EnergyOutcome>` over the generated total `Switch`. Raise composes the `Projection/semantic#GRAPH_LEGALITY` `IfcLegality` constraint under `Rasm.Element/Projection/projection#PROJECTION_CONTRACT` `ProjectionAssembly.Assemble` because it mints `Classification("ifc", code)`/`PredefinedType` values — the legality arms gate an out-of-roster class or token exactly as an IFC ingest. Each typed `BimFault` lifts BARE onto the `Fin<T>` rail: band 2600 IS the `Expected` `Code`, no `.ToError()` hop.
 - Auto: identity is dual-keyed on the tessellation-bridge pattern — `EnergyDoc.SourceKey` and `EnergyArtifact.ContentKey` are ONE derivation, so the raise/lower round trip keys identically and the reuse join holds. `EnergyArtifact.Graph` is `Some` exactly on graph-lowered artifacts, so the Persistence artifact index joins a derived model back to its source graph without a parse. `ArtifactKey` shares the `Exchange/tessellation#TESSELLATION_BRIDGE` `:glb` `key:kind` address grammar — one object-plane address space.
-- Receipt: `EnergyReceipt` carries counts, keys, and evidence only, never payload bytes. Its `Warnings` tally folds the lowered models' `Validate()` DataAnnotations results, OpenStudio translator `warnings()`, and degraded-construction notes; the raise gates DataAnnotations inside `FromJson`, so its tally carries only degrade warnings.
+- Receipt: `EnergyReceipt` carries counts, keys, and typed degrade rows only, never payload bytes. Every leg notes an `EnergyNote` — a lowered model's `Validate()` DataAnnotations results, the OpenStudio translator `warnings()`/`errors()` tally, each degraded construction, unmatched segment, or unmapped face — and `Warnings` derives as the tally OF those rows, so a receipt states which evidence a document lost rather than how many times. Raise gates DataAnnotations inside `FromJson`, so its rows are degrade rows alone; a native diagnostic vector no managed read enumerates lands ONE row carrying its own count, which is why `EnergyNote.Tally` is a column.
 - Events: an `Emitted` outcome mints the `Exchange/events#EVENTS` `BimEvent.EnergyMinted` row at the composing rail's edge — the `ArtifactKey`, the `EnergyLeg` key, the format key, and the warnings tally off the `EnergyReceipt` — subject the `ArtifactKey`; envelope seal and transport are the events owner's, never a second emit path here.
 - Packages: HoneybeeSchema, DragonflySchema, NREL.OpenStudio.macOS-arm64, GeometryGymIFC_Core (roster vocabulary via `IfcClass`), Rasm.Element, Rasm, LanguageExt.Core, NodaTime, Thinktecture.Runtime.Extensions
 - Growth: a new energy-model form (an ISO 52016 XML, a FloorspaceJS floorplan) is one `Exchange/format#FORMAT_AXIS` `InterchangeFormat` row on the `energy-model` codec with one `Energy/projector` arm row or one `Energy/derive` matrix row, never a per-form `HbjsonImporter`/`OsmExporter` class; a new lower target is one `EnergyDerive` arm row; a new scope modality (a storey filter, a zone filter) is one `EnergyScope` case. Graph→OSM/gbXML egress is the declared growth arm, landing as ONE matrix column fed by the lowered honeybee leg once an in-process HBJSON→OSM translation is admitted; until then the request faults `CapabilityMiss`, never a silent partial.
@@ -33,6 +33,7 @@ using System.Text;
 using LanguageExt;
 using NodaTime;
 using Rasm;
+using Rasm.Bim.Model;                        // BimFault + the Detail roster every energy leg raises through
 using Rasm.Domain;
 using Rasm.Element.Graph;
 using Rasm.Element.Projection;
@@ -56,22 +57,93 @@ public abstract partial record EnergyScope {
 }
 
 [SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class EnergyLeg {
     public static readonly EnergyLeg Raised     = new("raised");
     public static readonly EnergyLeg Lowered    = new("lowered");
     public static readonly EnergyLeg Translated = new("translated");
 }
 
+// EnergyReason closes the exchange's degrade vocabulary: every warning-counted drop on the raise, lower, and
+// translate legs names its row, so a receipt answers WHICH evidence a thinner document lost instead of publishing
+// a bare count no reader acts on. Rows are the whole warning space — a degrade with no row is a fault.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class EnergyReason {
+    public static readonly EnergyReason FootprintMissing   = new("footprint-missing");
+    public static readonly EnergyReason ClassUnmapped      = new("class-unmapped");
+    public static readonly EnergyReason PropertyIncomplete = new("property-incomplete");
+    public static readonly EnergyReason CompositionMixed   = new("composition-mixed");
+    public static readonly EnergyReason LayerUnresolved    = new("layer-unresolved");
+    public static readonly EnergyReason SegmentUnmatched   = new("segment-unmatched");
+    public static readonly EnergyReason OpeningTypeMiss    = new("opening-type-miss");
+    public static readonly EnergyReason MeasureRejected    = new("measure-rejected");
+    public static readonly EnergyReason SchemaAnnotation   = new("schema-annotation");
+    public static readonly EnergyReason TranslatorLog      = new("translator-log");
+}
+
+// ArtifactKey owns the object-plane address grammar `<content-key:x32>:<format-key>` — the SAME `key:kind` shape
+// Exchange/tessellation#TESSELLATION_BRIDGE addresses a GLB under, so one address space serves both. It is a value
+// object rather than a string because THREE consumers parse it — the artifact mint, the Exchange/events#EVENTS
+// envelope admission, and the Energy/results#RESULTS_ADMISSION join — and each re-spelled the separator position,
+// the hex width, and the format-token check independently, so a grammar change had three places to miss.
+[ValueObject<string>]
+public sealed partial class ArtifactKey {
+    const int HexWidth = 32;
+
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
+        int separator = value?.IndexOf(':', StringComparison.Ordinal) ?? -1;
+        if (separator != HexWidth
+            || !UInt128.TryParse(value.AsSpan(0, HexWidth), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out UInt128 content)
+            || !StringComparer.Ordinal.Equals(value[..HexWidth], content.ToString("x32", CultureInfo.InvariantCulture))
+            || value.Length <= HexWidth + 1) {
+            validationError = new ValidationError("artifact-key-grammar");
+        }
+    }
+
+    // Composition from the two facts the address IS, so a mint never renders the grammar by hand.
+    public static ArtifactKey Of(UInt128 contentKey, InterchangeFormat format) =>
+        Create($"{contentKey.ToString("x32", CultureInfo.InvariantCulture)}:{format.Key}");
+
+    // Wire admission on the shared roster row: the value object's own validation decides, so this page holds the
+    // grammar and every consumer holds none.
+    public static Fin<ArtifactKey> Admit(string? value, Op key) =>
+        value is not null && TryCreate(value, out ArtifactKey? admitted) && admitted is { } row
+            ? Fin.Succ(row)
+            : Fin.Fail<ArtifactKey>(Detail.EventArtifactKeyMalformed.At(key, value ?? ""));
+}
+
 // --- [MODELS] -----------------------------------------------------------------------------
+// One degrade row: its reason, the subject it happened to (a node identifier, a construction id, a flagged schema
+// member, a matrix leg), and HOW MANY occurrences it summarizes. Tally is a column rather than a repeated row
+// because a native diagnostic vector the branch cannot enumerate member by member still publishes its count — the
+// graph legs land unit rows, the translate leg lands ONE row carrying the translator's own tally.
+public readonly record struct EnergyNote(EnergyReason Reason, string Subject, int Tally);
 // A foreign energy-model document: raw bytes + its format-axis row. SourceKey is the PURE byte-content
 // identity (kernel seed-zero ContentHash over the seam CanonicalWriter fold — format key + raw bytes, no
 // scope/policy), the reuse join and the python-peer artifact key; Text is the UTF-8 read every managed
-// codec and loadModelFromString consumes.
+// codec and loadModelFromString consumes. PRODUCER-BYTES LAW: the key covers exactly the octets the minting
+// end serialized (HoneybeeSchema ToJson here, msgspec deterministic order at the python peer — two serializers
+// whose renders never byte-match), the key travels WITH the bytes, and a peer verifies by re-hashing the
+// RECEIVED bytes over this same fold; a re-serialization is a NEW document minting its own key, never a
+// re-derivation of the held one.
+// SourceKey binds at CONSTRUCTION, never per read: a computed property re-hashed the whole document on every
+// receipt stamp, artifact mint, and reuse probe. `with` therefore never re-keys — a changed byte run is a NEW
+// document minting its own key, which is exactly the producer-bytes law above.
 public sealed record EnergyDoc(InterchangeFormat Format, ReadOnlyMemory<byte> Bytes) {
-    public UInt128 SourceKey =>
-        ContentHash.Of(new CanonicalWriter(0.0).String(Format.Key).Raw(Bytes.Span).ToBytes().Span);
+    public UInt128 SourceKey { get; } = KeyOf(Format, Bytes);
 
-    public string Text => Encoding.UTF8.GetString(Bytes.Span);
+    // Text binds BESIDE the key, for the same reason: a computed property re-decoded the whole document at every
+    // read, and every arm reads it at least twice (the codec parse and the fault message). The two derived facts
+    // are one construction, so a `with` never re-keys and never re-decodes — a changed byte run is a NEW document.
+    public string Text { get; } = Encoding.UTF8.GetString(Bytes.Span);
+
+    // Both carriers mint through this ONE derivation, so an artifact keys its own bytes without allocating a
+    // document to ask and the raise/lower round trip cannot fork its key.
+    internal static UInt128 KeyOf(InterchangeFormat format, ReadOnlyMemory<byte> bytes) =>
+        ContentHash.Of(new CanonicalWriter(0.0).String(format.Key).Raw(bytes.Span).ToBytes().Span);
 }
 
 // Content-keyed emitted document: ContentKey is the SAME derivation as EnergyDoc.SourceKey, one fold.
@@ -81,18 +153,22 @@ public sealed record EnergyArtifact(
     InterchangeFormat Format, ReadOnlyMemory<byte> Bytes, UInt128 ContentKey,
     Option<ContentAddress> Graph, Instant At) {
 
-    public string ArtifactKey => $"{ContentKey:x32}:{Format.Key}";
+    public ArtifactKey Address => ArtifactKey.Of(ContentKey, Format);
     public long ByteCount => Bytes.Length;
 
     public static EnergyArtifact Of(InterchangeFormat format, ReadOnlyMemory<byte> bytes, Option<ContentAddress> graph, Instant at) =>
-        new(format, bytes, new EnergyDoc(format, bytes).SourceKey, graph, at);
+        new(format, bytes, EnergyDoc.KeyOf(format, bytes), graph, at);
 }
 
-// Typed exchange evidence: coordinates and counts, never payload bytes.
+// Typed exchange evidence: coordinates, counts, and the typed degrade rows, never payload bytes. Warnings is the
+// TALLY OF the rows rather than a column beside them — a stored count drifts from the rows the moment one leg
+// forgets to bump it, and a count alone told a reader a document was thin without telling them what it lost.
 public sealed record EnergyReceipt(
     EnergyLeg Leg, InterchangeFormat Form, Option<InterchangeFormat> Target,
-    int Spaces, int Surfaces, int Openings, int Constructions, int Warnings,
-    UInt128 Key, Instant At);
+    int Spaces, int Surfaces, int Openings, int Constructions, Seq<EnergyNote> Notes,
+    UInt128 Key, Instant At) {
+    public int Warnings => Notes.Fold(0, static (sum, note) => sum + note.Tally);
+}
 
 [Union]
 public abstract partial record EnergyOutcome {
@@ -113,26 +189,25 @@ public abstract partial record EnergyOp {
 
     public sealed record Raise(EnergyDoc Source, ElementGraph Seed, ProjectionContext Ctx) : EnergyOp;
     public sealed record Lower(ElementGraph Graph, InterchangeFormat Target, EnergyScope Scope, GeometrySource Geometry, Instant At, Op Key) : EnergyOp;
-    public sealed record Translate(EnergyDoc Source, InterchangeFormat Target, Instant At, Op Key) : EnergyOp;
+    public sealed record Translate(EnergyDoc Source, InterchangeFormat Target, Instant At, Op Key, TranslateLane Lane) : EnergyOp;
 }
 
 public static class EnergyExchange {
     // Raise runs under the seam Assemble fold with IfcLegality composed; Lower and Translate are artifact
     // emits. Every arm returns the one outcome union, and the fold counts ride the projector/derive state.
     public static Fin<EnergyOutcome> Apply(EnergyOp op) => op.Switch(
-        raise: static r => {
-            var projector = new EnergyProjector(r.Source);
-            return EnergyProjector.Serves(r.Source.Format)
-                ? ProjectionAssembly.Assemble(
-                        ProjectionSuite.Of(Seq<IElementProjection>(projector), Seq(ConstraintRegistration.Of(new IfcLegality()))),
-                        r.Seed, r.Ctx)
-                    .Map(result => (EnergyOutcome)new EnergyOutcome.Raised(
-                        result.Graph, result.Delta, projector.Footprints, projector.Receipt(r.Ctx.At)))
-                : Fin.Fail<EnergyOutcome>(new BimFault.CodecReject(r.Ctx.Key, $"energy-form-miss:{r.Source.Format.Key}"));
-        },
+        // Construction IS admission: EnergyProjector.Of rails on the served-form question, so no unserved projector
+        // instance exists to be handed to Assemble. The retired shape constructed first and asked Serves after, so
+        // the capability answer sat beside an object that had already claimed to be a projector for that document.
+        raise: static r => EnergyProjector.Of(r.Source, r.Ctx.Key).Bind(projector =>
+            ProjectionAssembly.Assemble(
+                    ProjectionSuite.Of(Seq<IElementProjection>(projector), Seq(ConstraintRegistration.Of(new IfcLegality()))),
+                    r.Seed, r.Ctx)
+                .Map(result => (EnergyOutcome)new EnergyOutcome.Raised(
+                    result.Graph, result.Delta, projector.Footprints, projector.Receipt(r.Ctx.At)))),
         lower: static l => EnergyDerive.Lower(l.Graph, l.Target, l.Scope, l.Geometry, l.At, l.Key)
             .Map(static emitted => (EnergyOutcome)emitted),
-        translate: static t => EnergyTranslate.Run(t.Source, t.Target, t.At, t.Key)
+        translate: static t => EnergyTranslate.Run(t.Source, t.Target, t.At, t.Key, t.Lane)
             .Map(static emitted => (EnergyOutcome)emitted));
 }
 ```

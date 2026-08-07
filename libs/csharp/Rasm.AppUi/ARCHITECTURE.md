@@ -166,6 +166,8 @@ flowchart LR
     Rasm -->|"[SHAPE]: SunPosition"| Render
     Bim -->|"[SHAPE]: GeoTiles"| Charts
     Bim -->|"[RECEIPT]: CostSchedule"| Charts
+    Bim -->|"[RECEIPT]: ScheduleNetwork"| Charts
+    Bim -->|"[RECEIPT]: EnergyResults"| Charts
     Persistence -->|"[PROJECTION]: telemetry measure series"| Charts
     Persistence -->|"[RECEIPT]: resident ReceiptEnvelope"| Diagnostics
     Bim -->|"[PORT]: IssueBoard"| Collab
@@ -213,8 +215,8 @@ flowchart LR
 ```
 
 - `[BOUNDARY]: LayeredBsdf + SurfaceShade + EnvironmentLight + TextureSet` into `Render` — the appearance edge, VALUES only.
-- Materials lowers the layered BSDF and channel-value closure, presses or ingests the plane set, and prefilters the dome.
-- `Render/pathtrace` shades and draws the dome; `Render/shading` uploads planes and binds the prefiltered products.
+- Materials lowers the layered BSDF and channel-value closure, presses or ingests the plane set, prefilters the dome, and resolves the solar disc.
+- `Render/pathtrace` shades and draws the dome and its solar disc; `Render/shading` uploads planes and binds the prefiltered products.
 - Appearance semantics stay Materials-side; Render supplies the point, the UV, the mip level, and the device.
 - `[PORT]: DeterminismContext` into `Document` — the AppHost runtime port spine composed at app composition; `CapabilityPin` anchors it.
 - `[PORT]` into `Diagnostics` — the observability spine; telemetry projects facts, never produces them.
@@ -244,7 +246,7 @@ flowchart LR
 
 ## [04]-[BOUNDARIES]
 
-- Bim `ElementSet` queries enter through Bim-owned receipt rows.
+- Element selection enters as receipts scope-qualified at `Rasm.Bim` `Model/query` or `Rasm.Persistence` `Query/lane`; AppUi runs no query engine.
 - Cost and schedule dashboards consume the Bim `CostSchedule` and `ScheduleNetwork` planning receipts as `Charts/dashboards` feed values.
 - Caption capture and band rendering belong to `Document/media`; `Theme/locale` owns the caption language and translation policy the capture reads.
 - Kernel `Analyze` receipt projection enters inspector and dashboard surfaces through the receipt spine.

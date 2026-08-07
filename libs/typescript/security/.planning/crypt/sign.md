@@ -1,11 +1,11 @@
 # [SECURITY_SIGN]
 
-One crypto authority: argon2id credential digest-at-rest under a semaphore bulkhead, HMAC egress signing, opaque-token minting, the AES-GCM crypto-shredding `Shredder`, jose key-material admission with RFC 7638 thumbprint identity, and the JWT/JWS/JWKS/JWE token authority — one module because every concern shares one key plane and one fault family. Key material enters exactly once: the core-decoded `Credential` landing folds through `Material.admit` into a `Redacted<CryptoKey>` `KeyHandle`, the JWK body decodes once through `Schema.parseJson` at the same seam, the `kid` is the wire fingerprint or the computed thumbprint, and the validity window is enforced at admission — no second import path exists for a Doppler-fetched, wire-carried, or self-minted key. `Jwt` mints with the active ring key, verifies against the local JWKS or a remote per-issuer resolver through one overloaded `verify` discriminating on the issuer descriptor, keeps the remote cache warm with a `Schedule`-driven proactive `reload`, bounds every remote resolve with a deadline and a jittered retry gated on `FaultClass.retryable`, and seals confidential claims as JWE. Every secret — pepper, password, data key, minted token, private handle — is `Redacted` from admission and unwraps only into the primitive call; algorithm, cost, permit budget, cache age, and reason are vocabulary rows or `Config` policy values, never call-site knobs. Cost rows are bench-graded, never copied folklore: `Calibration` measures every `CryptoCost` row on the executing host into core `Claim` receipts — the `BenchmarkClaimWire` family with foreign-host admission — graded against each row's own `targetMs` ceiling, never against the KDF distribution's buckets — those freeze on the Convention row, so a cost bump moves a grade and re-buckets nothing. Every crypto surface rides its span and metric at the declaration seam — KDF latency, JWKS resolve latency, cold-miss and quarantine counters, each instrument mounted from its core `Convention` row — so the runtime wave's OTLP lane exports the folder's audit stream with zero call-site change. `SignFault` is the folder's canonical fault shape: one reason family whose rows carry the core `FaultClass` classification and close at the core `FaultClass.family` seam, so retryability, dominance, and blame derive from the branch table and the serving edge folds `class` to status through its own governed record.
+One crypto authority: argon2id credential digest-at-rest under a semaphore bulkhead, HMAC egress signing, opaque-token minting, the AES-GCM crypto-shredding `Shredder`, jose key-material admission with RFC 7638 thumbprint identity, and the JWT/JWS/JWKS/JWE token authority — one module because every concern shares one key plane and one fault family. Key material enters exactly once, through `Material.admit`, and the `Material.Source` case a caller holds IS its trust boundary: the peer-attested `Credential` landing publishes a public chain and admits through `importSPKI`/`importX509` alone, this folder's own host-held bundle is the only source `importPKCS8` ever reads, and a published JWKS entry decodes once through `Schema.parseJson`. Private key material never crosses the AppHost wire and no second import path exists for a Doppler-fetched, peer-attested, or self-minted key; the `kid` is the producer's redacted key-id or the computed thumbprint, `CryptoKey.type` decides signing versus verify, and the lease window gates the one source that carries one. `Jwt` mints with the active ring key, verifies against the local JWKS or a remote per-issuer resolver through one overloaded `verify` discriminating on the issuer descriptor, keeps the remote cache warm with a `Schedule`-driven proactive `reload`, bounds every remote resolve with a deadline and a jittered retry gated on `FaultClass.retryable`, and seals confidential claims as JWE. Every secret — pepper, password, data key, minted token, private handle — is `Redacted` from admission and unwraps only into the primitive call; algorithm, cost, permit budget, cache age, and reason are vocabulary rows or `Config` policy values, never call-site knobs. Cost rows are bench-graded, never copied folklore: `Calibration` measures every `CryptoCost` row on the executing host into core `Claim` receipts — the `BenchmarkClaimWire` family with foreign-host admission — graded against each row's own `targetMs` ceiling, never against the KDF distribution's buckets — those freeze on the Convention row, so a cost bump moves a grade and re-buckets nothing. Every crypto surface rides its span and metric at the declaration seam — KDF latency, JWKS resolve latency, cold-miss and quarantine counters, each instrument mounted from its core `Convention` row — so the runtime wave's OTLP lane exports the folder's audit stream with zero call-site change. `SignFault` is the folder's canonical fault shape: one reason family whose rows carry the core `FaultClass` classification and close at the core `FaultClass.family` seam, so retryability, dominance, and blame derive from the branch table and the serving edge folds `class` to status through its own governed record.
 
 ## [01]-[INDEX]
 
 - [02]-[FAULT_AND_ALG]: `SignFault`, `KeyAlg`.
-- [03]-[KEY_MATERIAL]: `Material`.
+- [03]-[KEY_MATERIAL]: `Material`, `Material.Source`, `KeyHandle`, `Ring`.
 - [04]-[CRYPTO_PRIMITIVE]: `Crypto`, `CredentialVerdict`, `Probe`.
 - [05]-[SHREDDER]: `Shredder`.
 - [06]-[TOKEN_AUTHORITY]: `Jwt`, `AccessClaims`, `JwksSnapshot`, `JwksLedger`.
@@ -104,12 +104,14 @@ class SignFault extends Schema.TaggedError<SignFault>()("SignFault", {
 ## [03]-[KEY_MATERIAL]
 
 [KEY_MATERIAL]:
-- Owner: `Material` — the assembled key-material owner: `admit` folds one core `Credential` landing into a `KeyHandle`, `mint` self-issues an ephemeral non-extractable ring for a KMS-less bootstrap or test composition, `ring` narrows a signing credential and a published JWKS into the `{ active, verify }` set `Jwt` consumes, `jwks` projects the verify handles back to a `JSONWebKeySet` for publication, and `thumbprint`/`thumbprintUri` are the RFC 7638 identity mints — the bare form is the `cnf.jkt` confirmation value a sender-constrained token carries, the URI form the stable subject a key-named principal reads. Its `Credential` landing arrives sealed from the core interchange decode — `material` is `Redacted` from the wire, `fingerprint` is the only audit identity — and this owner is its terminus: the handle never crosses back to a wire and never reaches a log.
-- Law: admission is one polymorphic fold — the PEM header sniffs the jose importer (`importPKCS8` private, `importSPKI`/`importX509` public), a JSON body decodes exactly once through the `_Jwk` `Schema.parseJson` owner and routes `importJWK`, the private discriminant is the decoded `d` field — never a re-parse — the private side lands `Signing` and the public side `Verify`, and there is no `admitSigning`/`admitVerify` twin; a symmetric `importJWK` result is `unsupported`.
-- Law: the validity window is enforced at admission — an instant outside `[notBefore, notAfter]` is `SignFault.window`; rotation is re-admission of a fresh `Credential`, and `Credential.rotated` is the sealed compare the custodian already carries.
-- Law: `ring` accumulates — `Effect.partition` admits every satisfying published key and quarantines each malformed entry onto the `Convention.metric.securityJwksQuarantined` counter, a warning log, and an `Admission` fact through `Witness`, so one rotated-in bad key never collapses the verify set and the quarantine is receipt-truth; an empty surviving set is the only `material` failure, and the synthetic verify carrier's horizon is the caller's policy `Duration`, never a buried literal.
-- Growth: a new signature scheme is one `KeyAlg` row; a new material source (KMS, HSM) produces the same `Credential` value and terminates through the same `admit`; a detached-signature or co-signed-document surface is a `GeneralSign` row over the same handles.
-- Boundary: `crypt/secret` constructs `Credential` values from fetched material; the core interchange codec decodes the `Rasm.AppHost`-produced `CredentialPemWire` into the same class; `Jwt` is the only consumer that unwraps `Signing`, and the external-verify page consumes `Verify` handles only through `jwks`.
+- Owner: `Material` — the assembled key-material owner: `Source` the admission-source family, `admit` the one fold from any source into a `KeyHandle`, `mint` self-issues an ephemeral non-extractable ring for a KMS-less bootstrap or test composition, `ring` narrows a signing source and a published JWKS into the `{ active, verify }` set `Jwt` consumes, `jwks` projects the verify handles back to a `JSONWebKeySet` for publication, and `thumbprint`/`thumbprintUri` are the RFC 7638 identity mints — the bare form is the `cnf.jkt` confirmation value a sender-constrained token carries, the URI form the stable subject a key-named principal reads. This owner is every source's terminus: the handle never crosses back to a wire and never reaches a log.
+- Law: PRIVATE KEY MATERIAL NEVER ARRIVES OFF THE WIRE — `Source` carries one case per trust boundary and the boundary decides what a case can hold. `Attested` is the core `Credential` landing whose producer publishes the public chain, the RFC-7468 label set, and the block digests alone, so its admission reaches `importSPKI`/`importX509` and nothing else; a landing whose `sealed` read answers true is evidence the peer mint leaked and refuses as `material` rather than importing. `Held` is this folder's own host-side material — `crypt/secret` seals a Doppler-leased bundle into it and `Shredder` keys never leave the layer — and it alone reaches `importPKCS8`. `Published` is a remote JWKS entry. One entrypoint over three cases beats an `admitWire`/`admitHost` pair, because the case IS the trust boundary and a caller cannot pick the wrong one.
+- Law: the importer is a row read over the core RFC-7468 vocabulary, never a header sniff — `_PEM` keys `Credential.Label` to its jose importer, `PKCS7` carries none and refuses `unsupported`, and the prefix ladder that inferred a format from four hardcoded armor strings silently fell through to the JWK arm for every label outside its three.
+- Law: the handle side is the KEY's own witness — `CryptoKey.type` answers `"private"` or `"public"` after the import, so `Signing` and `Verify` derive from what the platform produced rather than from a re-parsed `d` field or a caller-declared role; a symmetric `importJWK` result is `unsupported`.
+- Law: the validity window rides the source that carries one — `Held` states its lease bounds and an instant outside them is `SignFault.window`; an `Attested` landing carries the producer's mint instant alone, so its retirement is the producer's own lease observed as a fresh landing and `Credential.rotated` compares the bundle digest across the two.
+- Law: `ring` accumulates — `Effect.partition` admits every satisfying published key and quarantines each malformed entry onto the `Convention.metric.securityJwksQuarantined` counter, a warning log, and an `Admission` fact through `Witness`, so one rotated-in bad key never collapses the verify set and the quarantine is receipt-truth; an empty surviving set is the only `material` failure. The synthetic verify carrier and its horizon parameter are gone with it — `Published` admits a JWKS entry directly, so no fabricated window and no `"verify"` role outside the credential vocabulary is minted to reach the same import.
+- Growth: a new signature scheme is one `KeyAlg` row; a new armor label is one `_PEM` row beside the core vocabulary row that mints it; a new material source (KMS, HSM) is one `Source` case terminating through the same `admit`; a detached-signature or co-signed-document surface is a `GeneralSign` row over the same handles.
+- Boundary: `crypt/secret` mints `Material.Source.Held` from fetched material and is the only host-side key source this folder owns; the core interchange codec decodes the `csharp:Rasm.AppHost/Runtime/secrets#CREDENTIAL_PEM`-produced `CredentialPemWire` into the `Credential` landing `Attested` carries under that mint's `json` arm; proving a landing's chain against its `blockDigests` is the producer's non-cryptographic content-identity fold and stays the codec's parity concern; `Jwt` is the only consumer that unwraps `Signing`, and the external-verify page consumes `Verify` handles only through `jwks`.
 - Packages: `jose` (`importPKCS8`/`importSPKI`/`importX509`/`importJWK`, `exportJWK`, `generateKeyPair`, `calculateJwkThumbprint`/`calculateJwkThumbprintUri`); `@rasm/ts/core` (`Convention`, `Credential`); `access/audit` (`Witness`, `SecurityFact`).
 
 ```typescript
@@ -123,59 +125,113 @@ type Ring = {
   readonly verify: ReadonlyArray<Extract<KeyHandle, { readonly _tag: "Verify" }>>
 }
 
+// One case per trust boundary: the peer-attested landing whose producer publishes public blocks only, this
+// folder's own host-held material under its lease window, and a remote JWKS entry.
+type _Source = Data.TaggedEnum<{
+  Attested: { readonly credential: Credential }
+  Held: {
+    readonly bundle: Redacted.Redacted<string>
+    readonly fingerprint: string
+    readonly notBefore: DateTime.Utc
+    readonly notAfter: DateTime.Utc
+  }
+  Published: { readonly jwk: JWK }
+}>
+
 const _KeyHandle = Data.taggedEnum<KeyHandle>()
+const _Source: Data.TaggedEnum.Constructor<_Source> = Data.taggedEnum<_Source>()
 
 const _quarantined = Convention.mount(Convention.metric.securityJwksQuarantined)
 
 const _material = (cause: unknown): SignFault => new SignFault({ reason: "material", detail: String(cause) })
 
-const _Jwk = Schema.parseJson(Schema.Struct(
-  { kty: Schema.String, d: Schema.optional(Schema.String) },
-  { key: Schema.String, value: Schema.Unknown },
-))
+const _Jwk = Schema.parseJson(Schema.Struct({ kty: Schema.String }, { key: Schema.String, value: Schema.Unknown }))
+const _jwkBody = Schema.decodeUnknown(_Jwk)
+const _scheme = Schema.decodeUnknown(Schema.Literal(..._algs))
 
-const _sniff = (pem: string): "pkcs8" | "spki" | "x509" | "jwk" =>
-  pem.startsWith("-----BEGIN PRIVATE KEY-----") ? "pkcs8"
-    : pem.startsWith("-----BEGIN PUBLIC KEY-----") ? "spki"
-    : pem.startsWith("-----BEGIN CERTIFICATE-----") ? "x509"
-    : "jwk"
+// The importer keys off the core RFC-7468 label vocabulary, so `importPKCS8` is reachable from a private label
+// alone — a label the AppHost mint never writes — and PKCS7 refuses rather than falling through to a JWK parse.
+const _PEM = {
+  "CERTIFICATE": Option.some(importX509),
+  "PUBLIC KEY": Option.some(importSPKI),
+  "PKCS7": Option.none<(pem: string, alg: string) => Promise<CryptoKey>>(),
+  "PRIVATE KEY": Option.some(importPKCS8),
+  "EC PRIVATE KEY": Option.some(importPKCS8),
+  "RSA PRIVATE KEY": Option.some(importPKCS8),
+} as const satisfies Record<Credential.Label, Option.Option<(pem: string, alg: string) => Promise<CryptoKey>>>
 
-const _windowed = (credential: Credential): Effect.Effect<void, SignFault> =>
-  Effect.flatMap(DateTime.now, (now) =>
-    DateTime.between(now, { minimum: credential.notBefore, maximum: credential.notAfter })
-      ? Effect.void
-      : Effect.fail(new SignFault({ reason: "window", detail: credential.fingerprint })))
+const _ARMOR = /-----BEGIN ([A-Z0-9 ]+)-----/
+const _BLOCK = /-----BEGIN ([A-Z0-9 ]+)-----[\s\S]*?-----END \1-----/g
+const _label = Schema.decodeUnknownOption(Credential.Label)
 
-const _admit = (credential: Credential, alg: KeyAlg.Kind): Effect.Effect<KeyHandle, SignFault> =>
-  Effect.gen(function* () {
-    yield* _windowed(credential)
-    const pem = Redacted.value(credential.material)
-    const format = _sniff(pem)
-    const body = format === "jwk"
-      ? Option.some(yield* Schema.decodeUnknown(_Jwk)(pem).pipe(Effect.mapError(_material)))
-      : Option.none<Schema.Schema.Type<typeof _Jwk>>()
-    const key = yield* Option.match(body, {
-      onSome: (jwk) => Effect.tryPromise({ try: () => importJWK(jwk, alg), catch: _material }),
-      onNone: () =>
-        Effect.tryPromise({
-          try: () =>
-            format === "pkcs8" ? importPKCS8(pem, alg)
-              : format === "spki" ? importSPKI(pem, alg)
-              : importX509(pem, alg),
-          catch: _material,
-        }),
-    }).pipe(Effect.filterOrFail(
-      (held): held is CryptoKey => !(held instanceof Uint8Array),
-      () => new SignFault({ reason: "unsupported", detail: "symmetric jwk material" }),
-    ))
-    const secret = format === "pkcs8" || Option.exists(body, (jwk) => jwk.d !== undefined)
-    const held = Redacted.make(key)
-    return secret && credential.kind === "signing"
-      ? _KeyHandle.Signing({ kid: credential.fingerprint, alg, key: held })
-      : _KeyHandle.Verify({ kid: credential.fingerprint, alg, key: held })
+const _labelOf = (armored: string): Option.Option<Credential.Label> =>
+  Option.flatMap(Option.fromNullable(_ARMOR.exec(armored)), (found) => _label(found[1]))
+
+const _handleOf = (key: CryptoKey, kid: string, alg: KeyAlg.Kind): KeyHandle =>
+  key.type === "private"
+    ? _KeyHandle.Signing({ kid, alg, key: Redacted.make(key) })
+    : _KeyHandle.Verify({ kid, alg, key: Redacted.make(key) })
+
+const _armored = (block: string, alg: KeyAlg.Kind, kid: string): Effect.Effect<KeyHandle, SignFault> =>
+  Option.match(Option.flatMap(_labelOf(block), (label) => _PEM[label]), {
+    onNone: () => Effect.fail(new SignFault({ reason: "unsupported", detail: "<unimportable-armor>" })),
+    onSome: (admit) =>
+      Effect.map(Effect.tryPromise({ try: () => admit(block, alg), catch: _material }), (key) => _handleOf(key, kid, alg)),
   })
 
+const _fromJwk = (jwk: JWK, alg: KeyAlg.Kind, kid: string): Effect.Effect<KeyHandle, SignFault> =>
+  Effect.tryPromise({ try: () => importJWK(jwk, alg), catch: _material }).pipe(
+    Effect.filterOrFail(
+      (held): held is CryptoKey => !(held instanceof Uint8Array),
+      () => new SignFault({ reason: "unsupported", detail: "symmetric jwk material" }),
+    ),
+    Effect.map((key) => _handleOf(key, kid, alg)),
+  )
+
+const _admit = (source: Material.Source, alg: KeyAlg.Kind): Effect.Effect<KeyHandle, SignFault> =>
+  _Source.$match(source, {
+    // the wire arm reads the LEAF block: the producer's bundle order is the chain order, and `sealed` is the
+    // broken-mint refusal — a private label here means material crossed that the carrier law forbids
+    Attested: ({ credential }) =>
+      credential.sealed
+        ? Effect.fail(new SignFault({ reason: "material", detail: `<attested-private-label:${credential.fingerprint}>` }))
+        : Option.match(Option.flatMap(Option.fromNullable(credential.chain.match(_BLOCK)), Array.head), {
+            onNone: () => Effect.fail(new SignFault({ reason: "material", detail: "<unarmored-chain>" })),
+            onSome: (leaf) => _armored(leaf, alg, credential.fingerprint),
+          }),
+    // the lease window gates the host arm alone, because it is the only source that carries one
+    Held: ({ bundle, fingerprint, notBefore, notAfter }) =>
+      Effect.flatMap(
+        // one unwrap, deferred past the window gate: the sealed bundle never exists raw ahead of its own admission
+        Effect.map(
+          Effect.filterOrFail(
+            DateTime.now,
+            (now) => DateTime.between(now, { minimum: notBefore, maximum: notAfter }),
+            () => new SignFault({ reason: "window", detail: fingerprint }),
+          ),
+          () => Redacted.value(bundle),
+        ),
+        (text) =>
+          Option.match(_labelOf(text), {
+            onNone: () => Effect.flatMap(_jwkBody(text).pipe(Effect.mapError(_material)), (jwk) => _fromJwk(jwk, alg, fingerprint)),
+            onSome: () => _armored(text, alg, fingerprint),
+          }),
+      ),
+    Published: ({ jwk }) =>
+      Effect.gen(function* () {
+        const kid = yield* Option.match(Option.fromNullable(jwk.kid), { onSome: Effect.succeed, onNone: () => Material.thumbprint(jwk) })
+        const scheme = yield* _scheme(jwk.alg ?? alg).pipe(
+          Effect.mapError(() => new SignFault({ reason: "unsupported", detail: String(jwk.alg) })))
+        return yield* _fromJwk(jwk, scheme, kid)
+      }),
+  })
+
+declare namespace Material {
+  type Source = _Source
+}
+
 const Material = {
+  Source: _Source,
   admit: _admit,
   mint: (alg: KeyAlg.Kind): Effect.Effect<Ring, SignFault> =>
     Effect.gen(function* () {
@@ -200,30 +256,19 @@ const Material = {
         })),
       (list) => ({ keys: Array.fromIterable(list) }),
     ),
-  ring: (signing: Credential, alg: KeyAlg.Kind, published: JSONWebKeySet, horizon: Duration.DurationInput): Effect.Effect<Ring, SignFault> =>
+  ring: (signing: Material.Source, alg: KeyAlg.Kind, published: JSONWebKeySet): Effect.Effect<Ring, SignFault> =>
     Effect.gen(function* () {
       const active = yield* _admit(signing, alg).pipe(Effect.filterOrFail(
         (handle): handle is Extract<KeyHandle, { readonly _tag: "Signing" }> => handle._tag === "Signing",
-        () => new SignFault({ reason: "material", detail: "signing credential resolved public" }),
+        () => new SignFault({ reason: "material", detail: "signing source resolved public" }),
       ))
+      // each published entry admits as its own source: no synthetic carrier, no fabricated window, no role
+      // literal outside the credential vocabulary standing in to reach one import
       const [excluded, verify] = yield* Effect.partition(published.keys, (jwk) =>
-        Effect.gen(function* () {
-          const kid = yield* Option.match(Option.fromNullable(jwk.kid), {
-            onSome: Effect.succeed,
-            onNone: () => Material.thumbprint(jwk),
-          })
-          const scheme = yield* Schema.decodeUnknown(Schema.Literal(..._algs))(jwk.alg ?? alg).pipe(
-            Effect.mapError(() => new SignFault({ reason: "unsupported", detail: String(jwk.alg) })))
-          const now = yield* DateTime.now
-          const carrier = new Credential({
-            kind: "verify", material: Redacted.make(JSON.stringify(jwk)), fingerprint: kid,
-            notBefore: now, notAfter: DateTime.addDuration(now, Duration.decode(horizon)),
-          })
-          return yield* _admit(carrier, scheme).pipe(Effect.filterOrFail(
-            (handle): handle is Extract<KeyHandle, { readonly _tag: "Verify" }> => handle._tag === "Verify",
-            () => new SignFault({ reason: "material", detail: "jwks entry resolved private" }),
-          ))
-        }))
+        _admit(_Source.Published({ jwk }), alg).pipe(Effect.filterOrFail(
+          (handle): handle is Extract<KeyHandle, { readonly _tag: "Verify" }> => handle._tag === "Verify",
+          () => new SignFault({ reason: "material", detail: "jwks entry resolved private" }),
+        )))
       yield* Effect.forEach(excluded, (fault) =>
         Effect.zipRight(
           Effect.zipRight(Metric.increment(_quarantined), Effect.logWarning("jwks entry quarantined", fault)),
@@ -471,7 +516,7 @@ class Shredder extends Effect.Service<Shredder>()("security/crypt/Shredder", {
 [TOKEN_AUTHORITY]:
 - Owner: `Jwt` — a scoped Layer factory over a `Keyset`: `mint` stamps `{ alg, kid }` from the active ring key so verifiers route by `kid`; one overloaded `verify` owns both trust roots — `verify(token)` runs `createLocalJWKSet` over every published verify handle with `algorithms` pinned and the declarative claim gates applied, decoding the payload through `AccessClaims`, and `verify(token, issuer)` resolves the per-issuer remote JWKS and returns the verified raw payload for the OAuth page to project from; `seal`/`unseal` are the JWE confidential profile over the keyset's optional symmetric handle. `SingleUse` is the stash contract every two-leg ceremony port in the folder instantiates — stash with a TTL, consume exactly once — so the satisfying layer is an `effect` `Cache` or `@effect/experimental` `PersistedCache`/`Persistence.layerResultKeyValueStore` row, never a hand-rolled map.
 - Law: `algorithms` is always pinned — an unpinned `alg` is accepted-algorithm confusion; the claim gates (`issuer`, `audience`, `clockTolerance`, and required `iat`/`exp`/`iss`/`aud`/`sub`) are one jose verification policy, never hand timestamp or presence checks; `decodeJwt` is never verification; `cnf.jkt` carries the `Material.thumbprintUri` binding for a sender-constrained token, and a verifier that receives `cnf` matches it against the presented key's thumbprint URI.
-- Law: the factory form is the rotation seam — the composition root builds the `Keyset` from `crypt/secret` credentials through `Material.ring`, wraps `Jwt.Default(keyset)` in `Reloadable.auto` driven by `Secret.changes`, so a Doppler rotation republishes the ring without a graph teardown, a `kid` retires with zero edits here, and a retired signing key keeps verifying while its handle stays published.
+- Law: the factory form is the rotation seam — the composition root builds the `Keyset` from `crypt/secret`'s `Material.Source.Held` values through `Material.ring`, wraps `Jwt.Default(keyset)` in `Reloadable.auto` driven by `Secret.changes`, so a Doppler rotation republishes the ring without a graph teardown, a `kid` retires with zero edits here, and a retired signing key keeps verifying while its handle stays published.
 - Law: `JwksSnapshot` is the ledger's own shape and the folder's single JWKS custody — it carries the key set beside the instant this owner observed it, never a package's `uat` scalar, because jose stamps that field in epoch MILLISECONDS off `Date.now()` while the certified relying-party client stamps it in epoch SECONDS: one stored number read under the wrong unit either reads as 1970 and refetches on every call or reads as the far future and never refetches a rotated key. The unit is therefore a per-seam projection off one owned instant — `JwksSnapshot.jose` renders the millisecond form this page seeds — and every other consumer of the same ledger projects its own.
 - Law: the remote resolver is built once per issuer under `Effect.cachedFunction` — the ledger snapshot seeds jose's cache through that projection, and a scoped fiber drives `resolver.reload()` on a jittered `Schedule.spaced(cacheAge)` so a provider key roll lands before the first `kid` miss; the tick asks only where the ask can land, gating on the resolver's own published `fresh`/`coolingDown`/`reloading` state so it stops issuing reloads jose refuses inside `cooldownDuration` and stops refetching an already-fresh set every `cacheAge` span. Each landed reload and each successful verify persists through `JwksLedger` from `resolver.jwks()` — the resolver's own accessor, so no mutable record survives the closure — and a tick whose reload genuinely failed logs at warning while an interrupted teardown stays silent; a cold build increments the `Convention.metric.securityJwksMiss` counter.
 - Law: every remote verify is internally resilient — a `deadline` timeout, the branch `Budget.schedule("pulse")` compile whose jitter, attempt bound, quiet-reset, and elapsed ceiling arrive as one value under the owner's own `FaultClass.retryable` gate, the `Convention.metric.securityJwksResolve` distribution, and its span; the fetch routes through `JwksTransport`, defaulted to the platform fetch and bound by the runtime wave to its instrumented `HttpClient.retryTransient({ schedule }).pipe(HttpClient.withTracerPropagation)` fetch adapter so rotation inherits the shared net policy and W3C trace propagation.

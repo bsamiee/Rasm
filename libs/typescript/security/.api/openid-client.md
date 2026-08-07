@@ -36,7 +36,7 @@
 |  [01]   | `ClientError` (`code`)          | class         | request or validation refusal the module itself mints  |
 |  [02]   | `ResponseBodyError` (`error`)   | class         | RFC 6749 token-endpoint error body; `error` is the arm |
 |  [03]   | `AuthorizationResponseError`    | class         | error params on the authorization-response leg         |
-|  [04]   | `WWWAuthenticateChallengeError` | class         | RS challenge; `cause[].parameters.error` is the arm     |
+|  [04]   | `WWWAuthenticateChallengeError` | class         | RS challenge; `cause[].parameters.error` is the arm    |
 
 ## [03]-[ENTRYPOINTS]
 

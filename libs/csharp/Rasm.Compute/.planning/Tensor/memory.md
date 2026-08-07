@@ -15,11 +15,11 @@ Every payload that crosses Rasm.Compute between intent admission and the IO edge
 - Owner: `AllocationClass` `[SmartEnum<string>]` rows under the `ComparerAccessors.StringOrdinal` accessor; `StagingEventKind` `[SmartEnum<string>]` the evidence taxonomy with the `Diagnostic` column; `AllocationEvidence` the slot/kind fact record every grant and every pool event stamps.
 - Cases: `SpanStack`, `PooledMemory`, `RecyclableStream`, `NativeOrt`, `EdgeCopy`, `DeviceWgpu` (the `Tensor/dispatch#DEVICE_KERNELS` GPU storage/staging buffer over the shared `ONE_WGPU_DEVICE`, `copyReceipted` because a device readback crosses the host boundary).
 - Entry: `Fin<AllocationEvidence> Grant(AllocationRequest request)` consumes one request carrier holding correlation, byte bound, lane timing, copy reason, and native reservation; `Admits(AllocationRequest)` is the pure predicate. Negative bytes, over-bound grants, synchronous-only classes in async lanes, blank copy reasons, and invalid native reservations fold through `ComputeFault.AllocationOverClass`.
-- Auto: intent admission calls `Grant` once against the intent-declared payload bound; every grant materializes one `AllocationEvidence` value under the intent correlation with zero call-site accounting, and the eleven manager events fold to the same record through the `[03]-[STREAM_POOL]` `PoolEvidence` projection.
+- Auto: intent admission calls `Grant` once against the intent-declared payload bound; every grant materializes one `AllocationEvidence` value under the intent correlation with zero call-site accounting, and the eleven manager events fold to the same record through the `[04]-[STREAM_POOL]` `PoolEvidence` projection.
 - Receipt: `AllocationEvidence` — correlation, class row, `StagingEventKind` discriminant, the requested/granted byte pair (reused per kind), the polymorphic `Detail` string (copy reason on a copy-receipted grant, discard reason on a discard, lifetime on a dispose, allocation stack on a leak), the native/device allocator slots, and the small/large free-pool gauges populated only on `UsageReport`; it is a `readonly record struct` that materializes at the receipt sink edge from hot-path values.
 - Packages: CommunityToolkit.HighPerformance, Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm (project, kernel signal capsule)
 - Growth: one `AllocationClass` row with its predicate columns; a new evidence event is one `StagingEventKind` row with its projection arm; a cap change is one policy value; a new evidence fact is one `AllocationEvidence` slot; zero new entrypoint.
-- Boundary: the class is intent-declared data, never a call-site choice, so `Grant` is the one admission edge and a bare `ArrayPool<T>.Shared` rent beside it is the deleted form; `Admits` makes all three policy columns load-bearing — `SyncOnly` rejects a stack row requested for an async lane (the data-level complement of the `SpanOwner<T>` ref-struct that already cannot cross an `await`/iterator boundary), `CopyReceipted` rejects a copy without a reason, and the bound rejects an over-class request — and a false `Admits` folds `ComputeFault.AllocationOverClass` (the `Runtime/admission#DISPATCH_SPINE` 2210 band, never a stringly `ComputeFault.Create` text fault) with the discriminated detail. `MemoryOwner<T>`/`SpanOwner<T>` are the lifetime boundary composed bare while `Ref<T>` carriers and `DangerousGetReference` stay kernel-internal, and `DangerousGetArray` is the `ArraySegment<T>` handoff seam for the tensor-lane rented-array `Tensor.Create` factory and the `StreamPool` zero-copy `ByteString` wrap. Content hashing rides the suite `System.IO.Hashing` `XxHash3`/`XxHash128` owner, never a second staging-local `HashCode<T>` digest. This axis admits no `System.IO.Pipelines` route and no unowned buffer type without a row.
+- Boundary: the class is intent-declared data, never a call-site choice, so `Grant` is the one admission edge for STAGING — a pooled stream, a pinned plane, a device buffer, an edge copy, any rent crossing an `await` or a native API boundary — and a bare `ArrayPool<T>.Shared` rent standing in for one of those is the deleted form; kernel-interior scratch is EXEMPT by the same law (its `Tensor/dispatch#KERNEL_DISPATCH` counterpart clause), because a rent sized by an already-admitted operand extent and released on its own frame would stamp one evidence value per elementwise call that no receipt reader acts on; `Admits` makes all three policy columns load-bearing — `SyncOnly` rejects a stack row requested for an async lane (the data-level complement of the `SpanOwner<T>` ref-struct that already cannot cross an `await`/iterator boundary), `CopyReceipted` rejects a copy without a reason, and the bound rejects an over-class request — and a false `Admits` folds `ComputeFault.AllocationOverClass` (the `Runtime/admission#DISPATCH_SPINE` 2210 band, never a stringly `ComputeFault.Create` text fault) with the discriminated detail. `MemoryOwner<T>`/`SpanOwner<T>` are the lifetime boundary composed bare while `Ref<T>` carriers and `DangerousGetReference` stay kernel-internal, and `DangerousGetArray` is the `ArraySegment<T>` handoff seam for the tensor-lane rented-array `Tensor.Create` factory and the `StreamPool` zero-copy `ByteString` wrap. Content hashing rides the suite `System.IO.Hashing` `XxHash3`/`XxHash128` owner, never a second staging-local `HashCode<T>` digest. This axis admits no `System.IO.Pipelines` route and no unowned buffer type without a row.
 
 ```csharp signature
 // --- [TYPES] -------------------------------------------------------------------------------
@@ -142,7 +142,7 @@ Each staging route carries one allocation ruling:
 - [08]-[TEXT_INTERNING]: `StringPool.GetOrAdd` interns receipt and diagnostic text at the sink edge only; `ReadOnlySpan<byte>.Fields`/`Tokenize` split codec text spans without intermediate strings
 - [09]-[BIT_PACKING]: `StagingViews.Mark`/`Clear`/`Cell` set/test one occupancy bit and `Pack`/`Read` pack/extract a multi-bit material-id field over a `Span<ulong>` window of `PooledMemory` (sixty-four cells per word) through the branchless `BitHelper` `ref`-overloads — one bit per cell replaces a `byte` buffer and the tensor-lane `VoxelGrid` encoding stages the mask
 - [10]-[IN_PLACE_GROWTH]: `ArrayPool<byte>.Grow` (over `ArrayPoolExtensions.EnsureCapacity`) grows the rented backing during incremental codec emit; the writer never reallocates through a second `MemoryOwner<T>.Allocate` and the granted-byte slot reflects the grown capacity
-- [11]-[CONTIGUOUS_FRAME]: `StreamPool.Get(correlation, StreamGrant.ContiguousFrame(requiredSize))` forces one large-buffer allocation for a chunked tensor frame the tensor lane requires contiguous; the `RecyclableStream` row carries it, the frame's `RequiredSize` fills the granted-byte slot, and the route replaces a hand-rolled array concatenation of chunk frames
+- [11]-[CONTIGUOUS_FRAME]: `StreamPool.Frame(correlation, requiredSize, payloadBound)` is the ONE contiguous-frame entry the tensor lane calls, replacing a hand-rolled array concatenation of chunk frames — under `MaximumBufferSize` it forces one large-buffer stream on the `RecyclableStream` row whose `RequiredSize` fills the granted-byte slot, and above it a `PooledMemory` byte rent carrying its own `Grant` evidence
 
 ## [03]-[PLANE_VIEWS]
 
@@ -150,7 +150,7 @@ Each staging route carries one allocation ruling:
 - Entry: `Memory2D<T> AsMemory2D<T>(this Memory<T> memory, int height, int width)` and the padded `(offset, height, width, pitch)` stride overload; `Span2D<T> AsSpan2D<T>(this Span<T> span, int height, int width)`.
 - Packages: CommunityToolkit.HighPerformance
 - Growth: one projection overload per new staged plane shape; a padded stride is one policy value; a new row/axis kernel is one verified `Span2D<T>` member, never a local wrapper; zero new surface.
-- Boundary: planes are views, never layout — rank permutation stays `Tensor/layout#LAYOUT_ALGEBRA` and a plane never substitutes for it, so the layout lane's densify gate reads `Contiguity.Classify` over the `Tensor<T>` stride facts, never a plane's `TryGetSpan` contiguity probe. `Cast`/`AsBytes` reinterpretation is legal only inside the rail owning the codec and its byte order; a reinterpreted payload never crosses a process boundary uncoded and a foreign-endian payload decodes first. Partitioned plane execution rides the `Tensor/dispatch#KERNEL_DISPATCH` `ParallelHelper.For2D` over a `Memory2D` plane and is never re-owned here. This cluster deletes package-local plane wrappers, 1-D index arithmetic over image rows, and copy-shaped pre/post buffers.
+- Boundary: planes are views, never layout — rank permutation stays `Tensor/layout#LAYOUT_ALGEBRA` and a plane never substitutes for it, so the layout lane's densify gate reads `Contiguity.Classify` over the `Tensor<T>` stride facts, never a plane's `TryGetSpan` contiguity probe. `Cast`/`AsBytes` reinterpretation is legal only inside the rail owning the codec and its byte order; a reinterpreted payload never crosses a process boundary uncoded and a foreign-endian payload decodes first. Partitioned execution rides the `Tensor/dispatch#KERNEL_DISPATCH` claim-gated blocked walk and is never re-owned here. This cluster deletes package-local plane wrappers, 1-D index arithmetic over image rows, and copy-shaped pre/post buffers.
 
 ```csharp signature
 public static Memory2D<T> AsMemory2D<T>(this Memory<T> memory, int height, int width);
@@ -177,7 +177,7 @@ Each entry carries one ruling:
 ## [04]-[STREAM_POOL]
 
 - Owner: `StreamPool` boundary capsule owning its composition's `RecyclableMemoryStreamManager`; `StreamPoolPolicy` carries every pool policy value; `PoolEvidence` the foreign-receiver projection folding the eleven manager events to `AllocationEvidence`.
-- Entry: `Fin<RecyclableMemoryStream> Get(CorrelationId correlation, StreamGrant grant)` admits positive sizes and contiguous-buffer capacity before trapping the manager rent. `Write(CorrelationId, IMessage)` derives the length-prefixed size and emits through `WriteLengthPrefixedTo(IBufferWriter<byte>)`; `Read<T>(RecyclableMemoryStream, MessageParser<T>)` parses the fragmented `GetReadOnlySequence()` without flattening. `StreamGrant` remains the closed `Open | Sized | ContiguousFrame` acquisition discriminant.
+- Entry: `Fin<RecyclableMemoryStream> Get(CorrelationId correlation, StreamGrant grant)` admits positive sizes and contiguous-buffer capacity before trapping the manager rent; `Fin<FrameRent> Frame(CorrelationId, long requiredSize, long payloadBound)` owns the contiguous-frame route across the cap, returning a pooled stream below `MaximumBufferSize` and a granted `PooledMemory` byte rent above it. `Write(CorrelationId, IMessage)` derives the length-prefixed size and emits through `WriteLengthPrefixedTo(IBufferWriter<byte>)`; `Read<T>(RecyclableMemoryStream, MessageParser<T>)` parses the fragmented `GetReadOnlySequence()` without flattening. `StreamGrant` remains the closed `Open | Sized | ContiguousFrame` acquisition discriminant.
 - Auto: the constructor creates the manager from `policy.Options` and attaches all eleven manager events through `PoolEvidence.Project`, each event projecting its `EventArgs` to an `AllocationEvidence` value riding `ReceiptSinkPort.Send` with zero call-site code; `Get` passes the correlation as the `Guid` stream id on every path so every later event rejoins its intent by id, and the `RecyclableStream` row key is the tag.
 - Receipt: double-dispose, finalization, and discarded-buffer events are leak diagnostics (the `StagingEventKind.Diagnostic` column), never log noise; an array-conversion event is the `StreamConvertedToArray` diagnostic corroborating an edge copy.
 - Packages: Microsoft.IO.RecyclableMemoryStream, CommunityToolkit.HighPerformance, Google.Protobuf, LanguageExt.Core, Rasm (project, kernel signal capsule)
@@ -197,6 +197,16 @@ public abstract partial record StreamGrant {
     public sealed record ContiguousFrame(long RequiredSize) : StreamGrant;
 }
 
+// The two backings a contiguous frame can land on, closed so a caller cannot hold one while assuming the other:
+// a pooled stream under the cap, or a pooled byte rent above it carrying the `Grant` evidence the manager events
+// would otherwise have supplied. Both dispose deterministically at the frame's end.
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record FrameRent {
+    private FrameRent() { }
+    public sealed record Streamed(RecyclableMemoryStream Stream) : FrameRent;
+    public sealed record Rented(MemoryOwner<byte> Buffer, AllocationEvidence Evidence) : FrameRent;
+}
+
 // --- [MODELS] ------------------------------------------------------------------------------
 public sealed record StreamPoolPolicy(
     int BlockSize,
@@ -210,6 +220,16 @@ public sealed record StreamPoolPolicy(
     bool ZeroOutBuffer,
     bool GenerateCallStacks,
     bool ThrowExceptionOnToArray) {
+    // Two measured laws fix the canonical retention posture under sustained token-stream churn.
+    // `AggressiveBufferReturn` LOWERS churn rather than trading it for residency: eager return recycles a
+    // superseded large buffer immediately, while the lazy posture parks it on the owning stream's dirty list until
+    // that stream disposes — which raises both the large-buffer creation rate and the discard rate, and inflates
+    // the retained managed heap by nearly an order of magnitude at the same free-bytes floor.
+    // `MaximumLargePoolFreeBytes` is a PER-SIZE-CLASS cap, not a pool total: a return admits while
+    // `(pool[class].Count + 1) * length <= MaximumLargePoolFreeBytes`, so real retention is the floor multiplied by
+    // the number of distinct large-buffer size classes the workload touches — a value read as a pool-wide budget
+    // under-states retention by exactly that factor, and a zero `MaximumLargePoolFreeBytes` is the package's
+    // UNBOUNDED spelling rather than "retain nothing".
     public static readonly StreamPoolPolicy Canonical = new(
         BlockSize: 131072,
         LargeBufferMultiple: 1048576,
@@ -289,10 +309,22 @@ public sealed class StreamPool : IDisposable {
 
     public Fin<RecyclableMemoryStream> Get(CorrelationId correlation, StreamGrant grant) =>
         grant.Switch(
-            state: (Manager: manager, Policy: policy, Correlation: (Guid)correlation),
+            state: (Manager: manager, Policy: policy, Correlation: correlation),
             open: static (s, _) => Rent(s.Manager, s.Correlation),
             sized: static (s, sized) => Rent(s.Manager, s.Correlation, sized.RequiredSize, contiguous: false, s.Policy),
             contiguousFrame: static (s, frame) => Rent(s.Manager, s.Correlation, frame.RequiredSize, contiguous: true, s.Policy));
+
+    // A contiguous frame past `MaximumBufferSize` is not a refusal: the tensor lane still needs one flat buffer,
+    // and the class axis already owns the route that serves it — a `MemoryOwner<byte>` rent on the `PooledMemory`
+    // row. Refusing here pushed the caller to a bare oversized array, an unpooled LOH allocation no evidence
+    // stream ever saw. The streamed arm carries no `Grant` because the manager's own `StreamCreated` and
+    // `LargeBufferCreated` events already evidence it; the rented arm has no such event, so it grants explicitly.
+    public Fin<FrameRent> Frame(CorrelationId correlation, long requiredSize, long payloadBound) =>
+        requiredSize <= 0 ? TensorFault.Fail<FrameRent>("stream-size", requiredSize.ToString(CultureInfo.InvariantCulture))
+        : requiredSize <= policy.MaximumBufferSize ? Get(correlation, new StreamGrant.ContiguousFrame(requiredSize)).Map(static stream => (FrameRent)new FrameRent.Streamed(stream))
+        : requiredSize > int.MaxValue ? TensorFault.Fail<FrameRent>("frame-width", requiredSize.ToString(CultureInfo.InvariantCulture))
+        : AllocationClass.PooledMemory.Grant(new AllocationRequest(correlation, requiredSize, payloadBound, Async: false, None, None, None))
+            .Map(evidence => (FrameRent)new FrameRent.Rented(MemoryOwner<byte>.Allocate(checked((int)requiredSize)), evidence));
 
     public Fin<RecyclableMemoryStream> Write(CorrelationId correlation, IMessage message) {
         return Try.lift(() => {
@@ -314,13 +346,15 @@ public sealed class StreamPool : IDisposable {
         Try.lift(() => parser.ParseFrom(stream.GetReadOnlySequence())).Run()
             .MapFail(static error => TensorFault.Symbol("stream-read", error.Message));
 
-    static Fin<RecyclableMemoryStream> Rent(RecyclableMemoryStreamManager manager, Guid correlation) =>
+    // `CorrelationId` converts to its `Guid` key through the generated implicit operator, so the manager's stream
+    // id takes the value directly and no cast expression stands in for a conversion that is already implicit.
+    static Fin<RecyclableMemoryStream> Rent(RecyclableMemoryStreamManager manager, CorrelationId correlation) =>
         Try.lift(() => manager.GetStream(correlation, AllocationClass.RecyclableStream.Key)).Run()
             .MapFail(static error => TensorFault.Symbol("stream-rent", error.Message));
 
     static Fin<RecyclableMemoryStream> Rent(
         RecyclableMemoryStreamManager manager,
-        Guid correlation,
+        CorrelationId correlation,
         long requiredSize,
         bool contiguous,
         StreamPoolPolicy policy) =>
@@ -376,17 +410,17 @@ Each entry carries one ruling:
 - [01]-[FRAGMENTED_READ]: `GetReadOnlySequence` is the default read of staged bytes; segments map one-to-one onto pooled blocks (single-block and large-buffer streams collapse to one segment) and wire encode and decode never flatten the payload
 - [02]-[ZERO_COPY_EDGE]: `UnsafeByteOperations.UnsafeWrap` wraps sequence windows at the remote edge under the frame law the remote lane owns
 - [03]-[CODEC_WINDOW]: `TryGetBuffer` exposes a contiguous window for codecs bounded by `MaximumBufferSize`; `WriteTo` is the array-free stream-to-stream copy
-- [04]-[BLOCK_ALIGNMENT]: `BlockSize` holds exactly two 64 KiB `ArtifactSync` frames, so a frame never straddles a pooled block
-- [05]-[PAYLOAD_CAP]: `MaximumBufferSize` equals the wire payload cap from the canonical channel policy; large buffers step in 1 MiB multiples to that cap
+- [04]-[BLOCK_ALIGNMENT]: `BlockSize` is a whole multiple of the `ArtifactSync` wire frame, so a frame never straddles a pooled block and a block-boundary assertion needs no per-frame arithmetic; the multiple is a `StreamPoolPolicy.Canonical` value
+- [05]-[PAYLOAD_CAP]: `MaximumBufferSize` equals the wire payload cap the canonical channel policy owns, and `LargeBufferMultiple` divides it, so every large-buffer step lands on a cap boundary instead of overshooting the last one
 - [06]-[STREAM_CAP]: `MaximumStreamCapacity` zero is the package no-limit spelling; per-intent payload bounds own staging caps at admission through `AllocationClass.Grant`
-- [07]-[POOL_RETENTION]: free-bytes caps pin retention to 128 pooled blocks and eight payload-cap buffers; returns beyond them release as `BufferDiscarded` events
+- [07]-[POOL_RETENTION]: the free-bytes caps bound RETAINED (never in-use) memory and a return past a cap releases as a `BufferDiscarded` event; the large cap applies per size class, so `StreamPoolPolicy.Canonical` owns both the value and that multiplier
 - [08]-[CONTIGUOUS_VIEW]: `GetBuffer` exposes the whole stream as one array when the codec needs a contiguous backing past `MaximumBufferSize`; the call is array-free against pooled blocks and never copies, where `TryGetBuffer` caps at one block
 - [09]-[SEGMENT_HANDOFF]: `MemoryOwner<byte>.DangerousGetArray` hands the rented `ArraySegment<byte>` to `UnsafeByteOperations.UnsafeWrap` so a pooled payload becomes a `ByteString` with zero copy; the owner outlives the wrap and disposes after send
 - [10]-[BLOCK_DIAGNOSTIC]: `BlockAndOffset`/`BlockSegment` address pooled-block boundaries on the `Diagnostic` policy row so a frame-straddle assertion reads exact block positions; production reads only `GetReadOnlySequence` segment counts
 - [11]-[TEXT_FRAME]: `StreamReader`/`StreamWriter` frame text over a rented stream under `Encoding.ASCII` — `StreamGrant.Sized` on a known length, `StreamGrant.Open` on an emitted one — and both ride the sequential `Read`/`Write` path across chained blocks, so a frame of any size demands neither `GetBuffer`'s contiguity cliff nor an `EdgeCopy` flatten; the `Tensor/factor#SPARSE_SOLVE` `.mtx` exchange is the standing consumer
 - [12]-[TEXT_EGRESS]: `StreamWriter` takes `leaveOpen: true` and flushes before the rent leaves the capsule, so its consumer reads from position zero with the rent intact and disposal caller-owned
 
-Every manager event folds to evidence through one `ReceiptSinkPort.Send` with no per-event allocation: the handler closure captures the sink once, projects its `EventArgs` to an `AllocationEvidence` value, threads the ambient `TenantContext.Current` beside the renter correlation, and stamps `TelemetrySource.Compute.Key` and the `StagingEventKind.Key`; the detacher chain detaches LIFO at dispose. Per-stream events carry the stream's `Guid Id` back through `CorrelationId.Create` (the `[ValueObject<Guid>]` factory — no `Guid`-to-`CorrelationId` operator exists), while the pool-scoped `BlockCreated`/`StreamLength`/`UsageReport` events carry no stream id and stamp under `CorrelationId.None`, so a pool-pressure gauge is process-scoped and a per-stream leak renter-attributable.
+Every manager event folds to evidence through one `ReceiptSinkPort.Send`: the handler closure allocates once at wiring and captures the sink, projects its `EventArgs` to an `AllocationEvidence` value (a struct, so the projection itself allocates nothing), threads the ambient `TenantContext.Current` beside the renter correlation, and stamps `TelemetrySource.Compute.Key` and the `StagingEventKind.Key`; the detacher chain detaches LIFO at dispose. The per-event cost is real and bounded to one place — `JsonSerializer.SerializeToElement` materializes a `JsonElement` payload per event — which is the price of a self-describing receipt and the reason the diagnostic-heavy rows bind on the `Diagnostic` policy row alone. Per-stream events carry the stream's `Guid Id` back through `CorrelationId.Create` (the `[ValueObject<Guid>]` factory — the `Guid`-to-`CorrelationId` direction has no operator), while the reverse direction rides the generated implicit conversion, and the pool-scoped `BlockCreated`/`StreamLength`/`UsageReport` events carry no stream id and stamp under `CorrelationId.None`, so a pool-pressure gauge is process-scoped and a per-stream leak renter-attributable.
 
 ## [05]-[RESEARCH]
 
@@ -394,4 +428,4 @@ Every manager event folds to evidence through one `ReceiptSinkPort.Send` with no
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
 -->
 
-- [RETENTION_UNDER_CHURN]-[OPEN]: under sustained model-lane token-stream churn, does eager `AggressiveBufferReturn` trade a higher `LargeBufferCreated`/`BufferDiscarded` rate for a lower resident set, or does the `MaximumLargePoolFreeBytes` retention floor absorb it; resolve against a live generative workload profile through the `UsageReport` free-pool gauges.
+(none)

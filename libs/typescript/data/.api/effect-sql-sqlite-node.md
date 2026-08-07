@@ -17,15 +17,15 @@
 
 [PUBLIC_TYPE_SCOPE]: the sqlite client extension over the neutral `SqlClient`
 
-| [INDEX] | [SYMBOL]                                                           | [TYPE_FAMILY]   | [CONSUMER_BOUNDARY]                              |
-| :-----: | :----------------------------------------------------------------- | :-------------- | :----------------------------------------------- |
-|  [01]   | `SqliteClient` (interface, extends `SqlClient`)                    | `Context.Tag`   | sqlite lane client; neutral or driver members    |
-|  [02]   | `SqliteClient.export` (`Effect<Uint8Array, SqlError>`)             | db snapshot     | whole-db serialize; snapshot/DR, `journal` copy  |
-|  [03]   | `SqliteClient.backup(dest)` (`→ Effect<BackupMetadata, SqlError>`) | online backup   | live page-progress backup; `BackupMetadata`      |
-|  [04]   | `SqliteClient.loadExtension(path)` (`→ Effect<void, SqlError>`)    | extension load  | runtime `.so`/`.dylib` load; `lane/capability` |
-|  [05]   | `SqliteClient.config`                                              | resolved config | filename/WAL introspection                       |
-|  [06]   | `SqliteClient.updateValues: never`                                 | degradation     | lane degradation (no multi-row `UPDATE … FROM`)  |
-|  [07]   | `BackupMetadata`                                                   | progress record | `{ totalPages, remainingPages }`; poll progress  |
+| [INDEX] | [SYMBOL]                                                           | [TYPE_FAMILY]   | [CONSUMER_BOUNDARY]                             |
+| :-----: | :----------------------------------------------------------------- | :-------------- | :---------------------------------------------- |
+|  [01]   | `SqliteClient` (interface, extends `SqlClient`)                    | `Context.Tag`   | sqlite lane client; neutral or driver members   |
+|  [02]   | `SqliteClient.export` (`Effect<Uint8Array, SqlError>`)             | db snapshot     | whole-db serialize; snapshot/DR, `journal` copy |
+|  [03]   | `SqliteClient.backup(dest)` (`→ Effect<BackupMetadata, SqlError>`) | online backup   | live page-progress backup; `BackupMetadata`     |
+|  [04]   | `SqliteClient.loadExtension(path)` (`→ Effect<void, SqlError>`)    | extension load  | runtime `.so`/`.dylib` load; `lane/capability`  |
+|  [05]   | `SqliteClient.config`                                              | resolved config | filename/WAL introspection                      |
+|  [06]   | `SqliteClient.updateValues: never`                                 | degradation     | lane degradation (no multi-row `UPDATE … FROM`) |
+|  [07]   | `BackupMetadata`                                                   | progress record | `{ totalPages, remainingPages }`; poll progress |
 
 [CONFIG_SCOPE]: `SqliteClientConfig` — a single-connection file config, no pool/TLS/timeouts; fields match the spine so a dialect swap is transparent.
 

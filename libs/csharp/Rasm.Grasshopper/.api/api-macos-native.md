@@ -118,7 +118,11 @@ Installed `Microsoft.macOS.dll` bindings own the native subsystem beneath an Eto
 |  [08]   | `CIFilter.FromName(string) -> CIFilter? / Name / Copy(NSZone?)`                       | factory  | nullable filter by name |
 
 - `CABasicAnimation.FromKeyPath(string?)` and `CAKeyFrameAnimation.FromKeyPath(string?)` are nullable-key factories; `CAKeyFrameAnimation.GetFromKeyPath(string)` is the non-null-key wrapper.
-- `CAMediaTimingFunction` exposes the four-float control-point constructor and `FromName(NSString)`; a transaction pairs `Begin()` with `Commit()` and `CompletionBlock` is nullable.
+- `CAMediaTimingFunction` exposes the four-float control-point constructor, `FromName(NSString)`, and the five `NSString` name statics (`Default`, `EaseIn`, `EaseOut`, `EaseInEaseOut`, `Linear`); a transaction pairs `Begin()` with `Commit()` and `CompletionBlock` is nullable.
+- `CASpringAnimation` carries the unit-mass spring columns (`Mass`, `Stiffness`, `Damping`, `InitialVelocity` — `float`) beside the inherited `From`/`To` (`NSObject`) and `Duration`; `CABasicAnimation.FromKeyPath(string)` mints per subclass.
+- `CGColorSpace.CreateWithName(string)` with `CGColorSpaceNames.DisplayP3` mints the wide-gamut space, and `CGColor(CGColorSpace, NFloat[])` builds a component colour in it — the direct Display-P3 mint the wide-colour crossing prefers over `CGConversions.ToCG`'s silent-fallback arms.
+- `NSView.GetDisplayLink(NSObject, Selector)` carries a `macos14.0` availability floor; a mount below it refuses at its own version gate rather than throwing native.
+- `SCStreamConfiguration.PixelFormat` (`CVPixelFormatType`, `CV32BGRA` among its values), `CVPixelBuffer.IsPlanar`, and the single-window `SCContentFilter(SCWindow)` constructor complete the capture plumbing the session composes.
 
 [ENTRYPOINT_SCOPE]: geometry, colour, and marshal at the layer edge
 

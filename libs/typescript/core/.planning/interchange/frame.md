@@ -19,14 +19,14 @@ The reassembly rail of the interchange plane: multi-part payloads from the compu
 - Exemption: the fold's state rides a `Ref` rather than `Stream.mapAccum` because the TAIL reads it — source exhaustion must emit `<truncated>` evidence for every artifact still held, and no accumulating operator exposes its settled state to a concatenated tail; the cell is pipeline-local, single-fiber by construction, and `_gathered` stays the Mealy step the cell threads.
 - Growth: a frame envelope axis (a compression flag, a priority lane) is one field mirroring the C# emit; the fold's shape never changes.
 - Boundary: the frame decode rides the codec registry's `ArtifactFrameWire` schema composition; the quarantine divert composes on the consuming stream; fetch scheduling against the ledger is `[04]`'s consumer.
-- Packages: `effect` (`Schema`, `Stream`, `HashMap`, `Chunk`, `Array`, `Effect`, `Either`, `Option`, `Record`); `./codec.ts` (`Gap`, `Parity`, `Quarantine`, `Wire`, `WireFault`); `./format.ts` (`Proto`); `../value/contentKey.ts` (`ContentKey`, `Digest`); `../value/schema.ts` (`Ingress`).
+- Packages: `effect` (`Schema`, `Stream`, `HashMap`, `Chunk`, `Array`, `Effect`, `Either`, `Option`, `Record`); `./codec.ts` (`Gap`, `Parity`, `Quarantine`, `Wire`, `WireFault`); `./format.ts` (`Json`, `Proto`); `../value/contentKey.ts` (`ContentKey`, `Digest`); `../value/schema.ts` (`Ingress`).
 
 ```typescript signature
 import { Array, Chunk, Effect, Either, HashMap, Option, Record, Ref, Schema, Stream } from "effect"
 import { ContentKey, Digest } from "../value/contentKey.ts"
 import { Ingress } from "../value/schema.ts"
 import { Gap, Parity, type Quarantine, Wire, WireFault } from "./codec.ts"
-import { Proto } from "./format.ts"
+import { Json, Proto } from "./format.ts"
 
 class Frame extends Schema.Class<Frame>("Frame")({
   artifact: Digest.FromBytes,
@@ -259,6 +259,14 @@ const _framed = <A, I>(gen: (typeof Proto.suite)[keyof typeof Proto.suite], fami
 (frames: AsyncIterable<Uint8Array>): Stream.Stream<Either.Either<A, WireFault>, WireFault, Quarantine> =>
   Wire.diverted(family, Proto.stream(gen)(frames), Schema.decodeUnknown(owned), Schema.encodeSync(Proto.frame(gen)))
 
+// The json arm's own instantiation of the SAME divert combinator: newline-delimited documents where `_framed`
+// walks size-delimited proto frames. Two instantiations rather than one erased walk is the divert law's own
+// shape — an `unknown`-typed emit beside an `unknown`-typed walk would let a proto re-frame run over a json
+// value with nothing raising, so each arm binds its raw shape at the declaration.
+const _lined = <A, I>(family: Wire.Family, owned: Schema.Schema<A, I>) =>
+(frames: AsyncIterable<Uint8Array>): Stream.Stream<Either.Either<A, WireFault>, WireFault, Quarantine> =>
+  Wire.diverted(family, Json.stream(frames), Schema.decodeUnknown(owned), Json.encode)
+
 const _Tensor = Schema.Struct({
   semantic: Schema.Literal(..._semantics),
   dtype: Schema.Literal(..._dtypes),
@@ -449,8 +457,10 @@ const Residency: {
   Delta,
   kinds: _kinds,
   kind: _kindRows,
-  envelope: Proto.family(Proto.suite.GeometryResidencyWire, _envelope),
-  stream: _framed(Proto.suite.GeometryResidencyWire, "GeometryResidencyWire", _envelope),
+  // the residency envelope is the AppUi shell's source-generated JSON mint, so both rows ride the json arm while
+  // the two Compute-minted frame families above keep the proto walk their own descriptor source declares
+  envelope: Json.schema(_envelope),
+  stream: _lined("GeometryResidencyWire", _envelope),
   folded: _folded,
   pending: (ledger) => Array.filter(Array.fromIterable(HashMap.values(ledger)), (row) => row.state === "pending"),
   census: (ledger) =>

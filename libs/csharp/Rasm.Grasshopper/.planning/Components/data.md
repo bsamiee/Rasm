@@ -102,7 +102,7 @@ public sealed record Notice(Severity Severity, string Title, string Detail, Seq<
 - Packages: `Grasshopper2` `Garden`, `Tree<T>`/`Twig<T>`/`Pear<T>`, and `MetaData` are the composed algebra; no local tree walker exists beside them.
 - Growth: a new topology the host admits is one `Transfer<T>` case with one arm per fold.
 - Boundary: presence law remains the pin's declared host `Requirement`; a failed ingress becomes `GhFault.Absent`, and all metadata reconstruction uses the `Pear<T>.Create(T, MetaData)` mint.
-- RESEARCH: whether the dedicated `IDataAccess.GetTransform(int, out Transform)`/`GetQuaternion(int, out Quaternion)` reads perform a conversion the generic `GetPear<T>` path skips resolves at decompile — a conversion-bearing pair lands as two `ArrayReads`-style typed ingress rows, a redundant pair stays subsumed by `Read<T>`.
+- Law: `GetTransform(int, out Transform)`/`GetQuaternion(int, out Quaternion)` are the host's own dedicated typed reads and `Read<T>` composes them by preference where the target type matches — the host publishes them beside the generic path precisely because they own their conversion, so routing those two targets through `GetPear<T>` bets on an equivalence the host never states.
 
 ```csharp signature
 // --- [MODELS] ----------------------------------------------------------------------------
@@ -220,7 +220,8 @@ public static class GardenData {
                 held.Pin,
                 held.Retention is Retention.Preserve
                     ? row.Tree
-                    : Garden.PearWiseOp(row.Tree, pear => Retag(pear, held.Retention))), held.Key));
+                    // PearWiseOp is the three-arity host member; a pure retag fold carries no cancellation.
+                    : Garden.PearWiseOp(row.Tree, pear => Retag(pear, held.Retention), CancellationToken.None)), held.Key));
 
     public static Fin<Tree<T>> AsTree<T>(Transfer<T> payload, Op? key = null) =>
         payload.Switch(
@@ -361,7 +362,12 @@ public static class Coerce {
         _ => BrokerLedger.Resolved(raw.GetType(), typeof(TOut), scope)
             .Fold(Fin.Fail<(TOut, ConversionReceipt)>(new GhFault.Conversion(key.OrDefault(), raw.GetType().Name, typeof(TOut).Name, nameof(BrokerLedger))),
                 (state, row) => state.IsSucc ? state : Projected<TOut>(raw, row, key.OrDefault()))
-            .BindFail(_ => Served<TOut>(raw, key.OrDefault())),
+            // The broker refusal is evidence the server fallback must not erase: a failed serve aggregates the
+            // broker fault through the Semigroup the fault family mints for exactly this accumulation.
+            .BindFail(brokerFault => Served<TOut>(raw, key.OrDefault())
+                .MapFail(serveFault => brokerFault is GhFault first && serveFault is GhFault second
+                    ? first.Combine(second)
+                    : serveFault)),
     };
 
     public static Fin<CurveShape> CurveOf(object? raw, Op? key = null) =>
@@ -436,7 +442,8 @@ public static class Coerce {
 
 - Owner: `HostUnits` captures the live tolerance triad and unit system once, then projects those scalars through `Rasm.Domain.Context.Of`; the host record never owns an independent tolerance policy.
 - Entry: `HostUnits.Of(IDataAccess)` captures host evidence; `Context` performs canonical domain admission; `ScalingTo` exposes the host's live scale query for boundary-only conversions.
-- Boundary: every kernel call consumes the admitted `Context`, so raw GH2 tolerance values stop at this projection.
+- Law: the unit carrier is whatever the host publishes and nothing richer — `IDataAccess.GetUnitSystem` answers a bare `UnitSystem`, so the projection takes the kernel's `UnitSystem` admission arm and a CUSTOM-unit document refuses at that gate, because a custom regime's scale and name live only on a `LengthUnit` this access surface never yields. Synthesizing a meters-per-unit factor from the host's scale query to force the admission mints a unit identity no host fact carries, so the refusal is the honest terminal until GH2 publishes the length unit.
+- Boundary: every kernel call consumes the admitted `Context`, so raw GH2 tolerance values stop at this projection. `ScalingTo` is the HOST's answer to a host question and never a second cross-context scale owner — a kernel-space rescale is `ModelUnit.ScaleTo` off the admitted `Context.Unit`, and a call that reaches for the host factor to convert kernel measures forks the one scale owner.
 
 ```csharp signature
 // --- [MODELS] ----------------------------------------------------------------------------

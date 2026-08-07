@@ -12,16 +12,18 @@
 
 ## [02]-[SCALAR_FLOOR]
 
-- Owner: `EpsilonPolicy` names the two epsilon rows — sqrt-epsilon for near-unit and residual gates, zero-tolerance for degeneracy floors. `Dimension`, `PositiveMagnitude`, and `UnitInterval` generate scalar admission, so every count, positive-length, or normalized-parameter signature carries the owner, never a raw primitive re-gated per call site. `BoundarySense`, `SignedAxis`, `VectorRelation`, `AnglePivot`, and `VectorAngle` close directional sign, cardinal axis, coplanarity, measurement pivot, and radian-bounded angle. `PerceptualColor` owns the OKLab triple with normalized alpha, its mix, ramp, tonal, contrast, simulation, difference, compositing, and gamut-safe RGB egress composing `Wacton.Unicolour` through `BlendPath`, `RgbProfile`, and `GamutPolicy` values, never a host-edge conversion. `RgbProfile` is the branch working-space roster and the corpus' ONE `Configuration` mint — the instance is the colour-space identity, so every package above composes a row; `BlendPath` splits interpolation space from hue traversal, one row per space and the traversal on the polar case's payload, so an HDR-referred or reference-corrected space is one row and a traversal on a rectangular space is unrepresentable; `GamutPolicy` rows own a reproducibility domain with both its containment predicate and its nearest-in-domain projection.
-- Entry: `Dimension`, `PositiveMagnitude`, and `UnitInterval` admit through generated `TryCreate`/`Validate`; `SignedAxis.Of` resolves the world or frame axis; `VectorRelation.Of` classifies and `VectorAngle.Of` measures two vectors through the ambient `Context` and pivot; `PerceptualColor.Of`/`OfRgb` admit — display bytes under the default configuration, an encoded unit-interval triple, or an unbounded scene-linear double triple, the latter two under an `RgbProfile` row — `Mix` and `Ramp` interpolate along a `BlendPath` and read the interpolated alpha off the result, `Blend` composites onto a backdrop under any `BlendMode`, `Simulate` previews a colour-vision deficiency at a unit-bounded severity, `Difference` measures perceptual distance under a `DeltaE` metric, `ReferenceLightness` reads the reference-corrected lightness a ramp asserts monotonicity on, `Contrast` reads the WCAG ratio, `InGamut` tests the selected reproducibility domain, and `ToRgb` bounds through the same row then quantizes to the sRGB byte quadruple or projects the profile-linear double quadruple.
-- Auto: generated `ValidateFactoryArguments` gates finiteness and the owner's bound, so interior code never re-validates an admitted scalar; `AnglePivot.Admit` re-validates only the case payload and `Compute` dispatches the three `Vector3d.VectorAngle` overloads through the generated `Switch`; `VectorRelation.Of` admits both operands as `Direction` before reading parallel and perpendicular relations under the context angle tolerance.
-- Receipt: none — scalar owners are their own admission evidence.
-- Packages: Thinktecture.Runtime.Extensions for the generated value-object, union, and smart-enum owners; LanguageExt.Core for the `Fin`/`Option`/`Seq` rails; Wacton.Unicolour for the perceptual model behind `PerceptualColor`; Rasm.Domain (project) for the `Op` key, `Context` tolerance, and `Admit` vocabulary; RhinoCommon for the `Vector3d` and `Plane` value structs.
-- Growth: a new scalar invariant is one `[ValueObject]` owner; a new axis member, relation class, pivot modality, working space, or reproducibility domain is one enum row or union case, never a sibling type; a new interpolation space is one `BlendPath` row whose case states whether a hue traversal exists, never a row per space-and-traversal pair; a new epsilon is one named `EpsilonPolicy` row, and a bare epsilon literal at a call site is the deleted form; a new color capability is one member on `PerceptualColor` reading deeper into the `Unicolour` it holds.
-- Boundary: `RhinoMath.SqrtEpsilon`/`ZeroTolerance`/`TwoPI` give way to `EpsilonPolicy` and `Math.Tau` everywhere, and `RhinoMath.IsValidDouble` gives way to `double.IsFinite` on HOST-NEUTRAL shapes — host-read material instead admits through the `Domain/rails` `ValidityClaim.Finite` row, whose scalar predicate deliberately stays `RhinoMath.IsValidDouble` because it screens the host `RhinoMath.UnsetValue` sentinel a bare finiteness probe admits as an ordinary value — keeping the numeric floor portable while the assembly stays RhinoCommon-aware; a raw `double` meaning dimension, magnitude, or unit parameter never crosses a signature, the generated owner does; angle measurement reaches `Vector3d.VectorAngle` only through `AnglePivot.Compute`; a componentwise sRGB lerp, a hand-rolled opponent-space matrix, or a host color-blend never stands in for perceptual math — every host edge admits into `PerceptualColor`, interpolates through `BlendPath`, and quantizes through `ToRgb`; a hue traversal never travels beside an interpolation space as a parallel argument, because the polar case is the only shape that carries one; a working space enters as an `RgbProfile` row and never as a peer-minted `Configuration`, a chromaticity table, or a whitepoint literal, because the instance carries the space's identity and a second instance re-adapts every crossing while forking the conversion cache.
+- Owner: `EpsilonPolicy` names the two epsilon rows — sqrt-epsilon for near-unit and residual gates, zero-tolerance for degeneracy floors. `Dimension`, `PositiveMagnitude`, `UnitInterval`, and `SignedUnit` generate scalar admission, so every count, positive-length, normalized-parameter, or bipolar-normalized signature carries the owner, never a raw primitive re-gated per call site — the unsigned and signed normal bounds are two rows of one family, so a `[-1,1]` reading admits here rather than re-declaring the gate one stratum up. `BoundarySense`, `SignedAxis`, `VectorRelation`, `AnglePivot`, and `VectorAngle` close directional sign, cardinal axis, coplanarity, measurement pivot, and radian-bounded angle. `PerceptualColor` owns the OKLab triple with normalized alpha, its mix, ramp, tonal, contrast, contrast-targeted tonal solve, simulation, difference, compositing, colorimetric read-back, appearance reading, and gamut-safe RGB egress composing `Wacton.Unicolour` through `BlendPath`, `RgbProfile`, `DeltaMetric`, `GamutPolicy`, `ToneSweep`, and `RgbTransfer` values, never a host-edge conversion. `ToneSweep` closes the direction a contrast-targeted solve walks the tonal axis, the ground-relative row beside the two absolute ones, so a readable pigment is derived at this owner and never searched at a call site. `RgbProfile` is the branch working-space roster and the corpus' ONE `Configuration` mint — the instance is the colour-space identity, so every package above composes a row, and `Condition` plus `Viewed` extend that same mint with the viewing-condition slot rather than opening a second one; `BlendPath` splits interpolation space from the axes only some spaces admit, one row per space with the hue traversal on the polar case's payload and the viewing condition on the appearance case's, so an HDR-referred or reference-corrected space is one row while a traversal on a rectangular space and an unconditioned appearance space are both unrepresentable; `DeltaMetric` splits the difference axis the same way, an opponent row condition-free beside an appearance row carrying its condition; `AppearanceReading` carries the correlates with the condition they were measured under; `GamutPolicy` rows own a reproducibility domain with both its containment predicate and its nearest-in-domain projection; `RgbTransfer` rows own the representation the profile egress reads a bounded colour off, the companded encoding beside scene-linear light, because a return shape cannot discriminate what the ingress triple's shape does.
+- Entry: `Dimension`, `PositiveMagnitude`, `UnitInterval`, and `SignedUnit` admit through generated `TryCreate`/`Validate`; `SignedAxis.Of` resolves the world or frame axis; `VectorRelation.Of` classifies and `VectorAngle.Of` measures two vectors through the ambient `Context` and pivot; `PerceptualColor.Of`/`OfRgb` admit — display bytes under the default configuration, an encoded unit-interval triple, or an unbounded scene-linear double triple, the latter two under an `RgbProfile` row — `Mix` and `Ramp` interpolate along a `BlendPath` and read the interpolated alpha off the result, `Blend` composites onto a backdrop under any `BlendMode`, `Simulate` previews a colour-vision deficiency at a unit-bounded severity, `Difference` measures perceptual distance under a `DeltaMetric` row, `ReferenceLightness` reads the reference-corrected lightness a ramp asserts monotonicity on, `Contrast` reads the WCAG ratio and `ToneFor` inverts it — holding hue and chroma while tone walks a `ToneSweep` row to the least extreme rung clearing a stated ratio against a stated backdrop, refusing when no tone clears it, `Colorimetry` reads relative luminance, correlated colour temperature, dominant wavelength, and excitation purity as one column, `OfTemperature` admits the inverse — a correlated colour temperature on either locus with an optional blackbody-referenced `Duv` offset and a stated luminance, `Appearance` reads the CAM correlates a `BlendPath.Appearance` row states, `InGamut` tests the selected reproducibility domain, and `ToRgb` bounds through the same row then either quantizes to the display-referred sRGB byte quadruple or reads the profile's double quadruple through an `RgbTransfer` row after the same domain bound — the companded encoding by default, scene-linear light on the `Linear` row, the counterpart of the two `OfRgb` profile ingresses; `RgbProfile.Viewed` mints the cam-bearing `Configuration` a direct-`Unicolour` composer states its condition through and `DeltaMetric.Measure` measures a `Unicolour` operand pair under the row's own condition; `RgbProfile.Condition` admits an authored viewing condition from a rostered illuminant, a stated observer, an ambient illuminance, a background luminance, and a `Surround`.
+- Auto: generated `ValidateFactoryArguments` gates finiteness and the owner's bound, so interior code never re-validates an admitted scalar; `AnglePivot.Admit` re-validates only the case payload and `Compute` dispatches the three `Vector3d.VectorAngle` overloads through the generated `Switch`; `VectorRelation.Of` admits both operands as `Direction` before reading parallel and perpendicular relations under the context angle tolerance; `RgbProfile.Viewed` memoizes each cam-bearing `Configuration` on the condition's reference identity and resolves the package-default condition to the row's own instance, so no caller sequences a mint.
+- Receipt: `AppearanceReading` alone — CAM correlates are meaningless apart from the condition that produced them, so the reading carries it; every other owner here is its own admission evidence.
+- Packages: Thinktecture.Runtime.Extensions for the generated value-object, union, and smart-enum owners; LanguageExt.Core for the `Fin`/`Option`/`Seq` rails and the `Atom<HashMap<_,_>>` cell behind the cam-bearing mint cache; Wacton.Unicolour for the perceptual model behind `PerceptualColor`; Rasm.Domain (project) for the `Op` key, `Context` tolerance, and `Admit` vocabulary; RhinoCommon for the `Vector3d` and `Plane` value structs.
+- Growth: a new scalar invariant is one `[ValueObject]` owner; a new axis member, relation class, pivot modality, working space, or reproducibility domain is one enum row or union case, never a sibling type; a new interpolation space is one `BlendPath` row whose case states which of the traversal and condition axes it admits, never a row per space-and-axis pair; a new difference metric is one `DeltaMetric` row on the case matching its condition dependence; a new egress representation is one `RgbTransfer` row, never a sibling `ToRgb`; egress is domain-bounded on every leg by construction, so an HDR egress publishing above-white light arrives as one `GamutPolicy` row whose domain is the whole space, never a bound-skipping flag; a declared viewing condition is a `Condition` construction at its own site, never a roster row, because a surround measures the viewer's room rather than naming a colour vocabulary member; a new epsilon is one named `EpsilonPolicy` row, and a bare epsilon literal at a call site is the deleted form; a new tonal-search direction is one `ToneSweep` row and never a comparator argument, because a caller-supplied ordering re-opens the monotonicity the walk depends on; a new color capability is one member on `PerceptualColor` reading deeper into the `Unicolour` it holds.
+- Boundary: `RhinoMath.SqrtEpsilon`/`ZeroTolerance`/`TwoPI` give way to `EpsilonPolicy` and `Math.Tau` everywhere, and `RhinoMath.IsValidDouble` gives way to `double.IsFinite` on HOST-NEUTRAL shapes — host-read material instead admits through the `Domain/rails` `ValidityClaim.Finite` row, whose scalar predicate deliberately stays `RhinoMath.IsValidDouble` because it screens the host `RhinoMath.UnsetValue` sentinel a bare finiteness probe admits as an ordinary value — keeping the numeric floor portable while the assembly stays RhinoCommon-aware; a raw `double` meaning dimension, magnitude, unit parameter, or bipolar-normalized reading never crosses a signature, the generated owner does — a package above that re-declares a `[-1,1]` value object is the split-owner form this row closes; angle measurement reaches `Vector3d.VectorAngle` only through `AnglePivot.Compute`; a componentwise sRGB lerp, a hand-rolled opponent-space matrix, a host color-blend, or a call-site tone search against a contrast target never stands in for perceptual math — every host edge admits into `PerceptualColor`, interpolates through `BlendPath`, solves a readable rung through `ToneFor`, and quantizes through `ToRgb`, whose byte leg is the ONE content-key quantizer the federation addresses against and therefore carries no transfer slot at all; a hue traversal never travels beside an interpolation space as a parallel argument, because the polar case is the only shape that carries one, and a viewing condition never travels beside one either, because the appearance case is; a working space enters as an `RgbProfile` row and never as a peer-minted `Configuration`, a chromaticity table, or a whitepoint literal, because the instance carries the space's identity and a second instance re-adapts every crossing while forking the conversion cache — the cam-bearing crossing is the SAME row's `Viewed` mint, published so every chartered direct-`Unicolour` composer reaches it, and a `Configuration` carrying a `camConfig` minted anywhere else is the same deleted form; an appearance space or CAM difference metric with no stated condition is unspellable and no default surround is ever fabricated for one — a branch-wide law binding only where the compliant construction is obtainable, which is why `Viewed` and `DeltaMetric.Measure` publish rather than the law carving an exemption — while the WCAG `Contrast` read stays condition-free because WCAG fixes its own.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+using System.Globalization;
+using System.Runtime.InteropServices;
 using Rasm.Domain;
 using Thinktecture;
 using Wacton.Unicolour;
@@ -51,6 +53,12 @@ public readonly partial struct PositiveMagnitude {
 public readonly partial struct UnitInterval {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) =>
         validationError = double.IsFinite(value) && value is >= 0.0 and <= 1.0 ? null : new ValidationError(message: string.Create(CultureInfo.InvariantCulture, $"UnitInterval must be in [0,1] (got {value:R})."));
+}
+
+[ValueObject<double>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
+public readonly partial struct SignedUnit {
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) =>
+        validationError = double.IsFinite(value) && value is >= -1.0 and <= 1.0 ? null : new ValidationError(message: string.Create(CultureInfo.InvariantCulture, $"SignedUnit must be in [-1,1] (got {value:R})."));
 }
 
 [SmartEnum<int>]
@@ -138,6 +146,9 @@ public sealed partial class VectorRelation {
 // default is High: an SDR row left to inherit it silently encodes the PQ/HLG transfers at the 203-nit HDR white.
 // The luma-legacy broadcast presets (Rec601/Pal/Ntsc/Secam) are YbrConfiguration's axis and stay unrostered until a
 // component-video decoder reaches them; a row lands here only for a space this estate states colour against.
+// The cam slot is that SAME mint parameterized — `camConfig:` on the row's own Configuration ctor, reached through
+// Viewed — never a second mint and never a column on the roster: a viewing condition governs the appearance spaces
+// alone, so a nullable cam column would sit dead on all eleven rows while the one space that reads it went unstated.
 [SmartEnum<int>]
 public sealed partial class RgbProfile {
     public static readonly RgbProfile Srgb = new(key: 0, rgb: RgbConfiguration.StandardRgb, range: DynamicRange.Standard);
@@ -162,35 +173,99 @@ public sealed partial class RgbProfile {
     public (Chromaticity Red, Chromaticity Green, Chromaticity Blue, Chromaticity White) Geometry =>
         (Configuration.Rgb.ChromaticityR, Configuration.Rgb.ChromaticityG, Configuration.Rgb.ChromaticityB,
             Configuration.Rgb.WhitePoint.Chromaticity);
-    private RgbProfile(int key, RgbConfiguration rgb, DynamicRange range, XyzConfiguration? xyz = null) : this(key) =>
+
+    // The authored viewing condition. The two package presets — StandardRgb (sRGB white, 64 lux, 20 cd/m^2
+    // background, Average surround) and Hct — are the ONLY lookups, and every other condition an estate states is
+    // CONSTRUCTED here, once, at its own declaration site: there is no roster to grow, because a surround is a
+    // measurement of the viewer's room rather than a member of a closed colour vocabulary. The white derives from a
+    // rostered illuminant under a stated observer, so a transcribed tristimulus triple beside a preset that
+    // publishes its own is the deleted form. The ambient field enters as ILLUMINANCE because that is what a meter
+    // reads, and the package's own lux conversion is internal, so the row authors it — illuminance over pi against
+    // the 20% grey reference reflectance. Surround closes the ambient axis at three (Dark, Dim, Average).
+    public static Fin<CamConfiguration> Condition(
+        Illuminant illuminant,
+        Observer observer,
+        double ambientLux,
+        double backgroundLuminance,
+        Surround surround,
+        string name,
+        Op? key = null) {
+        Op op = key.OrDefault();
+        return from source in Optional(illuminant).ToFin(Fail: op.InvalidInput())
+               from view in Optional(observer).ToFin(Fail: op.InvalidInput())
+               from label in Optional(name).Filter(static text => !string.IsNullOrWhiteSpace(value: text)).ToFin(Fail: op.InvalidInput())
+               from ambient in op.AcceptValidated<PositiveMagnitude>(candidate: ambientLux)
+               from background in op.AcceptValidated<PositiveMagnitude>(candidate: backgroundLuminance)
+               select new CamConfiguration(
+                   whitePoint: source.GetWhitePoint(observer: view),
+                   adaptingLuminance: ambient.Value / Math.PI / 5.0,
+                   backgroundLuminance: background.Value,
+                   surround: surround,
+                   name: label);
+    }
+
+    // ONE cam-bearing mint per row, memoized: a Configuration INSTANCE is the working-space identity, so a
+    // (space, condition) pair minted twice re-adapts every crossing and forks the lazy-conversion cache exactly as
+    // a duplicate space instance does. The map keys on the condition's own reference identity — CamConfiguration
+    // overrides no value equality, as Configuration does not — and the package already binds StandardRgb as the
+    // Configuration default, so the default condition resolves to the row's own instance with no second mint.
+    // PUBLIC because the branch legislates that an unconditioned appearance read is unspellable: a chartered
+    // direct-Unicolour composer obeys that law only by obtaining the cam-bearing Configuration from this one mint,
+    // and a law whose only compliant construction is unreachable legislates a peer mint into existence instead.
+    public Configuration Viewed(CamConfiguration condition) =>
+        ReferenceEquals(objA: condition, objB: CamConfiguration.StandardRgb)
+            ? Configuration
+            : viewed.Swap(cache => cache.ContainsKey(condition)
+                    ? cache
+                    : cache.Add(condition, new Configuration(rgbConfig: rgb, xyzConfig: xyz, camConfig: condition, dynamicRange: range)))
+                .Find(condition)
+                .IfNone(Configuration);
+
+    private readonly RgbConfiguration rgb;
+    private readonly XyzConfiguration? xyz;
+    private readonly DynamicRange range;
+    private readonly Atom<HashMap<CamConfiguration, Configuration>> viewed = Atom(HashMap<CamConfiguration, Configuration>());
+    private RgbProfile(int key, RgbConfiguration rgb, DynamicRange range, XyzConfiguration? xyz = null) : this(key) {
+        (this.rgb, this.range, this.xyz) = (rgb, range, xyz);
         Configuration = new Configuration(rgbConfig: rgb, xyzConfig: xyz, dynamicRange: range);
+    }
 }
 
-// BlendPath carries two orthogonal axes as one shape: the interpolation SPACE names the row, and the hue
-// traversal rides the polar case's own payload. A rectangular space therefore has no traversal to spell — the
-// package's mix reads a hue span only where the representation publishes a hue component, so a traversal on an
-// opponent space is a value with no effect, and the case split makes that pairing unrepresentable instead of a
-// dead column every row carries. Each row names the RgbProfile row whose Configuration the interpolation runs
-// under: Jzazbz and ICtCp encode through the SMPTE PQ inverse EOTF at DynamicRange.WhiteLuminance, so an
-// absolute-luminance blend states the reference white its channel scale is stated against rather than
-// inheriting whichever operand happened to be the receiver, and the relative rows state the SDR reference they
-// are invariant under. The display cylinders (Okhsv/Okhsl/Okhwb) are Oklch's own cylinder under a different
-// chroma normalization, the CIE pairs (Lab/Lchab, Luv/Lchuv) are the predecessors the Ok family supersedes,
-// and the appearance models (Cam02/Cam16, Munsell) state colour against a viewing condition or a measured
-// lattice no consumer here declares — a row lands for a space this estate interpolates in, and nothing else.
+// BlendPath carries three orthogonal axes as one shape: the interpolation SPACE names the row, and the axes only
+// some spaces admit ride those cases' own payloads — the hue traversal on the polar case, the viewing condition on
+// the appearance case. A rectangular space therefore has neither to spell — the package's mix reads a hue span only
+// where the representation publishes a hue component, so a traversal on an opponent space is a value with no
+// effect, and the case split makes both pairings unrepresentable instead of two dead columns every row carries.
+// Each row states the Configuration it interpolates under, taken from the RgbProfile row that mints it: Jzazbz and
+// ICtCp encode through the SMPTE PQ inverse EOTF at DynamicRange.WhiteLuminance, so an absolute-luminance blend
+// states the reference white its channel scale is stated against rather than inheriting whichever operand happened
+// to be the receiver, and the relative rows state the SDR reference they are invariant under. The display cylinders
+// (Okhsv/Okhsl/Okhwb) are Oklch's own cylinder under a different chroma normalization, the CIE pairs (Lab/Lchab,
+// Luv/Lchuv) are the predecessors the Ok family supersedes, and Munsell states colour against a measured lattice no
+// consumer here declares — a row lands for a space this estate interpolates in, and nothing else.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record BlendPath {
-    private protected BlendPath(ColourSpace space, RgbProfile reference) => (Space, Reference) = (space, reference);
+    private protected BlendPath(ColourSpace space, Configuration working) => (Space, Working) = (space, working);
     internal ColourSpace Space { get; }
-    internal RgbProfile Reference { get; }
+    internal Configuration Working { get; }
 
     public sealed record Rectangular : BlendPath {
-        internal Rectangular(ColourSpace space, RgbProfile reference) : base(space: space, reference: reference) { }
+        internal Rectangular(ColourSpace space, RgbProfile reference) : base(space: space, working: reference.Configuration) { }
     }
 
     public sealed record Polar : BlendPath {
-        internal Polar(ColourSpace space, RgbProfile reference, HueSpan span) : base(space: space, reference: reference) => Span = span;
+        internal Polar(ColourSpace space, RgbProfile reference, HueSpan span) : base(space: space, working: reference.Configuration) => Span = span;
         internal HueSpan Span { get; }
+    }
+
+    // Cam02 and Cam16 report appearance correlates that are FUNCTIONS of the viewer's adaptation, so the row is
+    // constructible only from a stated condition and reads it back for the receipt — an appearance blend under a
+    // fabricated surround publishes a measurement nobody declared. Hct is a polar row with no condition payload
+    // because the package's own HCT transform pins its conditions internally, so that space stays separable.
+    public sealed record Appearance : BlendPath {
+        internal Appearance(ColourSpace space, RgbProfile reference, CamConfiguration condition)
+            : base(space: space, working: reference.Viewed(condition: condition)) => Condition = condition;
+        public CamConfiguration Condition { get; }
     }
 
     public static BlendPath Oklab { get; } = new Rectangular(space: ColourSpace.Oklab, reference: RgbProfile.Srgb);
@@ -201,20 +276,24 @@ public abstract partial record BlendPath {
     public static BlendPath Oklrch(HueSpan span = HueSpan.Shorter) => new Polar(space: ColourSpace.Oklrch, reference: RgbProfile.Srgb, span: span);
     public static BlendPath Jzczhz(HueSpan span = HueSpan.Shorter) => new Polar(space: ColourSpace.Jzczhz, reference: RgbProfile.Rec2100Pq, span: span);
     public static BlendPath Hct(HueSpan span = HueSpan.Shorter) => new Polar(space: ColourSpace.Hct, reference: RgbProfile.Srgb, span: span);
+    public static BlendPath Cam02(CamConfiguration condition) => new Appearance(space: ColourSpace.Cam02, reference: RgbProfile.Srgb, condition: condition);
+    public static BlendPath Cam16(CamConfiguration condition) => new Appearance(space: ColourSpace.Cam16, reference: RgbProfile.Srgb, condition: condition);
 
     // One interpolation seam for both arities — the package's Palette is its own fold over Mix, so a point
     // blend and a ramp differ by the count the caller names, never by a second dispatch.
     internal Unicolour Mix(Unicolour from, Unicolour to, double amount) => Switch(
         state: (From: Under(from), To: Under(to), Amount: amount),
         rectangular: static (state, route) => state.From.Mix(state.To, route.Space, state.Amount),
-        polar: static (state, route) => state.From.Mix(state.To, route.Space, state.Amount, route.Span));
+        polar: static (state, route) => state.From.Mix(state.To, route.Space, state.Amount, route.Span),
+        appearance: static (state, route) => state.From.Mix(state.To, route.Space, state.Amount));
 
     internal Seq<Unicolour> Palette(Unicolour from, Unicolour to, int count) => Switch(
         state: (From: Under(from), To: Under(to), Count: count),
         rectangular: static (state, route) => toSeq(state.From.Palette(state.To, route.Space, state.Count)),
-        polar: static (state, route) => toSeq(state.From.Palette(state.To, route.Space, state.Count, route.Span)));
+        polar: static (state, route) => toSeq(state.From.Palette(state.To, route.Space, state.Count, route.Span)),
+        appearance: static (state, route) => toSeq(state.From.Palette(state.To, route.Space, state.Count)));
 
-    private Unicolour Under(Unicolour colour) => colour.ConvertToConfiguration(Reference.Configuration);
+    private Unicolour Under(Unicolour colour) => colour.ConvertToConfiguration(Working);
 }
 
 // GamutPolicy rows carry a REPRODUCIBILITY DOMAIN and both of its operations — the containment predicate and the
@@ -240,6 +319,88 @@ public sealed partial class GamutPolicy {
     public partial bool Contains(Unicolour colour);
     [UseDelegateFromConstructor]
     public partial Unicolour Bound(Unicolour colour);
+}
+
+// RgbTransfer names WHICH representation the profile egress reads a bounded colour off. The OfRgb ingress pair
+// discriminates encoded from scene-linear by the SHAPE of its triple, and C# cannot discriminate a return the same
+// way — both legs are a double quadruple — so the axis rides a row rather than a flag: Encoded is the companded
+// display-referred triple the package's `Rgb` publishes and Linear the scene-linear light `RgbLinear` publishes,
+// the two differing by exactly the working transfer and by nothing about gamut, working space, or alpha. Only Rgb
+// carries a clipping or byte projection, which is why the byte egress has no transfer slot to name.
+[SmartEnum<int>]
+public sealed partial class RgbTransfer {
+    public static readonly RgbTransfer Encoded = new(key: 0,
+        read: static colour => (colour.Rgb.R, colour.Rgb.G, colour.Rgb.B));
+    public static readonly RgbTransfer Linear = new(key: 1,
+        read: static colour => (colour.RgbLinear.R, colour.RgbLinear.G, colour.RgbLinear.B));
+
+    [UseDelegateFromConstructor]
+    public partial (double Red, double Green, double Blue) Read(Unicolour colour);
+}
+
+// DeltaMetric splits the difference axis exactly as BlendPath splits interpolation: an OPPONENT row names a metric
+// whose value is condition-free, and an APPEARANCE row carries the viewing condition in its own payload. The CAM
+// metrics measure appearance correlates that are FUNCTIONS of the observer's adaptation, so a Cam02 or Cam16
+// distance with no stated condition would publish a number measured under a surround nobody declared — the pairing
+// is unspellable here rather than defaulted, and an unstated condition therefore keeps an opponent metric. WCAG
+// contrast stays off this owner entirely because WCAG fixes its own condition.
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record DeltaMetric {
+    private protected DeltaMetric(DeltaE metric) => Metric = metric;
+    internal DeltaE Metric { get; }
+
+    public sealed record Opponent : DeltaMetric {
+        internal Opponent(DeltaE metric) : base(metric: metric) { }
+    }
+
+    public sealed record Appearance : DeltaMetric {
+        internal Appearance(DeltaE metric, RgbProfile reference, CamConfiguration condition) : base(metric: metric) =>
+            (Working, Condition) = (reference.Viewed(condition: condition), condition);
+        internal Configuration Working { get; }
+        public CamConfiguration Condition { get; }
+    }
+
+    public static DeltaMetric Ciede2000 { get; } = new Opponent(metric: DeltaE.Ciede2000);
+    public static DeltaMetric Cie76 { get; } = new Opponent(metric: DeltaE.Cie76);
+    public static DeltaMetric Cie94 { get; } = new Opponent(metric: DeltaE.Cie94);
+    public static DeltaMetric Cie94Textiles { get; } = new Opponent(metric: DeltaE.Cie94Textiles);
+    public static DeltaMetric CmcAcceptability { get; } = new Opponent(metric: DeltaE.CmcAcceptability);
+    public static DeltaMetric CmcPerceptibility { get; } = new Opponent(metric: DeltaE.CmcPerceptibility);
+    public static DeltaMetric Itp { get; } = new Opponent(metric: DeltaE.Itp);
+    public static DeltaMetric Z { get; } = new Opponent(metric: DeltaE.Z);
+    public static DeltaMetric Hyab { get; } = new Opponent(metric: DeltaE.Hyab);
+    public static DeltaMetric Ok { get; } = new Opponent(metric: DeltaE.Ok);
+    public static DeltaMetric Cam02(CamConfiguration condition) => new Appearance(metric: DeltaE.Cam02, reference: RgbProfile.Srgb, condition: condition);
+    public static DeltaMetric Cam16(CamConfiguration condition) => new Appearance(metric: DeltaE.Cam16, reference: RgbProfile.Srgb, condition: condition);
+
+    // Both operands rebase onto the row's own Configuration before the appearance arm measures, because the
+    // package re-projects a mismatched operand onto the RECEIVER's configuration — leaving the receiver to decide
+    // the condition would make the distance depend on argument order. PUBLIC on the same reasoning Viewed is: a
+    // direct-Unicolour composer measuring a CAM difference obeys the stated-condition law only through this row,
+    // and `Working` stays interior because it is this mint's own memo, obtainable from `RgbProfile.Viewed`.
+    public double Measure(Unicolour from, Unicolour to) => Switch(
+        state: (From: from, To: to),
+        opponent: static (state, route) => state.From.Difference(state.To, route.Metric),
+        appearance: static (state, route) => state.From.ConvertToConfiguration(route.Working)
+            .Difference(state.To.ConvertToConfiguration(route.Working), route.Metric));
+}
+
+// The appearance correlates a colour reports under ONE stated condition, carried with that condition: the numbers
+// mean nothing apart from the white, adapting field, background, and surround they were measured against, so the
+// condition rides the receipt and a consumer reads that geometry off it instead of re-pairing numbers with a
+// condition asserted beside them.
+public readonly record struct AppearanceReading(double Lightness, double OpponentA, double OpponentB, CamConfiguration Condition);
+
+// ToneSweep names the DIRECTION a contrast-targeted tonal solve walks, and it is a row set rather than a boolean
+// because the third case is real: `Away` is the row a readable ink wants, moving opposite whatever ground it is
+// drawn on, while the two absolute rows serve an ink whose family must stay light or dark regardless of ground.
+// A caller-supplied comparator would re-open the monotonicity the walk depends on, so the axis stays closed.
+[SmartEnum]
+public sealed partial class ToneSweep {
+    public static readonly ToneSweep Away = new(step: static ground => ground >= 0.5 ? -1 : 1);
+    public static readonly ToneSweep Lighter = new(step: static _ => 1);
+    public static readonly ToneSweep Darker = new(step: static _ => -1);
+    public Func<double, int> Step { get; }
 }
 
 [ComplexValueObject]
@@ -279,6 +440,20 @@ public sealed partial class PerceptualColor {
                 { } lab => Of(lightness: lab.L, opponentA: lab.A, opponentB: lab.B, alpha: alpha, key: key),
             }
             : Fin.Fail<PerceptualColor>(error: key.OrDefault().InvalidInput());
+    // The CCT ingress — the inverse of the Colorimetry temperature read. Decompile-verified ctor facts: the third
+    // slot of Unicolour(double cct, Locus locus, double luminance) binds LUMINANCE, never alpha (alpha rides the
+    // tuple and quad ctors alone), and Temperature(double Cct, double Duv = 0.0) is blackbody-referenced, so a
+    // nonzero Planckian offset under the daylight locus is contradictory and refuses. |Duv| <= 0.05 is the package's
+    // own validity bound; the 1000-20000 K high-accuracy band is published evidence, never an admission gate.
+    public static Fin<PerceptualColor> OfTemperature(double cct, double duv = 0.0, Locus locus = Locus.Blackbody, double luminance = 1.0, Op? key = null) =>
+        double.IsFinite(cct) && cct > 0.0 && Math.Abs(duv) <= 0.05 && (duv == 0.0 || locus == Locus.Blackbody)
+        && double.IsFinite(luminance) && luminance >= 0.0
+            ? (duv == 0.0
+                ? new Unicolour(Configuration.Default, cct, locus, luminance)
+                : new Unicolour(Configuration.Default, new Temperature(cct, duv), luminance)).Oklab switch {
+                    { } lab => Of(lightness: lab.L, opponentA: lab.A, opponentB: lab.B, alpha: 1.0, key: key),
+                }
+            : Fin.Fail<PerceptualColor>(error: key.OrDefault().InvalidInput());
     // Alpha comes OFF the interpolated value, never from a second pass: the package's mix premultiplies by default,
     // so the returned Alpha.A is the coverage-correct result and a hand-lerped straight alpha beside premultiplied
     // colour channels bends every partially-transparent tween. The path owns the space, the reference white, and
@@ -295,6 +470,15 @@ public sealed partial class PerceptualColor {
     // purpose, while the canonical basis keeps carrying the colour.
     public double ReferenceLightness => AsUnicolour().Oklrab.L;
     public double Contrast(PerceptualColor other) => AsUnicolour().Contrast(other.AsUnicolour());
+    // The derived colorimetric facts as ONE column, on the same reasoning the RgbProfile geometry column carries:
+    // every consumer that wants one wants the set — a WCAG luminance gate beside a CCT-labelled swatch beside a
+    // spectral-purity admission — and each projection memoizes on the package's own first touch, so the column
+    // costs no more than any single read. A consumer re-deriving luminance off Xyz.Y, or reaching Wxy.W/Wxy.X
+    // past this owner for dominant wavelength and excitation purity, is the deleted form.
+    public (double RelativeLuminance, Temperature Temperature, double DominantWavelength, double ExcitationPurity) Colorimetry =>
+        AsUnicolour() switch {
+            { } colour => (colour.RelativeLuminance, colour.Temperature, colour.DominantWavelength, colour.ExcitationPurity),
+        };
     // W3C backdrop compositing over the package's own sixteen-mode vocabulary — the separable and non-separable
     // modes are one argument, so the alpha-composited contrast path flattens through Normal while a tinting or
     // shading composite names its mode, and a mode column pinned to one value on a gamut row is the deleted form.
@@ -318,20 +502,57 @@ public sealed partial class PerceptualColor {
                 { } lab => Create(lightness: lab.L, opponentA: lab.A, opponentB: lab.B, alpha: Alpha),
             },
         };
-    // Perceptual distance under the selected metric; Ciede2000 is the default adjudicator.
-    public double Difference(PerceptualColor other, DeltaE metric = DeltaE.Ciede2000) =>
-        AsUnicolour().Difference(other.AsUnicolour(), metric);
+    // The CONTRAST-TARGETED tonal solve, the inverse of the Contrast read: hue and chroma hold from the seed while
+    // tone walks the direction the sweep row names, and the answer is the LEAST extreme tone still clearing the
+    // ratio, so a readable ink is derived rather than authored and never over-contrasts past what its floor asked
+    // for. The walk starts at the direction's limit and stops at the first candidate that fails, which is total
+    // because the ratio is monotone in tone along one direction; a seed whose whole tonal range fails against this
+    // backdrop REFUSES, because handing back the nearest miss is exactly how an ink ships below the floor the
+    // accessibility gate will measure it against. Every consumer that needs a readable pigment reaches this member —
+    // a bisection over Tone beside Contrast at a call site is the deleted form, on the same reasoning a local
+    // opponent-space matrix is.
+    public Fin<PerceptualColor> ToneFor(PerceptualColor against, PositiveMagnitude ratio, ToneSweep sweep, Dimension? grid = null, Op? key = null) =>
+        (Grid: (grid ?? Dimension.Create(64)).Value, Direction: sweep.Step(against.ReferenceLightness)) switch {
+            var (steps, direction) => Enumerable.Range(0, steps + 1)
+                .Select(step => direction > 0 ? 1.0 - (double)step / steps : (double)step / steps)
+                .Select(tone => Tone(UnitInterval.Create(tone)))
+                .TakeWhile(candidate => candidate.Contrast(against) >= ratio.Value)
+                .LastOrDefault() switch {
+                    { } admitted => Fin.Succ(value: admitted),
+                    _ => Fin.Fail<PerceptualColor>(error: key.OrDefault().InvalidInput()),
+                },
+        };
+    // The appearance read under a STATED condition — the same Appearance row a ramp interpolates along is the row a
+    // reading states, so space, working white, and condition are one value at both sites and no consumer re-pairs
+    // them. The reading is total on an admitted row, because the row is unconstructible without its condition.
+    public AppearanceReading Appearance(BlendPath.Appearance under) =>
+        AsUnicolour().ConvertToConfiguration(under.Working).GetRepresentation(under.Space).Triplet switch {
+            { } correlates => new AppearanceReading(
+                Lightness: correlates.First,
+                OpponentA: correlates.Second,
+                OpponentB: correlates.Third,
+                Condition: under.Condition),
+        };
+    // Perceptual distance under the selected metric; Ciede2000 is the default adjudicator, and an appearance metric
+    // reaches this member only carrying the condition it measured under.
+    public double Difference(PerceptualColor other, DeltaMetric? metric = null) =>
+        (metric ?? DeltaMetric.Ciede2000).Measure(from: AsUnicolour(), to: other.AsUnicolour());
     // Containment reads the SELECTED domain, so a display-gamut check, a Pointer real-surface check, and a MacAdam
     // optimal-limit check are one member over one row set rather than a display predicate here and two package
     // accessors re-exposed per consumer.
     public bool InGamut(GamutPolicy? policy = null) => (policy ?? GamutPolicy.Perceptual).Contains(AsUnicolour());
+    // The byte leg is display-referred by construction — an 8-bit scene-linear channel states nothing — and it is the
+    // ONE content-key quantizer the federation addresses against, so it carries no transfer slot and never moves.
     public (byte Red, byte Green, byte Blue, byte Alpha) ToRgb(GamutPolicy? gamut = null) =>
         (gamut ?? GamutPolicy.Perceptual).Bound(AsUnicolour()).Rgb.Byte255.Clipped switch {
             { } clipped => ((byte)clipped.R, (byte)clipped.G, (byte)clipped.B, byte.CreateSaturating(Math.Round(Alpha * byte.MaxValue))),
         };
-    public (double Red, double Green, double Blue, double Alpha) ToRgb(RgbProfile profile, GamutPolicy? gamut = null) =>
-        (gamut ?? GamutPolicy.Perceptual).Bound(AsUnicolour().ConvertToConfiguration(profile.Configuration)).Rgb switch {
-            { } mapped => (mapped.R, mapped.G, mapped.B, Alpha),
+    // The profile leg bounds into the same reproducibility domain, then reads whichever transfer the row names —
+    // ENCODED by default, so a settled call site keeps the companded triple it was written against and a
+    // scene-linear consumer states `RgbTransfer.Linear` to read the light instead of decoding the encoded triple.
+    public (double Red, double Green, double Blue, double Alpha) ToRgb(RgbProfile profile, GamutPolicy? gamut = null, RgbTransfer? transfer = null) =>
+        (transfer ?? RgbTransfer.Encoded).Read(colour: (gamut ?? GamutPolicy.Perceptual).Bound(AsUnicolour().ConvertToConfiguration(profile.Configuration))) switch {
+            var (red, green, blue) => (red, green, blue, Alpha),
         };
     private Unicolour AsUnicolour() => new(ColourSpace.Oklab, Lightness, OpponentA, OpponentB, Alpha);
 }
@@ -1136,14 +1357,14 @@ public readonly record struct VectorCone {
 ## [05]-[CELL_LATTICE]
 
 - Owner: `CellLattice` is the kernel's ONE bounded rectangular cell lattice — an index-to-world affine, a per-axis cell census, and one budget ceiling admitted together. `LatticeInterpolation` rows carry the sample reconstruction each consumer reads. Construction is gated: the private constructor is unreachable except through `Of`, so an instance is its own admission evidence and every derived member is total.
-- Entry: `CellLattice.Of(Transform indexToWorld, Dimension columns, Dimension rows, Dimension layers, long ceiling, Op? key = null)` is the general admission and `Of(BoundingBox bounds, PositiveMagnitude cell, long ceiling, Op? key = null)` the axis-aligned isotropic overload discriminating on input shape. `Center`, `Corner`, `Locate`, `Nearest`, `Contains`, and `Linear`/`Coordinate` close addressing; `Coarsen` halves the census for a pyramid level.
+- Entry: `CellLattice.Of(Transform indexToWorld, Dimension columns, Dimension rows, Dimension layers, long ceiling, Op? key = null)` is the general admission, `Of(ReadOnlySpan<double> affine, …)` the host-neutral twelve-value form seam and wire consumers round-trip through with `Affine` its projection dual, and `Of(BoundingBox bounds, PositiveMagnitude cell, long ceiling, Op? key = null)` the axis-aligned isotropic overload discriminating on input shape. `Center`, `Corner`, `Locate`, `Nearest`, `Contains`, and `Linear`/`Coordinate` close addressing; `Coarsen` halves the census for a pyramid level.
 - Auto: `Of` computes and stores the inverse affine at admission, so `Locate` is a multiply rather than a per-call factorization and a singular map is unrepresentable past the gate. `Rank` derives from `Layers` — a one-layer lattice IS the plane, so no sibling 2D type exists and no consumer branches on dimension. `CellSize` reads the affine's per-axis column norm, so an anisotropic, rotated, or sheared lattice reports its own extents.
 - Receipt: none — the lattice is an admitted value and its evidence is its own construction. A sweep's census, budget, and outcome ride the consuming surface's receipt.
 - Packages: Rasm.Domain (project) for `Op`, `Context`, and the `Admit` vocabulary; LanguageExt.Core for the `Fin`/`Option` rails; Thinktecture.Runtime.Extensions for the generated smart-enum owner; RhinoCommon for `Transform`, `Point3d`, and `BoundingBox`.
 - Growth: a new addressing modality is one member; a new sample reconstruction is one `LatticeInterpolation` row; a new census projection is one derived property. A consumer's local `Nx`/`Ny`/`Nz`, `Columns`/`Rows`, cell-center arithmetic, or budget comparison is the deleted form.
 - Boundary: the lattice carries NO payload. A scalar plane is `Numerics/matrix` `Matrix` over one lattice, a typed texel arena is the consumer's own, and the byte arena is `Drawing/pack`'s — this owner addresses cells and never stores them. Index space is column-major-free: `Linear` is the one linearization and a consumer re-deriving `x + (Nx * (y + (Ny * z)))` re-opens the collapsed duplication.
 
-```csharp
+```csharp signature
 // --- [TYPES] ------------------------------------------------------------------------------
 // The sample reconstruction a lattice-backed value reads. Nearest is exact on an occupancy plane; Linear is the
 // trilinear/bilinear reconstruction one Rank column selects the arity of; Cubic reads the four-tap Catmull-Rom.
@@ -1186,6 +1407,20 @@ public readonly record struct CellLattice {
             : Fin.Fail<CellLattice>(error: op.InvalidInput());
     }
 
+    // Host-neutral admission — twelve row-major doubles of the 3x4 index-to-world affine. The seam and wire
+    // consumers (Element coverage, the lattice wire codec) round-trip a lattice through THIS pair with no host
+    // type crossing their fences; the Transform mint is interior to the kernel.
+    public static Fin<CellLattice> Of(ReadOnlySpan<double> affine, Dimension columns, Dimension rows, Dimension layers, long ceiling, Op? key = null) {
+        Op op = key.OrDefault();
+        return affine.Length is 12
+            ? Of(indexToWorld: new Transform {
+                  M00 = affine[0], M01 = affine[1], M02 = affine[2],  M03 = affine[3],
+                  M10 = affine[4], M11 = affine[5], M12 = affine[6],  M13 = affine[7],
+                  M20 = affine[8], M21 = affine[9], M22 = affine[10], M23 = affine[11], M33 = 1.0 },
+                  columns: columns, rows: rows, layers: layers, ceiling: ceiling, key: op)
+            : Fin.Fail<CellLattice>(error: op.InvalidInput());
+    }
+
     // Axis-aligned isotropic overload — the shape every kernel sweep and every downstream 2D mint spells today.
     // Cell counts derive by ceiling so a partial trailing cell is retained rather than silently clipped.
     public static Fin<CellLattice> Of(BoundingBox bounds, PositiveMagnitude cell, long ceiling, Op? key = null) {
@@ -1213,6 +1448,17 @@ public readonly record struct CellLattice {
         z: new Vector3d(x: IndexToWorld.M02, y: IndexToWorld.M12, z: IndexToWorld.M22).Length);
     // Planar cell measure for a rank-2 lattice, cell volume for rank 3 — the one measure a density fold reads.
     public double CellMeasure => Rank is 2 ? CellSize.X * CellSize.Y : CellSize.X * CellSize.Y * CellSize.Z;
+    // Host-neutral projection — the twelve row-major 3x4 affine values the neutral Of inverts; a seam or wire
+    // consumer reads THIS, never the host Transform.
+    public ImmutableArray<double> Affine => [
+        IndexToWorld.M00, IndexToWorld.M01, IndexToWorld.M02, IndexToWorld.M03,
+        IndexToWorld.M10, IndexToWorld.M11, IndexToWorld.M12, IndexToWorld.M13,
+        IndexToWorld.M20, IndexToWorld.M21, IndexToWorld.M22, IndexToWorld.M23];
+    // The stored inverse on the same neutral axis — a seam consumer's fractional locate never re-inverts.
+    public ImmutableArray<double> Inverse => [
+        WorldToIndex.M00, WorldToIndex.M01, WorldToIndex.M02, WorldToIndex.M03,
+        WorldToIndex.M10, WorldToIndex.M11, WorldToIndex.M12, WorldToIndex.M13,
+        WorldToIndex.M20, WorldToIndex.M21, WorldToIndex.M22, WorldToIndex.M23];
 
     // ONE linearization, column-fastest. A consumer re-deriving the stride expression re-opens the duplication.
     public long Linear(int column, int row, int layer = 0) =>

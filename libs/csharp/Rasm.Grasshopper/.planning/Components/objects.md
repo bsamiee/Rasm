@@ -186,11 +186,12 @@ public sealed partial class NativeKind {
             host.Notations = held.Notations;
             host.AssignTextAndValue(held.Source);
         }, key));
+    // OneEntryPerLine reads public but its setter is host-internal, so the assign leg writes the two
+    // reachable members and the read leg still reports the host's own per-line posture as evidence.
     public static readonly NativeKind TextInput = Of<Grasshopper2.Parameters.Special.TextInputObject, PersistedValue.Text>(
         "text-input", ObjectFamily.ValueInput, static reader => new(reader),
         static host => new PersistedValue.Text(host.Contents, host.OneEntryPerLine, host.Escaping),
         static (host, held, key) => Hosted.Bound(() => {
-            host.OneEntryPerLine = held.PerLine;
             host.Escaping = held.Escaping;
             host.Contents = held.Value;
         }, key));
@@ -638,8 +639,10 @@ public static class NativeObject {
                 return;
             }
             picker.UserNames = names;
+            // Expire marks the object stale; the SOLVE is the caller's — the island holds no UI-thread edge, so
+            // launching a run here would be a second SolutionControl owner off-marshal. The document's own
+            // scheduler or the caller's Drive(LaunchCase) picks the expiry up.
             picker.Expire();
-            picker.Document?.Solution.Start();
         }, key);
 
     // Mode leads because SelectItem dispatches on it: PickAll admits a set while ShowOne and ShowAll

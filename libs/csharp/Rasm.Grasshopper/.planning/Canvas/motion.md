@@ -20,7 +20,7 @@ GH2's motion boundary composes host `Animated<T>` tweens, flex-frame sampling, a
 
 ## [03]-[TWEENS]
 
-- Owner: `Lerps` carries linear Eto interpolators, kernel-shaped easing, and perceptual colour mixing. `Perceptual` holds the source before a rejected intermediate sample and returns the exact target at the terminal sample.
+- Owner: `Lerps` carries linear Eto interpolators, kernel-shaped easing, and perceptual colour mixing. `Perceptual` returns the interpolator beside its fault cell — a rejected intermediate sample holds the nearest endpoint visually while the FIRST refusal parks on the cell the mounting consumer reads, so a degraded blend is attributable evidence, never a silent wrong pixel.
 - Owner: `Tween` binds the host signatures: `CreateFinished(T, Interpolate<T>)`, `CreateUnfinished(T, T, TimeSpan, Motion, Interpolate<T>)`, `Chain(T, Duration, Motion)`, and `Evaluate(DateTime)`. Retargeting delegates current-value sampling to the host `Chain` fold.
 - Owner: `FlexDrive` — the per-frame drive: `Run<T>(IFlexControl surface, Animated<T> tween, Op?)` → `Fin<T>` rides `IFlexControl.Animate<T>` (the host samples on its draw clock and keeps redrawing while `Busy`); `Window(IFlexControl, Op?)` → `Fin<FrameWindow>` projects `DrawStartTime`/`DrawEndTime` — the per-frame timing evidence a cost-aware animator folds with `Canvas/canvas.md`'s `FramePulse`; `ZoomGate(IFlexControl, ZoomThreshold, Op?)` → `Fin<float>` resolves the motion-gated ZUI factor (`Detailed`/`Standard` — the host's own appearance thresholds).
 - Law: one tween owns one visual; chaining retargets the existing carrier without resetting motion from a stale endpoint.
@@ -43,14 +43,16 @@ namespace Rasm.Grasshopper.Canvas;
 // --- [TYPES] --------------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class SpanRow {
-    public static readonly SpanRow Abrupt = new(key: 0, host: Duration.Abrupt);
-    public static readonly SpanRow Brief = new(key: 50, host: Duration.Brief);
-    public static readonly SpanRow Fast = new(key: 150, host: Duration.Fast);
-    public static readonly SpanRow Normal = new(key: 300, host: Duration.Normal);
-    public static readonly SpanRow Slow = new(key: 500, host: Duration.Slow);
-    public static readonly SpanRow Tedious = new(key: 1000, host: Duration.Tedious);
-    public static readonly SpanRow Torpid = new(key: 1500, host: Duration.Torpid);
-    public static readonly SpanRow Glacial = new(key: 5000, host: Duration.Ĝlāçïāľ);
+    // Keys ARE the host ordinals — Duration values equal their millisecond counts, so the key derives from the
+    // enum member and a host re-tuning moves this table without a literal edit.
+    public static readonly SpanRow Abrupt = new(key: (int)Duration.Abrupt, host: Duration.Abrupt);
+    public static readonly SpanRow Brief = new(key: (int)Duration.Brief, host: Duration.Brief);
+    public static readonly SpanRow Fast = new(key: (int)Duration.Fast, host: Duration.Fast);
+    public static readonly SpanRow Normal = new(key: (int)Duration.Normal, host: Duration.Normal);
+    public static readonly SpanRow Slow = new(key: (int)Duration.Slow, host: Duration.Slow);
+    public static readonly SpanRow Tedious = new(key: (int)Duration.Tedious, host: Duration.Tedious);
+    public static readonly SpanRow Torpid = new(key: (int)Duration.Torpid, host: Duration.Torpid);
+    public static readonly SpanRow Glacial = new(key: (int)Duration.Ĝlāçïāľ, host: Duration.Ĝlāçïāľ);
 
     public Duration Host { get; }
     public TimeSpan Span => Animators.DurationToTimeSpan(Host);
@@ -58,22 +60,23 @@ public sealed partial class SpanRow {
 
 [SmartEnum<int>]
 public sealed partial class PaceRow {
-    public static readonly PaceRow Linear = new(key: 0, host: Motion.Linear, kernel: Easing.Linear);
-    public static readonly PaceRow LinearDelayed = new(key: 1, host: Motion.LinearDelayed, kernel: Easing.Linear);
-    public static readonly PaceRow EaseIn = new(key: 10, host: Motion.EaseIn, kernel: Easing.CubicIn);
-    public static readonly PaceRow EaseInDelayed = new(key: 11, host: Motion.EaseInDelayed, kernel: Easing.CubicIn);
-    public static readonly PaceRow EaseOut = new(key: 20, host: Motion.EaseOut, kernel: Easing.CubicOut);
-    public static readonly PaceRow EaseOutDelayed = new(key: 21, host: Motion.EaseOutDelayed, kernel: Easing.CubicOut);
-    public static readonly PaceRow EaseInOut = new(key: 30, host: Motion.EaseInOut, kernel: Easing.CubicInOut);
-    public static readonly PaceRow EaseInOutDelayed = new(key: 31, host: Motion.EaseInOutDelayed, kernel: Easing.CubicInOut);
-    public static readonly PaceRow SnapIn = new(key: 40, host: Motion.SnapIn, kernel: Easing.QuintIn);
-    public static readonly PaceRow SnapInDelayed = new(key: 41, host: Motion.SnapInDelayed, kernel: Easing.QuintIn);
-    public static readonly PaceRow SnapOut = new(key: 50, host: Motion.SnapOut, kernel: Easing.QuintOut);
-    public static readonly PaceRow SnapOutDelayed = new(key: 51, host: Motion.SnapOutDelayed, kernel: Easing.QuintOut);
-    public static readonly PaceRow Bounce = new(key: 60, host: Motion.Bounce, kernel: Easing.BounceOut);
-    public static readonly PaceRow BounceDelayed = new(key: 61, host: Motion.BounceDelayed, kernel: Easing.BounceOut);
-    public static readonly PaceRow Twang = new(key: 70, host: Motion.Twang, kernel: Easing.ElasticOut);
-    public static readonly PaceRow TwangDelayed = new(key: 71, host: Motion.TwangDelayed, kernel: Easing.ElasticOut);
+    // Keys ARE the host ordinals — a Motion re-order on the host moves this table without a literal edit.
+    public static readonly PaceRow Linear = new(key: (int)Motion.Linear, host: Motion.Linear, kernel: Easing.Linear);
+    public static readonly PaceRow LinearDelayed = new(key: (int)Motion.LinearDelayed, host: Motion.LinearDelayed, kernel: Easing.Linear);
+    public static readonly PaceRow EaseIn = new(key: (int)Motion.EaseIn, host: Motion.EaseIn, kernel: Easing.CubicIn);
+    public static readonly PaceRow EaseInDelayed = new(key: (int)Motion.EaseInDelayed, host: Motion.EaseInDelayed, kernel: Easing.CubicIn);
+    public static readonly PaceRow EaseOut = new(key: (int)Motion.EaseOut, host: Motion.EaseOut, kernel: Easing.CubicOut);
+    public static readonly PaceRow EaseOutDelayed = new(key: (int)Motion.EaseOutDelayed, host: Motion.EaseOutDelayed, kernel: Easing.CubicOut);
+    public static readonly PaceRow EaseInOut = new(key: (int)Motion.EaseInOut, host: Motion.EaseInOut, kernel: Easing.CubicInOut);
+    public static readonly PaceRow EaseInOutDelayed = new(key: (int)Motion.EaseInOutDelayed, host: Motion.EaseInOutDelayed, kernel: Easing.CubicInOut);
+    public static readonly PaceRow SnapIn = new(key: (int)Motion.SnapIn, host: Motion.SnapIn, kernel: Easing.QuintIn);
+    public static readonly PaceRow SnapInDelayed = new(key: (int)Motion.SnapInDelayed, host: Motion.SnapInDelayed, kernel: Easing.QuintIn);
+    public static readonly PaceRow SnapOut = new(key: (int)Motion.SnapOut, host: Motion.SnapOut, kernel: Easing.QuintOut);
+    public static readonly PaceRow SnapOutDelayed = new(key: (int)Motion.SnapOutDelayed, host: Motion.SnapOutDelayed, kernel: Easing.QuintOut);
+    public static readonly PaceRow Bounce = new(key: (int)Motion.Bounce, host: Motion.Bounce, kernel: Easing.BounceOut);
+    public static readonly PaceRow BounceDelayed = new(key: (int)Motion.BounceDelayed, host: Motion.BounceDelayed, kernel: Easing.BounceOut);
+    public static readonly PaceRow Twang = new(key: (int)Motion.Twang, host: Motion.Twang, kernel: Easing.ElasticOut);
+    public static readonly PaceRow TwangDelayed = new(key: (int)Motion.TwangDelayed, host: Motion.TwangDelayed, kernel: Easing.ElasticOut);
 
     public Motion Host { get; }
     public Easing Kernel { get; }
@@ -99,12 +102,20 @@ public static class Lerps {
     public static Interpolate<T> Eased<T>(Easing curve, Interpolate<T> core) =>
         (a, b, t) => core(a, b, curve.Evaluate(t: Factor(value: t)));
 
-    public static Interpolate<Color> Perceptual(BlendPath path, Op key) =>
-        (a, b, t) => {
+    // The interpolator delegate cannot carry a rail, so the degradation records its evidence: the first refused
+    // blend parks on the returned fault cell a mounting consumer reads, and the visual holds the nearest endpoint
+    // — a silent IfFail here was a typed-rail escape producing wrong pixels nothing could attribute.
+    public static (Interpolate<Color> Blend, Atom<Option<Error>> LastFault) Perceptual(BlendPath path, Op key) {
+        Atom<Option<Error>> fault = Atom(Option<Error>.None);
+        return ((a, b, t) => {
             UnitInterval factor = Factor(value: t);
             return Pigment.Blend(path: path, start: a, end: b, t: factor, key: key)
-                .IfFail(_ => factor.Value >= 1d ? b : a);
-        };
+                .IfFail(error => {
+                    ignore(fault.Swap(held => held.IsSome ? held : Some(error)));
+                    return factor.Value >= 1d ? b : a;
+                });
+        }, fault);
+    }
 
     private static UnitInterval Factor(double value) => UnitInterval.Create(
         value: double.IsFinite(value) ? Math.Clamp(value, 0d, 1d) : 0d);
@@ -177,6 +188,7 @@ public sealed partial class NoticeGlyph {
     public static readonly NoticeGlyph Error = new(key: 0, mint: AnimatedPath.CreateErrorPath);
     public static readonly NoticeGlyph Warning = new(key: 1, mint: AnimatedPath.CreateWarningPath);
     public static readonly NoticeGlyph Success = new(key: 2, mint: AnimatedPath.CreateSuccessPath);
+    public static readonly NoticeGlyph Message = new(key: 3, mint: AnimatedPath.CreateMessagePath);
 
     [UseDelegateFromConstructor] public partial AnimatedPath Mint(float size);
 
@@ -449,7 +461,7 @@ flowchart LR
 
 - Owner: `BudgetRow` `[SmartEnum<string>]` — the closed budget vocabulary: one row per judged cost axis (the paint pass, the flex draw window, the full frame, each `FramePulse` layer, and the sampled drive step) with its `Bound` policy column, so every threshold is a declared row a dashboard, gate, and receipt share, never a literal re-derived at a call site.
 - Owner: `BudgetSubject` `[Union]` — the judgment ingress: one polymorphic gate discriminates on the receipt shape (`FrameWindow`, `FramePulse`, `PaintReceipt`, or a row-addressed raw cost), so singular and multi-axis judgments are one call. `BudgetBreach` — the violation evidence: the breached row, the measured cost, the bound, and the derived `Overrun`, valid only when the cost genuinely exceeds a positive bound.
-- Entry: `BudgetGate.Judge(BudgetSubject subject, Op? key = null)` → `Fin<Seq<BudgetBreach>>` — an empty sequence IS the pass verdict; violations project through `Shell/telemetry.md` `GhEvidence.BreachCase` and land in the `Shell/journal.md` record, so a regression is typed evidence before it is user-visible jank.
+- Entry: `BudgetGate.Judge(BudgetSubject subject, Option<PaceBounds> pace = default, Op? key = null)` → `Fin<Seq<BudgetBreach>>` — an empty sequence IS the pass verdict; bounds declare at the 60 Hz reference and a supplied `PaceBounds` scales the whole ladder to the display's own refresh interval, so a ProMotion panel judges at its real frame budget; violations project through `Shell/telemetry.md` `GhEvidence.BreachCase` and land in the `Shell/journal.md` record, so a regression is typed evidence before it is user-visible jank.
 - Law: judgment happens at read time over receipts already minted — the gate never samples, never owns a clock, and never mutates the receipt; a breach is shaped for the estate benchmark-claim fold, so the app-root benchmark rail consumes `BudgetBreach` rows as regression claims without re-measuring.
 - Law: the host-free kernel families this boundary exercises — the `Components` tree algebra, `Canvas/wires.md` route geometry, and `Canvas/paint.md` mark culling — carry corpus benchmark rows in the tests estate; this gate owns the live-session judgment, the corpus owns the regression floor, and both read the same row bounds.
 - Packages: LanguageExt.Core (`Fin`, `Seq`, `Choose`), Thinktecture.Runtime.Extensions, `Rasm.Domain` (`Op`, `ValidityClaim`), `Canvas/paint.md` (`PaintReceipt`), `Canvas/canvas.md` (`FramePulse`).
@@ -458,6 +470,7 @@ flowchart LR
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using Rasm.Csp;
+using Rasm.Grasshopper.Platform;
 using System.Runtime.InteropServices;
 
 namespace Rasm.Grasshopper.Canvas;
@@ -498,22 +511,29 @@ public readonly record struct BudgetBreach(BudgetRow Row, TimeSpan Cost, TimeSpa
 // --- [OPERATIONS] ---------------------------------------------------------------------------
 [BoundaryAdapter]
 public static class BudgetGate {
-    public static Fin<Seq<BudgetBreach>> Judge(BudgetSubject subject, Op? key = null) {
+    // Row bounds declare at the 60 Hz reference period; the DISPLAY owns the real frame budget, so a judgment
+    // under a supplied pace scales every bound by the live refresh interval against the reference — on a 120 Hz
+    // panel the whole ladder tightens 2x and a breach fires at the frame the display actually missed.
+    private static readonly TimeSpan ReferencePeriod = TimeSpan.FromMilliseconds(1000.0 / 60.0);
+
+    public static Fin<Seq<BudgetBreach>> Judge(BudgetSubject subject, Option<PaceBounds> pace = default, Op? key = null) {
         Op op = key.OrDefault();
+        double scale = pace.Map(static bounds => bounds.MinimumRefreshInterval / ReferencePeriod).IfNone(1.0);
         return op.Need(subject).Bind(valid => op.Catch(body: () => Fin.Succ(valid.Switch(
-            windowCase: static c => Judged(rows: Seq((BudgetRow.FrameDraw, c.Window.Cost))),
-            pulseCase: static c => Judged(rows: Seq(
+            state: scale,
+            windowCase: static (factor, c) => Judged(factor, rows: Seq((BudgetRow.FrameDraw, c.Window.Cost))),
+            pulseCase: static (factor, c) => Judged(factor, rows: Seq(
                 (BudgetRow.LayerGrid, c.Pulse.Grid), (BudgetRow.LayerWire, c.Pulse.Wire),
                 (BudgetRow.LayerText, c.Pulse.Text), (BudgetRow.LayerIcon, c.Pulse.Icon),
                 (BudgetRow.LayerShape, c.Pulse.Shape), (BudgetRow.LayerLayout, c.Pulse.Layout),
                 (BudgetRow.FrameFull, c.Pulse.FullFrame))),
-            paintCase: static c => Judged(rows: Seq((BudgetRow.PaintPass, c.Receipt.Latency))),
-            stepCase: static c => Judged(rows: Seq((c.Row, c.Cost)))))));
+            paintCase: static (factor, c) => Judged(factor, rows: Seq((BudgetRow.PaintPass, c.Receipt.Latency))),
+            stepCase: static (factor, c) => Judged(factor, rows: Seq((c.Row, c.Cost)))))));
     }
 
-    private static Seq<BudgetBreach> Judged(Seq<(BudgetRow Row, TimeSpan Cost)> rows) =>
-        rows.Choose(static row => row.Cost > row.Row.Bound
-            ? Some(new BudgetBreach(Row: row.Row, Cost: row.Cost, Bound: row.Row.Bound))
+    private static Seq<BudgetBreach> Judged(double scale, Seq<(BudgetRow Row, TimeSpan Cost)> rows) =>
+        rows.Choose(row => row.Cost > row.Row.Bound * scale
+            ? Some(new BudgetBreach(Row: row.Row, Cost: row.Cost, Bound: row.Row.Bound * scale))
             : Option<BudgetBreach>.None).Strict();
 }
 ```

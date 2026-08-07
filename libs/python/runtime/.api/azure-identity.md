@@ -16,15 +16,15 @@
 
 [ENTRYPOINT_SCOPE]: credential construction and the token read
 
-| [INDEX] | [MEMBER]                                                                  | [KIND]    | [ROLE]                                                                |
-| :-----: | :------------------------------------------------------------------------ | :-------- | :-------------------------------------------------------------------- |
-|  [01]   | `DefaultAzureCredential(**kwargs)`                                        | ctor      | the ordered ambient chain; per-leg `exclude_*` kwargs prune it        |
-|  [02]   | `ManagedIdentityCredential(client_id=None, identity_config=None)`         | ctor      | the in-cluster/VM identity leg alone                                  |
-|  [03]   | `WorkloadIdentityCredential(tenant_id=, client_id=, token_file_path=)`    | ctor      | federated workload identity (k8s service-account token file)          |
-|  [04]   | `ChainedTokenCredential(*credentials)`                                    | ctor      | explicit ordered chain when the default order is wrong for a deployment |
-|  [05]   | `get_token(*scopes, claims=None, tenant_id=None, enable_cae=False)`       | protocol  | the `azure-core` `TokenCredential` read every data-plane client calls |
-|  [06]   | `CredentialUnavailableError`                                              | exception | a chain leg had no material; subclasses `ClientAuthenticationError`   |
-|  [07]   | `ClientAuthenticationError` (`azure.core.exceptions`)                     | exception | material present, authentication refused                              |
+| [INDEX] | [MEMBER]                                                            | [KIND]    | [ROLE]                                                 |
+| :-----: | :------------------------------------------------------------------ | :-------- | :----------------------------------------------------- |
+|  [01]   | `DefaultAzureCredential(**kwargs)`                                  | ctor      | ordered ambient chain; `exclude_*` kwargs prune legs   |
+|  [02]   | `ManagedIdentityCredential(client_id, identity_config)`             | ctor      | in-cluster or VM identity leg alone                    |
+|  [03]   | `WorkloadIdentityCredential(tenant_id, client_id, token_file_path)` | ctor      | federated workload identity (k8s token file)           |
+|  [04]   | `ChainedTokenCredential(*credentials)`                              | ctor      | explicit ordered chain overriding the default order    |
+|  [05]   | `get_token(*scopes, claims, tenant_id, enable_cae)`                 | protocol  | `azure-core` `TokenCredential` read every client calls |
+|  [06]   | `CredentialUnavailableError`                                        | exception | empty leg; subclasses `ClientAuthenticationError`      |
+|  [07]   | `ClientAuthenticationError` (`azure.core.exceptions`)               | exception | material present, authentication refused               |
 
 ## [03]-[IMPLEMENTATION_LAW]
 

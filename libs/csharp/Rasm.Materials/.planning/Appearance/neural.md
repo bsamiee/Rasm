@@ -11,9 +11,10 @@ Materials OWNS the photo-to-PBR stage vocabulary and SPECIFIES inference; `Rasm.
 ## [02]-[MODEL_REGISTRY]
 
 - Owner: `ModelRegistry` the frozen `ModelCard` table keyed by `ModelCardId`; `PbrStage`/`PriorField`/`StageSelection`/`LicenseClass`/`WeightPolicy`/`InferenceProvider`/`TensorPrecision` `[SmartEnum]` bands; `StageProduct` `[Union]` the emission vocabulary; `TensorContract` the graph-shape carrier; `ModelCard` the row.
-- Cases: stage {`Delight`, `Albedo`, `Normals`, `Depth`, `Svbrdf`, `IntrinsicAppearance`, `SpectralReflectance`, `SuperResolve`}; product {`Channel`, `Prior`}; prior {`Delit`, `Depth`, `Spectral`}; selection {`Cover`, `Refine`}; licence {`Permissive`, `Copyleft`, `OpenRail`, `Research`, `Blocked`}; weight {`Redistributable`, `CallerSupplied`}; provider {`Cpu`, `CoreMl`, `WebGpu`}; precision {`Fp32`, `Fp16`}.
+- Cases: stage {`Delight`, `Albedo`, `Normals`, `Depth`, `Svbrdf`, `IntrinsicAppearance`, `SpectralReflectance`, `SuperResolve`, `Tileability`}; product {`Channel`, `Prior`, `Measure`}; prior {`Delit`, `Depth`, `Spectral`}; score {`Tileability`}; selection {`Cover`, `Refine`}; licence {`Permissive`, `Copyleft`, `OpenRail`, `Research`, `Blocked`}; weight {`Redistributable`, `CallerSupplied`}; provider {`Cpu`, `CoreMl`, `WebGpu`}; precision {`Fp32`, `Fp16`}.
 - Entry: `public static Fin<ModelCard> Select(PbrStage stage, StagePolicy policy, Op key)` is the ONE selection fold — the requested stage, the caller's licence ceiling, and the provider preference resolve one card off the frozen rows, so a stage never names a model and a model swap is a row edit; `ModelRegistry.Rows` is the frozen table and `EmitterOf` the roster-order producer lookup the plan folds. `Select` rails `MaterialFault.Parameter` naming the stage on an unregistered stage, a stage whose every card exceeds the caller's licence ceiling, or a `Blocked` card pinned explicitly — a stage with no admitted card is DECLARED absence, never a silent skip.
 - Law: a stage declares CONSUMES and EMITS and nothing else. `StagePlan` resolves every dependency edge from the relation between them against the SELECTED plan, so the order is derived rather than authored, a stage carrying a `Requires` list that contradicts its own inputs is unrepresentable, and a model whose graph gains a second input widens one `TensorContract` column and one `Consumes` row with no fold edit. `Delight` emits `PriorField.Delit` and NOT `base_color`: a de-lit photograph is a de-shadowed sRGB observation still carrying view-dependent residue, so publishing it as a base-colour plane seats an intermediate in a set the shading model then reads as measured reflectance. `Depth` emits `PriorField.Depth`, the monocular relative-inverse-depth prior that anchors the low-frequency ambiguity Frankot-Chellappa integration cannot recover — `height` remains the `Raster/filter#PLANE_OP` product `Raster/set#TEXTURE_SET` declares `Derived("geometry_normal")`, so no stage emits it and no card claims it. `SpectralReflectance` emits `PriorField.Spectral`, the per-wavelength `(η, k)` curve `surface#CONDUCTOR_IOR` grounds a metal from: it admits through `surface#SPECTRAL_UPSAMPLE` per `SpectralBand` and lands as a SET-LEVEL column beside `ConductorMetal`'s three-band `ComplexIor`, the three-band pair staying the fast path — a substance fact one material carries, never a per-texel channel.
+- Law: FOUR STAGES AND THE REFINE PATH ARE UNREACHABLE TODAY, and the registry says so in rows rather than in silence. `Albedo`, `SpectralReflectance`, `Svbrdf`, and `Tileability` carry only `Blocked` cards, and both `SuperResolve` rows are `Blocked`, so `Serviceable` answers false for each at every ceiling and the cover fold plans no route through them — the estate knows the artefacts exist, records what each would need, and grants nothing. That is the honest capability statement: the vocabulary, the plan algebra, the contract, and the admission gate are all complete and exercised by the granted stages, and each blocked stage arms the moment its weight card publishes a licence, as ONE row edit. `ModelCard.Artefact` is likewise a declared shape carrying absence on every current row, because no REDISTRIBUTABLE weight artefact ships yet — the digest law stands as design and the column fills at the first redistributable admission, which is a row edit and not a surface one. `ModelCard.Residual` reads the same way and settles by the same mechanism: a divergence is a property of a graph RUNNING on a provider, so each card's band carries its DECLARED default until that card's first `Rasm.Compute` execution measures it, and the measurement is `StageResult.GoldenDelta` itself rather than a study — one fixed input across every provider the row lists fills `Upper` for a deterministic card at `ResidualBand.Ceiling`, and a seed sweep additionally fills `Lower` for a `Stochastic` one at `ResidualBand.Point`. Estimating a ceiling ahead of execution would invert the column's own law by writing an unmeasured number into the slot a measurement gates; the two diffusers rows settle only once their exports exist, a band measured against an absent graph measuring nothing. [SPIKE]: each row's residual VALUES converge on that first per-card execution alone; the deterministic floor is the declared band defaults, the `Stochastic`-selected band shape, and `Admits` reading `Upper` either way, each total without them.
 - Law: the weights gate is licence-class DATA, never code — anything an OSS project may freely use admits as a row (permissive, copyleft, OpenRAIL, research-class alike) and only a payment-gated model rejects outright, while a model whose WEIGHT card is silent about its licence enters as a `Blocked` row: the artefact is registered so the estate records what exists, and the row carries NO grant to run it. `LicenseClass.Grants` is the one predicate every gate reads; a boolean beside the class is a second truth two folds read differently.
 - Law: `PhysicalChannelForbidden` is the generative-super-resolution law as data — a card carrying it may only emit `Channel(base_color)`, so a `superResolve` result naming any other product refuses at decode. Generative up-sampling invents plausible high-frequency detail; on an albedo that is acceptable authoring, on a normal, roughness, metalness, or height plane it is fabricated physics the shading model then integrates as if measured.
 - Law: `WeightPolicy` states whether the estate MAY carry an artefact and carries no address — the app-root import boundary resolves `ModelCardId` to bytes for both rows alike, so the registry stays a vocabulary and never a distribution channel, and an address column every row fills with absence is the second truth this omission forecloses.
@@ -24,6 +25,7 @@ Materials OWNS the photo-to-PBR stage vocabulary and SPECIFIES inference; `Rasm.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
+using System.Collections.Concurrent;                 // ConcurrentDictionary — the per-ceiling Serviceable memo
 using System.Collections.Frozen;
 using System.Linq;                                   // the roster folds over Items
 using LanguageExt;                                   // Fin, Seq, Option
@@ -70,28 +72,60 @@ public sealed partial class PriorField {
     public PlaneTransfer Transfer { get; }
 }
 
-// What a stage emits or consumes: a frozen channel that lands in a set, or a prior that feeds another stage. ONE
-// union closes both, so the plan folds one relation and a stage's inputs and outputs share a vocabulary.
+// ScoreField closes the SCALAR measurements a model can emit — a grade over a whole tile rather than a field across
+// it. A grade crosses BY VALUE: it carries no blob, no extent, and no transfer band, because nothing downstream
+// samples it and a consumer reading one float out of an object store pays a round trip for a number the result
+// already holds. That is the whole distinction from a plane product, and it is why this roster declares no plane
+// shape at all — a shape column here would describe bytes no producer writes. A measurement lands in NO TextureSet
+// and feeds no later stage's pixels.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class ScoreField {
+    // The learned tileability grade over a candidate tile. Raster/tile#TILE_GATE remains the ONLY mint of a
+    // TileProof — this row is a model's opinion, and the gate decides what a proof is — so the measurement crosses
+    // as evidence a scorer produced rather than as a passing verdict.
+    // NO AGGREGATION DIRECTION lands on this roster, and the omission is the law: a grade is a property of ONE
+    // tile, so averaging or maximizing two would publish a number no model produced. The single-bucket admission
+    // below is what keeps that from ever being asked.
+    public static readonly ScoreField Tileability = new("tileability");
+}
+
+// What a stage emits or consumes: a frozen channel that lands in a set, a prior that feeds another stage, or a
+// scalar measure that lands in neither. ONE union closes all three, so the plan folds one relation and a stage's
+// inputs and outputs share a vocabulary. The third case is a genuinely distinct MODALITY rather than a plane wearing
+// a small extent — a scorer and a classifier grade an input where an estimator produces a field, and the whole
+// difference is that nothing downstream samples the result.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record StageProduct {
     private StageProduct() { }
 
     public sealed record Channel(TextureChannel Field) : StageProduct;
     public sealed record Prior(PriorField Field) : StageProduct;
+    public sealed record Measure(ScoreField Field) : StageProduct;
 
-    public string Key => Switch(channel: static c => c.Field.Key, prior: static p => p.Field.Key);
-    public PlaneFormat Format => Switch(channel: static c => Storage(c.Field), prior: static p => p.Field.Format);
-    public PlaneTransfer Transfer => Switch(channel: static c => c.Field.Transfer, prior: static p => p.Field.Transfer);
+    public string Key => Switch(channel: static c => c.Field.Key, prior: static p => p.Field.Key, measure: static m => m.Field.Key);
 
-    // Parse resolves a declared key through ONE path: channels first (the frozen roster is the larger and the canonical
-    // vocabulary), priors second. TryGet lifts onto Option per the Thinktecture catalog's own guidance, so the throwing
-    // Get never reaches a rail and an unknown key is a typed absence a decode gate names.
+    // The plane shape is TYPED ABSENCE on a measure, because a grade crosses by value and has no bytes to describe.
+    // An Option here rather than a fabricated R32F row is what keeps a binding from declaring a storage lane no
+    // producer writes and no reader fetches.
+    public Option<PlaneFormat> Format =>
+        Switch(channel: static c => Some(Storage(c.Field)), prior: static p => Some(p.Field.Format), measure: static _ => Option<PlaneFormat>.None);
+    public Option<PlaneTransfer> Transfer =>
+        Switch(channel: static c => Some(c.Field.Transfer), prior: static p => Some(p.Field.Transfer), measure: static _ => Option<PlaneTransfer>.None);
+
+    // Parse resolves a declared key through ONE path in ROSTER PRECEDENCE: channels first (the frozen roster is the
+    // larger and the canonical vocabulary), priors second, measures last. TryGet lifts onto Option per the
+    // Thinktecture catalog's own guidance, so the throwing Get never reaches a rail and an unknown key is a typed
+    // absence a decode gate names.
     public static Option<StageProduct> Parse(string key) =>
         TextureChannel.TryGet(key, out TextureChannel? channel)
             ? Some<StageProduct>(new Channel(channel))
             : PriorField.TryGet(key, out PriorField? prior)
                 ? Some<StageProduct>(new Prior(prior))
-                : None;
+                : ScoreField.TryGet(key, out ScoreField? score)
+                    ? Some<StageProduct>(new Measure(score))
+                    : None;
 
     // Storage width follows the channel row's semantic component count through the plane#PLANE_FORMAT shape
     // resolver, so a three-component channel resolves to the four-component row exactly as a pressed plane does and
@@ -147,6 +181,14 @@ public sealed partial class PbrStage {
     public static readonly PbrStage SuperResolve = new("superResolve", StageSelection.Refine, scale: 4,
         consumes: static () => Seq<StageProduct>(new StageProduct.Channel(TextureChannel.BaseColor)),
         emits: static () => Seq<StageProduct>(new StageProduct.Channel(TextureChannel.BaseColor)));
+    // Tileability GRADES a produced base colour rather than estimating a field, and it is a COVER row for exactly
+    // the reason every other cover row is one: a caller asks for the measure and this stage answers that demand, so
+    // the greedy cover reaches it and the closure pulls whichever estimator produced the colour it reads. No third
+    // StageSelection is owed — grading IS covering a demand, and the difference between this row and its siblings is
+    // carried entirely by what it emits.
+    public static readonly PbrStage Tileability = new("tileability", StageSelection.Cover, scale: 1,
+        consumes: static () => Seq<StageProduct>(new StageProduct.Channel(TextureChannel.BaseColor)),
+        emits: static () => Seq<StageProduct>(new StageProduct.Measure(ScoreField.Tileability)));
 
     public StageSelection Selection { get; }
 
@@ -238,20 +280,42 @@ public readonly partial struct ModelCardId {
 }
 
 // --- [MODELS] ------------------------------------------------------------------------------
-// One graph output binding: the ONNX graph's OWN output tensor name, the product it lands on, and the plane shape
-// its bytes carry. Tensor and product are DISTINCT — a model names its outputs whatever its author chose, and
-// collapsing the two would make the estate's channel roster the model's naming authority.
-public readonly record struct OutputBinding(string Tensor, StageProduct Product, PlaneTransfer Transfer, PlaneFormat Format);
+// One graph output binding: the ONNX graph's OWN output tensor name, the COMPONENT LANE within it, the product it
+// lands on, and the plane shape its bytes carry. Tensor and product are DISTINCT — a model names its outputs
+// whatever its author chose, and collapsing the two would make the estate's channel roster the model's naming
+// authority. Lane exists because a PACKED export names ONE tensor for several products: a graph emitting a single
+// `material` tensor carrying roughness beside metalness binds two rows against it, and without the lane the second
+// product would read the first's bytes.
+// The shape pair is Option-typed for the same reason the product's own is: a MEASURE binding describes a value, not
+// a lane, so absence there is the honest column rather than a fabricated storage row.
+public readonly record struct OutputBinding(string Tensor, int Lane, StageProduct Product, Option<PlaneTransfer> Transfer, Option<PlaneFormat> Format);
 
 // One graph input binding: the graph's own input tensor name and the product feeding it. The order matches the
 // stage's Consumes sequence, so a two-input model binds two rows and the executor never guesses which is which.
 public readonly record struct InputBinding(string Tensor, Option<StageProduct> Product);
 
+// A SEED-DRIVEN graph input no upstream stage emits. A diffusion export cannot fold its latent into an initializer:
+// the ensemble averages over independent draws, so a baked latent freezes every pass to one draw and silently
+// destroys the variance the ensembling exists to reduce — the output stops being an ensemble and starts being a
+// single sample wearing an ensemble's name. It therefore rides a CONTRACT column rather than an InputBinding, whose
+// Product would have to be a fiction: nothing produces it, the executor synthesizes it from the request's own Seed,
+// and its extent derives from the tile by the declared downscale rather than from a bucket of its own.
+public readonly record struct LatentInput(string Tensor, int Channels, int Downscale);
+
 // TensorContract carries the input bindings, the layout token, the fixed shape buckets the session warms per model, the
-// reflect-pad width the tiler feathers over, and the output bindings. Dynamic shapes fragment an ORT graph and defeat
-// memory-pattern reuse, so a bucket roster is the shape and a free extent is unrepresentable.
+// reflect-pad width the tiler feathers over, the optional seed-driven latent, and the output bindings. Dynamic shapes
+// fragment an ORT graph and defeat memory-pattern reuse, so a bucket roster is the shape and a free extent is
+// unrepresentable.
 public sealed record TensorContract(
-    Seq<InputBinding> Inputs, string Layout, Seq<(Dimension Width, Dimension Height)> Buckets, int Overlap, Seq<OutputBinding> Outputs) {
+    Seq<InputBinding> Inputs, string Layout, Seq<(Dimension Width, Dimension Height)> Buckets, int Overlap,
+    Seq<OutputBinding> Outputs, Option<LatentInput> Latent) {
+
+    // Layout is the graph's own dimension-order token (the ONNX convention its author exported under), and it binds
+    // at the REQUEST: a tile's width and height mean nothing to an executor until it knows which axis of the input
+    // tensor each fills, so StageRequest carries it beside the tile extents and the executor packs its buffer from
+    // the token rather than from a convention it assumes. Declared here because the contract is the model's fact;
+    // read there because packing is the execution's.
+    public string TensorLayout => Layout;
 
     // BucketFor resolves the smallest bucket covering the extent, else the largest bucket the tiler walks the extent
     // with. Both arms return a bucket, so a plan never carries an untiled extent a session refuses.
@@ -260,6 +324,22 @@ public sealed record TensorContract(
                 .OrderBy(static b => b.Width.Value * b.Height.Value))
             .Head
             .Match(Some, () => toSeq(Buckets.OrderByDescending(static b => b.Width.Value * b.Height.Value)).Head);
+}
+
+// A residual ceiling is a BAND, never a scalar, and ModelCard.Stochastic selects what the band was measured ACROSS.
+// A DETERMINISTIC card re-runs its own graph identically, so its only divergence axis is the PROVIDER and the band
+// collapses to a point the moment one sweep measures it — Lower and Upper are then the same number and saying so is
+// a real claim rather than a filled column. A STOCHASTIC card re-draws per seed, so the same provider disagrees with
+// itself and the band must span the seed sweep as well; pinning that to a scalar fixes the ceiling to whichever seed
+// the measuring run happened to draw, which is the defect this shape forecloses. Lower is therefore typed absence
+// until a sweep measures it, while Upper is the DECLARED ceiling Admit gates on — so one comparison serves both
+// shapes and an unmeasured band still refuses a breach.
+public readonly record struct ResidualBand(Option<double> Lower, double Upper) {
+    // A deterministic card's band is a point BY CONSTRUCTION — one seed, so no seed spread exists to measure.
+    public static ResidualBand Point(double ceiling) => new(Some(ceiling), ceiling);
+    // A stochastic card declares its ceiling and leaves the floor absent until a seed sweep fills it.
+    public static ResidualBand Ceiling(double upper) => new(Option<double>.None, upper);
+    public bool Admits(double delta) => double.IsFinite(delta) && delta <= Upper;
 }
 
 // One registry row. Every axis a caller could otherwise hardcode is a column: which stage, what grant, whose
@@ -277,7 +357,7 @@ public sealed record TensorContract(
 public sealed record ModelCard(
     ModelCardId Id, PbrStage Stage, LicenseClass License, string LicenseId, WeightPolicy Weights, Option<ContentAddress> Artefact,
     TensorContract Contract, Seq<InferenceProvider> Providers, TensorPrecision Precision, int PartitionBound,
-    double ResidualCeiling, bool PhysicalChannelForbidden, bool Stochastic) {
+    ResidualBand Residual, bool PhysicalChannelForbidden, bool Stochastic) {
 
     // Admits passes a card whose class grants at all and sits at or below the caller's ceiling.
     public bool Admits(LicenseClass ceiling) => License.Grants && License.Rank <= ceiling.Rank;
@@ -312,8 +392,12 @@ public static class ModelRegistry {
         Card("supermat-albedo", PbrStage.Albedo, LicenseClass.Blocked, "absent", WeightPolicy.CallerSupplied, artefact: null,
             Contract(["input:delit"], ["albedo@base_color"], buckets: [(512, 512)], overlap: 16),
             [InferenceProvider.Cpu], TensorPrecision.Fp32, partitions: 1, forbidden: false, ceiling: 2e-3, stochastic: false),
+        // The export contract is SETTLED: one input `image` at f32[1,3,H,W] to one `normal` output. The task and CLIP
+        // embeddings the pipeline threads are constants of the checkpoint, so they fold to graph INITIALIZERS and no
+        // second input survives the export — which is what makes this card a plain single-input row where the
+        // diffusers sibling below is not.
         Card("lotus-d-normal-v1-1", PbrStage.Normals, LicenseClass.Permissive, "apache-2.0", WeightPolicy.CallerSupplied, artefact: null,
-            Contract(["input:"], ["normal@geometry_normal"], buckets: [(512, 512)], overlap: 32),
+            Contract(["image:"], ["normal@geometry_normal"], buckets: [(512, 512)], overlap: 32),
             [InferenceProvider.CoreMl, InferenceProvider.Cpu], TensorPrecision.Fp32, partitions: 1, forbidden: false, ceiling: 1e-3, stochastic: false),
         Card("depth-anything-v2-small", PbrStage.Depth, LicenseClass.Permissive, "apache-2.0", WeightPolicy.CallerSupplied, artefact: null,
             Contract(["image:"], ["depth@depth"], buckets: [(518, 518)], overlap: 32),
@@ -323,9 +407,16 @@ public static class ModelRegistry {
                 ["albedo@base_color", "roughness@specular_roughness", "metallic@base_metalness", "normal@geometry_normal"],
                 buckets: [(256, 256), (512, 512)], overlap: 32),
             [InferenceProvider.CoreMl, InferenceProvider.Cpu], TensorPrecision.Fp32, partitions: 1, forbidden: false, ceiling: 1e-3, stochastic: false),
+        // The export contract is SETTLED and it is the one row carrying a LATENT. The graph takes `image` beside a
+        // second `latent` input at f32[1,8,H/8,W/8] that CANNOT fold to an initializer: this card ensembles, and the
+        // ensemble averages over independent latent draws, so baking one draw in freezes every pass to that draw and
+        // the output stops being an ensemble while still reporting as one. It emits TWO tensors — `albedo` and a
+        // PACKED `material` carrying roughness beside metalness — which is why two bindings name one tensor and the
+        // derived lane separates them. Its extents cap at 768 and must be multiples of the latent downscale, both of
+        // which the bucket roster and the Contract latent gate hold at declaration.
         Card("marigold-iid-appearance-v1-1", PbrStage.IntrinsicAppearance, LicenseClass.OpenRail, "openrail++-m", WeightPolicy.CallerSupplied, artefact: null,
-            Contract(["input:"], ["albedo@base_color", "roughness@specular_roughness", "metallic@base_metalness"],
-                buckets: [(768, 768)], overlap: 32),
+            Contract(["image:"], ["albedo@base_color", "material@specular_roughness", "material@base_metalness"],
+                buckets: [(768, 768)], overlap: 32, latent: new LatentInput("latent", Channels: 8, Downscale: 8)),
             [InferenceProvider.Cpu], TensorPrecision.Fp32, partitions: 1, forbidden: false, ceiling: 2e-3, stochastic: true),
         Card("realesr-general-x4v3", PbrStage.SuperResolve, LicenseClass.Blocked, "absent", WeightPolicy.CallerSupplied, artefact: null,
             Contract(["input:base_color"], ["output@base_color"], buckets: [(256, 256), (512, 512)], overlap: 16),
@@ -335,6 +426,14 @@ public static class ModelRegistry {
             [InferenceProvider.CoreMl, InferenceProvider.Cpu], TensorPrecision.Fp16, partitions: 1, forbidden: true, ceiling: 8e-3, stochastic: false),
         Card("spectral-reflectance-unshipped", PbrStage.SpectralReflectance, LicenseClass.Blocked, "absent", WeightPolicy.CallerSupplied, artefact: null,
             Contract(["input:delit"], ["spectrum@spectral"], buckets: [(512, 512)], overlap: 32),
+            [InferenceProvider.Cpu], TensorPrecision.Fp32, partitions: 1, forbidden: false, ceiling: 1e-3, stochastic: false),
+        // TexTile clears the CONTRACT — a fixed NCHW f32[1,3,512,512] tile in, one scalar out, which is exactly the
+        // shape the scorer modality admits — and fails the GRANT: its weights ship as a bare checkpoint with no
+        // licence card of its own, and a repository licence never stands in for the weight card. So it enters
+        // Blocked by the same law the two up-samplers enter under: the estate records that the artefact exists and
+        // carries no permission to run it, and the day its card publishes a licence the row flips one column.
+        Card("textile-tileability", PbrStage.Tileability, LicenseClass.Blocked, "absent", WeightPolicy.CallerSupplied, artefact: null,
+            Contract(["input:base_color"], ["score@tileability"], buckets: [(512, 512)], overlap: 16),
             [InferenceProvider.Cpu], TensorPrecision.Fp32, partitions: 1, forbidden: false, ceiling: 1e-3, stochastic: false),
         Card("mate-unified", PbrStage.Svbrdf, LicenseClass.Blocked, "absent", WeightPolicy.CallerSupplied, artefact: null,
             Contract(["input:delit"],
@@ -392,11 +491,28 @@ public static class ModelRegistry {
     public static bool Granted(PbrStage stage, StagePolicy policy) =>
         Rows.Values.Any(card => card.Stage == stage && card.Admits(policy.Ceiling));
 
+    // Serviceable MEMOIZES per (ceiling, stage) — the Ordinal Lazy pattern — because the recursion re-walks every
+    // shared upstream link once per consumer: the cover fold asks it for every stage on every requested product, and
+    // a diamond in the consume relation re-proves the same subtree exponentially in its depth. The key is the licence
+    // CEILING and nothing else, since that is the only policy axis the answer reads; a Lazy per ceiling builds its
+    // whole table once and every later ask is a lookup.
+    static readonly ConcurrentDictionary<LicenseClass, Lazy<FrozenDictionary<PbrStage, bool>>> ServiceTable = new();
+
     public static bool Serviceable(PbrStage stage, StagePolicy policy) =>
-        Granted(stage, policy)
-        && stage.Consumes().ForAll(product => PbrStage.Items.Any(emitter =>
-               emitter.Ordinal < stage.Ordinal && emitter.Selection == StageSelection.Cover
-               && emitter.EmitsProduct(product) && Serviceable(emitter, policy)));
+        ServiceTable.GetOrAdd(policy.Ceiling, static ceiling =>
+            new Lazy<FrozenDictionary<PbrStage, bool>>(() => Close(ceiling))).Value[stage];
+
+    // Close builds the whole answer in ORDINAL order, so each stage's consume links are already settled when it is
+    // reached and the fixpoint needs no recursion at all — the relation is acyclic by the ordinal law the roster
+    // already enforces, which is exactly what makes one forward pass sufficient.
+    static FrozenDictionary<PbrStage, bool> Close(LicenseClass ceiling) =>
+        toSeq(PbrStage.Items.OrderBy(static s => s.Ordinal))
+            .Fold(HashMap<PbrStage, bool>(), (table, stage) => table.Add(stage,
+                Rows.Values.Any(card => card.Stage == stage && card.Admits(ceiling))
+                    && stage.Consumes().ForAll(product => PbrStage.Items.Any(emitter =>
+                           emitter.Ordinal < stage.Ordinal && emitter.Selection == StageSelection.Cover
+                           && emitter.EmitsProduct(product) && table.Find(emitter).IfNone(false)))))
+            .ToFrozenDictionary(static entry => entry.Key, static entry => entry.Value);
 
     static Fin<ModelCard> Admissible(ModelCard card, StagePolicy policy, Op key) =>
         card.Admits(policy.Ceiling)
@@ -406,7 +522,11 @@ public static class ModelRegistry {
     static ModelCard Card(
         string id, PbrStage stage, LicenseClass license, string licenseId, WeightPolicy weights, string? artefact, TensorContract contract,
         InferenceProvider[] providers, TensorPrecision precision, int partitions, bool forbidden, double ceiling, bool stochastic) =>
-        new(ModelCardId.Create(id), stage, license, licenseId, weights, Digest(artefact, id), contract, toSeq(providers), precision, partitions, ceiling, forbidden, stochastic);
+        // The BAND SHAPE derives from the stochastic column rather than from a second row argument: a deterministic
+        // card has no seed axis, so its floor is its ceiling and the point form states that; a stochastic one leaves
+        // the floor absent until a seed sweep measures it. One declared ceiling, two shapes, zero authoring choice.
+        new(ModelCardId.Create(id), stage, license, licenseId, weights, Digest(artefact, id), contract, toSeq(providers), precision, partitions,
+            stochastic ? ResidualBand.Ceiling(ceiling) : ResidualBand.Point(ceiling), forbidden, stochastic);
 
     // A declared digest admits through the seam's OWN X32 wire factory, so a mistyped literal fails the LOAD with its
     // row named rather than seating a card whose artefact column addresses nothing; an absent one is the caller-supplied
@@ -422,9 +542,22 @@ public static class ModelRegistry {
     // `tensor@product`. Two spellings for two directions keeps a transposed row unparseable rather than silently
     // valid, and the product key resolves against the FROZEN channel roster before the prior roster. The overlap
     // gate holds the frozen 8-32 feather band at declaration, so an out-of-band card fails the load, never a plan.
-    static TensorContract Contract(string[] inputs, string[] outputs, (int W, int H)[] buckets, int overlap) =>
+    static TensorContract Contract(string[] inputs, string[] outputs, (int W, int H)[] buckets, int overlap, LatentInput? latent = null) =>
         overlap is < 8 or > 32
             ? throw new InvalidOperationException($"<model-overlap-band:{overlap}>")
+            // A MEASURE-EMITTING CARD IS SINGLE-BUCKET BY LAW. A scorer's contract is fixed-shape by definition — it
+            // grades one tile at one extent — so a second bucket would put BucketFor's widest-bucket fallback in a
+            // position to plan a multi-tile grid for a value that has no aggregation across tiles, and a grade is a
+            // property of ONE tile. The gate sits HERE, where the buckets admit, so a card declaring the shape it
+            // cannot honour fails the LOAD rather than reaching a plan that would then have to invent a reduction.
+            : buckets.Length > 1
+              && outputs.Any(static spec => spec.Split('@') is [_, string product] && ScoreField.TryGet(product, out _))
+            ? throw new InvalidOperationException($"<model-measure-multi-bucket:{buckets.Length}>")
+            // A latent's extent is the tile's own divided by the declared downscale, so a bucket the downscale does
+            // not divide packs a fractional latent grid the session cannot bind. The gate is a DECLARATION gate for
+            // the same reason the overlap band is: a row that cannot tile is a row nobody should be able to author.
+            : latent is { } seeded && buckets.Any(b => b.W % seeded.Downscale != 0 || b.H % seeded.Downscale != 0)
+            ? throw new InvalidOperationException($"<model-latent-bucket:{seeded.Tensor}:{seeded.Downscale}>")
             : new(toSeq(inputs).Map(static spec => spec.Split(':') switch {
                 [string tensor, ""] => new InputBinding(tensor, None),
                 [string tensor, string product] => new InputBinding(tensor, Some(Resolve(product, spec))),
@@ -432,14 +565,28 @@ public static class ModelRegistry {
             }),
             "nchw",
             toSeq(buckets).Map(static b => (Dimension.Create(b.W), Dimension.Create(b.H))), overlap,
-            toSeq(outputs).Map(static spec => spec.Split('@') switch {
-                [string tensor, string product] => Bound(tensor, Resolve(product, spec)),
-                var malformed => throw new InvalidOperationException($"<model-output-spec:{string.Join('@', malformed)}>"),
-            }));
+            Outputs(outputs),
+            Optional(latent));
 
-    // Bound reads the plane shape off the PRODUCT itself, never off a fourth spec field a row author could transpose
+    // Lane DERIVES from the tensor's repeat ordinal — a PACKED export names one tensor for several products, so the
+    // nth binding of a repeated tensor reads its nth component group. Deriving it from the roster keeps a row's spec
+    // one string per product and makes a transposed lane unspellable; an unrepeated tensor is lane zero, which is
+    // every single-output row on the table.
+    static Seq<OutputBinding> Outputs(string[] outputs) =>
+        toSeq(outputs)
+            .Map(static spec => spec.Split('@') switch {
+                [string tensor, string product] => (Tensor: tensor, Product: Resolve(product, spec)),
+                var malformed => throw new InvalidOperationException($"<model-output-spec:{string.Join('@', malformed)}>"),
+            })
+            .Fold((Bound: Seq<OutputBinding>(), Seen: HashMap<string, int>()),
+                static (state, row) => state.Seen.Find(row.Tensor).IfNone(0) switch {
+                    var lane => (state.Bound.Add(Bound(row.Tensor, lane, row.Product)), state.Seen.AddOrUpdate(row.Tensor, lane + 1)),
+                })
+            .Bound;
+
+    // Bound reads the plane shape off the PRODUCT itself, never off a further spec field a row author could transpose
     // against the roster the product already carries.
-    static OutputBinding Bound(string tensor, StageProduct product) => new(tensor, product, product.Transfer, product.Format);
+    static OutputBinding Bound(string tensor, int lane, StageProduct product) => new(tensor, lane, product, product.Transfer, product.Format);
 
     // Resolve fails the load on an unknown product key with the offending spec named — a row is a DECLARATION — rather
     // than surfacing an opaque type-initialization inner chain a reader cannot attribute to a row.
@@ -461,9 +608,9 @@ public static class ModelRegistry {
 - Law: tiling is FIXED-SHAPE and reflect-padded. Dynamic input shapes fragment an ORT graph into many partitions and defeat memory-pattern reuse, so `InferenceTiling` selects the card's own bucket, pads by reflection, and feathers the declared overlap; the tile grid, the overlap, the pad mode, and the warm-up bucket key all ride the request, so the executor warms one session per bucket and never re-derives geometry the plan already fixed. `InferenceTiling.Of` counts the FIRST tile whole and steps the remainder by the stride, so an extent equal to its bucket is one tile rather than two.
 - Law: the `StageInfer` REPLAY consult threads into this fold and nowhere else. `HookModality.Observe` points stay decorator-only and their owners name nothing, while a `Replay` verdict enters the owner's OWN rail — a decorator wrapping `Plan` sees the whole sequence and skips no stage inside it — so the port is a `StageReplay` argument the composition root binds, keyed on the minted `StageRequest` because that record IS the identity a retained envelope carries. `StageResult.Admit` gates a held result against the freshly-minted request exactly as it gates a live one, so a drifted card, a short output set, an out-of-extent envelope, or a breached residual refuses the PLAN rather than seating a prior run's planes under this plan's extent; absence is the live path, so a composition with no replay store issues every step.
 - Law: the `PriorField.Depth` prior couples to the height integration as a POST-INTEGRATION AFFINE FIT, never a boundary condition and never a low-frequency additive blend. `PriorField.Depth` carries RELATIVE INVERSE depth — scale-and-shift ambiguous by construction — so it holds no value a boundary condition imposes, and `Raster/set#TEXTURE_SET` derives `height` under `HeightSolver.Spectral`, a periodic solve that HAS no boundary to impose one on. That solve leaves exactly two degrees of freedom free, the DC term and the low-frequency ramp normals cannot constrain, so the fit is one closed-form least squares for `(a, b)` in `a·h + b` against the prior's reciprocal over the valid mask — two unknowns for two free parameters, with the fit residual riding the `HeightEvidence` the forward direction already records. Frequency-domain blending buys a cutoff knob and mixes two fields whose scales disagree; a boundary condition demands metric depth the prior does not carry.
-- Law: `ResidualCeiling` gates a NORMALIZED residual: `GoldenDelta` is the per-channel RMS difference against the card's own CPU-provider reference, divided by the output's declared extent, so one ceiling is extent-invariant and a 4x up-sampler's ceiling means the same thing as a 512-square normal field's. Un-normalized L2 distance grows with the square root of the pixel count, which makes a single ceiling a function of the bucket rather than of the provider divergence it exists to bound.
+- Law: `ResidualBand` gates a NORMALIZED residual: `GoldenDelta` is the per-channel RMS difference against the card's own CPU-provider reference, divided by the output's declared extent, so one ceiling is extent-invariant and a 4x up-sampler's ceiling means the same thing as a 512-square normal field's. Un-normalized L2 distance grows with the square root of the pixel count, which makes a single ceiling a function of the bucket rather than of the provider divergence it exists to bound. The band's SHAPE follows `Stochastic`: a deterministic card varies on the provider axis alone and its floor is its ceiling, while a stochastic card re-draws per seed and carries an absent floor until a seed sweep measures it — `Admits` reads `Upper` either way, so an unmeasured floor never weakens the gate.
 - Law: `StageResult` carries typed evidence, never a bare success — `ProviderUsed` records the execution provider AFTER any policy refusal so a silent degradation reads off the receipt, `PartitionCount` rails when the session fragmented past the card's declared bound, `GoldenDelta` carries the residual against the model's own CPU-provider reference output so a fast-but-wrong provider is caught by measurement rather than by trust, `Artefact` carries the digest of the weight bytes the executor loaded so two revisions of one card separate on the receipt, and `Op` echoes the request's own with `Admit` comparing the pair, so a failure correlates to the plan that issued it and a transposed result refuses.
-- Boundary: the `[WIRE]` seam is `Rasm.Materials/Appearance/neural` ↔ `Rasm.Compute/Model/inference`, recorded at BOTH folder `ARCHITECTURE.md` `[03]-[SEAMS]` maps. It is C#-interior and mints no corpus contract entry. `StageRequest` carries CONTENT ADDRESSES and vocabulary KEYS, never plane bytes — the source plane and every produced plane live in the write-once blob store the app root binds — so the wire stays small and the executor never marshals a raster through a message. `StageResult` ingestion produces the `TextureSet` the `acquisition#ACQUISITION` `CaptureSource.NeuralPlanes` arm consumes: `Prior` outputs are dropped at that boundary because a prior feeds another stage or a `Raster/filter#PLANE_OP` and belongs in no set, `Channel` outputs become the set's planes, and the arm returns the SET beside the averaged `MaterialParameters` row, so a photo becomes a shadeable material through `Raster/set#SET_BIND` rather than only an encodable wire.
+- Boundary: the `[WIRE]` seam is `Rasm.Materials/Appearance/neural` ↔ `Rasm.Compute/Model/inference`, recorded at BOTH folder `ARCHITECTURE.md` `[03]-[SEAMS]` maps. It is C#-interior and mints no corpus contract entry. `StageRequest` carries CONTENT ADDRESSES and vocabulary KEYS, never plane bytes — the source plane and every produced plane live in the write-once blob store the app root binds — so the wire stays small and the executor never marshals a raster through a message. `StageResult` ingestion produces the `TextureSet` the `acquisition#ACQUISITION` `CaptureSource.NeuralPlanes` arm consumes: `Prior` and `Measure` outputs are dropped at that boundary — a prior feeds another stage or a `Raster/filter#PLANE_OP` and a measure grades rather than covers, so neither belongs in a set — `Channel` outputs become the set's planes, and the arm returns the SET beside the averaged `MaterialParameters` row, so a photo becomes a shadeable material through `Raster/set#SET_BIND` rather than only an encodable wire. A `Measure` product reaches its consumer through `StageResult.Scores`; binding one to the `Raster/tile#TILE_GATE` `TilePolicy.Scorer` closure is the APP ROOT's hop, because the scorer contract is a delegate over a decoded tile and this owner mints no plane bytes and holds no executor.
 
 ```csharp signature
 // --- [MODELS] ------------------------------------------------------------------------------
@@ -540,7 +687,7 @@ public readonly record struct InferenceTiling(Dimension TileWidth, Dimension Til
 public sealed record StageRequest(
     PbrStage Stage, ModelCardId ModelCardId, Option<ContentAddress> Artefact, LicenseClass LicenseClass, Seq<StageInput> Inputs,
     Dimension InputWidth, Dimension InputHeight, Dimension OutputWidth, Dimension OutputHeight,
-    int TileWidth, int TileHeight, int Overlap, string PadMode, string Bucket,
+    int TileWidth, int TileHeight, int Overlap, string PadMode, string Bucket, string Layout,
     InferenceProvider Provider, TensorPrecision Precision, ulong Seed, Op Op) {
 
     // Construction IS the grant gate: a blocked card can be read from the registry but no request naming it exists.
@@ -551,11 +698,19 @@ public sealed record StageRequest(
     public static Fin<StageRequest> Of(
         ModelCard card, StageIntent intent, Seq<PbrStage> prefix, Dimension width, Dimension height, InferenceTiling tiles, Op key) =>
         from _ in guard(card.License.Grants, MaterialFault.Parameter(key, $"<stage-license-blocked:{card.Id.Value}>"))
+        // A STOCHASTIC card at the ZERO DEFAULT SEED refuses HERE, the mirror of the deterministic law below it. A
+        // deterministic card zeroes its seed at the source so the executor's seed-unbindable refusal marks a real
+        // defect; a stochastic one cannot be handed a silently-minted nonzero default, because two runs of one plan
+        // would then draw different latents while both receipts reported the same policy — replay forks and nothing
+        // says so. The caller supplies its draw DELIBERATELY or the request does not exist.
+        from _seed in guard(!card.Stochastic || intent.Policy.Seed != 0UL,
+                MaterialFault.Parameter(key, $"<stage-stochastic-seed-unset:{card.Id.Value}>"))
         from inputs in Bind(card.Stage, intent, prefix, key)
+        let resolved = Preferred(card, intent.Policy)
         select new StageRequest(card.Stage, card.Id, card.Artefact, card.License, inputs, width, height,
             Dimension.Create(width.Value * card.Stage.Scale), Dimension.Create(height.Value * card.Stage.Scale),
-            tiles.TileWidth.Value, tiles.TileHeight.Value, tiles.Overlap, tiles.PadMode, tiles.Bucket,
-            Preferred(card, intent.Policy), intent.Policy.Precision, card.Stochastic ? intent.Policy.Seed : 0UL, key);
+            tiles.TileWidth.Value, tiles.TileHeight.Value, tiles.Overlap, tiles.PadMode, tiles.Bucket, card.Contract.TensorLayout,
+            resolved.Provider, resolved.Precision, card.Stochastic ? intent.Policy.Seed : 0UL, key);
 
     // Every consumed product resolves to the prefix's own emitter; a stage consuming nothing binds the source plane.
     // Bind rails an unresolvable product HERE as a plan defect rather than issuing a request the executor cannot satisfy.
@@ -568,17 +723,37 @@ public sealed record StageRequest(
                       .ToFin(MaterialFault.Parameter(key, $"<stage-input-unemitted:{stage.Key}:{product.Key}>"))).As()
               .Map(static bound => bound.Strict());
 
-    // Preferred picks the provider the request asks for: the caller's preference when the card lists it, otherwise the
-    // card's own highest-ordered row; the executor may still refuse and degrade, which the result reports rather than hides.
-    static InferenceProvider Preferred(ModelCard card, StagePolicy policy) =>
-        card.Providers.Exists(p => p == policy.Preferred)
+    // Preferred resolves the provider AND the precision TOGETHER, because they are not independent: a PinsFormat
+    // provider fixes the graph's numeric format at session build, so pairing one with a policy precision it cannot
+    // honour builds a session that runs at the pinned format and reports the requested one — a silent reduced-precision
+    // execution whose only signal is the golden residual, exactly the trap the pin column exists to close. The pair
+    // therefore resolves on one member: the card's ladder answers WHICH provider, and a pinned provider that cannot
+    // honour the policy precision DEGRADES to the card's terminal row rather than carrying a precision it will not
+    // keep. Returning the pair is what lets StageRequest.Of bind both from one decision — the prior shape resolved
+    // the provider here and read the precision straight off the policy, so span-x4's Fp16 request bound a CoreML
+    // provider pinned to its own format and the request's two columns disagreed by construction.
+    static (InferenceProvider Provider, TensorPrecision Precision) Preferred(ModelCard card, StagePolicy policy) =>
+        (card.Providers.Exists(p => p == policy.Preferred)
             ? policy.Preferred
-            : toSeq(card.Providers.OrderBy(static p => p.Order)).Head.IfNone(InferenceProvider.Cpu);
+            : toSeq(card.Providers.OrderBy(static p => p.Order)).Head.IfNone(InferenceProvider.Cpu)) switch {
+            var chosen when !chosen.PinsFormat || policy.Precision == card.Precision => (chosen, policy.Precision),
+            // A pinned provider whose format contradicts the card's own declared precision cannot serve this
+            // request at all, so the fold walks past it to the terminal row the ladder guarantees rather than
+            // issuing a request whose provider and precision columns describe two different executions.
+            _ => (toSeq(card.Providers.Filter(static p => p.Terminal || !p.PinsFormat).OrderBy(static p => p.Order)).Head
+                      .IfNone(InferenceProvider.Cpu), policy.Precision),
+        };
 }
 
 // One produced plane: Role is the product the plane lands on (the wire lowers it to the canonical channel or prior
 // key), then its blob, extent, and the transfer and format its bytes carry.
 public readonly record struct StageOutput(StageProduct Role, ContentAddress BlobKey, Dimension Width, Dimension Height, PlaneTransfer Transfer, PlaneFormat Format);
+
+// One MEASURED scalar. A grade carries its role and its value alone — no blob, no extent, no transfer band —
+// because nothing downstream samples it and a consumer asking for a grade reads the number the result already holds
+// rather than fetching four bytes out of a store. Fields and grades ride SEPARATE collections on the result because
+// they are separate MODALITIES, not one collection with a small extent.
+public readonly record struct StageScore(StageProduct Role, double Value);
 
 // StageResult carries the executed result with its typed evidence. ProviderUsed is the
 // provider AFTER any refusal, PartitionCount the graph fragmentation the session actually reached, GoldenDelta the
@@ -590,7 +765,8 @@ public readonly record struct StageOutput(StageProduct Role, ContentAddress Blob
 // (card, provider, precision) triple, so only the run that took the measurement writes the histogram; Coverage is
 // the tile-mosaic acceptance fraction the gate previously read once and discarded.
 public sealed record StageResult(
-    PbrStage Stage, ModelCardId ModelCardId, ContentAddress Artefact, Seq<StageOutput> Outputs, InferenceProvider ProviderUsed,
+    PbrStage Stage, ModelCardId ModelCardId, ContentAddress Artefact, Seq<StageOutput> Outputs, Seq<StageScore> Scores,
+    InferenceProvider ProviderUsed,
     int PartitionCount, double ElapsedMs, double GoldenDelta, bool ParityFresh, float Coverage, int TilesEmitted, Op Op) {
 
     // Admit is the ONE ingestion gate. A physical-channel-forbidden card's result naming any product but base_color
@@ -606,23 +782,35 @@ public sealed record StageResult(
                 MaterialFault.Parameter(key, $"<stage-op-mismatch:{card.Id.Value}>"))
         from _art in guard(request.Artefact.Map(declared => declared == result.Artefact).IfNone(true),
                 MaterialFault.Parameter(key, $"<stage-artefact-mismatch:{card.Id.Value}:{result.Artefact.ToValue()}>"))
-        from __ in guard(result.Outputs.ForAll(output => card.Permits(output.Role)),
+        // The permission gate reads BOTH collections: a forbidden product is forbidden whichever modality carries
+        // it, and a grade slipping past because the sweep only walked the plane list is the hole this closes.
+        from __ in guard(result.Outputs.ForAll(output => card.Permits(output.Role))
+                    && result.Scores.ForAll(score => card.Permits(score.Role)),
                 MaterialFault.Parameter(key, $"<stage-product-forbidden:{card.Id.Value}>"))
-        from ___ in guard(card.Contract.Outputs.ForAll(binding => result.Outputs.Exists(o => o.Role.Key == binding.Product.Key)),
-                MaterialFault.Parameter(key, $"<stage-outputs-short:{card.Id.Value}:{result.Outputs.Count}>"))
+        // Completeness proves ACROSS BOTH collections, because a card's bindings span two modalities: a plane-shaped
+        // binding lands in Outputs and a Measure-shaped one in Scores. One roster read against one collection
+        // refuses every scorer result the moment grades stop riding the plane list, which is exactly what a
+        // by-value grade does.
+        from ___ in guard(card.Contract.Outputs.ForAll(binding => binding.Product is StageProduct.Measure
+                    ? result.Scores.Exists(s => s.Role.Key == binding.Product.Key)
+                    : result.Outputs.Exists(o => o.Role.Key == binding.Product.Key)),
+                MaterialFault.Parameter(key, $"<stage-outputs-short:{card.Id.Value}:{result.Outputs.Count}+{result.Scores.Count}>"))
         from _extent in guard(result.Outputs.Filter(static o => o.Role is StageProduct.Channel)
                     .ForAll(o => o.Width == request.OutputWidth && o.Height == request.OutputHeight),
                 MaterialFault.Parameter(key, $"<stage-extent-mismatch:{card.Id.Value}:{request.OutputWidth.Value}x{request.OutputHeight.Value}>"))
         from ____ in guard(result.PartitionCount <= card.PartitionBound,
                 MaterialFault.Parameter(key, $"<stage-partition-bound:{result.PartitionCount}/{card.PartitionBound}>"))
-        from _____ in guard(double.IsFinite(result.GoldenDelta) && result.GoldenDelta <= card.ResidualCeiling,
-                MaterialFault.Parameter(key, $"<stage-golden-delta:{result.GoldenDelta:R}/{card.ResidualCeiling:R}>"))
+        // The band's Upper is the gate whatever its floor: an unmeasured stochastic band still refuses a breach,
+        // and its Lower fills from the seed sweep without moving this comparison.
+        from _____ in guard(card.Residual.Admits(result.GoldenDelta),
+                MaterialFault.Parameter(key, $"<stage-golden-delta:{result.GoldenDelta:R}/{card.Residual.Upper:R}>"))
         select result;
 
-    // Planes projects the set-bound half of a result: priors feed the next stage and belong in no TextureSet. The
-    // acquisition#ACQUISITION CaptureSource.NeuralPlanes arm reads THIS projection — the frozen prior-drop site —
-    // and never filters the union itself.
+    // Planes projects the set-bound half of a result: a prior feeds the next stage and a measure is read by whoever
+    // asked for it, so neither belongs in a TextureSet. The acquisition#ACQUISITION CaptureSource.NeuralPlanes arm
+    // reads THIS projection — the frozen non-channel-drop site — and never filters the union itself.
     public Seq<StageOutput> Planes => Outputs.Filter(static output => output.Role is StageProduct.Channel);
+
 }
 
 // The StageInfer REPLAY consult. The point's modality is Replay because a settled inference is evidence a later run
@@ -708,10 +896,10 @@ public static class StagePlan {
         if (needW != needH || intent.TargetWidth.Value != intent.Width.Value * needW || intent.TargetHeight.Value != intent.Height.Value * needH) {
             return MaterialFault.Parameter(key, $"<stage-target-anisotropic:{intent.TargetWidth.Value}x{intent.TargetHeight.Value}>");
         }
-        (Seq<PbrStage> plan, int remaining) = toSeq(PbrStage.Items)
-            .Filter(stage => stage.Selection == StageSelection.Refine && ModelRegistry.Granted(stage, intent.Policy))
-            .Filter(stage => stage.Consumes().ForAll(product => ModelRegistry.EmitterOf(ordered, product).IsSome))
-            .OrderBy(static stage => stage.Ordinal)
+        (Seq<PbrStage> plan, int remaining) = toSeq(PbrStage.Items
+            .Where(stage => stage.Selection == StageSelection.Refine && ModelRegistry.Granted(stage, intent.Policy))
+            .Where(stage => stage.Consumes().ForAll(product => ModelRegistry.EmitterOf(ordered, product).IsSome))
+            .OrderBy(static stage => stage.Ordinal))
             .Fold((Plan: ordered, Remaining: Math.Max(1, needW)), static (state, stage) =>
                 state.Remaining > 1 && state.Remaining % stage.Scale == 0
                     ? (state.Plan.Add(stage), state.Remaining / stage.Scale)
@@ -750,6 +938,4 @@ public static class StagePlan {
 
 ## [04]-[RESEARCH]
 
-- [MODEL_TENSOR_NAMES]-[OPEN]: `lotus-d-normal-v1-1` and `marigold-iid-appearance-v1-1` name multi-component diffusers checkpoints with no single-graph ONNX export published, so what input and output tensor names and layout token does an export of each declare, and does either need a second graph input beyond its declared one?; verify by exporting the pipeline at the app-root import boundary and reading the resulting graph's own metadata, then bake the answers into those two rows' `tensor:product` and `tensor@product` specs. Every single-graph card is settled and needs no re-probe.
-- [GOLDEN_RESIDUAL_CEILING]-[OPEN]: under the extent-normalized residual this page now gates on, what value does each card's CPU-versus-accelerator divergence reach — and does a diffusion-derived card under a fixed seed hold a tighter band than a deterministic regressor?; verify by measuring each card's normalized residual on one fixed input across every provider its row lists, and replace each row's value with the measured band widened by its margin.
-- [MODEL_ARTEFACT_DIGEST]-[OPEN]: what content address does each REDISTRIBUTABLE weight artefact hash to?; verify by hashing the shipped file through the seam's one `ContentAddress.Of(ReadOnlySpan<byte>)` entry at the app-root import boundary and bake the X32 spelling into that row's `Artefact` column — a caller-supplied row carries absence by construction, because its bytes are a deployment fact no registry row can know.
+- (none)

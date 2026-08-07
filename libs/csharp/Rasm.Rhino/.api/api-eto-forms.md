@@ -44,7 +44,7 @@
 
 [PUBLIC_TYPE_SCOPE]: themed dialogs, editors, and thread identity
 
-`Eto.Forms.ThemedControls` mints the custom-drawn, cross-platform-uniform family; its `Themed*Handler` backend classes register through the platform-handler seam (`api-eto-platform.md`), never a widget-construction row. `Eto.Threading.Thread` is the managed thread abstraction carrying main-thread identity.
+`Eto.Forms.ThemedControls` mints the custom-drawn, cross-platform-uniform family; its `Themed*Handler` backend classes register through the platform-handler seam (`libs/csharp/Rasm.Rhino/.api/api-eto-platform.md`), never a widget-construction row. `Eto.Threading.Thread` is the managed thread abstraction carrying main-thread identity.
 
 | [INDEX] | [SYMBOL]                 | [TYPE_FAMILY] | [CAPABILITY]                                                    |
 | :-----: | :----------------------- | :------------ | :-------------------------------------------------------------- |
@@ -85,20 +85,20 @@
 - Themed controls are backend classes, not construction rows: a themed message box, property grid, or collection editor registers its `Themed*Handler` at the platform seam and the widget then constructs like any other.
 
 [STACKING]:
-- `api-eto-forms`(`../../.api/api-eto-forms.md`): the registered construction spine every screen composes; this boundary adds no widget the spine already carries and re-tables none.
-- `Thinktecture.Runtime.Extensions`(`../../.api/api-thinktecture-runtime-extensions.md`): a `[SmartEnum]` owns the closed control-kind, cell-kind, layout-strategy, and dialog-outcome vocabularies a generator-shaped UI layer folds to rows, and a `[Union]` owns the discriminated screen-element tree; the generated `Switch`/`Map` drives construction dispatch instead of a hand-written control-type ladder.
-- `LanguageExt.Core`(`../../.api/api-languageext.md`): `Fin<A>` rails modal outcomes and chooser results, cancellation a `Fail` rather than a null sentinel; `Option<A>` carries the nullable scale flags and optional selection; `Eff<A>` wraps drag and native-attach effects; `Seq<A>` is the child-collection carrier a layout region folds over.
-- `Wacton.Unicolour`(`../../.api/api-unicolour.md`): the canonical colour value behind the registered colour picker and chooser; the paint-edge colour maps to and from `Unicolour` (`api-eto-drawing.md`), keeping theme ramps and perceptual selection in the perceptual model.
-- `api-eto-platform`(`api-eto-platform.md`): native hosting, the native-parent attach and detach pair, and the style re-application seam cross into the platform-handler boundary, and the `Themed*Handler` backend classes register there.
-- `api-rhino-ui`(`api-rhino-ui.md`): a document-owned Rhino window, native styling, and semi-modal presentation come from the host bridge; this construction surface supplies the control tree the bridge presents.
+- `libs/csharp/.api/api-eto-forms.md`: the registered construction spine every screen composes; this boundary adds no widget the spine already carries and re-tables none.
+- `Thinktecture.Runtime.Extensions`(`libs/csharp/.api/api-thinktecture-runtime-extensions.md`): a `[SmartEnum]` owns the closed control-kind, cell-kind, layout-strategy, and dialog-outcome vocabularies a generator-shaped UI layer folds to rows, and a `[Union]` owns the discriminated screen-element tree; the generated `Switch`/`Map` drives construction dispatch instead of a hand-written control-type ladder.
+- `LanguageExt.Core`(`libs/csharp/.api/api-languageext.md`): `Fin<A>` rails modal outcomes and chooser results, cancellation a `Fail` rather than a null sentinel; `Option<A>` carries the nullable scale flags and optional selection; `Eff<A>` wraps drag and native-attach effects; `Seq<A>` is the child-collection carrier a layout region folds over.
+- `Wacton.Unicolour`(`libs/csharp/.api/api-unicolour.md`): the canonical colour value behind the registered colour picker and chooser; the paint-edge colour maps to and from `Unicolour` (`libs/csharp/Rasm.Rhino/.api/api-eto-drawing.md`), keeping theme ramps and perceptual selection in the perceptual model.
+- `libs/csharp/Rasm.Rhino/.api/api-eto-platform.md`: native hosting, the native-parent attach and detach pair, and the style re-application seam cross into the platform-handler boundary, and the `Themed*Handler` backend classes register there.
+- `libs/csharp/Rasm.Rhino/.api/api-rhino-ui.md`: a document-owned Rhino window, native styling, and semi-modal presentation come from the host bridge; this construction surface supplies the control tree the bridge presents.
 
 [LOCAL_ADMISSION]:
 - Eto is admitted from the Rhino-loaded `Eto.dll`; this boundary references that instance so its widgets share the host application, dispatcher, and platform handler, and a second copy never enters through NuGet.
 - A screen is built once from generated element rows against the registered construction surface and the rails here; `Eto.Forms.*` types stay behind the UI owner and downstream code composes screen definitions rather than raw widget calls.
-- `Eto.Threading.Thread` stays subordinate to the Rhino host marshal owner (`api-rhino-ui.md`); an Eto-level main-thread test never replaces the host marshal seam.
+- `Eto.Threading.Thread` stays subordinate to the Rhino host marshal owner (`libs/csharp/Rasm.Rhino/.api/api-rhino-ui.md`); an Eto-level main-thread test never replaces the host marshal seam.
 
 [RAIL_LAW]:
 - Partition: `Eto.Forms` Rhino host boundary — calendar and document-tab widgets, the node tree, application menu-bar and toolbar chrome, the themed control family, and managed thread identity; the data-binding rail rides the registered branch owner
 - Owns: the widgets, chrome, and rails this host boundary adds over the registered branch spine
 - Accept: date and document-tab construction, node-tree binding, menu-bar and toolbar chrome from one command row, control-to-model binding through `DataContext`, a themed message box, property grid, or collection editor
-- Reject: a re-tabling of the branch construction spine, immediate 2D painting (`api-eto-drawing.md`), platform-handler and native-hosting selection plus the `Themed*Handler` backends (`api-eto-platform.md`), document-owned Rhino windows and panels (`api-rhino-ui.md`), and leaking `Eto.Forms.*` types past the UI owner
+- Reject: a re-tabling of the branch construction spine, immediate 2D painting (`libs/csharp/Rasm.Rhino/.api/api-eto-drawing.md`), platform-handler and native-hosting selection plus the `Themed*Handler` backends (`libs/csharp/Rasm.Rhino/.api/api-eto-platform.md`), document-owned Rhino windows and panels (`libs/csharp/Rasm.Rhino/.api/api-rhino-ui.md`), and leaking `Eto.Forms.*` types past the UI owner

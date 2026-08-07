@@ -12,12 +12,12 @@ The capability-brokered plugin sandbox for the runtime spine: a two-row isolatio
 
 - Owner: `SandboxIsolation` `[SmartEnum<string>]` the two-row isolation topology under the `ComparerAccessors.StringOrdinal` accessor; `SandboxRow` per-isolation policy record; `SandboxRows` the frozen row set with the total dispatch; `PluginInstance` the loaded-plugin capsule carrying one isolation vehicle per row; `WasmCapsule` the owned `Wasmtime` store/instance/module/linker lifetime; `EpochPacer` the engine-wide interruption ticker; `SandboxFault` `[Union]` fault family deriving its codes through `FaultBand.Sandbox`.
 - Cases: wasm-module, process — wasm-module runs the plugin as a Wasmtime core-module instance with a linear-memory boundary and import-only host access, process runs the plugin as an out-of-process child reached over the local-ipc hop with OS-level isolation; the two vehicles are SYMMETRIC slots on `PluginInstance` (`Option<WasmCapsule> Capsule` beside `Option<CompanionPeer> Child`), so neither row is prose while the other is a handle; `SandboxFault` = Text | LoadRejected | NoAuthority | QuotaExceeded | Quarantined.
-- Entry: `SandboxRow Row` is the extension property total state-free `Switch` from case to frozen row; `Load(SandboxRow row, PluginArtifact artifact, GrantScope scope, SandboxRuntime runtime)` returns `IO<PluginInstance>` — the ONE `Sandbox/admission` gate admits the artifact as `AdmissionSubject.Plugin` (an all-empty artifact rejects `AttestationMissing` by construction), the row materializes its isolation vehicle, and the plugin loads with exactly the brokered grant scope and no ambient authority; `EpochPacer.Open(SandboxRuntime runtime)` starts the one engine-wide `TimeProvider` ticker and returns its lease.
+- Entry: `SandboxRow Row` is the extension property total state-free `Switch` from case to frozen row; `Load(SandboxRow row, PluginArtifact artifact, GrantScope scope, SandboxRuntime runtime)` returns `IO<PluginInstance>` — the ONE `Sandbox/admission` gate admits the artifact as `AdmissionSubject.Plugin` (an all-empty artifact rejects `AttestationMissing` by construction), the row materializes its isolation vehicle, and the plugin loads with exactly the brokered grant scope and no ambient authority; `Enter<T>(PluginInstance plugin, Func<Instance, T> call)` returns `IO<T>` — the ONE crossing into a loaded guest, so the embedding's `TrapException` is observed at exactly one seat and its code lands on the instance's capsule before any caller re-classifies it; `SandboxRuntime.Preempting(int stackBytes)` mints the one engine every row shares with both preemption mechanisms armed, and `EpochPacer.Open(SandboxRuntime runtime, Func<Seq<PluginInstance>> live)` starts the one engine-wide `TimeProvider` ticker whose every tick advances the epoch and sweeps the live set through `Enforce`, returning its lease.
 - Auto: the wasm-module row MATERIALIZES the embedding rather than describing it — `Module.FromBytes` compiles the admitted `PluginArtifact.Component`, one `Store` per instance takes `SetWasiConfiguration` over a `WasiConfiguration` whose `WithPreopenedDirectory(host, guest, WasiDirectoryPermissions, WasiFilePermissions)` rows are exactly the `GrantScope` filesystem grants, `Linker.DefineWasi()` mounts the WASI-Preview-1 descriptors that pre-open set scopes, and one `Linker.DefineFunction(module, name, callback, parameterKinds, resultKinds)` lands per granted `CapabilityDescriptor` — so the import table IS the grant scope and an ungranted host capability is absent from the linkage, the no-ambient-authority law being a structural property rather than a runtime check; `Store.SetLimits(memorySize: row.QuotaShape.MaxMemoryBytes)` caps linear memory, `Config.WithFuelConsumption(true)` with the seeded `Store.Fuel` meters instructions, and `Config.WithMaximumStackSize` bounds recursion depth; the host callback reaches its call frame through `Caller` alone — `Caller.GetMemory(name)` then `Memory.GetSpan(address, length)` reads the guest's serialized `CommandArguments` and writes the result back — never a `Store` captured in the closure, which outlives the frame; a process row spawns the child through `OutboundHop.CompanionSpawn` and reaches it over `OutboundHop.LocalIpc`, reading the child's `PeerCredential` at accept through `PeerAdmission`, so the child holds no host handle and every host call crosses the brokered control hop; the row's `QuotaShape` column seats the quota cell at load so the limits arrive with the instance, never bolted on after; dispose follows the embedding hierarchy — store before engine — so the capsule releases its store, instance, module, and linker while the engine outlives every plugin.
-- Receipt: `SandboxReceipt` — plugin id, isolation key, granted scope hash, load outcome, `Instant`; the load transition logs through one `SpineLog` event.
+- Receipt: `SandboxReceipt` — plugin id, isolation key, granted scope hash, eviction reason, and the evicted arm's own convergence discriminant (the observed `TrapCode` for a wasm vehicle, the independent post-kill residual census for a child), `Instant`; the load transition logs through one `SpineLog` event and mints no receipt, because a load either yields the `PluginInstance` or fails on the rail and a receipt asserting `Loaded: true` beside a returned instance carries nothing the instance does not.
 - Packages: Wasmtime, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
 - Growth: one isolation row absorbs a new sandbox topology — a new linear-memory or OS-isolation backend is one `SandboxRow` with one vehicle slot, never a parallel loader; a new granted host capability is one `DefineFunction` row the scope fold already emits; a new fault is one `SandboxFault` case; zero new surface.
-- Boundary: the sandbox is the only plugin-load owner — a direct `Assembly.LoadFrom`, a plugin `AppDomain`, or an in-process plugin reference is the deleted form, so a plugin never shares the host's managed heap or ambient `IServiceProvider`; the WASM runtime is `Wasmtime` (the NuGet package id; core-module + WASI-Preview-1 — the 44.0.0 embedding carries NO Component-Model surface, so the granted-descriptor import-table law, fuel metering, and linear-memory caps run on the core-module `Engine`/`Linker`/`Store` surface, and the WASI-Preview-2 Component-Model runtime is a RECORDED domain-gap growth line re-opened when the binding lands it — a vendored P/Invoke over the wasmtime C-API component surface is admissible only on a consumer-named demand with the maintenance burden recorded) — a hand-rolled WASM host is the deleted form; isolation is orthogonal to the composition density law — the host composes its own modules in-process through `CompositionSurface`, but a third-party plugin always crosses an isolation boundary, so the two load paths never merge; the wasm import table and the process control-hop verb set are both projections of the granted `CapabilityDescriptor` set, so a plugin's reachable surface is exactly its grant scope in both topologies; the process row reuses the `Discovery`/`CompanionPeer` spawn-attach mechanics verbatim and adds only the quota and grant columns, never re-declaring the spawn or connect bytes.
+- Boundary: the sandbox is the only plugin-load owner — a direct `Assembly.LoadFrom`, a plugin `AppDomain`, or an in-process plugin reference is the deleted form, so a plugin never shares the host's managed heap or ambient `IServiceProvider`; the WASM runtime is `Wasmtime` (the NuGet package id) at core-module + WASI-Preview-1, and that is a SETTLED ceiling rather than a pending probe: the managed assembly exposes `Config.WithComponentModel(bool)`, which toggles the NATIVE engine's component support, and NOT ONE managed component type — `Module`, `Linker`, and `Instance` are core-module only, while `TrapCode.CannotEnterComponent`/`NoAsyncResult` merely surface Rust-core trap rows — so WASI Preview 2 is unreachable from managed code, a component host is a native-side embedding rather than a `Wasmtime.NET` row, and the granted-descriptor import-table law, fuel metering, and linear-memory caps all run on the core-module `Engine`/`Linker`/`Store` surface; the Preview-1 `WasiConfiguration` surface — the `wasi_config_*` wraps, the four-argument `WithPreopenedDirectory` over `WasiDirectoryPermissions`/`WasiFilePermissions`, and `Store.SetWasiConfiguration` — is therefore the axis's whole sandbox-capability vocabulary and no page waits on a wider one; a hand-rolled WASM host is the deleted form; isolation is orthogonal to the composition density law — the host composes its own modules in-process through `CompositionSurface`, but a third-party plugin always crosses an isolation boundary, so the two load paths never merge; the wasm import table and the process control-hop verb set are both projections of the granted `CapabilityDescriptor` set, so a plugin's reachable surface is exactly its grant scope in both topologies; the process row reuses the `Discovery`/`CompanionPeer` spawn-attach mechanics verbatim and adds only the quota and grant columns, never re-declaring the spawn or connect bytes.
 
 ```csharp signature
 [SmartEnum<string>]
@@ -48,21 +48,30 @@ public sealed record SandboxRow(
 
 // Two isolation vehicles seat as SYMMETRIC slots — the wasm row's capsule beside the process row's child —
 // so `Kill` and `Enforce` each dispatch on a real handle rather than reaching a handle on one row and prose
-// on the other. Exactly one slot inhabits per row, decided by the SandboxRow the load resolved.
+// on the other. Exactly one slot inhabits per row, decided by the SandboxRow the load resolved. Disposition
+// is the eviction cell the grant handle's own dispatch gates on, so a reference held past a kill dies with
+// the plugin instead of reaching the host through a closure nothing invalidated; the observed TrapCode lives
+// on the wasm capsule beside the store that raised it, because the process row has no trap vocabulary and a
+// cell here would fabricate one. The admitted artifact rides the instance because Quarantine.Quarantined
+// holds it for review, and an eviction cannot fetch what the load already discarded.
 public sealed record PluginInstance(
     string PluginId,
+    PluginArtifact Artifact,
     SandboxIsolation Isolation,
     GrantScope Scope,
     QuotaCell Quota,
     Option<WasmCapsule> Capsule,
     Option<CompanionPeer> Child,
+    Atom<Quarantine> Disposition,
     CancelScope Spine);
 
 // This capsule owns the Wasmtime lifetime of one loaded plugin. Seeded is the fuel the store opened with, so the
 // instruction spend is `Seeded - Store.Fuel` — a DELTA off the embedding's own counter rather than a
 // host-side tally the guest could outrun. Dispose follows the embedding hierarchy (store before engine),
-// and the engine is the runtime's, never this capsule's, because one engine serves every plugin.
-public sealed record WasmCapsule(Module Module, Linker Linker, Store Store, Instance Instance, ulong Seeded) : IDisposable {
+// and the engine is the runtime's, never this capsule's, because one engine serves every plugin. Trapped is
+// the convergence slot: the frame that OBSERVES a trap lands its code here, so the kill rail reads a measured
+// code rather than re-deriving one from a thread it does not own.
+public sealed record WasmCapsule(Module Module, Linker Linker, Store Store, Instance Instance, ulong Seeded, Atom<Option<TrapCode>> Trapped) : IDisposable {
     public long Spent => (long)(Seeded - Store.Fuel);
 
     public void Dispose() {
@@ -72,18 +81,43 @@ public sealed record WasmCapsule(Module Module, Linker Linker, Store Store, Inst
     }
 }
 
+// The eviction receipt carries the OBSERVED trap, never a `Loaded: false` boolean: the boolean cannot tell a
+// converged kill from a guest that returned on its own, while the code discriminates an epoch `Interrupt`, a
+// fuel `OutOfFuel`, and a guest-authored trap. Its wire projection is the stable NAME — TrapCode's numeric
+// values shift as the Rust core grows rows, so a numeric on the wire re-reads as a different cause.
+// The two `Option<T>` slots tail the positional list carrying `= default`: the suite's `OmitAbsent` modifier
+// drops an absent one at write, so a slot without a default reads back wire-required under
+// `RespectRequiredConstructorParameters` and fails the decode of the payload this producer emitted.
 public readonly record struct SandboxReceipt(
     string PluginId,
     string Isolation,
     string ScopeHash,
-    bool Loaded,
-    Instant At);
+    string Reason,
+    Instant At,
+    [property: JsonConverter(typeof(JsonStringEnumConverter<TrapCode>))] Option<TrapCode> Trap = default,
+    Option<int> Residual = default) : IValidityEvidence {
+    // Each vehicle carries its OWN convergence discriminant and neither is a boolean. The wasm arm answers with
+    // the observed TrapCode. The process arm answers with an INDEPENDENT post-kill census count, because nothing
+    // on the process handle can: `WaitForExit` returns true the instant the direct child's handle closes — 0 ms,
+    // over a still-live grandchild — and `ExitCode` is 137 on every SIGKILL path whether the tree converged or
+    // not, so a receipt built from handle facts reports a clean kill over a leak. A converged eviction is a
+    // census of zero; an absent census is an UNPROVEN kill and reads as such rather than as success.
+    [JsonIgnore]
+    public bool IsValid => ValidityClaim.All(
+        ValidityClaim.Of(!string.IsNullOrEmpty(PluginId) && !string.IsNullOrEmpty(Reason)),
+        ValidityClaim.Of(Isolation != SandboxIsolation.WasmModule.Key || Trap.IsSome),
+        ValidityClaim.Of(Isolation != SandboxIsolation.Process.Key || Residual == 0)).Holds;
+}
 
 // Engine is ONE per host and outlives every plugin — it holds the compiled-code cache and the epoch counter
-// EpochPacer advances, so a per-plugin engine would fork both. Config arms the two preemption mechanisms at
-// engine construction because neither is settable afterwards: WithFuelConsumption makes Store.Fuel live and
-// WithEpochInterruption makes SetEpochDeadline enforceable. Imports projects the granted descriptor set
-// into linker rows, so composition owns the marshalling shape and this page owns the linkage law.
+// EpochPacer advances, so a per-plugin engine would fork both. Preempting is a CONSTRUCTION INVARIANT, not a
+// knob: neither preemption mechanism is settable after the engine exists, WithFuelConsumption is what makes
+// Store.Fuel live, and WithEpochInterruption is what makes SetEpochDeadline enforceable — an engine composed
+// without it silently renders the whole kill rail inert, because IncrementEpoch then advances a counter no
+// store consults. Every engine on this page comes from this one factory for that reason. Imports projects the
+// granted descriptor set into linker rows, so composition owns the marshalling shape and this page the linkage.
+// ChildResidual is the process arm's convergence oracle and it is INDEPENDENT by construction — composition binds
+// a process census over the child's spawn-time tag, because no member of the process handle can answer it.
 public sealed record SandboxRuntime(
     SupplyChainGate.Runtime Gate,
     CommandRuntime Command,
@@ -93,25 +127,41 @@ public sealed record SandboxRuntime(
     Func<GrantScope, Seq<(string Module, string Name, Function.UntypedCallbackDelegate Callback, IReadOnlyList<ValueKind> Parameters, IReadOnlyList<ValueKind> Results)>> Imports,
     Func<GrantScope, WasiConfiguration> Wasi,
     Func<CompanionPeer, CostVector> ChildSpend,
+    Func<CompanionPeer, IO<int>> ChildResidual,
     ClockPolicy Clocks,
     ReceiptSinkPort Sink,
     CancelScope Spine,
     Option<Func<GrantScope, CapabilityDescriptor, CommandArguments, Fin<Unit>>> Policy = default) {
     public GrantBroker Broker => Command.Broker;
 
-    public static Config Configured(int stackBytes) =>
-        new Config().WithFuelConsumption(true).WithEpochInterruption(true).WithMaximumStackSize(stackBytes);
+    // The factory returns the ENGINE, never the Config: a caller handed a Config may compose an engine without
+    // it, and the two mechanisms are unsettable afterwards, so the only shape that cannot be bypassed is the
+    // one that mints the engine itself. Exemption: the Config is IDisposable and its `using` scope closes as
+    // soon as the engine has consumed it — the named platform-forced statement seam.
+    public static Engine Preempting(int stackBytes) {
+        using var config = new Config()
+            .WithFuelConsumption(true)
+            .WithEpochInterruption(true)
+            .WithMaximumStackSize(stackBytes);
+        return new Engine(config);
+    }
 }
 
 // Epoch interruption is the ONLY preemption the embedding exposes, and it is counter-driven rather than
 // wall-driven: the deadline a store sets is a number of ENGINE EPOCHS, so a host that never increments the
 // counter arms a deadline that never arrives. One TimeProvider timer per engine advances it at EpochPeriod,
-// making a store's tick budget a real wall budget, and the lease closes at the sandbox drain band.
+// making a store's tick budget a real wall budget. The SAME tick sweeps the live set, because enforcement
+// and the epoch share one cadence by construction: a sweep on a second timer double-charges the spend it
+// folds, and a fold nothing calls leaves QuotaCell.Spent at zero so the whole breach vocabulary degenerates
+// to a bare deadline read. The lease closes at the sandbox drain band.
 public static class EpochPacer {
-    public static IDisposable Open(SandboxRuntime runtime) =>
+    public static IDisposable Open(SandboxRuntime runtime, Func<Seq<PluginInstance>> live) =>
         runtime.Clocks.Time.CreateTimer(
-            static state => ((Engine)state!).IncrementEpoch(),
-            runtime.Engine,
+            _ => {
+                runtime.Engine.IncrementEpoch();
+                live().Iter(plugin => ignore(QuotaControl.Enforce(runtime, plugin, runtime.Clocks.Now)));
+            },
+            state: null,
             runtime.EpochPeriod.ToTimeSpan(),
             runtime.EpochPeriod.ToTimeSpan());
 }
@@ -133,6 +183,24 @@ public static class SandboxRows {
                 : Capsule(row, artifact, scope, runtime).Map(capsule => Instance(row, artifact, scope, runtime, Some(capsule), None)),
             Fail: faults => IO.fail<PluginInstance>(faults.Head)));
 
+    // Enter is the ONE frame that runs guest code, and it exists because a TrapException is only observable
+    // where the call was made: the epoch-incrementing thread never sees it, so a crossing scattered across
+    // callers would leave each of them re-classifying an embedding code and none of them recording it. Every
+    // trap therefore projects through TrapDisposition — which lands the raw code on the capsule as it passes —
+    // and the quota vocabulary reaches the rail while the receipt keeps the discriminant. A process row has no
+    // instance to enter; its calls cross the brokered control hop instead.
+    public static IO<T> Enter<T>(PluginInstance plugin, Func<Instance, T> call) =>
+        plugin.Capsule.Match(
+            Some: capsule =>
+                from held in IO.lift(() => Try.lift(() => call(capsule.Instance)).Run())
+                from result in held.Match(
+                    Succ: IO.pure,
+                    Fail: error => IO.fail<T>(error.Exception.Case is TrapException trap
+                        ? TrapDisposition.Of(trap, plugin)
+                        : new SandboxFault.LoadRejected($"{plugin.PluginId}: {error.Message}")))
+                select result,
+            None: () => IO.fail<T>(new SandboxFault.NoAuthority($"{plugin.PluginId}: no wasm instance on the process row")));
+
     // Capsule materializes the wasm vehicle in the order the embedding requires: compile, open the store, seat the
     // WASI environment and the limits BEFORE instantiation (both are ignored on an already-instantiated store),
     // fold the granted import rows onto the linker, arm the epoch deadline off the row's own wall allotment,
@@ -152,7 +220,7 @@ public static class SandboxRows {
             foreach (var (importModule, name, callback, parameters, results) in runtime.Imports(scope)) {
                 linker.DefineFunction(importModule, name, callback, parameters, results);
             }
-            return new WasmCapsule(module, linker, store, linker.Instantiate(store, module), store.Fuel);
+            return new WasmCapsule(module, linker, store, linker.Instantiate(store, module), store.Fuel, Atom(Option<TrapCode>.None));
         }).Run().MapFail(error => new SandboxFault.LoadRejected($"{artifact.PluginId}: {error.Message}")))
         .Bind(static minted => minted.Match(Succ: IO.pure, Fail: IO.fail<WasmCapsule>));
 
@@ -166,7 +234,8 @@ public static class SandboxRows {
     const ulong FuelPerMilli = 1_000_000UL;
 
     static PluginInstance Instance(SandboxRow row, PluginArtifact artifact, GrantScope scope, SandboxRuntime runtime, Option<WasmCapsule> capsule, Option<CompanionPeer> child) =>
-        new(artifact.PluginId, row.Isolation, scope, QuotaCell.Open(row.QuotaShape, runtime.Clocks.Now), capsule, child, runtime.Spine.Derive($"plugin-{artifact.PluginId}", runtime.Clocks.Time));
+        new(artifact.PluginId, artifact, row.Isolation, scope, QuotaCell.Open(row.QuotaShape, runtime.Clocks.Now), capsule, child,
+            Atom<Quarantine>(new Quarantine.Active()), runtime.Spine.Derive($"plugin-{artifact.PluginId}", runtime.Clocks.Time));
 }
 ```
 
@@ -237,14 +306,23 @@ public static class GrantHandleSurface {
                 new BrokeredCall(caller, Subject(caller, arguments), descriptorId, Permitted: false, CostVector.Zero, runtime.Clocks.Now),
                 new ToolResult(descriptorId, [JsonValue.Create(new SandboxFault.Text($"unknown:{descriptorId}").Message)!], IsError: true, arguments.Correlation))));
 
+    // The refusal names the MEASURED breach: the cell answers which budget went and by how much, so a CPU or
+    // egress breach never reports itself as a zero-overage wall breach the way a hardcoded pair did.
     public static IO<ToolResult> Invoke(SandboxRuntime runtime, PluginInstance plugin, GrantHandle handle, string descriptorId, CommandArguments arguments) =>
-        plugin.Quota.Within(runtime.Clocks.Now)
-            ? Mediate(new MediationRuntime(runtime.Command, runtime.Policy, runtime.Clocks), CallerModality.Plugin, handle.Scope, descriptorId, arguments, handle.Dispatch).Map(static outcome => outcome.Result)
-            : IO.pure(new ToolResult(descriptorId, [JsonValue.Create(new SandboxFault.QuotaExceeded("wall-millis", 0L).Message)!], IsError: true, arguments.Correlation));
+        plugin.Quota.Breach(runtime.Clocks.Now).Match(
+            None: () => Mediate(new MediationRuntime(runtime.Command, runtime.Policy, runtime.Clocks), CallerModality.Plugin, handle.Scope, descriptorId, arguments, handle.Dispatch).Map(static outcome => outcome.Result),
+            Some: breach => IO.pure(new ToolResult(descriptorId, [JsonValue.Create(new SandboxFault.QuotaExceeded(breach.Unit, breach.Over).Message)!], IsError: true, arguments.Correlation)));
 
-    public static GrantHandle Bind(PluginInstance plugin, CommandRuntime command) =>
+    // The dispatch closure gates on the plugin's own disposition cell, which is what makes eviction reach a
+    // handle the host already gave away: Kill cancels a scope and disposes a vehicle, neither of which a
+    // captured closure observes, so without this read a held handle keeps calling the host after its plugin
+    // is gone. The composed McpRuntime is THREADED in — re-constructing one here would bind a fresh runtime
+    // against a record this page does not own, with every column it forgot silently defaulted.
+    public static GrantHandle Bind(PluginInstance plugin, McpRuntime mcp) =>
         new(plugin.PluginId, plugin.Scope, (descriptorId, arguments) =>
-            McpDispatch.Call(new McpRuntime(command.Registry, command, command.Broker, () => DegradationLevel.Full, _ => JsonValue.Create(string.Empty)!, command.Clocks, command.Sink, command.Wire), descriptorId, arguments));
+            plugin.Disposition.Value is Quarantine.Active or Quarantine.Released
+                ? McpDispatch.Call(mcp, descriptorId, arguments)
+                : IO.pure(new ToolResult(descriptorId, [JsonValue.Create(new SandboxFault.Quarantined(plugin.PluginId).Message)!], IsError: true, arguments.Correlation)));
 
     static string Subject(CallerModality caller, CommandArguments arguments) =>
         caller == CallerModality.Plugin ? arguments.Correlation.ToString() : arguments.Tenant.Entry;
@@ -255,12 +333,12 @@ public static class GrantHandleSurface {
 
 - Owner: `QuotaShape` the per-plugin resource-ceiling record; `QuotaCell` the live-metering boundary capsule; `Quarantine` `[Union]` the eviction disposition; `TrapDisposition` the trap-to-fault projection; `QuotaControl` the static enforcement surface.
 - Cases: `Quarantine` = Active | Killed | Quarantined | Released — Active is the running plugin, Killed terminates immediately, Quarantined disables the grant handle and holds the artifact for inspection, Released reinstates after review.
-- Entry: `Observed(SandboxRuntime runtime, PluginInstance plugin)` returns `CostVector` — the measured spend read off the isolation vehicle itself; `Enforce(SandboxRuntime runtime, PluginInstance plugin, Instant now)` returns `Quarantine` — the enforcement fold reads that measurement against the quota shape and disposes the plugin; `Trapped(TrapException trap, PluginInstance plugin)` returns `SandboxFault` — the guest-side preemption projection; `Kill(SandboxRuntime runtime, PluginInstance plugin, string reason)` returns `IO<SandboxReceipt>` — disposes the wasm capsule or drains the child process and withdraws the grant handle.
-- Auto: enforcement is TWO mechanisms with disjoint jurisdictions, and the split is what makes the wall guarantee real. `QuotaCell.Within(now)` is a CALL-ENTRY gate: it refuses the next brokered call, and it cannot touch a guest already inside a host-free loop, so a plugin that stops calling out is invisible to it. `Store.Fuel` meters INSTRUCTIONS, not wall time, so a guest spinning cheaply runs past its deadline with fuel to spare. Epoch interruption is the only preemption the embedding exposes and therefore the only mechanism that can deliver the wall budget: the store's `SetEpochDeadline` arms it, `EpochPacer` advances the engine counter on the injected `TimeProvider`, and the guest traps with `TrapCode.Interrupt` the instant its budget elapses wherever it happens to be. `Observed` reads the wasm spend as the `Store.Fuel` DELTA off the seeded value and the process spend off the child's `ResourceQuota`-graded `UtilizationCell`, so both rows measure at their own vehicle and neither runs a parallel meter; a killed plugin's grant handle dispatch returns `SandboxFault.Quarantined` so a held reference cannot reach the host after eviction; `TrapCode.OutOfFuel` and `TrapCode.Interrupt` project onto the SAME `QuotaExceeded` fault under their breached unit, so a CPU trap and a wall trap read as one quota vocabulary rather than two embedding codes.
+- Entry: `Observed(SandboxRuntime runtime, PluginInstance plugin)` returns `CostVector` — the measured spend read off the isolation vehicle itself; `Enforce(SandboxRuntime runtime, PluginInstance plugin, Instant now)` returns `Quarantine` — the `EpochPacer`-driven fold that charges the measurement, decides the breach, and SEATS the verdict on the instance's disposition cell; `Release(PluginInstance plugin, Instant at)` returns `Fin<Quarantine>` — the operator review arm reinstating a quarantined plugin and refusing every other disposition; `TrapDisposition.Of(TrapException trap, PluginInstance plugin)` returns `SandboxFault` — the guest-side preemption projection that lands the raw code on the capsule as it passes; `Kill(SandboxRuntime runtime, PluginInstance plugin, string reason)` returns `IO<SandboxReceipt>` — converges the vehicle through `Engine.IncrementEpoch` past the store's armed deadline (wasm) or `Process.Kill(entireProcessTree: true)` past the cooperative drain (process), disposes it, withdraws the grant handle, and mints the receipt carrying the reason beside its arm's own convergence discriminant — the observed `TrapCode` for wasm, the independent residual census for a child.
+- Auto: enforcement is TWO mechanisms with disjoint jurisdictions, and the split is what makes the wall guarantee real. `QuotaCell.Breach(now)` is a CALL-ENTRY gate: it refuses the next brokered call, and it cannot touch a guest already inside a host-free loop, so a plugin that stops calling out is invisible to it. `Store.Fuel` meters INSTRUCTIONS, not wall time, so a guest spinning cheaply runs past its deadline with fuel to spare. Epoch interruption is the only preemption the embedding exposes and therefore the only mechanism that can deliver the wall budget: the store's `SetEpochDeadline` arms it, `EpochPacer` advances the engine counter on the injected `TimeProvider`, and the guest traps with `TrapCode.Interrupt` the instant its budget elapses wherever it happens to be. `Observed` reads the wasm spend as the `Store.Fuel` DELTA off the seeded value and the process spend off the child's `ResourceQuota`-graded `UtilizationCell`, so both rows measure at their own vehicle and neither runs a parallel meter, and `Enforce` CHARGES what it observes so the cell's spend advances — a fold that only read would leave every resource arm evaluating a zero vector and the wall deadline the sole reachable verdict; the disposition cell is the one seat every eviction cause writes and the grant handle's own dispatch reads, so a killed plugin's held handle answers `SandboxFault.Quarantined` instead of reaching a host its vehicle no longer has; `TrapCode.OutOfFuel` and `TrapCode.Interrupt` project onto the SAME `QuotaExceeded` fault under their breached unit, so a CPU trap and a wall trap read as one quota vocabulary rather than two embedding codes, while the RAW code is retained on the capsule and rides the eviction receipt — the fault answers "which budget", the code answers "did the kill land", and collapsing the second into the first is what leaves an unconverged kill indistinguishable from a guest that returned. That same asymmetry rules the kill arms: epoch interruption converges a wasm guest and `Store.SetLimits` never does, because a limiter caps the resources a store may acquire and has no effect on a guest that acquires nothing while spinning — the caps and the preemption are orthogonal owners and neither substitutes for the other.
 - Receipt: the eviction mints a `SandboxReceipt` and the kill rides the existing `DegradationCell` only when the plugin failure escalates a host capability — a plugin kill is process-local evidence, never a host degradation by itself.
 - Packages: Wasmtime, LanguageExt.Core, NodaTime, Thinktecture.Runtime.Extensions, BCL inbox
 - Growth: one quota dimension is one field on `QuotaShape` riding the `CostUnit` axis and one arm on `Observed`; one disposition is one `Quarantine` case; one trap class is one `TrapDisposition` row; zero new surface.
-- Boundary: the quota cell is the only plugin-resource owner — an unbounded plugin, a best-effort timeout, and a parallel plugin watchdog are the deleted forms; a wall guarantee resting on the call-entry gate alone is likewise deleted, because that gate is unreachable from inside a spinning guest and the page then promises preemption it has no mechanism for; the quota shape's units are the same `CostUnit` rows the cost model meters, so a plugin's quota and a tenant's budget speak one resource vocabulary; the kill rail is the consequence of a quota breach, a supply-chain revocation, or an operator command — all three land on `Quarantine`, never three eviction paths; quarantine holds the artifact and the last receipt for inspection so a suspected-malicious plugin's evidence survives the eviction, distinct from a clean kill that discards the instance; the wall-time ceiling is a `DeadlineClass` row read by projection, never a literal here, and the epoch deadline derives from that same row so the gate and the preemption cannot disagree.
+- Boundary: the quota cell is the only plugin-resource owner — an unbounded plugin, a best-effort timeout, and a parallel plugin watchdog are the deleted forms; a wall guarantee resting on the call-entry gate alone is likewise deleted, because that gate is unreachable from inside a spinning guest and the page then promises preemption it has no mechanism for; the quota shape's units are the same `CostUnit` rows the cost model meters, so a plugin's quota and a tenant's budget speak one resource vocabulary; the kill rail is the consequence of a quota breach, a supply-chain revocation, or an operator command — all three land on `Quarantine` and all three write the ONE disposition cell, never three eviction paths and never a verdict a caller may apply differently; quarantine holds the admitted artifact so a repeat offender's evidence survives its vehicle, `Release` is the single path back and refuses any disposition not under review, and a disposition case with no producing arm is the deleted form the four-case roster is proven against; the wall-time ceiling is a `DeadlineClass` row read by projection, never a literal here, and the epoch deadline derives from that same row so the gate and the preemption cannot disagree.
 
 ```csharp signature
 public sealed record QuotaShape(
@@ -274,9 +352,12 @@ public sealed record QuotaShape(
         Wall: DeadlineClass.HopTotal,
         MaxBytesEgress: 64L << 20);
 
-    public Option<string> Breach(CostVector observed) =>
-        observed.Of(CostUnit.CpuMillis) > MaxCpuMillis ? Some(CostUnit.CpuMillis.Key)
-        : observed.Of(CostUnit.BytesEgress) > MaxBytesEgress ? Some(CostUnit.BytesEgress.Key)
+    // The breach carries its UNIT and its OVERAGE, because every consumer of this verdict needs both and a
+    // bare presence answer forces each to invent them: the refusal message, the eviction reason, and the
+    // quota fault all read one measured pair here rather than three sites hardcoding a unit and a zero.
+    public Option<(string Unit, long Over)> Breach(CostVector observed) =>
+        observed.Of(CostUnit.CpuMillis) - MaxCpuMillis is var cpu and > 0L ? Some((CostUnit.CpuMillis.Key, cpu))
+        : observed.Of(CostUnit.BytesEgress) - MaxBytesEgress is var egress and > 0L ? Some((CostUnit.BytesEgress.Key, egress))
         : None;
 }
 
@@ -284,7 +365,13 @@ public sealed record QuotaCell(QuotaShape Shape, Atom<CostVector> Spent, Instant
     public static QuotaCell Open(QuotaShape shape, Instant now) =>
         new(shape, Atom(CostVector.Zero), now, now + shape.Wall.Allotted);
 
-    public bool Within(Instant now) => now < Deadline && Shape.Breach(Spent.Value).IsNone;
+    // Wall and resource breaches answer on ONE surface so the gate, the enforcement fold, and the refused
+    // call cannot disagree about which budget went and by how much; the wall overage is the elapsed excess,
+    // measured off the deadline the row's own DeadlineClass fixed.
+    public Option<(string Unit, long Over)> Breach(Instant now) =>
+        now >= Deadline
+            ? Some((CostUnit.WallMillis.Key, (now - Deadline).ToInt64Milliseconds()))
+            : Shape.Breach(Spent.Value);
 
     public CostVector Charge(CostVector cost) => Spent.Swap(spent => spent.Add(cost));
 }
@@ -300,13 +387,20 @@ public abstract partial record Quarantine {
 
 // TrapDisposition carries the guest-side half of the same vocabulary: a trap the embedding raises is already an enforcement verdict,
 // so it projects onto the quota fault under the unit it breached rather than surfacing as an embedding code
-// a caller would re-classify. Every other trap is a plugin defect, not a quota event.
+// a caller would re-classify. Every other trap is a plugin defect, not a quota event. The code also LANDS on
+// the capsule as it passes, because this frame is the only one that observes it — the killing thread never
+// sees the TrapException, so a kill receipt reading anywhere else would report a cause it did not measure.
 public static class TrapDisposition {
-    public static SandboxFault Of(TrapException trap, PluginInstance plugin) => trap.Type switch {
+    public static SandboxFault Of(TrapException trap, PluginInstance plugin) => Record(trap.Type, plugin) switch {
         TrapCode.Interrupt => new SandboxFault.QuotaExceeded(CostUnit.WallMillis.Key, plugin.Quota.Shape.Wall.Allotted.ToInt64Milliseconds()),
         TrapCode.OutOfFuel => new SandboxFault.QuotaExceeded(CostUnit.CpuMillis.Key, plugin.Quota.Shape.MaxCpuMillis),
         var code => new SandboxFault.LoadRejected($"{plugin.PluginId}:{code}"),
     };
+
+    static TrapCode Record(TrapCode code, PluginInstance plugin) =>
+        plugin.Capsule.Match(
+            Some: capsule => capsule.Trapped.Swap(_ => Some(code)).IfNone(code),
+            None: () => code);
 }
 
 public static class QuotaControl {
@@ -319,33 +413,66 @@ public static class QuotaControl {
                 Some: peer => runtime.ChildSpend(peer),
                 None: static () => CostVector.Zero));
 
+    // Enforce CHARGES then decides then SEATS: charging is what advances QuotaCell.Spent, so a fold that only
+    // read would leave every resource arm of Breach evaluating a zero vector forever and the wall deadline the
+    // sole reachable verdict. The verdict lands on the disposition cell rather than being returned for a caller
+    // to apply, because two callers applying it differently is the split the cell exists to foreclose; a first
+    // breach kills, a breach on a plugin already evicted quarantines and HOLDS the admitted artifact, which is
+    // what makes a repeat offender's evidence survive for review instead of dying with its vehicle.
     public static Quarantine Enforce(SandboxRuntime runtime, PluginInstance plugin, Instant now) =>
-        plugin.Quota.Shape.Breach(plugin.Quota.Charge(Observed(runtime, plugin))) is { IsSome: true, Case: string unit }
-            ? new Quarantine.Killed($"{unit}-exceeded")
-            : now >= plugin.Quota.Deadline
-                ? new Quarantine.Killed("wall-deadline")
-                : new Quarantine.Active();
+        plugin.Quota.Charge(Observed(runtime, plugin)) is var _
+            && plugin.Quota.Breach(now) is { IsSome: true, Case: (string Unit, long Over) breach }
+                ? plugin.Disposition.Swap(held => held is Quarantine.Active
+                    ? new Quarantine.Killed($"{breach.Unit}:+{breach.Over}")
+                    : new Quarantine.Quarantined($"{breach.Unit}:+{breach.Over}", plugin.Artifact))
+                : plugin.Disposition.Value;
 
-    // Kill disposes the VEHICLE, not only the cancel scope: cancelling a scope no guest observes leaves a
-    // spinning wasm instance holding its linear memory for process life, which is the leak the capsule slot
-    // exists to close. Store disposal tears the instance down synchronously; the child drains cooperatively
-    // and the derived scope's cancellation is its forced edge.
+    // Release is the operator's review arm and the ONLY path back to service: it re-seats a quarantined
+    // plugin's disposition so the grant handle admits again, and it refuses an Active or Killed one because
+    // neither has evidence under review — a killed plugin's vehicle is already gone and reinstating it would
+    // hand a caller a handle onto a disposed store.
+    public static Fin<Quarantine> Release(PluginInstance plugin, Instant at) =>
+        plugin.Disposition.Value is Quarantine.Quarantined
+            ? Fin.Succ(plugin.Disposition.Swap(_ => new Quarantine.Released(at)))
+            : Fin.Fail<Quarantine>(new SandboxFault.Quarantined($"{plugin.PluginId}: {plugin.Disposition.Value.GetType().Name} is not under review"));
+
+    // Kill CONVERGES the vehicle; it does not merely release a handle. A wasm guest is not preemptible by
+    // disposal: Store.Dispose releases a SafeHandle, and a SafeHandle cannot release while a native call is in
+    // flight on that store, so a guest inside a host-free loop never observes it and the dispose blocks behind
+    // the very call it meant to end. IncrementEpoch is the convergence — the store armed its deadline at load,
+    // so one increment past that deadline traps the guest wherever it stands, the observing frame lands the
+    // code on the capsule, and disposal then reclaims the linear memory it was holding for process life.
+    // A child process converges on its FORCED EDGE, and that edge is the whole-tree kill: a plain Kill signals
+    // the one pid, so a child that spawned its own worker leaves that worker orphaned and running. The cooperative
+    // ShutdownAsync ahead of it buys a grace window and NOTHING else — a hostile child ignores SIGTERM and reports
+    // no progress, so the grace budget is a pure deadline and never a convergence gate. The forced edge DOES
+    // converge on the darwin host: SIGKILL is unignorable and the tree kill reaches pre-spawned descendants, so
+    // a hostile spin child that ignored SIGTERM and had spawned its own spinning worker censuses ZERO residuals
+    // post-kill; the tree walk is a snapshot, so a child spawning mid-kill is the one escape — foreclosed by the
+    // grant-scoped spawn bound. Convergence is still proved by census and only by census: the handle says the
+    // direct child exited the moment its own pid died, and the exit code is the same 137 whether the tree
+    // drained or leaked. Both facts ride the receipt, the census as the verdict and the tree kill as the act
+    // that earns it.
     public static IO<SandboxReceipt> Kill(SandboxRuntime runtime, PluginInstance plugin, string reason) =>
+        from _seated in IO.lift(() => plugin.Disposition.Swap(held => held is Quarantine.Quarantined ? held : new Quarantine.Killed(reason)))
         from _cancel in IO.lift(() => { plugin.Spine.Source.Cancel(); return unit; })
         from _capsule in plugin.Capsule.Match(
-            Some: capsule => IO.lift(() => { capsule.Dispose(); return unit; }),
+            Some: capsule => IO.lift(() => { runtime.Engine.IncrementEpoch(); capsule.Dispose(); return unit; }),
             None: () => IO.pure(unit))
-        from _child in plugin.Child.Match(
-            Some: peer => IO.liftAsync(async () => { await peer.Control.ShutdownAsync(); return unit; }),
-            None: () => IO.pure(unit))
+        from residual in plugin.Child.Match(
+            Some: peer => from _drain in IO.liftAsync(async () => { await peer.Control.ShutdownAsync(); return unit; })
+                          from _forced in IO.lift(() => { peer.Child.Iter(static spawned => spawned.Child.Kill(entireProcessTree: true)); return unit; })
+                          from count in runtime.ChildResidual(peer)
+                          select Some(count),
+            None: () => IO.pure(Option<int>.None))
         from at in IO.lift(() => runtime.Clocks.Now)
-        let receipt = new SandboxReceipt(plugin.PluginId, plugin.Isolation.Key, plugin.Scope.ScopeHash, Loaded: false, at)
-        from _ in runtime.Sink.Send(Correlation.Mint(), TenantContext.Current, TelemetrySource.AppHost.Key, nameof(QuotaControl), JsonSerializer.SerializeToElement(receipt, AppHostWireContext.Default.SandboxReceipt))
+        let receipt = new SandboxReceipt(plugin.PluginId, plugin.Isolation.Key, plugin.Scope.ScopeHash, reason, at,
+            plugin.Capsule.Bind(static capsule => capsule.Trapped.Value), residual)
+        from _ in runtime.Sink.Send(Correlation.Mint(), TenantContext.Current, TelemetrySource.AppHost.Key, nameof(QuotaControl), JsonSerializer.SerializeToElement(receipt, SuiteContracts.Host))
         select receipt;
 }
 ```
 
 ## [05]-[RESEARCH]
 
-- [WASM_RUNTIME]-[BLOCKED]: does the admitted `Wasmtime` binding expose a Component-Model surface, so the isolation axis can host a WASI-Preview-2 component beside its core module; route: `tools.assay api query --key Wasmtime --symbol Wasmtime.Component`, and `[02]-[ISOLATION_AXIS]` binds the core-module surface whole until that symbol resolves.
-- [KILL_CONVERGENCE]-[OPEN]: does `QuotaControl.Kill` converge on both isolation rows against a guest that never calls out — store disposal tearing down a spinning wasm instance and the derived scope's forced edge terminating a child that ignores `ShutdownAsync`; route: run the integrated host with a host-free spin plugin per row and observe the `SandboxReceipt` `Loaded: false` beside a zero residual instance and child-process count.
+(none)

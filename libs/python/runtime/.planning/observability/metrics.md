@@ -318,6 +318,9 @@ def _banded(band: str, probes: Block[Occupancy]) -> tuple[Observation, ...]:
     # bound nobody holds: a retired owner and a live limiter sitting empty then read identically, and the operator
     # loses exactly the distinction this series exists to draw. Absence is spellable here because the callback
     # answers a measurement SEQUENCE, so an unmeasured band is a missing point rather than a fabricated one.
+    # `band` is never absent on a published point — it IS the cell this map keys, one reading minted per band — so
+    # this family never constructs the absent-key state the tenant and composition folds spell as the untagged
+    # whole; the drop above governs absent MEASUREMENT, never an absent key.
     live = tuple(reading for probe in probes for reading in _held(probe))
     return (Observation(sum(live), {Dimension.BAND: band}),) if live else ()
 
@@ -714,7 +717,13 @@ class Metrics:
             # its arm at the type checker rather than landing on the request-duration row — the write a bare
             # catch-all performs, reporting a non-numeric payload as a served latency nothing raises on.
             case float() | int() as amount:
-                attributes = cls._attributed({Dimension.METHOD: method, Dimension.OUTCOME: outcome}, context, scope)
+                # `method` spells ABSENCE exactly as `kind` does above — no key at all rather than an empty-string
+                # value identifying a series a board groups on and no producer can ever fill. The scalar overload
+                # declares it required, so this fold closes the one route the implementation default leaves open
+                # and no arm of this entry can stamp a placeholder its sibling omits.
+                attributes = cls._attributed(
+                    {**({Dimension.METHOD: method} if method else {}), Dimension.OUTCOME: outcome}, context, scope
+                )
                 _write(instruments[SERVE_DURATION])(amount, attributes, context=context)
             case _ as unreachable:
                 assert_never(unreachable)

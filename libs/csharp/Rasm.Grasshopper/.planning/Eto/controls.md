@@ -63,10 +63,10 @@ public sealed record FieldReport(Op Operation, HashMap<FieldTag, FieldValue> Val
 
 - Owner: `TextRole` `[SmartEnum<int>]` — 5 rows over one `[UseDelegateFromConstructor]` `Mint(string, TextPolicy)` column returning the host `TextControl` base: `Plain` (`TextBox`), `Secret` (`PasswordBox`), `Search` (`SearchBox`), `Area` (`TextArea`), `Stepped` (`TextStepper`, the step-arrow text field; its `Step` raise is a `Shell/events.md` source row). Every row reads back through the one `TextControl.Text` member, so capture is role-invariant and a per-role pick family never exists. `TextPolicy` carries the knob set as data — placeholder, max length, read-only on the box rows; wrap, spell-check, return/tab acceptance on the area row — each row applying only the knobs its control owns.
 - Owner: `ChoiceRole` `[SmartEnum<int>]` — 6 rows over two columns, `Mint(Seq<string>, int, Orientation)` and `Read(Control, Seq<string>)`: `Drop` (`DropDown`), `Combo` (`ComboBox` with `AutoComplete`, free text riding `ComboBox.Text`), `RadioSet` (`RadioButtonList` on its `Orientation`), `Segments` (`SegmentedButton` under `SegmentedSelectionMode.Single` over `ButtonSegmentedItem` rows), `CheckSet` (`CheckBoxList`, multi-select reading `SelectedKeys` into `PickSetCase`), `SegmentSet` (`SegmentedButton` under `SegmentedSelectionMode.Multiple`, reading `SelectedIndexes` into `PickSetCase`). One case, six presentations, two capture shapes.
-- Owner: `ButtonRole` `[SmartEnum<int>]` — `Push` (`Button`), `Toggle` (`ToggleButton`, intrinsic `FlagCase` pick over `Checked`), `Link` (`LinkButton`); `ProgressRole` — `Track` (`ProgressBar`, absent fraction folds to `Indeterminate`), `Pulse` (`Spinner`); `CellKind` — 6 property-bound cell rows (`Script`→`TextBoxCell`, `Mark`→`CheckBoxCell`, `Pick`→`ComboBoxCell`, `Figure`→`ImageViewCell`, `Gauge`→`ProgressCell`, `Duo`→`ImageTextCell` over its image and text properties) over one `Mint(string, Option<string>)` column feeding `GridColumn.DataCell`.
+- Owner: `ButtonRole` `[SmartEnum<int>]` — `Push` (`Button`), `Toggle` (`ToggleButton`, intrinsic `FlagCase` pick over `Checked`), `Link` (`LinkButton`); `ProgressRole` — `Track` (`ProgressBar`, absent fraction folds to `Indeterminate`), `Pulse` (`Spinner`); `CellKind` — 6 property-bound cell rows (`Script`→`TextBoxCell`, `Mark`→`CheckBoxCell`, `Pick`→`ComboBoxCell`, `Figure`→`ImageViewCell`, `Gauge`→`ProgressCell`, `Duo`→`ImageTextCell` over its image and text properties) plus the bare-minted `Drawn` (`DrawableCell`) and `Templated` (`CustomCell`) rows over one `Mint(string, Option<string>)` column feeding `GridColumn.DataCell`.
 - Owner: the plan records — `NumberPolicy` (bounds, increment, decimal places, format, wrap over `NumericStepper`), `SliderPolicy` (tick frequency, snap, orientation), `ColumnPlan` (header, cell row, bound property, the `Duo` image property, edit/sort/resize/visible/expand bits, width, header tip), `GridPlan` (columns with the `ShowHeader`/`AllowMultipleSelection`/`AllowColumnReordering`/`RowHeight`/`GridLines` posture), `TabPlan` (title, badge image, body spec), `DocumentPlan` (title, closable bit, badge image, body spec), `StackChild` (spec with stretch bit).
 - Law: a row's `Mint` composes only members the row's control owns — the generator never probes control type at dispatch, because the row IS the dispatch. A new presentation of an existing semantic (a sixth text chrome, a seventh choice surface) is one row; a new semantic is one `ControlSpec` case. `Stepper` (the bare arrow pair, value-free) and the `[Obsolete]` `NumericUpDown` alias earn no row — the first carries no capture semantic, the second is a legacy spelling of `NumericStepper`.
-- Law: owner-drawn and templated cells (`DrawableCell`, `CustomCell`) enter `CellKind` as two rows when their paint/create hook spellings land — RESEARCH; the six property-bound rows carry every declarative column today, and a `Duo` column without an image property folds its image binding onto the text property.
+- Law: owner-drawn and templated cells land as the `Drawn` (`DrawableCell` — the `Paint` event is its whole hook) and `Templated` (`CustomCell` — `CreateCell`/`ConfigureCell`/`GetIdentifier`/`GetPreferredWidth` delegate slots) rows, minted bare with hooks attached by the consumer on the returned cell; the six property-bound rows carry every declarative column, and a `Duo` column without an image property folds its image binding onto the text property.
 - Packages: Eto (`TextBox`, `PasswordBox`, `SearchBox`, `TextArea`, `TextStepper`, `TextControl.Text`, `DropDown`, `ComboBox.Text`/`AutoComplete`, `RadioButtonList`, `SegmentedButton.Items`/`SelectionMode`/`SelectedIndex`/`SelectedIndexes`, `ButtonSegmentedItem`, `SegmentedItem.Text`, `CheckBoxList.SelectedKeys`, `ListControl.Items`/`SelectedIndex`, `Button`, `ToggleButton.Checked`, `LinkButton`, `ProgressBar`, `Spinner`, the `Cell` family with `ImageTextCell`, `GridColumn`, `GridLines`, `Orientation`, `DockPosition`, `BorderType`), `Rasm.Domain`.
 - Growth: a role row per new chrome, a plan field per new knob; the column signatures never widen.
 
@@ -188,6 +188,11 @@ public sealed partial class CellKind {
     public static readonly CellKind Gauge = new(key: 4, mint: static (property, _) => new ProgressCell(property));
     public static readonly CellKind Duo = new(key: 5, mint: static (property, icon) =>
         new ImageTextCell(imageProperty: icon.IfNone(property), textProperty: property));
+    // Owner-drawn and templated rows: DrawableCell's whole hook is its Paint event, CustomCell's are the
+    // CreateCell/ConfigureCell/GetIdentifier/GetPreferredWidth delegate slots — both mint bare here and the
+    // consumer attaches its hooks on the returned cell, because a hook is per-consumer behavior, not row data.
+    public static readonly CellKind Drawn = new(key: 6, mint: static (_, _) => new DrawableCell());
+    public static readonly CellKind Templated = new(key: 7, mint: static (_, _) => new CustomCell());
     [UseDelegateFromConstructor] internal partial Cell Mint(string property, Option<string> icon);
 }
 
@@ -231,7 +236,7 @@ public sealed record StackChild(ControlSpec Item, bool Stretch);
 - Law: recursion is case-owned — container and layout cases nest `ControlSpec` payloads, so the generated `Switch` stays total over arbitrary depth and a new structural case breaks the forge fold at compile time.
 - Law: `FieldCase` is the only tag site — an editor case outside a `FieldCase` renders but never harvests, and a `FieldCase` over a non-capturing case is a typed forge refusal, so "which values come back" is recoverable from the spec value alone.
 - Law: a `RowsCase` row slot is `Option<ControlSpec>` — `None` renders the host's flexible-space `null` slot in `DynamicLayout.AddRow`, so button rows right-align by data, never by a spacer control.
-- Law: `TreeView` and `Panel` earn no case — a single-column tree is a one-column `TreeCase` and a padded single-child wrapper is a one-child `StackCase`; masked stepping (`MaskedTextStepper<T>`) enters as a stepper bit on `MaskedCase` when its constructor spelling lands — RESEARCH.
+- Law: `TreeView` and `Panel` earn no case — a single-column tree is a one-column `TreeCase` and a padded single-child wrapper is a one-child `StackCase`. `MaskedTextStepper<T>` constructs bare or over an `IMaskedTextProvider<T>`, so masked stepping earns no `MaskedCase` bit: the stepper is a different control whose provider seam does not compose the `FixedMaskedTextProvider` string mask this case carries, and a stepping consumer hosts the control through `NativeHostCase` until a typed-provider case earns its own admission.
 - Boundary: live data (`DataStore`), model fusion (`*Binding`), and selection state ride `Eto/binding.md`'s `StoreRail` and `BindingRail` against the realized plant; `WebView` navigation verbs (`Url`, `GoBack`, `ExecuteScript`, `LoadHtml`, `DocumentTitle`) ride the realized control directly; owner-drawn `Drawable` surfaces are the canvas paint executor's territory, never a spec case.
 - Packages: Eto (`MaskedTextBox`, `FixedMaskedTextProvider`, `NumericStepper`, `CheckBox`, `Slider`, `ColorPicker`, `DateTimePicker`, `Calendar.Mode`/`SelectedDate`/`SelectedRange`/`MinDate`/`MaxDate`, `CalendarMode`, `Range<DateTime>.Start`/`End`, `FilePicker`, `FontPicker`, `RichTextArea.Rtf`, `Label`, `ImageView.Image`, `WebView.Url`, `PropertyGrid.SelectedObject`, `NativeControlHost`, `GridView`, `TreeGridView`, `ListBox`, `GroupBox`, `Expander.Header`/`Expanded`, `TabControl`, `TabPage`, `DocumentControl.Pages`/`AllowReordering`/`SelectedIndex`, `DocumentPage.Text`/`Closable`/`Image`, `Splitter`, `Scrollable`, `StackLayout.Padding`/`HorizontalContentAlignment`/`VerticalContentAlignment`, `StackLayoutItem`, `TableLayout`, `PixelLayout`, `DynamicLayout`, `Padding`, `Size`, `Point`), `Rasm.Domain`.
 - Growth: a new native family is one case with one forge arm; a new modality of an existing family is a role row; zero growth lands as a consumer-visible operation.
@@ -416,7 +421,7 @@ public static class ControlForge {
             return Fin.Succ(Sprout.Editor(control: stepper, pick: () => k.Catch(body: () => Fin.Succ((FieldValue)new FieldValue.NumberCase(Value: stepper.Value)))));
         },
         flagCase: static (k, c) => {
-            CheckBox box = new() { Text = c.Caption, ThreeState = c.ThreeState, Checked = c.Seed.MatchUnsafe(Some: static value => (bool?)value, None: static () => null) };
+            CheckBox box = new() { Text = c.Caption, ThreeState = c.ThreeState, Checked = c.Seed.Match<bool?>(Some: static value => value, None: static () => null) };
             return Fin.Succ(Sprout.Editor(control: box, pick: () => k.Catch(body: () => Fin.Succ((FieldValue)new FieldValue.FlagCase(Value: Optional(box.Checked))))));
         },
         choiceCase: static (k, c) => {
@@ -435,7 +440,7 @@ public static class ControlForge {
             return Fin.Succ(Sprout.Editor(control: picker, pick: () => k.Catch(body: () => Fin.Succ((FieldValue)new FieldValue.ColourCase(Value: picker.Value)))));
         },
         stampCase: static (k, c) => {
-            DateTimePicker picker = new() { Value = c.Seed.MatchUnsafe(Some: static value => (DateTime?)value, None: static () => null) };
+            DateTimePicker picker = new() { Value = c.Seed.Match<DateTime?>(Some: static value => value, None: static () => null) };
             c.Floor.Iter(floor => picker.MinDate = floor);
             c.Ceiling.Iter(ceiling => picker.MaxDate = ceiling);
             return Fin.Succ(Sprout.Editor(control: picker, pick: () => k.Catch(body: () => Fin.Succ((FieldValue)new FieldValue.StampCase(Value: Optional(picker.Value))))));
@@ -567,7 +572,7 @@ public static class ControlForge {
             .As()
             .Map(grown => {
                 DynamicLayout layout = new() { Padding = c.Pad, Spacing = c.Gap };
-                grown.Iter(row => layout.AddRow([.. row.Map(static slot => slot.Map(static child => child.Control).MatchUnsafe(Some: static control => control, None: static () => null))]));
+                grown.Iter(row => layout.AddRow([.. row.Map(static slot => slot.Map(static child => child.Control).Match<Control?>(Some: static control => control, None: static () => null))]));
                 return new Sprout(Control: layout, Pick: None, Ports: grown.Bind(static row => row.Bind(static slot => slot.Map(static child => child.Ports).IfNone(Seq<FieldPort>()))));
             }),
         fieldCase: static (k, c) => Grow(spec: c.Editor, op: k).Bind(child => child.Pick
@@ -645,7 +650,7 @@ One owner per axis; capability lands as a case, a row, or a field — never a si
 |  [05]   | generator + capture | `ControlForge` + `ControlPlant` + `FieldReport`     | `Realize`/`Harvest` → `Fin<T>` |    2    |
 |  [06]   | view verbs          | `ViewVerb` + `ViewEcho`                             | `Drive → Fin<ViewEcho>`        |  10+3   |
 
-`Op`, `Fault`, `ValidityClaim`, `EtoDispatch`, `StoreRail`, and `BindingRail` are composed upstream owners. RESEARCH: the `DrawableCell`/`CustomCell` hook spellings (two `CellKind` rows, zero forge impact) and the `MaskedTextStepper<T>` constructor (a stepper bit on `MaskedCase`).
+`Op`, `Fault`, `ValidityClaim`, `EtoDispatch`, `StoreRail`, and `BindingRail` are composed upstream owners.
 
 ## [07]-[RESEARCH]
 

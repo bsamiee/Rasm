@@ -5,7 +5,7 @@
 ## [01]-[INDEX]
 
 - [02]-[FIDELITY]: `MeshPreset`, `MeshLaw`, and `MeshFidelity`.
-- [03]-[POLICY]: `QuadLaw`, `WrapLaw`, `ReduceLaw`, `ExtrudeLaw`, and mesh generation policies.
+- [03]-[POLICY]: `QuadLaw`, `WrapLaw`, `ReduceLaw`, `ExtrudeLaw`, `SmoothLaw`, and mesh generation policies.
 - [04]-[ALGEBRA]: `MeshRuntime`, `MeshSlot`, `MeshEdit`, `MeshOp`, and `Meshes.Build`.
 - [05]-[EXECUTION]: native carrier lifetime, typed evidence, and geometry custody.
 
@@ -131,7 +131,9 @@ public readonly partial struct MeshLaw {
 
 ## [03]-[POLICY]
 
-`QuadLaw`, `WrapLaw`, `ReduceLaw`, and `ExtrudeLaw` reject invalid counts and ranges before native configuration exists. Smart-enum rows make native boolean modalities structural. Cancellation and progress belong to `MeshRuntime`, never an operation or policy.
+`QuadLaw`, `WrapLaw`, `ReduceLaw`, and `ExtrudeLaw` reject invalid counts and ranges before native configuration exists. Cancellation and progress belong to `MeshRuntime`, never an operation or policy.
+
+A row vocabulary is earned, never reflexive: a smart enum stands where its rows carry a column beyond the bit — a writer, a native factory, or a correlated tuple such as `MeshCaps`, `MeshCountMode`, and the membership sets — while a two-state modality whose whole content IS one bit travels as a named `bool` field on its owning case, because a class holding only `internal bool Native` renames `true` and buys nothing. `SmoothLaw` is the shared owner the second half of that rule produces: `Curve.Smooth` and `Mesh.Smooth` take the identical five knobs, so `Modeling/curves.md` composes this page's law instead of respelling it, and the mesh-only pass count rides the mesh case.
 
 ```csharp signature
 // --- [TYPES] ------------------------------------------------------------------------------
@@ -168,14 +170,6 @@ public sealed partial class MeshExtrusionFrame {
     public static readonly MeshExtrusionFrame EdgeUVN = new(key: 2, native: (false, true));
 
     internal (bool UVN, bool EdgeUVN) Native { get; }
-}
-
-[SmartEnum<int>]
-public sealed partial class MeshOriginalFaces {
-    public static readonly MeshOriginalFaces Replace = new(key: 0, native: false);
-    public static readonly MeshOriginalFaces Keep = new(key: 1, native: true);
-
-    internal bool Native { get; }
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
@@ -291,7 +285,7 @@ public readonly partial struct ReduceLaw {
 public readonly partial struct ExtrudeLaw {
     public Transform Motion { get; }
     public MeshExtrusionFrame Frame { get; }
-    public MeshOriginalFaces OriginalFaces { get; }
+    public bool KeepOriginalFaces { get; }
     public MeshExtruderParameterMode TextureCoordinates { get; }
     public MeshExtruderParameterMode SurfaceParameters { get; }
     public MeshExtruderFaceDirectionMode FaceDirection { get; }
@@ -300,7 +294,7 @@ public readonly partial struct ExtrudeLaw {
         ref ValidationError? validationError,
         ref Transform motion,
         ref MeshExtrusionFrame frame,
-        ref MeshOriginalFaces originalFaces,
+        ref bool keepOriginalFaces,
         ref MeshExtruderParameterMode textureCoordinates,
         ref MeshExtruderParameterMode surfaceParameters,
         ref MeshExtruderFaceDirectionMode faceDirection) {
@@ -318,7 +312,7 @@ public readonly partial struct ExtrudeLaw {
 - Law: struct policies share one owner-local predicate between generated factories and outer operation admission; factory creation rejects invalid values, and the outer seam rejects default ghosts without duplicating rules.
 - Law: `MeshRuntime` exists to carry cancellation and integer progress, and the async remesh is the one host family honouring both on a WHOLE mesh, so `QuadRemesh` executes through `Mesh.QuadRemeshAsync(parameters, guideCurves, progress, cancelToken)`, its face-block overload when the case carries `FaceBlocks`, and `Mesh.QuadRemeshBrepAsync` for a Brep source — landing the same `MeshSlot.Remeshed` receipt off the runtime's own reporters. Synchronous whole-mesh overloads accept neither progress nor cancellation, and the synchronous face-block overload accepts both only by re-declaring a face grouping the caller never asked for, so a synchronous arm either strands cancellation on the page's longest operation or invents remesh topology; `MeshRuntime.Await` is the ONE seam collapsing a host `Task<T>` back onto this page's synchronous rail under the runtime's own token.
 - Law: `Check` is the reasoned verdict arm — `MeshCheckLaw` closes the eleven `MeshCheckParameters` axes as a `FrozenSet<MeshCheckAxis>` with each row carrying its own enable and tally columns, so a caller declares WHICH defects to hunt and `MeshSlot.Checked` reports the `bool` verdict, one count per axis in `MeshCheckAxis.Items` order, and the `TextLog` text; `IsValid` alone reports THAT a mesh failed and this arm reports WHY. `MeshCheckParameters` publishes eleven `CheckFor*` toggles, thirteen count getters, and `Defaults()`; its one short-edge distance is a private field with no accessor, so the axis roster IS the whole reachable parameterization and a law column naming a short-edge ratio or a normal tolerance spells a knob no caller can set.
-- Law: `Clash` runs at the GEOMETRY grain this page owns and its two host members are two cases, never a flag — `ClashLaw.Detect` carries the event cap and runs `MeshClash.Search(IEnumerable<Mesh>, IEnumerable<Mesh>, double, int)` for per-event `ClashPoint` and `ClashRadius` onto `MeshSlot.Clashed`, while `ClashLaw.Probe` carries the distance alone and runs the cheap `Intersection.MeshMeshPredicate` pre-gate whose `out int[] pairs` and `TextLog` land as the same receipt's component and text rows; the cap is unrepresentable on the probe case because the predicate has no event stream to bound. `MeshInterference` and `FindDetail` take `RhinoObject` pairs and stay outside this algebra, which admits `GeometryHandle` alone — a document-object clash belongs to the page owning document objects, and reaching for it here imports the object table into a geometry fold. Clash stays host-owned because it answers per-event contact points and radii at a grain the kernel's mesh intersection band does not produce, not because the kernel lacks mesh/mesh intersection.
+- Law: `Clash` runs at the GEOMETRY grain this page owns and its two host members are two cases, never a flag — `ClashLaw.Detect` runs `MeshClash.Search(IEnumerable<Mesh>, IEnumerable<Mesh>, double, int)` for per-event `ClashPoint` and `ClashRadius` onto `MeshSlot.Clashed`, while `ClashLaw.Probe` carries the distance alone and runs the cheap `Intersection.MeshMeshPredicate` pre-gate whose `out int[] pairs` and `TextLog` land as the same receipt's component and text rows. `maxEventCount` is live-proven dead — the native returns every event regardless of cap, at one event per clashing mesh PAIR however many disjoint contact regions the pair holds — so no law case carries the knob, the arm passes the host's demanded argument as a constant, and `MeshSlot.Clashed`'s tally is complete pair-count evidence by construction. `MeshInterference` and `FindDetail` take `RhinoObject` pairs and stay outside this algebra, which admits `GeometryHandle` alone — a document-object clash belongs to the page owning document objects, and reaching for it here imports the object table into a geometry fold. Clash stays host-owned because it answers per-event contact points and radii at a grain the kernel's mesh intersection band does not produce, not because the kernel lacks mesh/mesh intersection.
 - Law: `Neighbours` is one query owner whose cases are exactly the cells the host serves — `NeighbourQuery` pairs each haystack with needles of ITS OWN precision, so a mismatched pair is unrepresentable; the two double-precision carriers (`Cloud`, `Spatial`) take a `NeighbourSearch` over the count-linear, count-tree, and radius-tree cells, and the reduced-precision carriers (`SpatialFloat`, `Planar`, `PlanarFloat`) take a bare count because `RhinoList` alone publishes their `Point3f`/`Point2d`/`Point2f` families. RhinoCommon publishes no linear radius search and no reduced-precision tree, so those cells never enter the algebra and no arm carries a refusal for a product hole; the arm folds each needle's `int[]` into one `BuildBody.SourceGroups` row set.
 - Growth: a new mesher, engine, or edit verb is one case with its arm; a new diagnostic is one `MeshCheckAxis` row; a new neighbourhood carrier or search cell is one case on its owning union; the spine and every consumer read it with zero new surface.
 
@@ -345,9 +339,9 @@ public readonly partial struct MeshRuntime {
 
     public static implicit operator Context(MeshRuntime runtime) => runtime.Domain;
 
-    internal IProgress<int>? IntegerReporter => IntegerProgress.IfNoneUnsafe((IProgress<int>?)null);
+    internal IProgress<int>? IntegerReporter => IntegerProgress.ValueUnsafe();
 
-    internal IProgress<double>? ScalarReporter => ScalarProgress.IfNoneUnsafe((IProgress<double>?)null);
+    internal IProgress<double>? ScalarReporter => ScalarProgress.ValueUnsafe();
 
     internal Fin<TOut> Await<TOut>(Func<Task<TOut>> work, Op key) => key.Catch(() => {
         Task<TOut> running = work();                                  // Exemption: the ONE async-to-rail collapse on this page's synchronous spine
@@ -428,13 +422,13 @@ public sealed partial class MeshCheckAxis {
 public abstract partial record ClashLaw {
     private ClashLaw() { }
     public sealed record Probe(double Distance) : ClashLaw;
-    public sealed record Detect(double Distance, MeshCount MaxEvents) : ClashLaw;
+    public sealed record Detect(double Distance) : ClashLaw;
 
     internal double Tolerance => Switch(probe: static law => law.Distance, detect: static law => law.Distance);
 
     internal bool Admissible => Switch(
         probe: static law => Finite(law.Distance),
-        detect: static law => Finite(law.Distance) && law.MaxEvents.Value > 0);
+        detect: static law => Finite(law.Distance));
 
     private static bool Finite(double distance) => double.IsFinite(distance) && distance >= 0.0;
 }
@@ -472,10 +466,10 @@ public abstract partial record NeighbourQuery {
 }
 
 [SmartEnum<int>]
-public sealed partial class MeshSmoothAxis {
-    public static readonly MeshSmoothAxis X = new(key: 0);
-    public static readonly MeshSmoothAxis Y = new(key: 1);
-    public static readonly MeshSmoothAxis Z = new(key: 2);
+public sealed partial class SmoothAxis {
+    public static readonly SmoothAxis X = new(key: 0);
+    public static readonly SmoothAxis Y = new(key: 1);
+    public static readonly SmoothAxis Z = new(key: 2);
 }
 
 [SmartEnum<int>]
@@ -501,22 +495,6 @@ public sealed partial class MeshRebuildAttribute {
 }
 
 [SmartEnum<int>]
-public sealed partial class MeshBoundaryMotion {
-    public static readonly MeshBoundaryMotion Free = new(key: 0, native: false);
-    public static readonly MeshBoundaryMotion Fixed = new(key: 1, native: true);
-
-    internal bool Native { get; }
-}
-
-[SmartEnum<int>]
-public sealed partial class MeshThresholdSide {
-    public static readonly MeshThresholdSide Below = new(key: 0, native: false);
-    public static readonly MeshThresholdSide Above = new(key: 1, native: true);
-
-    internal bool Native { get; }
-}
-
-[SmartEnum<int>]
 public sealed partial class MeshSplitPolicy {
     public static readonly MeshSplitPolicy Separate = new(key: 0, native: (false, false));
     public static readonly MeshSplitPolicy Coplanar = new(key: 1, native: (true, false));
@@ -537,86 +515,6 @@ public sealed partial class MeshCaps {
 }
 
 [SmartEnum<int>]
-public sealed partial class MeshCircumscription {
-    public static readonly MeshCircumscription Inscribed = new(key: 0, native: false);
-    public static readonly MeshCircumscription Circumscribed = new(key: 1, native: true);
-
-    internal bool Native { get; }
-}
-
-[SmartEnum<int>]
-public sealed partial class MeshCapFaces {
-    public static readonly MeshCapFaces Triangles = new(key: 0, native: false);
-    public static readonly MeshCapFaces Quads = new(key: 1, native: true);
-
-    internal bool Native { get; }
-}
-
-[SmartEnum<int>]
-public sealed partial class MeshShell {
-    public static readonly MeshShell Open = new(key: 0, native: false);
-    public static readonly MeshShell Solid = new(key: 1, native: true);
-
-    internal bool Native { get; }
-}
-
-[SmartEnum<int>]
-public sealed partial class MeshSurfaceParameters {
-    public static readonly MeshSurfaceParameters Discard = new(key: 0, native: false);
-    public static readonly MeshSurfaceParameters Preserve = new(key: 1, native: true);
-
-    internal bool Native { get; }
-}
-
-[SmartEnum<int>]
-public sealed partial class MeshNormalUpdate {
-    public static readonly MeshNormalUpdate Preserve = new(key: 0, native: false);
-    public static readonly MeshNormalUpdate Update = new(key: 1, native: true);
-
-    internal bool Native { get; }
-}
-
-[SmartEnum<int>]
-public sealed partial class MeshSelectionScope {
-    public static readonly MeshSelectionScope All = new(key: 0, native: false);
-    public static readonly MeshSelectionScope Selective = new(key: 1, native: true);
-
-    internal bool Native { get; }
-}
-
-[SmartEnum<int>]
-public sealed partial class MeshFaceting {
-    public static readonly MeshFaceting Smooth = new(key: 0, native: false);
-    public static readonly MeshFaceting Faceted = new(key: 1, native: true);
-
-    internal bool Native { get; }
-}
-
-[SmartEnum<int>]
-public sealed partial class MeshTextureCoordinates {
-    public static readonly MeshTextureCoordinates Omit = new(key: 0, native: false);
-    public static readonly MeshTextureCoordinates Include = new(key: 1, native: true);
-
-    internal bool Native { get; }
-}
-
-[SmartEnum<int>]
-public sealed partial class MeshVertexAdmission {
-    public static readonly MeshVertexAdmission Fixed = new(key: 0, native: false);
-    public static readonly MeshVertexAdmission Extend = new(key: 1, native: true);
-
-    internal bool Native { get; }
-}
-
-[SmartEnum<int>]
-public sealed partial class MeshTrim {
-    public static readonly MeshTrim Preserve = new(key: 0, native: false);
-    public static readonly MeshTrim Trimmed = new(key: 1, native: true);
-
-    internal bool Native { get; }
-}
-
-[SmartEnum<int>]
 public sealed partial class MeshEdgeSoftenFeature {
     public static readonly MeshEdgeSoftenFeature Chamfer = new(key: 0);
     public static readonly MeshEdgeSoftenFeature Force = new(key: 1);
@@ -627,27 +525,19 @@ public sealed partial class MeshEdgeSoftenFeature {
 public readonly partial struct MeshEdgeSoftenLaw {
     public double Radius { get; }
     public FrozenSet<MeshEdgeSoftenFeature> Features { get; }
-    public MeshFaceting Faceting { get; }
+    public bool Faceted { get; }
     public double AngleThreshold { get; }
 
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref double radius,
         ref FrozenSet<MeshEdgeSoftenFeature> features,
-        ref MeshFaceting faceting,
+        ref bool faceted,
         ref double angleThreshold) {
         if (!double.IsFinite(radius) || radius <= 0.0 || !double.IsFinite(angleThreshold) || angleThreshold < 0.0) {
             validationError = new ValidationError("Mesh edge softening requires a finite positive radius and finite non-negative angle threshold.");
         }
     }
-}
-
-[SmartEnum<int>]
-public sealed partial class MeshNakedMatch {
-    public static readonly MeshNakedMatch Direct = new(key: 0, native: false);
-    public static readonly MeshNakedMatch Ratchet = new(key: 1, native: true);
-
-    internal bool Native { get; }
 }
 
 [SmartEnum<int>]
@@ -662,55 +552,61 @@ public sealed partial class MeshCountMode {
 
 [ComplexValueObject]
 [StructLayout(LayoutKind.Auto)]
-public readonly partial struct MeshSmoothLaw {
+public readonly partial struct SmoothLaw {
     public double Factor { get; }
-    public int Steps { get; }
-    public FrozenSet<MeshSmoothAxis> Axes { get; }
-    public MeshBoundaryMotion Boundaries { get; }
+    public FrozenSet<SmoothAxis> Axes { get; }
+    public bool FixBoundaries { get; }
     public SmoothingCoordinateSystem System { get; }
     public Plane Frame { get; }
 
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref double factor,
-        ref int steps,
-        ref FrozenSet<MeshSmoothAxis> axes,
-        ref MeshBoundaryMotion boundaries,
+        ref FrozenSet<SmoothAxis> axes,
+        ref bool fixBoundaries,
         ref SmoothingCoordinateSystem system,
         ref Plane frame) {
-        if (!Admits(factor, steps, axes, boundaries, system, frame)) {
+        if (!Admits(factor, axes, system, frame)) {
             validationError = new ValidationError(
-                "Mesh smoothing requires a finite factor, positive passes, axes, boundary policy, coordinate system, and valid frame.");
+                "Smoothing requires a finite factor, at least one axis, a declared coordinate system, and a valid frame.");
         }
     }
 
-    internal bool Admissible => Admits(Factor, Steps, Axes, Boundaries, System, Frame);
+    internal bool Admissible => Admits(Factor, Axes, System, Frame);
 
-    internal bool Apply(Mesh target, Option<Seq<int>> vertices = default) =>
+    // `Curve.Smooth` and `Mesh.Smooth` publish the IDENTICAL five knobs — factor, the three axis bits, the boundary
+    // bit, the coordinate system, and the frame — so one law feeds both carriers and `Modeling/curves.md` composes
+    // this owner rather than spelling the same five as loose payload fields. Only the mesh member takes a pass count
+    // and a vertex selection, which is why those two ride the mesh case instead of the shared value.
+    internal bool Apply(Mesh target, int steps, Option<Seq<int>> vertices = default) =>
         vertices.Case switch {
             Seq<int> selected => target.Smooth(
-                vertexIndices: selected.AsIterable(), smoothFactor: Factor, numSteps: Steps,
-                bXSmooth: Axes.Contains(MeshSmoothAxis.X), bYSmooth: Axes.Contains(MeshSmoothAxis.Y),
-                bZSmooth: Axes.Contains(MeshSmoothAxis.Z), bFixBoundaries: Boundaries.Native,
+                vertexIndices: selected.AsIterable(), smoothFactor: Factor, numSteps: steps,
+                bXSmooth: Axes.Contains(SmoothAxis.X), bYSmooth: Axes.Contains(SmoothAxis.Y),
+                bZSmooth: Axes.Contains(SmoothAxis.Z), bFixBoundaries: FixBoundaries,
                 coordinateSystem: System, plane: Frame),
             _ => target.Smooth(
-                smoothFactor: Factor, numSteps: Steps,
-                bXSmooth: Axes.Contains(MeshSmoothAxis.X), bYSmooth: Axes.Contains(MeshSmoothAxis.Y),
-                bZSmooth: Axes.Contains(MeshSmoothAxis.Z), bFixBoundaries: Boundaries.Native,
+                smoothFactor: Factor, numSteps: steps,
+                bXSmooth: Axes.Contains(SmoothAxis.X), bYSmooth: Axes.Contains(SmoothAxis.Y),
+                bZSmooth: Axes.Contains(SmoothAxis.Z), bFixBoundaries: FixBoundaries,
                 coordinateSystem: System, plane: Frame),
         };
 
+    // The curve member answers a NEW curve where the mesh member mutates in place and answers a verdict; the frame is
+    // always seated because the law admits only a valid one, so the plane-less short overload is never reached.
+    internal Curve? Apply(Curve target) => target.Smooth(
+        smoothFactor: Factor,
+        bXSmooth: Axes.Contains(SmoothAxis.X), bYSmooth: Axes.Contains(SmoothAxis.Y),
+        bZSmooth: Axes.Contains(SmoothAxis.Z), bFixBoundaries: FixBoundaries,
+        coordinateSystem: System, plane: Frame);
+
     private static bool Admits(
         double factor,
-        int steps,
-        FrozenSet<MeshSmoothAxis>? axes,
-        MeshBoundaryMotion? boundaries,
+        FrozenSet<SmoothAxis>? axes,
         SmoothingCoordinateSystem system,
         Plane frame) =>
         double.IsFinite(factor)
-        && steps > 0
         && axes is { Count: > 0 }
-        && boundaries is not null
         && Enum.IsDefined(system)
         && frame.IsValid;
 }
@@ -754,29 +650,29 @@ public readonly partial struct MeshMatchLaw {
 public abstract partial record MeshEdit {
     private MeshEdit() { }
     public sealed record Reduce(ReduceLaw Law) : MeshEdit;
-    public sealed record Weld(MeshSurfaceParameters SurfaceParameters) : MeshEdit;
-    public sealed record Unweld(MeshNormalUpdate Normals) : MeshEdit;
-    public sealed record UnweldEdges(Seq<int> Edges, MeshNormalUpdate Normals) : MeshEdit;
-    public sealed record UnweldVertices(Seq<int> TopologyVertices, MeshNormalUpdate Normals) : MeshEdit;
-    public sealed record Offset(double Distance, MeshShell Shell) : MeshEdit;
-    public sealed record OffsetDirection(double Distance, MeshShell Shell, Vector3d Direction) : MeshEdit;
+    public sealed record Weld(bool PreserveSurfaceParameters) : MeshEdit;
+    public sealed record Unweld(bool ModifyNormals) : MeshEdit;
+    public sealed record UnweldEdges(Seq<int> Edges, bool ModifyNormals) : MeshEdit;
+    public sealed record UnweldVertices(Seq<int> TopologyVertices, bool ModifyNormals) : MeshEdit;
+    public sealed record Offset(double Distance, bool Solid) : MeshEdit;
+    public sealed record OffsetDirection(double Distance, bool Solid, Vector3d Direction) : MeshEdit;
     public sealed record Heal(double Distance) : MeshEdit;
     public sealed record FillHoles : MeshEdit;
     public sealed record FillHole(int TopologyEdge) : MeshEdit;
-    public sealed record MatchNaked(double Distance, MeshNakedMatch Mode) : MeshEdit;
+    public sealed record MatchNaked(double Distance, bool Ratchet) : MeshEdit;
     public sealed record MergeCoplanar : MeshEdit;
-    public sealed record Smooth(MeshSmoothLaw Law) : MeshEdit;
-    public sealed record SmoothVertices(Seq<int> Vertices, MeshSmoothLaw Law) : MeshEdit;
-    public sealed record CollapseEdgeLength(MeshThresholdSide Side, double EdgeLength) : MeshEdit;
+    public sealed record Smooth(SmoothLaw Law, MeshCount Steps) : MeshEdit;
+    public sealed record SmoothVertices(Seq<int> Vertices, SmoothLaw Law, MeshCount Steps) : MeshEdit;
+    public sealed record CollapseEdgeLength(bool AboveThreshold, double EdgeLength) : MeshEdit;
     public sealed record CollapseArea(double LessThanArea, double GreaterThanArea) : MeshEdit;
     public sealed record CollapseAspectRatio(double Value) : MeshEdit;
     public sealed record RebuildNormals : MeshEdit;
     public sealed record UnifyNormals : MeshEdit;
     public sealed record Orient(MeshOrientationLaw Law) : MeshEdit;
     public sealed record Compact : MeshEdit;
-    public sealed record ExtractNonManifold(MeshSelectionScope Scope) : MeshEdit;
+    public sealed record ExtractNonManifold(bool Selective) : MeshEdit;
     public sealed record EdgeSoften(MeshEdgeSoftenLaw Law) : MeshEdit;
-    public sealed record ShutLine(Seq<ShutLineProfile> Profiles, MeshFaceting Faceting) : MeshEdit;
+    public sealed record ShutLine(Seq<ShutLineProfile> Profiles, bool Faceted) : MeshEdit;
     public sealed record Displace(DisplacementLaw Law) : MeshEdit;
 
     internal bool Admissible => this switch {
@@ -784,37 +680,34 @@ public abstract partial record MeshEdit {
             && edit.Law.Features is not null
             && edit.Law.Accuracy is >= 1 and <= 10
             && edit.Law.LockedComponents.ForAll(static component => component.Index >= 0),
-        Weld edit => edit.SurfaceParameters is not null,
-        Unweld edit => edit.Normals is not null,
-        UnweldEdges edit => !edit.Edges.IsEmpty && edit.Edges.ForAll(static edge => edge >= 0) && edit.Normals is not null,
+        Weld => true,
+        Unweld => true,
+        UnweldEdges edit => !edit.Edges.IsEmpty && edit.Edges.ForAll(static edge => edge >= 0),
         UnweldVertices edit => !edit.TopologyVertices.IsEmpty
-            && edit.TopologyVertices.ForAll(static vertex => vertex >= 0)
-            && edit.Normals is not null,
-        Offset edit => Positive(edit.Distance) && edit.Shell is not null,
-        OffsetDirection edit => Positive(edit.Distance) && edit.Shell is not null && edit.Direction.IsValid && !edit.Direction.IsZero,
+            && edit.TopologyVertices.ForAll(static vertex => vertex >= 0),
+        Offset edit => Positive(edit.Distance),
+        OffsetDirection edit => Positive(edit.Distance) && edit.Direction.IsValid && !edit.Direction.IsZero,
         Heal edit => Positive(edit.Distance),
         FillHoles => true,
         FillHole edit => edit.TopologyEdge >= 0,
-        MatchNaked edit => Positive(edit.Distance) && edit.Mode is not null,
+        MatchNaked edit => Positive(edit.Distance),
         MergeCoplanar => true,
-        Smooth edit => edit.Law.Admissible,
+        Smooth edit => edit.Law.Admissible && edit.Steps.Value > 0,
         SmoothVertices edit => !edit.Vertices.IsEmpty
             && edit.Vertices.ForAll(static vertex => vertex >= 0)
-            && edit.Law.Admissible,
-        CollapseEdgeLength edit => edit.Side is not null && Positive(edit.EdgeLength),
+            && edit.Law.Admissible && edit.Steps.Value > 0,
+        CollapseEdgeLength edit => Positive(edit.EdgeLength),
         CollapseArea edit => Positive(edit.LessThanArea) && Positive(edit.GreaterThanArea),
         CollapseAspectRatio edit => Positive(edit.Value),
         RebuildNormals or UnifyNormals => true,
         Orient edit => edit.Law.Targets is { Count: > 0 },
         Compact => true,
-        ExtractNonManifold edit => edit.Scope is not null,
+        ExtractNonManifold => true,
         EdgeSoften edit => Positive(edit.Law.Radius)
             && edit.Law.Features is not null
-            && edit.Law.Faceting is not null
             && double.IsFinite(edit.Law.AngleThreshold)
             && edit.Law.AngleThreshold >= 0.0,
         ShutLine edit => !edit.Profiles.IsEmpty
-            && edit.Faceting is not null
             && edit.Profiles.ForAll(static profile => profile.Admissible),
         Displace edit => edit.Law.Texture is not null
             && edit.Law.Mapping is not null
@@ -968,15 +861,15 @@ public abstract partial record MeshOp {
     private MeshOp() { }
     public sealed record FromGeometry(GeometryHandle Source, MeshFidelity Fidelity) : MeshOp;
     public sealed record FromSubD(GeometryHandle Source, SubDDisplayParameters.Density Level) : MeshOp;
-    public sealed record Cage(GeometryHandle Source, MeshTextureCoordinates TextureCoordinates) : MeshOp;
+    public sealed record Cage(GeometryHandle Source, bool TextureCoordinates) : MeshOp;
     public sealed record FromBoundary(GeometryHandle Boundary, MeshFidelity Fidelity) : MeshOp;
     public sealed record SeedPlane(Plane Frame, Interval X, Interval Y, MeshCount XCount, MeshCount YCount) : MeshOp;
     public sealed record SeedBox(Box Box, MeshCount XCount, MeshCount YCount, MeshCount ZCount) : MeshOp;
     public sealed record SeedSphere(Sphere Sphere, MeshCount XCount, MeshCount YCount) : MeshOp;
     public sealed record SeedIcoSphere(Sphere Sphere, MeshCount Subdivisions) : MeshOp;
     public sealed record SeedQuadSphere(Sphere Sphere, MeshCount Subdivisions) : MeshOp;
-    public sealed record SeedCylinder(Cylinder Cylinder, MeshCount Vertical, MeshCount Around, MeshCaps Caps, MeshCircumscription Circumscription, MeshCapFaces CapFaces) : MeshOp;
-    public sealed record SeedCone(Cone Cone, MeshCount Vertical, MeshCount Around, MeshShell Shell, MeshCapFaces CapFaces) : MeshOp;
+    public sealed record SeedCylinder(Cylinder Cylinder, MeshCount Vertical, MeshCount Around, MeshCaps Caps, bool Circumscribe, bool QuadCaps) : MeshOp;
+    public sealed record SeedCone(Cone Cone, MeshCount Vertical, MeshCount Around, bool Solid, bool QuadCaps) : MeshOp;
     public sealed record SeedTorus(Torus Torus, MeshCount Vertical, MeshCount Around) : MeshOp;
     public sealed record SeedClosedPolyline(ClosedPolyline Boundary) : MeshOp;
     public sealed record QuadRemesh(GeometryHandle Source, QuadLaw Law, Seq<GeometryHandle> Guides, Seq<int> FaceBlocks = default) : MeshOp;
@@ -984,13 +877,13 @@ public abstract partial record MeshOp {
     public sealed record Clash(Seq<GeometryHandle> SetA, Seq<GeometryHandle> SetB, ClashLaw Law) : MeshOp;
     public sealed record Neighbours(NeighbourQuery Query) : MeshOp;
     public sealed record Wrap(Seq<GeometryHandle> Sources, WrapLaw Law, Option<MeshFidelity> Fidelity = default) : MeshOp;
-    public sealed record CurvePipe(GeometryHandle Curve, double Radius, MeshCount Segments, int Accuracy, MeshPipeCapStyle Cap, MeshFaceting Faceting, Seq<Interval> Intervals = default) : MeshOp;
+    public sealed record CurvePipe(GeometryHandle Curve, double Radius, MeshCount Segments, int Accuracy, MeshPipeCapStyle Cap, bool Faceted, Seq<Interval> Intervals = default) : MeshOp;
     public sealed record CurveExtrude(GeometryHandle Curve, Vector3d Direction, Option<MeshFidelity> Fidelity = default, Option<BoundingBox> Bounds = default) : MeshOp;
     public sealed record Isosurface(Func<Point3d, double> Field, BoundingBox Box, MeshCount Resolution, int RootFindingMaxSteps) : MeshOp;
     public sealed record FromLines(Seq<GeometryHandle> Lines, int MaxFaceValence) : MeshOp;
-    public sealed record Tessellate(Seq<Point3d> Points, Seq<Seq<Point3d>> Edges, Plane Frame, MeshVertexAdmission VertexAdmission) : MeshOp;
+    public sealed record Tessellate(Seq<Point3d> Points, Seq<Seq<Point3d>> Edges, Plane Frame, bool AllowNewVertices) : MeshOp;
     public sealed record ConvexHull(Seq<Point3d> Points) : MeshOp;
-    public sealed record Patch(Seq<Point3d> OuterBoundary, Option<GeometryHandle> PullbackSurface, Seq<GeometryHandle> InnerBoundaries, Seq<GeometryHandle> BothSideCurves, Seq<Point3d> InnerPoints, MeshTrim Trim, int Divisions) : MeshOp;
+    public sealed record Patch(Seq<Point3d> OuterBoundary, Option<GeometryHandle> PullbackSurface, Seq<GeometryHandle> InnerBoundaries, Seq<GeometryHandle> BothSideCurves, Seq<Point3d> InnerPoints, bool Trimback, int Divisions) : MeshOp;
     public sealed record Rebuild(GeometryHandle Source, FrozenSet<MeshRebuildAttribute> Attributes) : MeshOp;
     public sealed record Cleanup(Seq<GeometryHandle> Sources) : MeshOp;
     public sealed record RefineLoop(GeometryHandle Source, MeshRefinements.LoopFormula Formula, MeshCount Level, MeshRefinements.CreaseEdges NakedEdges) : MeshOp;
@@ -1020,7 +913,7 @@ public abstract partial record MeshOp {
         guard(this switch {
             FromGeometry edit => edit.Source is not null && FidelityAdmissible(edit.Fidelity),
             FromSubD edit => edit.Source is not null,
-            Cage edit => edit.Source is not null && edit.TextureCoordinates is not null,
+            Cage edit => edit.Source is not null,
             FromBoundary edit => edit.Boundary is not null && FidelityAdmissible(edit.Fidelity),
             SeedPlane edit => edit.Frame.IsValid && edit.X.IsValid && edit.Y.IsValid
                 && CountAdmissible(edit.XCount) && CountAdmissible(edit.YCount),
@@ -1030,9 +923,8 @@ public abstract partial record MeshOp {
             SeedIcoSphere edit => edit.Sphere.IsValid && CountAdmissible(edit.Subdivisions),
             SeedQuadSphere edit => edit.Sphere.IsValid && CountAdmissible(edit.Subdivisions),
             SeedCylinder edit => edit.Cylinder.IsValid && CountAdmissible(edit.Vertical) && CountAdmissible(edit.Around)
-                && edit.Caps is not null && edit.Circumscription is not null && edit.CapFaces is not null,
-            SeedCone edit => edit.Cone.IsValid && CountAdmissible(edit.Vertical) && CountAdmissible(edit.Around)
-                && edit.Shell is not null && edit.CapFaces is not null,
+                && edit.Caps is not null,
+            SeedCone edit => edit.Cone.IsValid && CountAdmissible(edit.Vertical) && CountAdmissible(edit.Around),
             SeedTorus edit => edit.Torus.IsValid && CountAdmissible(edit.Vertical) && CountAdmissible(edit.Around),
             SeedClosedPolyline edit => edit.Boundary is not null,
             QuadRemesh edit => edit.Source is not null && QuadAdmissible(edit.Law)
@@ -1041,7 +933,7 @@ public abstract partial record MeshOp {
             Wrap edit => Handles(edit.Sources) && WrapAdmissible(edit.Law)
                 && edit.Fidelity.ForAll(static fidelity => FidelityAdmissible(fidelity)),
             CurvePipe edit => edit.Curve is not null && Positive(edit.Radius) && CountAdmissible(edit.Segments)
-                && edit.Accuracy > 0 && edit.Faceting is not null
+                && edit.Accuracy > 0
                 && edit.Intervals.ForAll(static interval => interval.IsValid),
             CurveExtrude edit => edit.Curve is not null && edit.Direction.IsValid && !edit.Direction.IsZero
                 && edit.Fidelity.ForAll(static fidelity => FidelityAdmissible(fidelity))
@@ -1052,8 +944,7 @@ public abstract partial record MeshOp {
             Tessellate edit => Points(edit.Points)
                 && !edit.Edges.IsEmpty
                 && edit.Edges.ForAll(static edge => Points(edge))
-                && edit.Frame.IsValid
-                && edit.VertexAdmission is not null,
+                && edit.Frame.IsValid,
             ConvexHull edit => edit.Points.Count >= 4 && edit.Points.ForAll(static point => point.IsValid),
             Patch edit => edit.OuterBoundary.Count >= 4
                 && edit.OuterBoundary.ForAll(static point => point.IsValid)
@@ -1061,8 +952,7 @@ public abstract partial record MeshOp {
                 && Handles(edit.InnerBoundaries, allowEmpty: true)
                 && Handles(edit.BothSideCurves, allowEmpty: true)
                 && edit.InnerPoints.ForAll(static point => point.IsValid)
-                && edit.Trim is not null
-                && edit.Divisions > 0,
+                    && edit.Divisions > 0,
             Rebuild edit => edit.Source is not null && edit.Attributes is not null,
             Cleanup edit => Handles(edit.Sources),
             RefineLoop edit => edit.Source is not null && CountAdmissible(edit.Level),
@@ -1155,8 +1045,7 @@ public abstract partial record MeshOp {
 
     private static bool ExtrudeAdmissible(ExtrudeLaw law) => law.Motion.IsValid
         && !law.Motion.IsZero
-        && law.Frame is not null
-        && law.OriginalFaces is not null;
+        && law.Frame is not null;
 
     private static bool CountAdmissible(MeshCount count) => count.Value > 0;
 
@@ -1195,7 +1084,7 @@ public abstract partial record MeshOp {
                 Op op = Op.Of(name: nameof(Cage));
                 return ModelGate.Borrow<GeometryBase, Built<MeshSlot>>(handle: edit.Source, key: op, body: source =>
                     source switch {
-                        SubD subd => ModelGate.Single(op, MeshSlot.Meshed, () => edit.TextureCoordinates.Native
+                        SubD subd => ModelGate.Single(op, MeshSlot.Meshed, () => edit.TextureCoordinates
                             ? Mesh.CreateFromSubDControlNetWithTextureCoordinates(subd: subd)
                             : Mesh.CreateFromSubDControlNet(subd: subd)),
                         Surface surface => ModelGate.Single(op, MeshSlot.Meshed, () => Mesh.CreateFromSurfaceControlNet(surface: surface)),
@@ -1258,8 +1147,8 @@ public abstract partial record MeshOp {
                     around: edit.Around.Value,
                     capBottom: bottom,
                     capTop: top,
-                    circumscribe: edit.Circumscription.Native,
-                    quadCaps: edit.CapFaces.Native));
+                    circumscribe: edit.Circumscribe,
+                    quadCaps: edit.QuadCaps));
             },
             seedCone: static (_, edit) => {
                 Op op = Op.Of(name: nameof(SeedCone));
@@ -1267,8 +1156,8 @@ public abstract partial record MeshOp {
                     cone: edit.Cone,
                     vertical: edit.Vertical.Value,
                     around: edit.Around.Value,
-                    solid: edit.Shell.Native,
-                    quadCaps: edit.CapFaces.Native));
+                    solid: edit.Solid,
+                    quadCaps: edit.QuadCaps));
             },
             seedTorus: static (_, edit) => {
                 Op op = Op.Of(name: nameof(SeedTorus));
@@ -1335,13 +1224,13 @@ public abstract partial record MeshOp {
                                     Products: Seq<GeometryHandle>(),
                                     Evidence: BuildReceipt<MeshSlot>.Of(slot: MeshSlot.Clashed, body: new BuildBody.Flag(Value: hit))
                                         + BuildReceipt<MeshSlot>.Of(slot: MeshSlot.Clashed, body: new BuildBody.Components(Indices: toSeq(pairs ?? [])))
-                                        + BuildReceipt<MeshSlot>.Of(slot: MeshSlot.Clashed, body: new BuildBody.Text(Value: log.ToString())));
+                                        + BuildReceipt<MeshSlot>.Of(slot: MeshSlot.Clashed, body: new BuildBody.Text(Value: log.ToString()))));
                             }),
                             detect: static (ctx, law) => ctx.Op.Catch(() => Fin.Succ(toSeq(MeshClash.Search(
                                 setA: ctx.First.AsIterable(),
                                 setB: ctx.Second.AsIterable(),
                                 distance: law.Distance,
-                                maxEventCount: law.MaxEvents.Value) ?? [])))
+                                maxEventCount: int.MaxValue) ?? []))) // host demands the argument and ignores it; live-proven dead
                                 .Map(events => Built<MeshSlot>.Of(
                                     operation: ctx.Op,
                                     Products: Seq<GeometryHandle>(),
@@ -1349,7 +1238,7 @@ public abstract partial record MeshOp {
                                         + BuildReceipt<MeshSlot>.Of(slot: MeshSlot.Clashed, body: new BuildBody.Marks(
                                             Points: events.Map(static row => row.ClashPoint)))
                                         + events.Fold(BuildReceipt<MeshSlot>.Empty, static (held, row) => held
-                                            + BuildReceipt<MeshSlot>.Of(slot: MeshSlot.Clashed, body: new BuildBody.Measure(Value: row.ClashRadius)))))));
+                                            + BuildReceipt<MeshSlot>.Of(slot: MeshSlot.Clashed, body: new BuildBody.Measure(Value: row.ClashRadius))))))));
             },
             neighbours: static (_, edit) => {
                 Op op = Op.Of(name: nameof(Neighbours));
@@ -1395,7 +1284,7 @@ public abstract partial record MeshOp {
                 return ModelGate.Borrow<Curve, Built<MeshSlot>>(handle: edit.Curve, key: op, body: curve =>
                     ModelGate.Single(op, MeshSlot.Piped, () => Mesh.CreateFromCurvePipe(
                         curve: curve, radius: edit.Radius, segments: edit.Segments.Value, accuracy: edit.Accuracy,
-                        capType: edit.Cap, faceted: edit.Faceting.Native,
+                        capType: edit.Cap, faceted: edit.Faceted,
                         intervals: edit.Intervals.IsEmpty ? null : edit.Intervals.AsIterable())));
             },
             curveExtrude: static (model, edit) => {
@@ -1431,7 +1320,7 @@ public abstract partial record MeshOp {
                 return ModelGate.Single(op, MeshSlot.Networked, () => Mesh.CreateFromTessellation(
                     points: edit.Points.AsIterable(),
                     edges: edit.Edges.Map(static loop => loop.AsIterable()).AsIterable(),
-                    plane: edit.Frame, allowNewVertices: edit.VertexAdmission.Native));
+                    plane: edit.Frame, allowNewVertices: edit.AllowNewVertices));
             },
             convexHull: static (model, edit) => {
                 Op op = Op.Of(name: nameof(ConvexHull));
@@ -1463,7 +1352,7 @@ public abstract partial record MeshOp {
                                 innerBoundaryCurves: inner.AsIterable(),
                                 innerBothSideCurves: bothSides.AsIterable(),
                                 innerPoints: edit.InnerPoints.AsIterable(),
-                                trimback: edit.Trim.Native,
+                                trimback: edit.Trimback,
                                 divisions: edit.Divisions)))));
             },
             rebuild: static (_, edit) => {
@@ -1699,7 +1588,7 @@ public abstract partial record MeshOp {
                             Transform = edit.Law.Motion,
                             UVN = uvn,
                             EdgeBasedUVN = edgeUvn,
-                            KeepOriginalFaces = edit.Law.OriginalFaces.Native,
+                            KeepOriginalFaces = edit.Law.KeepOriginalFaces,
                             TextureCoordinateMode = edit.Law.TextureCoordinates,
                             SurfaceParameterMode = edit.Law.SurfaceParameters,
                             FaceDirectionMode = edit.Law.FaceDirection,
@@ -1738,25 +1627,25 @@ public abstract partial record MeshOp {
             weld: static (ctx, edit) => ctx.Op.Catch(() => {
                 ctx.Working.Weld(
                     angleToleranceRadians: ctx.Runtime.Domain.Angle.Value,
-                    preserveSurfaceParameters: edit.SurfaceParameters.Native);
+                    preserveSurfaceParameters: edit.PreserveSurfaceParameters);
                 return ModelGate.Kept(ctx.Op, MeshSlot.Edited, ctx.Working);
             }),
             unweld: static (ctx, edit) => ctx.Op.Catch(() => {
-                ctx.Working.Unweld(angleToleranceRadians: ctx.Runtime.Domain.Angle.Value, modifyNormals: edit.Normals.Native);
+                ctx.Working.Unweld(angleToleranceRadians: ctx.Runtime.Domain.Angle.Value, modifyNormals: edit.ModifyNormals);
                 return ModelGate.Kept(ctx.Op, MeshSlot.Edited, ctx.Working);
             }),
             unweldEdges: static (ctx, edit) => ctx.Op
-                .Confirm(success: ctx.Working.UnweldEdge(edgeIndices: edit.Edges.AsIterable(), modifyNormals: edit.Normals.Native))
+                .Confirm(success: ctx.Working.UnweldEdge(edgeIndices: edit.Edges.AsIterable(), modifyNormals: edit.ModifyNormals))
                 .Bind(_ => ModelGate.Kept(ctx.Op, MeshSlot.Edited, ctx.Working)),
             unweldVertices: static (ctx, edit) => ctx.Op
-                .Confirm(success: ctx.Working.UnweldVertices(topologyVertexIndices: edit.TopologyVertices.AsIterable(), modifyNormals: edit.Normals.Native))
+                .Confirm(success: ctx.Working.UnweldVertices(topologyVertexIndices: edit.TopologyVertices.AsIterable(), modifyNormals: edit.ModifyNormals))
                 .Bind(_ => ModelGate.Kept(ctx.Op, MeshSlot.Edited, ctx.Working)),
             offset: static (ctx, edit) => ModelGate.Owned(ctx.Op, MeshSlot.Edited, ctx.Working,
-                () => ctx.Working.Offset(distance: edit.Distance, solidify: edit.Shell.Native)),
+                () => ctx.Working.Offset(distance: edit.Distance, solidify: edit.Solid)),
             offsetDirection: static (ctx, edit) => ctx.Op.Catch(() => {
                 Mesh shelled = ctx.Working.Offset(
                     distance: edit.Distance,
-                    solidify: edit.Shell.Native,
+                    solidify: edit.Solid,
                     direction: edit.Direction,
                     wallFacesOut: out System.Collections.Generic.List<int> walls);
                 return ModelGate.Owned(ctx.Op, MeshSlot.Edited, ctx.Working, () => shelled,
@@ -1770,18 +1659,18 @@ public abstract partial record MeshOp {
             fillHole: static (ctx, edit) => ctx.Op.Confirm(success: ctx.Working.FillHole(topologyEdgeIndex: edit.TopologyEdge))
                 .Bind(_ => ModelGate.Kept(ctx.Op, MeshSlot.Edited, ctx.Working)),
             matchNaked: static (ctx, edit) => ctx.Op.Confirm(
-                    success: ctx.Working.MatchEdges(distance: edit.Distance, rachet: edit.Mode.Native))
+                    success: ctx.Working.MatchEdges(distance: edit.Distance, rachet: edit.Ratchet))
                 .Bind(_ => ModelGate.Kept(ctx.Op, MeshSlot.Edited, ctx.Working)),
             mergeCoplanar: static ctx => ctx.Op
                 .Confirm(success: ctx.Working.MergeAllCoplanarFaces(tolerance: ctx.Runtime.Domain.Absolute.Value, angleTolerance: ctx.Runtime.Domain.Angle.Value))
                 .Bind(_ => ModelGate.Kept(ctx.Op, MeshSlot.Edited, ctx.Working)),
-            smooth: static (ctx, edit) => ctx.Op.Confirm(success: edit.Law.Apply(target: ctx.Working))
+            smooth: static (ctx, edit) => ctx.Op.Confirm(success: edit.Law.Apply(target: ctx.Working, steps: edit.Steps.Value))
                 .Bind(_ => ModelGate.Kept(ctx.Op, MeshSlot.Edited, ctx.Working)),
             smoothVertices: static (ctx, edit) => ctx.Op.Confirm(
-                    success: edit.Law.Apply(target: ctx.Working, vertices: Some(edit.Vertices)))
+                    success: edit.Law.Apply(target: ctx.Working, steps: edit.Steps.Value, vertices: Some(edit.Vertices)))
                 .Bind(_ => ModelGate.Kept(ctx.Op, MeshSlot.Edited, ctx.Working)),
             collapseEdgeLength: static (ctx, edit) => ctx.Op.Catch(() => ctx.Working.CollapseFacesByEdgeLength(
-                    bGreaterThan: edit.Side.Native, edgeLength: edit.EdgeLength))
+                    bGreaterThan: edit.AboveThreshold, edgeLength: edit.EdgeLength))
                 .Bind(collapsed => ModelGate.Kept(ctx.Op, MeshSlot.Edited, ctx.Working, extra: BuildReceipt<MeshSlot>.Of(
                     slot: MeshSlot.Edited, body: new BuildBody.Tally(Count: collapsed)))),
             collapseArea: static (ctx, edit) => ctx.Op.Catch(() => ctx.Working.CollapseFacesByArea(
@@ -1811,12 +1700,12 @@ public abstract partial record MeshOp {
             compact: static ctx => ctx.Op.Confirm(success: ctx.Working.Compact()).Bind(_ => ModelGate.Kept(ctx.Op, MeshSlot.Edited, ctx.Working)),
             extractNonManifold: static (ctx, edit) => ctx.Op.Catch(() =>
                 ModelGate.Staged(op: ctx.Op,
-                    (MeshSlot.Edited, (GeometryBase[])[ctx.Working.ExtractNonManifoldEdges(selective: edit.Scope.Native), ctx.Working], false))),
+                    (MeshSlot.Edited, (GeometryBase[])[ctx.Working.ExtractNonManifoldEdges(selective: edit.Selective), ctx.Working], false))),
             edgeSoften: static (ctx, edit) => ModelGate.Owned(ctx.Op, MeshSlot.Edited, ctx.Working,
                 () => ctx.Working.WithEdgeSoftening(
                     softeningRadius: edit.Law.Radius,
                     chamfer: edit.Law.Features.Contains(MeshEdgeSoftenFeature.Chamfer),
-                    faceted: edit.Law.Faceting.Native,
+                    faceted: edit.Law.Faceted,
                     force: edit.Law.Features.Contains(MeshEdgeSoftenFeature.Force),
                     angleThreshold: edit.Law.AngleThreshold)),
             shutLine: static (ctx, edit) =>
@@ -1825,7 +1714,7 @@ public abstract partial record MeshOp {
                     key: ctx.Op,
                     body: curves => ModelGate.Owned(ctx.Op, MeshSlot.Edited, ctx.Working,
                         () => ctx.Working.WithShutLining(
-                            faceted: edit.Faceting.Native,
+                            faceted: edit.Faceted,
                             tolerance: ctx.Runtime.Domain.Absolute.Value,
                             curves: curves.Zip(edit.Profiles).Map(static pair => pair.Item2.Rig(curve: pair.Item1)).AsEnumerable()))),
             displace: static (ctx, edit) => ModelGate.Owned(ctx.Op, MeshSlot.Edited, ctx.Working,
@@ -1881,4 +1770,4 @@ Every host out-channel lands as evidence: the boolean options carry a `TextLog` 
 [SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
-- [CLASH_CAP_SIGNAL]-[OPEN]: does `MeshClash.Search` signal that `maxEventCount` truncated the event set, or does a capped return read identically to an exhausted search; the host documents the argument as "the maximum number of clash objects" and publishes no truncation channel, so `MeshSlot.Clashed` cannot state whether its tally is complete — settle with a `tools.assay bridge` scenario capping below a known clash count and comparing the returned length against the uncapped run.
+(none)

@@ -422,8 +422,9 @@ public static class GraphStore {
         session.SetHeader("origin", stamp.Origin.ToString());
         // Kernel root partitions nothing, so an ABSENT tenant header IS the single-tenant fact the
         // `TryGetValue` read side folds to empty — a zero-valued partition string is the deleted sentinel.
-        // `Entry` is the one fixed-width `x32` spelling the RLS predicate and the meter tag both compare.
-        Optional(frame.Tenant.Partitions ? frame.Tenant.Entry : null).IfSome(entry => session.SetHeader("tenant", entry));
+        // `TenantContext.Key` is that absence read, carrying the one fixed-width `x32` `Entry` spelling the RLS
+        // predicate and the meter tag both compare.
+        frame.Tenant.Key.IfSome(entry => session.SetHeader("tenant", entry));
         // `project` carries ProjectRollup's grouping fact — stamped at write time, never joined at fold time.
         stamp.Project.IfSome(p => session.SetHeader("project", p.Value.ToString()));
     }

@@ -8,7 +8,7 @@ One implicit-field algebra over three closed field unions — `ScalarField`, `Ve
 
 - [02]-[FIELD_VOCAB]: `BlendKind`, `CsgKind`, `NoiseKind`, and the ray, bounce, and provenance vocabularies, each owning its policy columns.
 - [03]-[SDF_PRIMITIVES]: `SdfKind` exact analytic primitives as typed parameter cases carrying `Lipschitz` and `Distance`.
-- [04]-[SCALAR_FIELD]: `ScalarField` algebra, its one total sample dispatch, the Lipschitz fold, and the public tagged rail.
+- [04]-[SCALAR_FIELD]: `ScalarField` algebra, its one total sample dispatch, the Lipschitz fold, the fitted and evaluated reconstruction cases, and the public tagged rail.
 - [05]-[VECTOR_FIELD]: `VectorField` algebra over three shared radial, rotational, and closest-directed folds.
 - [06]-[TENSOR_FIELD]: `TensorField` symmetric-tensor algebra, congruence transforms, and principal directions.
 
@@ -227,7 +227,7 @@ public abstract partial record SdfKind {
 
 ## [04]-[SCALAR_FIELD]
 
-- Owner: `ScalarField` `[Union]` — the scalar algebra in case families spanning analytic sources, combinators, domain warps, differential operators, mesh-aware solvers, reconstruction, and the lattice-backed `LatticeCase` that makes a baked or imported plane a first-class field. Mesh-aware and reconstruction cases construct only through their admitting factories, never `new`, so the factory proves sources against the `MeshSpace` range, the fitted payload against its `reconstruct.md` minter, or the value census against the admitting `CellLattice`. `Noise` takes the `NoisePolicy` record.
+- Owner: `ScalarField` `[Union]` — the scalar algebra in case families spanning analytic sources, combinators, domain warps, differential operators, mesh-aware solvers, reconstruction, and the lattice-backed `LatticeCase` that makes a baked or imported plane a first-class field. Mesh-aware and reconstruction cases construct only through their admitting factories, never `new`, so the factory proves sources against the `MeshSpace` range, the fitted payload against its `reconstruct.md` minter, or the value census against the admitting `CellLattice`. The reconstruction family splits by payload timing, not by kernel: a FITTED case (`Rbf`, `Poisson`, `TetSignedHeat`) carries the solved coefficients its minter produced, an EVALUATED case (`Mls`, `LevinMls`, `Apss`, `Sibson`) carries the admitted sample set and its support or tolerance and solves per query, so a coefficient array on an evaluated case names a solve that never ran. `Noise` takes the `NoisePolicy` record.
 - Auto: `SampleScalar` is the one total generated `Switch` over the union — analytic sources evaluate closed forms, combinators recurse, warps pre-transform the sample and recurse, differential arms delegate to the `calculus.md` `Nabla` stencil with sampler closures the stencil never learns the union from, mesh-aware arms delegate through the `MeshSpace` seam, and reconstruction arms evaluate the fitted payload through `reconstruct.md`. One shared `SampleMapped` body collapses the map-only warps, and one `ReconstructLattice` body is the sample reconstruction every lattice-backed arm (`LatticeCase`, `PoissonCase`) reads through its `LatticeInterpolation` row. `SampleLattice` is the one batch sweep — every cell centre through the same rail, the first failure carrying its cell coordinate. `LipschitzBound` folds only the analytically bounded species; an over-claimed bound overshoots ray-march steps into silently missed surfaces, so `Twist`, `Bend`, `Periodic`, and the sampled `LatticeCase` answer `None` by decision.
 - Receipt: `SampleDetailed → Fin<FieldSample>` is the public tagged rail carrying value, `SdfStatus` provenance, and nested evidence for mesh, reconstruction, and tet species. `SampleSdfDetailed → Fin<SdfSample>` refuses a species with no distance semantics, faulting `Unsupported` rather than mislabeling a value as a distance; its `SdfSample` carries the profile-extrusion `ProfileFeature` and `ProfileContainment` columns only on the `NativeProfile` species.
 - Packages: `RhinoCommon`, `Thinktecture.Runtime.Extensions`, `LanguageExt.Core`.
@@ -293,6 +293,10 @@ public abstract partial record ScalarField {
     public sealed record MlsCase(Seq<MlsSample> Samples, KernelKind Kernel, PositiveMagnitude Radius, ReconstructionReceipt Receipt) : ScalarField;
     public sealed record LevinMlsCase(Seq<MlsSample> Samples, LevinMlsPolicy Policy, ReconstructionReceipt Receipt) : ScalarField;
     public sealed record ApssCase(Seq<MlsSample> Samples, ApssPolicy Policy, ReconstructionReceipt Receipt) : ScalarField;
+    // Sibson is EVALUATED, never fitted: its weights are the per-query stolen-volume ratios of the Spatial/cloud dual
+    // over the samples plus the query point, so the payload is the admitted sample set and the dual tolerance and a
+    // coefficient array here would be a solve this species never runs.
+    public sealed record SibsonCase(Seq<(Point3d Position, double Value)> Samples, PositiveMagnitude Tolerance, ReconstructionReceipt Receipt) : ScalarField;
     public sealed record TetSignedHeatCase(TetMeshDomain Domain, TetSignedHeatPolicy Policy, Arr<double> Values, TetSignedHeatReceipt Receipt) : ScalarField;
     public sealed record PoissonCase(PoissonGrid Grid, double Gamma, PoissonReceipt Receipt) : ScalarField;
     // Baked or imported planes/volumes become FIRST-CLASS fields: a clearance raster, a DEM band, a pressed height
@@ -337,12 +341,13 @@ public abstract partial record ScalarField {
         ScaledCase s => s.Source.LipschitzBound().Map(l => Math.Abs(s.Scale) * l),
         DisplaceCase d => from l in d.Source.LipschitzBound() from r in d.Displacement.LipschitzBound() select l + r,
         BlendCase b => b.Fields.TraverseM(static f => f.LipschitzBound()).As().Map(bounds =>
-            b.Mode.Equals(FieldBlend.Average) ? bounds.Sum() / bounds.Count : bounds.Sum()),
+            bounds.Fold(0.0, static (acc, bound) => acc + bound) / (b.Mode.Equals(FieldBlend.Average) ? bounds.Count : 1)),
         OnionCase o => o.Source.LipschitzBound(),
         SdfRoundCase r => r.Source.LipschitzBound(),
         ElongateCase e => e.Source.LipschitzBound(),
         ClampCase c => c.Source.LipschitzBound(),
-        // Twist/Bend stretch tangentially with radius; Periodic's wrap seam breaks the modulus of continuity for asymmetric sources — no honest global bound.
+        // Twist/Bend stretch tangentially with radius; Periodic's wrap seam breaks the modulus of continuity for asymmetric sources; a Sibson
+        // blend's weight derivative diverges as a query crosses a sliver dual cell — no honest global bound on any of them.
         _ => Option<double>.None,
     };
 
@@ -371,8 +376,9 @@ public abstract partial record ScalarField {
                scaled/power/clamp/onion/sdfRound via ONE SampleMapped recurse-then-map body,
                periodic (Nabla.ToroidalWrap)/twist/bend/elongate/displace domain warps,
                meanCurvatureFlow -> GeodesicKernel.MeanCurvatureMagnitudeAt, spectralDistance ->
-               SegmentKernel.SpectralDistanceAt, stripe -> SegmentKernel.StripeAt, rbf/mls/levinMls/apss/tet/poisson
-               reconstruct.md evaluators — every arm total, every scalar exits through key.AcceptValue. */
+               SegmentKernel.SpectralDistanceAt, stripe -> SegmentKernel.StripeAt,
+               rbf/mls/levinMls/apss/sibson/tet/poisson reconstruct.md evaluators — every arm total, every scalar
+               exits through key.AcceptValue. */
             latticeCase: static (s, c) => s.Key.AcceptValue(value: ReconstructLattice(grid: c.Grid, values: c.Values, interp: c.Interp, local: c.Grid.Locate(sample: s.Sample))),
             poissonCase: static (s, c) => s.Key.AcceptValue(value: ReconstructLattice(grid: c.Grid.Grid, values: c.Grid.Chi, interp: LatticeInterpolation.Linear, local: c.Grid.Grid.Locate(sample: s.Sample)) - c.Gamma)));
 
@@ -418,7 +424,7 @@ public abstract partial record ScalarField {
 
     public Fin<FieldSample> SampleDetailed(Point3d sample, Context context, Op? key = null) { /* status-tagged rail:
         Primitive -> Analytic; Lipschitz-bounded composite -> ComposedAnalytic; ProfileExtrusion -> NativeProfile;
-        SignedDistanceFromMesh -> MeshApproximate + SdfMeshReceipt; Rbf/Mls/LevinMls/Apss/Poisson ->
+        SignedDistanceFromMesh -> MeshApproximate + SdfMeshReceipt; Rbf/Mls/LevinMls/Apss/Sibson/Poisson ->
         Reconstruction + sample receipt; TetSignedHeat -> TetSignedHeat + receipts; everything else ->
         ComposedAnalytic with no distance claim. */ return default!; }
     public Fin<SdfSample> SampleSdfDetailed(Point3d sample, Context context, Op? key = null) { /* the SDF-restricted
@@ -464,7 +470,9 @@ public abstract partial record VectorField {
                 (acc, charge) => acc.Bind(sum => RadialContribution(sum: sum, source: charge.Position, scale: charge.Charge, state: s, falloff: c.Falloff))),
             clusterFieldCase: static (s, c) =>
                 from index in NeighborIndex.Of(source: new NeighborSource.ClusterCase(Cloud: c.Source), key: s.Key)
-                from answer in index.Query(query: new NeighborQuery.RadiusCase(R: c.Radius, Cap: Option<Dimension>.None), anchor: s.Sample, key: s.Key)
+                // The cluster index is RTree-backed, and neighbors.md refuses a non-Euclidean metric on that species
+                // rather than answering Euclidean under another row's name, so the radial fold pins Euclidean here.
+                from answer in index.Query(query: new NeighborQuery.RadiusCase(R: c.Radius, Cap: Option<Dimension>.None, Metric: NeighborMetric.Euclidean), anchor: s.Sample, key: s.Key)
                 from ids in answer switch {
                     NeighborAnswer.Graph { Value.Ids: [var row] } => Fin.Succ(toSeq(row)),
                     _ => Fin.Fail<Seq<int>>(error: s.Key.InvalidResult()),

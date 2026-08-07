@@ -56,21 +56,22 @@ Six Labors' Split License grants Apache-2.0 unconditionally to an open-source co
 
 [PUBLIC_TYPE_SCOPE]: format rows — `SixLabors.ImageSharp.Formats.*`
 
-| [INDEX] | [SYMBOL]                      | [TYPE_FAMILY] | [CAPABILITY]                                   |
-| :-----: | :---------------------------- | :------------ | :--------------------------------------------- |
-|  [01]   | `PngDecoder` / `PngEncoder`   | codec pair    | PNG through 16-bit gray, color, and alpha      |
-|  [02]   | `TiffDecoder` / `TiffEncoder` | codec pair    | TIFF through 16-bit integer sample formats     |
-|  [03]   | `WebpDecoder` / `WebpEncoder` | codec pair    | WebP lossy, lossless, near-lossless, animated  |
-|  [04]   | `QoiDecoder` / `QoiEncoder`   | codec pair    | Quite OK Image fast lossless 8-bit             |
-|  [05]   | `JpegDecoder` / `JpegEncoder` | codec pair    | baseline and progressive JPEG                  |
-|  [06]   | `BmpDecoder` / `BmpEncoder`   | codec pair    | BMP                                            |
-|  [07]   | `GifDecoder` / `GifEncoder`   | codec pair    | animated GIF                                   |
-|  [08]   | `TgaDecoder` / `TgaEncoder`   | codec pair    | Targa                                          |
-|  [09]   | `PbmDecoder` / `PbmEncoder`   | codec pair    | Netpbm plain and binary                        |
-|  [10]   | `DecoderOptions`              | class         | target size, frame limit, skip metadata        |
-|  [11]   | `ISpecializedDecoderOptions`  | interface     | the per-format decoder-options contract        |
-|  [12]   | `IImageFormat`                | interface     | one registered format identity                 |
-|  [13]   | `ImageFormatManager`          | class         | detector and codec registry on `Configuration` |
+| [INDEX] | [SYMBOL]                          | [TYPE_FAMILY] | [CAPABILITY]                                     |
+| :-----: | :-------------------------------- | :------------ | :----------------------------------------------- |
+|  [01]   | `PngDecoder` / `PngEncoder`       | codec pair    | PNG through 16-bit gray, color, and alpha        |
+|  [02]   | `TiffDecoder` / `TiffEncoder`     | codec pair    | TIFF decode through float32, encode to `Bit48`   |
+|  [03]   | `WebpDecoder` / `WebpEncoder`     | codec pair    | WebP lossy, lossless, near-lossless, animated    |
+|  [04]   | `QoiDecoder` / `QoiEncoder`       | codec pair    | Quite OK Image fast lossless 8-bit               |
+|  [05]   | `JpegDecoder` / `JpegEncoder`     | codec pair    | baseline and progressive JPEG                    |
+|  [06]   | `BmpDecoder` / `BmpEncoder`       | codec pair    | BMP                                              |
+|  [07]   | `GifDecoder` / `GifEncoder`       | codec pair    | animated GIF                                     |
+|  [08]   | `TgaDecoder` / `TgaEncoder`       | codec pair    | Targa                                            |
+|  [09]   | `PbmDecoder` / `PbmEncoder`       | codec pair    | Netpbm plain and binary                          |
+|  [10]   | `DecoderOptions`                  | class         | target size, frame limit, skip metadata          |
+|  [11]   | `ISpecializedDecoderOptions`      | interface     | the per-format decoder-options contract          |
+|  [12]   | `IImageFormat`                    | interface     | one registered format identity                   |
+|  [13]   | `IImageEncoder` / `IImageDecoder` | interface     | the codec contracts an encode/decode field types |
+|  [14]   | `ImageFormatManager`              | class         | detector and codec registry on `Configuration`   |
 
 [PUBLIC_TYPE_SCOPE]: metadata and color science — `Metadata` / `ColorSpaces`
 
@@ -124,7 +125,7 @@ Six Labors' Split License grants Apache-2.0 unconditionally to an open-source co
 - [EDGE_KERNEL]: `Kayyali` `Prewitt` `RobertsCross` `Scharr` `Sobel` (2D) · `Laplacian3x3` `Laplacian5x5` `LaplacianOfGaussian` (single) · `Kirsch` `Robinson` (compass)
 - `DenseMatrix<T>` exposes `Data`/`Columns`/`Rows`/`Span`/`ref this[int,int]` and converts implicitly from `T[,]`; a bespoke resampler, edge stencil, or swizzle lands as one struct against the standing processor.
 - `HistogramEqualizationOptions`: `Method` (default `Global`), `LuminanceLevels` 256, `ClipHistogram`/`ClipLimit` 350, `NumberOfTiles` 8, `SyncChannels` true; `Method` selects `Global`, `AdaptiveTileInterpolation`, `AdaptiveSlidingWindow`, or `AutoLevel`, and CLAHE is tile interpolation under a clip.
-- `IQuantizer` declares `CreatePixelSpecificQuantizer`, `Palette`, `QuantizeFrame -> IndexedImageFrame<TPixel>`, and `byte GetQuantizedColor(TPixel, out TPixel)`; `QuantizerOptions` carries `Dither` (default `KnownDitherings.FloydSteinberg`), `DitherScale` [0,1], `MaxColors` ≤256, and `ColorMatchingMode` `Coarse`·`Hybrid`·`Exact`.
+- `IQuantizer` declares `Options` and the two `CreatePixelSpecificQuantizer<TPixel>` overloads ALONE; the pixel-typed peer `IQuantizer<TPixel>` owns `Palette`, `QuantizeFrame -> IndexedImageFrame<TPixel>`, `byte GetQuantizedColor(TPixel, out TPixel)`, `AddPaletteColors`, and `Configuration`; `QuantizerOptions` carries `Dither` (default `KnownDitherings.FloydSteinberg`), `DitherScale` [0,1], `MaxColors` ≤256, and `ColorMatchingMode` `Coarse`·`Hybrid`·`Exact`.
 - [DITHER]: `Bayer2x2`…`Bayer16x16`/`Ordered3x3` (ordered) · `Atkinson` `Burks` `FloydSteinberg` `JarvisJudiceNinke` `Sierra2` `Sierra3` `SierraLite` `StevensonArce` `Stucki` (error-diffusion) — the property spells `Burks` against a backing `ErrorDither.Burkes`, and the two are not interchangeable.
 - `KnownFilterMatrices` factories `Brightness` `Contrast` `GrayscaleBt601/709` `Hue` `Invert` `Opacity` `Saturate` `Lightness` `Sepia` multiply into one matrix for a single traversal.
 - `AffineTransformBuilder` resolves `BuildMatrix(Size\|Rectangle) -> Matrix3x2` and `GetTransformedSize`; `ProjectiveTransformBuilder` adds `Prepend/AppendTaper(TaperSide, TaperCorner, float)` and takes skew in the `Vector2 origin` form alone.
@@ -144,9 +145,9 @@ Six Labors' Split License grants Apache-2.0 unconditionally to an open-source co
 |  [08]   | `GammaCompanding` / `LCompanding` / `Rec709Companding` / `Rec2020Companding` | static class    | per-channel scalar companding           |
 
 - `ParallelRowIterator`: `IterateRows<T[, TBuffer]>` and `IterateRowIntervals<T[, TBuffer]>` fold a struct operation across the row set.
-- `IRowOperation` takes `Invoke(int y[, Span<TBuffer>])` and declares pooled per-task scratch through `GetRequiredBufferLength(Rectangle)`; `IRowIntervalOperation` takes `Invoke(in RowInterval rows[, Span<TBuffer>])`.
+- `IRowOperation` takes `Invoke(int y)` alone; its buffered peer `IRowOperation<TBuffer>` takes `Invoke(int y, Span<TBuffer>)` and declares the pooled per-task scratch through `GetRequiredBufferLength(Rectangle)`; `IRowIntervalOperation` takes `Invoke(in RowInterval rows[, Span<TBuffer>])`.
 - `ParallelExecutionSettings`: `MaxDegreeOfParallelism`, `MinimumPixelsProcessedPerTask` (default 4096), `MultiplyMinimumPixelsPerTask(int)`, `FromConfiguration(Configuration)`.
-- `AdvancedImageExtensions`: `GetPixelMemoryGroup`, `DangerousGetPixelRowMemory(int)`, `DetectEncoder(string)`; `Buffer2D<T>` carries `DangerousGetRowSpan(int y)`, `ref this[int,int]`, `GetSubRegion`, and `Stride`.
+- `AdvancedImageExtensions`: `GetPixelMemoryGroup`, `DangerousGetPixelRowMemory(int)`, `DetectEncoder(string)`; `Buffer2D<T>` carries `Width`, `Height`, `MemoryGroup`, `ref this[int,int]`, and `DangerousGetRowSpan(int y)`, while `Buffer2DRegion<T>` owns `Stride` and both `GetSubRegion` overloads.
 - `SRgbCompanding` spans `Expand`/`Compress` over `Span<Vector4>`, `ref Vector4`, and `float`; the gamma, L, Rec709, and Rec2020 peers carry the scalar forms alone.
 
 ## [03]-[ENTRYPOINTS]
@@ -281,7 +282,7 @@ Six Labors' Split License grants Apache-2.0 unconditionally to an open-source co
 [STACKING]:
 - `CommunityToolkit.HighPerformance`(`libs/csharp/.api/api-highperformance.md`): `MemoryOwner<T>.Allocate(count)` IS an `IMemoryOwner<T>`, so `Image.WrapMemory(configuration, owner, width, height, metadata)` adopts a rental whose `T` is an ImageSharp `IPixel<T>` struct; the estate's typed-texel arena structs are NOT ImageSharp pixel types, so the zero-copy bind is unreachable from `plane#TEXTURE_PLANE` and a `MemoryMarshal` reinterpretation across that seam is the stride fork the codec bridge law forbids — the composed path stages through the converter rail instead, with `CopyPixelDataTo(Span<byte>)` as the only byte-level drain.
 - `TinyEXR.NET`(`.api/api-tinyexr.md`): the OpenEXR owner, whole. This surface carries no EXR codec at the held major, so every EXR read and write — flat scanline, tiled, mip-levelled, deep, multi-part — routes to that peer, and a plane crosses between an `Image<RgbaVector>` and a `TinyEXR.V3.ChannelBuffer` as raw texels in one pooled arena.
-- `TextureCompressor`(`.api/api-texturecompressor.md`): an `Image<Rgba32>`/`Image<RgbaVector>` plane crosses into block compression as a `BitmapView<Rgba8UNorm>`/`BitmapView<Rgba32Float>` over the shared pooled span — `CopyPixelDataTo(Span<byte>)` fills the peer's `ArrayBitmap<TPixel>.PixelSpan` and `ITextureCoder.Encode` consumes it, so PNG/TIFF/WebP containers and BCn/ASTC/UASTC payloads never mint two arenas for one plane.
+- `TextureCompressor`(`.api/api-texturecompressor.md`): a decoded container and a block-compressed payload meet at the plane arena, never each other — the landed bridge drains an `Image<TPixel>` into the arena's decoded row rail and block encode reads the arena back out through `BitmapView<Rgba8UNorm>`/`BitmapView<Rgba32Float>`, so PNG/TIFF/WebP containers and BCn/ASTC/UASTC payloads share one plane custody with no direct codec-to-codec span hand-off.
 - `System.IO.Hashing`(`libs/csharp/.api/api-hashing.md`): the encoded byte stream feeds `XxHash128.Append` incrementally and `GetCurrentHashAsUInt128` closes the plane's content key, so identity derives from the encoded file the object store holds rather than from a re-encode.
 - `Wacton.Unicolour`(`libs/csharp/.api/api-unicolour.md`): perceptual and spectral color work stays on the `Unicolour` owner and this surface contributes container-level ICC carriage alone; `ColorSpaceConverter` runs only where an ingested asset declares a working space the appearance rail must reconcile, and never as a second color authority.
 - within-lib: the raster codec fold binds one `Configuration` per encode profile — allocator, `PreferContiguousImageBuffers`, `MaxDegreeOfParallelism`, registered format rows — reused across every plane rather than constructed per call, and each `RasterFormat` row names its encoder instance beside the explicit depth its declared plane demands. That same `Configuration` is the FIRST argument of every `PixelOperations` call, so the codec bridge crosses in one spelling: `PixelOperations<Rgba64>.Instance.ToVector4(profile, decoded, staging, PixelConversionModifiers.None)` on the read side and `FromVector4Destructive` on the write side, the modifier stated because a linear plane must not be rescaled or companded. Hand-rolling a per-texel `ToScaledVector4`/`FromScaledVector4` loop beside that call is the deleted form — same arithmetic, no vectorization, and one more place the modifier decision goes unstated.
@@ -297,6 +298,6 @@ Six Labors' Split License grants Apache-2.0 unconditionally to an open-source co
 
 [RAIL_LAW]:
 - Package: `SixLabors.ImageSharp`
-- Owns: the managed raster container estate — format detection, decode and encode across PNG through 16-bit, TIFF through 16-bit integer, WebP, QOI, JPEG, BMP, GIF, TGA, and Netpbm; the `IPixel` depth ladder from `L8` to `RgbaVector`; ICC, EXIF, XMP, and CICP metadata carriage; the `ColorSpaceConverter` space and chromatic-adaptation transform; and the in-image processing pipeline — resamplers, wrap-mode convolution, histogram equalization, quantization and dithering, `ColorMatrix` filters, affine/projective warps, swizzles, integral images, the float row seam, and the parallel row iterator.
+- Owns: the managed raster containers the folder admits — format detection, decode and encode across PNG through 16-bit, TIFF through 16-bit integer, WebP, QOI, and JPEG; BMP, GIF, TGA, and Netpbm ship in the assembly and sit outside the admitted container roster; the `IPixel` depth ladder from `L8` to `RgbaVector`; ICC, EXIF, XMP, and CICP metadata carriage; the `ColorSpaceConverter` space and chromatic-adaptation transform; and the in-image processing pipeline — resamplers, wrap-mode convolution, histogram equalization, quantization and dithering, `ColorMatrix` filters, affine/projective warps, swizzles, integral images, the float row seam, and the parallel row iterator.
 - Accept: `Load<TPixel>` naming the demanded plane depth; `WrapMemory` over a pooled `MemoryOwner<T>` arena with the ownership form chosen deliberately; the five bulk rails per their own contracts, `PixelOperations<TPixel>.Instance` owning every bulk conversion with its modifiers stated; Processing inside the codec's own `Image` domain — preview, palette egress, ingest normalization — with `PixelConversionModifiers` stated explicitly on every float pass; one reused `Configuration` per encode profile; encoder instances declaring depth, compression, and filter policy explicitly; `CloneAs<TPixel2>` as the one depth conversion.
 - Reject: a hand-rolled per-texel conversion loop where `PixelOperations<TPixel>.Instance` owns the fold, and any `ToVector4`/`FromVector4Destructive` call leaving its `PixelConversionModifiers` unstated on a linear plane; an 8-bit pixel type on a texture channel plane; `Quantize`/`Dither` on a channel plane (a ≤256-entry palette collapse belongs to preview and palette-container egress alone); a `PlaneOp` re-routed through `Image<TPixel>` for a plane the arena already holds; an inferred encoder depth on a 16-bit or float plane; a second arena where `WrapMemory` binds the existing one; `DangerousTryGetSinglePixelMemory` without `PreferContiguousImageBuffers`; an EXR expectation against this surface; a hand-rolled block-compression or KTX2 writer over it; a decode assumed to have color-managed anything.

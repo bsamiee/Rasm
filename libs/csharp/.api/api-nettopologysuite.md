@@ -85,31 +85,31 @@
 
 [PUBLIC_TYPE_SCOPE]: acceleration, repair, transform, and operation policy
 
-| [INDEX] | [SYMBOL]                   | [TYPE_FAMILY] | [CAPABILITY]                        |
-| :-----: | :------------------------- | :------------ | :---------------------------------- |
-|  [01]   | `PreparedGeometryFactory`  | class         | predicate preparation               |
-|  [02]   | `IPreparedGeometry`        | interface     | segment-indexed predicates          |
-|  [03]   | `STRtree<TItem>`           | class         | bulk-loaded R-tree                  |
-|  [04]   | `Quadtree<TItem>`          | class         | mutation-tolerant quadtree          |
-|  [05]   | `HPRtree<TItem>`           | class         | Hilbert-packed static R-tree        |
-|  [06]   | `IItemVisitor<TItem>`      | interface     | streaming query sink                |
-|  [07]   | `IItemDistance`            | interface     | nearest-neighbour metric            |
-|  [08]   | `GeometryItemDistance`     | class         | envelope-to-geometry metric         |
-|  [09]   | `GeometryFixer`            | class         | validity repair                     |
-|  [10]   | `IsValidOp`                | class         | validity adjudication               |
-|  [11]   | `TopologyValidationError`  | class         | validity failure detail             |
-|  [12]   | `TopologyValidationErrors` | enum          | validity failure vocabulary         |
-|  [13]   | `AffineTransformation`     | class         | planar affine map and vertex filter |
-|  [14]   | `GeometryEditor`           | class         | structure-preserving edit           |
-|  [15]   | `BufferParameters`         | class         | offset join, cap, and side policy   |
-|  [16]   | `EndCapStyle`              | enum          | line end cap                        |
-|  [17]   | `JoinStyle`                | enum          | corner join                         |
-|  [18]   | `SpatialFunction`          | enum          | overlay operation selector          |
-|  [19]   | `ByteOrder`                | enum          | WKB endianness                      |
-|  [20]   | `IPointOnGeometryLocator`  | interface     | point-in-area location contract     |
-|  [21]   | `IndexedPointInAreaLocator`| class         | interval-indexed area locator       |
-|  [22]   | `SimplePointInAreaLocator` | class         | unindexed area locator              |
-|  [23]   | `Location`                 | enum          | interior, boundary, exterior, null  |
+| [INDEX] | [SYMBOL]                    | [TYPE_FAMILY] | [CAPABILITY]                        |
+| :-----: | :-------------------------- | :------------ | :---------------------------------- |
+|  [01]   | `PreparedGeometryFactory`   | class         | predicate preparation               |
+|  [02]   | `IPreparedGeometry`         | interface     | segment-indexed predicates          |
+|  [03]   | `STRtree<TItem>`            | class         | bulk-loaded R-tree                  |
+|  [04]   | `Quadtree<TItem>`           | class         | mutation-tolerant quadtree          |
+|  [05]   | `HPRtree<TItem>`            | class         | Hilbert-packed static R-tree        |
+|  [06]   | `IItemVisitor<TItem>`       | interface     | streaming query sink                |
+|  [07]   | `IItemDistance`             | interface     | nearest-neighbour metric            |
+|  [08]   | `GeometryItemDistance`      | class         | envelope-to-geometry metric         |
+|  [09]   | `GeometryFixer`             | class         | validity repair                     |
+|  [10]   | `IsValidOp`                 | class         | validity adjudication               |
+|  [11]   | `TopologyValidationError`   | class         | validity failure detail             |
+|  [12]   | `TopologyValidationErrors`  | enum          | validity failure vocabulary         |
+|  [13]   | `AffineTransformation`      | class         | planar affine map and vertex filter |
+|  [14]   | `GeometryEditor`            | class         | structure-preserving edit           |
+|  [15]   | `BufferParameters`          | class         | offset join, cap, and side policy   |
+|  [16]   | `EndCapStyle`               | enum          | line end cap                        |
+|  [17]   | `JoinStyle`                 | enum          | corner join                         |
+|  [18]   | `SpatialFunction`           | enum          | overlay operation selector          |
+|  [19]   | `ByteOrder`                 | enum          | WKB endianness                      |
+|  [20]   | `IPointOnGeometryLocator`   | interface     | point-in-area location contract     |
+|  [21]   | `IndexedPointInAreaLocator` | class         | interval-indexed area locator       |
+|  [22]   | `SimplePointInAreaLocator`  | class         | unindexed area locator              |
+|  [23]   | `Location`                  | enum          | interior, boundary, exterior, null  |
 
 [`IPreparedGeometry`]: `Geometry` `Intersects` `Disjoint` `Contains` `ContainsProperly` `Within` `Covers` `CoveredBy` `Crosses` `Overlaps` `Touches`
 [`AffineTransformation`]: `TranslationInstance` `RotationInstance` `ScaleInstance` `ShearInstance` `ReflectionInstance` `Translate` `Rotate` `Scale` `Shear` `Reflect` `Compose` `ComposeBefore` `GetInverse` `Determinant` `MatrixEntries` `IsIdentity`
@@ -159,13 +159,13 @@
 
 [ENTRYPOINT_SCOPE]: point-in-area location — `NetTopologySuite.Algorithm.Locate`, the one-geometry-many-points counterpart to `IPreparedGeometry`'s one-against-many
 
-| [INDEX] | [SURFACE]                                               | [SHAPE]  | [CAPABILITY]                          |
-| :-----: | :------------------------------------------------------ | :------- | :------------------------------------ |
-|  [01]   | `IPointOnGeometryLocator.Locate(Coordinate)`            | instance | `Location` of a point in an area      |
-|  [02]   | `IndexedPointInAreaLocator(Geometry)`                   | ctor     | lazily indexed locator over an area   |
-|  [03]   | `SimplePointInAreaLocator(Geometry)`                    | ctor     | unindexed locator, one-shot queries   |
-|  [04]   | `SimplePointInAreaLocator.Locate(Coordinate, Geometry)` | static   | one-shot location without a locator   |
-|  [05]   | `PointOnGeometryLocatorExtensions.Intersects(…)`        | static   | interior-or-boundary as a `bool`      |
+| [INDEX] | [SURFACE]                                               | [SHAPE]  | [CAPABILITY]                        |
+| :-----: | :------------------------------------------------------ | :------- | :---------------------------------- |
+|  [01]   | `IPointOnGeometryLocator.Locate(Coordinate)`            | instance | `Location` of a point in an area    |
+|  [02]   | `IndexedPointInAreaLocator(Geometry)`                   | ctor     | lazily indexed locator over an area |
+|  [03]   | `SimplePointInAreaLocator(Geometry)`                    | ctor     | unindexed locator, one-shot queries |
+|  [04]   | `SimplePointInAreaLocator.Locate(Coordinate, Geometry)` | static   | one-shot location without a locator |
+|  [05]   | `PointOnGeometryLocatorExtensions.Intersects(…)`        | static   | interior-or-boundary as a `bool`    |
 
 [`Location`]: `Interior`(0) `Boundary`(1) `Exterior`(2) `Null`(-1) — the vocabulary every locator answers in, so a boundary hit is a declared third outcome and never a tie-break
 [`IndexedPointInAreaLocator`]: accepts `IPolygonal` and `LinearRing` geometries; the segment index is a `SortedPackedIntervalRTree` built on FIRST `Locate` under a synchronized initializer, so construction is free and the instance is documented thread-safe and immutable
@@ -206,18 +206,22 @@
 |  [09]   | `OverlayNGRobust.Overlay(Geometry, Geometry, SpatialFunction)`            | static   | robust binary overlay                 |
 |  [10]   | `OverlayNGRobust.OverlaySR(Geometry, Geometry, SpatialFunction)`          | static   | snap-rounded attempt, null on failure |
 |  [11]   | `OverlayNGRobust.Union(IEnumerable<Geometry>, GeometryFactory)`           | static   | robust bulk union                     |
-|  [12]   | `UnaryUnionOp.Union(Geometry) -> Geometry`                                | static   | cascaded self-union                   |
-|  [13]   | `CoverageUnion.Union(Geometry[]) -> Geometry`                             | static   | edge-matched coverage union           |
-|  [14]   | `OffsetCurve.GetCurve(Geometry, double, int, JoinStyle, double)`          | static   | single-sided offset curve             |
-|  [15]   | `OffsetCurve.GetCurveJoined(Geometry, double) -> Geometry`                | static   | joined two-sided offset curve         |
-|  [16]   | `ConcaveHull.ConcaveHullByLength(Geometry, double, bool)`                 | static   | concave hull at a max edge length     |
-|  [17]   | `ConcaveHull.ConcaveHullByLengthRatio(Geometry, double, bool)`            | static   | scale-free concave hull               |
-|  [18]   | `ConcaveHull.AlphaShape(Geometry, double, bool)`                          | static   | alpha shape                           |
-|  [19]   | `ConcaveHullOfPolygons.ConcaveHullByLength(Geometry, double, bool, bool)` | static   | hull over a polygon set               |
-|  [20]   | `ConcaveHullOfPolygons.ConcaveFillByLength(Geometry, double)`             | static   | gap fill between polygons             |
-|  [21]   | `MinimumDiameter.GetMinimumRectangle(Geometry) -> Geometry`               | static   | minimum-area oriented rectangle       |
-|  [22]   | `MinimumDiameter.GetMinimumDiameter(Geometry) -> Geometry`                | static   | minimum width segment                 |
-|  [23]   | `MinimumBoundingCircle.GetCircle() -> Geometry`                           | instance | smallest enclosing circle             |
+|  [11a]  | `OverlayNGRobust.Union(IEnumerable<Geometry>)`                            | static   | bulk union, default factory           |
+|  [13]   | `UnaryUnionOp.Union(Geometry) -> Geometry`                                | static   | cascaded self-union                   |
+|  [14]   | `CoverageUnion.Union(Geometry[]) -> Geometry`                             | static   | edge-matched coverage union           |
+|  [15]   | `OffsetCurve.GetCurve(Geometry, double, int, JoinStyle, double)`          | static   | single-sided offset curve             |
+|  [16]   | `OffsetCurve.GetCurveJoined(Geometry, double) -> Geometry`                | static   | joined two-sided offset curve         |
+|  [15a]  | `new OffsetCurve(Geometry, double, BufferParameters)` + `.GetCurve()`     | instance | policy-carrying offset                |
+|  [18]   | `ConcaveHull.ConcaveHullByLength(Geometry, double, bool)`                 | static   | concave hull at a max edge length     |
+|  [19]   | `ConcaveHull.ConcaveHullByLengthRatio(Geometry, double, bool)`            | static   | scale-free concave hull               |
+|  [20]   | `ConcaveHull.AlphaShape(Geometry, double, bool)`                          | static   | alpha shape                           |
+|  [21]   | `ConcaveHullOfPolygons.ConcaveHullByLength(Geometry, double, bool, bool)` | static   | hull over a polygon set               |
+|  [22]   | `ConcaveHullOfPolygons.ConcaveFillByLength(Geometry, double)`             | static   | gap fill between polygons             |
+|  [23]   | `MinimumDiameter.GetMinimumRectangle(Geometry) -> Geometry`               | static   | minimum-area oriented rectangle       |
+|  [24]   | `MinimumDiameter.GetMinimumDiameter(Geometry) -> Geometry`                | static   | minimum width segment                 |
+|  [25]   | `MinimumBoundingCircle.GetCircle() -> Geometry`                           | instance | smallest enclosing circle             |
+
+- `OverlayNGRobust.Union`: no `Union(Geometry, Geometry)` binary exists; a binary union rides `Overlay`.
 
 [`MinimumBoundingCircle`]: `GetCentre` `GetRadius` `GetDiameter` `GetMaximumDiameter` `GetFarthestPoints` `GetExtremalPoints`
 [`ConcaveHull`]: `MaximumEdgeLength` `MaximumEdgeLengthRatio` `Alpha` `HolesAllowed` `GetHull` `UniformGridEdgeLength`
@@ -241,6 +245,8 @@
 |  [13]   | `CoverageSimplifier.SimplifyInner(Geometry[], double)`                   | static  | inner edges only, outline fixed   |
 |  [14]   | `LineDissolver.Dissolve(Geometry) -> Geometry`                           | static  | collapse duplicate linework       |
 
+- `GeometryFixer.Fix(Geometry)` also ships as a single-arg overload; no 3-arg form exists.
+
 [ENTRYPOINT_SCOPE]: topology assembly, triangulation, and linear referencing
 
 | [INDEX] | [SURFACE]                                                              | [SHAPE]  | [CAPABILITY]                        |
@@ -259,6 +265,10 @@
 |  [12]   | `LengthIndexedLine.IndexOf(Coordinate) -> double`                      | instance | station of a point on the line      |
 |  [13]   | `LengthIndexedLine.Project(Coordinate) -> double`                      | instance | station nearest an off-line point   |
 |  [14]   | `LocationIndexedLine.ExtractLine(LinearLocation, LinearLocation)`      | instance | sub-line by component and fraction  |
+|  [15]   | `LocationIndexedLine.Project(Coordinate) -> LinearLocation`            | instance | nearest on-line location            |
+|  [16]   | `LinearLocation.SegmentIndex` / `.SegmentFraction`                     | instance | get-only durable station identity   |
+
+- `LocationIndexedLine`: carries no single-arg `ExtractPoint(double)`.
 
 [`Polygonizer`]: `GetGeometry` `GetDangles` `GetCutEdges` `GetInvalidRingLines` `IsCheckingRingsValid`
 [`DelaunayTriangulationBuilder`]: `SetSites` `Tolerance` `GetSubdivision` `ExtractUniqueCoordinates`

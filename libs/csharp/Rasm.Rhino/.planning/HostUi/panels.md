@@ -4,9 +4,9 @@
 
 ## [01]-[INDEX]
 
-- [02]-[PANEL_MODEL]: `PanelKey`, `PanelChange`, `PanelFact`, and `HostPanel` close identity, lifecycle, content, and callback delivery.
+- [02]-[PANEL_MODEL]: `PanelKey`, `PanelChange`, `PanelSeat`, `PanelFact`, `PanelAudience`, and `HostPanel` close identity, lifecycle, content, and scoped callback delivery.
 - [03]-[PANEL_HOST]: `PanelOp<TPanel>` and `PanelReceipt<TPanel>` own registration, placement, query, close, instance, icon, and dock-bar modalities.
-- [04]-[PANEL_OBSERVATION]: `PanelObserve` folds owned and registry-wide lifecycle observation into one subscription entry.
+- [04]-[PANEL_OBSERVATION]: `PanelObserve` folds audience-scoped owned observation and the host-wide projection into one subscription entry.
 - [05]-[RUI]: `RuiCommand` folds toolbar-file state changes, while `RuiReceipt` carries the full snapshot and any applied-prefix fault.
 - [06]-[MENU_LINKS]: `MenuDelta` carries menu update state as cases over one registered host callback.
 - [07]-[SECTIONS]: `SectionSpec`, `SectionSignal`, capability sets, and `SectionMount` realize ordered collapsible sections with lifecycle routing and complete content lifetime.
@@ -16,10 +16,12 @@
 
 - Owner: `PanelKey` admits the panel type's declared `[Guid]` once; every registry call derives `Type` and identity from `TPanel`. Registration demands the declared `GuidAttribute` because the runtime synthesizes a fallback for an unattributed type, so `Type.GUID` is never empty and only the attribute probe proves a key stable across builds.
 - Owner: `PanelChange` closes shown, hidden, unclassified, panel-closing, and document-closing evidence without a boolean payload.
-- Owner: `PanelSeat` is the instance identity — a `PanelType.PerDoc` panel holds one live instance PER OPEN DOCUMENT, so the panel key alone names a type, never an instance, and every fact, ledger row, and receipt keys on the `(PanelKey, Option<DocKey>)` pair with a system panel seated under the `None` document.
-- Receipt: `PanelFact` carries panel, optional document, change, and monotonic ordinal, and projects its own `PanelSeat`.
-- Owner: `HostPanel` is the abstract implement seam over the foreign `Panel` and `IPanel` bases; it realizes Eto content once and routes every host callback through `PanelHost.Stamp`.
+- Owner: `PanelSeat` is the instance identity — a `PanelType.PerDoc` panel holds one live instance PER OPEN DOCUMENT and two plugins seat their own panels inside one process, so the panel key alone names neither a plugin nor an instance, and every fact, ledger row, and receipt keys on the `(PluginKey, PanelKey, Option<DocKey>)` triple with a system panel seated under the `None` document.
+- Owner: `PanelAudience` scopes fact delivery — `Plugin` receives its own seats alone, `Registry` is the deliberate every-plugin observation a caller names outright, and there is no unscoped default.
+- Receipt: `PanelFact` carries owning plugin, panel, optional document, change, and monotonic ordinal, and projects its own `PanelSeat`; the host-wide projection names no plugin because the host reports visibility for panels this boundary never registered, so an unowned fact carries `None`, seats nowhere, and reaches a `Registry` observer alone.
+- Owner: `HostPanel` is the abstract implement seam over the foreign `Panel` and `IPanel` bases; it declares its owning `PluginKey`, realizes Eto content once, and routes every host callback through `PanelHost.Stamp`.
 - Law: an identity refusal, an `OnLife` throw, and an `OnLife` failure all land in `HostPanel.Faults` — durable typed evidence that never re-enters the host callback.
+- Law: `Release` is one-shot across every teardown route — the host `PanelClosing` callback and `Dispose` latch the same exchange — so a panel torn down without a host close still returns its `ElementReceipt`.
 - Boundary: `Construction` retains `Fin<ElementReceipt>` so realization failure and control-tree lifetime remain typed even when the host requires a constructed panel instance.
 
 ```csharp signature
@@ -111,24 +113,49 @@ public abstract partial record PanelChange {
     };
 }
 
-public readonly record struct PanelSeat(PanelKey Panel, Option<DocKey> Document);
+public readonly record struct PanelSeat(PluginKey Plugin, PanelKey Panel, Option<DocKey> Document);
 
-public sealed record PanelFact(PanelKey Panel, Option<DocKey> Document, PanelChange Change, long Ordinal) {
-    public PanelSeat Seat => new(Panel: Panel, Document: Document);
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record PanelAudience {
+    private PanelAudience() { }
+    public sealed record Plugin(PluginKey Key) : PanelAudience;
+    public sealed record Registry : PanelAudience;
+
+    internal Fin<Unit> Admit(Op op) => Switch(
+        op,
+        plugin: static (held, row) => row.Key.Admit(held),
+        registry: static (_, _) => Fin.Succ(value: unit));
+
+    internal bool Admits(Option<PluginKey> owner) => Switch(
+        owner,
+        plugin: static (held, row) => held.Exists(key => key == row.Key),
+        registry: static (_, _) => true);
+}
+
+public sealed record PanelFact(
+    Option<PluginKey> Plugin,
+    PanelKey Panel,
+    Option<DocKey> Document,
+    PanelChange Change,
+    long Ordinal) {
+    public Option<PanelSeat> Seat =>
+        Plugin.Map(owner => new PanelSeat(Plugin: owner, Panel: Panel, Document: Document));
 }
 
 // --- [SERVICES] -----------------------------------------------------------------------------
 public abstract class HostPanel : Panel, IPanel {
+    private readonly Fin<PluginKey> owner;
     private readonly Fin<PanelKey> identity;
     private readonly Op op;
     private readonly Option<Control> fallback;
     private readonly Atom<Seq<Error>> faults = Atom(Seq<Error>());
     private int released;
 
-    protected HostPanel(Element content, ElementRuntime runtime, Op? key = null) {
+    protected HostPanel(PluginKey plugin, Element content, ElementRuntime runtime, Op? key = null) {
         ArgumentNullException.ThrowIfNull(content);
         ArgumentNullException.ThrowIfNull(runtime);
         op = key.OrDefault();
+        owner = plugin.Admit(op).Map(_ => plugin);
         identity = PanelKey.Of(panelType: GetType(), key: op);
         Construction = content.Realize(runtime: runtime, key: op);
         Control? rejected = null;
@@ -160,6 +187,11 @@ public abstract class HostPanel : Panel, IPanel {
         Release();
     }
 
+    protected override void Dispose(bool disposing) {
+        if (disposing) Release();
+        base.Dispose(disposing);
+    }
+
     private void Release() {
         if (Interlocked.Exchange(location1: ref released, value: 1) is not 0) return;
         Seq<Func<Fin<Unit>>> releases = Construction.Match(
@@ -180,15 +212,16 @@ public abstract class HostPanel : Panel, IPanel {
         });
     }
 
-    private void Route(uint serial, PanelChange change) => ignore(op.Catch(() => identity.Bind(panel => {
+    private void Route(uint serial, PanelChange change) => ignore(op.Catch(() => owner.Bind(plugin => identity.Bind(panel => {
         PanelFact fact = new(
+            Plugin: Some(plugin),
             Panel: panel,
             Document: serial is 0u ? None : Some(DocKey.Create(value: serial)),
             Change: change,
             Ordinal: PanelHost.NextOrdinal());
         _ = PanelHost.Stamp(fact: fact, op: op);
         return OnLife(fact);
-    })).IfFail(failure => { _ = faults.Swap(rows => rows.Add(failure)); return unit; }));
+    }))).IfFail(failure => { _ = faults.Swap(rows => rows.Add(failure)); return unit; }));
 }
 ```
 
@@ -196,9 +229,9 @@ public abstract class HostPanel : Panel, IPanel {
 
 - Owner: `PanelOp<TPanel>` is the one registry operation family for a panel type.
 - Cases: registration, placement, presence, document close, scoped instances, icon replacement, and dock-bar usage — session-scoped and serial-scoped instance reads are one case because `PanelInstanceScope` already discriminates them.
-- Entry: `PanelHost.Run<TPanel>` dispatches one request under one command-thread crossing and returns `PanelReceipt<TPanel>`.
+- Entry: `PanelHost.Run<TPanel>` dispatches one request under one command-thread crossing and returns `PanelReceipt<TPanel>`; the caller's `PluginKey` is the first argument because every seat, ledger row, and receipt this family mints keys on it.
 - Entry: `PanelHost.Use<TPanel, T>` is the ONE live-instance surface — the body runs inside the session frame that resolved the instances and returns a detached value, so no `HostPanel` crosses out of the boundary; `PanelReceipt.Found` therefore carries the `PanelSeat` and the live count, never the instances the host destroys on `PanelClosing`.
-- Law: `PanelOp<TPanel>.Admit` validates every nested identity, scope, placement, and icon payload before dispatch.
+- Law: `PanelOp<TPanel>.Admit` validates every nested identity, scope, placement, and icon payload before dispatch, and `Register` proves the host `PlugIn.Id` is the declared `PluginKey` — a panel registered under one plugin never stamps another plugin's seat.
 - Receipt: `PanelPresence` carries visibility as a closed state with dock bars and the registry-wide open-panel set.
 - Law: `PanelPlacement` carries selected-tab policy beside its placement evidence; call sites never pass a second placement knob.
 - Boundary: resource- and path-backed icons minted by this owner are disposed after synchronous host calls, while borrowed native icons remain caller-owned.
@@ -318,18 +351,22 @@ public abstract partial record PanelOp<TPanel> where TPanel : HostPanel {
     public sealed record Rebadge(PanelIcon Icon) : PanelOp<TPanel>;
     public sealed record DockBarUsage(DockBarKey DockBar) : PanelOp<TPanel>;
 
-    internal Fin<Unit> Admit(Op op) => Switch(
-        op,
+    internal Fin<Unit> Admit(PluginKey plugin, Op op) => Switch(
+        (Plugin: plugin, Op: op),
         register: static (held, row) =>
-            from _ in guard(row.Owner is not null && row.Caption is not null && row.Icon is not null && row.Site is not null, held.InvalidInput()).ToFin()
-            from __ in row.Icon.Admit(held)
+            from _ in guard(row.Owner is not null
+                && row.Owner.Id == held.Plugin.ToValue()
+                && row.Caption is not null
+                && row.Icon is not null
+                && row.Site is not null, held.Op.InvalidInput()).ToFin()
+            from __ in row.Icon.Admit(held.Op)
             select unit,
-        open: static (held, row) => Optional(row.Placement).ToFin(Fail: held.InvalidInput()).Bind(place => place.Admit(held)),
+        open: static (held, row) => held.Op.Need(row.Placement).Bind(place => place.Admit(held.Op)),
         presence: static (_, _) => Fin.Succ(value: unit),
-        close: static (held, row) => guard(row.Session is not null, held.InvalidInput()).ToFin(),
-        instances: static (held, row) => Optional(row.Scope).ToFin(Fail: held.InvalidInput()).Bind(scope => scope.Admit(held)),
-        rebadge: static (held, row) => Optional(row.Icon).ToFin(Fail: held.InvalidInput()).Bind(icon => icon.Admit(held)),
-        dockBarUsage: static (held, row) => row.DockBar.Admit(held));
+        close: static (held, row) => guard(row.Session is not null, held.Op.InvalidInput()).ToFin(),
+        instances: static (held, row) => held.Op.Need(row.Scope).Bind(scope => scope.Admit(held.Op)),
+        rebadge: static (held, row) => held.Op.Need(row.Icon).Bind(icon => icon.Admit(held.Op)),
+        dockBarUsage: static (held, row) => row.DockBar.Admit(held.Op));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -347,27 +384,29 @@ public abstract partial record PanelReceipt<TPanel> where TPanel : HostPanel {
 // --- [OPERATIONS] ---------------------------------------------------------------------------
 public static class PanelHost {
     private static readonly Atom<HashMap<PanelSeat, PanelFact>> Ledger = Atom(HashMap<PanelSeat, PanelFact>());
-    private static readonly Atom<Seq<(long Id, CallbackObserver<PanelFact> Observer)>> Watchers =
-        Atom(Seq<(long, CallbackObserver<PanelFact>)>());
+    private static readonly Atom<Seq<(long Id, PanelAudience Audience, CallbackObserver<PanelFact> Observer)>> Watchers =
+        Atom(Seq<(long, PanelAudience, CallbackObserver<PanelFact>)>());
     private static long ordinal;
     private static long observerId;
 
     public static HashMap<PanelSeat, PanelFact> Facts => Ledger.Value;
 
-    public static HashMap<Option<DocKey>, PanelFact> FactsFor(PanelKey panel) =>
-        toHashMap(toSeq(Ledger.Value).Choose(row => row.Key.Panel == panel
+    public static HashMap<Option<DocKey>, PanelFact> FactsFor(PluginKey plugin, PanelKey panel) =>
+        toHashMap(toSeq(Ledger.Value).Choose(row => row.Key.Plugin == plugin && row.Key.Panel == panel
             ? Some((row.Key.Document, row.Value))
             : Option<(Option<DocKey>, PanelFact)>.None));
 
     internal static long NextOrdinal() => Interlocked.Increment(location: ref ordinal);
 
-    public static Fin<PanelReceipt<TPanel>> Run<TPanel>(PanelOp<TPanel> request, Op? key = null) where TPanel : HostPanel {
+    public static Fin<PanelReceipt<TPanel>> Run<TPanel>(PluginKey plugin, PanelOp<TPanel> request, Op? key = null)
+        where TPanel : HostPanel {
         ArgumentNullException.ThrowIfNull(request);
         Op op = key.OrDefault();
-        return from _ in request.Admit(op)
+        return from _ in plugin.Admit(op)
+               from __ in request.Admit(plugin: plugin, op: op)
                from panel in PanelKey.Of(panelType: typeof(TPanel), key: op)
                from receipt in request.Switch(
-                   (Panel: panel, Op: op),
+                   (Plugin: plugin, Panel: panel, Op: op),
                    register: static (held, work) => Registered<TPanel>(panel: held.Panel, work: work, op: held.Op),
                    open: static (held, work) => HostThread.Run(
                        work: new HostWork<PanelReceipt<TPanel>>.Execute(Body: () => Opened<TPanel>(held.Panel, work.Placement, held.Op)),
@@ -386,6 +425,7 @@ public static class PanelHost {
                            })),
                        key: held.Op),
                    instances: static (held, work) => Use<TPanel, PanelReceipt<TPanel>>(
+                       plugin: held.Plugin,
                        scope: work.Scope,
                        body: (seat, live) => Fin.Succ<PanelReceipt<TPanel>>(
                            value: new PanelReceipt<TPanel>.Found(Seat: seat, Live: live.Count)),
@@ -398,43 +438,50 @@ public static class PanelHost {
                select receipt;
     }
 
+    // The ledger seats only an owned fact — a host-wide projection names no plugin and therefore no seat — while the
+    // watcher fan is audience-gated, so one plugin's stamp never reaches another plugin's observer.
     internal static Unit Stamp(PanelFact fact, Op op) {
-        _ = Ledger.Swap(held => held.AddOrUpdate(fact.Seat, fact));
-        return ignore(Watchers.Value.Iter(row => row.Observer.Guard(
-            project: () => Fin.Succ(value: fact),
-            op: op)));
+        _ = fact.Seat.Iter(seat => ignore(Ledger.Swap(held => held.AddOrUpdate(seat, fact))));
+        return ignore(Watchers.Value
+            .Filter(row => row.Audience.Admits(fact.Plugin))
+            .Iter(row => row.Observer.Guard(project: () => Fin.Succ(value: fact), op: op)));
     }
 
     // `Use` keeps the live host instance inside the crossing: the body runs in the same session frame that resolved
     // it, and the caller keeps only the detached seat, count, or projection its own body returns.
-    public static Fin<T> Use<TPanel, T>(PanelInstanceScope scope, Func<PanelSeat, Seq<TPanel>, Fin<T>> body, Op? key = null)
+    public static Fin<T> Use<TPanel, T>(
+        PluginKey plugin,
+        PanelInstanceScope scope,
+        Func<PanelSeat, Seq<TPanel>, Fin<T>> body,
+        Op? key = null)
         where TPanel : HostPanel {
         ArgumentNullException.ThrowIfNull(scope);
         ArgumentNullException.ThrowIfNull(body);
         Op op = key.OrDefault();
-        return from _ in scope.Admit(op)
+        return from _ in plugin.Admit(op)
+               from __ in scope.Admit(op)
                from panel in PanelKey.Of(panelType: typeof(TPanel), key: op)
                from result in scope.Switch(
-                   (Panel: panel, Body: body, Op: op),
+                   (Plugin: plugin, Panel: panel, Body: body, Op: op),
                    document: static (held, seat) => HostThread.Run(
                        work: new HostWork<T>.Session(
                            Document: seat.Session,
                            Needs: [SessionNeed.Read],
-                           Body: document => DocKey.Of(document: document, key: held.Op).Bind(owner => held.Body(
-                               new PanelSeat(Panel: held.Panel, Document: Some(owner)),
+                           Body: document => DocKey.Of(document: document, key: held.Op).Bind(model => held.Body(
+                               new PanelSeat(Plugin: held.Plugin, Panel: held.Panel, Document: Some(model)),
                                toSeq(Panels.GetPanels<TPanel>(document)).Strict()))),
                        key: held.Op),
                    serial: static (held, seat) => HostThread.Run(
                        work: new HostWork<T>.Execute(Body: () => held.Body(
-                           new PanelSeat(Panel: held.Panel, Document: Some(seat.Document)),
+                           new PanelSeat(Plugin: held.Plugin, Panel: held.Panel, Document: Some(seat.Document)),
                            toSeq(Panels.GetPanels<TPanel>(seat.Document)).Strict())),
                        key: held.Op))
                select result;
     }
 
-    internal static Subscription Watch(CallbackObserver<PanelFact> observer) {
+    internal static Subscription Watch(PanelAudience audience, CallbackObserver<PanelFact> observer) {
         long id = Interlocked.Increment(location: ref observerId);
-        _ = Watchers.Swap(held => held.Add((Id: id, Observer: observer)));
+        _ = Watchers.Swap(held => held.Add((Id: id, Audience: audience, Observer: observer)));
         return Subscription.Of(detach: () => ignore(Watchers.Swap(held => held.Filter(row => row.Id != id))));
     }
 
@@ -488,18 +535,25 @@ public static class PanelHost {
 
 ## [04]-[PANEL_OBSERVATION]
 
-- Owner: `PanelObserve` chooses the owned callback ledger or the host-wide `DocumentStream` projection.
-- Entry: `PanelObservation.Observe` returns one symmetric `Subscription` for either row and delivers projection failures through the sink rail.
+- Owner: `PanelObserve` chooses the owned callback ledger under a declared `PanelAudience` or the host-wide `DocumentStream` projection; the audience rides inside the case that owns a fan, so no scope-free subscription exists.
+- Entry: `PanelObservation.Observe` returns one symmetric `Subscription` for either case and delivers projection failures through the sink rail.
 - Law: owned callbacks update `PanelHost.Facts`; host-wide projection never re-stamps the owned ledger.
-- Law: `PanelHooks.Mount` registers the `rasm.rhino.hostui.panel` point on the `MountRegistry` row grammar — ask `CallbackObserver<PanelFact>`, grant `Subscription` over the owned watcher fan, the untyped ask projected through one typed refusal rather than a hard cast — and the point's replay modality is the `PanelHost.Facts` latest-per-SEAT ledger a binder reads before its first delivery, with `FactsFor` projecting one panel's rows per document.
+- Law: multi-plugin coexistence is one law across this owner — a point seat is first-mount-wins, every subscriber is keyed by the `PluginKey` its mount declared, and teardown returns the seat, so a second plugin mounting the same point faults typed instead of forking discovery or crossing fact streams.
+- Law: `PanelHooks.Mount` registers the `rasm.rhino.hostui.panel` point on the `MountRegistry` row grammar — ask `CallbackObserver<PanelFact>`, grant `Subscription` over the owned watcher fan bound to the mounting plugin's audience, the untyped ask projected through one typed refusal rather than a hard cast — and the point's replay modality is the `PanelHost.Facts` latest-per-SEAT ledger a binder reads before its first delivery, with `FactsFor` projecting one plugin's panel rows per document.
 - Boundary: each delivery crosses `CallbackObserver<PanelFact>`; delivery and rejection faults accumulate without starving sibling observers.
 
 ```csharp signature
 // --- [TYPES] --------------------------------------------------------------------------------
-[SmartEnum]
-public sealed partial class PanelObserve {
-    public static readonly PanelObserve Owned = new();
-    public static readonly PanelObserve All = new();
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record PanelObserve {
+    private PanelObserve() { }
+    public sealed record Owned(PanelAudience Audience) : PanelObserve;
+    public sealed record Hosted : PanelObserve;
+
+    internal Fin<Unit> Admit(Op op) => Switch(
+        op,
+        owned: static (held, row) => held.Need(row.Audience).Bind(audience => audience.Admit(held)),
+        hosted: static (_, _) => Fin.Succ(value: unit));
 }
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
@@ -513,15 +567,16 @@ public static class PanelObservation {
         ArgumentNullException.ThrowIfNull(observer);
         ArgumentNullException.ThrowIfNull(receipts);
         Op op = key.OrDefault();
-        return scope.Switch(
+        return scope.Admit(op).Bind(_ => scope.Switch(
             (Observer: observer, Receipts: receipts, Op: op),
-            owned: static held => Fin.Succ(value: PanelHost.Watch(held.Observer)),
-            all: static held => DocumentStream.Observe(new Observation.Host(
+            owned: static (held, row) => Fin.Succ(value: PanelHost.Watch(audience: row.Audience, observer: held.Observer)),
+            hosted: static (held, _) => DocumentStream.Observe(new Observation.Host(
                     Scope: new EventScope.AnyDocument(),
                     Families: Seq(EventFamily.PanelVisibility, EventFamily.PanelClosed),
                     Delivery: new Delivery.Inline(Sink: fact => Fin.Succ(value: held.Observer.Guard(
                         project: () => fact.Payload is EventPayload.Panel panel
                             ? PanelKey.Of(value: panel.PanelId, key: held.Op).Map(id => new PanelFact(
+                                Plugin: None,
                                 Panel: id,
                                 Document: fact.Key,
                                 Change: panel.State.Switch(
@@ -532,13 +587,12 @@ public static class PanelObservation {
                             : Fin.Fail<PanelFact>(error: held.Op.InvalidResult()),
                         op: held.Op))),
                     Receipts: held.Receipts))
-                .Map(watch => Subscription.Of(detach: watch.Dispose)));
+                .Map(watch => Subscription.Of(detach: watch.Dispose))));
     }
 }
 
 public static class PanelHooks {
     public static Fin<IDisposable> Mount(PluginKey plugin, Op? key = null) {
-        ArgumentNullException.ThrowIfNull(plugin);
         Op op = key.OrDefault();
         return MountRegistry.Mount(
             mount: new HookMount(
@@ -548,7 +602,9 @@ public static class PanelHooks {
                 Grant: typeof(Subscription),
                 Bind: ask => Optional(ask as CallbackObserver<PanelFact>)
                     .ToFin(Fail: op.InvalidInput())
-                    .Map(static observer => (object)PanelHost.Watch(observer))),
+                    .Map(observer => (object)PanelHost.Watch(
+                        audience: new PanelAudience.Plugin(Key: plugin),
+                        observer: observer))),
             key: op);
     }
 }
@@ -557,7 +613,7 @@ public static class PanelHooks {
 ## [05]-[RUI]
 
 - Owner: `RuiCommand` closes file, group, sidebar, and sizing modalities; `Rui.Run` absorbs snapshot and batch arity.
-- Entry: `Rui.Run` returns the full post-operation snapshot with applied-prefix evidence when a command fails.
+- Entry: `Rui.Run` returns the full post-operation snapshot with applied-prefix evidence when a command fails; the batch arrives as a span for call-site ergonomics or as an admitted `Seq` beside the operation key, because a `params` tail cannot carry the optional key every entry on this page threads.
 - Owner: `RuiFileRef` closes identifier, path, and named lookup with `NameMatch` carrying comparison policy.
 - Law: `Rui.Run` admits and normalizes the complete command batch before the host crossing; lookup and mutation consume only admitted references and paths.
 - Law: `RuiBarSize` carries a nonempty sizing operation; no optional pair reaches the fold.
@@ -675,18 +731,18 @@ public abstract partial record RuiCommand {
             from _ in guard(row.Save is not null, held.InvalidInput()).ToFin()
             select (RuiCommand)(row with { Path = path }),
         closeFile: static (held, row) =>
-            from file in Optional(row.File).ToFin(Fail: held.InvalidInput()).Bind(value => value.Admit(held))
+            from file in held.Need(row.File).Bind(value => value.Admit(held))
             from _ in guard(row.Close is not null, held.InvalidInput()).ToFin()
             select (RuiCommand)(row with { File = file }),
-        saveFile: static (held, row) => Optional(row.File).ToFin(Fail: held.InvalidInput())
+        saveFile: static (held, row) => held.Need(row.File)
             .Bind(value => value.Admit(held))
             .Map<RuiCommand>(file => row with { File = file }),
         saveFileAs: static (held, row) =>
-            from file in Optional(row.File).ToFin(Fail: held.InvalidInput()).Bind(value => value.Admit(held))
+            from file in held.Need(row.File).Bind(value => value.Admit(held))
             from target in RuiFileRef.PathOf(candidate: row.Target, op: held)
             select (RuiCommand)(row with { File = file, Target = target }),
         group: static (held, row) =>
-            from file in Optional(row.File).ToFin(Fail: held.InvalidInput()).Bind(value => value.Admit(held))
+            from file in held.Need(row.File).Bind(value => value.Admit(held))
             from _ in guard(row.GroupId != Guid.Empty && row.Visibility is not null, held.InvalidInput()).ToFin()
             select (RuiCommand)(row with { File = file }),
         sidebar: static (held, row) => guard(row.Target is not null && row.Visibility is not null, held.InvalidInput()).ToFin()
@@ -721,10 +777,12 @@ internal sealed record RuiBatchState(int Applied, Option<Error> Fault);
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
 public static class Rui {
-    public static Fin<RuiReceipt> Run(params ReadOnlySpan<RuiCommand> commands) {
-        Op op = Op.Of(name: nameof(Rui));
-        Seq<RuiCommand> batch = toSeq(commands.ToArray()).Strict();
-        return from admitted in batch.TraverseM(command => Optional(command)
+    public static Fin<RuiReceipt> Run(params ReadOnlySpan<RuiCommand> commands) =>
+        Run(commands: toSeq(commands.ToArray()).Strict(), key: null);
+
+    public static Fin<RuiReceipt> Run(Seq<RuiCommand> commands, Op? key = null) {
+        Op op = key.OrDefault();
+        return from admitted in commands.TraverseM(command => Optional(command)
                    .ToFin(Fail: op.InvalidInput())
                    .Bind(value => value.Admit(op)))
                    .As()
@@ -808,7 +866,8 @@ public static class Rui {
 - Owner: `MenuDelta` is the update algebra over enabled, checked, radio, and caption axes.
 - Entry: `MenuLinks.Register` seats one host callback, folds every emitted delta onto the live `RuiUpdateUi`, and retains observer faults.
 - Law: callback state is recomputed from `RuiAddress`; no mutable menu state escapes the host invocation.
-- Boundary: a rejected `RegisterMenuItem` return is the operation's typed failure; callback delivery uses the shared guarded observer owner.
+- Law: registration mutates a process-wide handler table and mints no host leaf, so it MARSHALS like every sibling entry on this page — `HostWork.Required` is reserved for the entries whose host leaves must originate in the caller's own frame, `Sections.Mount` and `HostPage.Realize`, where `Element.Realize` refuses an off-thread caller outright.
+- Boundary: a rejected `RegisterMenuItem` return is the operation's typed failure; callback delivery uses the shared guarded observer owner and runs on whatever thread the host raises the update on.
 
 ```csharp signature
 // --- [TYPES] --------------------------------------------------------------------------------
@@ -856,7 +915,7 @@ public static class MenuLinks {
         ArgumentNullException.ThrowIfNull(observer);
         Op op = key.OrDefault();
         return HostThread.Run(
-            work: new HostWork<Unit>.Required(Body: () => op.Confirm(success: RuiUpdateUi.RegisterMenuItem(
+            work: new HostWork<Unit>.Execute(Body: () => op.Confirm(success: RuiUpdateUi.RegisterMenuItem(
                 address.File,
                 address.Menu,
                 address.Item,
@@ -938,8 +997,6 @@ public sealed partial class SectionSpec {
             || body is null
             || features is null
             || features.Any(static feature => feature is null)
-            || commandOption.Exists(static value => value is null)
-            || life.Exists(static hook => hook is null)
             || height <= 0
             ? new ValidationError(message: "Section specification is invalid.")
             : null;
@@ -1051,7 +1108,7 @@ public static class Sections {
         // `Element.Realize` REFUSES off-thread rather than marshalling, so the crossing is this entry's, not the fold's:
         // admission runs outside it and every host leaf — realized content and raw holder mints alike — is inside.
         return sections
-            .TraverseM(section => Optional(section).ToFin(Fail: op.InvalidInput()))
+            .TraverseM(section => op.Need(section))
             .As()
             .Bind(admitted => guard(
                     flag: !admitted.IsEmpty
@@ -1115,6 +1172,7 @@ public static class Sections {
 - Law: a new Rhino widget is one `HostControl` case and one `Mint` arm; command-bearing cases resolve through the runtime `IntentTable`, and the runtime captured at projection is the panel's own realize runtime.
 - Law: `GridWrap` is the family's one nested case — children are `HostControl` rows admitted and minted through the same dispatch, so the wrapping grid composes the family it belongs to, never a parallel container surface.
 - Law: unit-aware numeric entry carries an admitted `UnitSpan` with one `UnitFormat` case; model-unit and explicit-length-unit formatting share the same mint arm, and the control parses its own text.
+- Law: `UnitPulse.Fold` masks a NONEMPTY row set — the host flags enum carries no zero member, so an empty set would mint a control that never reports a value; admission refuses it typed rather than letting the fold seed a silent disable.
 - Boundary: a partially minted `RhinoButtonRow` or `ControlGridLayout` is disposed with its orphaned children when any addition or child mint fails; successful rows transfer lifetime to the enclosing element receipt.
 - Law: colour payloads enter as `PerceptualColor` and quantize once through `Pigment.ToColor` at the mint arm; the host theme tree is read-only — a consumer detaches swatches and never authors a zone.
 - Law: `ThemePalette.Detach` and `UiServices.Resolve` cross `HostThread` like every other entry on this page — the live `ThemeZone` walk and the `RhinoUiServiceLocator`/`PlatformServiceProvider` reads are host-thread reads, and `Feed` inherits the crossing through `Detach` rather than opening a second one.
@@ -1248,7 +1306,7 @@ public abstract partial record HostControl {
         unitEntry: static (held, row) =>
             from _ in guard(row.Span is not null
                 && row.Format is not null
-                && row.Pulses is not null
+                && row.Pulses is { Count: > 0 }
                 && row.Pulses.All(static pulse => pulse is not null)
                 && row.Prefix.ForAll(static text => text is not null)
                 && row.Suffix.ForAll(static text => text is not null), held.InvalidInput()).ToFin()
@@ -1268,7 +1326,7 @@ public abstract partial record HostControl {
         actionRow: static (held, row) =>
             from _ in guard(!row.Actions.IsEmpty, held.InvalidInput()).ToFin()
             from __ in row.Actions
-                .TraverseM(action => Optional(action).ToFin(Fail: held.InvalidInput()).Bind(value => value.Admit(held)))
+                .TraverseM(action => held.Need(action).Bind(value => value.Admit(held)))
                 .As()
             select unit,
         gridWrap: static (held, row) =>
@@ -1277,7 +1335,7 @@ public abstract partial record HostControl {
                 && row.ItemSize.Width > 0
                 && row.ItemSize.Height > 0, held.InvalidInput()).ToFin()
             from __ in row.Items
-                .TraverseM(item => Optional(item).ToFin(Fail: held.InvalidInput()).Bind(value => value.Admit(held)))
+                .TraverseM(item => held.Need(item).Bind(value => value.Admit(held)))
                 .As()
             select unit,
         dividerLine: static (held, row) => guard(row.Colour.ForAll(static colour => colour is not null), held.InvalidInput()).ToFin(),
@@ -1416,12 +1474,12 @@ public static class ThemePalette {
         Op op = key.OrDefault();
         return Detach(zone, op).Bind(swatches => {
             HashMap<string, PerceptualColor> found = toHashMap(swatches.Map(static swatch => (swatch.Path, swatch.Value)));
-            Seq<string> missing = toSeq(roles).Filter(row => found.Find(row.Key).IsNone).Map(static row => row.Key).Strict();
+            Seq<string> missing = toSeq(roles.AsIterable()).Filter(row => found.Find(row.Key).IsNone).Map(static row => row.Key).Strict();
             return missing.IsEmpty
                 ? seam.Change(
                     shift: new ThemeShift.Hosted(
                         Variant: variant,
-                        Cells: toHashMap(toSeq(roles).Choose(row => found.Find(row.Key).Map(value => (row.Value, value))))),
+                        Cells: toHashMap(toSeq(roles.AsIterable()).Choose(row => found.Find(row.Key).Map(value => (row.Value, value))))),
                     key: op)
                 : Fin.Fail<ThemeChange>(error: op.InvalidResult(detail: string.Join(",", missing)));
         });

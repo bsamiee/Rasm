@@ -13,12 +13,13 @@
 
 - Owner: `Pigment` is the sole `PerceptualColor`↔`Color` correspondence and carries both directions on the one owner — every brush, pen, and glyph ink quantizes out through it and every sampled pixel admits back in through it, so quantization and admission can never fork into two spellings of one conversion.
 - Law: this page mints no stroke, fill, dash, or path spec — the paint vocabulary is `Rasm.Rhino.Display` `Marks`, and paint reaches this surface only through the mounted `PaintProgram`.
-- Packages: Rasm (kernel — `PerceptualColor`), Eto.Drawing (host — `Color`).
+- Packages: Rasm (kernel — `PerceptualColor`, `GamutPolicy` the reproducibility-domain row the egress bounds through), Eto.Drawing (host — `Color`).
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using Eto.Drawing;
 using Eto.Forms;
+using LanguageExt.UnsafeValueAccess;
 using Rasm.Csp;
 using Rasm.Domain;
 using Rasm.Numerics;
@@ -44,8 +45,9 @@ public static class Pigment {
 
 - Owner: `TypeRole` resolves host typography policy over point size and decoration, `GlyphBlock` is the one text-shaping and metric owner every folder composes, and `GlyphShape` owns the coupled `FormattedText` and foreground brush for one draw window.
 - Law: a role resolves through `SystemFonts`, whose fonts are process-cached per (font, size, decoration) — the resolved `Font` is a shared host instance and is never disposed; a raw `new Font(...)` in paint code is the deleted form, and a custom face enters as a new `TypeRole` row whose resolve column constructs it.
-- Law: `Measure` memoizes per retained block and shapes without ink — foreground is `Option`al, so a measure-only block never mints a brush — and repeated bounds and hit probes never re-enter uncached host shaping or key on `Font.Equals`, which omits `FontDecoration`.
-- Law: `Draw` is the block's one paint egress — shape, draw at a location, release the shape — so a consumer never touches `FormattedText` or a `GlyphShape` directly.
+- Law: shaping is HOST-AFFINE — `FormattedText` construction and measurement reach the platform text stack, and no Eto backend declares that stack safe off the UI thread, so `Measure` crosses `UiThread` and answers `Fin<SizeF>`; a layout pass computing extents on a compute lane is exactly the caller this forecloses.
+- Law: `Measure` memoizes per retained block and shapes without ink — foreground is `Option`al, so a measure-only block never mints a brush — the memo holds the ADMITTED extent alone so a refused measure never freezes a wrong size, and repeated bounds and hit probes never re-enter uncached host shaping or key on `Font.Equals`, which omits `FontDecoration`.
+- Law: `Draw` is the block's one paint egress — shape, draw at a location, release the shape — so a consumer never touches `FormattedText` or a `GlyphShape` directly, and it takes a live `Graphics`, which is what proves it already inside the host's paint window and needing no crossing of its own.
 - Growth: a new role is one row; a new text treatment (max-extent ellipsis, right-aligned numeric, point size) is field values on the block, never a sibling text type.
 
 ```csharp signature
@@ -78,10 +80,7 @@ public sealed class GlyphBlock(
     FormattedTextAlignment alignment = FormattedTextAlignment.Left,
     FormattedTextTrimming trimming = FormattedTextTrimming.None,
     Option<SizeF> maxExtent = default) {
-    private readonly Lazy<SizeF> measured = new(() => {
-        using FormattedText shaped = ShapeText(text, role, size, decoration, wrap, alignment, trimming, maxExtent, None);
-        return shaped.Measure();
-    }, LazyThreadSafetyMode.ExecutionAndPublication);
+    private readonly Atom<Option<SizeF>> measured = Atom(Option<SizeF>.None);
 
     public string Text { get; } = text;
     public TypeRole Role { get; } = role;
@@ -93,7 +92,18 @@ public sealed class GlyphBlock(
     public FormattedTextTrimming Trimming { get; } = trimming;
     public Option<SizeF> MaxExtent { get; } = maxExtent;
 
-    public SizeF Measure() => measured.Value;
+    public Fin<SizeF> Measure(Op? key = null) {
+        Op op = key.OrDefault();
+        return measured.Value.Match(
+            Some: static extent => Fin.Succ(extent),
+            None: () => UiThread.Run(new UiDispatch<SizeF>.Blocking(() => op.Catch(() => {
+                using FormattedText shaped = ShapeText(Text, Role, Size, Decoration, Wrap, Alignment, Trimming, MaxExtent, None);
+                return Fin.Succ(shaped.Measure());
+            })), op).Result.Map(extent => {
+                _ = measured.Swap(_ => Some(extent));
+                return extent;
+            }));
+    }
 
     public Unit Draw(Graphics graphics, PointF at) => Op.Side(() => {
         using GlyphShape shaped = Shape();
@@ -104,7 +114,7 @@ public sealed class GlyphBlock(
         SolidBrush? ink = null;
         FormattedText? shaped = null;
         try {
-            ink = Foreground.Map(static colour => new SolidBrush(color: Pigment.ToColor(colour: colour))).IfNoneUnsafe((SolidBrush?)null);
+            ink = Foreground.Map(static colour => new SolidBrush(color: Pigment.ToColor(colour: colour))).ValueUnsafe();
             shaped = ShapeText(Text, Role, Size, Decoration, Wrap, Alignment, Trimming, MaxExtent, Optional(ink));
             return new GlyphShape(shaped, Optional(ink));
         } catch {
@@ -180,10 +190,13 @@ public sealed record PaintProgram(Func<Graphics, Fin<Unit>> Paint, Func<PointF, 
 - Law: paint handlers replay the current admitted atom program; a swap publishes for redraw, commits on redraw success, and conditionally restores the prior program on failure, so paint and hit truth stay aligned.
 - Law: quality knobs (`AntiAlias`, `ImageInterpolation`, `PixelOffsetMode`) are `ScenePolicy` values bracketed once around each replay and restored on exit, never per-mark toggles.
 - Law: `ScenePolicy.Use` brackets transform and clip state with the quality tuple, so every mounted or printed program leaves the caller's `Graphics` stream unchanged.
+- Law: `Surface` is HOST-AFFINE end to end, so every entry reaching the `Drawable` crosses `UiThread` — the mount, invalidation, off-event acquisition, the composition verbs, and release. `HitTest` is the one entry that does not, because it only replays the mounted program's hit projection — whether that answer needs the host is the program's affair and rides the program's own rail; paint and print replay need no crossing either, both running inside a host callback that already holds the thread.
 - Law: the realized `Drawable` is its surface handle — `Surface.Of(host)` recovers the mounted owner, so an `Element.Painted` consumer swaps programs and hit-tests through the one control `Realize` returned, and a parallel surface registry is the deleted form.
+- Law: `Mounted` is weak-KEYED custody — an entry's lifetime is its `Drawable`'s, `Free` removes the row eagerly, and no surface outlives the control it mounted. The table is process-static per loaded image, so a plugin reloaded into a fresh load context keeps a retired `Surface` and its mounted `PaintProgram` reachable for exactly as long as host chrome still holds the leaked `Drawable`; a plugin-token claim beside the key would widen every mount with an identity it does not otherwise need and would still not free the control the reload leaked, so the weak key stays the custody.
 - Law: IME composition rides the host verbs — `CancelComposition`/`CommitComposition` project `CancelTextComposition`/`CommitTextComposition` — and a text-editing overlay that ignores composition state is the named defect.
 - Law: `Acquire` probes `SupportsCreateGraphics` and DEGRADES where the handler refuses — the caller's `Redraw` policy invalidates and the mounted program paints on the next pass — so the backend answering `false` loses immediacy, never the capability; the off-event handle `Flush`es queued commands before the lease disposes it, since an off-event `CreateGraphics` stream is not committed by the paint loop, and `OffscreenDraw` carries which route ran because a bare refusal or a bare absence both read as a failure the fallback already answered.
 - Owner: `PixelLease` egress is leased — `Clone` hands back `Lease<Bitmap>` because a clone is a fresh host bitmap under caller custody, and a bare return is the leak the page's own lease law forecloses.
+- Law: a `Locked` projection answers a VALUE — the lock is the access window, never the payload, and the `BitmapData` dies the instant the projection returns, so the signature admits only value results and a projection handing back the lock or a reference reading through its buffer cannot be written.
 - Growth: a new invalidation modality is one `Redraw` case; frame pacing, display-link cadence, and animation clocks are the Viewport unit's motion owner — this surface exposes swap-and-invalidate and nothing temporal.
 
 ```csharp signature
@@ -269,6 +282,8 @@ public sealed record SurfaceSpec(
 
 // --- [SERVICES] -----------------------------------------------------------------------------
 public sealed class Surface : UiLease {
+    // Weak KEYS: the row's lifetime is the control's, so a retired surface and its mounted program stay reachable only
+    // while host chrome still holds the `Drawable` — the one residue a collectible-load-context reload can leave.
     private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<Drawable, Surface> Mounted = new();
     private readonly Atom<PaintProgram> program;
     private readonly EventHandler<PaintEventArgs> paint;
@@ -289,7 +304,7 @@ public sealed class Surface : UiLease {
         return Optional(spec)
             .ToFin(new UiFault.Rejected(Key: op, Field: nameof(spec), Reason: "surface specification is absent"))
             .Bind(admitted => admitted.Admit(op))
-            .Bind(admitted => op.Catch(() => {
+            .Bind(admitted => UiThread.Run(new UiDispatch<Surface>.Blocking(() => op.Catch(() => {
             Atom<PaintProgram> held = Atom(admitted.Initial);
             Drawable owned = host = new Drawable(largeCanvas: admitted.Extent.Large) { CanFocus = admitted.Focus.Focusable };
             EventHandler<PaintEventArgs> handler = paint = (_, args) => {
@@ -303,7 +318,7 @@ public sealed class Surface : UiLease {
             return Fin.Succ(value: surface);
         }).MapFail(fault => Optional(host).Map(owned => fault.Also(
             (Optional(paint).Map(handler => Seq<Action>(() => owned.Paint -= handler)).IfNone(Seq<Action>())
-             + Seq<Action>(owned.Dispose)).Drained(op))).IfNone(fault)));
+             + Seq<Action>(owned.Dispose)).Drained(op))).IfNone(fault))), op).Result);
     }
 
     public static Option<Surface> Of(Drawable host) =>
@@ -319,7 +334,7 @@ public sealed class Surface : UiLease {
             }))
             .Bind(held => {
                 _ = program.Swap(_ => held.Candidate);
-                return op.Catch(() => Fin.Succ(redraw.Apply(Host)))
+                return UiThread.Run(new UiDispatch<Unit>.Blocking(() => op.Catch(() => Fin.Succ(redraw.Apply(Host)))), op).Result
                     .MapFail(fault => {
                         _ = program.Swap(current => ReferenceEquals(current, held.Candidate) ? held.Prior : current);
                         return fault;
@@ -340,26 +355,31 @@ public sealed class Surface : UiLease {
         Op op = key.OrDefault();
         return Live(op)
             .Bind(_ => Optional(draw).ToFin(new UiFault.Rejected(Key: op, Field: nameof(draw), Reason: "draw projection is absent")))
-            .Bind(_ => Optional(fallback).ToFin(new UiFault.Rejected(Key: op, Field: nameof(fallback), Reason: "degradation policy is absent")))
-            .Bind(body => Host.SupportsCreateGraphics
+            .Bind(body => Optional(fallback)
+                .ToFin(new UiFault.Rejected(Key: op, Field: nameof(fallback), Reason: "degradation policy is absent"))
+                .Map(degrade => (Body: body, Degrade: degrade)))
+            .Bind(held => UiThread.Run(new UiDispatch<OffscreenDraw<TResult>>.Blocking(() => Host.SupportsCreateGraphics
                 ? op.Catch(() => Fin.Succ(value: new Lease<Graphics>.Owned(Value: Host.CreateGraphics()).Use(project: graphics => {
-                    TResult drawn = body(graphics);
+                    TResult drawn = held.Body(graphics);
                     graphics.Flush();
                     return (OffscreenDraw<TResult>)new OffscreenDraw<TResult>.DrawnCase(Value: drawn);
                 })))
-                : op.Catch(() => Fin.Succ(value: fallback.Apply(Host)))
-                    .Map(static _ => (OffscreenDraw<TResult>)new OffscreenDraw<TResult>.InvalidatedCase()));
+                : op.Catch(() => Fin.Succ(value: held.Degrade.Apply(Host)))
+                    .Map(static _ => (OffscreenDraw<TResult>)new OffscreenDraw<TResult>.InvalidatedCase())), op).Result);
     }
 
     public Fin<Unit> CancelComposition(Op? key = null) => Composition(Host.CancelTextComposition, key);
 
     public Fin<Unit> CommitComposition(Op? key = null) => Composition(Host.CommitTextComposition, key);
 
-    protected override Fin<Unit> Free() =>
-        Seq<Action>(() => Host.Paint -= paint, () => { _ = Mounted.Remove(Host); }, Host.Dispose).Drained(key);
+    protected override Fin<Unit> Free() => UiThread.Run(new UiDispatch<Unit>.Blocking(() =>
+        Seq<Action>(() => Host.Paint -= paint, () => { _ = Mounted.Remove(Host); }, Host.Dispose).Drained(key)), key).Result;
 
-    private Fin<Unit> Composition(Action verb, Op? key) =>
-        Live(key.OrDefault()).Bind(_ => key.OrDefault().Catch(() => Fin.Succ(Op.Side(verb))));
+    private Fin<Unit> Composition(Action verb, Op? key) {
+        Op op = key.OrDefault();
+        return Live(op).Bind(_ => UiThread.Run(
+            new UiDispatch<Unit>.Blocking(() => op.Catch(() => Fin.Succ(Op.Side(verb)))), op).Result);
+    }
 
     private Fin<Unit> Live(Op op) => Released
         ? Fin.Fail<Unit>(new UiFault.Released(Key: op, Resource: nameof(Surface)))
@@ -368,7 +388,12 @@ public sealed class Surface : UiLease {
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
 public static class PixelLease {
-    public static Fin<TResult> Locked<TResult>(Bitmap bitmap, Func<BitmapData, TResult> read, Op? key = null) =>
+    // The lock is the WINDOW, never the payload: `Use` disposes the `BitmapData` the instant the projection returns, so
+    // a projection handing back the lock — or any reference reading through its buffer — hands back a view of released
+    // memory. A value result forecloses every reference form; a raw address smuggled out of a struct is the one shape
+    // no signature refuses, and it is the deleted form.
+    public static Fin<TResult> Locked<TResult>(Bitmap bitmap, Func<BitmapData, TResult> read, Op? key = null)
+        where TResult : struct =>
         key.OrDefault().Catch(() => Fin.Succ(value: new Lease<BitmapData>.Owned(Value: bitmap.Lock()).Use(project: read)));
 
     public static Fin<PerceptualColor> Sample(Bitmap bitmap, Point at, Op? key = null) =>

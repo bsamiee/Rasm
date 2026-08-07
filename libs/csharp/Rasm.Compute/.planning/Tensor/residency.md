@@ -10,11 +10,11 @@ ONNX C-data residency classifies every `OrtValue` by backing location and owners
 ## [02]-[ORT_BRIDGE]
 
 - Owner: `OrtResidency` `[SmartEnum<string>]` the five-gate residency lattice; `TensorBridge` the static `OrtValue` C-data factory surface (carrier-keyed ingress, dtype-keyed egress, the device descriptor, the residency probe); `PinnedPlane<T>` the ONE handle-rooted pin capsule every crossing that outlives its own statement takes; `BoundFlow` the ONE `OrtIoBinding` steady-state residency capsule the `Model/inference#INFERENCE_MODES` run-mode fold composes.
-- Entry: `public static Fin<OrtValue> Ingress<T>(Tensor<T> source)` and its `MemoryOwner<T>`, foreign-pointer, and `Microsoft.ML.OnnxRuntime.Tensors.Tensor<string>` overloads discriminate ingress by carrier shape; `public static Fin<(OrtAllocator Allocator, OrtValue Sink)> Allocate(DeviceMemory device, TensorDtype row, ReadOnlySpan<long> shape)` mints a device sink; `public static Fin<Unit> Relay(DeviceMemory device, OrtValue produced, OrtValue consumed)` moves a device-resident pair whole on the producing device's own sync stream; `public static Fin<PinnedPlane<T>> Pin<T>(Tensor<T> source, TensorDtype row)` roots a managed plane on a `MemoryHandle` for a crossing outliving its statement and the paired `Ingress(OrtMemoryInfo, TensorDtype, ReadOnlySpan<long>, PinnedPlane<T>)` overload hands that rooted pointer to the C-data factory; `public static Fin<Unit> Egress<T>(OrtValue value, in TensorSpan<T> destination)` and its flat `Span<T>` overload project an output by the dtype row; `public static Fin<BoundFlow> Bind(InferenceSession session, string inputName, string outputName, ReadOnlySpan<long> shape, OrtAllocator arena)` leases the steady-state capsule (the bound input and sink allocate from the supplied shared arena — the `Model/sessions#SESSION_CAPSULE` `SharedAllocator` for the model lane — never a managed staging plane), with the `TensorDtype`-row overload binding any dtype the vocabulary admits so the capsule is dtype-polymorphic and the row-less form is the float32 convenience — `Fin<T>` aborts when the egress destination is undersized against the `GetTensorSizeInBytes` count, ingress shape volume fails to cover its payload (`ingress-cover-gap`), or a native mint rejects (`ingress-rejected` — every C-data factory call crosses `Try.lift` once); the leased flow is a disposable capsule whose `Dispose` is the bound backing's release point, and `Lease` releases every already-acquired native handle on its own failure path so a `lease-rejected` fault strands nothing.
+- Entry: `public static Fin<OrtValue> Ingress<T>(Tensor<T> source)` and its `MemoryOwner<T>`, foreign-pointer, and `Microsoft.ML.OnnxRuntime.Tensors.Tensor<string>` overloads discriminate ingress by carrier shape; `public static Fin<(OrtAllocator Allocator, OrtValue Sink)> Allocate(DeviceMemory device, TensorDtype row, ReadOnlySpan<long> shape)` mints a device sink; `public static Fin<Unit> Relay(DeviceMemory device, OrtValue produced, OrtValue consumed)` moves a device-resident pair whole on the producing device's own sync stream; `public static Fin<PinnedPlane<T>> Pin<T>(Tensor<T> source, TensorDtype row)` roots a managed plane on a `MemoryHandle` for a crossing outliving its statement and the paired `Ingress(OrtMemoryInfo, TensorDtype, ReadOnlySpan<long>, PinnedPlane<T>)` overload hands that rooted pointer to the C-data factory; `public static Fin<Unit> Egress<T>(OrtValue value, in TensorSpan<T> destination)` and its flat `Span<T>` overload project an output by the dtype row; `public static Fin<BoundFlow> Bind(InferenceSession session, string inputName, string outputName, ReadOnlySpan<long> shape, OrtAllocator arena, TensorDtype row)` leases the steady-state capsule (the bound input and sink allocate from the supplied shared arena — the `Model/sessions#SESSION_CAPSULE` `SharedAllocator` for the model lane — never a managed staging plane), the dtype row a required argument so the capsule is dtype-polymorphic with no defaulted sibling to disagree with the session — `Fin<T>` aborts when the egress destination is undersized against the `GetTensorSizeInBytes` count, ingress shape volume fails to cover its payload (`ingress-cover-gap`), or a native mint rejects (`ingress-rejected` — every C-data factory call crosses `Try.lift` once); the leased flow is a disposable capsule whose `Dispose` is the bound backing's release point, and `Lease` releases every already-acquired native handle on its own failure path so a `lease-rejected` fault strands nothing.
 - Receipt: `CopyPoint` stamps the `OrtResidency` gate, native byte count, device name, instant, and `CorrelationId`; `CopyPoint.Receipt` projects that evidence onto `ComputeReceipt.Copy`, and `ReceiptFolds.Crossings` aggregates it by gate.
 - Packages: Microsoft.ML.OnnxRuntime, System.Numerics.Tensors, CommunityToolkit.HighPerformance, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm (project, kernel signal capsule)
 - Growth: a new accelerator is one `DeviceMemory` descriptor over its `OrtEpDevice` reaching the existing `Allocate`/device-pointer ingress, never a per-call marshal helper; a new carrier is one `TensorBridge.Ingress` overload discriminating by carrier shape (the `Model/inference#INFERENCE_MODES` `RunInput` cases compose these overloads, never re-spelling a factory); the `DeviceResident` row is the one residency gate the `Runtime/admission#SUBSTRATE_AXIS` `Substrate.DeviceWgpu` row and the `Tensor/dispatch#DEVICE_KERNELS` `DeviceDispatch` both bind — a WGPU compute buffer and an ORT device value share this one residency row so device-ness is a residency discriminant, never a second tensor owner or a parallel device-residency lattice; the resolved shared `ONE_WGPU_DEVICE` adapter is what a composition root folds into the `device-wgpu` substrate-capability key on `Runtime/admission#SUBSTRATE_AXIS` `SelectionContext.Providers` (present iff the adapter resolves), so the same device-presence fact the `DeviceResident` gate observes contributes the substrate key the `Substrate.DeviceWgpu` `!Providers.Contains(Key)` gate reads, never a raw `Device`/adapter handle pushed into `Providers`; a device-resident chain link is one `Relay` call over the pair the residency lattice already classifies, never a second copy owner; zero new surface.
-- Boundary: `OrtValue` is the sole model-boundary carrier. Every ingress shape proves non-negative extents, checked volume, payload coverage, and native construction on `Fin`; zero-sized tensors remain representable. Buffer ROOTING splits by ownership: `Tensor<T>.GetPinnableReference` roots a `fixed` region and serves the in-statement copy alone, so a managed plane whose pointer an `OrtValue` or a device submission holds past that region roots on `PinnedPlane<T>` instead, and the raw-`nint` ingress overload is reserved for genuinely FOREIGN memory (a device allocation, an ORT arena block) the caller can neither own nor pin — a managed buffer reaching that overload is the deleted unrooted form. A strided plane hands no contiguous pointer, so the pin repacks once through the non-throwing `TryFlattenTo` into a rental the capsule releases with the handle; a plane with no dense dimension flattens element-wise, so that walk carries a stated ceiling and refuses `pin-strided-oversize` past it rather than paying an unannounced traversal. Every egress proves dtype identity, native byte count, and destination density where raw-byte projection requires it. `BoundFlow.Write<T>` and framed-byte `Write` return `Fin<Unit>`, enforce exact dtype and length, and let `Flow` abort before `Drive`. Rebind operations allocate replacements before clearing current bindings, restore prior CPU bindings on failure, and transfer ownership only after successful binding. `Dispose` releases each owned native handle once. Gate selection derives from the session's own `OrtMemoryInfo` through `OrtResidency.Classify` — a caller-declared gate the model contradicts is the deleted form, and the allocator name stays receipt evidence rather than a discriminant. A relay proves BOTH ends device-resident through `OrtResidency.Classify` before any native copy — a caller-declared residency the model contradicts is the deleted form the gate already names.
+- Boundary: `OrtValue` is the sole model-boundary carrier. Every ingress shape proves non-negative extents, checked volume, payload coverage, and native construction on `Fin`; zero-sized tensors remain representable. Buffer ROOTING splits by ownership: `Tensor<T>.GetPinnableReference` roots a `fixed` region and serves the in-statement copy alone, so a managed plane whose pointer an `OrtValue` or a device submission holds past that region roots on `PinnedPlane<T>` instead, and the raw-`nint` ingress overload is reserved for genuinely FOREIGN memory (a device allocation, an ORT arena block) the caller can neither own nor pin — a managed buffer reaching that overload is the deleted unrooted form. A strided plane hands no contiguous pointer, so the pin repacks once through the non-throwing `TryFlattenTo` into a rental the capsule releases with the handle; a plane with no dense dimension flattens element-wise, so that walk carries a stated ceiling and refuses `pin-strided-oversize` past it rather than paying an unannounced traversal. Every egress proves dtype identity, native byte count, and destination density where raw-byte projection requires it. `BoundFlow.Write<T>` and framed-byte `Write` return `Fin<Unit>`, enforce exact dtype and length, and let `Flow` abort before `Drive`. Rebind operations allocate replacements before clearing current bindings, restore prior CPU bindings on failure, and transfer ownership only after successful binding. Foreign custody is ONE clause: `RebindDevice` and `RebindExternal` bind memory the CALLER owns — an `OrtMemoryAllocation` or an `OrtExternalAllocation` whose lifetime must outlive both the binding and this capsule — so the capsule releases neither and only clears its own `foreignInput` slot, while the `OrtValue` that `RebindDevicePointer` mints over a raw device pointer is capsule-owned and releases at the next rebind or at `Dispose`. `Dispose` releases each owned native handle once. Gate selection derives from the session's own `OrtMemoryInfo` through `OrtResidency.Classify` — a caller-declared gate the model contradicts is the deleted form, and the allocator name stays receipt evidence rather than a discriminant. A relay proves BOTH ends device-resident through `OrtResidency.Classify` before any native copy — a caller-declared residency the model contradicts is the deleted form the gate already names.
 
 ```csharp signature
 // --- [TYPES] -------------------------------------------------------------------------------
@@ -256,9 +256,9 @@ public static class TensorBridge {
                 toSeq(outputs).Map(static info => (info.Name, OrtResidency.Classify(info))));
     }
 
-    public static Fin<BoundFlow> Bind(InferenceSession session, string inputName, string outputName, ReadOnlySpan<long> shape, OrtAllocator arena) =>
-        BoundFlow.Lease(session, inputName, outputName, shape.ToArray(), arena, TensorDtype.Float32);
-
+    // ONE bind: the dtype row is a required argument, never a defaulted float32 sibling. A convenience overload
+    // that picks the row for the caller binds a session's real element type to whatever the sibling assumed, and
+    // the mismatch surfaces as a byte-count refusal far from the call that chose it.
     public static Fin<BoundFlow> Bind(InferenceSession session, string inputName, string outputName, ReadOnlySpan<long> shape, OrtAllocator arena, TensorDtype row) =>
         BoundFlow.Lease(session, inputName, outputName, shape.ToArray(), arena, row);
 }
@@ -327,9 +327,11 @@ public sealed class BoundFlow : IDisposable {
         binding.SynchronizeBoundOutputs();
     }
 
-    public IDisposableReadOnlyCollection<OrtValue> Run(RunOptions options) {
-        Drive(options);
-        return binding.GetOutputValues();
+    // Native drive and output collection throw, so both cross the rail exactly like `Flow` does: an announced
+    // `Succ` holding an escaping ORT exception is the one shape this capsule never publishes.
+    public Fin<IDisposableReadOnlyCollection<OrtValue>> Run(RunOptions options) {
+        try { Drive(options); return Fin.Succ(binding.GetOutputValues()); }
+        catch (Exception ex) { return TensorFault.Fail<IDisposableReadOnlyCollection<OrtValue>>("bound-run", row.Key, ex.Message); }
     }
 
     public Fin<Unit> Flow<T>(ReadOnlySpan<T> input, in TensorSpan<T> output) where T : unmanaged {
@@ -416,7 +418,10 @@ public sealed class BoundFlow : IDisposable {
         catch (Exception ex) { return Restore("rebind-external", ex); }
     }
 
-    public IDisposableReadOnlyCollection<OrtValue> Outputs() => binding.GetOutputValues();
+    public Fin<IDisposableReadOnlyCollection<OrtValue>> Outputs() {
+        try { return Fin.Succ(binding.GetOutputValues()); }
+        catch (Exception ex) { return TensorFault.Fail<IDisposableReadOnlyCollection<OrtValue>>("bound-outputs", row.Key, ex.Message); }
+    }
 
     private Fin<Unit> Restore(string symbol, Exception failure) {
         try {
@@ -444,10 +449,10 @@ public sealed class BoundFlow : IDisposable {
 ## [03]-[GEOMETRY_ENCODING]
 
 - Owner: `EncodedTensor` — the model-lane wrap holding the kernel `Rasm.Drawing.EncodedGeometry` WHOLE beside its layout row; the per-`PackKind` `Wire` mapping is the canonical geometry-ML input vocabulary.
-- Entry: `Of(EncodedGeometry, PackKind)` derives only provable dimensions (`N`, point/mesh `V`, channel `C`, and indexed-face `F`), while `Of(EncodedGeometry, PackKind, Option<Seq<(string Name, long Extent)>>, Option<Tensor<long>>)` carries explicit spatial dimensions without default ghosts. `Fin<T>` rejects lossy witnesses, absent wire rows, non-positive or mismatched dimensions, underivable `U`/`V` and `H`/`W` grids, invalid channel ranges, and overflowed interleaving shapes.
+- Entry: `Of(EncodedGeometry, PackKind)` derives only provable dimensions (`N`, point/mesh `V`, channel `C`, and indexed-face `F`) and refuses a row the `Wire` `Derivable` column marks unreachable, naming `Of(EncodedGeometry, PackKind, Option<Seq<(string Name, long Extent)>>, Option<Tensor<long>>)` — the entry carrying explicit spatial dimensions without default ghosts. `Fin<T>` rejects lossy witnesses, absent wire rows, non-positive or mismatched dimensions, underivable `U`/`V` and `H`/`W` grids, invalid channel ranges, and overflowed interleaving shapes.
 - Receipt: the kernel `EncodedGeometry.Witness` is the lossless-round-trip proof keyed by the `Spatial/reconciliation#RECONCILIATION_BRIDGE` content hash; `Of` admits only a lossless payload, so the residency wrap carries no second witness and mints no second content key.
 - Packages: Rasm (project), Microsoft.ML.OnnxRuntime, System.Numerics.Tensors, CommunityToolkit.HighPerformance, Thinktecture.Runtime.Extensions, LanguageExt.Core
-- Growth: a new representation lands as one kernel `PackKind` row (the kernel `Rasm.Drawing` owner adds it with its active-channel column) and one `Wire` row here carrying its `LayoutForm`/`WireShape`/free-dimension names — the `Field` (`geodesic`+`weight` lanes, positions omitted because the witness digest binds the source mesh) and `Toolpath` (`position`+`arc-center`+`arc-sense`+`weight`, so an analytic arc survives packing as content rather than sampled chords) rows the `Rasm.AppHost/Sandbox/solver#SOLVER_KIND` `EncodingKind` contract speaks are landed this way on `NxC`, closing the `Wire` table one-to-one over the kernel's six kinds, never a residency-side packer; a new feature channel is one kernel `EncodingChannel` row, read here through the descriptor set with zero residency edit; zero new surface.
+- Growth: a new representation lands as one kernel `PackKind` row (the kernel `Rasm.Drawing` owner adds it with its active-channel column) and one `Wire` row here carrying its `LayoutForm`/`WireShape`/free-dimension names and its `Derivable` truth — the `Field` (`geodesic`+`weight` lanes, positions omitted because the witness digest binds the source mesh) and `Toolpath` (`position`+`arc-center`+`arc-sense`+`weight`, so an analytic arc survives packing as content rather than sampled chords) rows the `Rasm.AppHost/Sandbox/solver#SOLVER_KIND` `EncodingKind` contract speaks are landed this way on `NxC`, closing the `Wire` table one-to-one over the kernel's six kinds, never a residency-side packer; a new feature channel is one kernel `EncodingChannel` row, read here through the descriptor set with zero residency edit; zero new surface.
 - Boundary: geometry channel materialization remains in `Rasm.Drawing.Encode.Apply`; residency receives host-neutral `EncodedGeometry` and holds it whole. `EncodedTensor.Channel` returns the admitted zero-copy `ReadOnlyMemory<byte>` slice at the channel's STORED width, never a default ref-struct ghost and never a float re-typing of a dtype-strided arena, whose float16 and unorm8 lanes such a reinterpretation reads as garbage; descriptor tiling, extent, and offset are proved once by the kernel's own `EncodedGeometry.IsValid` claim set, so this wrap re-derives no range check and `ToTensor` widens through `ChannelDtype.Unpack` before one array allocation interleaves channel-blocked SoA into point-major `[Count, FeatureWidth]`; `Tensor/layout#LAYOUT_ALGEBRA` owns later rank edits. `Wire` maps model shape names to the remote geometry family, and free-dimension rows feed `AddFreeDimensionOverrideByName`. Mesh face indices ride optional `Tensor<long>` topology. `U`/`V` and `H`/`W` never derive by assigning the same flat `Count` to both axes.
 
 ```csharp signature
@@ -467,19 +472,29 @@ public sealed record EncodedTensor(
 
     public int Count => Source.Count;
 
-    private static readonly FrozenDictionary<PackKind, (LayoutForm Layout, string WireShape, Seq<string> FreeDimensionNames)> Wire =
-        new Dictionary<PackKind, (LayoutForm, string, Seq<string>)> {
-            [PackKind.PointCloud] = new(LayoutForm.NxC, "PointCloudTensor", Seq("N", "C")),
-            [PackKind.MeshPatch] = new(LayoutForm.VertexFace, "MeshTensor", Seq("V", "F")),
-            [PackKind.VoxelGrid] = new(LayoutForm.Nchw, "VoxelGridTensor", Seq("C", "H", "W")),
-            [PackKind.BrepPatch] = new(LayoutForm.NxC, "NurbsControlTensor", Seq("U", "V")),
-            [PackKind.Field] = new(LayoutForm.NxC, "FieldTensor", Seq("N", "C")),
-            [PackKind.Toolpath] = new(LayoutForm.NxC, "ToolpathTensor", Seq("N", "C")),
+    // `Derivable` is the truth column of what the geometry payload can ANSWER: `N`/`V` come from the element
+    // count, `C` from the channel arity sum, `F` from supplied face topology — while the voxel `H`/`W` grid and
+    // the NURBS `U`/`V` control net are extents no channel arena carries, so those rows are reachable through the
+    // explicit-extents entry alone and say so at admission rather than at a later underivable-axis fault.
+    private static readonly FrozenDictionary<PackKind, (LayoutForm Layout, string WireShape, Seq<string> FreeDimensionNames, bool Derivable)> Wire =
+        new Dictionary<PackKind, (LayoutForm, string, Seq<string>, bool)> {
+            [PackKind.PointCloud] = new(LayoutForm.NxC, "PointCloudTensor", Seq("N", "C"), true),
+            [PackKind.MeshPatch] = new(LayoutForm.VertexFace, "MeshTensor", Seq("V", "F"), true),
+            [PackKind.VoxelGrid] = new(LayoutForm.Nchw, "VoxelGridTensor", Seq("C", "H", "W"), false),
+            [PackKind.BrepPatch] = new(LayoutForm.NxC, "NurbsControlTensor", Seq("U", "V"), false),
+            [PackKind.Field] = new(LayoutForm.NxC, "FieldTensor", Seq("N", "C"), true),
+            [PackKind.Toolpath] = new(LayoutForm.NxC, "ToolpathTensor", Seq("N", "C"), true),
         }.ToFrozenDictionary();
 
     public int FeatureWidth => Descriptors.Sum(static descriptor => descriptor.Channel.Arity);
 
-    public static Fin<EncodedTensor> Of(EncodedGeometry geometry, PackKind kind) => Of(geometry, kind, None, None);
+    // The derive-only entry refuses a non-derivable row BY NAME and points at the four-argument entry that takes
+    // the extents explicitly; falling through would refuse anyway, one axis at a time, as if the caller had
+    // supplied a bad grid rather than reached for an entry the row cannot serve.
+    public static Fin<EncodedTensor> Of(EncodedGeometry geometry, PackKind kind) =>
+        Wire.TryGetValue(kind, out var row) && !row.Derivable
+            ? TensorFault.Fail<EncodedTensor>("free-dimension-explicit", kind.Key, string.Join(',', row.FreeDimensionNames))
+            : Of(geometry, kind, None, None);
 
     public static Fin<EncodedTensor> Of(
         EncodedGeometry geometry,
@@ -544,7 +559,7 @@ public sealed record EncodedTensor(
     // supplied face-index topology — a `VertexFace` layout with no indices faults `free-dimension-underivable`
     // instead of silently equating the face count to the vertex count.
     private static Fin<Seq<(string Name, long Extent)>> Derived(
-        (LayoutForm Layout, string WireShape, Seq<string> FreeDimensionNames) row,
+        (LayoutForm Layout, string WireShape, Seq<string> FreeDimensionNames, bool Derivable) row,
         EncodedGeometry geometry,
         Option<Tensor<long>> indices) =>
         row.FreeDimensionNames.Map<Fin<(string Name, long Extent)>>(name =>

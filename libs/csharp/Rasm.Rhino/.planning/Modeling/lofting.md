@@ -1,6 +1,6 @@
 # [RASM_RHINO_MODELING_LOFTING]
 
-`Lofts.Build` owns loft, one- and two-rail sweep, direct and variational patch, developable construction, and ruling evidence. `LoftOp` admits rails, profiles, constraints, and seed surfaces once; `CurveFit` owns the shared rebuild/refit axis; `LoftRuntime` supplies cancellation and progress; and every geometry product exits through `Built<LoftSlot>`. `SweepFrameLaw` remains the frozen seam consumed by `SubDOp.FromSweepOne`.
+`Lofts.Build` owns loft, one- and two-rail sweep, direct and variational patch, developable construction, and ruling evidence. `LoftOp` admits rails, profiles, constraints, and seed surfaces once; `CurveFit` owns the shared rebuild/refit axis; `LoftRuntime` consumes the `ProgressLease` governance band; and every geometry product exits through `Built<LoftSlot>`. `SweepFrameLaw` remains the frozen seam consumed by `SubDOp.FromSweepOne`.
 
 ## [01]-[INDEX]
 
@@ -370,7 +370,7 @@ public readonly partial struct VariationalLaw {
             RocBending = RocBending,
             UVRotation = UVRotation,
             MaxRefinements = MaxRefinements,
-            InitialSurface = initial.IfNoneUnsafe((Surface?)null),
+            InitialSurface = initial.ValueUnsafe(),
             PreserveEdges = Edges.Native,
         }));
 }
@@ -420,7 +420,7 @@ public readonly partial struct LoftTangency {
 
 ## [04]-[ALGEBRA]
 
-`LoftOp` is the sole construction algebra. `LoftRuntime` owns cancellation and progress, while `VariationalThreading` names solver parallelism. Native engines and settings remain scoped to their consuming arm, and all solver side channels land as typed receipt facts.
+`LoftOp` is the sole construction algebra. `LoftRuntime` carries the host governance band — the token and fraction reporter a `ProgressLease` produces — into the one paced native this rail composes, while `VariationalThreading` names solver parallelism. Native engines and settings remain scoped to their consuming arm, and all solver side channels land as typed receipt facts.
 
 ```csharp
 // --- [TYPES] ------------------------------------------------------------------------------
@@ -443,7 +443,12 @@ public readonly partial struct LoftRuntime {
 
     public static implicit operator Context(LoftRuntime runtime) => runtime.Domain;
 
-    internal IProgress<double>? Reporter => Progress.IfNoneUnsafe((IProgress<double>?)null);
+    // The governance band is consumed, never minted: `HostUi/shell.md` `ProgressLease` is the package's ONE producer,
+    // so a caller hands this carrier the lease's `Fraction` reporter and its escape-armed `Cancel` exactly as
+    // `MeshRuntime` and `ProjectionPacing` take them. An `IProgress` shim or a `CancellationTokenSource` minted beside
+    // a lease is the forked form; with no lease the token is `CancellationToken.None` and the reporter `null`, which
+    // is precisely what `Brep.CreateVariationalPatch` reads as an unpaced run.
+    internal IProgress<double>? Reporter => Progress.ValueUnsafe();
 
     internal Fin<Built<LoftSlot>> Apply(LoftOp operation, Context _) => operation.Apply(this);
 }
@@ -625,7 +630,7 @@ public abstract partial record LoftOp {
                                         rail: rail, shapes: shapes.AsIterable(), startPoint: edit.Ends.StartOrUnset, endPoint: edit.Ends.EndOrUnset,
                                         frameType: frame, roadlikeNormal: normal, closed: edit.Closure.Native, blendType: edit.Blend, miterType: edit.Miter,
                                         tolerance: model.Domain.Absolute.Value, rebuildType: kind, rebuildPointCount: points, refitTolerance: refit, refitRail: refitRail));
-                                })));
+                                }))));
             },
             sweepTwo: static (model, edit) => {
                 Op op = Op.Of(name: nameof(SweepTwo));
@@ -816,6 +821,9 @@ public abstract partial record LoftOp {
                     ModelGate.Borrow<NurbsCurve, Built<LoftSlot>>(handle: edit.Rail1, key: op, body: rail1 =>
                         edit.Law.Switch(
                             (Rail0: rail0, Rail1: rail1, Seed: edit.Seed, Op: op),
+                            // `Rhino.Geometry.DevelopableSrf.GetLocalDevopableRuling` answers `int`, not `bool`: the value
+                            // is the solver's ruling count/status beside the two solved parameters, so it lands as a
+                            // `Code` fact the consumer reads to qualify the `UvRows` pair rather than being discarded.
                             local: static (ctx, law) => ctx.Op.Catch(() => {
                                 double t0 = ctx.Seed.X;
                                 double t1 = ctx.Seed.Y;
@@ -896,6 +904,8 @@ public static class Lofts {
 `LoftOp.MakeCompatible` composes `NurbsCurve.MakeCompatible` with context-owned refit and angle tolerances. Consumers feed its owned curve products into `LoftOp.Loft`, `LoftOp.SweepOne`, or `LoftOp.SweepTwo` without a second compatibility surface.
 
 Variational evidence encodes native absence structurally: a nullable channel lands a fact only when the host answered, so an empty `Project` over its slot is the unknown verdict, a present `Flag`/`Text` fact is the answer, and an empty warning string stays distinct from a missing one.
+
+Ruling solves split by what the host returns: `DevelopableSrf.RulingMinTwist` answers `bool` and folds through `Op.Confirm`, while `DevelopableSrf.GetLocalDevopableRuling` answers `int` and lands that count/status as a `Code` fact beside its `UvRows` pair. Only the variational patch takes the governance band, so `LoftRuntime`'s token and reporter reach exactly one native and every other arm runs unpaced by the host's own shape.
 
 ## [06]-[RESEARCH]
 

@@ -9,7 +9,7 @@ Settled composition: `ReceiptSinkPort`, `ReceiptEnvelope`, and the `AppHostWireC
 - [02]-[BENCHMARK_RECEIPT]: Receipt family, host evidence, relative evidence, and the corpus-gate fold.
 - [03]-[CAPTURE_SEAM]: Deep-capture contributor rows riding the support-bundle fan.
 - [04]-[PROFILE_CORRELATION]: Span-wrapped runs feeding the continuous-profiling linkage.
-- [05]-[CLAIM_FIELD_MAP]: One family-to-receipt field map admitting every folder claim family.
+- [05]-[CLAIM_FIELD_MAP]: One family-to-receipt field map admitting every folder claim family, and the corpus gate over the Compute-minted claim wire.
 - [06]-[RESEARCH]: Catalog-blocked external member spellings.
 
 ## [02]-[BENCHMARK_RECEIPT]
@@ -21,9 +21,11 @@ Settled composition: `ReceiptSinkPort`, `ReceiptEnvelope`, and the `AppHostWireC
 - Receipt: `BenchmarkReceipt` — suite, case, host evidence, corpus identity, median, p95, and interquartile wall duration, allocated bytes, operation count, optional same-run reference evidence, gate verdict, optional artifact key, correlation.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, System.IO.Hashing, BCL inbox (the producing edge reads its order statistics through MathNet `SortedArrayStatistics` at its own harness boundary; no MathNet type crosses onto this receipt).
 - Growth: a new measured axis is one `BenchMeasurement` field threaded through `Of` and breaking the gate fold at compile time; a new verdict class is one `BenchmarkVerdict` row paired with its `BenchmarkFault` case; a new claim family is one `[05]-[CLAIM_FIELD_MAP]` row with its own `Of` call, never a positional receipt construction.
-- Boundary: this rail is the corpus benchmark gate's owner — a kernel or compute page citing the BenchmarkDotNet gate cites this fold, and a hand-rolled kernel is admitted only after its receipt defeats the library route under `Judge`; the bench project folds raw harness results to receipts at its edge, resolving `ArtifactKey` there off `ExporterBase.GetArtifactFullName(Summary)` — the public path member every shipped exporter inherits, the same path `IExporter.ExportToFiles(Summary, ILogger)` returns after writing — and hands it across as a plain `string`, so the key rides the receipt while no BenchmarkDotNet type crosses into the spine and no libs-tier catalog carries a package no libs project references; the durable claim the gate compares against is the Persistence reuse-index row resolved by content fingerprint — measured facts mint here, the claim store persists them, and neither re-derives the other.
+- Boundary: the three duration columns are EXACT order statistics over a bounded materialized sample, the form the kernel quantile roster at `Rasm/Domain/stats#STATISTICS` admits this triple under — a sketch estimator crossing into a gate comparison grades a value no run produced, which is why neither streaming lane reaches this receipt; this rail is the corpus benchmark gate's owner — a kernel or compute page citing the BenchmarkDotNet gate cites this fold, and a hand-rolled kernel is admitted only after its receipt defeats the library route under `Judge`; the bench project folds raw harness results to receipts at its edge, resolving `ArtifactKey` there off `ExporterBase.GetArtifactFullName(Summary)` — the public path member every shipped exporter inherits, the same path `IExporter.ExportToFiles(Summary, ILogger)` returns after writing — and hands it across as a plain `string`, so the key rides the receipt while no BenchmarkDotNet type crosses into the spine and no libs-tier catalog carries a package no libs project references; the durable claim the gate compares against is the Persistence reuse-index row resolved by content fingerprint — measured facts mint here, the claim store persists them, and neither re-derives the other.
 
 ```csharp signature
+namespace Rasm.AppHost.Observability; // the namespace every benchmark-peer `using Rasm.AppHost.Observability;` prelude resolves
+
 public sealed record HostEvidence(string Runtime, string Os, int Processors, UInt128 Digest) {
     public static HostEvidence Current() {
         var runtime = RuntimeInformation.FrameworkDescription;
@@ -53,20 +55,24 @@ public sealed partial class BenchmarkVerdict {
 // that class visible on the receipt every claim resolves to.
 public readonly record struct BenchMeasurement(Duration Median, Duration P95, Duration Iqr, long AllocatedBytes, long Operations);
 
+// The three `Option<T>` columns tail the positional list carrying `= default`: the suite's `OmitAbsent` modifier
+// drops an absent one at write, so a slot without a default reads back wire-required under
+// `RespectRequiredConstructorParameters` and fails the decode of the payload this producer emitted. Wire order is
+// name-keyed JSON and the TS face re-checks by name, so the tail carries no semantic cost.
 public sealed record BenchmarkReceipt(
     string Suite,
     string Case,
     HostEvidence Host,
-    Option<UInt128> Corpus,
     Duration Median,
     Duration P95,
     Duration Iqr,
     long AllocatedBytes,
     long Operations,
-    Option<ReferenceEvidence> Reference,
     BenchmarkVerdict Verdict,
-    Option<string> ArtifactKey,
-    CorrelationId Correlation) {
+    CorrelationId Correlation,
+    Option<UInt128> Corpus = default,
+    Option<ReferenceEvidence> Reference = default,
+    Option<string> ArtifactKey = default) {
 
     // ONE fresh mint every folder claim family reaches: the family supplies identity, the harness supplies
     // measurement, host stamps here, and the judging columns hold their floor until the gate advances them.
@@ -77,17 +83,17 @@ public sealed record BenchmarkReceipt(
         string suite, string @case, Option<UInt128> corpus, BenchMeasurement measured,
         CorrelationId correlation, Option<ReferenceEvidence> reference = default,
         Option<string> artifact = default) =>
-        new(Suite: suite, Case: @case, Host: HostEvidence.Current(), Corpus: corpus,
+        new(Suite: suite, Case: @case, Host: HostEvidence.Current(),
             Median: measured.Median, P95: measured.P95, Iqr: measured.Iqr, AllocatedBytes: measured.AllocatedBytes,
-            Operations: measured.Operations, Reference: reference, Verdict: BenchmarkVerdict.Unjudged,
-            ArtifactKey: artifact, Correlation: correlation);
+            Operations: measured.Operations, Verdict: BenchmarkVerdict.Unjudged, Correlation: correlation,
+            Corpus: corpus, Reference: reference, ArtifactKey: artifact);
 }
 
 public sealed record ReferenceEvidence(
     string Case,
     HostEvidence Host,
-    Option<UInt128> Corpus,
-    Duration Median);
+    Duration Median,
+    Option<UInt128> Corpus = default);
 
 [Union]
 public abstract partial record BenchmarkFault : Expected, IValidationError<BenchmarkFault> {
@@ -184,7 +190,7 @@ public static class BenchmarkGate {
                 Fail: static fault => fault is BenchmarkFault.HostMismatch ? BenchmarkVerdict.HostMismatch : BenchmarkVerdict.Regressed),
         }
         from _ in sink.Send(judged.Correlation, TenantContext.Current, TelemetrySource.AppHost.Key, InstrumentFan.BenchmarkKind,
-            JsonSerializer.SerializeToElement(judged, AppHostWireContext.Default.BenchmarkReceipt))
+            JsonSerializer.SerializeToElement(judged, SuiteContracts.Host))
         select gate;
 }
 ```
@@ -440,7 +446,7 @@ file sealed record ProfileDetacher(Guid Token, Action<Guid> Release) : IDisposab
 
 ## [05]-[CLAIM_FIELD_MAP]
 
-- Owner: the claim-family field map — one admission table mapping every task-named folder claim family onto the `BenchmarkReceipt` fields; a family admits by one registered row and never mints a sibling verdict grammar.
+- Owner: the claim-family field map — one admission table mapping every task-named folder claim family onto the `BenchmarkReceipt` fields; a family admits by one registered row and never mints a sibling verdict grammar. This section is the corpus GATE for the benchmark wire family and nothing more: `BenchmarkClaimWire` MINTS at `Rasm.Compute` `Runtime/receipts#TS_PROJECTION` under `tests/contracts/MANIFEST.md` `[02.14]`, so this branch grades claims against the rows below and declares no wire record of its own — a second minter would fork the shape both ends already decode.
 - Cases: admitted kernel `BenchClaim`, Bim `BimBenchReceipt`, Fabrication `FabricationBenchClaims` rows, Rhino `BenchEvidence`, Persistence `BenchmarkRow`, Materials `BenchWorkload`, Compute `BenchmarkClaim`, and the two Grasshopper breach families `BudgetBreach` and `CaptureBreach`.
 - Law: `HostEvidence` binds whole — runtime, OS, processors, digest — never a bare host name; a custody column holding host identity as a string carries either the Compute `HostFingerprint.ToString` render or the `HostEvidence` digest hex, one host-identity string per claim, and the two renders never mix inside one row.
 - Law: `Verdict` and `Correlation` never persist — judging is the gate fold's per run and correlation is the run envelope's, so custody rows carry measurement and identity columns only and a persisted verdict is a stale-truth defect.
@@ -451,7 +457,7 @@ file sealed record ProfileDetacher(Guid Token, Action<Guid> Release) : IDisposab
 | [INDEX] | [FAMILY]                 | [RECEIPT_PROJECTION]                                                                               |
 | :-----: | :----------------------- | :------------------------------------------------------------------------------------------------- |
 |  [01]   | `BenchClaim`             | `Claim` → case; lanes → fresh/reference cases; `SpeedupFloor` → policy                             |
-|  [02]   | `BimBenchReceipt`        | claim → case; corpus fingerprint → corpus; all four measurements map directly                      |
+|  [02]   | `BimBenchReceipt`        | claim → case; corpus fingerprint → corpus; all five measurements map directly                      |
 |  [03]   | `FabricationBenchClaims` | `BenchClaim.Claim` keys `{Suite}/{Case}`; harness result supplies measurements; corpus is absent   |
 |  [04]   | `BenchEvidence`          | operation → case; batch duration → median/p95; allocation and host map directly                    |
 |  [05]   | `BenchmarkRow`           | key splits suite/case; custody keeps measures, corpus, artifact, host, and route                   |

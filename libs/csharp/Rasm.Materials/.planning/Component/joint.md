@@ -1,48 +1,48 @@
 # [MATERIALS_JOINT]
 
-THE JOINT SEED PAGE — the `joint` `ComponentFamily` row (`ComponentClass.Minor`, `DetailLane.Realization`), the continuous-connection weld/adhesive/stud vocabulary. A continuous weld/bond/stud is STRUCTURALLY DISTINCT from a discrete placed part: it carries no thread or bar cross-section, so it cannot fold into `fastener` the way `anchor` does — the ONE deliberate widening past the discrete triple, load-bearing because `steel#STEEL_FAMILY`'s `Composite` arm reads `StudClass.SteelShearKn` from here for its `ΣQn` cap. An 8 mm fillet weld is a `Component` row in the `joint` family, never a `Weld` type: geometry lands as the `SectionProfile` arm the family admits (`FilletTriangle` the fillet and flare welds — the `0.707·leg` throat staying the family's DEFINED derivation; `Trapezium` the PJP/CJP groove derived from the prep geometry; `Circle` the plug/slot hole and the stud shank; `Nominal` the continuous adhesive bond-line), the realization scalars land in the `JointDetail` `DetailSchema.Realization` `PropertyBag`, and the strength axes are frozen row tables with per-column provenance. `JointSeed` binds the DUAL IFC entity at seed per the IFC-BINDING law — `JointKind.Binding` the row-owned `IfcBinding.Of(kind.IfcEntity, kind.IfcPredefinedType)` projection, the entity a vocabulary COLUMN beside its token (POLICY_VALUES — never an external equality branch) — an `IfcMechanicalFastener` `STUDSHEARCONNECTOR` for the welded stud, an `IfcFastener` `WELD`/`GLUE` for the weld/adhesive bead. The vocabulary grows by data: a new electrode/adhesive/stud diameter/stud grade is one row in its frozen table, a new groove one `GrooveGeometry` row, a new designation one `JointRow.Weld`/`JointRow.Stud`/`JointRow.Adhesive` table entry — never a per-joint type. The generative geometry is the hand-rolled AWS D1.1:2020 + AISC 360 J2/I8 + ISO 13918:2017 + EN 1994 capture (GeometryGym mirrors only the IFC class; VividOrange owns no weld); the host materializes the bead/groove/stud solid from the scalar receipt, NEVER a host `Curve` here. `DesignShearKn` emits the SPEC-NOMINAL filler/adhesive/stud-steel band; the measured base-metal capacity is the `Properties/properties#MATERIAL_PROPERTY_CATALOGUE` `Mechanical` receipt read by `MaterialId`, and the composite stud's concrete branch is the `Rasm.Compute/Analysis/structural#DESIGN_CHECK` join — neither a column here. The AISC J2.4 minimum fillet leg reads the connected member's `VividOrange.Profiles` `II` `FlangeThickness`/`WebThickness`; the EN 1993-1-8 / EN 1994 design codes are NAMED as typed `VividOrange.Standards` citations. The page composes `Component/component#COMPONENT_OWNER` (`Component.Of`, `ComponentRow`, `SectionProfile`, `IfcBinding`, `ComponentDetail`, `ComponentFault`), the seam `Properties/property#DETAIL_SCHEMA` realization rows, `Rasm.Numerics` `PositiveMagnitude`, and the `Appearance/graph#MATERIAL_LIBRARY` `MaterialId` two-slot law.
+THE JOINT SEED PAGE — the `joint` `ComponentFamily` row (`ComponentClass.Minor`, `DetailLane.Realization`), the continuous-connection weld/adhesive/stud vocabulary. A continuous weld/bond/stud is STRUCTURALLY DISTINCT from a discrete placed part: it carries no thread or bar cross-section, so it cannot fold into `fastener` the way `anchor` does — the ONE deliberate widening past the discrete triple, load-bearing because `steel#STEEL_FAMILY`'s `Composite` arm reads the stud shear resistance from here for its `ΣQn` cap. An 8 mm fillet weld is a `Component` row in the `joint` family, never a `Weld` type: geometry lands as the `SectionProfile` arm the family admits (`FilletTriangle` the fillet and flare welds — the `0.707·leg` throat staying the family's DEFINED derivation; `Trapezium` the PJP/CJP groove derived from the prep geometry; `Circle` the plug hole and the stud shank; `Rectangle` the slot's obround footprint; `Nominal` the continuous adhesive bond-line), the realization scalars land in the `JointDetail` `DetailSchema.Realization` `PropertyBag`, and the strength axes are frozen row tables with per-column provenance. `JointSeed` binds the DUAL IFC entity at seed per the IFC-BINDING law — `JointKind.Binding` the row-owned `IfcBinding.Of(kind.IfcEntity, kind.IfcPredefinedType)` projection, the entity a vocabulary COLUMN beside its token — an `IfcMechanicalFastener` `STUDSHEARCONNECTOR` for the welded stud, an `IfcFastener` `WELD`/`GLUE` for the weld/adhesive bead. The vocabulary grows by data: a new electrode/adhesive/stud diameter/stud grade is one row in its frozen table, a new groove one `GrooveGeometry` row, a new designation one `JointRow` table entry — never a per-joint type. The generative geometry is the hand-rolled AWS D1.1:2020 + AISC 360 J2/I8 + ISO 13918:2017 + EN 1994 capture (GeometryGym mirrors only the IFC class; VividOrange owns no weld); the host materializes the bead/groove/stud solid from the scalar receipt, NEVER a host `Curve` here. `DesignShearKn` emits the SPEC-NOMINAL filler/adhesive/stud-steel band; the measured base-metal capacity is the `Properties/properties#MATERIAL_PROPERTY_CATALOGUE` `Mechanical` receipt read by `MaterialId`, and the composite stud's concrete branch is the `Rasm.Compute/Analysis/structural#DESIGN_CHECK` join — neither a column here. The EN 1993-1-8 / EN 1994 design codes a verdict cites ride the `capacity#SECTION_CAPACITY` `SectionCapacity.Code` column, never a static beside these rows. The page composes `Component/component#COMPONENT_OWNER` (`Component.Of`, `ComponentRow`, `SectionProfile`, `IfcBinding`, `ComponentDetail`, `ComponentFault`), the `Rasm.Element/Properties/property#DETAIL_SCHEMA` realization rows, `Rasm.Numerics` `PositiveMagnitude`, and the `Appearance/graph#MATERIAL_LIBRARY` `MaterialId` two-slot law.
 
 ## [01]-[INDEX]
 
-- [02]-[JOINT_FAMILY]: the `JointKind` IFC binding vocabulary; the welding policy axes and frozen strength tables; the `WeldGeometry` union over fillet, groove, plug, slot, flare-bevel, and flare-V payloads; the `GroovePrep`, `HoleWeld`, and `WeldProfile` geometry values; the `JointRow` weld/stud/adhesive family; `JointDetail`; and the `JointSeed.Rows` fold.
+- [02]-[JOINT_FAMILY]: the `JointKind` IFC binding vocabulary; the welding policy axes and frozen strength tables; the `StudGroup` AISC I8-1 placement table; the `WeldGeometry` union over fillet, groove, plug, slot, flare-bevel, and flare-V payloads; the `GroovePrep`, `HoleWeld`, and `WeldProfile` geometry values; the `JointRow` weld/stud/adhesive family; `JointDetail`; and the `JointSeed.Rows` fold.
 
 ## [02]-[JOINT_FAMILY]
 
-- Owner: `JointKind` owns the complete IFC binding; the welding SmartEnums own reusable policy; the frozen strength tables own published data; `WeldGeometry` owns the payload-timed geometry variants without inert defaults; `JointRow` owns the weld/stud/adhesive seed family; `JointDetail` owns the realization bag; and `JointSeed` owns the closed table and fold.
-- Cases: kind {`Weld` (continuous fusion over `WeldType` × `GrooveGeometry` × `ElectrodeClass` × `WeldProcess`), `Adhesive` (structural bond over `AdhesiveClass`), `Stud` (welded shear connector over `StudClass` × `StudGrade`)}; weld {fillet · groove (square/V/bevel/U/J × single/double on `GrooveGeometry`) · plug · slot · flare-bevel · flare-v} over the E60..E110 electrode band; adhesive {epoxy · methacrylate · polyurethane · silicone-structural} over the lap-shear/peel/SSG-bite band; stud {the 13..25 mm ISO 13918 Type SD headed connectors} over diameter × grade × height × spacing. A joint is a `Component` row in `ComponentFamily.Joint`, never a joint subtype; the groove subtype is a `GrooveGeometry` row, never a per-subtype `WeldType` (a 14-member `WeldType` duplicating the 9 `GrooveGeometry` cases is the deleted form).
-- Entry: `JointSeed.Rows(Context)` traverses the closed `JointRow` table through one total row dispatch. Weld geometry is already admitted through `PositiveMagnitude`; fillet rows additionally prove the AISC J2.4 minimum, while stud and adhesive dimensions rail through the same component fault family. `JointRow.Weld.DirectionalShearKn(Angle)` applies the directional factor without a raw-angle convention.
-- Packages: Rasm.Numerics (`PositiveMagnitude` — throat/leg/size/length/bond-line/overlap/width/spacing, never an int-backed count that truncates a fractional throat), Rasm.Domain (`Context`/`Op`/`AcceptValidated`), Rasm.Element (`MaterialId`, `DetailSchema`, `Dimension`, `PropertyBag`), Rasm.Materials.Component (`Component`/`ComponentRow`/`SectionProfile`/`IfcBinding`/`ComponentDetail`/`ComponentFault`/`Coring`/`ComponentStandard`/`ComponentAuthority`), Thinktecture.Runtime.Extensions (`[SmartEnum<string>]` + generated total `Switch` for the policy axes), VividOrange.Profiles (`II` — the AISC J2.4 `FlangeThickness`/`WebThickness` connected-part read, the ONE VividOrange geometry composition), VividOrange.Standards (`En1993`/`En1993Part.Part1_8`, `En1994`, `NationalAnnex` — the typed Eurocode citations replacing inline code strings; AWS/AISC/ISO/ASTM have no VividOrange body, so those stay `PUBLISHED` provenance on the rows), UnitsNet (`Length.Millimeters` at the `II` read edge), LanguageExt.Core (`Fin`/`Seq`/`Traverse`/`Option`), BCL inbox (`ImmutableArray`).
-- Growth: a new weld geometry is one `WeldType` row; a new groove one `GrooveGeometry` row carrying its angle/radius; a new electrode one `ElectrodeClass` row (FEXX + specification); a new adhesive one `AdhesiveClass` row; a new stud diameter one `StudClass` row (ISO 13918 geometry, the `SteelShearKn` column deriving); a new stud grade one `StudGrade` row (`fy`/`fu`); a new designation one `JointRow` table entry; a new continuous-connection modality ONE `JointRow` case whose missing `Switch` arms break `JointDetail.Of` and `JointSeed.Row` at compile time — zero central edits, never a `Weld`/`AdhesiveBond`/`ShearStud` sibling type. The structural-joint utilisation verdict is the `capacity#SECTION_CAPACITY` `Connection` case lifting these receipts through `CapacityReceipt.Weld`/`Adhesive`/`Stud`, never this page's.
-- Boundary: strength axes remain frozen rows because identity and lookup behavior are absent; policy axes remain SmartEnums because they carry dispatch data. `WeldGeometry` distinguishes payload arity and timing: only groove geometry carries preparation and process, only hole welds carry diameter/depth/fill, and only line welds carry a run. `JointRow.Weld` derives throat, length, profile, and strength through total dispatch. `DirectionalShearKn(Angle)` consumes a typed angle. Plug and slot require distinct section geometry; the current shared `SectionProfile.Circle` approximation is a first-order seam opening on `component#COMPONENT_OWNER`, recorded for its concurrent owner.
+- Owner: `JointKind` owns the complete IFC binding; the welding SmartEnums own reusable policy; the frozen strength tables own published data; `StudGroup` owns the AISC I8-1 group-and-position table; `WeldGeometry` owns the payload-timed geometry variants without inert defaults; `JointRow` owns the weld/stud/adhesive seed family; `JointDetail` owns the realization bag; and `JointSeed` owns the closed table and fold.
+- Cases: kind {`Weld` (continuous fusion over `WeldType` × `GrooveGeometry` × `ElectrodeClass` × `WeldProcess`), `Adhesive` (structural bond over `AdhesiveClass`), `Stud` (welded shear connector over `StudClass` × `StudGrade`)}; weld {fillet · groove (square/V/bevel/U/J × single/double on `GrooveGeometry`) · plug · slot · flare-bevel · flare-v} over the E60..E110 electrode band; adhesive {epoxy · methacrylate · polyurethane · silicone-structural} over the lap-shear/peel/SSG-bite band; stud {the 13..25 mm ISO 13918 Type SD headed connectors} over diameter × grade × height × spacing. A joint is a `Component` row in `ComponentFamily.Joint`, never a joint subtype; the groove subtype is a `GrooveGeometry` row, never a per-subtype `WeldType`.
+- Entry: `JointSeed.Rows(Context)` traverses the closed `JointRow` table through one total row dispatch. Weld geometry is already admitted through `PositiveMagnitude`; a fillet row proves the AISC J2.4 minimum, a plug or slot row proves the AWS §4.4.5.4 depth of filling, and a PJP groove proves its prep survives its own process deduction. `JointRow.Weld.DirectionalShearKn(Angle)` applies the directional factor without a raw-angle convention.
+- Packages: Rasm.Numerics (`PositiveMagnitude` — throat/leg/size/length/bond-line/overlap/width/spacing, never an int-backed count that truncates a fractional throat), Rasm.Domain (`Context`/`Op`/`AcceptValidated`), Rasm.Element (`MaterialId`, `DetailSchema`, `Dimension`, `PropertyBag`, `PropertyName`, `PropertyValue`), Rasm.Materials.Component (`Component`/`ComponentRow`/`SectionProfile`/`IfcBinding`/`ComponentDetail`/`ComponentFault`/`Coring`/`ComponentStandard`/`ComponentAuthority`), Thinktecture.Runtime.Extensions (`[SmartEnum<string>]` + generated total `Switch` for the policy axes), UnitsNet (`Angle` at the directional-strength read), LanguageExt.Core (`Fin`/`Seq`/`Traverse`/`Option`), BCL inbox (`ImmutableArray`, `FrozenDictionary`). AWS/AISC/ISO/ASTM have no VividOrange body, so every design-code citation on these rows stays `PUBLISHED` provenance and the typed EN identity rides `capacity#SECTION_CAPACITY` `SectionCapacity.Code`.
+- Growth: a new weld geometry is one `WeldType` row; a new groove one `GrooveGeometry` row carrying its angle/radius; a new electrode one `ElectrodeClass` row naming its own classification number; a new adhesive one `AdhesiveClass` row; a new stud diameter one `StudClass` row; a new stud grade one `StudGrade` row (`fy`/`fu`); a new deck-and-position combination one `StudGroup` row; a new designation one `JointRow` table entry; a new continuous-connection modality ONE `JointRow` case whose missing `Switch` arms break `JointDetail.Of` and `JointSeed.Row` at compile time. The structural-joint utilisation verdict is the `capacity#SECTION_CAPACITY` `Connection` case lifting these receipts, never this page's.
+- Boundary: strength axes remain frozen rows because identity and lookup behavior are absent; policy axes remain SmartEnums because they carry dispatch data. `WeldGeometry` distinguishes payload arity and timing: only groove geometry carries preparation and process, only hole welds carry diameter/depth, and only line welds carry a run. A THROAT is a line-weld concept — a plug and a slot resist on the faying-plane hole area with no throat at all — so `EffectiveThroatMm` is `Option<double>` and the two hole arms answer absence rather than the zero a reader would divide by.
+- Boundary: the plug and slot effective area is the NOMINAL AREA OF THE HOLE OR SLOT IN THE PLANE OF THE FAYING SURFACE, stated identically by AWS D1.1 §4.4.5.3 and AISC 360 §J2.3a, so the weld DEPTH enters no strength term at all. Depth is instead an ADMISSION datum: the code requires a plug or slot in material 16 mm or thinner to be filled to the full thickness and a thicker one to half its thickness or 16 mm, whichever is greater, capped at the thinner joined part — an underfilled plug is a NONCONFORMING weld rather than a weaker one, so the depth column gates the row at seed and never reduces a resistance afterwards.
+- Boundary: `StudClass.SteelShearKn` takes its `StudGroup` and has no default. AISC Eq I8-1 caps the stud at `Rg·Rp·Asa·Fu`, where `Rg` falls to 0.85 at two studs per rib and 0.70 at three, and `Rp` falls from 0.75 to 0.60 the moment the stud sits in the weak position — a stud group frozen at `1.0`/`0.75` reports a strong-position, directly-welded connector's capacity for a three-per-rib weak-position one and over-states it by more than half. The deck relation, the studs-per-rib count, and the rib position are PLACEMENT facts, so they arrive as the placement's own `StudGroup` and the vocabulary carries the published pair for each.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
+using System.Collections.Frozen;     // FrozenDictionary (the designation-keyed row join the capacity producer reads)
 using System.Collections.Immutable;  // ImmutableArray (the frozen standards row tables)
 using LanguageExt;
 using Rasm.Numerics;                  // PositiveMagnitude (>0 finite — throat/leg/size/length/bond-line/overlap/width/spacing)
 using Rasm.Domain;                   // Context, Op, AcceptValidated
 using Rasm.Element.Composition;      // MaterialId
-using Rasm.Element.Properties;       // DetailSchema, PropertyBag
+using Rasm.Element.Properties;       // DetailSchema, PropertyBag, PropertyName, PropertyValue
 using Thinktecture;
-using UnitsNet;                      // Length (.Millimeters on the II.FlangeThickness/WebThickness reads)
-using VividOrange.Profiles;          // II (the I-section thickness pair the AISC J2.4 MinimumFilletLegMm read consumes)
-using VividOrange.Standards.Eurocode; // En1993/En1993Part, En1994, NationalAnnex (the typed design-code citations)
+using UnitsNet;                      // Angle (the directional-strength read)
 using Dimension = Rasm.Element.Properties.Dimension;   // the SI-dimension axis — disambiguated from the Rasm.Numerics discrete count
 using static LanguageExt.Prelude;
 using static Rasm.Materials.Component.ComponentDetail;   // Joint / Token / Measured / RealizationRows (the relocated bag constructors)
 
 // Every family page declares in the ONE flat Rasm.Materials.Component namespace (component#COMPONENT_OWNER;
-// dotnet_style_namespace_match_folder). This page DEFINES StudClass; the steel#STEEL_FAMILY Composite arm reads
-// StudClass.S19.SteelShearKn by bare name.
+// dotnet_style_namespace_match_folder). This page DEFINES StudClass and StudGroup; the steel#STEEL_FAMILY Composite
+// arm reads StudClass.S19.SteelShearKn(group) by bare name.
 namespace Rasm.Materials.Component;
 
 // --- [TYPES] -------------------------------------------------------------------------------
 // The continuous-connection kind discriminant owning the COMPLETE dual-entity binding (POLICY_VALUES — the entity
 // axis is a row column beside its token, never an external equality branch): the welded stud is IfcMechanicalFastener
 // STUDSHEARCONNECTOR, the weld bead IfcFastener WELD, the adhesive bead IfcFastener GLUE — IfcFastenerTypeEnum admits
-// {NOTDEFINED, USERDEFINED, GLUE, MORTAR, WELD}, so a new bead kind draws its token from that set (STUD is the
-// IfcReinforcingBarTypeEnum cast-in bar, never a fastener value). Binding derives the seed-time IfcBinding whole off the
-// row, so a new kind that omits its entity is a missing constructor argument, not a silently non-stud entity.
+// {NOTDEFINED, USERDEFINED, GLUE, MORTAR, WELD}, so a new bead kind draws its token from that set. Binding derives the
+// seed-time IfcBinding whole off the row, so a new kind that omits its entity is a missing constructor argument.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -57,8 +57,8 @@ public sealed partial class JointKind {
 
 // The bead face contour (AWS D1.1 weld-profile acceptance): flat, convex (fillet reinforcement), concave. The face
 // describes the deposited reinforcement; the effective throat is measured to the THEORETICAL face, never the convex
-// reinforcement, so the face is descriptive not structural. Declared before WeldType, whose rows carry it as the
-// per-type bead-profile column.
+// reinforcement, so the face is descriptive not structural — and its consumer is the weld-procedure block a weld map
+// carries, where the as-deposited profile is exactly what an inspector reads against.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -69,34 +69,33 @@ public sealed partial class WeldFace {
 }
 
 // The 6 AWS D1.1 weld GEOMETRIES. The groove SUBTYPE geometry (square/V/bevel/U/J × single/double) lives on
-// GrooveGeometry, NOT a per-subtype WeldType (the no-split collapse). LineWeld flags the DesignShearKn branch: a
-// fillet/groove/flare resists on throat × length line-shear, a plug/slot on the faying-plane HOLE AREA (Hole derives
-// from !LineWeld — the non-line welds ARE the hole welds). Directional flags the AISC Eq J2-5 kds eligibility: the
-// fillet/flare throat-shear welds take the directional increase, a groove develops base metal and a plug/slot resists
-// on hole area. FlareThroatFactor is the AWS D1.1 Table 5.2 flare-groove radius factor (5/16·R flare-bevel, 1/2·R
-// flare-V — the non-SAW common value). Face/ReinforcementMm are the type's as-deposited bead-profile columns the
-// JointRow.Weld.Profile projection reads (POLICY_VALUES — an external `Type == Fillet` equality branch is the deleted
-// form).
+// GrooveGeometry, NOT a per-subtype WeldType. LineWeld flags the resistance branch: a fillet/groove/flare resists on
+// throat × length line-shear, a plug/slot on the faying-plane HOLE AREA. Directional flags the AISC Eq J2-5 kds
+// eligibility and ONLY the fillet row carries it: J2.4(a) grants the directional-strength increase to fillet welds
+// alone, so a FLARE weld — a groove weld by classification, priced on the Table 5.2 radius throat — reads false, a
+// groove develops base metal, and a plug/slot resists on hole area. FlareThroatFactor is the AWS D1.1 Table 5.2
+// flare-groove radius factor (5/16·R flare-bevel, 1/2·R flare-V). Face/ReinforcementMm/ToeRadiusMm are the type's
+// as-deposited bead-profile columns the WeldProfile projection reads and the weld map publishes.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class WeldType {
-    public static readonly WeldType Fillet     = new("fillet",      lineWeld: true,  directional: true,  flareThroatFactor: 0.0,    face: WeldFace.Convex, reinforcementMm: 1.0);
-    public static readonly WeldType Groove     = new("groove",      lineWeld: true,  directional: false, flareThroatFactor: 0.0,    face: WeldFace.Flat,   reinforcementMm: 0.0);
-    public static readonly WeldType Plug       = new("plug",        lineWeld: false, directional: false, flareThroatFactor: 0.0,    face: WeldFace.Flat,   reinforcementMm: 0.0);
-    public static readonly WeldType Slot       = new("slot",        lineWeld: false, directional: false, flareThroatFactor: 0.0,    face: WeldFace.Flat,   reinforcementMm: 0.0);
-    public static readonly WeldType FlareBevel = new("flare-bevel", lineWeld: true,  directional: true,  flareThroatFactor: 0.3125, face: WeldFace.Flat,   reinforcementMm: 0.0);
-    public static readonly WeldType FlareV     = new("flare-v",     lineWeld: true,  directional: true,  flareThroatFactor: 0.5,    face: WeldFace.Flat,   reinforcementMm: 0.0);
+    public static readonly WeldType Fillet     = new("fillet",      lineWeld: true,  directional: true,  flareThroatFactor: 0.0,    face: WeldFace.Convex, reinforcementMm: 1.0, toeRadiusMm: 1.5);
+    public static readonly WeldType Groove     = new("groove",      lineWeld: true,  directional: false, flareThroatFactor: 0.0,    face: WeldFace.Flat,   reinforcementMm: 0.0, toeRadiusMm: 0.0);
+    public static readonly WeldType Plug       = new("plug",        lineWeld: false, directional: false, flareThroatFactor: 0.0,    face: WeldFace.Flat,   reinforcementMm: 0.0, toeRadiusMm: 0.0);
+    public static readonly WeldType Slot       = new("slot",        lineWeld: false, directional: false, flareThroatFactor: 0.0,    face: WeldFace.Flat,   reinforcementMm: 0.0, toeRadiusMm: 0.0);
+    public static readonly WeldType FlareBevel = new("flare-bevel", lineWeld: true,  directional: false, flareThroatFactor: 0.3125, face: WeldFace.Flat,   reinforcementMm: 0.0, toeRadiusMm: 0.0);
+    public static readonly WeldType FlareV     = new("flare-v",     lineWeld: true,  directional: false, flareThroatFactor: 0.5,    face: WeldFace.Flat,   reinforcementMm: 0.0, toeRadiusMm: 0.0);
     public bool LineWeld { get; }
     public bool Directional { get; }
     public double FlareThroatFactor { get; }
     public WeldFace Face { get; }
     public double ReinforcementMm { get; }
+    public double ToeRadiusMm { get; }
 }
 
-// AISC 360 Table J2.1 PJP effective-throat deduction: SMAW/GMAW/FCAW deduct 3 mm (1/8 in) at a sharp (<60°) bevel groove
-// where reliable root fusion is process-limited; SAW's deeper penetration takes the FULL groove depth (no deduction —
-// AISC J2.1 deducts only for SMAW/GMAW/FCAW). The one PJP throat-loss column GroovePrep.EffectiveThroatMm reads.
+// AISC 360 Table J2.1 PJP effective-throat deduction: SMAW/GMAW/FCAW deduct 3 mm (1/8 in) at a sharp (<60°) bevel
+// groove where reliable root fusion is process-limited; SAW's deeper penetration takes the FULL groove depth.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -109,9 +108,8 @@ public sealed partial class WeldProcess {
 }
 
 // The 9 AWS A2.4 groove geometries. IncludedAngleDeg the V/U total angle, BevelAngleDeg the single-wall bevel/J angle,
-// RootRadiusMm the U/J root radius (U = 6 mm, J = 10 mm standard prep radii). DoubleSided flags a both-face prep. A sharp
-// bevel groove (45°, no radius) takes the WeldProcess PJP deduction; a 60° V, a radiused U/J, or any CJP develops the
-// full depth (RequiresPjpDeduction false).
+// RootRadiusMm the U/J root radius. DoubleSided flags a both-face prep. A sharp bevel groove (45°, no radius) takes
+// the WeldProcess PJP deduction; a 60° V, a radiused U/J, or any CJP develops the full depth.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -133,7 +131,7 @@ public sealed partial class GrooveGeometry {
 }
 
 // CJP develops the full connected-part thickness (the weld matches the base metal); PJP develops only the depth of
-// preparation, reduced by the WeldProcess deduction at a sharp groove (AISC J2.1). The throat rule reads Complete.
+// preparation, reduced by the WeldProcess deduction at a sharp groove.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -143,9 +141,10 @@ public sealed partial class Penetration {
     public bool Complete { get; }
 }
 
-// The root condition — the root-treatment axis SPLIT OUT of the groove BackingType (a back-gouged + back-welded root is
-// a root TREATMENT, the backing bar a groove MATERIAL): AsWelded the open root, Backgouge gouged to sound metal and
-// back-welded, SealPass a seal weld over the root.
+// The root CONDITION — split out of the groove BackingType (a back-gouged, back-welded root is a root TREATMENT, the
+// backing bar a groove MATERIAL): AsWelded the open root, Backgouge gouged to sound metal and back-welded, SealPass a
+// seal weld over the root. A groove row NAMES its root treatment, so all three are seeded and all three reach the
+// weld-procedure block a weld map carries — a welder reads the root condition off that block before striking an arc.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -155,8 +154,9 @@ public sealed partial class RootTreatment {
     public static readonly RootTreatment SealPass  = new("seal-pass");
 }
 
-// The groove backing material — None for an open/back-gouged root, Steel for a fused backing bar, Ceramic/Copper/Flux
-// the removable/consumable backings. Distinct from RootTreatment: backing is a MATERIAL, root-treatment a CONDITION.
+// The groove backing MATERIAL — None for an open or back-gouged root, Steel for a fused backing bar, Ceramic/Copper/
+// Flux the removable and consumable backings. Distinct from RootTreatment: backing is a material, root treatment a
+// condition, and a weld map carries both because a shop procures the one and performs the other.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -168,25 +168,53 @@ public sealed partial class BackingType {
     public static readonly BackingType Flux    = new("flux");
 }
 
+// AISC 360 §I8.2a — the stud group and position table, the FLATTENED PRODUCT of the three axes Eq I8-1 keys on: the
+// deck relation, the number of studs in a rib, and the stud's own position within it. Rg is 1.0 for a stud welded
+// directly to the shape, for one stud in a perpendicular rib, and for a parallel rib whose width-to-depth ratio
+// reaches 1.5; it falls to 0.85 at two studs per rib or a narrow parallel rib, and to 0.70 at three or more. Rp is
+// 0.75 where the stud is welded direct, where the deck runs parallel, or where the rib measurement e_mid-ht reaches
+// 50 mm — the STRONG position — and 0.60 below it, the WEAK position the specification takes as its own default. The
+// Direct row is the declared default a designer selects deliberately; it is NOT a fallback any arm reaches for.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class StudGroup {
+    public static readonly StudGroup Direct           = new("direct",             groupFactor: 1.00, positionFactor: 0.75);
+    public static readonly StudGroup ParallelWide     = new("parallel-wide",      groupFactor: 1.00, positionFactor: 0.75);
+    public static readonly StudGroup ParallelNarrow   = new("parallel-narrow",    groupFactor: 0.85, positionFactor: 0.75);
+    public static readonly StudGroup RibOneStrong     = new("rib-1-strong",       groupFactor: 1.00, positionFactor: 0.75);
+    public static readonly StudGroup RibOneWeak       = new("rib-1-weak",         groupFactor: 1.00, positionFactor: 0.60);
+    public static readonly StudGroup RibTwoStrong     = new("rib-2-strong",       groupFactor: 0.85, positionFactor: 0.75);
+    public static readonly StudGroup RibTwoWeak       = new("rib-2-weak",         groupFactor: 0.85, positionFactor: 0.60);
+    public static readonly StudGroup RibThreeStrong   = new("rib-3-strong",       groupFactor: 0.70, positionFactor: 0.75);
+    public static readonly StudGroup RibThreeWeak     = new("rib-3-weak",         groupFactor: 0.70, positionFactor: 0.60);
+    public double GroupFactor { get; }      // Rg
+    public double PositionFactor { get; }   // Rp
+}
+
 // AWS A5.1 carbon-steel (E60/E70) and AWS A5.5 low-alloy (E80..E110) covered-electrode classifications — a FROZEN row
-// table (FORM law: pure standards data, no key lookup, no delegate). All columns PUBLISHED: TensileMpa the FEXX minimum
-// filler tensile; Specification the AWS body (E80+ are A5.5, NOT A5.1); the appearance is the weld finish (metal.iron
-// the lowest carbon-steel filler, metal.steel above) the two-slot law reads.
-public readonly record struct ElectrodeClass(string Key, double TensileMpa, string Specification, string SubstanceId, string AppearanceId) {
-    public static readonly ElectrodeClass E60  = new("e60",  415.0, "AWS A5.1", "steel.e60",  "metal.iron");
-    public static readonly ElectrodeClass E70  = new("e70",  485.0, "AWS A5.1", "steel.e70",  "metal.steel");
-    public static readonly ElectrodeClass E80  = new("e80",  550.0, "AWS A5.5", "steel.e80",  "metal.steel");
-    public static readonly ElectrodeClass E90  = new("e90",  620.0, "AWS A5.5", "steel.e90",  "metal.steel");
-    public static readonly ElectrodeClass E100 = new("e100", 690.0, "AWS A5.5", "steel.e100", "metal.steel");
-    public static readonly ElectrodeClass E110 = new("e110", 760.0, "AWS A5.5", "steel.e110", "metal.steel");
+// table. The classification NUMBER IS the minimum filler tensile strength in ksi, which is what the designation
+// means, so the row states that number and the strength derives; a hand-converted megapascal column beside it would
+// be a second spelling of the same fact and could drift from it. The specification body derives the same way: A5.1
+// owns the carbon-steel classifications through 70 and A5.5 the low-alloy ones above. The appearance is the weld
+// finish the two-slot law reads.
+public readonly record struct ElectrodeClass(string Key, double ClassificationKsi, string SubstanceId, string AppearanceId) {
+    const double KsiToMpa = 6.894757;
+    public static readonly ElectrodeClass E60  = new("e60",   60.0, "steel.e60",  "metal.iron");
+    public static readonly ElectrodeClass E70  = new("e70",   70.0, "steel.e70",  "metal.steel");
+    public static readonly ElectrodeClass E80  = new("e80",   80.0, "steel.e80",  "metal.steel");
+    public static readonly ElectrodeClass E90  = new("e90",   90.0, "steel.e90",  "metal.steel");
+    public static readonly ElectrodeClass E100 = new("e100", 100.0, "steel.e100", "metal.steel");
+    public static readonly ElectrodeClass E110 = new("e110", 110.0, "steel.e110", "metal.steel");
     public static readonly ImmutableArray<ElectrodeClass> Rows = [E60, E70, E80, E90, E100, E110];
+    public double TensileMpa => ClassificationKsi * KsiToMpa;
+    public string Specification => ClassificationKsi <= 70.0 ? "AWS A5.1" : "AWS A5.5";
     public MaterialId Substance => MaterialId.Of(SubstanceId);
     public MaterialId Appearance => MaterialId.Of(AppearanceId);
 }
 
 // Structural-adhesive allowables — a FROZEN row table. All columns PUBLISHED: LapShearMpa (ASTM D1002 single-lap),
 // PeelNmm (ASTM D1876 T-peel), ServiceCelsius, StructuralBiteMpa (the ASTM C1401 SSG design tensile the silicone
-// curtain-wall bite develops — 0.14 MPa / 20 psi, distinct from its cured lap-shear).
+// curtain-wall bite develops, distinct from its cured lap-shear).
 public readonly record struct AdhesiveClass(string Key, double LapShearMpa, double PeelNmm, double ServiceCelsius, Option<double> StructuralBiteMpa, string SubstanceId) {
     public static readonly AdhesiveClass Epoxy              = new("epoxy",               30.0, 5.0,  80.0,  None,       "adhesive.epoxy");
     public static readonly AdhesiveClass Methacrylate       = new("methacrylate",        25.0, 12.0, 100.0, None,       "adhesive.methacrylate");
@@ -196,35 +224,37 @@ public readonly record struct AdhesiveClass(string Key, double LapShearMpa, doub
     public MaterialId Substance => MaterialId.Of(SubstanceId);
 }
 
-// ISO 13918:2017 Type SD headed shear connectors (AWS D1.1 Type B equivalent) — a FROZEN row table keyed by the nominal
-// shank. PUBLISHED columns: DiameterMm (ISO d), HeadDiameterMm (dc/d5), HeadThicknessMm (h3), WeldCollarDiameterMm
-// (d1/d3, the as-welded base fillet — the collar IS the weld footprint, no separate weld-area column), WeldCollarHeightMm
-// (h/h4), BurnoffMm (the L1−L2 arc consumption), UltimateMpa (the AWS D1.1 Type B / AISC §I8 Fu = 450 MPa nominal cap).
-// DEFINED columns: AreaMm2 = πd²/4; SteelShearKn = Rg·Rp·Asc·Fu (AISC 360-22 Eq I8-1, the conservative strong-position
-// Rg = 1.0 / Rp = 0.75 default — a weak-position or multi-stud-per-rib layout is a Rasm.Compute placement input, never a
-// vocabulary edit). This is the ONE shear-stud cap steel#STEEL_FAMILY's Composite arm reads for ΣQn — the symbol path
-// (StudClass.S19.SteelShearKn) and every value are FROZEN byte-identical across the row-table conversion.
+// ISO 13918:2017 Type SD headed shear connectors (AWS D1.1 Type B equivalent) — a FROZEN row table keyed by the
+// nominal shank. PUBLISHED columns: DiameterMm (ISO d), HeadDiameterMm, HeadThicknessMm, WeldCollarDiameterMm (the
+// as-welded base fillet — the collar IS the weld footprint, no separate weld-area column), WeldCollarHeightMm,
+// BurnoffMm (the ISO 13918 Table 10 l1 − l2 arc consumption, published per diameter), UltimateMpa (the AWS D1.1
+// Type B / AISC §I8 Fu cap). DEFINED columns: AreaMm2 = πd²/4; SteelShearKn the Eq I8-1 cap over the group's own
+// published Rg·Rp pair. This is the ONE shear-stud cap steel#STEEL_FAMILY's Composite arm reads for ΣQn.
 public readonly record struct StudClass(string Key, double DiameterMm, double HeadDiameterMm, double HeadThicknessMm, double WeldCollarDiameterMm, double WeldCollarHeightMm, double BurnoffMm, double UltimateMpa) {
     public static readonly StudClass S13 = new("stud-1/2", 12.7, 25.0, 8.0,  17.0, 3.0, 3.0,  450.0);
     public static readonly StudClass S16 = new("stud-5/8", 15.9, 32.0, 8.0,  21.0, 4.5, 4.0,  450.0);
     public static readonly StudClass S19 = new("stud-3/4", 19.1, 32.0, 10.0, 23.0, 6.0, 4.5,  450.0);
     public static readonly StudClass S22 = new("stud-7/8", 22.2, 35.0, 10.0, 29.0, 6.0, 5.0,  450.0);
     public static readonly StudClass S25 = new("stud-1",   25.4, 40.0, 12.0, 31.0, 7.0, 5.5,  450.0);
-    public static readonly ImmutableArray<StudClass> Rows = [S13, S16, S19, S22, S25];
-    public const double TipAngleDeg = 140.0;      // ISO 13918 140° ± 7° point
-    public const double GroupFactorRg = 1.0;      // AISC I8-1 strong-position defaults — POLICY constants, not per-row data
-    public const double PositionFactorRp = 0.75;
+    public const double TipAngleDeg = 140.0;   // ISO 13918 140° ± 7° point
     public double AreaMm2 => Math.PI * 0.25 * DiameterMm * DiameterMm;
-    public double SteelShearKn => GroupFactorRg * PositionFactorRp * AreaMm2 * UltimateMpa * 1e-3;
+    public double SteelShearKn(StudGroup group) => group.GroupFactor * group.PositionFactor * AreaMm2 * UltimateMpa * 1e-3;
 }
 
-// ISO 13918:2017 SD material grades + AWS D1.1 stud types — a FROZEN row table. PUBLISHED columns: the specified fy/fu
-// the EN 1994 §6.6.3.1 PRd path reads (SD1 = S235J2G3+C450 the standard carbon stud 350/450; SD2 the higher-elongation
-// carbon 235/400; SD3 = X5CrNi18-10 austenitic stainless 350/500; AWS Type A general 340/420; Type B shear connector
-// 350/450). EN 1994 caps the design fu at 500 MPa; AISC §I8 caps Fu at 450 (the StudClass column). Appearance is
-// GRADE-borne per the two-slot law: the SD3 stainless renders the library chromium conductor row (the passive-layer
-// optical response), the carbon grades plain steel.
+public static class StudClasses {
+    public static readonly ImmutableArray<StudClass> Rows = [StudClass.S13, StudClass.S16, StudClass.S19, StudClass.S22, StudClass.S25];
+}
+
+// ISO 13918:2017 SD material grades + AWS D1.1 stud types — a FROZEN row table. PUBLISHED columns: the specified
+// fy/fu the EN 1994 §6.6.3.1 PRd path and the mill certificate read (SD1 the standard carbon shear-connector stud
+// 350/450, numerically identical to AWS Type B by design — one global grade under two designations; SD2 the
+// higher-elongation carbon 235/400; SD3 the austenitic stainless 350/500; AWS Type A general 340/420). EN 1994 caps
+// the DESIGN fu at 500 MPa, which the resistance applies rather than the table pre-clamping it. Appearance is
+// GRADE-borne per the two-slot law: the SD3 stainless renders the library chromium conductor row, the carbon grades
+// plain steel.
 public readonly record struct StudGrade(string Key, double YieldMpa, double UltimateMpa, string SubstanceId, string AppearanceId) {
+    const double EnUltimateCapMpa = 500.0;   // EN 1994-1-1 §6.6.3.1: fu is taken not greater than 500 N/mm²
+    const double EnGammaV = 1.25;            // the recommended partial factor for shear connection
     public static readonly StudGrade Sd1  = new("sd1",   350.0, 450.0, "steel.sd1",   "metal.steel");
     public static readonly StudGrade Sd2  = new("sd2",   235.0, 400.0, "steel.sd2",   "metal.steel");
     public static readonly StudGrade Sd3  = new("sd3",   350.0, 500.0, "steel.sd3",   "metal.chrome");
@@ -233,49 +263,82 @@ public readonly record struct StudGrade(string Key, double YieldMpa, double Ulti
     public static readonly ImmutableArray<StudGrade> Rows = [Sd1, Sd2, Sd3, AwsA, AwsB];
     public MaterialId Substance => MaterialId.Of(SubstanceId);
     public MaterialId Appearance => MaterialId.Of(AppearanceId);
+
+    // EN 1994-1-1 §6.6.3.1 Eq 6.18 — the STEEL-governed shear resistance of one headed stud, 0.8·fu·A/γV under the
+    // code's own 500 MPa ceiling. This is where the grade's published fu becomes structural rather than descriptive,
+    // and it is the EN twin of the AISC cap StudClass carries: the two codes price the same stud through their own
+    // material column, which is the dual-basis pair the design seam selects between. The concrete-governed Eq 6.19
+    // branch needs the slab fck and Ecm and is the Rasm.Compute min(steel, concrete) join, never a column here.
+    public double EnShearResistanceKn(StudClass stud) =>
+        0.8 * Math.Min(UltimateMpa, EnUltimateCapMpa) * stud.AreaMm2 / EnGammaV * 1e-3;
+
+    // EN 1994-1-1 Eq 6.21 — the height factor the concrete branch weights its resistance by, published over the
+    // stud's own overall as-welded height. The forward join reads it; the page owns the relation.
+    public static double EnHeightFactor(StudClass stud, double realizedHeightMm) =>
+        realizedHeightMm / stud.DiameterMm > 4.0 ? 1.0 : 0.2 * (realizedHeightMm / stud.DiameterMm + 1.0);
 }
 
 // --- [MODELS] ------------------------------------------------------------------------------
-// The deposited bead profile (AWS D1.1 weld-profile geometry) — face contour, convex reinforcement above the theoretical
-// face, toe radius, root treatment. ReinforcementMm / ToeRadiusMm are non-negative doubles (a flat face has 0
-// reinforcement, a sharp toe 0 radius) — descriptive metrics the host materializes, NEVER the structural throat.
+// The deposited bead profile (AWS D1.1 weld-profile geometry) — face contour, convex reinforcement above the
+// theoretical face, toe radius, root treatment. Descriptive metrics the weld map publishes and the host materializes,
+// NEVER the structural throat.
 public readonly record struct WeldProfile(WeldFace Face, double ReinforcementMm, double ToeRadiusMm, RootTreatment Root);
 
-// The groove preparation geometry (AWS A2.4 / AWS D1.1): the GrooveGeometry (angle/radius), the Penetration, the
-// BackingType, and the as-prepared root opening + root face. EffectiveThroatMm is the AISC J2.1 throat: CJP develops the
-// full connected-part thickness; PJP the depth-of-prep less the WeldProcess deduction at a sharp (RequiresPjpDeduction)
-// bevel groove, clamped non-negative.
-public readonly record struct GroovePrep(GrooveGeometry Geometry, Penetration Penetration, BackingType Backing, double RootOpeningMm, double RootFaceMm) {
-    public const double StandardRootOpeningMm = 2.0;   // AWS D1.1 prequalified open-root defaults — declared ONCE; the Prep projection and the profile derivation share them
+// The groove preparation geometry (AWS A2.4 / AWS D1.1): the GrooveGeometry, the Penetration, the BackingType, the
+// RootTreatment, and the as-prepared root opening + root face. EffectiveThroatMm is the AISC J2.1 throat: CJP
+// develops the full connected-part thickness; PJP the depth-of-prep less the WeldProcess deduction at a sharp bevel
+// groove. A prep whose deduction reaches its own depth develops NOTHING — that is a prep specification error, so it
+// answers absence and the seed rails it, where a clamp to zero would have seeded a weld with no throat at all.
+public readonly record struct GroovePrep(GrooveGeometry Geometry, Penetration Penetration, BackingType Backing, RootTreatment Root, double RootOpeningMm, double RootFaceMm) {
+    public const double StandardRootOpeningMm = 2.0;   // AWS D1.1 prequalified open-root defaults — declared ONCE
     public const double StandardRootFaceMm = 1.5;
     public double IncludedAngleDeg => Geometry.IncludedAngleDeg;
     public double BevelAngleDeg => Geometry.BevelAngleDeg;
     public double GrooveRadiusMm => Geometry.RootRadiusMm;
-    public double EffectiveThroatMm(double depthMm, double partThicknessMm, WeldProcess process) =>
+    public Option<double> EffectiveThroatMm(double depthMm, double partThicknessMm, WeldProcess process) =>
         Penetration.Complete
-            ? partThicknessMm
-            : Math.Max(0.0, depthMm - (Geometry.RequiresPjpDeduction ? process.PjpDeductionMm : 0.0));
+            ? Some(partThicknessMm)
+            : Some(depthMm - (Geometry.RequiresPjpDeduction ? process.PjpDeductionMm : 0.0)).Filter(static throat => throat > 0.0);
 }
 
-// The common plug/slot hole geometry; the `WeldGeometry` case owns whether longitudinal length exists.
-public readonly record struct HoleWeld(PositiveMagnitude DiameterMm, PositiveMagnitude DepthMm);
+// The common plug/slot hole geometry. DiameterMm is the hole that sets the effective area; DepthMm is the depth of
+// FILLING the code polices — it never reduces a resistance, it decides whether the weld conforms at all.
+public readonly record struct HoleWeld(PositiveMagnitude DiameterMm, PositiveMagnitude DepthMm) {
+    const double ThickMaterialThresholdMm = 16.0;   // AWS D1.1 §4.4.5.4 / AISC J2.3b(h): the 5/8 in breakpoint
+
+    // The required depth of filling: the full thickness at or below 16 mm, else the greater of half the thickness and
+    // 16 mm, in no case more than the thinner joined part.
+    public static double RequiredFillMm(double partThicknessMm) =>
+        partThicknessMm <= ThickMaterialThresholdMm
+            ? partThicknessMm
+            : Math.Min(partThicknessMm, Math.Max(0.5 * partThicknessMm, ThickMaterialThresholdMm));
+}
 
 [Union]
 public abstract partial record WeldGeometry {
     private WeldGeometry() { }
     public sealed record Fillet(PositiveMagnitude LegMm, PositiveMagnitude PartMm, PositiveMagnitude RunMm) : WeldGeometry;
     public sealed record Groove(GroovePrep Prep, WeldProcess Process, PositiveMagnitude DepthMm, PositiveMagnitude PartMm, PositiveMagnitude RunMm) : WeldGeometry;
-    public sealed record Plug(HoleWeld Hole) : WeldGeometry;
-    public sealed record Slot(HoleWeld Hole, PositiveMagnitude LengthMm) : WeldGeometry;
+    public sealed record Plug(HoleWeld Hole, PositiveMagnitude PartMm) : WeldGeometry;
+    public sealed record Slot(HoleWeld Hole, PositiveMagnitude LengthMm, PositiveMagnitude PartMm) : WeldGeometry;
     public sealed record FlareBevel(PositiveMagnitude RadiusMm, PositiveMagnitude PartMm, PositiveMagnitude RunMm) : WeldGeometry;
     public sealed record FlareV(PositiveMagnitude RadiusMm, PositiveMagnitude PartMm, PositiveMagnitude RunMm) : WeldGeometry;
+
+    // The connected-part thickness every weld geometry carries — the one column the weld map's part column reads and
+    // the fillet minimum-leg and hole-fill gates both prove against.
+    public double PartThicknessMm => Switch(
+        fillet: static g => g.PartMm.Value, groove: static g => g.PartMm.Value,
+        plug: static g => g.PartMm.Value, slot: static g => g.PartMm.Value,
+        flareBevel: static g => g.PartMm.Value, flareV: static g => g.PartMm.Value);
 }
 
 // ONE closed seed-row family (SHAPE_BUDGET: the weld/stud/adhesive rows share the admission path, the detail-bag
 // consumer, and the Component.Of construction, so they are cases of one [Union], never three sibling structs); the
-// throat/design-shear algebra rides each case as DEFINED derived columns, JointDetail/JointSeed dispatch the generated
-// total Switch, and a fourth continuous-connection modality is ONE case that breaks every dispatch site at compile
-// time. Kind is the base-level policy read the dual IFC binding derives from.
+// throat and design-shear algebra rides each case as DEFINED derived columns, JointDetail/JointSeed dispatch the
+// generated total Switch, and a fourth continuous-connection modality is ONE case that breaks every dispatch site at
+// compile time. Kind is the base-level policy read the dual IFC binding derives from. Every row in this family
+// transcribes AWS D1.1 / ISO 13918 / ASTM geometry and strength verbatim, so provenance is a property of the TABLE
+// and states itself once at the table rather than as a per-row column no row ever varies.
 [Union]
 public abstract partial record JointRow {
     private JointRow(string designation, JointKind kind) { Designation = designation; Kind = kind; }
@@ -293,14 +356,26 @@ public abstract partial record JointRow {
             flareBevel: static _ => WeldType.FlareBevel,
             flareV: static _ => WeldType.FlareV);
 
-        public WeldProfile Profile => new(Type.Face, Type.ReinforcementMm, 0.0, RootTreatment.AsWelded);
-        public double EffectiveThroatMm => Geometry.Switch(
-            fillet: static geometry => 0.707 * geometry.LegMm.Value,
+        // The bead profile reads its root treatment from the groove prep that declares one and the open-root default
+        // from every other geometry — the prep owns the condition, so a back-gouged groove reports as back-gouged
+        // rather than as the as-welded root the type column alone would have asserted.
+        public WeldProfile Profile => new(Type.Face, Type.ReinforcementMm, Type.ToeRadiusMm, Geometry.Switch(
+            groove: static geometry => geometry.Prep.Root,
+            fillet: static _ => RootTreatment.AsWelded, plug: static _ => RootTreatment.AsWelded,
+            slot: static _ => RootTreatment.AsWelded, flareBevel: static _ => RootTreatment.AsWelded,
+            flareV: static _ => RootTreatment.AsWelded));
+
+        // A THROAT is a line-weld dimension. A plug and a slot have none — they resist on the faying-plane hole area —
+        // so the two hole arms answer absence and a consumer reads the shape of the weld out of the Option rather
+        // than out of a zero it must know to interpret.
+        public Option<double> EffectiveThroatMm => Geometry.Switch(
+            fillet: static geometry => Some(0.707 * geometry.LegMm.Value),
             groove: static geometry => geometry.Prep.EffectiveThroatMm(geometry.DepthMm.Value, geometry.PartMm.Value, geometry.Process),
-            plug: static _ => 0.0,
-            slot: static _ => 0.0,
-            flareBevel: static geometry => WeldType.FlareBevel.FlareThroatFactor * geometry.RadiusMm.Value,
-            flareV: static geometry => WeldType.FlareV.FlareThroatFactor * geometry.RadiusMm.Value);
+            plug: static _ => Option<double>.None,
+            slot: static _ => Option<double>.None,
+            flareBevel: static geometry => Some(WeldType.FlareBevel.FlareThroatFactor * geometry.RadiusMm.Value),
+            flareV: static geometry => Some(WeldType.FlareV.FlareThroatFactor * geometry.RadiusMm.Value));
+
         public double LengthMm => Geometry.Switch(
             fillet: static geometry => geometry.RunMm.Value,
             groove: static geometry => geometry.RunMm.Value,
@@ -308,27 +383,36 @@ public abstract partial record JointRow {
             slot: static geometry => geometry.LengthMm.Value,
             flareBevel: static geometry => geometry.RunMm.Value,
             flareV: static geometry => geometry.RunMm.Value);
-        // 0.6·FEXX over the shear-transfer area: a LINE arm derives throat × run from the ONE EffectiveThroatMm/LengthMm
-        // law (DERIVED_LOGIC — the throat is stated once, never re-spelled per arm), a HOLE arm its faying-plane area.
-        public double DesignShearKn => 0.6 * Electrode.TensileMpa * 1e-3 * Geometry.Switch(
-            fillet: _ => EffectiveThroatMm * LengthMm,
-            groove: _ => EffectiveThroatMm * LengthMm,
-            plug: static geometry => Math.PI * 0.25 * geometry.Hole.DiameterMm.Value * geometry.Hole.DiameterMm.Value,
-            slot: static geometry => geometry.Hole.DiameterMm.Value * geometry.LengthMm.Value,
-            flareBevel: _ => EffectiveThroatMm * LengthMm,
-            flareV: _ => EffectiveThroatMm * LengthMm);
-        public double DirectionalShearKn(Angle loadAngle) =>
-            Type.Directional
-                ? DesignShearKn * (1.0 + 0.50 * Math.Pow(Math.Abs(Math.Sin(loadAngle.Radians)), 1.5))
-                : DesignShearKn;
+
+        // The shear-transfer AREA: a LINE arm is throat × run off the ONE EffectiveThroatMm law, a HOLE arm the
+        // nominal area of the hole or slot in the plane of the faying surface — a circle for a plug, the obround of a
+        // slot's two semicircular ends and its parallel sides. A line weld whose prep develops no throat has no area
+        // either, so absence propagates rather than becoming a zero resistance a reader would treat as measured.
+        public Option<double> ShearAreaMm2 => Geometry.Switch(
+            fillet: _ => EffectiveThroatMm.Map(throat => throat * LengthMm),
+            groove: _ => EffectiveThroatMm.Map(throat => throat * LengthMm),
+            plug: static geometry => Some(Math.PI * 0.25 * geometry.Hole.DiameterMm.Value * geometry.Hole.DiameterMm.Value),
+            slot: static geometry => Some(geometry.Hole.DiameterMm.Value * (geometry.LengthMm.Value - geometry.Hole.DiameterMm.Value)
+                + Math.PI * 0.25 * geometry.Hole.DiameterMm.Value * geometry.Hole.DiameterMm.Value),
+            flareBevel: _ => EffectiveThroatMm.Map(throat => throat * LengthMm),
+            flareV: _ => EffectiveThroatMm.Map(throat => throat * LengthMm));
+
+        public Option<double> DesignShearKn => ShearAreaMm2.Map(area => 0.6 * Electrode.TensileMpa * area * 1e-3);
+
+        public Option<double> DirectionalShearKn(Angle loadAngle) =>
+            DesignShearKn.Map(shear => Type.Directional
+                ? shear * (1.0 + 0.50 * Math.Pow(Math.Abs(Math.Sin(loadAngle.Radians)), 1.5))
+                : shear);
 
         public MaterialId Substance => Electrode.Substance;
         public MaterialId Appearance => Electrode.Appearance;
 
         // AISC 360 Table J2.4 minimum fillet leg from the governing thinner connected part — the PUBLISHED metric
         // bounds 6/13/19 mm (1/4 / 1/2 / 3/4 in) -> 3/5/6/8 mm legs, transcribed verbatim (a rounded 20 mm bound
-        // under-sizes a 19-20 mm part's leg non-conservatively). The II overload reads the VividOrange.Profiles
-        // I-section FlangeThickness/WebThickness (the thinner governs) — the one VividOrange geometry composition.
+        // under-sizes a 19-20 mm part's leg non-conservatively). It takes the THICKNESS the caller governs with,
+        // because a connected part is a thickness to this rule and nothing else — an I-section overload would have
+        // made a rolled shape the only connected part expressible and left every plate, angle, and channel outside a
+        // rule that governs them identically.
         public static double MinimumFilletLegMm(double thinnerPartMm) => thinnerPartMm switch {
             <= 6.0  => 3.0,
             <= 13.0 => 5.0,
@@ -336,32 +420,25 @@ public abstract partial record JointRow {
             _       => 8.0
         };
 
-        public static double MinimumFilletLegMm(II connectedPart) =>
-            MinimumFilletLegMm(Math.Min(connectedPart.FlangeThickness.Millimeters, connectedPart.WebThickness.Millimeters));
-
         // AISC 360 J2.2b maximum fillet leg along an edge: the full edge thickness below 6 mm (1/4 in), else the edge
-        // thickness less 1.6 mm (1/16 in) — the upper bound the design check pairs with MinimumFilletLegMm.
+        // thickness less 1.6 mm (1/16 in).
         public static double MaximumFilletLegMm(double edgeThicknessMm) =>
             edgeThicknessMm < 6.0 ? edgeThicknessMm : edgeThicknessMm - 1.6;
     }
 
     // The stud case: L1 the catalogue length before burn-off, SpacingMm the station-stepped pitch a layout pattern
-    // reads. RealizedLengthMm is the ISO 13918 as-welded L2 = L1 − burn-off (DEFINED); DesignShearKn the AISC steel-
-    // side StudClass cap — the concrete-governed 0.5·Asc·√(f'c·Ec) branch is the Rasm.Compute min(steel, concrete)
-    // join over the seam slab f'c/Ec, never a column here.
+    // reads. RealizedLengthMm is the ISO 13918 as-welded l2 = l1 − burn-off (DEFINED) and is THE length the shop and
+    // the design both mean: the arc consumes the difference, so a layout dimensioned to l1 dimensions a stud that
+    // does not exist once welded. DesignShearKn is the AISC steel-side cap at the group the placement declares.
     public sealed record Stud(string Designation, StudClass Class, StudGrade Grade, PositiveMagnitude LengthBeforeWeldMm, PositiveMagnitude SpacingMm)
         : JointRow(Designation, JointKind.Stud) {
         public double RealizedLengthMm => LengthBeforeWeldMm.Value - Class.BurnoffMm;
-        public double DesignShearKn => Class.SteelShearKn;
+        public double DesignShearKn(StudGroup group) => Class.SteelShearKn(group);
+        public double EnDesignShearKn => Grade.EnShearResistanceKn(Class);
         public MaterialId Substance => Grade.Substance;
     }
 
     // The adhesive case: BondMm the glueline, OverlapMm the bonded lap / SSG structural bite, WidthMm the joint width.
-    // DesignShearKn is the ASTM D1002 LapShearMpa·overlap·width over the lap shear-transfer area (DEFINED);
-    // DesignTensionKn the ASTM C1401 SSG bite path — StructuralBiteMpa over the bite area, the wind-suction tension the
-    // curtain-wall bite check reads (shear and tension are DISTINCT allowable bands, never one blended capacity);
-    // epoxy, methacrylate, and polyurethane rows carry None, so a row without a published C1401 allowance yields no
-    // tension at all rather than a fabricated one.
     public sealed record Adhesive(string Designation, AdhesiveClass Class, PositiveMagnitude BondMm, PositiveMagnitude OverlapMm, PositiveMagnitude WidthMm)
         : JointRow(Designation, JointKind.Adhesive) {
         public double DesignShearKn => Class.LapShearMpa * OverlapMm.Value * WidthMm.Value * 1e-3;
@@ -372,74 +449,136 @@ public abstract partial record JointRow {
 
 // --- [OPERATIONS] --------------------------------------------------------------------------
 // The seed-time realization-bag owner — ONE Of over the ONE JointRow family, the generated total Switch the modality
-// dispatch (a new joint modality is a JointRow case + one arm here, never a new public overload). Rows are
-// byte-identical to the retired projector Detail switch: the JointType modality over the schema's closed allowed-set,
-// the FastenerType token off the case's own kind row, and the dimension-only SI scalars the Bim connection reader
-// round-trips the derived effective throat and realized length.
+// dispatch. The weld arm publishes the throat, the run, the CONNECTED-PART thickness, and the full weld-procedure
+// block: geometry, penetration, backing, root treatment, root opening and face, and the as-deposited profile. That
+// block is what a weld map IS — a shop cannot strike an arc from a throat dimension alone — so the prep vocabulary
+// reaches its consumer here rather than describing a joint nothing downstream can read. The stud arm publishes the
+// AS-WELDED length and the stud pitch as the layout's own type-level spacing, plus the grade block a mill
+// certificate is checked against.
 public static class JointDetail {
-    public static Fin<PropertyBag> Of(JointRow row) => row.Switch(
+    public static Fin<PropertyBag> Of(JointRow row, Provenance source) => row.Switch(
         weld: r =>
-            from throat in Measured(DetailSchema.EffectiveThroat, Dimension.LengthDim, r.EffectiveThroatMm * 1e-3)
+            from throat in r.EffectiveThroatMm.Match(
+                Some: value => Measured(DetailSchema.EffectiveThroat, Dimension.LengthDim, value * 1e-3).Map(Some),
+                None: static () => Fin.Succ(Option<(PropertyName, PropertyValue)>.None))
             from length in Measured(DetailSchema.NominalLength, Dimension.LengthDim, r.LengthMm * 1e-3)
-            select RealizationRows(Joint("Welded"), Token(DetailSchema.FastenerType, r.Kind.IfcPredefinedType), throat, length),
+            from part in Measured(DetailSchema.PartThickness, Dimension.LengthDim, r.Geometry.PartThicknessMm * 1e-3)
+            from prep in PrepRow(r)
+            select RealizationRows([
+                Joint("Welded"), Token(DetailSchema.FastenerType, r.Kind.IfcPredefinedType), Sourced(source),
+                length, part, prep, .. throat.ToSeq(),
+            ]),
         stud: r =>
             from diameter in Measured(DetailSchema.NominalDiameter, Dimension.LengthDim, r.Class.DiameterMm * 1e-3)
-            from length in Measured(DetailSchema.NominalLength, Dimension.LengthDim, r.LengthBeforeWeldMm.Value * 1e-3)
-            select RealizationRows(Joint("Welded"), Token(DetailSchema.FastenerType, r.Kind.IfcPredefinedType), diameter, length),
+            from length in Measured(DetailSchema.NominalLength, Dimension.LengthDim, r.RealizedLengthMm * 1e-3)
+            from spacing in Measured(DetailSchema.FieldSpacing, Dimension.LengthDim, r.SpacingMm.Value * 1e-3)
+            select RealizationRows([
+                Joint("Welded"), Token(DetailSchema.FastenerType, r.Kind.IfcPredefinedType), Sourced(source),
+                diameter, length, spacing, GradeRow(r.Grade),
+            ]),
         adhesive: r =>
             from bond in Measured(DetailSchema.BondLine, Dimension.LengthDim, r.BondMm.Value * 1e-3)
             from overlap in Measured(DetailSchema.Overlap, Dimension.LengthDim, r.OverlapMm.Value * 1e-3)
-            select RealizationRows(Joint("Bonded"), Token(DetailSchema.FastenerType, r.Kind.IfcPredefinedType), bond, overlap));
+            select RealizationRows([
+                Joint("Bonded"), Token(DetailSchema.FastenerType, r.Kind.IfcPredefinedType), Sourced(source), bond, overlap,
+            ]));
+
+    // The weld procedure as ONE complex row: the prep a groove declares, the as-deposited profile every geometry
+    // carries, and the process. A non-groove weld carries the prep-free half alone.
+    static Fin<(PropertyName, PropertyValue)> PrepRow(JointRow.Weld row) =>
+        from opening in row.Geometry.Switch(
+            groove: static g => Si(g.Prep.RootOpeningMm).Map(Some),
+            fillet: static _ => Fin.Succ(Option<PropertyValue>.None), plug: static _ => Fin.Succ(Option<PropertyValue>.None),
+            slot: static _ => Fin.Succ(Option<PropertyValue>.None), flareBevel: static _ => Fin.Succ(Option<PropertyValue>.None),
+            flareV: static _ => Fin.Succ(Option<PropertyValue>.None))
+        from face in Si(row.Geometry.Switch(
+            groove: static g => g.Prep.RootFaceMm,
+            fillet: static _ => 0.0, plug: static _ => 0.0, slot: static _ => 0.0,
+            flareBevel: static _ => 0.0, flareV: static _ => 0.0))
+        let profile = row.Profile
+        select (DetailSchema.WeldPrep, (PropertyValue)new PropertyValue.Complex("weld-prep", Map(
+            (PropertyName.Create("WeldType"), (PropertyValue)new PropertyValue.Text(row.Type.Key)),
+            (PropertyName.Create("Electrode"), new PropertyValue.Text(row.Electrode.Key)),
+            (PropertyName.Create("Specification"), new PropertyValue.Text(row.Electrode.Specification)),
+            (PropertyName.Create("Face"), new PropertyValue.Text(profile.Face.Key)),
+            (PropertyName.Create("RootTreatment"), new PropertyValue.Text(profile.Root.Key)),
+            (PropertyName.Create("Reinforcement"), new PropertyValue.Text($"{profile.ReinforcementMm:R}")),
+            (PropertyName.Create("ToeRadius"), new PropertyValue.Text($"{profile.ToeRadiusMm:R}")),
+            (PropertyName.Create("RootFace"), face))
+            + row.Geometry.Switch(
+                groove: g => Map(
+                    (PropertyName.Create("Groove"), (PropertyValue)new PropertyValue.Text(g.Prep.Geometry.Key)),
+                    (PropertyName.Create("Penetration"), new PropertyValue.Text(g.Prep.Penetration.Key)),
+                    (PropertyName.Create("Backing"), new PropertyValue.Text(g.Prep.Backing.Key)),
+                    (PropertyName.Create("Process"), new PropertyValue.Text(g.Process.Key))),
+                fillet: static _ => Map<PropertyName, PropertyValue>(), plug: static _ => Map<PropertyName, PropertyValue>(),
+                slot: static _ => Map<PropertyName, PropertyValue>(), flareBevel: static _ => Map<PropertyName, PropertyValue>(),
+                flareV: static _ => Map<PropertyName, PropertyValue>())
+            + opening.Map(static value => Map((PropertyName.Create("RootOpening"), value))).IfNone(Map<PropertyName, PropertyValue>())));
+
+    static (PropertyName, PropertyValue) GradeRow(StudGrade grade) =>
+        (DetailSchema.StudGrade, new PropertyValue.Complex("stud-grade", Map(
+            (PropertyName.Create("Grade"), (PropertyValue)new PropertyValue.Text(grade.Key)),
+            (PropertyName.Create("YieldStrength"), new PropertyValue.Text($"{grade.YieldMpa:R}")),
+            (PropertyName.Create("UltimateStrength"), new PropertyValue.Text($"{grade.UltimateMpa:R}")))));
+
+    static Fin<PropertyValue> Si(double mm) =>
+        MeasureValue.OfSi(Dimension.LengthDim, mm * 1e-3).Map(static value => (PropertyValue)new PropertyValue.Measure(value));
 }
 
 // --- [TABLES] ------------------------------------------------------------------------------
-// The joint family seed — ONE AUTHORED closed table over the JointRow family (SEED_ROW_LAW: no vendor producer;
-// AWS D1.1 / ISO 13918 / ASTM values PUBLISHED). ComponentFamily.Joint binds Rows; every row is Sectioned: false
-// (a weld/bond/stud fills no ComputedSection). The dual IFC entity binds at seed as the kind row's OWN Binding
-// projection, never a hand string and never an external equality branch.
+// The joint family seed — ONE closed table over the JointRow family under SEED_ROW_LAW: no vendor producer exists, and
+// every AWS D1.1 / ISO 13918 / ASTM value in it is transcribed verbatim, which is a property of the whole table and so
+// rides one provenance the three arms share. ComponentFamily.Joint binds Rows; each row's profile answers its own
+// section membership. The dual IFC entity binds at seed as the kind row's OWN Binding projection.
 public static class JointSeed {
-    // Weld/stud specifications carry no masonry-style regional joint thickness — StandardJointThicknessMm 0.0. The
-    // authority rides the row's OWN standards body: AWS (D1.1 welds, D1.1 Type B studs over the ISO 13918 geometry) for
-    // the weld/stud tables, ASTM (D1002/D1876/C1401) for the adhesive table — never one blended authority. The Eurocode
-    // design codes the design seam NAMES are typed VividOrange.Standards citations: EN 1993-1-8 (joints), EN 1994 (the
-    // composite stud PRd path) — replacing inline code strings; AWS/AISC/ISO/ASTM have no VividOrange body and stay
-    // PUBLISHED strings on the rows.
+    static readonly Provenance Transcribed = Provenance.Published;
+
+    // The authority rides the row's OWN standards body: AWS (D1.1 welds, D1.1 Type B studs over the ISO 13918
+    // geometry) for the weld and stud tables, ASTM (D1002/D1876/C1401) for the adhesive table — never one blended
+    // authority. Weld and stud specifications carry no masonry-style regional joint thickness.
     static readonly ComponentStandard WeldStandard = new("us", StandardJointThicknessMm: 0.0, Authority: ComponentAuthority.Aws);
     static readonly ComponentStandard AdhesiveStandard = new("us", StandardJointThicknessMm: 0.0, Authority: ComponentAuthority.Astm);
-    public static readonly En1993 EnJoints = new(En1993Part.Part1_8, NationalAnnex.RecommendedValues);
-    public static readonly En1994 EnComposite = new();
 
-    // The closed table covers every geometry arm plus the stud and adhesive modalities.
     static readonly Seq<JointRow> Table = Seq<JointRow>(
         new JointRow.Weld("joint.weld-fillet-6mm-e70", new WeldGeometry.Fillet(PositiveMagnitude.Create(6.0), PositiveMagnitude.Create(10.0), PositiveMagnitude.Create(100.0)), ElectrodeClass.E70),
         new JointRow.Weld("joint.weld-fillet-8mm-e70", new WeldGeometry.Fillet(PositiveMagnitude.Create(8.0), PositiveMagnitude.Create(12.0), PositiveMagnitude.Create(150.0)), ElectrodeClass.E70),
         new JointRow.Weld("joint.weld-fillet-10mm-e80", new WeldGeometry.Fillet(PositiveMagnitude.Create(10.0), PositiveMagnitude.Create(16.0), PositiveMagnitude.Create(200.0)), ElectrodeClass.E80),
         new JointRow.Weld("joint.weld-groove-v-cjp-e80", new WeldGeometry.Groove(
-            new GroovePrep(GrooveGeometry.SingleV, Penetration.Cjp, BackingType.Steel, GroovePrep.StandardRootOpeningMm, GroovePrep.StandardRootFaceMm),
+            new GroovePrep(GrooveGeometry.SingleV, Penetration.Cjp, BackingType.Steel, RootTreatment.AsWelded, GroovePrep.StandardRootOpeningMm, GroovePrep.StandardRootFaceMm),
             WeldProcess.Saw, PositiveMagnitude.Create(12.0), PositiveMagnitude.Create(12.0), PositiveMagnitude.Create(250.0)), ElectrodeClass.E80),
+        new JointRow.Weld("joint.weld-groove-v-cjp-backgouged-e90", new WeldGeometry.Groove(
+            new GroovePrep(GrooveGeometry.DoubleV, Penetration.Cjp, BackingType.None, RootTreatment.Backgouge, GroovePrep.StandardRootOpeningMm, GroovePrep.StandardRootFaceMm),
+            WeldProcess.Saw, PositiveMagnitude.Create(20.0), PositiveMagnitude.Create(20.0), PositiveMagnitude.Create(300.0)), ElectrodeClass.E90),
+        new JointRow.Weld("joint.weld-groove-u-sealed-e100", new WeldGeometry.Groove(
+            new GroovePrep(GrooveGeometry.SingleU, Penetration.Cjp, BackingType.Ceramic, RootTreatment.SealPass, GroovePrep.StandardRootOpeningMm, GroovePrep.StandardRootFaceMm),
+            WeldProcess.Gmaw, PositiveMagnitude.Create(25.0), PositiveMagnitude.Create(25.0), PositiveMagnitude.Create(400.0)), ElectrodeClass.E100),
         new JointRow.Weld("joint.weld-groove-bevel-pjp-e90", new WeldGeometry.Groove(
-            new GroovePrep(GrooveGeometry.SingleBevel, Penetration.Pjp, BackingType.None, GroovePrep.StandardRootOpeningMm, GroovePrep.StandardRootFaceMm),
+            new GroovePrep(GrooveGeometry.SingleBevel, Penetration.Pjp, BackingType.None, RootTreatment.AsWelded, GroovePrep.StandardRootOpeningMm, GroovePrep.StandardRootFaceMm),
             WeldProcess.Smaw, PositiveMagnitude.Create(16.0), PositiveMagnitude.Create(20.0), PositiveMagnitude.Create(300.0)), ElectrodeClass.E90),
-        new JointRow.Weld("joint.weld-plug-20mm-e70", new WeldGeometry.Plug(new HoleWeld(PositiveMagnitude.Create(20.0), PositiveMagnitude.Create(8.0))), ElectrodeClass.E70),
-        new JointRow.Weld("joint.weld-slot-20x60-e70", new WeldGeometry.Slot(new HoleWeld(PositiveMagnitude.Create(20.0), PositiveMagnitude.Create(8.0)), PositiveMagnitude.Create(60.0)), ElectrodeClass.E70),
+        new JointRow.Weld("joint.weld-plug-20mm-e70", new WeldGeometry.Plug(new HoleWeld(PositiveMagnitude.Create(20.0), PositiveMagnitude.Create(12.0)), PositiveMagnitude.Create(12.0)), ElectrodeClass.E70),
+        new JointRow.Weld("joint.weld-slot-20x60-e70", new WeldGeometry.Slot(new HoleWeld(PositiveMagnitude.Create(20.0), PositiveMagnitude.Create(10.0)), PositiveMagnitude.Create(60.0), PositiveMagnitude.Create(10.0)), ElectrodeClass.E70),
         new JointRow.Weld("joint.weld-flarebevel-r10-e70", new WeldGeometry.FlareBevel(PositiveMagnitude.Create(10.0), PositiveMagnitude.Create(6.0), PositiveMagnitude.Create(120.0)), ElectrodeClass.E70),
         new JointRow.Weld("joint.weld-flarev-r10-e70", new WeldGeometry.FlareV(PositiveMagnitude.Create(10.0), PositiveMagnitude.Create(6.0), PositiveMagnitude.Create(120.0)), ElectrodeClass.E70),
         new JointRow.Stud("joint.stud-13mm-h75",  StudClass.S13, StudGrade.Sd1,  PositiveMagnitude.Create(75.0),  PositiveMagnitude.Create(150.0)),
+        new JointRow.Stud("joint.stud-16mm-h100", StudClass.S16, StudGrade.Sd2,  PositiveMagnitude.Create(100.0), PositiveMagnitude.Create(150.0)),
         new JointRow.Stud("joint.stud-19mm-h100", StudClass.S19, StudGrade.Sd1,  PositiveMagnitude.Create(100.0), PositiveMagnitude.Create(200.0)),
         new JointRow.Stud("joint.stud-22mm-h125", StudClass.S22, StudGrade.AwsB, PositiveMagnitude.Create(125.0), PositiveMagnitude.Create(250.0)),
         new JointRow.Stud("joint.stud-25mm-h150", StudClass.S25, StudGrade.Sd3,  PositiveMagnitude.Create(150.0), PositiveMagnitude.Create(300.0)),
         new JointRow.Adhesive("joint.adhesive-epoxy-2mm", AdhesiveClass.Epoxy,              PositiveMagnitude.Create(2.0),  PositiveMagnitude.Create(25.0), PositiveMagnitude.Create(50.0)),
         new JointRow.Adhesive("joint.adhesive-mma-1mm",   AdhesiveClass.Methacrylate,       PositiveMagnitude.Create(1.0),  PositiveMagnitude.Create(20.0), PositiveMagnitude.Create(40.0)),
+        new JointRow.Adhesive("joint.adhesive-pu-2mm",    AdhesiveClass.Polyurethane,       PositiveMagnitude.Create(2.0),  PositiveMagnitude.Create(30.0), PositiveMagnitude.Create(50.0)),
         new JointRow.Adhesive("joint.adhesive-ssg-12mm",  AdhesiveClass.SiliconeStructural, PositiveMagnitude.Create(12.0), PositiveMagnitude.Create(12.0), PositiveMagnitude.Create(1000.0)));
 
     // The weld geometry -> SectionProfile arm per ComponentFamily.Joint.admits: FilletTriangle the fillet AND flare
-    // welds (the equal-leg gross triangle; the 0.707·leg and FlareThroatFactor·radius throats stay the row's DEFINED
-    // derivations, never profile state), Trapezium the groove, Circle the plug/slot hole footprint.
+    // welds (the equal-leg gross triangle), Trapezium the groove, Circle the plug hole, and Rectangle the SLOT — a
+    // slot's faying footprint is an elongated obround whose bounding rectangle is its width by its length, and
+    // profiling it as a circle of its width alone described a footprint a third the size of the one the weld occupies.
     static Fin<SectionProfile> WeldProfileOf(JointRow.Weld row, Op key) => row.Geometry.Switch(
         fillet: geometry => SectionProfile.FilletTriangle.Of(geometry.LegMm.Value, geometry.LegMm.Value, key),
         groove: geometry => GrooveProfile(geometry, key),
         plug: geometry => SectionProfile.Circle.Of(geometry.Hole.DiameterMm.Value, key),
-        slot: geometry => SectionProfile.Circle.Of(geometry.Hole.DiameterMm.Value, key),
+        slot: geometry => SectionProfile.Rectangle.Of(geometry.Hole.DiameterMm.Value, geometry.LengthMm.Value, key),
         flareBevel: geometry => SectionProfile.FilletTriangle.Of(geometry.RadiusMm.Value, geometry.RadiusMm.Value, key),
         flareV: geometry => SectionProfile.FilletTriangle.Of(geometry.RadiusMm.Value, geometry.RadiusMm.Value, key));
 
@@ -456,44 +595,73 @@ public static class JointSeed {
             topOffsetMm: p.BevelAngleDeg > 0.0 ? (top - p.RootOpeningMm) / 2.0 : 0.0, key);
     }
 
-    // ONE row dispatch — the generated total Switch over the JointRow family (a fourth modality breaks this arm at
-    // compile time). Per case: the dimensional gates (the lifted values ARE the gate — a non-positive column aborts
-    // before any construction; the stud gate also proves the ISO 13918 L2 = L1 − burn-off positive), the AISC J2.4
-    // minimum-leg gate over the weld case's OWN algebra (a seeded fillet undersized for its thinner part is a
-    // transcription fault; the J2.2b edge maximum stays a design-check read — it is T-vs-lap configuration-dependent),
-    // the profile rail, the seed-built bag, and the dual IfcBinding read whole off the case's kind row. Both stud
-    // MaterialId slots ride the GRADE row (the SD3 stainless renders chromium, never blanket steel).
+    // The per-geometry seed gates, one arm each: a fillet proves the AISC J2.4 minimum leg against its own thinner
+    // part; a groove proves its prep survives its process deduction, which the throat Option already decides; a plug
+    // or slot proves the AWS §4.4.5.4 depth of filling and, for a slot, that its length reaches its own width, since
+    // an obround shorter than it is wide is not a slot. The J2.2b edge maximum stays a design-check read — it is
+    // T-versus-lap configuration-dependent and no seed row declares its configuration.
+    static Fin<Unit> AdmitWeld(JointRow.Weld row, Op key) => row.Geometry.Switch(
+        fillet: geometry => guard(geometry.LegMm.Value >= JointRow.Weld.MinimumFilletLegMm(geometry.PartMm.Value),
+            ComponentFault.Dimension(key, $"<fillet-leg-below-j2.4-minimum:{row.Designation}>")).ToFin(),
+        groove: geometry => guard(row.EffectiveThroatMm.IsSome,
+            ComponentFault.Dimension(key, $"<pjp-prep-consumed-by-process-deduction:{row.Designation}>")).ToFin(),
+        plug: geometry => guard(geometry.Hole.DepthMm.Value >= HoleWeld.RequiredFillMm(geometry.PartMm.Value),
+            ComponentFault.Dimension(key, $"<plug-fill-below-aws-minimum:{row.Designation}>")).ToFin(),
+        slot: geometry => from filled in guard(geometry.Hole.DepthMm.Value >= HoleWeld.RequiredFillMm(geometry.PartMm.Value),
+                ComponentFault.Dimension(key, $"<slot-fill-below-aws-minimum:{row.Designation}>"))
+            from shaped in guard(geometry.LengthMm.Value >= geometry.Hole.DiameterMm.Value,
+                ComponentFault.Dimension(key, $"<slot-shorter-than-its-own-width:{row.Designation}>"))
+            select unit,
+        flareBevel: static _ => Fin.Succ(unit), flareV: static _ => Fin.Succ(unit));
+
+    // ONE row dispatch — the generated total Switch over the JointRow family. Per case: the dimensional gates (the
+    // lifted values ARE the gate), the profile rail, the seed-built bag, and the dual IfcBinding read whole off the
+    // case's kind row. The stud gate proves the ISO 13918 l2 = l1 − burn-off positive. Both stud MaterialId slots ride
+    // the GRADE row (the SD3 stainless renders chromium, never blanket steel).
     static Fin<ComponentRow> Row(JointRow row, Op key) => row.Switch(
         weld: r =>
-            from legged in r.Geometry.Switch(
-                fillet: geometry => guard(geometry.LegMm.Value >= JointRow.Weld.MinimumFilletLegMm(geometry.PartMm.Value), ComponentFault.Dimension(key, $"<fillet-leg-below-j2.4-minimum:{r.Designation}>")).ToFin(),
-                groove: static _ => Fin.Succ(unit), plug: static _ => Fin.Succ(unit), slot: static _ => Fin.Succ(unit),
-                flareBevel: static _ => Fin.Succ(unit), flareV: static _ => Fin.Succ(unit))
+            from admitted in AdmitWeld(r, key)
             from profile in WeldProfileOf(r, key)
-            from detail in JointDetail.Of(r)
+            from detail in JointDetail.Of(r, Transcribed)
             from item in Component.Of(ComponentFamily.Joint, r.Designation, profile, r.Kind.Binding,
                 Coring.None, WeldStandard, substanceId: r.Substance, appearanceId: r.Appearance, detail: Some(detail), key)
-            select new ComponentRow(item, Sectioned: false),
+            select new ComponentRow(item, Transcribed),
         stud: r =>
             from realized in key.AcceptValidated<PositiveMagnitude>(candidate: r.RealizedLengthMm)
             from profile in SectionProfile.Circle.Of(diameterMm: r.Class.DiameterMm, key)
-            from detail in JointDetail.Of(r)
+            from detail in JointDetail.Of(r, Transcribed)
             from item in Component.Of(ComponentFamily.Joint, r.Designation, profile, r.Kind.Binding,
                 Coring.None, WeldStandard, substanceId: r.Substance, appearanceId: r.Grade.Appearance, detail: Some(detail), key)
-            select new ComponentRow(item, Sectioned: false),
+            select new ComponentRow(item, Transcribed),
         adhesive: r =>
             from profile in SectionProfile.Nominal.Of(nominalMm: r.BondMm.Value, key)
-            from detail in JointDetail.Of(r)
+            from detail in JointDetail.Of(r, Transcribed)
             from item in Component.Of(ComponentFamily.Joint, r.Designation, profile, r.Kind.Binding,
                 Coring.None, AdhesiveStandard, substanceId: r.Substance, appearanceId: MaterialId.Of("polymer.adhesive"), detail: Some(detail), key)
-            select new ComponentRow(item, Sectioned: false));
+            select new ComponentRow(item, Transcribed));
 
     // The family fold ComponentFamily.Joint binds: ONE Traverse over the ONE closed table — Fin's applicative UNIONS
-    // the faults, so every malformed row across all three modalities reports in one build abort (the prior
-    // three-table tuple Apply, the Choose + .Concat swallowing fold, and the unfused .Map(f).Traverse(identity)
-    // re-spelling are the deleted forms).
+    // the faults, so every malformed row across all three modalities reports in one build abort.
     public static Fin<Seq<ComponentRow>> Rows(Context context) =>
         Table.Traverse(r => Row(r, context.Key)).As();
+
+    static readonly FrozenDictionary<ComponentId, JointRow> Rowset =
+        Table.ToFrozenDictionary(static row => ComponentId.Create(row.Designation), static row => row);
+
+    public static Fin<JointRow> Resolve(Component component, Op key) =>
+        Rowset.TryGetValue(component.Designation, out JointRow row)
+            ? Fin.Succ(row)
+            : ComponentFault.Family(key, $"<joint-row-unregistered:{component.Designation.Value}>");
+
+    // The ComponentFamily.Joint CAPACITY producer: the resolved row selects its receipt case, and the placement
+    // carries the facts a continuous connection cannot hold on its own row — the weld's load angle, and the stud
+    // group's count together with the deck relation and rib position its Rg·Rp pair is keyed on. A weld/bond/stud is
+    // unsectioned, so the section argument is structurally absent.
+    public static Fin<SectionCapacity> Capacity(Component component, Option<ComputedSection> section, CapacityPlacement placement, Op key) =>
+        Resolve(component, key).Map(row => SectionCapacity.Lift(row.Switch<CapacityReceipt>(
+            weld: r => new CapacityReceipt.Weld(component.Designation, r, placement.LoadAngleDeg),
+            adhesive: r => new CapacityReceipt.Adhesive(component.Designation, r),
+            stud: r => new CapacityReceipt.Stud(component.Designation, r, placement.StudGroup, placement.StudCount))));
 }
 ```
 

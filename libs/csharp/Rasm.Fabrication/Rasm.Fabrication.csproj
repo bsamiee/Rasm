@@ -46,7 +46,6 @@
 
     <ItemGroup Label="Numeric">
         <PackageReference Include="CommunityToolkit.HighPerformance" />
-        <PackageReference Include="CSparse" />
         <PackageReference Include="MathNet.Numerics" />
         <PackageReference Include="System.Numerics.Tensors" />
         <PackageReference Include="UnitsNet" />

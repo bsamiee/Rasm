@@ -24,6 +24,7 @@ A typed read folds each header-keyed `dynamic` row through the ONE STJ wire proj
 - Boundary: `TabularSource` is the ONE tabular ingress/egress owner over MiniExcel — the `#DELIMITED_SOURCE` `Sep` owner is the high-throughput delimited-text sibling and the two project into the SAME downstream record rail, the source format selecting one, while `Apache.Arrow`/`DuckDB`/`ParquetSharp` own the binary columnar path (a `.xlsx` is never treated as a columnar file); the path-vs-stream modality the codec exposes as twin overloads is the `Origin` `[Union]`, so a read does not split into a path family and a stream family — one spec carries the source and one dispatch opens it; the typed read NEVER rides the `where T : class, new()` `MiniExcel.Query<T>` POCO binder — that overload both refuses an unconstrained `T` and bypasses the NodaTime/Thinktecture cell minting (an `Instant`/value-object/smart-enum column silently fails to bind, the deleted hollow form) — so BOTH the start-cell typed read and the windowed typed read fold the header-keyed `dynamic` `Query`/`QueryRange` rows through the ONE `TabularWire.Project<T>` rail, the window adding only the `endCell` argument `Query<T>` cannot express; the codec NEVER knows the element graph — the per-app tabular→element map is the wire-composition owner at the host/app composition root, so a workbook of element rows reads through `Read<T>`/`Reader`, the app projects each row into an `ElementGraph` node, and a catalog/cost/schedule egress writes element-derived tables back through `Write`/`Append`/`Render`, the codec seeing only the row shape; a typed read against a missing header surfaces `ExcelColumnNotFoundException` (or the header-contract `ColumnMissing`), a bad cell `ExcelInvalidCastException`, and a non-serializable write member `MiniExcelNotSerializableException`, all folded through the one `TabularFault.Lift` funnel into a typed `Validation` at the row boundary on BOTH the read and the write leg rather than thrown through the receipt path — the write leg folds faults exactly as the read leg does, so `NotSerializable` is a reachable case, not decoration; the bulk-copy rail (`api-linq2db-ef`) consumes the typed `IEnumerable<T>`/`IAsyncEnumerable<T>` a `Read<T>` yields (`BulkCopy`/`BulkCopyAsync` are `IEnumerable<T>`-sourced), while the `MiniExcelDataReader : IDataReader` from `Reader` feeds the `Query/columnar` Arrow/DuckDB materializer — the reader is the columnar source, the typed enumerable the bulk source, never conflated; a redacted export resolves the per-column `Redactor` from the field's `DataClassificationSet` through the AppHost `IRedactorProvider` and rewrites each classified cell before `SaveAs`, so a redacted spreadsheet streams column-redacted without materializing the table (MiniExcel exposes no reader→writer copy bridge, so the redaction rides the row-enumerable egress, not a `DbDataReader` decorator — the DELIMITED redaction egress owns the real bridge: `#DELIMITED_SOURCE` re-emits Sep rows column-by-column through the writer `NewRow` with the classified cells redacted before `Col.Set`); MiniExcel retires `Sylvan.Data.Excel` as the spreadsheet codec — no `Sylvan` reference remains.
 
 ```csharp signature
+using LanguageExt.UnsafeValueAccess;
 using Rasm.Persistence.Element;
 using Expected = Rasm.Domain.Expected;
 
@@ -252,11 +253,11 @@ public static class TabularSource {
     public static IO<Validation<TabularFault, Seq<T>>> Read<T>(TabularSpec spec, ProjectionContext frame, Func<TabularFact, IO<Unit>> sink) =>
         from rows in IO.lift(() => Capture(() => toSeq(spec.Window.Match(
                 Some: w => spec.Source.Read(
-                    path:   p => MiniExcel.QueryRange(p, spec.HeaderRow, spec.Sheet.IfNoneUnsafe(() => null), spec.Format.Excel, spec.StartCell, w.EndCell, spec.Policy()),
-                    stream: s => s.QueryRange(spec.HeaderRow, spec.Sheet.IfNoneUnsafe(() => null), spec.Format.Excel, spec.StartCell, w.EndCell, spec.Policy())),
+                    path:   p => MiniExcel.QueryRange(p, spec.HeaderRow, spec.Sheet.ValueUnsafe(), spec.Format.Excel, spec.StartCell, w.EndCell, spec.Policy()),
+                    stream: s => s.QueryRange(spec.HeaderRow, spec.Sheet.ValueUnsafe(), spec.Format.Excel, spec.StartCell, w.EndCell, spec.Policy())),
                 None: () => spec.Source.Read(
-                    path:   p => MiniExcel.Query(p, spec.HeaderRow, spec.Sheet.IfNoneUnsafe(() => null), spec.Format.Excel, spec.StartCell, spec.Policy()),
-                    stream: s => s.Query(spec.HeaderRow, spec.Sheet.IfNoneUnsafe(() => null), spec.Format.Excel, spec.StartCell, spec.Policy())))
+                    path:   p => MiniExcel.Query(p, spec.HeaderRow, spec.Sheet.ValueUnsafe(), spec.Format.Excel, spec.StartCell, spec.Policy()),
+                    stream: s => s.Query(spec.HeaderRow, spec.Sheet.ValueUnsafe(), spec.Format.Excel, spec.StartCell, spec.Policy())))
                 .Cast<IDictionary<string, object>>()))
             .Bind(TabularWire.Project<T>))
         from _ in rows.Match(
@@ -266,25 +267,25 @@ public static class TabularSource {
 
     public static IO<Validation<TabularFault, Seq<HashMap<string, object>>>> Scan(TabularSpec spec, ProjectionContext frame, Func<TabularFact, IO<Unit>> sink) =>
         from rows in IO.lift(() => Capture(() => spec.Source.Read(
-            path:   p => toSeq(MiniExcel.Query(p, spec.HeaderRow, spec.Sheet.IfNoneUnsafe(() => null), spec.Format.Excel, spec.StartCell, spec.Policy()).Select(Bag)),
-            stream: s => toSeq(s.Query(spec.HeaderRow, spec.Sheet.IfNoneUnsafe(() => null), spec.Format.Excel, spec.StartCell, spec.Policy()).Select(Bag)))))
+            path:   p => toSeq(MiniExcel.Query(p, spec.HeaderRow, spec.Sheet.ValueUnsafe(), spec.Format.Excel, spec.StartCell, spec.Policy()).Select(Bag)),
+            stream: s => toSeq(s.Query(spec.HeaderRow, spec.Sheet.ValueUnsafe(), spec.Format.Excel, spec.StartCell, spec.Policy()).Select(Bag)))))
         from _ in rows.Match(Succ: r => sink(new TabularFact(TabularFactKind.Read, spec.Format.Key, spec.Sheet, r.Count, frame.Now())), Fail: _ => IO.pure(unit))
         select rows;
 
     public static IO<MiniExcelDataReader> Reader(TabularSpec spec) =>
         IO.lift(() => spec.Source.Read(
-            path:   p => MiniExcel.GetReader(p, spec.HeaderRow, spec.Sheet.IfNoneUnsafe(() => null), spec.Format.Excel, spec.StartCell, spec.Policy()),
-            stream: s => s.GetReader(spec.HeaderRow, spec.Sheet.IfNoneUnsafe(() => null), spec.Format.Excel, spec.StartCell, spec.Policy())));
+            path:   p => MiniExcel.GetReader(p, spec.HeaderRow, spec.Sheet.ValueUnsafe(), spec.Format.Excel, spec.StartCell, spec.Policy()),
+            stream: s => s.GetReader(spec.HeaderRow, spec.Sheet.ValueUnsafe(), spec.Format.Excel, spec.StartCell, spec.Policy())));
 
     public static IO<TabularSheet> Probe(TabularSpec spec) =>
         IO.lift(() => spec.Source.Read(
             path: p => new TabularSheet(
                 toSeq(MiniExcel.GetSheetInformations(p)),
-                toSeq(MiniExcel.GetColumns(p, spec.HeaderRow, spec.Sheet.IfNoneUnsafe(() => null), spec.Format.Excel, spec.StartCell, spec.Policy())),
+                toSeq(MiniExcel.GetColumns(p, spec.HeaderRow, spec.Sheet.ValueUnsafe(), spec.Format.Excel, spec.StartCell, spec.Policy())),
                 Optional(MiniExcel.GetSheetDimensions(p).FirstOrDefault())),
             stream: s => new TabularSheet(
                 toSeq(s.GetSheetInformations()),
-                toSeq(s.GetColumns(spec.HeaderRow, spec.Sheet.IfNoneUnsafe(() => null), spec.Format.Excel, spec.StartCell, spec.Policy())),
+                toSeq(s.GetColumns(spec.HeaderRow, spec.Sheet.ValueUnsafe(), spec.Format.Excel, spec.StartCell, spec.Policy())),
                 Optional(s.GetSheetDimensions().FirstOrDefault()))));
 
     public static IO<Validation<TabularFault, int[]>> Write(TabularSpec spec, object value, Option<RedactionPlan> plan, ProjectionContext frame, Func<TabularFact, IO<Unit>> sink) {

@@ -2,18 +2,18 @@
 
 `Heal.Repair` folds the closed `HealOp` algebra over one `MeshEdit` arena and publishes a healed `MeshSpace` with its typed receipt chain. Repair stays total over its input class — a non-manifold, boundaried, or odd-Euler mesh heals rather than failing — and mints no content hash.
 
-A rebuild composes the un-gated Genus-tolerant `TopologyReceipt` projection as the before/after topology witness; every failure lowers onto the band-2400 `GeometryFault` union, `UnrepairableMesh` 2408 carrying the residual defect count.
+A rebuild composes the un-gated Genus-tolerant `TopologyReceipt` projection as the before/after topology witness; every failure lowers onto the band-2400 `GeometryFault` union, `UnrepairableMesh` 2408 carrying the residual defect count — the arena's surviving non-manifold edges, or the shell count a severed boolean returns to a session that admits one arena.
 
 ## [01]-[INDEX]
 
-- [02]-[HEALING]: `Heal.Repair` folds the `HealOp` algebra over one arena under `RepairPolicy` admission, threading topology forward through the shared `Incidence` fold.
+- [02]-[HEALING]: `Heal.Repair` folds the `HealOp` algebra over one arena under `RepairPolicy` admission, threading each op's after-status forward as the next before and the mutation-free `Incidence` fold forward as arena-interior scratch.
 
 ## [02]-[HEALING]
 
 - Owner: `HealOp` is the closed repair algebra `Heal.Repair` folds; `HealStage` mints the one heal-modality vocabulary, discriminating both the fault payload and the receipt chain; `RepairPolicy` and `HealPlan` admit every scalar once at `Of`.
 - Entry: `Heal.Repair` is the one entrypoint over every modality, discriminating on `HealPlan`.
-- Auto: every author-kernel is a pure-managed arena fold composing the `Predicate` exact-sign floor, reading its tolerances off the plan policy.
-- Receipt: `HealSession` carries one typed `RebuildReceipt` per applied op, its affected-entity seed read off the arena dirty bitsets.
+- Auto: every author-kernel is a pure-managed arena fold composing the `Predicate` exact-sign floor and the `Axis.DominantOf` plane admission, reading its tolerances off the plan policy.
+- Receipt: `HealSession` carries one typed `RebuildReceipt` per applied op; `before[n] = after[n-1]` threads the status pair so N ops cost N+1 projections, and the affected-entity seed reads the arena dirty bitsets admission clears. `Incidence` is arena-interior scratch spared a recomputation inside a mutation-free run, never receipt evidence.
 - Packages: `Rasm.Meshing`, `Rasm.Processing`, `Rasm.Numerics`, `Rasm.Spatial`, QuikGraph, Thinktecture.Runtime.Extensions, LanguageExt.Core.
 - Growth: a new modality is one `HealStage` row, one `HealOp` case, and one typed `RebuildReceipt` case; a new tolerance is one `RepairPolicy` column at `Of`; a new spatial or exact primitive routes its owning sibling as a consumer-contract row.
 - Boundary: crossing, CDT, and boolean classification stay `Intersection`/`Tessellation`/`Arrangement` property, point proximity the `Spatial` neighbor lane. `RepairPolicy.Retile` names the constrained CDT stage, never remeshing; a composed sibling fault propagates unwrapped, and a collapse or re-mesh preserves every load-bearing feature.
@@ -38,24 +38,29 @@ using static LanguageExt.Prelude;
 using FaceKeySet = System.Collections.Generic.HashSet<(int, int, int)>;
 using IndexSet = System.Collections.Generic.HashSet<int>;
 using Dimension = Rasm.Numerics.Dimension;
+// One per-face constrained-retile row: the interned crossing pair plus its plane carriage — a pierced face id, or the
+// carrier edge (Pierced = -1) a coplanar sub-segment lifts its perpendicular plane through.
+using Cut = (int A, int B, int Pierced, int CarrierU, int CarrierV);
 
 namespace Rasm.Processing;
 
 // --- [TYPES] ----------------------------------------------------------------------------------
-// THE heal-modality vocabulary: 2408 fault payload and receipt discriminant in one owner; Mint rows seed Heal.Standard.
+// THE heal-modality vocabulary: 2408 fault payload and receipt discriminant in one owner; Mint rows seed Heal.Standard
+// and Collects marks the debris-collecting rows its terminal sweep re-runs once the last mutating stage has landed.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class HealStage {
-    public static readonly HealStage Weld          = new("weld", rebuildsTopology: true, mint: Some<Func<HealOp>>(static () => new HealOp.DuplicateWeld()));
-    public static readonly HealStage Degenerate    = new("degenerate", rebuildsTopology: true, mint: Some<Func<HealOp>>(static () => new HealOp.DegenerateCollapse()));
-    public static readonly HealStage Gap           = new("gap", rebuildsTopology: true, mint: Some<Func<HealOp>>(static () => new HealOp.GapClose()));
-    public static readonly HealStage Manifold      = new("manifold", rebuildsTopology: true, mint: Some<Func<HealOp>>(static () => new HealOp.ManifoldRepair()));
-    public static readonly HealStage Orient        = new("orient", rebuildsTopology: false, mint: Some<Func<HealOp>>(static () => new HealOp.OrientNormals()));
-    public static readonly HealStage SelfIntersect = new("self-intersect", rebuildsTopology: true, mint: Some<Func<HealOp>>(static () => new HealOp.SelfIntersectResolve()));
-    public static readonly HealStage Boolean       = new("boolean", rebuildsTopology: true, mint: None);
+    public static readonly HealStage Weld          = new("weld", rebuildsTopology: true, collects: true, mint: Some<Func<HealOp>>(static () => new HealOp.DuplicateWeld()));
+    public static readonly HealStage Degenerate    = new("degenerate", rebuildsTopology: true, collects: true, mint: Some<Func<HealOp>>(static () => new HealOp.DegenerateCollapse()));
+    public static readonly HealStage Gap           = new("gap", rebuildsTopology: true, collects: false, mint: Some<Func<HealOp>>(static () => new HealOp.GapClose()));
+    public static readonly HealStage Manifold      = new("manifold", rebuildsTopology: true, collects: false, mint: Some<Func<HealOp>>(static () => new HealOp.ManifoldRepair()));
+    public static readonly HealStage Orient        = new("orient", rebuildsTopology: false, collects: false, mint: Some<Func<HealOp>>(static () => new HealOp.OrientNormals()));
+    public static readonly HealStage SelfIntersect = new("self-intersect", rebuildsTopology: true, collects: false, mint: Some<Func<HealOp>>(static () => new HealOp.SelfIntersectResolve()));
+    public static readonly HealStage Boolean       = new("boolean", rebuildsTopology: true, collects: false, mint: None);
 
     public bool RebuildsTopology { get; }
+    public bool Collects { get; }
     public Option<Func<HealOp>> Mint { get; }
 }
 
@@ -189,10 +194,15 @@ internal readonly struct Incidence {
 }
 
 public static class Heal {
-    // Declaration order IS the canonical order: manifold precedes orient so the dual BFS walks a 2-manifold graph,
-    // and self-intersect runs last, against the otherwise-healed snapshot.
-    public static readonly Seq<HealOp> Standard =
-        toSeq(HealStage.Items).Bind(static stage => stage.Mint.ToSeq()).Map(static mint => mint());
+    // Declaration order IS the canonical order: manifold precedes orient so the dual BFS walks a 2-manifold graph, and
+    // self-intersect runs last, against the otherwise-healed snapshot. Its retile is the one stage that MINTS debris —
+    // a sub-ulp near-miss splits one crossing into two vertices inside the weld band, spanning a sliver — and no stage
+    // ahead of it can see that, so every Collects row re-runs as the terminal sweep. The schedule is two folds over one
+    // vocabulary; a hand-appended tail op is the deleted form.
+    public static readonly Seq<HealOp> Standard = Minted(static _ => true) + Minted(static stage => stage.Collects);
+
+    static Seq<HealOp> Minted(Func<HealStage, bool> admits) =>
+        toSeq(HealStage.Items).Filter(admits).Bind(static stage => stage.Mint.ToSeq()).Map(static mint => mint());
 
     // ONE live arena rides the swap-and-dispose seam; the fold threads Space/Status so before[n] = after[n-1] and the last freeze is the healed mesh.
     public static Fin<HealSession> Repair(HealPlan plan, Op? key = null) {
@@ -228,6 +238,9 @@ public static class Heal {
 
     // --- [DEGENERATE_COLLAPSE]
     // A sliver flags on the EXACT Orient2D sign in the dominant-axis plane; the float area floor is a secondary gate behind an exact-keep.
+    // The plane comes from the Numerics owner, never a page-local max-component pick, and its refusal IS this kernel's
+    // verdict: a face with no dominant normal has zero projected area in every plane, so the axis rail collects it here
+    // rather than failing a session over the degenerate input class the page exists to admit.
     internal static Fin<HealStep> Collapse(MeshEdit edit, RepairPolicy policy) {
         FaceKeySet seen = new();
         for (int f = 0; f < edit.FaceCount; f++) {
@@ -235,8 +248,9 @@ public static class Heal {
             (int a, int b, int c) = edit.Face(f);
             if (a == b || b == c || c == a || !seen.Add(Sorted(a, b, c))) { edit.KillFace(f); continue; }
             (Point3d pa, Point3d pb, Point3d pc) = (edit.Position(a), edit.Position(b), edit.Position(c));
-            Sign sign = Predicate.Orient2D(pa, pb, pc, Dominant(pa, pb, pc));
-            if (sign == Sign.Zero || 0.5 * Vector3d.CrossProduct(pb - pa, pc - pa).Length < policy.SliverAreaFloor) edit.KillFace(f);
+            if (Axis.DominantOf(pa, pb, pc).Case is not Axis axis) { edit.KillFace(f); continue; }
+            if (Predicate.Orient2D(pa, pb, pc, axis) == Sign.Zero
+                || 0.5 * Vector3d.CrossProduct(pb - pa, pc - pa).Length < policy.SliverAreaFloor) { edit.KillFace(f); }
         }
         return Fin.Succ(HealStep.Same(edit));
 
@@ -269,7 +283,9 @@ public static class Heal {
                 if (backward <= span) pairs.Add((i, j, double.Max(forward, backward)));
             }
         }
-        pairs.Sort(static (l, r) => l.Gap.CompareTo(r.Gap));
+        // List.Sort is unstable introsort, so the rim index pair breaks every Gap tie: without it the greedy `used`
+        // filter consumes equal-span pairs in implementation-defined order and one input bridges two ways.
+        pairs.Sort(static (l, r) => l.Gap.CompareTo(r.Gap) is int rank and not 0 ? rank : (l.I, l.J).CompareTo((r.I, r.J)));
         IndexSet used = new();
         foreach ((int i, int j, _) in pairs) {
             if (used.Contains(i) || used.Contains(j)) continue;
@@ -284,6 +300,10 @@ public static class Heal {
 
     // --- [MANIFOLD_REPAIR]
     // Each pass splits every >2-incident edge into per-extra-face vertex copies; a converged pass re-emits zero and rides its incidence forward.
+    // The copies sit at bit-identical coordinates, and a native topology vertex is a position-keyed equivalence class,
+    // so the freeze re-merges them and the projected NonManifoldEdges never records the split. The ARENA fold is
+    // therefore the single convergence authority — the count this kernel gates on and `ManifoldReceipt.ArenaResidual`
+    // carries — and no arm reads the projected column as the split's witness.
     internal static Fin<HealStep> Split(MeshEdit edit, RepairPolicy policy, Option<Incidence> carry) {
         int passes = policy.MaxManifoldPasses.Value;
         (int found, Incidence last) = Range(0, passes).Fold(
@@ -353,166 +373,120 @@ public static class Heal {
                 : Fin.Fail<CrossLattice>(key.InvalidResult()))
             .Bind(lattice => lattice.Segments.Length == 0 && lattice.Coplanar.Length == 0
                 ? Fin.Succ(HealStep.Same(edit))
-                : Retile(edit, lattice, policy, key));
+                : Recut(edit, current, lattice, policy, key));
 
-    static Fin<HealStep> Retile(MeshEdit edit, CrossLattice lattice, RepairPolicy policy, Op key) {
-        // ONE Round() per interned slot: every patch reads the SAME double triplet, so seams weld by construction; a point-touch adds no constraint.
-        Point3d[] mark = [.. lattice.Rows.Select(static row => row.Point.Round())];
-        Dictionary<int, List<(int A, int B, int FaceA, int FaceB)>> patches = new();
-        // Coplanar rows project to the segment shape — the carrier columns serve the lattice's chain merge, not the per-face constraint carriage.
-        foreach ((int a, int b, int fa, int fb) in lattice.Segments.Concat(
-                     lattice.Coplanar.Select(static row => (row.A, row.B, row.FaceA, row.FaceB)))) {
-            if (mark[a] == mark[b]) continue;
-            Note(patches, fa, (a, b, fa, fb)); Note(patches, fb, (a, b, fa, fb));
+    // The lattice indexes the FROZEN image — Intersection re-soups `current`, whose faces are the arena's live faces in
+    // ascending order and whose coordinates are the freeze's float32 lattice — so ONE ascending scan carries every
+    // lattice face onto its arena face and the retile measures geometry on the same soup the lattice measured; reading
+    // corners off the live arena instead feeds one constraint set two coordinate namespaces. A crossing interns ONE row
+    // corpus-wide, so two faces sharing a cut carry the same Implicit and their spliced seams meet by construction, and
+    // an interned self-pair is a point touch carrying no constraint.
+    static Fin<HealStep> Recut(MeshEdit edit, MeshSpace current, CrossLattice lattice, RepairPolicy policy, Op key) {
+        using MeshEdit soup = MeshEdit.Of(current, policy.Arena);
+        int[] arenaFace = new int[soup.FaceCount];
+        for (int f = 0, live = 0; f < edit.FaceCount; f++) {
+            if (edit.Alive(f)) { arenaFace[live++] = f; }
+        }
+        Dictionary<int, List<Cut>> patches = new();
+        foreach ((int a, int b, int fa, int fb) in lattice.Segments) {
+            if (a == b) continue;
+            Note(patches, fa, (a, b, fb, -1, -1)); Note(patches, fb, (a, b, fa, -1, -1));
+        }
+        // A coplanar row defines no piercing plane: it carries its CARRIER EDGE, and the self lattice runs both sweeps on
+        // one soup, so the carrier-side column is inert here and the perpendicular plane rides (S, T, S+lift) instead.
+        foreach ((int a, int b, int fa, int fb, int cu, int cv, _) in lattice.Coplanar) {
+            if (a == b) continue;
+            Note(patches, fa, (a, b, -1, cu, cv)); Note(patches, fb, (a, b, -1, cu, cv));
         }
         if (patches.Count == 0) return Fin.Succ(HealStep.Same(edit));
-        // An exactly-coincident crossing resolves to the corner id; a sub-ulp near-miss mints a sliver the next weld/degenerate pass collapses.
         Dictionary<Point3d, int> minted = new();
-        Dictionary<(int, int, int), Point3d> triple = new();
-        foreach (int face in patches.Keys.OrderBy(static id => id)) {
-            (int a, int b, int c) = edit.Face(face);
-            minted.TryAdd(edit.Position(a), a); minted.TryAdd(edit.Position(b), b); minted.TryAdd(edit.Position(c), c);
-        }
         return toSeq(patches.OrderBy(static patch => patch.Key)).Strict()
-            .TraverseM(patch => Subdivide(edit, patch.Key, patch.Value, mark, minted, triple, policy, key))
+            .TraverseM(patch => Subdivide(edit, soup, lattice, arenaFace[patch.Key], patch.Key, patch.Value, minted, policy, key))
             .As()
             .Map(_ => HealStep.Same(edit));
 
-        static void Note(Dictionary<int, List<(int A, int B, int FaceA, int FaceB)>> patches, int face, (int A, int B, int FaceA, int FaceB) row) =>
-            (patches.TryGetValue(face, out List<(int A, int B, int FaceA, int FaceB)>? rows) ? rows : patches[face] = []).Add(row);
+        static void Note(Dictionary<int, List<Cut>> patches, int face, Cut row) =>
+            (patches.TryGetValue(face, out List<Cut>? rows) ? rows : patches[face] = []).Add(row);
     }
 
-    // Constrained-only CDT in the dominant-axis plane, every site explicit; a negative dominant normal mirrors the spliced winding.
-    static Fin<Unit> Subdivide(MeshEdit edit, int face, List<(int A, int B, int FaceA, int FaceB)> segments, Point3d[] mark, Dictionary<Point3d, int> minted, Dictionary<(int, int, int), Point3d> triple, RepairPolicy policy, Op key) {
-        (int a, int b, int c) = edit.Face(face);
-        (Point3d pa, Point3d pb, Point3d pc) = (edit.Position(a), edit.Position(b), edit.Position(c));
-        Axis axis = Dominant(pa, pb, pc);
-        Vector3d normal = Vector3d.CrossProduct(pb - pa, pc - pa);
-        bool mirrored = (axis == Axis.X ? normal.X : axis == Axis.Y ? normal.Y : normal.Z) < 0.0;
-        return Crossed(segments, mark, triple, axis, policy, key).Bind(rows => {
-            List<Point3d> sites = [pa, pb, pc];
-            Dictionary<Point3d, int> slot = new() { [pa] = 0, [pb] = 1, [pc] = 2 };
-            Seq<Constraint> interior = toSeq(rows.Select(row => (Constraint)new Constraint.Segment(Site(row.From), Site(row.To)))).Strict();
-            Seq<Constraint> boundary = Rim(sites, axis);   // sites is complete once interior is strict
-            Implicit[] vertices = [.. sites.Select(static p => new Implicit(p))];
-            return Tessellation.Build(new TessellationOp.Points(TessellationKind.Triangulation, vertices, boundary.Concat(interior), policy.Retile, axis), key)
+    // Constrained-only CDT in the dominant-axis plane: three explicit corners plus CrossKey-interned Implicit crossing
+    // rows, every piercing cut carrying the OTHER face's plane, every coplanar sub-segment the PERPENDICULAR plane through
+    // its carrier edge, and Support the face's own corners — the Tpi witness a constraint x constraint split needs, so a
+    // second-generation crossing is CONSTRUCTED exactly and rounds once at the substrate's emission seam rather than
+    // re-entering a predicate already rounded. The corners ARE the site hull, so a rim-collinear crossing joins that
+    // boundary itself and both incident faces split their shared edge through the one interned row — no rim constraint
+    // battery, no page-local segment x segment pass, and a proper-crossings-only straddle can no longer miss a cut that
+    // ends on another. A negative dominant normal mirrors the spliced winding.
+    static Fin<Unit> Subdivide(MeshEdit edit, MeshEdit soup, CrossLattice lattice, int face, int latticeFace, List<Cut> cuts, Dictionary<Point3d, int> minted, RepairPolicy policy, Op key) {
+        (int s0, int s1, int s2) = soup.Face(latticeFace);
+        (Point3d pa, Point3d pb, Point3d pc) = (soup.Position(s0), soup.Position(s1), soup.Position(s2));
+        List<Implicit> rows = new(3 + cuts.Count) { new(pa), new(pb), new(pc) };
+        Dictionary<CrossKey, int> slotOf = new();
+        return Axis.DominantOf(pa, pb, pc, key).Bind(plane => {
+            Vector3d normal = Vector3d.CrossProduct(pb - pa, pc - pa);
+            Vector3d lift = new(plane.Key == 0 ? 1.0 : 0.0, plane.Key == 1 ? 1.0 : 0.0, plane.Key == 2 ? 1.0 : 0.0);
+            bool mirrored = (plane.Key == 0 ? normal.X : plane.Key == 1 ? normal.Y : normal.Z) < 0.0;
+            List<Constraint> constraints = new(cuts.Count);
+            foreach ((int a, int b, int pierced, int cu, int cv) in cuts) {
+                (Point3d p, Point3d q, Point3d r) = pierced >= 0
+                    ? Corners(pierced)
+                    : (soup.Position(cu), soup.Position(cv), soup.Position(cu) + lift);
+                constraints.Add(new Constraint.Crossing(Intern(a), Intern(b), p, q, r));
+            }
+            (int u, int v, int w) = edit.Face(face);
+            Dictionary<Point3d, int> corner = new() { [rows[0].Round()] = u, [rows[1].Round()] = v, [rows[2].Round()] = w };
+            return Tessellation.Build(new TessellationOp.Points(
+                    TessellationKind.Triangulation, [.. rows], toSeq(constraints), policy.Retile, plane, Some((pa, pb, pc))), key)
                 .Bind(tess => tess.Triangles(key))
-                .Bind(triangles => Splice(edit, face, triangles, slot, (a, b, c), minted, mirrored));
-
-            int Site(Point3d p) {
-                if (slot.TryGetValue(p, out int at)) return at;
-                slot[p] = sites.Count; sites.Add(p); return sites.Count - 1;
-            }
+                .Map(triangles => Splice(edit, face, triangles, corner, minted, mirrored));
         });
-    }
 
-    // A three-face triple point reaches each face through a DIFFERENT segment pair, so the split materializes ONCE keyed by the
-    // sorted defining-face triple and every patch reuses it; a coplanar pair recomputes bit-identically off slot-shared endpoints.
-    static Fin<Seq<(Point3d From, Point3d To)>> Crossed(List<(int A, int B, int FaceA, int FaceB)> segments, Point3d[] mark, Dictionary<(int, int, int), Point3d> triple, Axis axis, RepairPolicy policy, Op key) {
-        List<Point3d>[] splits = new List<Point3d>[segments.Count];
-        for (int i = 0; i < segments.Count; i++) splits[i] = [];
-        Seq<(int I, int J)> pairs = toSeq(
-            from i in Enumerable.Range(0, segments.Count)
-            from j in Enumerable.Range(i + 1, segments.Count - i - 1)
-            select (I: i, J: j)).Strict();
-        return pairs
-            .TraverseM(pair => TripleKey(segments[pair.I], segments[pair.J]).Match(
-                Some: at => triple.TryGetValue(at, out Point3d shared)
-                    ? Fin.Succ(Mark(pair, Seq(shared)))
-                    : Cross(pair).Map(hits => { foreach (Point3d hit in hits) triple[at] = hit; return Mark(pair, hits); }),
-                None: () => Cross(pair).Map(hits => Mark(pair, hits))))
-            .As()
-            .Map(_ => toSeq(segments.Select((segment, i) => Chained(mark[segment.A], mark[segment.B], splits[i])).SelectMany(static rows => rows)).Strict());
-
-        Fin<Seq<Point3d>> Cross((int I, int J) pair) =>
-            Intersection.Apply(new IntersectOp.SegmentSegment(
-                new Line(mark[segments[pair.I].A], mark[segments[pair.I].B]),
-                new Line(mark[segments[pair.J].A], mark[segments[pair.J].B]), axis, policy.Intersect), key)
-                .Bind(result => result is IntersectResult.Points hit ? Fin.Succ(hit.Hits) : Fin.Fail<Seq<Point3d>>(key.InvalidResult()));
-
-        Unit Mark((int I, int J) pair, Seq<Point3d> hits) {
-            foreach (Point3d hit in hits) { splits[pair.I].Add(hit); splits[pair.J].Add(hit); }
-            return unit;
+        int Intern(int row) {
+            Crossing crossing = lattice.Rows[row];
+            if (slotOf.TryGetValue(crossing.Key, out int at)) return at;
+            rows.Add(crossing.Point);
+            return slotOf[crossing.Key] = rows.Count - 1;
         }
 
-        static Option<(int, int, int)> TripleKey((int A, int B, int FaceA, int FaceB) s, (int A, int B, int FaceA, int FaceB) t) {
-            Span<int> faces = [s.FaceA, s.FaceB, t.FaceA, t.FaceB];
-            faces.Sort();
-            return (faces[0] == faces[1], faces[1] == faces[2], faces[2] == faces[3]) switch {
-                (true, false, false) => Some((faces[0], faces[2], faces[3])),
-                (false, true, false) => Some((faces[0], faces[1], faces[3])),
-                (false, false, true) => Some((faces[0], faces[1], faces[2])),
-                _                    => Option<(int, int, int)>.None,
-            };
-        }
-
-        static IEnumerable<(Point3d From, Point3d To)> Chained(Point3d from, Point3d to, List<Point3d> splits) {
-            if (splits.Count == 0) { yield return (from, to); yield break; }
-            Vector3d direction = to - from;
-            List<Point3d> ordered = [from, .. splits.Distinct().OrderBy(p => (p - from) * direction), to];
-            for (int k = 0; k + 1 < ordered.Count; k++) {
-                if (ordered[k] != ordered[k + 1]) yield return (ordered[k], ordered[k + 1]);
-            }
+        (Point3d P, Point3d Q, Point3d R) Corners(int at) {
+            (int a, int b, int c) = soup.Face(at);
+            return (soup.Position(a), soup.Position(b), soup.Position(c));
         }
     }
 
-    // Neighbor faces continue each crossing segment through the same minted endpoint, so both sides of an edge subdivide consistently.
-    static Seq<Constraint> Rim(List<Point3d> sites, Axis axis) {
-        return toSeq(new[] { (0, 1), (1, 2), (2, 0) }.SelectMany(edge => Edge(edge.Item1, edge.Item2))).Strict();
-
-        IEnumerable<Constraint> Edge(int from, int to) {
-            (Point3d p, Point3d q) = (sites[from], sites[to]);
-            List<int> line = [from];
-            line.AddRange(Enumerable.Range(3, sites.Count - 3)
-                .Where(i => Predicate.Orient2D(p, q, sites[i], axis) == Sign.Zero && Between(p, q, sites[i], axis))
-                .OrderBy(i => (sites[i] - p) * (q - p)));
-            line.Add(to);
-            for (int k = 0; k + 1 < line.Count; k++) yield return new Constraint.Segment(line[k], line[k + 1]);
-        }
-
-        static bool Between(Point3d p, Point3d q, Point3d s, Axis axis) {
-            (double su, double pu, double qu) = (Axis.Coord(s, axis.U), Axis.Coord(p, axis.U), Axis.Coord(q, axis.U));
-            (double sv, double pv, double qv) = (Axis.Coord(s, axis.V), Axis.Coord(p, axis.V), Axis.Coord(q, axis.V));
-            return su >= double.Min(pu, qu) && su <= double.Max(pu, qu) && sv >= double.Min(pv, qv) && sv <= double.Max(pv, qv)
-                && s != p && s != q;
-        }
-    }
-
-    // A foreign coordinate is a recovery Steiner point the constrained re-mesh cannot lift, so typed 2408 refuses BEFORE arena mutation.
-    static Fin<Unit> Splice(MeshEdit edit, int face, (Point3d A, Point3d B, Point3d C)[] triangles, Dictionary<Point3d, int> slot, (int A, int B, int C) corners, Dictionary<Point3d, int> minted, bool mirrored) {
-        int foreign = triangles.Sum(t =>
-            (slot.ContainsKey(t.A) ? 0 : 1) + (slot.ContainsKey(t.B) ? 0 : 1) + (slot.ContainsKey(t.C) ? 0 : 1));
-        if (foreign > 0) return Fin.Fail<Unit>(new GeometryFault.UnrepairableMesh(HealStage.SelfIntersect, 1, foreign).ToError());
+    // A substrate Steiner point is the constrained recovery's own re-anchor over ORIGINAL points, so the splice MINTS it
+    // beside every crossing row instead of refusing it. `minted` spans the whole retile, so two faces meeting at one
+    // crossing or one recovery point reach the same arena vertex and the seam closes by construction; an exactly-
+    // coincident crossing resolves to the corner id, and a sub-ulp near-miss mints a sliver the terminal weld/degenerate
+    // sweep collects. Total: the arena mutation is the last step of an already-decided patch.
+    static Unit Splice(MeshEdit edit, int face, (Point3d A, Point3d B, Point3d C)[] triangles, Dictionary<Point3d, int> corner, Dictionary<Point3d, int> minted, bool mirrored) {
         edit.KillFace(face);
         foreach ((Point3d ta, Point3d tb, Point3d tc) in triangles) {
             (int u, int v, int w) = (Arena(ta), Arena(tb), Arena(tc));
             if (mirrored) edit.AddFace(u, w, v); else edit.AddFace(u, v, w);
         }
-        return Fin.Succ(unit);
+        return unit;
 
-        int Arena(Point3d p) => slot[p] switch {
-            0 => corners.A,
-            1 => corners.B,
-            2 => corners.C,
-            _ => minted.TryGetValue(p, out int at) ? at : minted[p] = edit.AddVertex(p),
-        };
+        int Arena(Point3d p) =>
+            corner.TryGetValue(p, out int at) ? at
+            : minted.TryGetValue(p, out int seam) ? seam
+            : minted[p] = edit.AddVertex(p);
     }
 
     // --- [BOOLEAN]
-    // Arrangement owns classification, exactness, and the scale gate — NativeAssetMissing 2423 propagates from ITS rail, never a second gate here.
+    // Arrangement owns classification, exactness, and the scale gate — NativeAssetMissing 2423 propagates from ITS rail,
+    // never a second gate here. Arity rides the operand Seq, and Shells EXPRESS disconnection: a heal session admits
+    // exactly ONE arena, so a severed result fails typed on its shell count — largest-shell selection would publish a
+    // mesh the session never proved, a shell-widened session would index every downstream receipt by shell.
     internal static Fin<HealStep> Merge(HealOp.Boolean op, MeshSpace current, RepairPolicy policy, Op key) =>
-        Arrangement.Apply(new ArrangementOp.MeshBoolean(current, op.Tool, op.Op, policy.Arrangement), key)
-            .Bind(result => result is ArrangementResult.Boolean merged
-                ? Fin.Succ(new HealStep(MeshEdit.Of(merged.Solid, policy.Arena), Some(merged.Receipt), None))
-                : Fin.Fail<HealStep>(key.InvalidResult()));
-
-    // --- [PRIMITIVES]
-    // Float axis choice, exact signs downstream: the dominant normal component selects the projection plane.
-    static Axis Dominant(Point3d a, Point3d b, Point3d c) {
-        Vector3d n = Vector3d.CrossProduct(b - a, c - a);
-        (double x, double y, double z) = (Math.Abs(n.X), Math.Abs(n.Y), Math.Abs(n.Z));
-        return x >= y && x >= z ? Axis.X : y >= z ? Axis.Y : Axis.Z;
-    }
+        Arrangement.Apply(new ArrangementOp.MeshBoolean(Seq(current, op.Tool), op.Op, policy.Arrangement), key)
+            .Bind(result => result switch {
+                ArrangementResult.Boolean { Shells: [MeshSpace solid] } merged =>
+                    Fin.Succ(new HealStep(MeshEdit.Of(solid, policy.Arena), Some(merged.Receipt), None)),
+                ArrangementResult.Boolean severed =>
+                    Fin.Fail<HealStep>(new GeometryFault.UnrepairableMesh(HealStage.Boolean, 1, severed.Shells.Count).ToError()),
+                _ => Fin.Fail<HealStep>(key.InvalidResult()),
+            });
 }
 ```
 
@@ -530,7 +504,7 @@ flowchart LR
     HealPlan -->|MeshEdit.Of + ArenaPolicy| MeshEdit
     MeshEdit -->|Heal.Repair fold| HealOp
     HealOp -->|Orient2D exact signs| Predicate
-    HealOp -->|SelfMesh + SegmentSegment| Intersection
+    HealOp -->|SelfMesh crossing lattice| Intersection
     HealOp -->|Points CDT + Triangles| Tessellation
     HealOp -->|MeshBoolean delegation| Arrangement
     HealOp -->|gap proximity| Neighbors
@@ -561,7 +535,4 @@ One owner per axis; capability is a case, row, or column.
 [SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
-- [WELD_IDEMPOTENCE]-[OPEN]: does a split-free session preserve healed projections and receipt stability across repeated `Standard` repair; re-admit the first `Healed` through `HealPlan.Of`, compare both projections at one band, and check enumeration stability on `Kernels.WeldDuplicates`.
-- [EXACT_REPAIR_DECISIONS]-[OPEN]: do exact predicates preserve degenerate and self-intersection decisions across projection axes; check sliver signs on dominant-axis `Predicate.Orient2D`, crossings through `Intersection`, shared crossings through one `Round()` and sorted defining-face-triple identity, and CDT winding on the dominant normal sign.
-- [TOPOLOGY_THREADING]-[OPEN]: which receipt fields prove forward topology threading without recomputation; trace `before[n] = after[n-1]`, `NonManifoldEdges`, `BoundaryComponents`, `IsOriented`, and the mutation-invalidated `Incidence` carry through the one `Heal.Repair` fold.
-- [BOOLEAN_DELEGATION]-[OPEN]: which owner supplies exact boolean classification, native scale admission, and receipt evidence; trace tier-3 bodies through `Arrangement.Apply`, `NativeAssetMissing` 2423 propagating unwrapped, and the `BooleanReceipt` carried into the heal chain.
+(none)

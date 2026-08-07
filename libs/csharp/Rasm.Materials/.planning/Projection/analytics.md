@@ -111,7 +111,9 @@ public static class MaterialsDatasets {
     public static readonly DatasetWire Sustainability = new("materials.sustainability", Key: Seq("material", "stage"), Seq(
         new DatasetColumn("material", ColumnToken.Utf8, Nullable: false),
         new DatasetColumn("basis", ColumnToken.Utf8, Nullable: false),
-        new DatasetColumn("stage", ColumnToken.Int64, Nullable: false),
+        // The seam LifecycleStage KEY, so the column's physical type is the token the fold writes: the projection
+        // stamps `stage.Key` and an integer column would provision a width no producer ever fills.
+        new DatasetColumn("stage", ColumnToken.Utf8, Nullable: false),
         new DatasetColumn("gwp", ColumnToken.Float64, Nullable: false),
         new DatasetColumn("recycled", ColumnToken.Float64, Nullable: false),
         new DatasetColumn("recovery", ColumnToken.Float64, Nullable: false),
@@ -119,7 +121,7 @@ public static class MaterialsDatasets {
         new DatasetColumn("classification_code", ColumnToken.Utf8, Nullable: true),
         new DatasetColumn("evidence_source", ColumnToken.Utf8, Nullable: false),
         new DatasetColumn("evidence_expiry", ColumnToken.Date, Nullable: true),
-        new DatasetColumn("observed", ColumnToken.Timestamp, Nullable: false)), Spine: SpineToken.Event, Time: "observed", Measure: "gwp");
+        new DatasetColumn("observed", ColumnToken.Timestamp, Nullable: false)), Spine: SpineToken.Event, Time: "observed", Measure: None);
 
     public static readonly DatasetWire LibrarySummary = new("materials.library-summary", Key: Seq("material"), Seq(
         new DatasetColumn("material", ColumnToken.Utf8, Nullable: false),
@@ -133,7 +135,14 @@ public static class MaterialsDatasets {
         new DatasetColumn("transmissive", ColumnToken.Bool, Nullable: false),
         new DatasetColumn("observed", ColumnToken.Timestamp, Nullable: false)), Spine: SpineToken.Event, Time: "observed", Measure: None);
 
-    public static readonly DatasetWire CapacityChecks = new("materials.capacity-checks", Key: Seq("op", "kind"), Seq(
+    // Keyed on the operation, the receipt kind, AND the governing action: one op resolving a section reports one
+    // verdict per governing action, so the pair alone collides the moment a check reports both a flexure and a
+    // shear verdict under one op and one kind — two real rows silently overwriting each other at the residence.
+    // The governing column is the third discriminant the fact stream already carries. A per-MEMBER key is not
+    // spellable here: `CapacityReceipt` carries no designation, section, or component identity on any case, so a
+    // model checking two members of one kind under one op still collides — the residual cut belongs at the capacity
+    // owner as an identity column, and this key is the honest bound of what the receipt declares today.
+    public static readonly DatasetWire CapacityChecks = new("materials.capacity-checks", Key: Seq("op", "kind", "governing"), Seq(
         new DatasetColumn("op", ColumnToken.Utf8, Nullable: false),
         new DatasetColumn("kind", ColumnToken.Utf8, Nullable: false),
         new DatasetColumn("governing", ColumnToken.Utf8, Nullable: false),
@@ -232,12 +241,15 @@ public static class MaterialsDatasets {
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------------------
 using LanguageExt;
 using NodaTime;                                  // Instant, LocalDate — the frame instant and the evidence expiry
-using Rasm.Element.Composition;                  // MaterialId
-using Rasm.Materials.Appearance;                 // Published, AppearanceSummary
+using Rasm.Domain;                               // Op — the correlation key the frame carries into every lookup
+using Rasm.Element.Classification;               // Classification — the catalogue's own standard-reference egress
+using Rasm.Element.Composition;                  // MaterialId, MaterialPropertySet, PropertyEvidence, LifecycleStage,
+                                                 // MaterialPropertyAccess — the seam discipline accessors the table composes
+using Rasm.Element.Projection;                   // ProjectionContext — the frame every fold stamps
+using Rasm.Materials.Appearance;                 // AppearanceSummary
 using Rasm.Materials.Appearance.Interchange;     // TextureSetWire, EnvironmentLightWire — the already-projected wires
-using Rasm.Materials.Component;                  // ComponentRow, Utilisation
-using Rasm.Materials.Properties;                 // MaterialPropertyRow, SustainabilityRow
-using Rasm.Materials.Raster;                     // TileReceipt, TileScore, PlaneTransfer, BlockFormat
+using Rasm.Materials.Component;                  // ComponentRow, QuantityRow, Utilisation
+using Rasm.Materials.Raster;                     // TileReceipt, TileScore, PlaneTransfer, BlockFormat, KtxPayload
 using Thinktecture;
 using static LanguageExt.Prelude;
 
@@ -253,7 +265,7 @@ public readonly record struct PropertyAnalyticsRow(
     string EvidenceSource, Option<LocalDate> EvidenceExpiry, Instant Observed);
 
 public readonly record struct SustainabilityAnalyticsRow(
-    string Material, string Basis, int Stage, double Gwp, double Recycled, double Recovery,
+    string Material, string Basis, string Stage, double Gwp, double Recycled, double Recovery,
     Option<string> ClassificationSystem, Option<string> ClassificationCode,
     string EvidenceSource, Option<LocalDate> EvidenceExpiry, Instant Observed);
 
@@ -292,18 +304,83 @@ public readonly record struct EnvironmentProductRow(
     int SpecularMips, Instant Observed);
 
 // --- [OPERATIONS] -------------------------------------------------------------------------------------
-// One selector table over both carriers: the scalar rows read the raw central and the dimensioned rows read
-// their quantity's own SI accessor, so the long-form `central` column is self-describing through `Unit` and
-// a reader never infers a scale from the property name.
-public sealed record PropertyColumn(string Property, string Unit, Func<MaterialPropertyRow, double> Central) {
+// ONE selector table over the ADMITTED seam cases, never over the ingress row. The catalogue's own Admit fold is
+// where a published magnitude becomes a typed measure, so a warehouse column read straight off the raw row
+// publishes a number no admission gate ever saw — a row the catalogue REFUSED would still reach a dashboard,
+// with the graph beside it carrying nothing. Reading the admitted set is also what makes the columns TOTAL over
+// the disciplines: the mechanical triple and every acoustic, fire, hygrothermal, and optical column comes off a
+// case the same set carries, where the ingress record exposed the seven scalars one shape happened to declare
+// and silently omitted every case the catalogue lowers beside it. `unit` DERIVES from the QuantityRow the
+// measure was minted through, so the long-form `central` column is self-describing under the same registry the
+// mint used and no reader infers a scale from a property name — a hand-typed unit string beside a typed mint is
+// the second spelling that drifts. A column ABSENT from a material's set emits NO row: absence is a discipline
+// the catalogue carries no data for, and a zero in a long-form warehouse reads as a measured zero. Case selection
+// composes the seam's OWN `MaterialPropertyAccess` extension — `sets.Mechanical`, `sets.Optical`,
+// `sets.Hygrothermal` — so a discipline reader is one member on the owner that publishes it, never a local
+// `Choose` re-spelling a projection the seam already carries and would drift from on the next case it adds.
+public sealed record PropertyColumn(
+    string Property, Option<QuantityRow> Quantity, string Dimensionless,
+    Func<Seq<MaterialPropertySet>, Option<double>> Central) {
+
+    // A DIMENSIONED column reads its unit off the QuantityRow it minted through — one registry, one spelling, and
+    // a hand-typed unit string beside a typed mint is the second spelling that drifts. A DIMENSIONLESS column has
+    // no row to read, because the registry rosters SI dimensions and a ratio carries none, so its UCUM literal is
+    // the honest source rather than a registry row minted to carry a unit string it has no dimension for.
+    public string Unit => Quantity.Map(static row => row.Unit).IfNone(Dimensionless);
+
     public static readonly Seq<PropertyColumn> Rows = Seq(
-        new PropertyColumn("poisson", "1", static row => row.Poisson.Central),
-        new PropertyColumn("expansion_per_k", "/K", static row => row.Expansion.Central),
-        new PropertyColumn("vapour_mu", "1", static row => row.VapourMu.Central),
-        new PropertyColumn("density", "kg/m3", static row => row.Density.Central.KilogramsPerCubicMeter),
-        new PropertyColumn("conductivity", "W/(m.K)", static row => row.Conductivity.Central.WattsPerMeterKelvin),
-        new PropertyColumn("specific_heat", "J/(kg.K)", static row => row.SpecificHeat.Central.JoulesPerKilogramKelvin),
-        new PropertyColumn("u_value", "W/(m2.K)", static row => row.UValue.Central.WattsPerSquareMeterKelvin));
+        // The MECHANICAL group, read off the admitted case rather than off loose ingress scalars: density,
+        // modulus, yield, ultimate, Poisson, and expansion all travel on ONE case, so a material carrying a grade
+        // carries the whole group and a query never sees three of six columns.
+        new PropertyColumn("density", Some(QuantityRow.Density), "1", static sets => sets.Mechanical.Map(static m => m.Density.Si)),
+        new PropertyColumn("modulus", Some(QuantityRow.Pressure), "1", static sets => sets.Mechanical.Map(static m => m.YoungsModulus.Si)),
+        new PropertyColumn("yield_strength", Some(QuantityRow.Pressure), "1", static sets => sets.Mechanical.Map(static m => m.YieldStrength.Si)),
+        new PropertyColumn("ultimate_strength", Some(QuantityRow.Pressure), "1", static sets => sets.Mechanical.Map(static m => m.UltimateStrength.Si)),
+        new PropertyColumn("poisson", None, "1", static sets => sets.Mechanical.Map(static m => m.PoissonsRatio)),
+        new PropertyColumn("expansion_per_k", None, "/K", static sets => sets.Mechanical.Map(static m => m.ThermalExpansionPerK)),
+        // The THERMAL group — conductivity, specific heat, transmittance, and vapour resistance ride one case
+        // exactly as the seam admission seats them, so no column here re-homes a seam decision.
+        new PropertyColumn("conductivity", Some(QuantityRow.ThermalConductivity), "1", static sets => sets.Thermal.Map(static t => t.Conductivity.Si)),
+        new PropertyColumn("specific_heat", Some(QuantityRow.SpecificEntropy), "1", static sets => sets.Thermal.Map(static t => t.SpecificHeat.Si)),
+        // Transmittance is OPTIONAL AT THE SEAM because a SUBSTANCE declares none — U-value belongs to the EN ISO
+        // 6946 assembly fold at an installed thickness — so the column reads THROUGH that option and a substance
+        // carrying no transmittance emits no row. Zero-filling would publish a perfectly conducting substance under
+        // a measured column, and deleting the column instead would strand every row that genuinely declares one.
+        new PropertyColumn("u_value", Some(QuantityRow.HeatTransferCoefficient), "1",
+            static sets => sets.Thermal.Bind(static t => t.UValue).Map(static v => v.Si)),
+        new PropertyColumn("vapour_mu", None, "1", static sets => sets.Thermal.Map(static t => t.VapourResistanceFactor)),
+        // The two disciplines the ingress row exposed NO column for at all. Each is one defining scalar the seam
+        // case already carries, so a query asking which materials carry a fire rating or an acoustic absorption
+        // answers off the same long-form table as one asking which carry a density.
+        new PropertyColumn("nrc", None, "1", static sets => sets.Acoustic.Map(static a => a.Nrc)),
+        new PropertyColumn("fire_resistance_minutes", None, "min",
+            // R is the load-bearing criterion a structural query asks for; a material tested on E/I alone declares
+            // no R and emits no row rather than publishing a separating rating under a load-bearing column.
+            static sets => sets.Fire.Bind(static f => f.Resistance.LoadBearingMinutes).Map(static minutes => (double)minutes)),
+        // The HYGROTHERMAL group. Porosity and the two storage anchors are the columns a moisture-risk query reads;
+        // the A-value is genuinely optional at the seam and stays a column that emits no row where a material
+        // declares none. The three SampledCurve members carry no scalar and therefore no long-form column at all —
+        // a curve is not a magnitude, and flattening one to its midpoint would publish a number nothing measured.
+        new PropertyColumn("porosity", None, "1", static sets => sets.Hygrothermal.Map(static h => h.Porosity)),
+        new PropertyColumn("water_content_80rh", None, "kg/m3", static sets => sets.Hygrothermal.Map(static h => h.WaterContent80Rh.Si)),
+        new PropertyColumn("free_water_saturation", None, "kg/m3", static sets => sets.Hygrothermal.Map(static h => h.FreeWaterSaturation.Si)),
+        new PropertyColumn("water_absorption", None, "kg/(m2.s0.5)", static sets => sets.Hygrothermal.Bind(static h => h.WaterAbsorptionKgPerM2SqrtS)),
+        // The OPTICAL group — nine stored fractions, each its own column because front and back genuinely differ on
+        // a coated pane and a query asking which side carries the coating cannot recover that from one averaged
+        // number. The two solar absorptances are DERIVED at the seam from the stored triple, so publishing them
+        // would carry one truth twice and drift the day the seam changes the identity.
+        new PropertyColumn("visible_transmittance", None, "1", static sets => sets.Optical.Map(static o => o.VisibleTransmittance)),
+        new PropertyColumn("visible_reflectance_front", None, "1", static sets => sets.Optical.Map(static o => o.VisibleReflectanceFront)),
+        new PropertyColumn("visible_reflectance_back", None, "1", static sets => sets.Optical.Map(static o => o.VisibleReflectanceBack)),
+        new PropertyColumn("solar_transmittance", None, "1", static sets => sets.Optical.Map(static o => o.SolarTransmittance)),
+        new PropertyColumn("solar_reflectance_front", None, "1", static sets => sets.Optical.Map(static o => o.SolarReflectanceFront)),
+        new PropertyColumn("solar_reflectance_back", None, "1", static sets => sets.Optical.Map(static o => o.SolarReflectanceBack)),
+        new PropertyColumn("ir_transmittance", None, "1", static sets => sets.Optical.Map(static o => o.ThermalIrTransmittance)),
+        new PropertyColumn("ir_emissivity_front", None, "1", static sets => sets.Optical.Map(static o => o.ThermalIrEmissivityFront)),
+        new PropertyColumn("ir_emissivity_back", None, "1", static sets => sets.Optical.Map(static o => o.ThermalIrEmissivityBack)),
+        // The DAMPING group is ONE column: the ratio is the catalogue datum, the structural loss factor derives
+        // from it at the seam, and the Rayleigh pair is a per-model FE input no catalogue declares.
+        new PropertyColumn("damping_ratio", None, "1", static sets => sets.Damping.Map(static d => d.DampingRatio)));
 }
 
 // Rows close the product axis one resolved light's stored blobs occupy, each projecting its own wire key off the
@@ -328,21 +405,43 @@ public static class AnalyticsProjection {
             row.Item.SubstanceId.Value, row.Item.AppearanceId.Value, row.Item.IfcEntity,
             row.Item.PredefinedToken, frame.At));
 
+    // The ADMITTED set per material, never the ingress row: every value here already crossed the catalogue's own
+    // admission, so the warehouse and the graph publish the same numbers. Evidence rides the CASE that produced
+    // the column, because two disciplines on one material carry two different declarations and a row-level
+    // evidence stamp would attribute a thermal figure to the mechanical source that never published it.
+    // Magnitude and declaration come off ONE walk: the first admitted set the column reads answers both, so the
+    // selector runs once per set rather than once for the value and again to recover the case that produced it.
+    // The hoist is CORRECTNESS before it is cost — two independent walks can answer a magnitude off one case and a
+    // declaration off another the day a material carries two sets one column reads, publishing a figure under a
+    // source that never stated it. A column no case produces answers ABSENCE and emits no row, so no neutral
+    // evidence value is ever fabricated for a row that has none.
     public static Seq<PropertyAnalyticsRow> Properties(
-        Seq<(MaterialId Id, MaterialPropertyRow Row)> rows, ProjectionContext frame) =>
-        rows.Bind(entry => PropertyColumn.Rows.Map(column =>
-            new PropertyAnalyticsRow(entry.Id.Value, column.Property, column.Unit, column.Central(entry.Row),
-                entry.Row.Evidence.Source, entry.Row.Evidence.ValidUntil, frame.At)));
+        Seq<(MaterialId Id, Seq<MaterialPropertySet> Admitted)> rows, ProjectionContext frame) =>
+        rows.Bind(entry => PropertyColumn.Rows.Choose(column => entry.Admitted
+            .Choose(set => column.Central(Seq(set)).Map(central => (Central: central, set.Evidence)))
+            .Head
+            .Map(read => new PropertyAnalyticsRow(entry.Id.Value, column.Property, column.Unit, read.Central,
+                read.Evidence.Source, read.Evidence.ValidUntil, frame.At))));
 
+    // The ADMITTED Environmental case, never the ingress vector: the catalogue's Lower embeds the carbon-only
+    // vector into the seam's full impact matrix under its own arity and finiteness gates, so reading the raw
+    // StageGwp array publishes magnitudes that never crossed them. Stage crosses as the seam LifecycleStage KEY
+    // rather than as the vector's ordinal — an ordinal is positional truth that silently re-points every stored
+    // row the day the seam adds an EN 15978 module, while the key survives the insertion.
+    // Classification travels BESIDE the admitted set rather than off it: the seam carries classification as its own
+    // Object-node value object and never as a MaterialPropertySet case, so reading it off the Environmental case
+    // would name a column the seam does not declare. The caller supplies the catalogue's own Classification egress.
     public static Seq<SustainabilityAnalyticsRow> Sustainability(
-        Seq<(MaterialId Id, SustainabilityRow Row)> rows, ProjectionContext frame) =>
-        rows.Bind(entry => toSeq(entry.Row.StageGwp.ToArray())
-            .Map((gwp, stage) => new SustainabilityAnalyticsRow(
-                entry.Id.Value, entry.Row.EnvironmentalBasis, stage, gwp,
-                entry.Row.Recycled.Central, entry.Row.Recovery.Central,
-                entry.Row.Classification.Map(static c => c.System),
-                entry.Row.Classification.Map(static c => c.Code),
-                entry.Row.Evidence.Source, entry.Row.Evidence.ValidUntil, frame.At)));
+        Seq<(MaterialId Id, Seq<MaterialPropertySet> Admitted, Option<Classification> Classification)> rows, ProjectionContext frame) =>
+        rows.Bind(entry => entry.Admitted
+            .Choose(static set => set as MaterialPropertySet.Environmental)
+            .Bind(environmental => toSeq(LifecycleStage.Items).Map(stage =>
+                new SustainabilityAnalyticsRow(
+                    entry.Id.Value, environmental.Basis.Key, stage.Key, environmental.StageAt(stage),
+                    environmental.RecycledContent, environmental.EndOfLifeRecovery,
+                    entry.Classification.Map(static c => c.System),
+                    entry.Classification.Map(static c => c.Code),
+                    environmental.Evidence.Source, environmental.Evidence.ValidUntil, frame.At))));
 
     public static Fin<Seq<LibrarySummaryRow>> Library(
         Seq<MaterialId> materials, ProjectionContext frame,
@@ -368,14 +467,15 @@ public static class AnalyticsProjection {
             // rows carry — otherwise a payload grouping counts the literal string "none" as a declaration while
             // the pack rows' NULL sits outside it, and the query the design justifies itself with double-counts.
             .Map(row => Row(set, row.Role, row.Transfer, row.Format,
-                row.KtxPayload == "none" ? None : Some(row.KtxPayload),  // "none" is the frozen wire literal for a non-KTX2 file; the KtxPayload roster carries no such row
+                row.KtxPayload == KtxPayload.None.Key ? None : Some(row.KtxPayload),
                 row.BlockFormat == BlockFormat.None.Key ? None : Some(row.BlockFormat),
                 (int)row.Mips, row.Blob, row.ByteLength, frame))
             // Packs declare NO single payload class or block format: a sheet's lanes carry three different channels'
             // policies, so the two columns stay absent rather than filled with one lane's value promoted to speak for the
-            // sheet — a query grouping by payload then counts real declarations alone.
-            .Append(toSeq(set.Packs).Map(pack => Row(set, pack.Pack, PlaneTransfer.Raw.Key, pack.Format,
-                None, None, (int)pack.Mips, pack.Blob, pack.ByteLength, frame))));
+            // sheet — a query grouping by payload then counts real declarations alone. The two row streams CONCATENATE:
+            // `Append` seats ONE element beside a sequence, so it cannot take the pack stream at all.
+            + toSeq(set.Packs).Map(pack => Row(set, pack.Pack, PlaneTransfer.Raw.Key, pack.Format,
+                None, None, (int)pack.Mips, pack.Blob, pack.ByteLength, frame)));
 
     static TextureChannelAnalyticsRow Row(
         TextureSetWire set, string channel, string transfer, string format, Option<string> payload, Option<string> block,
@@ -391,9 +491,11 @@ public static class AnalyticsProjection {
             Observed: frame.At);
 
     public static Seq<CapacityCheckRow> Capacity(Seq<MaterialsFact> facts, ProjectionContext frame) =>
-        facts.Choose(fact => fact is MaterialsFact.CapacityCheck check
-            ? Some(new CapacityCheckRow(
-                check.Key.ToString(), check.Receipt.Kind, check.Verdict.Governing.Key,
+        facts.Choose(fact => fact as MaterialsFact.CapacityCheck).Map(check =>
+            new CapacityCheckRow(
+                // Op is a [ValueObject<string>], so the admitted key reads back as Value — the generated accessor
+                // over the key member, never a Name property the type does not declare.
+                check.Key.Value, check.Receipt.Kind, check.Verdict.Governing.Key,
                 check.Verdict.Adequate,
                 // Verdict projects its OWN optional ratio: two cases carry one demand-over-capacity number while
                 // an unbounded verdict carries none, so a reader re-enumerating which cases hold a value strands
@@ -402,8 +504,7 @@ public static class AnalyticsProjection {
                 check.Verdict is Utilisation.RequiresMemberCheck deferred
                     ? Some(deferred.Requirement.Key)
                     : Option<string>.None,
-                check.Elapsed.TotalSeconds, frame.At))
-            : Option<CapacityCheckRow>.None);
+                check.Elapsed.TotalSeconds, frame.At));
 
     // Set grain takes the tile evidence as a SECOND ARGUMENT because a TileProof is not a wire column — the wire
     // carries the boolean projection of the proof's presence and never the score behind it — so pairing the
@@ -429,11 +530,11 @@ public static class AnalyticsProjection {
                 FaultedTexels: row.Set.Press is { } faulted ? Some((long)faulted.FaultedTexels) : None,
                 Observed: frame.At));
 
-    // Refusal carries the +Inf seam ratio TileScore.Refused alone spells, so the whole score triple filters out
-    // ONCE here rather than per column — its three columns stay absent together rather than publishing a 0.0
-    // product a quality query reads as a measured worst case.
-    static Option<TileScore> Scored(Option<TileReceipt> tile) =>
-        tile.Filter(static receipt => double.IsFinite(receipt.Score.SeamRatio)).Map(static receipt => receipt.Score);
+    // The receipt's score is the OPTION the gate answered with, so the triple filters on PRESENCE once here rather
+    // than per column. Absence means one thing: the second signal could not be measured. A LOW score is not absence
+    // — a graded plane that fell short carries the real number it earned and belongs in the warehouse, because a
+    // quality query asking how far short an estate's tilings fall cannot answer off rows that dropped themselves.
+    static Option<TileScore> Scored(Option<TileReceipt> tile) => tile.Bind(static receipt => receipt.Score);
 
     // Environments fans the CLOSED product axis against the store's own byte census keyed by the same X32 blob
     // spelling the wire carries, so the join a footprint query runs is the join the fold already ran. A product

@@ -27,13 +27,14 @@
 
 [PUBLIC_TYPE_SCOPE]: wire geometry, snapping, alignment (`Grasshopper2.UI.Canvas`)
 
-| [INDEX] | [SYMBOL]              | [TYPE_FAMILY] | [CAPABILITY]                            |
-| :-----: | :-------------------- | :------------ | :-------------------------------------- |
-|  [01]   | `WireShape`           | abstract      | route creation, query, bounds, and draw |
-|  [02]   | `WireShapeDefault`    | sealed        | default spline creation                 |
-|  [03]   | `SnappingAction`      | class         | align, gap, and straighten candidates   |
-|  [04]   | `SnappingConstraints` | sealed class  | document-scoped snap resolution         |
-|  [05]   | `SnappingSettings`    | sealed class  | rule and feedback derivation            |
+| [INDEX] | [SYMBOL]           | [TYPE_FAMILY] | [CAPABILITY]                            |
+| :-----: | :----------------- | :------------ | :-------------------------------------- |
+|  [01]   | `WireShape`        | abstract      | route creation, query, bounds, and draw |
+|  [02]   | `WireShapeDefault` | sealed        | default spline creation                 |
+|  [03]   | `SnappingAction`   | class         | align, gap, and straighten candidates   |
+|  [04]   | `SnappingSettings` | sealed class  | rule and feedback derivation            |
+
+- `SnappingAction`: carries the `LabelAnchor`, `LabelText`, `LabelPoint`, `Lines`, and `Magnitude` feedback columns
 
 [PUBLIC_TYPE_SCOPE]: skinning and sparkle overlays (`Grasshopper2.UI.Skinning`, `Grasshopper2.UI.Sparkles`)
 
@@ -49,15 +50,15 @@
 
 [PUBLIC_TYPE_SCOPE]: capsule primitives (`Grasshopper2.UI.Primitives`, `Eto.Drawing`)
 
-| [INDEX] | [SYMBOL]                              | [TYPE_FAMILY] | [CAPABILITY]                                    |
-| :-----: | :------------------------------------ | :------------ | :----------------------------------------------- |
-|  [01]   | `Primitives.Capsule`                  | sealed class  | slab plus plugs plus message bar; five draw legs |
-|  [02]   | `Primitives.Plug` / `PlugSide`        | class, enum   | one grip location with its side and kind         |
-|  [03]   | `Primitives.Parts`                    | flags enum    | `Plugs`/`Interior`/`Messaging`/`Overlay`/`Edge`  |
-|  [04]   | `Eto.Drawing.SlabF`                   | struct        | the rounded apex-and-side capsule geometry       |
-|  [05]   | `Eto.Drawing.CornerRadii`             | struct        | the four-corner radius set a slab carries        |
-|  [06]   | `Eto.Drawing.SlabVertex` / `SlabArc`  | enum          | the named vertex and arc a slab answers          |
-|  [07]   | `Eto.Drawing.ArcF` / `CircleF`        | struct        | the arc and circle the slab and grips project    |
+| [INDEX] | [SYMBOL]                             | [TYPE_FAMILY] | [CAPABILITY]                                     |
+| :-----: | :----------------------------------- | :------------ | :----------------------------------------------- |
+|  [01]   | `Primitives.Capsule`                 | sealed class  | slab plus plugs plus message bar; five draw legs |
+|  [02]   | `Primitives.Plug` / `PlugSide`       | class, enum   | one grip location with its side and kind         |
+|  [03]   | `Primitives.Parts`                   | flags enum    | `Plugs`/`Interior`/`Messaging`/`Overlay`/`Edge`  |
+|  [04]   | `Eto.Drawing.SlabF`                  | struct        | the rounded apex-and-side capsule geometry       |
+|  [05]   | `Eto.Drawing.CornerRadii`            | struct        | the four-corner radius set a slab carries        |
+|  [06]   | `Eto.Drawing.SlabVertex` / `SlabArc` | enum          | the named vertex and arc a slab answers          |
+|  [07]   | `Eto.Drawing.ArcF` / `CircleF`       | struct        | the arc and circle the slab and grips project    |
 
 [PUBLIC_TYPE_SCOPE]: composed flex seam (`Grasshopper2.UI.Flex`, owned by `api-gh2-flex.md`)
 
@@ -99,7 +100,8 @@
 |  [01]   | `Canvas.ShowInlineEditor(RectangleF, string, Func<string,IResult>, Action?)` | instance | in-place parse-and-commit editor      |
 |  [02]   | `Canvas.WindowSelect{Objects,Wires,Groups}`                                  | property | per-category marquee gates            |
 |  [03]   | `Canvas.SnapXAction` / `SnapYAction -> SnappingAction`                       | property | active-axis nudge; setter invalidates |
-|  [04]   | `Canvas.SkinLit` / `SkinDim` / `Skin`                                        | property | lit, dimmed, interpolated palettes    |
+|  [3b]   | `Canvas.ShowUndoHistory`                                                     | property | get/set undo-history pane toggle      |
+|  [05]   | `Canvas.SkinLit` / `SkinDim` / `Skin`                                        | property | lit, dimmed, interpolated palettes    |
 
 [ENTRYPOINT_SCOPE]: WireShape geometry (`Grasshopper2.UI.Canvas`)
 
@@ -116,41 +118,38 @@
 
 [ENTRYPOINT_SCOPE]: snapping and alignment (`Grasshopper2.UI.Canvas`)
 
-| [INDEX] | [SURFACE]                                                             | [SHAPE]  | [CAPABILITY]                            |
-| :-----: | :-------------------------------------------------------------------- | :------- | :-------------------------------------- |
-|  [01]   | `SnappingAction.Create{Left,Right,Top,Bottom,Centre}AlignAction`      | static   | edge or centre candidate                |
-|  [02]   | `SnappingAction.Create{Vertical,Horizontal}GapAction*`                | static   | equal-gap candidate                     |
-|  [03]   | `SnappingAction.CreateStraightenWireAction(PointF, PointF)`           | static   | straight-wire candidate                 |
-|  [04]   | `SnappingAction.SmallerMagnitude`                                     | static   | shortest-nudge fold                     |
-|  [05]   | `SnappingConstraints.CreateFromDocument(Document, …)`                 | static   | document constraint set (two overloads) |
-|  [06]   | `SnappingConstraints.SnapObject` / `SnapRectangle`                    | instance | X/Y frame resolution                    |
-|  [07]   | `SnappingConstraints.SnapWires(IDocumentObject, …) -> SnappingAction` | static   | wire resolution (two overloads)         |
-|  [08]   | `SnappingConstraints.DrawSnappingBoxes(Graphics)`                     | instance | live guide overlay                      |
-|  [09]   | `SnappingSettings.WithRules` / `WithoutRules` / `WithFeedback`        | instance | rule and feedback variants              |
+| [INDEX] | [SURFACE]                                                        | [SHAPE]  | [CAPABILITY]                    |
+| :-----: | :--------------------------------------------------------------- | :------- | :------------------------------ |
+|  [01]   | `SnappingAction.Create{Left,Right,Top,Bottom,Centre}AlignAction` | static   | edge or centre candidate        |
+|  [02]   | `SnappingAction.Create{Vertical,Horizontal}GapAction*`           | static   | equal-gap candidate             |
+|  [03]   | `SnappingAction.CreateStraightenWireAction(PointF, PointF)`      | static   | straight-wire candidate         |
+|  [04]   | `SnappingAction.SmallerMagnitude`                                | static   | shortest-nudge fold             |
+|  [05]   | `SnappingSettings.WithRules` / `WithoutRules` / `WithFeedback`   | instance | rule and feedback variants      |
+|  [06]   | `SnappingSettings.Default` / `Current` / `Colour` / `Feedback`   | property | settings roster and live policy |
 
 - align and gap factories take a `(RectangleF source, RectangleF target)` frame pair with a `float`/`int` offset; the wire factory takes a `PointF` pair
 
 [ENTRYPOINT_SCOPE]: capsule construction, geometry, and the five draw legs (`Grasshopper2.UI.Primitives`, `Eto.Drawing`)
 
-| [INDEX] | [SURFACE]                                                              | [SHAPE]  | [CAPABILITY]                                  |
-| :-----: | :---------------------------------------------------------------------- | :------- | :--------------------------------------------- |
-|  [01]   | `Capsule(SlabF slab, float barHeight = 0f)`                            | ctor     | throws on an empty slab bounds                 |
-|  [02]   | `Capsule.CreateFromOuter(Shape, RectangleF)` / `CreateFromInner(...)`  | static   | outer-bounds and apex-bounds construction      |
-|  [03]   | `Capsule.Bounds` / `Slab` / `BarHeight`                                | property | extent, geometry, and message-bar height       |
-|  [04]   | `Capsule.AddInputPlug(float, GripKind)` / `AddOutputPlug(...)`         | instance | append a grip at an elevation                  |
-|  [05]   | `Capsule.AddCustomPlug(Plug)` / `InputPlug(int)` / `OutputPlug(int)`   | instance | custom append and indexed read                 |
-|  [06]   | `InputPlugCount` / `OutputPlugCount` / `HasInputPlugs` / `HasOutputPlugs` | property | grip census                                 |
-|  [07]   | `HasInfoMessage` / `HasWarningMessage` / `HasErrorMessage` / `HasAnyMessage` | property | the three message flags and their fold    |
-|  [08]   | `Capsule.Draw(Graphics, Shade, Skin)` / `Draw(Graphics, Parts, ...)`   | instance | full draw and the `Parts`-selected draw        |
-|  [09]   | `DrawGrips` / `DrawFaces` / `DrawMessaging` / `DrawOverlay` / `DrawEdges` | instance | the five ordered legs `Draw` folds           |
-|  [10]   | `SlabF(RectangleF)` / `SlabF(RectangleF, float thickness, CornerRadii)` | ctor     | flat and thick rounded construction            |
-|  [11]   | `SlabF.Bounds` / `Apex` / `Side` / `Corners` / `Thickness`             | property | the outer, top-face, and side-face rectangles  |
-|  [12]   | `SlabF.FormPath` / `EdgePath` / `ApexPath` / `SidePath` / `SidePathExact` | property | the five `GraphicsPath` projections          |
-|  [13]   | `SlabF.Contains(PointF)`                                               | instance | the exact rounded-capsule hit test             |
-|  [14]   | `SlabF.WithCorners(CornerRadii)` / `Move` / `MoveTo` / `Depress(float)` | instance | non-destructive geometry edits                 |
-|  [15]   | `SlabF.VertexAt(SlabVertex)` / `ArcAt(SlabArc)`                        | instance | named vertex and arc reads                     |
-|  [16]   | `SlabF.PointOnLeftEdge(float)` / `PointOnRightEdge(float)`             | instance | parameterized edge points for grip placement   |
-|  [17]   | `SlabF.MessageBar(float, out GraphicsPath, out RectangleF)`            | instance | message-bar geometry, `false` when absent      |
+| [INDEX] | [SURFACE]                                                                    | [SHAPE]  | [CAPABILITY]                                  |
+| :-----: | :--------------------------------------------------------------------------- | :------- | :-------------------------------------------- |
+|  [01]   | `Capsule(SlabF slab, float barHeight = 0f)`                                  | ctor     | throws on an empty slab bounds                |
+|  [02]   | `Capsule.CreateFromOuter(Shape, RectangleF)` / `CreateFromInner(...)`        | static   | outer-bounds and apex-bounds construction     |
+|  [03]   | `Capsule.Bounds` / `Slab` / `BarHeight`                                      | property | extent, geometry, and message-bar height      |
+|  [04]   | `Capsule.AddInputPlug(float, GripKind)` / `AddOutputPlug(...)`               | instance | append a grip at an elevation                 |
+|  [05]   | `Capsule.AddCustomPlug(Plug)` / `InputPlug(int)` / `OutputPlug(int)`         | instance | custom append and indexed read                |
+|  [06]   | `InputPlugCount` / `OutputPlugCount` / `HasInputPlugs` / `HasOutputPlugs`    | property | grip census                                   |
+|  [07]   | `HasInfoMessage` / `HasWarningMessage` / `HasErrorMessage` / `HasAnyMessage` | property | the three message flags and their fold        |
+|  [08]   | `Capsule.Draw(Graphics, Shade, Skin)` / `Draw(Graphics, Parts, ...)`         | instance | full draw and the `Parts`-selected draw       |
+|  [09]   | `DrawGrips` / `DrawFaces` / `DrawMessaging` / `DrawOverlay` / `DrawEdges`    | instance | the five ordered legs `Draw` folds            |
+|  [10]   | `SlabF(RectangleF)` / `SlabF(RectangleF, float thickness, CornerRadii)`      | ctor     | flat and thick rounded construction           |
+|  [11]   | `SlabF.Bounds` / `Apex` / `Side` / `Corners` / `Thickness`                   | property | the outer, top-face, and side-face rectangles |
+|  [12]   | `SlabF.FormPath` / `EdgePath` / `ApexPath` / `SidePath` / `SidePathExact`    | property | the five `GraphicsPath` projections           |
+|  [13]   | `SlabF.Contains(PointF)`                                                     | instance | the exact rounded-capsule hit test            |
+|  [14]   | `SlabF.WithCorners(CornerRadii)` / `Move` / `MoveTo` / `Depress(float)`      | instance | non-destructive geometry edits                |
+|  [15]   | `SlabF.VertexAt(SlabVertex)` / `ArcAt(SlabArc)`                              | instance | named vertex and arc reads                    |
+|  [16]   | `SlabF.PointOnLeftEdge(float)` / `PointOnRightEdge(float)`                   | instance | parameterized edge points for grip placement  |
+|  [17]   | `SlabF.MessageBar(float, out GraphicsPath, out RectangleF)`                  | instance | message-bar geometry, `false` when absent     |
 
 - `Capsule` mutates: `AddInputPlug`/`AddOutputPlug` grow internal arrays in blocks of six and `HasInfoMessage`/`HasWarningMessage`/`HasErrorMessage` are settable, so a capsule is a per-paint scratch value built inside the draw, never a cached one — `Attributes<T>.Draw(Context, Skin)` re-mints it every frame through `CreateFromOuter(skin.Shape, Bounds)`.
 - the draw legs are ordered — grips, faces, messaging, overlay, edges — and `Draw(Graphics, Parts, Shade, Skin)` selects a subset by flag; each leg fades its own geometry through `skin.Fades.Form`/`.Grip`, so a partial draw still matches the animated skin.
@@ -158,14 +157,19 @@
 
 [ENTRYPOINT_SCOPE]: skin interpolation and sparkle draws (`Grasshopper2.UI.Skinning`, `Grasshopper2.UI.Sparkles`)
 
-| [INDEX] | [SURFACE]                                                      | [SHAPE]  | [CAPABILITY]                  |
-| :-----: | :------------------------------------------------------------- | :------- | :---------------------------- |
-|  [01]   | `Skin.Interpolate(Skin, float) -> Skin`                        | instance | palette blend                 |
-|  [02]   | `Skin.With{Shape,Shades,Wires,Grips,Messages,Canvasses,Fades}` | instance | one-row sub-skin replacement  |
-|  [03]   | `WireSkin.ResolveColours(bool, bool, out Color, out Color)`    | instance | source/target colour by state |
-|  [04]   | `WireSkin.Interpolate(WireSkin, float) -> WireSkin`            | instance | wire-palette blend            |
-|  [05]   | `BlastSparkle` ctor + `Draw`                                   | ctor     | radial blast overlay          |
-|  [06]   | `EdgeSparkle` / `FaceSparkle` / `NoticeSparkle` `.Draw`        | instance | edge, face, notice overlays   |
+| [INDEX] | [SURFACE]                                                                             | [SHAPE]  | [CAPABILITY]                      |
+| :-----: | :------------------------------------------------------------------------------------ | :------- | :-------------------------------- |
+|  [01]   | `Skin.Interpolate(Skin, float) -> Skin`                                               | instance | palette blend                     |
+|  [02]   | `Skin.With{Shape,Shades,Wires,Grips,Messages,Canvasses,Fades}`                        | instance | one-row sub-skin replacement      |
+|  [03]   | `WireSkin.ResolveColours(bool, bool, out Color, out Color)`                           | instance | source/target colour by state     |
+|  [04]   | `WireSkin.Interpolate(WireSkin, float) -> WireSkin`                                   | instance | wire-palette blend                |
+|  [05]   | `WireSkin.Modify(Nullable ×4, EdgeDescription ×2) -> WireSkin`                        | instance | present-slot palette rewrite      |
+|  [06]   | `WireSkin.{Fade, Outer, Inner, Normal, Selected, Unselected, SelectedGlow}`           | member   | fade fold and colour/edge columns |
+|  [07]   | `Skinning.EdgeDescription.{AssignToPen, Width, Cap, Dash}`                            | member   | pen-projection edge policy        |
+|  [08]   | `Skin.{Shape, Shades, Wires, Grips, Messaging, Canvasses, Fades}`                     | property | the seven skin subsystems         |
+|  [09]   | `Flex.WindowSelection.Selects(RectangleF\|CircleF\|LineF\|BezierF\|WireShape, float)` | instance | five-shape marquee test           |
+|  [10]   | `BlastSparkle` ctor + `Draw`                                                          | ctor     | radial blast overlay              |
+|  [11]   | `EdgeSparkle` / `FaceSparkle` / `NoticeSparkle` `.Draw`                               | instance | edge, face, notice overlays       |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -175,7 +179,7 @@
 - every paint arg carries `Canvas` + `Skin` + `Graphics`; `SkinLit`/`SkinDim`/`Skin` supply the interpolated palette and `Graphics` is the `Eto.Drawing` target
 - `CanvasActions` is the sole edit gate: its Boolean toggles and two wire-filter predicates admit or deny drag, selection, wire and object mutation, file drop, response, and the three context menus
 - `WireShape` is the closed wire-route family; `Create` discriminates endpoint pair versus parameter-attribute pair and every route answers `Project`/`DistanceTo`/`Intersects`/`IsCoincident`/`Draw`
-- snapping is document-scoped: `SnappingConstraints.CreateFromDocument` builds the constraint set, the `SnappingAction` factories mint align/gap/straighten candidates, and `SmallerMagnitude` folds the winning nudge under a `SnappingSettings` rule set
+- snapping is document-scoped: `api-gh2-interaction.md` owns the `SnappingConstraints` resolution surface whole (`CreateFromDocument`, `SnapRectangle`, `SnapWires`, `DrawSnappingBoxes`); this partition keeps the `SnappingAction` candidate factories, its feedback columns, and the `SnappingSettings` policy rows, and `SmallerMagnitude` folds the winning nudge
 - skin interpolation is value-parametric: `Skin.Interpolate`/`WireSkin.Interpolate` blend at a parameter and `WireSkin.ResolveColours` emits the wire end-colour pair by state
 - the capsule is the object silhouette every attributes draw folds: `Capsule.CreateFromOuter(Skin.Shape, Bounds)` mints it per frame, `SlabF` carries the rounded geometry and answers `Contains` exactly, and the `Parts` flag set selects which of the five ordered legs run
 

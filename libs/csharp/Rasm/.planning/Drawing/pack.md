@@ -704,7 +704,7 @@ flowchart LR
     Reconcile -->|"ReconcileAnswer.Digest → GeometryHash"| Witness
     Witness -->|Lossless verdict + descriptors| EncodedGeometry
     EncodedGeometry -->|"View&lt;float&gt; / View&lt;Half&gt; on the Dtype row"| Compute["Rasm.Compute EncodedTensor"]
-    EncodedGeometry -->|EncodingKind.Field / .Toolpath locked rows| AppHost["Rasm.AppHost GeometryPacking capsule"]
+    EncodedGeometry -->|"PackKind.Field / .Toolpath rows composed directly"| AppHost["Rasm.AppHost solver negotiation"]
     EncodedGeometry -->|"PackSchema.Of — ContentHash schema id"| Schema["PackSchema — columnar field rows"]
     Schema -->|"SchemaId keys the lake generation"| Lake["Rasm.Compute ArrowBatch → Persistence lake"]
     PackOp -.->|"DegenerateInput 2400 / EncodingFault 2444"| GeometryFault

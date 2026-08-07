@@ -47,23 +47,23 @@
 
 [ENTRYPOINT_SCOPE]: construct, draw, measure, paginate, set graphics state, and emit — every surface a `doc.*` method on the built document, its member families expanded in the token lines below.
 
-| [INDEX] | [SURFACE]                                              | [ENTRY_FAMILY]  | [CAPABILITY]                                             |
-| :-----: | :----------------------------------------------------- | :-------------- | :------------------------------------------------------- |
-|  [01]   | `new jsPDF(options?)`                                  | construct       | one `Effect.sync`; `unit`/`format`/`encryption` policy   |
-|  [02]   | `doc.output("arraybuffer")` -> `ArrayBuffer`           | node egress     | durable-job bytes -> `Uint8Array` -> `FileSystem`/jszip  |
-|  [03]   | `doc.output(t, opts?)`                                 | browser egress  | DOM-only `Blob`/`URL`/`Window`; `browser/persist` only   |
-|  [04]   | `doc.text(text, x, y, options?)`                       | text + measure  | placement; `splitTextToSize` wraps `maxWidth`            |
-|  [05]   | `doc.rect` / `circle` / `line` / `path`                | vector draw     | primitive + path drawing surface, chainable              |
-|  [06]   | `doc.addPage(format?, orientation?)`                   | paginate        | report loop appends pages, stamps headers/footers        |
-|  [07]   | `doc.setFont` / `setFontSize` / `addFont`              | graphics state  | fluent state setters; `addFont` embeds a custom TTF      |
-|  [08]   | `doc.table(x, y, data, headers, config)` / `cell(...)` | tabular         | structured-table primitive; cell hooks, auto-sizing      |
-|  [09]   | `doc.addImage(data, format, x, y, w, h, ...)`          | image           | Node-safe bytes; `alias` dedups a logo                   |
-|  [10]   | `doc.addSvgAsImage(svg, x, y, w, h, ...)`              | svg             | rasterize an SVG string, no `html()` DOM worker          |
-|  [11]   | `doc.setDocumentProperties` / `setCreationDate`        | metadata        | catalog metadata, pinned date; `setLanguage`             |
-|  [12]   | `doc.addField(field)` / `doc.AcroForm.TextField()`     | interactive     | form fields, annotations, links, print, embedded JS      |
-|  [13]   | `doc.outline.add(parent, title, { pageNumber })`       | bookmark        | build the navigation tree for a sectioned report         |
-|  [14]   | `jsPDF.API` / `jsPDF.version` / `doc.internal.events`  | plugin registry | plugin on the prototype; `PubSub` cross-cut hooks        |
-|  [15]   | `doc.setCreationDate(fixed)` + `jsPDFOptions.compress` | reproducibility | pin creation date + compression -> byte-identical bytes  |
+| [INDEX] | [SURFACE]                                              | [ENTRY_FAMILY]  | [CAPABILITY]                                            |
+| :-----: | :----------------------------------------------------- | :-------------- | :------------------------------------------------------ |
+|  [01]   | `new jsPDF(options?)`                                  | construct       | one `Effect.sync`; `unit`/`format`/`encryption` policy  |
+|  [02]   | `doc.output("arraybuffer")` -> `ArrayBuffer`           | node egress     | durable-job bytes -> `Uint8Array` -> `FileSystem`/jszip |
+|  [03]   | `doc.output(t, opts?)`                                 | browser egress  | DOM-only `Blob`/`URL`/`Window`; `browser/persist` only  |
+|  [04]   | `doc.text(text, x, y, options?)`                       | text + measure  | placement; `splitTextToSize` wraps `maxWidth`           |
+|  [05]   | `doc.rect` / `circle` / `line` / `path`                | vector draw     | primitive + path drawing surface, chainable             |
+|  [06]   | `doc.addPage(format?, orientation?)`                   | paginate        | report loop appends pages, stamps headers/footers       |
+|  [07]   | `doc.setFont` / `setFontSize` / `addFont`              | graphics state  | fluent state setters; `addFont` embeds a custom TTF     |
+|  [08]   | `doc.table(x, y, data, headers, config)` / `cell(...)` | tabular         | structured-table primitive; cell hooks, auto-sizing     |
+|  [09]   | `doc.addImage(data, format, x, y, w, h, ...)`          | image           | Node-safe bytes; `alias` dedups a logo                  |
+|  [10]   | `doc.addSvgAsImage(svg, x, y, w, h, ...)`              | svg             | rasterize an SVG string, no `html()` DOM worker         |
+|  [11]   | `doc.setDocumentProperties` / `setCreationDate`        | metadata        | catalog metadata, pinned date; `setLanguage`            |
+|  [12]   | `doc.addField(field)` / `doc.AcroForm.TextField()`     | interactive     | form fields, annotations, links, print, embedded JS     |
+|  [13]   | `doc.outline.add(parent, title, { pageNumber })`       | bookmark        | build the navigation tree for a sectioned report        |
+|  [14]   | `jsPDF.API` / `jsPDF.version` / `doc.internal.events`  | plugin registry | plugin on the prototype; `PubSub` cross-cut hooks       |
+|  [15]   | `doc.setCreationDate(fixed)` + `jsPDFOptions.compress` | reproducibility | pin creation date + compression -> byte-identical bytes |
 
 - `output` browser tokens `"blob"`/`"bloburi"`/`"datauristring"`/`"pdfobjectnewwindow"`.
 - measure `getTextWidth`/`getTextDimensions`/`splitTextToSize`.

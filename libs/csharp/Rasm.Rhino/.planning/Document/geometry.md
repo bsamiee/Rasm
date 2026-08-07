@@ -6,7 +6,7 @@
 
 - [02]-[CUSTODY]: `GeometryHandle` owns the active lease, retryable losing-lease roster, and observable release state.
 - [03]-[PROGRAM]: `GeometryOp` folds host observation, motion, native bounds, tags, and clipping through `Apply`; `Compare` and `Bounds<TOut>` are the binary-lease and typed-projection siblings whose shape cannot inhabit the single-lease closed-result family.
-- [04]-[CLIPPING]: `ClipOp` owns clipping-plane scope, depth, viewport, and style transitions.
+- [04]-[CLIPPING]: `ClipOp` owns clipping-plane scope, depth, viewport, and style transitions in one declaration — the transition fold seats inside the union rather than in a re-opened partial below the operations section.
 - [05]-[IMPLEMENTATION]: `Geometry.cs` carries the complete owner declaration.
 
 ## [02]-[CUSTODY]
@@ -23,11 +23,13 @@
 - Owner: `GeometryOp` owns the single-lease host-operation family, and `GeometryReceipt` preserves its typed result, content-key transition, and every losing-lease cleanup fault.
 - Entry: `GeometryHandle.Apply` discriminates by operation shape; `Compare` takes a second handle under ordinal-ordered dual locks, and `Bounds<TOut>` retains the typed kernel projection — both are the operations whose shape cannot inhabit the single-lease closed-result family, so neither is a `GeometryOp` case forcing a dead dispatch arm.
 - Law: each case carries only its required evidence. Host-native translation, scale, rotation, and kernel-built transformation occupy one `GeometryMotion` family instead of forcing unrelated operations to carry `Context`.
-- Law: each native motion derives its exact inverse request, while a kernel-built matrix preserves an inverse only when `TryGetInverse` proves one and captures the host decomposition classifications.
+- Law: each native motion derives its exact inverse request, while a kernel-built matrix preserves an inverse only when `TryGetInverse` proves one and captures the host decomposition classifications. The three decompositions are the host's OWN parameter vocabulary verbatim — similarity answers `(translation, dilation, rotation)` under a tolerance, rigidity answers `(translation, rotation)` under a tolerance and classifies as `TransformRigidType`, and the four-argument affine answers `(translation, rotation, orthogonal, diagonal)`; renaming a column locally makes the receipt claim a factorization the host never computed.
 - Law: bounds admit every host-returned `BoundingBox` through the shared result oracle before preserving raw and inflated world, transformed, or framed evidence, including corners, edges, center, diagonal, and inverse motion where the host proves one.
 - Law: inspection carries native validity and its diagnostic only when invalid; inflation admits a finite nonnegative component vector.
 - Law: tag clearing snapshots once, invokes the host's atomic bag clear, and proves the resulting bag empty.
 - Exemption: `BoundingBox` copy mutation inside `BoundsEvidence.Of` is the value-struct kernel required by RhinoCommon's `Inflate` surface.
+- Boundary: `GeometryCrc` and the kernel `ContentHash` are DIFFERENT custodies and neither substitutes for the other. `GeometryCrc` wraps `GeometryBase.DataCRC`, a host-computed running remainder over the native representation: it is chainable, cheap, in-process, and stable only for the process that computed it — the host does not guarantee it across versions, platforms, or serialization round trips, so it answers "did this handle change under me" and nothing else. The kernel `ContentHash` is the federation identity a stored or transported value carries. This owner mints and compares `GeometryCrc` alone; a consumer needing durable identity hashes the SERIALIZED value through the kernel owner, and a `GeometryCrc` persisted or compared across a boundary is the deleted form.
+- Boundary: `Bounds<TOut>` names the kernel's answer type, and the agreement between `TOut` and what `AnalysisQuery.Bounds` actually produces is proved by `Analyze.Query<GeometryBase, TOut>`'s own admission, not here — this owner supplies custody and the geometry, the kernel owns the query algebra. A mismatched `TOut` is therefore a typed refusal from the kernel query, never a cast at this seam.
 - Boundary: kernel owners construct placement and analysis semantics; this owner applies or observes them inside native custody.
 - Growth: a host capability is one case and one exhaustive arm inside the existing operation or motion family.
 
@@ -86,7 +88,7 @@ public sealed partial class CrossingMode {
         Copy(duplicate: geometry.IsDocumentControlled ? geometry.Duplicate : geometry.DuplicateShallow, key: key);
 
     internal static Fin<Lease<GeometryBase>> Copy(Func<GeometryBase> duplicate, Op key) =>
-        Optional(duplicate).ToFin(Fail: key.InvalidInput())
+        key.Need(duplicate)
             .Bind(factory => key.Catch(() => Optional(factory()).ToFin(Fail: key.InvalidResult())))
             .Map(static geometry => (Lease<GeometryBase>)new Lease<GeometryBase>.Owned(Value: geometry));
 }
@@ -166,7 +168,7 @@ public abstract partial record GeometryMotion {
         (Geometry: geometry, Op: key),
         matrix: static (state, edit) =>
             from domain in Optional(edit.Domain).ToFin(Fail: state.Op.MissingContext())
-            from spec in Optional(edit.Value).ToFin(Fail: state.Op.InvalidInput())
+            from spec in state.Op.Need(edit.Value)
             from value in Placement.Build(spec: spec, context: Some(domain), key: state.Op)
             from _ in state.Op.Confirm(success: state.Geometry.Transform(xform: value))
             let inverse = value.TryGetInverse(inverse: out Transform reversed) ? Some(reversed) : Option<Transform>.None
@@ -179,13 +181,17 @@ public abstract partial record GeometryMotion {
                 translation: out Vector3d rigidTranslation,
                 rotation: out Transform rigidRotation,
                 tolerance: RhinoMath.ZeroTolerance)
+            // The four-argument overload is `(translation, rotation, orthogonal, diagonal)` — its second transform
+            // is the ORTHOGONAL BASIS, not a linear part, and the overload declares no `linear` parameter at all.
+            // The prior spelling named a parameter that does not exist, so no overload bound and the receipt's
+            // second column claimed a decomposition the host never produced.
             let affine = value.DecomposeAffine(
                 translation: out Vector3d affineTranslation,
-                linear: out Transform linear,
                 rotation: out Transform affineRotation,
+                orthogonal: out Transform orthogonal,
                 diagonal: out Vector3d diagonal)
-                ? Some((Translation: affineTranslation, Linear: linear, Rotation: affineRotation, Diagonal: diagonal))
-                : Option<(Vector3d Translation, Transform Linear, Transform Rotation, Vector3d Diagonal)>.None
+                ? Some((Translation: affineTranslation, Rotation: affineRotation, Orthogonal: orthogonal, Diagonal: diagonal))
+                : Option<(Vector3d Translation, Transform Rotation, Transform Orthogonal, Vector3d Diagonal)>.None
             select (MotionReceipt)new MotionReceipt.Matrix(
                 Value: value,
                 Inverse: inverse,
@@ -236,10 +242,12 @@ public abstract partial record MotionReceipt {
         Vector3d SimilarityTranslation,
         double Dilation,
         Transform SimilarityRotation,
-        int Rigidity,
+        // `DecomposeRigid` answers `TransformRigidType`, not an int: widening the host's own three-valued
+        // classification to a bare number erases which of the three it named.
+        TransformRigidType Rigidity,
         Vector3d RigidTranslation,
         Transform RigidRotation,
-        Option<(Vector3d Translation, Transform Linear, Transform Rotation, Vector3d Diagonal)> Affine) : MotionReceipt;
+        Option<(Vector3d Translation, Transform Rotation, Transform Orthogonal, Vector3d Diagonal)> Affine) : MotionReceipt;
     public sealed record Native(GeometryMotion Value, GeometryMotion Reverse) : MotionReceipt;
 }
 
@@ -259,10 +267,10 @@ public abstract partial record TagOp {
         read: static (state, tag) =>
             from name in state.Op.AcceptText(value: tag.Key)
             select (TagResult)new TagResult.Value(Key: name, Stored: Optional(state.Geometry.GetUserString(key: name))),
-        readAll: static (state, _) => Fin.Succ<TagResult>(value: new TagResult.Snapshot(Stored: Snapshot(state.Geometry))),
+        readAll: static (state, _) => Fin.Succ<TagResult>(value: new TagResult.Snapshot(Stored: Snapshot(state.Geometry.GetUserStrings()))),
         set: static (state, tag) =>
             from name in state.Op.AcceptText(value: tag.Key)
-            from value in Optional(tag.Value).ToFin(Fail: state.Op.InvalidInput())
+            from value in state.Op.Need(tag.Value)
             let before = Optional(state.Geometry.GetUserString(key: name))
             from _ in state.Op.Confirm(success: state.Geometry.SetUserString(key: name, value: value))
             let after = Optional(state.Geometry.GetUserString(key: name))
@@ -278,21 +286,21 @@ public abstract partial record TagOp {
             from __ in state.Op.Confirm(success: after.IsNone)
             select (TagResult)new TagResult.Changed(Key: name, Before: before, After: after),
         clear: static (state, _) =>
-            from before in Fin.Succ(Snapshot(state.Geometry))
+            from before in Fin.Succ(Snapshot(state.Geometry.GetUserStrings()))
             from _ in state.Op.Catch(() => {
                 state.Geometry.DeleteAllUserStrings();
                 return Fin.Succ(value: unit);
             })
-            let after = Snapshot(state.Geometry)
+            let after = Snapshot(state.Geometry.GetUserStrings())
             from __ in state.Op.Confirm(success: after.IsEmpty)
             select (TagResult)new TagResult.Cleared(Before: before, After: after));
 
-    internal static HashMap<string, string> Snapshot(GeometryBase geometry) {
-        System.Collections.Specialized.NameValueCollection native = geometry.GetUserStrings();
-        return toSeq(native.AllKeys)
+    // The ONE user-string projection: every tagged host surface — geometry, attribute set, table component —
+    // republishes `GetUserStrings()` as this same collection, so every detached tag read composes this fold.
+    internal static HashMap<string, string> Snapshot(System.Collections.Specialized.NameValueCollection native) =>
+        toSeq(native.AllKeys)
             .Choose(name => Optional(name).Bind(key => Optional(native[key]).Map(value => (Key: key, Value: value))))
             .Fold(HashMap<string, string>(), static (map, pair) => map.AddOrUpdate(key: pair.Key, value: pair.Value));
-    }
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -356,8 +364,8 @@ public sealed partial class ClipSet {
         ref Seq<Guid> objects,
         ref Seq<int> layers) {
         bool valid = !objects.Exists(static id => id == Guid.Empty) && !layers.Exists(static index => index < 0);
-        objects = objects.AsIterable().Distinct().Order().ToSeq();
-        layers = layers.AsIterable().Distinct().Order().ToSeq();
+        objects = toSeq(objects.Distinct().Order());
+        layers = toSeq(layers.Distinct().Order());
         validationError = valid ? null : new ValidationError(message: "Clip membership contains an invalid object id or layer index.");
     }
 
@@ -409,7 +417,7 @@ public abstract partial record ViewportOp {
     public static Fin<Seq<Guid>> Proven(RhinoDoc document, params ReadOnlySpan<ViewportTarget> targets) {
         Op op = Op.Of();   // an optional before `params` forecloses the positional spread — the key mints at the entry
         return toSeq(targets.ToArray())
-            .Traverse(target => Optional(target).ToFin(Fail: op.InvalidInput())
+            .Traverse(target => op.Need(target)
                 .Bind(address => address.ResolveViewport(document: document, key: op))
                 .Map(static viewport => viewport.Id)
                 .ToValidation())
@@ -423,7 +431,7 @@ public abstract partial record ViewportOp {
             ? Fin.Fail<Seq<Guid>>(error: key.InvalidInput())
             : Fin.Succ(value: Canonical(ids));
 
-    private static Seq<Guid> Canonical(Seq<Guid> ids) => ids.AsIterable().Distinct().Order().ToSeq();
+    private static Seq<Guid> Canonical(Seq<Guid> ids) => toSeq(ids.Distinct().Order());
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -436,6 +444,107 @@ public abstract partial record ClipOp {
     public sealed record Style(Option<Guid> DimensionStyleId) : ClipOp;
 
     internal bool Mutates => this is not Read;
+
+    internal Fin<ClipTransition> Apply(GeometryBase geometry, Op key) =>
+        geometry is ClippingPlaneSurface surface
+            ? from before in State(surface, key)
+              from _ in this.Switch(
+                  (Surface: surface, Before: before, Op: key),
+                  read: static (_, _) => Fin.Succ(value: unit),
+                  scope: static (state, edit) => Scope(state.Surface, edit.Value, state.Op),
+                  depth: static (state, edit) => Depth(state.Surface, edit.Value, state.Op),
+                  viewports: static (state, edit) => Viewports(state.Surface, state.Before.ViewportIds, edit.Value, state.Op),
+                  style: static (state, edit) => Style(state.Surface, edit.DimensionStyleId, state.Op))
+              from after in State(surface, key)
+              from __ in Confirm(this, before, after, key)
+              select new ClipTransition(Before: before, After: after)
+            : Fin.Fail<ClipTransition>(error: key.InvalidInput());
+
+    private static Fin<ClipState> State(ClippingPlaneSurface surface, Op key) =>
+        key.Catch(() => {
+            Seq<Guid> viewports = toSeq(surface.ViewportIds().Distinct().Order());
+            Fin<ClipScope> scope = surface.ParticipationListsEnabled
+                ? ScopeOf(surface, key)
+                : Fin.Succ<ClipScope>(value: new ClipScope.Everything());
+            Fin<Option<double>> depth = surface.PlaneDepthEnabled
+                ? key.Positive(value: surface.PlaneDepth).Map(static value => Some(value))
+                : Fin.Succ(Option<double>.None);
+            return from admittedScope in scope
+                   from admittedDepth in depth
+                   from _ in viewports.Exists(static id => id == Guid.Empty)
+                       ? Fin.Fail<Unit>(error: key.InvalidResult())
+                       : Fin.Succ(value: unit)
+                   select new ClipState(
+                       Scope: admittedScope,
+                       Depth: admittedDepth,
+                       ViewportIds: viewports,
+                       DimensionStyleId: Optional(surface.DimensionStyleId).Filter(static id => id != Guid.Empty));
+        });
+
+    private static Fin<ClipScope> ScopeOf(ClippingPlaneSurface surface, Op key) {
+        surface.GetClipParticipation(
+            objectIds: out IEnumerable<Guid> objects,
+            layerIndices: out IEnumerable<int> layers,
+            isExclusionList: out bool exclusion);
+        return ClipSet.Of(toSeq(objects), toSeq(layers), key).Map(set =>
+            exclusion ? (ClipScope)new ClipScope.Except(Members: set) : new ClipScope.Only(Members: set));
+    }
+
+    private static Fin<Unit> Scope(ClippingPlaneSurface surface, ClipScope scope, Op key) =>
+        key.Need(scope).Bind(request => request.Switch(
+            (Surface: surface, Op: key),
+            everything: static (state, _) => state.Op.Catch(() => {
+                state.Surface.ClearClipParticipationLists();
+                state.Surface.ParticipationListsEnabled = false;
+                return Fin.Succ(value: unit);
+            }),
+            only: static (state, set) => SetScope(state.Surface, set.Members, exclusion: false, state.Op),
+            except: static (state, set) => SetScope(state.Surface, set.Members, exclusion: true, state.Op)));
+
+    private static Fin<Unit> SetScope(ClippingPlaneSurface surface, ClipSet set, bool exclusion, Op key) =>
+        key.Need(set).Bind(members => key.Catch(() => {
+            surface.SetClipParticipation(members.Objects.AsIterable(), members.Layers.AsIterable(), isExclusionList: exclusion);
+            surface.ParticipationListsEnabled = true;
+            return Fin.Succ(value: unit);
+        }));
+
+    private static Fin<Unit> Depth(ClippingPlaneSurface surface, Option<double> depth, Op key) =>
+        depth.Match(
+            Some: value => key.Positive(value).Bind(admitted => key.Catch(() => {
+                surface.PlaneDepth = admitted;
+                surface.PlaneDepthEnabled = true;
+                return Fin.Succ(value: unit);
+            })),
+            None: () => key.Catch(() => {
+                surface.PlaneDepthEnabled = false;
+                return Fin.Succ(value: unit);
+            }));
+
+    private static Fin<Unit> Style(ClippingPlaneSurface surface, Option<Guid> style, Op key) =>
+        style.Match(
+            Some: id => id == Guid.Empty
+                ? Fin.Fail<Unit>(error: key.InvalidInput())
+                : key.Catch(() => { surface.DimensionStyleId = id; return Fin.Succ(value: unit); }),
+            None: () => key.Catch(() => { surface.DimensionStyleId = Guid.Empty; return Fin.Succ(value: unit); }));
+
+    private static Fin<Unit> Viewports(ClippingPlaneSurface surface, Seq<Guid> before, ViewportOp operation, Op key) =>
+        from request in key.Need(operation)
+        from desired in request.Resolve(before, key)
+        from _ in before.Filter(id => !desired.Exists(candidate => candidate == id))
+            .TraverseM(id => key.Confirm(success: surface.RemoveClipViewportId(viewportId: id))).As()
+        from __ in desired.Filter(id => !before.Exists(candidate => candidate == id))
+            .TraverseM(id => key.Confirm(success: surface.AddClipViewportId(viewportId: id))).As()
+        select unit;
+
+    private static Fin<Unit> Confirm(ClipOp operation, ClipState before, ClipState after, Op key) =>
+        operation.Switch(
+            (Before: before, After: after, Op: key),
+            read: static (state, _) => state.Op.Confirm(success: state.Before.Equals(state.After)),
+            scope: static (state, edit) => state.Op.Confirm(success: edit.Value.Equals(state.After.Scope)),
+            depth: static (state, edit) => state.Op.Confirm(success: edit.Value.Equals(state.After.Depth)),
+            viewports: static (state, edit) => edit.Value.Resolve(state.Before.ViewportIds, state.Op)
+                .Bind(expected => state.Op.Confirm(success: expected.Equals(state.After.ViewportIds))),
+            style: static (state, edit) => state.Op.Confirm(success: edit.DimensionStyleId.Equals(state.After.DimensionStyleId)));
 }
 
 // --- [MODELS] ----------------------------------------------------------------------------
@@ -481,21 +590,21 @@ public sealed class GeometryHandle : IDisposable {
 
     public Fin<GeometryReceipt> Apply(GeometryOp operation, Op? key = null) {
         Op op = key.OrDefault();
-        return Optional(operation).ToFin(Fail: op.InvalidInput())
+        return op.Need(operation)
             .Bind(request => Operate(operation: request, key: op));
     }
 
     public Fin<GeometryReceipt> Compare(GeometryHandle other, GeometryComparison policy, Op? key = null) {
         Op op = key.OrDefault();
-        return from target in Optional(other).ToFin(Fail: op.InvalidInput())
-               from rule in Optional(policy).ToFin(Fail: op.InvalidInput())
+        return from target in op.Need(other)
+               from rule in op.Need(policy)
                from receipt in Matched(other: target, policy: rule, key: op)
                select receipt;
     }
 
     public Fin<Seq<TOut>> Bounds<TOut>(Rasm.Analysis.Bounds request, Context context, Op? key = null) where TOut : notnull {
         Op op = key.OrDefault();
-        return from query in Optional(request).ToFin(Fail: op.InvalidInput())
+        return from query in op.Need(request)
                from domain in Optional(context).ToFin(Fail: op.MissingContext())
                from result in With(
                    key: op,
@@ -523,7 +632,7 @@ public sealed class GeometryHandle : IDisposable {
     internal Fin<TResult> With<TResult>(Op key, Func<GeometryBase, Fin<TResult>> project) {
         lock (gate) {
             return release.Active
-                ? Optional(project).ToFin(Fail: key.InvalidInput())
+                ? key.Need(project)
                     .Bind(body => key.Catch(() => key.AcceptInput(value: lease.Resource).Bind(body)))
                 : Fin.Fail<TResult>(error: key.InvalidInput());
         }
@@ -620,15 +729,15 @@ public sealed class GeometryHandle : IDisposable {
             inspect: static (state, _) => Fin.Succ<GeometryResult>(value: new GeometryResult.Facts(Value: Facts(state.Geometry))),
             crc: static (state, request) => Fin.Succ<GeometryResult>(value: new GeometryResult.Hashed(
                 Value: GeometryCrc.Create(value: state.Geometry.DataCRC(currentRemainder: request.Chain)))),
-            tag: static (state, request) => Optional(request.Value).ToFin(Fail: state.Op.InvalidInput())
+            tag: static (state, request) => state.Op.Need(request.Value)
                 .Bind(tags => tags.Apply(state.Geometry, state.Op))
                 .Map(static value => (GeometryResult)new GeometryResult.Tagged(Value: value)),
-            transform: static (state, request) => Optional(request.Motion).ToFin(Fail: state.Op.InvalidInput())
+            transform: static (state, request) => state.Op.Need(request.Motion)
                 .Bind(motion => motion.Apply(state.Geometry, state.Op))
                 .Map(static value => (GeometryResult)new GeometryResult.Transformed(Motion: value)),
             nativeBounds: static (state, request) => Bound(state.Geometry, request.Query, state.Op)
                 .Map(static value => (GeometryResult)new GeometryResult.Bounded(Value: value)),
-            clip: static (state, request) => Optional(request.Value).ToFin(Fail: state.Op.InvalidInput())
+            clip: static (state, request) => state.Op.Need(request.Value)
                 .Bind(clip => clip.Apply(state.Geometry, state.Op))
                 .Map(static value => (GeometryResult)new GeometryResult.Clipped(Value: value)));
 
@@ -639,14 +748,14 @@ public sealed class GeometryHandle : IDisposable {
             DocumentControlled: geometry.IsDocumentControlled,
             Shallow: geometry.IsShallowDuplicate,
             Valid: valid,
-            Invalidity: valid ? Option<string>.None : Optional(log).Filter(static detail => detail.Length > 0),
+            Invalidity: valid ? Option<string>.None : Op.Text(log),
             Content: GeometryCrc.Of(geometry: geometry),
-            Tags: TagOp.Snapshot(geometry));
+            Tags: TagOp.Snapshot(geometry.GetUserStrings()));
     }
 
     private static Fin<NativeBounds> Bound(GeometryBase geometry, GeometryBounds query, Op key) =>
-        from request in Optional(query).ToFin(Fail: key.InvalidInput())
-        from frame in Optional(request.Frame).ToFin(Fail: key.InvalidInput())
+        from request in key.Need(query)
+        from frame in key.Need(request.Frame)
         from result in frame.Switch(
             (Geometry: geometry, Inflation: request.Inflation, Op: key),
             axisAligned: static (state, bounds) =>
@@ -655,7 +764,7 @@ public sealed class GeometryHandle : IDisposable {
                 select (NativeBounds)new NativeBounds.World(Evidence: evidence, Accurate: bounds.Accurate),
             transformed: static (state, bounds) =>
                 from domain in Optional(bounds.Domain).ToFin(Fail: state.Op.MissingContext())
-                from spec in Optional(bounds.Motion).ToFin(Fail: state.Op.InvalidInput())
+                from spec in state.Op.Need(bounds.Motion)
                 from motion in Placement.Build(spec: spec, context: Some(domain), key: state.Op)
                 from value in state.Op.Catch(() => Fin.Succ(value: state.Geometry.GetBoundingBox(xform: motion)))
                 from evidence in BoundsEvidence.Of(value, state.Inflation, state.Op)
@@ -679,8 +788,8 @@ public sealed class GeometryHandle : IDisposable {
 public static class GeometryCrossing {
     public static Fin<GeometryHandle> Cross(object source, CrossingMode mode, Op? key = null) {
         Op op = key.OrDefault();
-        return from value in Optional(source).ToFin(Fail: op.InvalidInput())
-               from custody in Optional(mode).ToFin(Fail: op.InvalidInput())
+        return from value in op.Need(source)
+               from custody in op.Need(mode)
                from admitted in value is ClippingPlaneSeed seed
                    ? seed.Build(key: op).Map(static lease => (Lease: lease, Mode: CrossingMode.Detach))
                    : value.GeometryForm(key: op).Bind(form => form.Switch(
@@ -690,109 +799,6 @@ public static class GeometryCrossing {
                            .Map(lease => (Lease: lease, Mode: state.Mode))))
                select new GeometryHandle(lease: admitted.Lease, mode: admitted.Mode);
     }
-}
-
-public abstract partial record ClipOp {
-    internal Fin<ClipTransition> Apply(GeometryBase geometry, Op key) =>
-        geometry is ClippingPlaneSurface surface
-            ? from before in State(surface, key)
-              from _ in this.Switch(
-                  (Surface: surface, Before: before, Op: key),
-                  read: static (_, _) => Fin.Succ(value: unit),
-                  scope: static (state, edit) => Scope(state.Surface, edit.Value, state.Op),
-                  depth: static (state, edit) => Depth(state.Surface, edit.Value, state.Op),
-                  viewports: static (state, edit) => Viewports(state.Surface, state.Before.ViewportIds, edit.Value, state.Op),
-                  style: static (state, edit) => Style(state.Surface, edit.DimensionStyleId, state.Op))
-              from after in State(surface, key)
-              from __ in Confirm(this, before, after, key)
-              select new ClipTransition(Before: before, After: after)
-            : Fin.Fail<ClipTransition>(error: key.InvalidInput());
-
-    private static Fin<ClipState> State(ClippingPlaneSurface surface, Op key) =>
-        key.Catch(() => {
-            Seq<Guid> viewports = surface.ViewportIds().AsIterable().Distinct().Order().ToSeq();
-            Fin<ClipScope> scope = surface.ParticipationListsEnabled
-                ? ScopeOf(surface, key)
-                : Fin.Succ<ClipScope>(value: new ClipScope.Everything());
-            Fin<Option<double>> depth = surface.PlaneDepthEnabled
-                ? key.Positive(value: surface.PlaneDepth).Map(static value => Some(value))
-                : Fin.Succ(Option<double>.None);
-            return from admittedScope in scope
-                   from admittedDepth in depth
-                   from _ in viewports.Exists(static id => id == Guid.Empty)
-                       ? Fin.Fail<Unit>(error: key.InvalidResult())
-                       : Fin.Succ(value: unit)
-                   select new ClipState(
-                       Scope: admittedScope,
-                       Depth: admittedDepth,
-                       ViewportIds: viewports,
-                       DimensionStyleId: Optional(surface.DimensionStyleId).Filter(static id => id != Guid.Empty));
-        });
-
-    private static Fin<ClipScope> ScopeOf(ClippingPlaneSurface surface, Op key) {
-        surface.GetClipParticipation(
-            objectIds: out IEnumerable<Guid> objects,
-            layerIndices: out IEnumerable<int> layers,
-            isExclusionList: out bool exclusion);
-        return ClipSet.Of(toSeq(objects), toSeq(layers), key).Map(set =>
-            exclusion ? (ClipScope)new ClipScope.Except(Members: set) : new ClipScope.Only(Members: set));
-    }
-
-    private static Fin<Unit> Scope(ClippingPlaneSurface surface, ClipScope scope, Op key) =>
-        Optional(scope).ToFin(Fail: key.InvalidInput()).Bind(request => request.Switch(
-            (Surface: surface, Op: key),
-            everything: static (state, _) => state.Op.Catch(() => {
-                state.Surface.ClearClipParticipationLists();
-                state.Surface.ParticipationListsEnabled = false;
-                return Fin.Succ(value: unit);
-            }),
-            only: static (state, set) => SetScope(state.Surface, set.Members, exclusion: false, state.Op),
-            except: static (state, set) => SetScope(state.Surface, set.Members, exclusion: true, state.Op)));
-
-    private static Fin<Unit> SetScope(ClippingPlaneSurface surface, ClipSet set, bool exclusion, Op key) =>
-        Optional(set).ToFin(Fail: key.InvalidInput()).Bind(members => key.Catch(() => {
-            surface.SetClipParticipation(members.Objects.AsIterable(), members.Layers.AsIterable(), isExclusionList: exclusion);
-            surface.ParticipationListsEnabled = true;
-            return Fin.Succ(value: unit);
-        }));
-
-    private static Fin<Unit> Depth(ClippingPlaneSurface surface, Option<double> depth, Op key) =>
-        depth.Match(
-            Some: value => key.Positive(value).Bind(admitted => key.Catch(() => {
-                surface.PlaneDepth = admitted;
-                surface.PlaneDepthEnabled = true;
-                return Fin.Succ(value: unit);
-            })),
-            None: () => key.Catch(() => {
-                surface.PlaneDepthEnabled = false;
-                return Fin.Succ(value: unit);
-            }));
-
-    private static Fin<Unit> Style(ClippingPlaneSurface surface, Option<Guid> style, Op key) =>
-        style.Match(
-            Some: id => id == Guid.Empty
-                ? Fin.Fail<Unit>(error: key.InvalidInput())
-                : key.Catch(() => { surface.DimensionStyleId = id; return Fin.Succ(value: unit); }),
-            None: () => key.Catch(() => { surface.DimensionStyleId = Guid.Empty; return Fin.Succ(value: unit); }));
-
-    private static Fin<Unit> Viewports(ClippingPlaneSurface surface, Seq<Guid> before, ViewportOp operation, Op key) =>
-        from request in Optional(operation).ToFin(Fail: key.InvalidInput())
-        from desired in request.Resolve(before, key)
-        from _ in before.Filter(id => !desired.Exists(candidate => candidate == id))
-            .TraverseM(id => key.Confirm(success: surface.RemoveClipViewportId(viewportId: id))).As()
-        from __ in desired.Filter(id => !before.Exists(candidate => candidate == id))
-            .TraverseM(id => key.Confirm(success: surface.AddClipViewportId(viewportId: id))).As()
-        select unit;
-
-    private static Fin<Unit> Confirm(ClipOp operation, ClipState before, ClipState after, Op key) =>
-        operation.Switch(
-            (Before: before, After: after, Op: key),
-            read: static (state, _) => state.Op.Confirm(success: state.Before.Equals(state.After)),
-            scope: static (state, edit) => state.Op.Confirm(success: edit.Value.Equals(state.After.Scope)),
-            depth: static (state, edit) => state.Op.Confirm(success: edit.Value.Equals(state.After.Depth)),
-            viewports: static (state, edit) => edit.Value.Resolve(state.Before.ViewportIds, state.Op)
-                .Bind(expected => state.Op.Confirm(success: expected.Equals(state.After.ViewportIds))),
-            style: static (state, edit) => state.Op.Confirm(success: edit.DimensionStyleId.Equals(state.After.DimensionStyleId)));
 }
 ```
 

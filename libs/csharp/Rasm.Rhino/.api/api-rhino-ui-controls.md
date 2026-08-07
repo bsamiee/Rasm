@@ -122,7 +122,7 @@ Every `Rhino.UI.Theme` constructor is internal: a consumer receives a `ThemeZone
 | [INDEX] | [SYMBOL]                      | [TYPE_FAMILY]            | [CAPABILITY]                                                          |
 | :-----: | :---------------------------- | :----------------------- | :-------------------------------------------------------------------- |
 |  [01]   | `IThemeEntry`                 | interface                | leaf entry contract (`Id`, `Value`)                                   |
-|  [02]   | `ThemeBase`                   | abstract root            | `Id` plus `Enumerate() : IEnumerable<IThemeEntry>`                    |
+|  [02]   | `ThemeBase`                   | abstract root            | `Id` plus `Enumerate() -> IEnumerable<IThemeEntry>`                   |
 |  [03]   | `ThemeZone`                   | class (`ThemeBase`)      | top zone: background/highlight/divider colours plus element accessors |
 |  [04]   | `ContentThemeZone`            | class (`ThemeZone`)      | content-area zone specialization                                      |
 |  [05]   | `FrameThemeZone`              | class (`ThemeZone`)      | frame/chrome zone specialization                                      |
@@ -195,7 +195,7 @@ Every `Rhino.UI.Theme` constructor is internal: a consumer receives a `ThemeZone
 |  [11]   | `EtoPostEffectCollapsibleSection.GetPostEffects(PostEffectType) -> PostEffect[]` | instance | list post-effects by type          |
 
 - `EtoPostEffectCollapsibleSection.PostEffectId` is the abstract identity a subclass overrides.
-- `Rhino.UI.Controls.IRdkViewModel.GetData(Guid uuidDataType, bool bForWrite, bool bAutoChangeBracket) : object` / `Commit(Guid) : void` / `Discard(Guid) : void` — the editor data-source seam: a `DataSource.ProviderIds` row keys the payload, a `bForWrite` read is closed by `Commit` or rolled back by `Discard` on the SAME id, and `ICollapsibleSection.ViewModel` plus `RunScript(IRdkViewModel)` are where a section receives it. This is the ONLY producer of a `Rhino.Render.DataSources.RhinoSettings`, whose sole public constructor takes a native `nint` — nothing in the corpus mints one, so a settings bridge is borrowed for the callback and never held.
+- `Rhino.UI.Controls.IRdkViewModel.GetData(Guid uuidDataType, bool bForWrite, bool bAutoChangeBracket) -> object` / `Commit(Guid) -> void` / `Discard(Guid) -> void` — the editor data-source seam: a `DataSource.ProviderIds` row keys the payload, a `bForWrite` read is closed by `Commit` or rolled back by `Discard` on the SAME id, and `ICollapsibleSection.ViewModel` plus `RunScript(IRdkViewModel)` are where a section receives it. This is the ONLY producer of a `Rhino.Render.DataSources.RhinoSettings`, whose sole public constructor takes a native `nint` — nothing in the corpus mints one, so a settings bridge is borrowed for the callback and never held.
 
 [SECTION_HOLDER]:
 
@@ -312,7 +312,7 @@ Every `Rhino.UI.Theme` constructor is internal: a consumer receives a `ThemeZone
 |  [04]   | `RenderContentMenu.AddMenuItem(…)`                  | static   | register a content context-menu command |
 
 - `RenderContentMenu.AddMenuItem` params: `Guid`, `string`, `int`, `SeparatorStyle`, `bool`, `Icon`, `Func<RenderContentCollection, Result>`, `Func<RenderContentCollection, Context, bool>`.
-- `ViewportControl.Viewport : RhinoViewport`. `RangeDialog` public fields: `Min` `Max` `Increment` `Decimals`.
+- `ViewportControl.Viewport -> RhinoViewport`. `RangeDialog` public fields: `Min` `Max` `Increment` `Decimals`.
 
 [FORMS_DIALOGS]:
 
@@ -346,7 +346,7 @@ Every `Rhino.UI.Theme` constructor is internal: a consumer receives a `ThemeZone
 - `ColorList.Name`. `ColorListEntry` props: `Name` `Color`. `ColorListDialog` props/events: `ColorList` `SelectedEntry`; event `SelectedEntryChanged`.
 
 [THEME_MODEL]:
-- `IThemeEntry.Id : string` / `Value : object`; `ThemeBase.Id : string` / `Enumerate() -> IEnumerable<IThemeEntry>`.
+- `IThemeEntry.Id -> string` / `Value -> object`; `ThemeBase.Id -> string` / `Enumerate() -> IEnumerable<IThemeEntry>`.
 - `ThemeState` colours (get-only): `Border` `Background` `Text`; `EntryThemeState.PlaceholderText`; `ScrollbarThemeState.Background` `Border` `Glyph` `Thumb`.
 - `ThemeZone` colours (get-only): `Background` `Highlight` `HighlightHover` `GripperDot` `Divider`.
 - `ThemeZone` element accessors (get-only): `Button` `Tab -> ButtonThemeElement`, `CheckBox -> CheckBoxThemeElement`, `Entry -> EntryThemeElement`, `List -> ListThemeElement`, `Text -> TextThemeElement`, `Link -> LinkThemeElement`, `Scrollbar -> ScrollbarThemeElement`.
@@ -354,12 +354,12 @@ Every `Rhino.UI.Theme` constructor is internal: a consumer receives a `ThemeZone
 - `TextThemeElement`: `Enabled` `Disabled` `Highlight` `HighlightHover` `Secondary`; `ScrollbarThemeElement`: `Size` `ArrowSize` `Radius`.
 
 [RUNTIME_SERVICES]:
-- `PlatformServiceProvider.Service : IPlatformService` (static get/set); `ProcessArchitecture : string` (`"x86"`/`"x64"`/`"arm64"`/`"armv7l"`/`"unknown"`).
-- `RhinoUiServiceLocator.GetService<T>() where T : class -> T` — typed service resolution.
+- `PlatformServiceProvider.Service -> IPlatformService` (static get/set); `ProcessArchitecture -> string` (`"x86"`/`"x64"`/`"arm64"`/`"armv7l"`/`"unknown"`).
+- `RhinoUiServiceLocator.GetService<T>() -> T where T : class` — typed service resolution.
 - `IToolbarsService.UseNewStuff() -> bool` / `GetToolbar(Guid) -> IToolbar`.
 - `IToolbar`: `Id` `FileId`; `GetControl(uint, bool) -> Control` / `PanelVisibilityChanged(bool, uint, ShowPanelReason)` / `PanelClosing(uint, bool)` (host param spelling `resaon` verbatim).
-- `IPlatformService.MainRhinoWindow : Window` with bitmap/font/icon conversion, `SetWindowPos`, `ShowSemiModal`, control-padding, and `PlaySoundFile` members.
-- `HostUtils.WindowsRhinoActivated : event WindowsRhinoActivatedEvent` / `delegate void WindowsRhinoActivatedEvent(bool)`.
+- `IPlatformService.MainRhinoWindow -> Window` with bitmap/font/icon conversion, `SetWindowPos`, `ShowSemiModal`, control-padding, and `PlaySoundFile` members.
+- `HostUtils.WindowsRhinoActivated -> event WindowsRhinoActivatedEvent` / `delegate void WindowsRhinoActivatedEvent(bool)`.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -371,19 +371,19 @@ Every `Rhino.UI.Theme` constructor is internal: a consumer receives a `ThemeZone
 - `PlatformServiceProvider.Service` and `RhinoUiServiceLocator.GetService<T>()` hand a consumer the `IPlatformService`/`IToolbarsService` abstraction, so a cross-platform concern is one interface call, never a per-OS branch.
 
 [STACKING]:
-- `api-eto-forms.md`: every control derives from an `Eto.Forms` base (`Panel`, `Drawable`, `TableLayout`, `StackLayout`, `Scrollable`, `GridView`, `Dialog<T>`) — that catalog owns the base widget, layout, and binding surface, and this library adds Rhino styling, settings, and unit-parsing on top.
-- `api-rhino-ui.md`: `RhinoEtoApp` parents a control-library screen inside a document-owned panel or page, the `EtoExtensions` bridge it registers (`../../.api/api-rhino-ui.md`) styles and presents it semi-modally, and that catalog owns the `EtoCollapsibleSection`(+`Holder`) page-section seam and supplies the `DataSource.ProviderIds` `Guid` and `DataSource.EventArgs`/`EventInfoArgs` payload crossing from its RDK data-source surface.
-- `api-languageext.md`(`../../.api/api-languageext.md`): a `RangeDialog`/`ColorListDialog`/`PrintDialogUi` outcome and a `NumericUpDownWithUnitParsing` parse land on `Fin<A>` (a cancelled dialog is a `Fail`), a `ThemeZone.Enumerate()` folds as `Seq<IThemeEntry>`, and a `PlatformServiceProvider.Service`/`RhinoUiServiceLocator.GetService<T>()` lookup crosses as `Option<A>`.
-- `api-thinktecture-runtime-extensions.md`(`../../.api/api-thinktecture-runtime-extensions.md`): the control enums map at the edge to `[SmartEnum]` owners and the `[Flags]` `NumericUpDownWithUnitParsingUpdateMode`/`DisablePanelColorStylingProperty` to flag owners, so the domain composes the bounded vocabulary.
-- `api-unicolour.md`(`../../.api/api-unicolour.md`): the `DisplayAndPrintColorPicker`/`ColorList` colour values map to and from `Unicolour` at the view edge, so display and print colour selection stays in the perceptual model.
+- `libs/csharp/Rasm.Rhino/.api/api-eto-forms.md`: every control derives from an `Eto.Forms` base (`Panel`, `Drawable`, `TableLayout`, `StackLayout`, `Scrollable`, `GridView`, `Dialog<T>`) — that catalog owns the base widget, layout, and binding surface, and this library adds Rhino styling, settings, and unit-parsing on top.
+- `libs/csharp/Rasm.Rhino/.api/api-rhino-ui.md`: `RhinoEtoApp` parents a control-library screen inside a document-owned panel or page, the `EtoExtensions` bridge it registers (`libs/csharp/.api/api-rhino-ui.md`) styles and presents it semi-modally, and that catalog owns the `EtoCollapsibleSection`(+`Holder`) page-section seam and supplies the `DataSource.ProviderIds` `Guid` and `DataSource.EventArgs`/`EventInfoArgs` payload crossing from its RDK data-source surface.
+- `libs/csharp/.api/api-languageext.md`: a `RangeDialog`/`ColorListDialog`/`PrintDialogUi` outcome and a `NumericUpDownWithUnitParsing` parse land on `Fin<A>` (a cancelled dialog is a `Fail`), a `ThemeZone.Enumerate()` folds as `Seq<IThemeEntry>`, and a `PlatformServiceProvider.Service`/`RhinoUiServiceLocator.GetService<T>()` lookup crosses as `Option<A>`.
+- `libs/csharp/.api/api-thinktecture-runtime-extensions.md`: the control enums map at the edge to `[SmartEnum]` owners and the `[Flags]` `NumericUpDownWithUnitParsingUpdateMode`/`DisablePanelColorStylingProperty` to flag owners, so the domain composes the bounded vocabulary.
+- `libs/csharp/.api/api-unicolour.md`: the `DisplayAndPrintColorPicker`/`ColorList` colour values map to and from `Unicolour` at the view edge, so display and print colour selection stays in the perceptual model.
 
 [LOCAL_ADMISSION]:
 - A control is trapped and mapped at the boundary; its `Eto.Forms.*` base stays behind the Rasm.Rhino UI owner, and a `nint CppPointer`/`EventInfoPtr` native handle never crosses into a domain signature.
 - Access is the ruling filter: only the genuinely-public constructible or subclassable surface lands. `Rhino.UI.Annotations`, `Rhino.UI.DialogPanels`, `Rhino.UI.ViewModels`, `Rhino.UI.ObjectProperties`, and `Rhino.UI.ObjectManager` are excluded — internal formatting helpers and Rhino's own registered dockable panels, view-models, and widgets, `public` only for the `IPanel` host and the Eto control hierarchy.
-- `ObjectPropertiesPage` in `api-rhino-ui.md` owns the plugin-facing object-properties API.
+- `ObjectPropertiesPage` in `libs/csharp/Rasm.Rhino/.api/api-rhino-ui.md` owns the plugin-facing object-properties API.
 
 [RAIL_LAW]:
 - Package: `RhinoCommon` + `Rhino.UI` (`Rhino.UI.dll` control library)
 - Owns: the `Rhino.UI.Controls` collapsible-section family, layout/panel/button/label/colour/list/numeric-text controls, the viewport control and range/content-menu dialogs, the `Rhino.UI.Forms` dialog bases and colour palette and export façade, the read-only `Rhino.UI.Theme` colour-model tree, and the `Rhino.UI.Runtime` platform-service contracts.
 - Accept: a Rhino-styled control composed from an `Eto.Forms` base and seated through the host bridge, a padding/spacing-typed layout, a unit-aware numeric field, a themed read of a `ThemeZone`, and a platform capability resolved through `IPlatformService`.
-- Reject: re-implementing an `Eto.Forms` base control (`api-eto-forms.md` owns it), a pixel-literal layout where a `RhinoLayout` type fits, authoring a `ThemeZone` (internal-constructed, read-only), a `CppPointer`/`EventInfoPtr` native handle escaping into a domain signature, and admitting an internal panel, view-model, or object-properties type.
+- Reject: re-implementing an `Eto.Forms` base control (`libs/csharp/Rasm.Rhino/.api/api-eto-forms.md` owns it), a pixel-literal layout where a `RhinoLayout` type fits, authoring a `ThemeZone` (internal-constructed, read-only), a `CppPointer`/`EventInfoPtr` native handle escaping into a domain signature, and admitting an internal panel, view-model, or object-properties type.

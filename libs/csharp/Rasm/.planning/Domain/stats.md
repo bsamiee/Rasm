@@ -17,7 +17,7 @@ Every receipt composes the `Domain/rails` `ValidityClaim` rows and re-enters the
 - Receipt: `Stat`, `Distribution`, and `SampleMoment` ARE the typed receipts — each conforms to `IValidityEvidence` with its full invariant co-located as a `ValidityClaim.All` fold (`Stat`: count floor, ordered min/max, finite mean, non-negative variance/RMS, and context coherence where the `ToleranceCase` verdict equals the recomputed band test; `Distribution`: nested `Evidence(Summary)`, finite median, non-negative IQR, every percentile row in `[0,100]` with a finite value; `SampleMoment`: shape-coherent packed lengths, finite moments, non-negative diagonals); construction re-enters the oracle through `Op.AcceptValue`, so every minted receipt is valid by construction.
 - Packages: LanguageExt.Core (`Seq`/`Arr`/`Fin`/`Option`/`Fold`/`TraverseM`/`guard`), Thinktecture.Runtime.Extensions (`[SmartEnum<int>]`/`[Union]` + generated total `Switch`), `Rasm.Numerics` (`EpsilonPolicy.ZeroTolerance`), RhinoCommon (`Vector3d`/`SurfaceCurvature` payloads), Foundation `[BoundaryAdapter]`, BCL `Math`/`Enumerable`; scalar admission composes the `Domain/rails` `ValidityClaim` rows.
 - Growth: skewness/kurtosis are two more Welford slots (M3/M4), two `Stat` fields, and two `IsValid` conjuncts in the same fold; a weighted `Stat` is one `Option<Seq<double>>` weights parameter on that fold; a new scalar metric is one `ScalarMetric` row breaking both `Switch` projections at compile time; a new provenance is one `StatContext` case; a second sketched fraction is one more `QuantileSketch` value — sketch state is per-fraction by construction, never a widened marker set.
-- Boundary: sample admission runs once inside the fold, and the receipt's `IsValid` is the sole downstream evidence of a summarized stream. Branch ruling keeps the quantile estate three-formed — `QuantileSketch` serves geometry-sample streams, `Rasm.Compute` `StreamMonitor.Quantile` owns the operational-latency lane, and AppUi bench statistics stay exact nearest-rank — so an estimator never replaces an exact bench figure and no fourth sketch mints.
+- Boundary: sample admission runs once inside the fold, and the receipt's `IsValid` is the sole downstream evidence of a summarized stream. Branch ruling splits the quantile estate by what the reading must ANSWER, not by how many readers exist: two SKETCHES serve unbounded streams — `QuantileSketch` the geometry-sample lane here and `Rasm.Compute` `StreamMonitor.Quantile` the operational-latency lane — while every BENCH figure stays exact order statistics over a bounded materialized sample, which is `Rasm.AppUi`'s bench tiles and the `Rasm.AppHost` `BenchMeasurement(Median, P95, Iqr)` triple its harness reads off one ascending array. A bench reader is exact because a gate verdict compares one measured figure against a held claim, so an estimator crossing into that comparison grades a value no run produced; a third sketch mints only for a stream neither existing lane admits.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -154,7 +154,7 @@ public readonly record struct Distribution(Stat Summary, double Median, double I
     internal static Fin<Distribution> Of(Seq<double> values, Seq<double> percentiles, Op key, Option<StatContext> context = default) =>
         percentiles.TraverseM(p => guard(ValidityClaim.Finite(value: p) && p is >= 0.0 and <= 100.0, key.InvalidInput()).ToFin().Map(_ => p)).As()
             .Bind(valid => Stat.Of(values: values, key: key, context: context).Map(stat =>
-                values.Order().AsIterable().ToSeq() switch {
+                toSeq(values.Order()) switch {
                     Seq<double> sorted => new Distribution(
                         Summary: stat,
                         Median: Quantile(sorted: sorted, fraction: 0.5),
@@ -173,12 +173,13 @@ public readonly record struct Distribution(Stat Summary, double Median, double I
 // QuantileSketch is the GEOMETRY-SAMPLE streaming quantile — the anticipated sketch row realized. Five-marker P² (Jain-Chlamtac):
 // constant state, one pass, no materialized sample. Scope is the branch three-formed quantile law: THIS row
 // serves unbounded geometry streams a Distribution.Of materialization cannot hold, Compute StreamMonitor.Quantile
-// stays the operational-latency owner, and AppUi bench statistics stay exact nearest-rank — one estimator never
-// replaces an exact bench figure. Marker heights and positions ride two Arr slots; the marker-adjustment walk is
-// its marker-adjustment walk the named span-kernel exemption. Every admitted sample crosses the SAME sentinel screen the batch fold runs.
+// stays the operational-latency owner, and every BENCH figure — AppUi's tiles and the Rasm.AppHost
+// `BenchMeasurement(Median, P95, Iqr)` triple alike — stays exact order statistics over a bounded materialized
+// sample, so one estimator never replaces a measured figure a gate verdict compares against. Marker heights and positions ride two Arr slots, and the marker-adjustment walk
+// is the named span-kernel exemption. Every admitted sample crosses the SAME sentinel screen the batch fold runs.
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct QuantileSketch(double Fraction, int Count, Arr<double> Heights, Arr<double> Positions) : IValidityEvidence {
-    private static readonly int Markers = 5;
+    private const int Markers = 5;
     public bool IsValid => ValidityClaim.All(
         ValidityClaim.Of(Fraction is > 0.0 and < 1.0),
         ValidityClaim.Nonnegative(Count),
@@ -215,7 +216,7 @@ public readonly record struct QuantileSketch(double Fraction, int Count, Arr<dou
         q[0] = Math.Min(val1: q[0], val2: sample);
         q[4] = Math.Max(val1: q[4], val2: sample);
         for (int i = cell + 1; i < Markers; i++) { n[i] += 1.0; }
-        double[] desired = [1.0, 1.0 + ((prior.Count) * p / 2.0), 1.0 + (prior.Count * p), 1.0 + (prior.Count * (1.0 + p) / 2.0), prior.Count + 1.0];
+        double[] desired = [1.0, 1.0 + (prior.Count * p / 2.0), 1.0 + (prior.Count * p), 1.0 + (prior.Count * (1.0 + p) / 2.0), prior.Count + 1.0];
         for (int i = 1; i <= 3; i++) {
             double drift = desired[i] - n[i];
             if ((drift >= 1.0 && n[i + 1] - n[i] > 1.0) || (drift <= -1.0 && n[i - 1] - n[i] < -1.0)) {

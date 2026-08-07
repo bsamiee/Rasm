@@ -470,7 +470,7 @@ public static class RetentionSweep {
     public static IO<SweepReceipt> Execute(RetentionClass cls, Seq<SweepVerdict> verdicts, Func<ContentAddress, IO<Unit>> evict, Func<ContentAddress, StorageTier, IO<Unit>> demote, ProjectionContext frame) =>
         from freed in verdicts.Filter(static v => v.Evicts).TraverseM(v => evict(v.Key).Map(_ => v.Bytes)).As()
         from _ in verdicts.Choose(static v => v is SweepVerdict.Cool c ? Some(c) : None).TraverseM(c => demote(c.Key, c.To)).As()
-        select new SweepReceipt(cls, verdicts.Count, verdicts.Count(static v => v is SweepVerdict.Kept), verdicts.Count(static v => v.Retains), verdicts.Count(static v => v.Cools), freed.Count, freed.Sum(), frame.Now(), frame.Correlation);
+        select new SweepReceipt(cls, verdicts.Count, verdicts.Count(static v => v is SweepVerdict.Kept), verdicts.Count(static v => v.Retains), verdicts.Count(static v => v.Cools), freed.Count, freed.Fold(0L, static (acc, bytes) => acc + bytes), frame.Now(), frame.Correlation);
 }
 ```
 

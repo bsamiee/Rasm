@@ -10,7 +10,7 @@
 
 ## [02]-[ADMISSION]
 
-`SubDCreationSpec` and `SubDBrepLaw` validate policy before native carriers exist, and each consuming seam rejects a zero-initialized smart-enum slot before native projection. Smart-enum rows project closure, corner, crease, symmetry, packing, interpolation, and edge-clamping choices onto native booleans only inside a consuming arm; `MeshShell` owns the shared open-or-solid offset policy. Primitive topologies remain direct `SubDOp` cases. `SubDEdgeSelection` separates edge location from edge character, so contradictory native flag combinations cannot cross admission, and an all-absent selection refuses because six `false` flags let `DuplicateEdgeCurves` answer nothing but an empty spread. Component-addressed edits admit nonnegative indices at the value boundary and bind them to the live vertex, edge, or face roster before mutation.
+`SubDCreationSpec` and `SubDBrepLaw` validate policy before native carriers exist, and each consuming seam rejects a zero-initialized smart-enum slot before native projection. Smart-enum rows project closure, corner, crease, symmetry, packing, interpolation, and edge-clamping choices onto native boolean tuples only inside a consuming arm, and the open-or-solid offset grant is a named `bool` because its whole content is that one bit. Primitive topologies remain direct `SubDOp` cases. `SubDEdgeSelection` separates edge location from edge character, so contradictory native flag combinations cannot cross admission, and an all-absent selection refuses because six `false` flags let `DuplicateEdgeCurves` answer nothing but an empty spread. Component-addressed edits admit nonnegative indices at the value boundary and bind them to the live vertex, edge, or face roster before mutation.
 
 ```csharp signature
 // --- [TYPES] ------------------------------------------------------------------------------
@@ -263,6 +263,8 @@ public readonly partial struct SubDEdgeSelection {
 - Law: interpolation is ONE `SubDEditVerb.Interpolate(SubDVertexScope, Seq<Point3d>)` case over `SubDSurfaceInterpolator`, not a whole-surface and an indexed sibling — `SubDVertexScope` is the discriminant selecting which host factory mints the solver (`CreateFromSubD` for every free vertex, `CreateFromMarkedVertices` for the mark polarity, `CreateFromSelectedVertices` for the document selection, `CreateFromVertexIdList` for an explicit id set), so a new scope is one row and the arm never grows. `SubD.InterpolateSurfacePoints` covers only the first and last scopes and exposes no free-vertex census, so the solver family strictly subsumes both prior cases and they leave with it.
 - Law: point-array arity proves in two places for two reasons — `Admits` gates statically off the scope's own payload (an id list must match its point count) and the arm gates dynamically against the minted solver's `InterpolatedVertexCount`, because only the mint knows how many vertices the host left free; a mismatch refuses before the native solve rather than returning a `false` verdict with no cause, `MaximumRecommendedInterpolatedVertexCount` bounds the system above that, and the arm reads `FixedVertexCount()`/`ContextId`/`VertexIdList()` off the still-open lease into the `Built<SubDSlot>` evidence before the solver closes. `InterpolatedVertexCount` and `FixedVertexCount` are METHODS on the host solver while `ContextId` and `MaximumRecommendedInterpolatedVertexCount` are properties, so the call parentheses are load-bearing.
 - Law: the interpolator is `IDisposable` and rides a `Lease<SubDSurfaceInterpolator>` inside the arm exactly as `MeshExtruder` is held in the sibling meshing page; `Clear` and `Transform` are scope-internal and no handle crosses the arm's edge.
+- Law: id space and index space never mix — `uint` is a host component ID (`SubDSurfaceInterpolator.CreateFromVertexIdList`, `VertexIdList`, `SetVertexSurfacePoint`) and `int` is an offset into a live roster (`Subdivide(faceIndices)`, `SetVertexTags`, `SetEdgeTags`), while `ComponentIndex` is its own third space; the two integer widths carry the split at compile time, every id payload is named `Id`/`Ids`, and an id NEVER takes an index bound because `Vertices.Count` both refuses live ids above the roster length and admits dead ones below it — the host `bool` is the only sound id gate. RhinoCommon spells several id parameters `vertexIndex`/`vertexIndices`; the member names and the `VertexIdList` round trip settle the space, so the host spelling is the drift.
+- Law: id evidence lands on `BuildBody.Identifiers`, never `Components` — the interpolation solve's `VertexIdList()` is an unsigned identity set, and narrowing it into the index body hands a consumer offsets that address nothing.
 - Law: a measured edit answers on its OWN slot — the interpolation solve's fixed-vertex tally, context id, and vertex-id list land on `SubDSlot.Fitted`, face packing on `SubDSlot.Packed`, and component transport on `SubDSlot.Moved`, leaving `SubDSlot.Edited` to carry the product tally alone; three counts sharing one slot make `Project<int>(Edited, Tally)` an unorderable mixture of product count, packed faces, and moved components.
 - Growth: a new subd constructor or edit verb is one case with its arm; a new measured edit is one slot row with its producing arm; the spine and every consumer read it with zero new surface.
 
@@ -289,14 +291,14 @@ public abstract partial record SubDVertexScope {
     public sealed record Free : SubDVertexScope;
     public sealed record Marked(bool Mark) : SubDVertexScope;
     public sealed record Selected : SubDVertexScope;
-    public sealed record VertexIds(Seq<uint> Indices) : SubDVertexScope;
+    public sealed record VertexIds(Seq<uint> Ids) : SubDVertexScope;
 
     internal bool Admits(int count) => count > 0 && Switch(
         state: count,
         free:      static (_, _) => true,
         marked:    static (_, _) => true,
         selected:  static (_, _) => true,
-        vertexIds: static (held, row) => !row.Indices.IsEmpty && row.Indices.Count == held);
+        vertexIds: static (held, row) => !row.Ids.IsEmpty && row.Ids.Count == held);
 
     internal Fin<Lease<SubDSurfaceInterpolator>> Open(SubD working, Op key) {
         SubDSurfaceInterpolator? minted = Switch(
@@ -304,7 +306,9 @@ public abstract partial record SubDVertexScope {
             free:       static (subd, _) => SubDSurfaceInterpolator.CreateFromSubD(subd, out uint _),
             marked:     static (subd, row) => SubDSurfaceInterpolator.CreateFromMarkedVertices(subd, row.Mark, out uint _),
             selected:   static (subd, _) => SubDSurfaceInterpolator.CreateFromSelectedVertices(subd, out uint _),
-            vertexIds:  static (subd, row) => SubDSurfaceInterpolator.CreateFromVertexIdList(subd, row.Indices, out uint _));
+            // The host spells the parameter `vertexIndices`; the member name and the `VertexIdList` round trip prove
+            // it is the ID space, so this rail carries ids and the host's parameter spelling is the drift, not ours.
+            vertexIds:  static (subd, row) => SubDSurfaceInterpolator.CreateFromVertexIdList(subd, row.Ids, out uint _));
         // The lease takes custody the instant the mint succeeds: a refused census must dispose the solver it just examined,
         // so the census runs INSIDE the lease and its failure releases, never after a bare handle has already been dropped.
         return Optional(minted).ToFin(key.InvalidResult())
@@ -322,8 +326,8 @@ public abstract partial record SubDEditVerb {
     public sealed record SubdivideAll(int Count = 1) : SubDEditVerb;
     public sealed record SubdivideFaces(Seq<int> Faces) : SubDEditVerb;
     public sealed record Interpolate(SubDVertexScope Scope, Seq<Point3d> SurfacePoints) : SubDEditVerb;
-    public sealed record SetVertexPoint(uint Vertex, Point3d SurfacePoint) : SubDEditVerb;
-    public sealed record Shell(double Distance, MeshShell Kind) : SubDEditVerb;
+    public sealed record SetVertexPoint(uint VertexId, Point3d SurfacePoint) : SubDEditVerb;
+    public sealed record Shell(double Distance, bool Solid) : SubDEditVerb;
     public sealed record MergeCoplanar : SubDEditVerb;
     public sealed record Pack : SubDEditVerb;
     public sealed record Flip : SubDEditVerb;
@@ -382,7 +386,7 @@ public abstract partial record SubDOp {
             && edit.SurfacePoints.ForAll(static point => point.IsValid)
             && edit.Scope.Admits(count: edit.SurfacePoints.Count),
         SubDEditVerb.SetVertexPoint edit => edit.SurfacePoint.IsValid,
-        SubDEditVerb.Shell edit => double.IsFinite(edit.Distance) && edit.Distance != 0.0 && edit.Kind is not null,
+        SubDEditVerb.Shell edit => double.IsFinite(edit.Distance) && edit.Distance != 0.0,
         SubDEditVerb.TagVertices edit => !edit.Vertices.IsEmpty && edit.Vertices.ForAll(static vertex => vertex >= 0),
         SubDEditVerb.TagEdges edit => !edit.Edges.IsEmpty && edit.Edges.ForAll(static edge => edge >= 0),
         SubDEditVerb.MoveComponents edit => !edit.Components.IsEmpty && edit.Motion.IsValid && !edit.Motion.IsZero,
@@ -529,17 +533,18 @@ public abstract partial record SubDOp {
                             slot: SubDSlot.Fitted, body: new BuildBody.Text(Value: held.ContextId.ToString()))
                         + BuildReceipt<SubDSlot>.Of(
                             slot: SubDSlot.Fitted,
-                            body: new BuildBody.Components(Indices: toSeq(held.VertexIdList()).Map(static id => (int)id))))))
+                            body: new BuildBody.Identifiers(Ids: toSeq(held.VertexIdList()))))))
                 from built in Refreshed(ctx.Op, ctx.Working)
                 select built.Witnessed(extra: evidence),
+            // An id is not an offset: bounding it by `Vertices.Count` refuses live ids above the roster length and
+            // admits dead ones below it, so the host's own `bool` is the only sound id gate and `Confirm` reads it.
             setVertexPoint: static (ctx, edit) =>
-                from _ in guard(edit.Vertex < ctx.Working.Vertices.Count, ctx.Op.InvalidInput()).ToFin()
-                from __ in ctx.Op.Confirm(success: ctx.Working.SetVertexSurfacePoint(
-                    vertexIndex: edit.Vertex, surfacePoint: edit.SurfacePoint))
+                from _ in ctx.Op.Confirm(success: ctx.Working.SetVertexSurfacePoint(
+                    vertexIndex: edit.VertexId, surfacePoint: edit.SurfacePoint))
                 from built in Refreshed(ctx.Op, ctx.Working)
                 select built,
             shell: static (ctx, edit) => ModelGate.Owned(ctx.Op, SubDSlot.Edited, ctx.Working,
-                () => ctx.Working.Offset(distance: edit.Distance, solidify: edit.Kind.Native)),
+                () => ctx.Working.Offset(distance: edit.Distance, solidify: edit.Solid)),
             mergeCoplanar: static ctx => ctx.Op
                 .Confirm(success: ctx.Working.MergeAllCoplanarFaces(tolerance: ctx.Domain.Absolute.Value, angleTolerance: ctx.Domain.Angle.Value))
                 .Bind(_ => Refreshed(ctx.Op, ctx.Working)),
@@ -593,7 +598,9 @@ public static class SubDs {
 
 ## [04]-[EXECUTION]
 
-`SubDs.Build` is `ModelGate.Entry`, so capture, the non-empty guard, accumulating admission, the fold, and the bench stamp are the folder spine's. Construction arms own fresh geometry, edit arms duplicate exactly once, and extraction arms detach edge curves. Native `SubDCreationOptions` and `SubDToBrepOptions` live only inside their consuming arm.
+`SubDs.Build` is `ModelGate.Entry`, so capture, the non-empty guard, accumulating admission, the fold, and the bench stamp are the folder spine's. Construction arms own fresh geometry, edit arms duplicate exactly once, and extraction arms detach edge curves.
+
+`SubDCreationOptions`, `SubDToBrepOptions`, and `SubDSurfaceInterpolator` all implement `IDisposable`, so each `Rig` product enters a `using` inside its consuming arm and the interpolator rides a `Lease` for the same reason. The `using` is the named statement exemption at a native boundary; the carriers never cross an arm edge.
 
 ## [05]-[RESEARCH]
 

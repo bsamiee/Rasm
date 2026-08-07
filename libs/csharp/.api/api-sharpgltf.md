@@ -200,7 +200,7 @@
 
 Every fragment interface derives `IVertexReflection`, so its own members are always the declared set PLUS `GetEncodingAttributes()`.
 
-| [INDEX] | [SYMBOL]            | [TYPE_FAMILY] | [CAPABILITY]                                                                                     |
+| [INDEX] | [SYMBOL]            | [TYPE_FAMILY] | [CAPABILITY]                                                                                      |
 | :-----: | :------------------ | :------------ | :------------------------------------------------------------------------------------------------ |
 |  [01]   | `IVertexReflection` | interface     | `GetEncodingAttributes()` → `IEnumerable<KeyValuePair<string, AttributeFormat>>`; the shared base |
 |  [02]   | `IVertexGeometry`   | interface     | `: IVertexReflection`; members in `[04]-[VGEOMETRY]` — declares NO `Validate()`                   |

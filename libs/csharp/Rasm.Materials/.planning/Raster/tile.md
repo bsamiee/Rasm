@@ -2,28 +2,37 @@
 
 THE TILING SYNTHESIZER AND ITS DETERMINISTIC GATE. One `TileStrategy` `[SmartEnum<string>]` closes the tiling algebra — `offsetHeal` the wrap-and-heal minimum-error cut, `graphCut` the Kwatra minimum-cut seam over the overlap band, `wang` the COMPLETE edge-coloured aperiodic family laid out as one atlas with per-colour boundary strips, `histogramBlend` the Heitz-Neyret variance-preserving Gaussian blend — and each row is one `Solve` delegate producing a `TilePlan`, so a new tiling method is a row and never a second synthesizer. Tiling is SET-COHERENT by construction: the plan is derived ONCE from a single guide channel and carries only channel-independent geometry — a wrap offset, a per-texel `[0,1]` blend field, and the Wang edge table — so `TileSynth.Apply` folds the SAME geometry over every channel and pack plane in the set and a normal, height, or occlusion plane cannot acquire a seam its base colour does not have. One `TileProof.Grade` grades the result deterministically and mints the `TileProof` that is the ONLY way a `set#TEXTURE_SET` `TextureSet` acquires its `Tiled` column — a caller's assertion has no spelling that reaches it.
 
-Tiling is PROCEDURAL, never learned: a diffusion or sampler-loop tiling stage does not exist on this page, because a learned generator leaks at its decoder boundary exactly where the seam must be exact, and a set whose channels were each tiled by an independent stochastic pass has no shared geometry at all. The learned scorer is a SPIKE beside the deterministic floor, never in place of it. The page composes the `set#TEXTURE_SET` `TextureSet`/`TextureChannel`/`ChannelPackPlane`/`TextureSetDraft` bundle it re-mints, the `plane#TEXTURE_PLANE` `TexturePlane`/`TexturePyramid` substrate with its paired-policy mip rebuild and its `AsImage` sampler bridge, the `codec#RASTER_FAULT` band-2460 `Tile` rail, MathNet.Numerics `IntegralTransforms` for the periodicity spectrum and `Distributions.Normal` for the Gaussian round trip, QuikGraph's reversed-edge augmentor and Edmonds-Karp solver for the minimum-cut seam, the kernel `Deterministic` splitmix64 stream for every jitter, `ValidityClaim` for the receipt fold, and `TimeProvider` for the one measured wall time — reminting no graph algorithm, no distribution, no transform, no clock, and no random source.
+Tiling is PROCEDURAL, never learned: a diffusion or sampler-loop tiling stage does not exist on this page, because a learned generator leaks at its decoder boundary exactly where the seam must be exact, and a set whose channels were each tiled by an independent stochastic pass has no shared geometry at all. The learned scorer is a SPIKE beside the deterministic floor, never in place of it. The page composes the `set#TEXTURE_SET` `TextureSet`/`TextureChannel`/`ChannelPackPlane`/`TextureSetDraft` bundle it re-mints, the `plane#TEXTURE_PLANE` `TexturePlane`/`TexturePyramid` substrate with its paired-policy mip rebuild and its `AsImage` sampler bridge, the `codec#RASTER_FAULT` band-2460 `Tile` rail, the kernel `SpectralArena` transform band for the periodicity spectrum, MathNet.Numerics `Distributions.Normal` for the Gaussian round trip, QuikGraph's reversed-edge augmentor and Edmonds-Karp solver for the minimum-cut seam, the kernel `Deterministic` splitmix64 stream for every jitter, `ValidityClaim` for the receipt fold, and `TimeProvider` for the one measured wall time — reminting no graph algorithm, no distribution, no transform, no clock, and no random source.
 
 ## [01]-[INDEX]
 
 - [02]-[TILE_SYNTH]: the `WangEdge` plan carrier, the `TilePolicy` row, the `TileStrategy` four-row solver table with its `offsetHeal`/`graphCut`/`wang`/`histogramBlend` kernels, the `TilePlan` channel-independent geometry, the one `TileKernel.Fold` applicator, and the one `TileSynth.Tileify` set fold.
-- [03]-[TILE_GATE]: the `TileScore` measurement, the `TileProof` tileability evidence, the bounded row-column `HeightField.Fourier2` lattice read, the base-boundary wrap-gradient ratio, the `TileProof.Grade` deterministic verdict over the `TileGate` measurement kernels, and the learned-scorer SPIKE beside it.
+- [03]-[TILE_GATE]: the `TileScore` measurement, the `TileProof` tileability evidence, the bounded kernel-transform-band lattice read, the base-boundary wrap-gradient ratio, the `TileProof.Grade` deterministic verdict over the `TileGate` measurement kernels, and the learned-scorer SPIKE beside it.
 
 ## [02]-[TILE_SYNTH]
 
 - Owner: `TileSynth` the set-coherent tiling fold; `TileStrategy` `[SmartEnum<string>]` the four solver rows; `TilePlan` the channel-independent geometry; `TilePolicy` the caller's policy row; `WangEdge` the per-tile edge-digit assignment; `TileReceipt` the run evidence.
-- Cases: strategy {`offsetHeal` (half-offset wrap, per-row minimum-error dynamic-programming cut, feathered band), `graphCut` (grid minimum-cut over the overlap band by Edmonds-Karp residual reachability), `wang` (the COMPLETE colours⁴ edge-coloured family assembled into one atlas, boundary bands drawn from per-colour strips), `histogramBlend` (per-lane quantile-to-Gaussian transform over stride-sampled order statistics, variance-preserving weighted blend, interpolated inverse)}.
+- Cases: strategy {`offsetHeal` (half-offset wrap, per-row minimum-error dynamic-programming cut, feathered band), `graphCut` (grid minimum-cut over the overlap band by Edmonds-Karp residual reachability), `wang` (the COMPLETE colours⁴ edge-coloured family assembled into one atlas, boundary bands drawn from per-colour strips), `histogramBlend` (per-lane quantile-to-Gaussian transform over `filter#PLANE_OP` `OrderStatistics`, variance-preserving weighted blend, interpolated inverse)}.
 - Law: the guide channel decides the geometry alone. A set whose guide channel is absent REFUSES rather than falling back to an arbitrary present channel, because a plan derived from a different field than the caller graded is a plan the receipt misdescribes; a LAYERED set refuses outright, since the sampler bridge carries one layer and a cube face tiled independently of its neighbours has no shared boundary at all.
 - Entry: `public static Fin<(TextureSet Set, TileReceipt Receipt)> Tileify(TextureSet set, TilePolicy policy, Op key, TimeProvider? clock = null)` is the ONE entry — it solves the plan from the guide, folds `Apply` over every channel and pack plane in PAIRING ORDER, re-admits the result through `set#TEXTURE_SET` `TextureSet.Of` so the tiled set re-keys, and grades it through `[03]-[TILE_GATE]`; `public static Fin<TexturePyramid> Apply(TilePlan plan, TexturePyramid pyramid, Op key, Option<TexturePyramid> paired = default)` is the per-plane fold the set fold drives and the only surface a caller composing a single plane reaches, and it refuses an extent mismatch or a layered plane rather than reading past a single-layer fold.
-- Packages: QuikGraph (composed — `AdjacencyGraph<int, Edge<int>>` the overlap-band flow graph, `Edge<int>` the REFERENCE edge, `ReversedEdgeAugmentorAlgorithm<int, Edge<int>>.AddReversedEdges`/`RemoveReversedEdges` the residual-edge lifecycle, `EdmondsKarpMaximumFlowAlgorithm<int, Edge<int>>(graph, capacities, edgeFactory, augmentor)`/`Compute`/`ResidualCapacities` the augmenting solve and the residual capacities the cut walk reads), MathNet.Numerics (composed — `Distributions.Normal.InvCDF`/`Normal.CDF` the Gaussian round trip; `IntegralTransforms.Fourier.Forward`/`Inverse` behind the `filter#PLANE_OP` `HeightField.Fourier2` row-column fold — the multidim rows' managed provider throws `NotSupportedException` — and `ComplexExtensions.MagnitudeSquared` at `[03]`), `Rasm` (project — `Deterministic.Stream`/`NextUnit` the one replayable jitter stream and its lane-exact seed ingress, `Dimension`, `Op`, `ValidityClaim`), `plane#TEXTURE_PLANE` (composed — `TexturePlane`/`TexturePyramid`/`PlaneFormat`/`MipPolicy` and the `AsImage` decoded-level bridge), `set#TEXTURE_SET` (composed — `TextureSet`/`TextureChannel`/`ChannelPackPlane`/`TextureSetDraft`), `codec#RASTER_FAULT` (composed — `RasterFault` band 2460), `Rasm.Materials.Appearance.Texture` (composed — `ShadeVec4`), CommunityToolkit.HighPerformance (`ReadOnlyMemory2D<T>`/`ReadOnlySpan2D<T>` the plan's blend field and every staging plane, `SpanOwner<T>.Allocate` the per-row scratch the plane write rail takes), BCL (`TimeProvider`, `ReferenceEqualityComparer`), LanguageExt.Core, Thinktecture.Runtime.Extensions.
+- Packages: QuikGraph (composed — `AdjacencyGraph<int, Edge<int>>` the overlap-band flow graph, `Edge<int>` the REFERENCE edge, `ReversedEdgeAugmentorAlgorithm<int, Edge<int>>.AddReversedEdges`/`RemoveReversedEdges` the residual-edge lifecycle, `EdmondsKarpMaximumFlowAlgorithm<int, Edge<int>>(graph, capacities, edgeFactory, augmentor)`/`Compute`/`ResidualCapacities` the augmenting solve and the residual capacities the cut walk reads), MathNet.Numerics (composed — `Distributions.Normal.InvCDF`/`Normal.CDF` the Gaussian round trip), `Rasm.Numerics` (composed — `SpectralArena.Interleaved`/`Transform` and `SpectralReceipt.Power` the kernel transform band `[03]` grades on), `Rasm` (project — `Deterministic.Stream`/`NextUnit` the one replayable jitter stream and its lane-exact seed ingress, `Dimension`, `Op`, `ValidityClaim`), `plane#TEXTURE_PLANE` (composed — `TexturePlane`/`TexturePyramid`/`PlaneFormat`/`MipPolicy` and the `AsImage` decoded-level bridge), `set#TEXTURE_SET` (composed — `TextureSet`/`TextureChannel`/`ChannelPackPlane`/`TextureSetDraft`), `codec#RASTER_FAULT` (composed — `RasterFault` band 2460), `Rasm.Materials.Appearance.Texture` (composed — `ShadeVec4`), CommunityToolkit.HighPerformance (`ReadOnlyMemory2D<T>`/`ReadOnlySpan2D<T>` the plan's blend field and every staging plane, `SpanOwner<T>.Allocate` the per-row scratch the plane write rail takes), BCL (`TimeProvider`, `ReferenceEqualityComparer`), LanguageExt.Core, Thinktecture.Runtime.Extensions.
 - Growth: a new tiling method is one `TileStrategy` row carrying its `Solve` delegate — the plan shape already carries an offset, a per-texel blend field, and a quadrant table, so a method combining them differently needs no new carrier; a new policy knob is one `TilePolicy` column; a new plan geometry is one `TilePlan` column every strategy row leaves at its identity. There is NO per-strategy tiler type, NO `SeamlessTexture` surface, and NO per-channel tiling entry — the named defect is a second synthesizer, and the repair is a row.
-- Boundary: `TilePlan` carries exactly what `Fold` CONSUMES — a wrap offset, a `[0,1]` blend field with its band width, and the Wang table — and never a colour, a histogram, or a channel reference, which is what makes one plan legal over every plane of the roster at four different component counts and five different transfers; the two per-axis cuts ride the plan as RECEIPT EVIDENCE alone, folded into the field at solve time, because a plan whose applicator could honour a cut and drop the field is how a computed seam stops reaching the output. The half-offset wrap makes a CROSS seam, so `offsetHeal` and `graphCut` each cut BOTH axes and the field is the union of the two ramps — a single-axis heal ships the horizontal seam untouched. Each texel takes two candidates — the plan's offset tap and its DOUBLE-offset tap, which for the canonical half-extent offset are the wrapped and the unshifted source — and the field is the mix between them, identity-zero away from every seam so the interior is the wrapped image untouched. The `histogramBlend` row's quantile transform is the ONE per-channel quantity and it is derived INSIDE `Fold` from that channel's own plane, PER LANE, against the SHARED blend field: the forward map interpolates the plane's own stride-sampled ORDER STATISTICS into `Normal.InvCDF`, so the blend genuinely runs in a standard-Gaussian space and inverts back through `Normal.CDF` into the channel's own sample values — a bare CDF maps to a UNIFORM space, where a linear mix is not variance-preserving and the seam band regresses toward its own mean, and a fixed-bin unit-range histogram quantizes the float substrate to its bin count and clips every scene-linear value above one, which is why no bin grid and no value clamp exists on this path. The `wang` row's atlas is EXTENT-PRESERVING and COMPLETE: the plan enumerates every `colours⁴` edge combination across a `colours² × colours²` grid of the source extent — a family whose opposite edges derive from each other holds only `colours` distinct pairs and cannot tile aperiodically — and `Fold` reads each tile's interior from its own origin while the boundary bands read PER-COLOUR strips whose origins derive from the seed and the edge colour alone, so two tiles sharing a digit share the strip byte-for-byte and every legal adjacency is seamless by construction; the four-colour corner meet is feathered by the same ramp and stated as the family's known bound. Every strategy runs in the plane's DECODED domain — the `AsImage` lift decodes an `srgb` plane to scene-linear before any difference metric, so a seam cost computed on encoded values (which weights dark texels wrongly by the transfer's own curve) is unrepresentable. Jitter is REPLAYABLE: every Wang draw consumes `Deterministic.NextUnit` over the plan's own `Seed`, so a plan re-solved at the same seed produces byte-identical geometry and a tiled set's content key is reproducible. The `graphCut` band is a GRID FLOW GRAPH whose vertices are the overlap texels with a source and a sink; both directions of every neighbour pair enter as SEPARATE `Edge<int>` instances at the same capacity because a minimum cut over an undirected grid needs both arcs saturable, the augmentor then mints one reverse per arc, and the capacity map is keyed by REFERENCE — a value-typed edge under a value-keyed map aliases each augmentor reverse onto the real arc it duplicates, handing the solver a residual graph with twice the capacity it should have and a cut through the wrong texels. The source and sink arcs carry a FINITE bound one above the band's own summed cost, because Edmonds-Karp adds capacities along augmenting paths and two infinite arcs on one path overflow every residual comparison downstream. The cut is read by a residual-capacity breadth-first walk from the source rather than from the algorithm's own vertex colouring, so the seam derives from published capacities and never from an internal traversal state. Planes fold in PAIRING ORDER — a channel whose `MipPolicy` is paired rebuilds its chain against its `TextureChannel.Pair` companion's already-tiled pyramid, so a roughness channel's variance coupling reads the tiled normal rather than refusing at an unpaired rebuild. Wall time rides the injected `TimeProvider`, so a receipt reports a measured elapsed or the caller's own clock, never a literal zero a benchmark reads as instantaneous. The `[EXPRESSION_SPINE]` kernel exemptions on this page are the four `Solve` kernels, the `Fold` applicator, the per-lane quantile transform, and the `[03]` spectral staging fill — fixed-extent numeric kernels filling caller-owned buffers by index; every admission, dispatch, and egress surface on the page is expression-bodied.
+- Law: `TilePlan` carries exactly what `Fold` CONSUMES — a wrap offset, a `[0,1]` blend field with its band width, and the Wang table — and never a colour, a histogram, or a channel reference, which is what makes one plan legal over every plane of the roster at four component counts and five transfers. The two per-axis cuts ride as RECEIPT EVIDENCE alone, folded into the field at solve time, because a plan whose applicator could honour a cut and drop the field is how a computed seam stops reaching the output.
+- Law: the half-offset wrap makes a CROSS seam, so `offsetHeal` and `graphCut` each cut BOTH axes and the field is the union of the two ramps — a single-axis heal ships the horizontal seam untouched. Each texel takes two candidates, the plan's offset tap and its DOUBLE-offset tap, which for the canonical half-extent offset are the wrapped and the unshifted source; the field is the mix between them, identity-zero away from every seam, so the interior is the wrapped image untouched.
+- Law: the `histogramBlend` quantile transform is the ONE per-channel quantity and it is derived INSIDE `Fold` from that channel's own plane, PER LANE, against the SHARED blend field, through `filter#PLANE_OP` `OrderStatistics` rather than a transcription of it. The forward map interpolates that owner's stride-sampled order statistics into `Normal.InvCDF`, so the blend runs in a genuine standard-Gaussian space and inverts back through `Normal.CDF` into the channel's own sample values — a bare CDF reaches a UNIFORM space where a linear mix is not variance-preserving and the seam band regresses toward its mean, and a fixed-bin unit-range histogram quantizes the float substrate and clips every scene-linear value above one. That owner's HAZEN plotting position keeps the extremes finite under `Normal.InvCDF`, where the kernel `Distribution.Of` R-7 convention answers a reported-percentile question and pins them at 0 and 1 — two owners for two questions, never one drift.
+- Law: the `wang` atlas is EXTENT-PRESERVING and COMPLETE — every `colours⁴` edge combination across a `colours² × colours²` grid of the source extent, because a family whose opposite edges derive from each other holds only `colours` distinct pairs and cannot tile aperiodically. `Fold` reads each tile's interior from its own origin while the boundary bands read PER-COLOUR strips whose origins derive from the seed and the edge colour alone, so two tiles sharing a digit share the strip byte-for-byte and every legal adjacency is seamless by construction; the four-colour corner meet is feathered by the same ramp and MEASURED at `[03]` into `TileScore.CornerResidual`, so the family's known bound rides the proof as a number rather than as a sentence.
+- Law: every strategy runs in the plane's DECODED domain — the `AsImage` lift decodes an `srgb` plane to scene-linear before any difference metric — so a seam cost computed on encoded values, which weights dark texels by the transfer's own curve, is unrepresentable. Jitter is REPLAYABLE: every Wang draw consumes `Deterministic.NextUnit` over the plan's own `Seed`, so a re-solve at one seed produces byte-identical geometry and a tiled set's content key is reproducible.
+- Law: the `graphCut` band is a GRID FLOW GRAPH whose vertices are the overlap texels with a source and a sink, and an edge's capacity is the matching cost at both endpoints. BOTH directions of every neighbour pair enter as SEPARATE `Edge<int>` instances at one capacity, because an undirected minimum cut needs both arcs saturable; the augmentor mints one reverse per arc and the capacity map is keyed by REFERENCE, where a value-typed edge would alias each augmentor reverse onto the arc it duplicates and hand the solver twice the residual capacity it should have. Source and sink arcs carry a FINITE bound one above the band's own summed cost, because Edmonds-Karp sums capacities along augmenting paths and two infinite arcs on one path overflow every residual comparison downstream. The cut reads a residual-capacity breadth-first walk from the source rather than the algorithm's own vertex colouring, so the seam derives from published capacities and never from an internal traversal state.
+- Law: `graphCut` IS THE COST of this page and its bound is DECLARED. The flow graph carries `lines × (2·Overlap + 1)` vertices with four arcs each and one augmentor reverse per arc — at the default overlap on a 16k plane that is 1.1 million vertices and some 8.5 million arcs, and Edmonds-Karp's augmenting search is superlinear in both. `TilePolicy.Overlap` is therefore the knob that bounds the solve rather than a feathering preference, and the `benchmarks#BENCH_KERNEL` tiling workload grades the pair: a caller whose extent makes the cut dominate takes `offsetHeal`, whose dynamic-programming walk is exactly `lines × (2·Overlap + 1)` cost evaluations with no graph at all and whose cut follows the same structure the flow would have found on all but the hardest fields. Both solve ONCE per set, never per channel, which is the whole reason the plan is channel-independent.
+- Law: TILING PAYS TWO WHOLE-PLANE RESIDENCIES PER PLANE and cannot band. `AsImage` materializes the chain at its declared cost and `Fold` allocates one more `ShadeVec4` run for the target, so a 4k plane holds roughly 683 MiB of chain plus 512 MiB of target while it is being tiled, sequentially, one plane at a time. Banding is structurally unavailable rather than merely unimplemented: the half-extent offset makes every texel's second candidate a tap half a plane away, and the Wang strip reads reach an arbitrary seeded origin, so no row band holds both candidates of any texel. The bound is therefore the LARGEST SINGLE PLANE rather than the set, which is what keeps a full-channel set tileable at extents a simultaneous fold could not reach.
+- Law: planes fold in PAIRING ORDER and that order is a DEPENDENCY WALK over the `TextureChannel.Pair` relation, not a two-bucket sort — a paired channel's rebuild reads its companion's already-tiled chain, and that companion may itself be paired. A cycle terminates by rebuilding the second of a mutually paired pair unpaired, which is the `Coupled: false` floor the mip policy already publishes.
+- Boundary: wall time rides the injected `TimeProvider`, so a receipt reports a measured elapsed or the caller's own clock, never a literal zero a benchmark reads as instantaneous. The `[EXPRESSION_SPINE]` kernel exemptions on this page are the four `Solve` kernels, the `Fold` applicator, the per-lane quantile transform, the pairing walk's own descent, and the `[03]` spectral staging fill — fixed-extent numeric folds and one bounded recursion filling caller-owned buffers by index; every admission, dispatch, and egress surface on the page is expression-bodied.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
 using CommunityToolkit.HighPerformance;           // Memory2D/Span2D/ReadOnlySpan2D — the blend field and every staging plane
 using CommunityToolkit.HighPerformance.Buffers;   // SpanOwner — the stack-scoped per-row rental the write rail takes
-using LanguageExt;                                // Seq, Option, Fin
+using LanguageExt;                                // Seq, Set, Option, Fin, Try — the pairing walk and the scorer boundary
 using MathNet.Numerics.Distributions;             // Normal — InvCDF/CDF, the Gaussian round trip
 using QuikGraph;                                  // AdjacencyGraph, Edge, EdgeFactory
 using QuikGraph.Algorithms.MaximumFlow;           // EdmondsKarpMaximumFlowAlgorithm, ReversedEdgeAugmentorAlgorithm
@@ -61,8 +70,14 @@ public readonly record struct WangEdge(int Tile, int North, int East, int South,
 // Every grading and synthesis threshold is a POLICY COLUMN: Overlap the feather/cut band, AcceptScore the
 // gate's own bar, WangColors the edge-digit base, GradeEdge the bounded spectral-grading extent. A constant
 // inside the gate or a kernel is a knob no caller can turn and no plan key can record.
+// Scorer is the OPTIONAL learned second opinion, carried as a CLOSURE the frontier supplies rather than as a
+// registry row: this owner sits below the appearance frontier and may name no model type, exactly as the press
+// subject carries a radiance closure without naming a sky. The frontier resolves its own card, its licence class,
+// and its tensor contract, and hands down a function from a graded plane to a scalar. Absent is the default and the
+// deterministic pair is authoritative whether it is present or not.
 public sealed record TilePolicy(
-    TileStrategy Strategy, TextureChannel Guide, int Overlap, double AcceptScore, ulong Seed, int WangColors, int GradeEdge) {
+    TileStrategy Strategy, TextureChannel Guide, int Overlap, double AcceptScore, ulong Seed, int WangColors, int GradeEdge,
+    Option<Func<ReadOnlyMemory2D<ShadeVec4>, double>> Scorer = default) {
     public static TilePolicy Default(TextureChannel guide) =>
         new(TileStrategy.GraphCut, guide, Overlap: 32, AcceptScore: 0.85, Seed: 0x9E3779B97F4A7C15UL, WangColors: 2, GradeEdge: 256);
 }
@@ -76,13 +91,17 @@ public sealed record TilePlan(
     TileStrategy Strategy, Dimension Width, Dimension Height, int OffsetX, int OffsetY, int Band,
     ReadOnlyMemory2D<float> Blend, Seq<WangEdge> Wang, Seq<int> Cut, Seq<int> CutY, ulong Seed);
 
+// Score is OPTIONAL and carries the MEASUREMENT, not the verdict: a set that scored below the bar publishes the
+// pair it actually measured, and absence means the gate could not measure at all. A sentinel row standing in for
+// either state is the deleted form — the one this receipt carried published an infinite seam ratio and a zero
+// value that its own nonnegativity claim accepted, so a refusal and a perfect grade were both "valid".
 public sealed record TileReceipt(
-    TileStrategy Strategy, TextureChannel Guide, TileScore Score, Seq<int> Cut, Seq<int> CutY, Seq<WangEdge> Wang,
+    TileStrategy Strategy, TextureChannel Guide, Option<TileScore> Score, Seq<int> Cut, Seq<int> CutY, Seq<WangEdge> Wang,
     int Planes, ulong Seed, double ElapsedMs) : IValidityEvidence {
     public bool IsValid => ValidityClaim.All(
         ValidityClaim.CountAtLeast(Planes, 1),
         ValidityClaim.Nonnegative(ElapsedMs),
-        ValidityClaim.Evidence(Score));
+        ValidityClaim.Of(Score.ForAll(static score => score.IsValid)));
 }
 
 // --- [OPERATIONS] --------------------------------------------------------------------------
@@ -96,21 +115,56 @@ public static class TileSynth {
         return from _ in guard(set.Layers.Value is 1, RasterFault.Tile(key, $"<layered-set-has-no-shared-boundary:{set.Law.Key}:{set.Layers.Value}>"))
                from guide in set.Channels.Find(policy.Guide).ToFin(RasterFault.Tile(key, $"<tile-guide-absent:{policy.Guide.Key}>"))
                from image in guide.AsImage(key)
-               let plan = policy.Strategy.Solve(image.Levels[0], policy, policy.Seed)
-               // Pairing order: an unpaired channel first, so a paired rebuild reads its companion already tiled.
-               from channels in toSeq(set.Channels).OrderBy(static pair => pair.Key.Pair.IsSome).ThenBy(static pair => pair.Key.Ordinal)
-                   .Fold(Fin.Succ(HashMap<TextureChannel, TexturePyramid>.Empty), (acc, pair) =>
-                       acc.Bind(map => Apply(plan, pair.Value, key, pair.Key.Pair.Bind(name => TextureChannel.TryGet(name, out TextureChannel? row) ? map.Find(row) : Option<TexturePyramid>.None))
-                           .Map(tiled => map.Add(pair.Key, tiled))))
+               // The sampler carries its levels as RANK-1 runs with the extent on the carrier, so the 2D view the
+               // solver and the applicator address is built at the lift from that run and the plane's own census —
+               // one seat per lift, never a second extent a drift could separate from the plane's.
+               let plan = policy.Strategy.Solve(image.Levels[0].AsMemory2D(guide.Base.Height.Value, guide.Base.Width.Value), policy, policy.Seed)
+               from channels in PairingOrder(set.Channels)
+                   .Fold(Fin.Succ(HashMap<TextureChannel, TexturePyramid>.Empty), (acc, row) =>
+                       acc.Bind(map => set.Channels.Find(row).ToFin(RasterFault.Tile(key, $"<tile-channel-lost:{row.Key}>"))
+                           .Bind(pyramid => Apply(plan, pyramid, key, Companion(row, set.Channels).Bind(map.Find))
+                               .Map(tiled => map.Add(row, tiled)))))
                from packs in set.Packs.Fold(Fin.Succ(Seq<ChannelPackPlane>()), (acc, pack) =>
                    acc.Bind(rows => Apply(plan, pack.Plane, key).Map(tiled => rows.Add(pack with { Plane = tiled }))))
-               from graded in channels.Find(policy.Guide).ToFin(RasterFault.Tile(key, "<tile-guide-lost>"))
-               let scored = TileProof.Grade(graded, policy)
+               from regraded in channels.Find(policy.Guide).ToFin(RasterFault.Tile(key, "<tile-guide-lost>"))
+               let scored = TileProof.Grade(regraded, policy)
+               // The set's Tiled column takes the proof only where the measurement PASSED; the receipt publishes
+               // the measurement either way, so a refused set carries the real pair it scored rather than a
+               // sentinel, and a consumer reading the receipt can see how far short it fell.
+               let accepted = scored.Filter(static proof => proof.Accepted)
                from tiled in TextureSet.Of(new TextureSetDraft(set.Width, set.Height, set.Layers, set.Law, set.Convention,
-                   set.Alpha, set.HeightScaleMm, scored, set.Udim, channels, packs, set.Conductor, set.Material), key)
-               select (tiled, new TileReceipt(policy.Strategy, policy.Guide, scored.Match(Some: static p => p.Score, None: static () => TileScore.Refused),
+                   set.Alpha, set.HeightScaleMm, accepted, set.Udim, channels, packs, set.Conductor, set.Material), key)
+               select (tiled, new TileReceipt(policy.Strategy, policy.Guide, scored.Map(static p => p.Score),
                    plan.Cut, plan.CutY, plan.Wang, channels.Count + packs.Count, policy.Seed, ticks.GetElapsedTime(opened).TotalMilliseconds));
     }
+
+    // PAIRING ORDER IS A DEPENDENCY WALK, not a two-bucket sort. A paired channel's mip rebuild reads its
+    // companion's already-tiled chain, and that companion may itself be paired — a roughness pairing a normal that
+    // pairs a height is a two-deep chain a bucket sort orders by ordinal and gets right only by luck. The walk emits
+    // a channel strictly after everything it depends on, entering the ordinal order so the result is deterministic.
+    private static Seq<TextureChannel> PairingOrder(HashMap<TextureChannel, TexturePyramid> planes) =>
+        toSeq(planes.Keys.OrderBy(static row => row.Ordinal))
+            .Fold((Order: Seq<TextureChannel>.Empty, Seen: Set<TextureChannel>.Empty), (state, row) => Emit(row, planes, state))
+            .Order;
+
+    // One depth-first emit. `Seen` is marked BEFORE the descent, so a CYCLE terminates by treating the
+    // already-entered channel as satisfied: the second of a mutually paired pair rebuilds unpaired, which is the
+    // `Coupled: false` quality floor the mip policy already declares and publishes, never a refusal.
+    private static (Seq<TextureChannel> Order, Set<TextureChannel> Seen) Emit(
+        TextureChannel row, HashMap<TextureChannel, TexturePyramid> planes,
+        (Seq<TextureChannel> Order, Set<TextureChannel> Seen) state) {
+        if (state.Seen.Contains(row)) { return state; }
+        (Seq<TextureChannel> Order, Set<TextureChannel> Seen) entered = (state.Order, state.Seen.Add(row));
+        (Seq<TextureChannel> Order, Set<TextureChannel> Seen) resolved =
+            Companion(row, planes).Match(Some: companion => Emit(companion, planes, entered), None: () => entered);
+        return (resolved.Order.Add(row), resolved.Seen);
+    }
+
+    // A companion the set does not carry is NOT a dependency: the pair column names a channel by wire name, and a
+    // set omitting it rebuilds unpaired rather than refusing an edge it cannot follow.
+    private static Option<TextureChannel> Companion(TextureChannel row, HashMap<TextureChannel, TexturePyramid> planes) =>
+        row.Pair.Bind(static name => TextureChannel.TryGet(name, out TextureChannel? companion) ? Some(companion) : None)
+            .Filter(planes.ContainsKey);
 
     // The per-plane fold: tile the BASE level and rebuild the chain from it, so every mip level descends from
     // one tiled top rather than each level acquiring its own seam. A paired policy carries its companion into
@@ -124,10 +178,18 @@ public static class TileSynth {
             ? Fin.Fail<TexturePyramid>(RasterFault.Tile(key, $"<tile-plan-extent-mismatch:{plan.Width.Value}x{plan.Height.Value}>"))
             : pyramid.Base.Layers.Value is not 1
                 ? Fin.Fail<TexturePyramid>(RasterFault.Tile(key, $"<tile-plane-layered:{pyramid.Base.Layers.Value}>"))
-                : from image in pyramid.AsImage(key)
-                  from top in TexturePlane.Of(pyramid.Base.Format, pyramid.Base.Width, pyramid.Base.Height, pyramid.Base.Transfer, pyramid.Base.Alpha, key, Some(pyramid.Base.Layers))
-                  from chain in TexturePyramid.Of(Fill(top, TileKernel.Fold(plan, image.Levels[0])), pyramid.Policy, key, paired)
-                      .MapFail(fault => { top.Dispose(); return fault; })
+                // The LATTICE modality, never the extent one: the extent mint re-seats a fresh grid and defaults
+                  // Range to Unit and Primaries to Unknown, so a Signed normal plane would come back re-packed
+                  // through the inverse and a container-DECLARED gamut would come back fabricated as unknown. Every
+                  // column the source declared crosses, and the source's own spatial-grain affine rides its grid.
+                  : from image in pyramid.AsImage(key)
+                  from top in TexturePlane.Of(pyramid.Base.Format, pyramid.Base.Grid, pyramid.Base.Layers,
+                      pyramid.Base.Transfer, pyramid.Base.Alpha, pyramid.Base.Range, pyramid.Base.Primaries,
+                      key, AllocationMode.Default)
+                  from chain in TexturePyramid.Of(
+                          Fill(top, TileKernel.Fold(plan, image.Levels[0].AsMemory2D(pyramid.Base.Height.Value, pyramid.Base.Width.Value))),
+                          pyramid.Policy, key, paired)
+                      .Rollback(top)
                   select chain;
 
     // Row-wise writes through the plane's OWN WriteShade rail, so alpha association, transfer encode, and depth
@@ -251,8 +313,17 @@ internal static class TileKernel {
             int v = open.Dequeue();
             foreach (Edge<int> e in flow.OutEdges(v)) { if (residual.TryGetValue(e, out double r) && r > 0.0 && seen.Add(e.Target)) { open.Enqueue(e.Target); } }
         }
+        // The row's cut is the COUNT of its source-side texels, not the length of its leading run. A minimum cut
+        // over a grid leaves a row's source side non-contiguous wherever the seam steps around a feature, and a
+        // first-gap prefix reads the step as the cut and ships the rest of the band on the wrong side — the count
+        // is what the flow actually decided. This changes produced bytes for every graphCut plan: a re-press
+        // under one plan key mints a different plane, and that content-key reset is the deliberate baseline here.
         int[] cut = new int[height];
-        for (int y = 0; y < height; y++) { int c = 0; while (c < width - 1 && seen.Contains((y * width) + c)) { c++; } cut[y] = lo + c; }
+        for (int y = 0; y < height; y++) {
+            int reached = 0;
+            for (int c = 0; c < width; c++) { if (seen.Contains((y * width) + c)) { reached++; } }
+            cut[y] = lo + Math.Min(reached, width - 1);
+        }
         return cut;
     }
 
@@ -314,7 +385,9 @@ internal static class TileKernel {
         ShadeVec4[] target = new ShadeVec4[w * h];
         ReadOnlySpan2D<ShadeVec4> src = plane.Span;
         ReadOnlySpan2D<float> blend = plan.Blend.Span;
-        double[][]? lut = plan.Strategy == TileStrategy.HistogramBlend ? QuantileTable(src) : null;
+        // The quantile transform is filter#PLANE_OP's OrderStatistics, composed rather than transcribed: the
+        // remap there and the blend here need one plotting position, one value-axis range, and one tail law.
+        OrderStatistics? lut = plan.Strategy == TileStrategy.HistogramBlend ? OrderStatistics.Of(src) : null;
         int grid = plan.Wang.IsEmpty ? 0 : (int)Math.Round(Math.Sqrt(plan.Wang.Count));
         for (int y = 0; y < h; y++) {
             for (int x = 0; x < w; x++) {
@@ -337,7 +410,8 @@ internal static class TileKernel {
     // colour ALONE — two tiles sharing a digit share the strip byte-for-byte, and the strip is addressed in
     // boundary-relative coordinates so the two sides of a legal adjacency read one continuous band. A corner
     // texel takes its nearest edge; the residual four-colour corner mismatch is the known Wang-tile corner
-    // bound, feathered by the same ramp, never hidden.
+    // bound, feathered by the same ramp and MEASURED at the gate into TileScore.CornerResidual, so the atlas
+    // publishes how much of it survived rather than carrying the acknowledgment in prose alone.
     static (ShadeVec4 Interior, ShadeVec4 Strip) WangTaps(TilePlan plan, ReadOnlySpan2D<ShadeVec4> src, int grid, int w, int h, int x, int y) {
         int cw = Math.Max(1, w / grid), ch = Math.Max(1, h / grid);
         int cellX = (x / cw) % grid, cellY = (y / ch) % grid;
@@ -386,46 +460,18 @@ internal static class TileKernel {
         return new ReadOnlyMemory2D<float>(f, h, w);
     }
 
-    // The per-lane quantile transform: a bounded stride-sampled ORDER STATISTIC per colour lane composed with
-    // the standard-normal quantile, so the forward map genuinely reaches a Gaussian space and the inverse
-    // interpolates back through the channel's own sample values. No fixed-bin grid and no [0,1] clamp exists
-    // on the value axis, so an HDR plane keeps its headroom — a 256-bin unit-range histogram truncated every
-    // scene-linear value above one into a single bin and quantized the whole substrate to eight bits. A bare
-    // CDF reaches a UNIFORM space, where a linear mix is not variance-preserving and the seam band regresses
-    // toward its own mean; a luminance-built table applied to three lanes shifts hue wherever the lanes differ.
-    const int QuantileCap = 65536;
-    static double[][] QuantileTable(ReadOnlySpan2D<ShadeVec4> plane) {
-        long texels = (long)plane.Width * plane.Height;
-        int stride = (int)Math.Max(1L, texels / QuantileCap);
-        int count = (int)((texels + stride - 1) / stride);
-        double[][] lanes = [new double[count], new double[count], new double[count]];
-        int at = 0;
-        for (long i = 0; i < texels && at < count; i += stride, at++) {
-            ShadeVec4 texel = plane[(int)(i / plane.Width), (int)(i % plane.Width)];
-            lanes[0][at] = texel.X; lanes[1][at] = texel.Y; lanes[2][at] = texel.Z;
-        }
-        foreach (double[] lane in lanes) { Array.Sort(lane); }
-        return lanes;
-    }
-
-    static double Quantile(double[] sorted, double v) {
-        int i = Array.BinarySearch(sorted, v);
-        double rank = i >= 0 ? i + 0.5 : ~i;
-        return Math.Clamp(rank / sorted.Length, 0.5 / sorted.Length, 1.0 - (0.5 / sorted.Length));
-    }
-
-    static double Value(double[] sorted, double quantile) {
-        double position = (quantile * sorted.Length) - 0.5;
-        int lo = Math.Clamp((int)Math.Floor(position), 0, sorted.Length - 1);
-        int hi = Math.Min(lo + 1, sorted.Length - 1);
-        double f = Math.Clamp(position - lo, 0.0, 1.0);
-        return sorted[lo] + ((sorted[hi] - sorted[lo]) * f);
-    }
-
-    static ShadeVec4 Gauss(double[][] lut, ShadeVec4 v) =>
-        new(Normal.InvCDF(0.0, 1.0, Quantile(lut[0], v.X)), Normal.InvCDF(0.0, 1.0, Quantile(lut[1], v.Y)), Normal.InvCDF(0.0, 1.0, Quantile(lut[2], v.Z)), v.W);
-    static ShadeVec4 Inverse(double[][] lut, ShadeVec4 v) =>
-        new(Value(lut[0], Normal.CDF(0.0, 1.0, v.X)), Value(lut[1], Normal.CDF(0.0, 1.0, v.Y)), Value(lut[2], Normal.CDF(0.0, 1.0, v.Z)), v.W);
+    // The per-lane transform composes filter#PLANE_OP's OrderStatistics: a stride-sampled order statistic per
+    // COLOUR lane under the Hazen plotting position, so the forward map reaches a genuine Gaussian space and the
+    // inverse interpolates back through the channel's own sample values. A bare CDF reaches a UNIFORM space,
+    // where a linear mix is not variance-preserving and the seam band regresses toward its own mean; a
+    // luminance-built table applied to three lanes shifts hue wherever the lanes differ; and the owner's
+    // unbounded value axis is what keeps an HDR plane's headroom, which a unit-range bin grid truncated whole.
+    // The coverage lane crosses UNTOUCHED in both directions: coverage is not a tonal quantity, and a Gaussian
+    // round trip over it re-weights every edge the blend band crosses.
+    static ShadeVec4 Gauss(OrderStatistics lut, ShadeVec4 v) =>
+        new(Normal.InvCDF(0.0, 1.0, lut.Quantile(0, v.X)), Normal.InvCDF(0.0, 1.0, lut.Quantile(1, v.Y)), Normal.InvCDF(0.0, 1.0, lut.Quantile(2, v.Z)), v.W);
+    static ShadeVec4 Inverse(OrderStatistics lut, ShadeVec4 v) =>
+        new(lut.Value(0, Normal.CDF(0.0, 1.0, v.X)), lut.Value(1, Normal.CDF(0.0, 1.0, v.Y)), lut.Value(2, Normal.CDF(0.0, 1.0, v.Z)), v.W);
 }
 ```
 
@@ -433,38 +479,64 @@ internal static class TileKernel {
 
 - Owner: `TileProof` the minted evidence a `set#TEXTURE_SET` `TextureSet` carries, holding its own `Grade` mint; `TileGate` the measurement kernels; `TileScore` the measurement row.
 - Law: `TileProof` has no construction outside its own `Grade` — the constructor is PRIVATE and the mint is the type's own static, so no assembly-wide internal factory widens the reach — and `TextureSet.Tiled` therefore cannot be asserted, only earned; an ingested third-party set claiming tileability in its own manifest carries `None` until it is graded here.
-- Entry: `public static Option<TileProof> TileProof.Grade(TexturePyramid pyramid, TilePolicy policy)` is TOTAL — a grade is EVIDENCE, never a rail, so a plane that tiles badly returns absence and the caller decides; both signals read the plane's own decoded row rail, so no sampler lift and therefore no fault exists on this path.
-- Packages: MathNet.Numerics (composed — `IntegralTransforms.Fourier.Forward(Complex[], FourierOptions)` behind the `filter#PLANE_OP` `HeightField.Fourier2` row-column fold over the bounded row-major luminance staging — the `Forward2D` multidim row routes to the provider seam whose managed realization throws `NotSupportedException`, so the 1D pair is the platform-total form — `FourierOptions.Default` the symmetric scaling composing per axis into the 2D identity round trip, `ComplexExtensions.MagnitudeSquared` the per-bin power), `filter#PLANE_OP` (composed — `HeightField.Fourier2` the shared 2D fold), `plane#TEXTURE_PLANE` (composed — `TexturePyramid.Levels` the bounded grading level, `TexturePlane.Read` the streaming decoded rail both signals fold), CommunityToolkit.HighPerformance (`SpanOwner<T>` the row rentals), BCL inbox (`System.Numerics.Complex`), `Rasm` (project — `ValidityClaim`).
-- Growth: a new tileability signal is one `TileScore` column and one term in the combined verdict; the acceptance threshold and the spectral grading extent are the caller's `TilePolicy.AcceptScore` and `TilePolicy.GradeEdge` columns, never constants here.
-- Boundary: the grade is TWO independent measurements against ONE verdict, because either alone is defeatable, and each reads the level its own signal lives at. `SeamRatio` compares the mean squared difference across the WRAP boundary against the mean squared difference between interior neighbours, measured on the BASE level — a seam is a high-frequency artefact a mip erases, so grading it on a reduced level grades away what is being tested — and the fold streams two rows at a time through the plane's own decoded rail, so a 16k plane costs one row pair of memory rather than a full materialization. A plane whose wrap is exact has a boundary statistically indistinguishable from its interior, so the ratio approaches one and a visible seam drives it above one; a plane that is merely BLURRED at its border also scores well here, which is why it cannot be the whole verdict. `LatticeLeak` reads the `HeightField.Fourier2` spectrum on the pyramid level nearest the policy's own `GradeEdge` extent — the spectral signature of a discontinuity is scale-free, and a full-resolution transform over a 4k plane would stage sixteen million complex samples for a scalar answer — and measures the MEDIAN axis-bin power rather than the total axis power, because the `kx = 0`/`ky = 0` cross carries two different things: a seam raises the whole axis as a broadband `1/k` floor, while a genuinely periodic pattern raises isolated axis HARMONICS. Reading total axis power fails every correctly-tiling brick, weave, and lattice; reading the median reads the floor those harmonics sit on. The combined `Value` is the product of the two normalized terms and the caller's own `AcceptScore` decides; the learned tileability scorer is a SPIKE — an optional ONNX stage the `neural#PBR_STAGE` registry admits as a quality gate BESIDE this floor, never in place of it, because a scorer whose weights retire takes the deterministic verdict with it. Every measurement runs on the plane's LUMINANCE — the AP1 scene-linear `ShadeVec4.Luminance` weights, so a green-heavy pattern is not read as a red one — and the staging buffer is caller-owned and filled by index, the page's declared kernel exemption.
+- Entry: `public static Option<TileProof> TileProof.Grade(TexturePyramid pyramid, TilePolicy policy)` is TOTAL — a grade is EVIDENCE, never a rail, so a plane that tiles badly returns absence and the caller decides; both signals read the plane's own decoded row rail, so no sampler lift and therefore no fault exists on this path, and the transform band's own typed refusal absorbs into that SAME absence rather than opening a rail a grade would have to carry.
+- Packages: `Rasm.Numerics` (composed — `SpectralArena.Interleaved`/`Transform`/`SpectralSense.Forward`/`SpectralScaling.Symmetric` the kernel transform band over the bounded luminance staging, `SpectralReceipt.Power` the per-bin read), `plane#TEXTURE_PLANE` (composed — `TexturePyramid.Levels` the bounded grading level, `TexturePlane.Grid` the arena's own lattice, `TexturePlane.Read` the streaming decoded rail both signals fold), CommunityToolkit.HighPerformance (`SpanOwner<T>` the row rentals), BCL inbox (`System.Numerics.Complex`), `Rasm` (project — `ValidityClaim`).
+- Law: A GRADE IS ALWAYS PUBLISHED. `Grade` mints the proof it measured whatever that measurement says, `TileProof.AcceptBar` records the bar it was graded against, and `Accepted` is a predicate over the pair — so a refused set carries the real score it earned and a consumer can read how far short it fell. Absence means one thing only: the second signal could not be measured, which is missing evidence rather than a failing score. `TileSynth.Tileify` fills the set's `Tiled` column from the ACCEPTED proof alone, so the ruling that tileability is earned evidence holds unchanged while the receipt stops lying about what happened.
+- Law: `TileScore.Learned` is the OPTIONAL fourth signal, RECORDED and never graded. `TilePolicy.Scorer` carries it as a CLOSURE the appearance frontier supplies — this owner sits below that frontier and names no model type, exactly as a press subject carries a radiance closure without naming a sky — and the frontier resolves the card, its licence class, and its tensor contract on its own side. The deterministic pair stays authoritative because it alone is reproducible across machines: folding a learned number into `Value` would make a stored proof unverifiable, and a retired weight file would take the verdict with it. A scorer that throws did not measure, so the boundary catches into absence rather than faulting a grade whose reproducible half succeeded.
+- Growth: a new tileability signal is one `TileScore` column and one term in the combined verdict — `CornerResidual` and `Learned` are RECORDED columns and NOT verdict terms, because the Wang corner bound is a family property to publish rather than a defect to reject, and a plan with no corner meets reads absence; the acceptance threshold and the spectral grading extent are the caller's `TilePolicy.AcceptScore` and `TilePolicy.GradeEdge` columns, never constants here.
+- Boundary: the grade is TWO independent measurements against ONE verdict, because either alone is defeatable, and each reads the level its own signal lives at. `SeamRatio` compares the mean squared difference across the WRAP boundary against the mean squared difference between interior neighbours, measured on the BASE level — a seam is a high-frequency artefact a mip erases, so grading it on a reduced level grades away what is being tested — and the fold streams two rows at a time through the plane's own decoded rail, so a 16k plane costs one row pair of memory rather than a full materialization. A plane whose wrap is exact has a boundary statistically indistinguishable from its interior, so the ratio approaches one and a visible seam drives it above one; a plane that is merely BLURRED at its border also scores well here, which is why it cannot be the whole verdict. `LatticeLeak` folds the kernel transform band over the pyramid level nearest the policy's own `GradeEdge` extent — the spectral signature of a discontinuity is scale-free, and a full-resolution transform over a 4k plane would stage sixteen million complex samples for a scalar answer — reads its per-bin power off `SpectralReceipt.Power`, answers ABSENCE where the band refuses (zero is what a perfectly periodic plane earns, so an unmeasured plane publishing it would invert the verdict, and `Grade` mints no proof on a missing second signal), and measures the MEDIAN axis-bin power rather than the total axis power, because the `kx = 0`/`ky = 0` cross carries two different things: a seam raises the whole axis as a broadband `1/k` floor, while a genuinely periodic pattern raises isolated axis HARMONICS. Reading total axis power fails every correctly-tiling brick, weave, and lattice; reading the median reads the floor those harmonics sit on. The combined `Value` is the product of the two normalized terms and the caller's own `AcceptScore` decides; `CornerResidual` rides beside them as RECORDED evidence rather than as a third term, measured as the mean squared difference across the four texels meeting at each interior atlas-cell corner and absent for every strategy with no corner meets, so an atlas publishes the bound its edge strips cannot resolve instead of grading seamless on two signals that never look at a corner; the learned tileability scorer is a SPIKE — an optional ONNX stage the `neural#PBR_STAGE` registry admits as a quality gate BESIDE this floor, never in place of it, because a scorer whose weights retire takes the deterministic verdict with it. Every measurement runs on the plane's LUMINANCE — the AP1 scene-linear `ShadeVec4.Luminance` weights, so a green-heavy pattern is not read as a red one — and the staging buffer is caller-owned and filled by index, the page's declared kernel exemption.
 
 ```csharp signature
 // (Continues the Rasm.Materials.Raster compilation unit — the [02] prelude is in scope, plus:)
-using System.Numerics;                            // Complex — the Fourier staging element
-using MathNet.Numerics;                           // ComplexExtensions.MagnitudeSquared
-using MathNet.Numerics.IntegralTransforms;        // Fourier, FourierOptions — reached through HeightField.Fourier2
+using System.Numerics;                            // Complex — the transform band's interleaved arena element
+using Rasm.Numerics;                              // SpectralArena, SpectralSense, SpectralScaling — the transform band
 
 // --- [MODELS] ------------------------------------------------------------------------------
 // Two independent measurements, one verdict, each carrying the extent it was measured at so a reader can
 // re-derive the number. SeamRatio alone passes a blurred border; LatticeLeak alone passes a plane whose seam
 // is sharp but spectrally quiet. The product is what neither defeats.
-public readonly record struct TileScore(double SeamRatio, double LatticeLeak, double Value, Dimension GradedAt)
+// CornerResidual is the ACKNOWLEDGED bound, carried as measured evidence rather than as a sentence in a comment:
+// the Wang family's four-colour corner meet is not seamless by construction the way its edges are — four strips
+// drawn for four different colours arrive at one texel — so the mint measures the residual at those corners and
+// publishes it. A consumer reads how much corner error the atlas actually carries; a plan with no corner meets
+// reads ABSENCE, which is what separates a family that has no corners from one whose corners happened to measure
+// zero. Feathering reduces the residual and never removes it, and hiding that inside the blend would make an
+// atlas grade as seamless on the two signals that do not look at corners.
+// Learned is the FOURTH signal and it is RECORDED, never graded: an optional perceptual scorer reads the same
+// plane and its number rides beside the deterministic pair so a reviewer can compare them, while `Value` stays the
+// product of the two reproducible terms alone. That split is the card's own resolution — a learned score is not
+// reproducible across machines, so folding it into the verdict would make a tile proof stop being evidence — and it
+// is also what lets the scorer retire without taking the verdict with it.
+public readonly record struct TileScore(
+    double SeamRatio, double LatticeLeak, double Value, Dimension GradedAt, Option<double> CornerResidual, Option<double> Learned)
     : IValidityEvidence {
-    public static readonly TileScore Refused = new(double.PositiveInfinity, 1.0, 0.0, Dimension.Create(1));
-    public bool IsValid => ValidityClaim.All(ValidityClaim.Nonnegative(SeamRatio), ValidityClaim.UnitInterval(LatticeLeak), ValidityClaim.UnitInterval(Value));
+    public bool IsValid => ValidityClaim.All(
+        ValidityClaim.Nonnegative(SeamRatio), ValidityClaim.UnitInterval(LatticeLeak), ValidityClaim.UnitInterval(Value),
+        ValidityClaim.Of(CornerResidual.ForAll(static residual => double.IsFinite(residual) && residual >= 0.0)),
+        ValidityClaim.Of(Learned.ForAll(static score => double.IsFinite(score))));
 }
 
 // The evidence a set carries in place of a boolean. Construction is PRIVATE and the type's own Grade is the
 // one mint — no internal factory widens the reach to the whole assembly — so a TextureSet's Tiled column
 // records a measurement that happened rather than a claim someone made.
 public sealed record TileProof {
-    private TileProof(TileStrategy strategy, TileScore score, ulong seed) => (Strategy, Score, Seed) = (strategy, score, seed);
+    private TileProof(TileStrategy strategy, TileScore score, ulong seed, double bar) =>
+        (Strategy, Score, Seed, AcceptBar) = (strategy, score, seed, bar);
     public TileStrategy Strategy { get; }
     public TileScore Score { get; }
     public ulong Seed { get; }
+    // The BAR the measurement was graded against rides the proof, because a grade is an event and the bar is part
+    // of it: a consumer reading a stored proof can tell a set that scored 0.9 against a 0.85 bar from one that
+    // scored 0.9 against a 0.95 bar, where a bare boolean erases both numbers.
+    public double AcceptBar { get; }
+    public bool Accepted => Score.Value >= AcceptBar;
 
-    // TOTAL: a grade is evidence, so a badly-tiling plane returns absence and no call here can fault. Both
-    // signals read through the plane's own decoded row rail, so the gate needs no sampler lift and a layered
+    // TOTAL, and it ALWAYS publishes the measurement it made: a measurement below the bar is still a measurement,
+    // so the proof carries the real pair and `Accepted` is a predicate over it. Discarding a failing grade destroyed
+    // the number a caller most wants — how far short the plane fell — and forced every consumer to key its
+    // observability off whether a sentinel was finite. ABSENCE survives for ONE case: a plane whose second signal
+    // could not be measured has no verdict at all, which is missing evidence rather than a failing score.
+    // Both signals read through the plane's own decoded row rail, so the gate needs no sampler lift and a layered
     // plane grades its first layer rather than refusing a bridge it never crosses. The measurement kernels
     // stay on TileGate; the MINT lives here because only a nested private constructor makes "Grade is the
     // only mint" a fact the compiler holds rather than a sentence a reviewer holds.
@@ -472,10 +544,11 @@ public sealed record TileProof {
         TexturePlane spectral = TileGate.Level(pyramid, policy.GradeEdge);
         double ratio = TileGate.SeamRatio(pyramid.Base);
         double seam = 1.0 / (1.0 + Math.Max(0.0, ratio - 1.0));
-        double leak = TileGate.LatticeLeak(spectral);
-        double value = Math.Clamp(seam * (1.0 - leak), 0.0, 1.0);
-        TileScore score = new(ratio, leak, value, spectral.Width);
-        return value >= policy.AcceptScore ? Some(new TileProof(policy.Strategy, score, policy.Seed)) : Option<TileProof>.None;
+        return TileGate.LatticeLeak(spectral).Map(leak =>
+            new TileProof(policy.Strategy,
+                new TileScore(ratio, leak, Math.Clamp(seam * (1.0 - leak), 0.0, 1.0), spectral.Width,
+                    TileGate.CornerResidual(pyramid.Base, policy), TileGate.Learned(pyramid.Base, policy)),
+                policy.Seed, policy.AcceptScore));
     }
 }
 
@@ -488,6 +561,50 @@ internal static class TileGate {
     // own extent, which is the honest answer rather than a refusal.
     internal static TexturePlane Level(TexturePyramid pyramid, int gradeEdge) =>
         pyramid.Levels.Filter(level => Math.Max(level.Width.Value, level.Height.Value) >= gradeEdge).Last.IfNone(pyramid.Base);
+
+    // The Wang corner bound, MEASURED. Only the wang row has corner meets, so every other strategy reads absence
+    // rather than a zero a consumer would read as a graded corner. The measure is the mean squared difference
+    // across the four texels meeting at each interior cell corner of the atlas grid — the residual the edge
+    // strips cannot resolve, because each strip is drawn for ONE colour and a corner belongs to four.
+    internal static Option<double> CornerResidual(TexturePlane plane, TilePolicy policy) {
+        if (policy.Strategy != TileStrategy.Wang) { return None; }
+        int colours = Math.Max(2, policy.WangColors), grid = colours * colours;
+        int w = plane.Width.Value, h = plane.Height.Value;
+        int cw = Math.Max(1, w / grid), ch = Math.Max(1, h / grid);
+        if (grid < 2 || cw < 2 || ch < 2) { return None; }
+        using SpanOwner<ShadeVec4> upper = SpanOwner<ShadeVec4>.Allocate(w);
+        using SpanOwner<ShadeVec4> lower = SpanOwner<ShadeVec4>.Allocate(w);
+        double total = 0.0;
+        int met = 0;
+        for (int cell = 1; cell < grid; cell++) {
+            int y = cell * ch;
+            if (y >= h) { break; }
+            plane.ReadShade(row: y - 1, layer: 0, upper.Span);
+            plane.ReadShade(row: y, layer: 0, lower.Span);
+            for (int across = 1; across < grid; across++) {
+                int x = across * cw;
+                if (x >= w) { break; }
+                total += Delta(upper.Span[x - 1], upper.Span[x]) + Delta(lower.Span[x - 1], lower.Span[x])
+                    + Delta(upper.Span[x - 1], lower.Span[x - 1]) + Delta(upper.Span[x], lower.Span[x]);
+                met++;
+            }
+        }
+        return met > 0 ? Some(total / (4 * met)) : None;
+    }
+
+    // The optional learned reading. It stages the plane once into the register carrier the scorer's own contract
+    // takes and RECORDS the answer; nothing here interprets it, thresholds it, or lets it reach the verdict. A
+    // scorer that throws is a scorer that did not measure, so the boundary catches into ABSENCE — a foreign model's
+    // failure may not fault a grade whose deterministic half succeeded.
+    internal static Option<double> Learned(TexturePlane plane, TilePolicy policy) =>
+        policy.Scorer.Bind(scorer => {
+            ShadeVec4[] staged = new ShadeVec4[plane.Width.Value * plane.Height.Value];
+            for (int row = 0; row < plane.Height.Value; row++) {
+                plane.ReadShade(row, layer: 0, staged.AsSpan(row * plane.Width.Value, plane.Width.Value));
+            }
+            return Try.lift(() => scorer(new ReadOnlyMemory2D<ShadeVec4>(staged, plane.Height.Value, plane.Width.Value)))
+                .Run().ToOption().Filter(double.IsFinite);
+        });
 
     // Wrap energy against interior energy, STREAMED over the base plane's own decoded rail: the last row
     // against the first and the last column against the first, versus every four-neighbour interior pair. A
@@ -513,26 +630,38 @@ internal static class TileGate {
     // The spectral floor under the axis cross: a plane whose implicit periodic extension is discontinuous
     // raises the whole kx = 0 / ky = 0 axis as a broadband 1/k floor, while a genuinely periodic pattern raises
     // isolated axis harmonics. Reading TOTAL axis power fails every correctly-tiling brick; reading the MEDIAN
-    // axis bin reads the floor those harmonics sit on. Fourier2 mutates the caller-owned row-major buffer in
-    // place under the symmetric FourierOptions.Default scaling, so the measured fraction is scale-invariant.
-    internal static double LatticeLeak(TexturePlane plane) {
+    // axis bin reads the floor those harmonics sit on. Both the transform and the per-bin power are the kernel
+    // transform band's: the arena rides THIS LEVEL's own CellLattice (one layer, so the band's rank-2 row-column
+    // fold IS the 2D transform), symmetric scaling keeps the measured fraction scale-invariant, and
+    // SpectralReceipt.Power is the per-bin read a hand-folded magnitude loop would re-mint beside it.
+    // ABSENCE, never zero: a refused arena or a non-finite luminance yields NO reading, and zero is the value a
+    // perfectly periodic plane earns — publishing it for an unmeasured plane would invert the verdict.
+    internal static Option<double> LatticeLeak(TexturePlane plane) {
         int w = plane.Width.Value, h = plane.Height.Value;
         using SpanOwner<ShadeVec4> field = SpanOwner<ShadeVec4>.Allocate(w);
-        Complex[] spectrum = new Complex[w * h];
-        for (int y = 0; y < h; y++) {
+        Complex[] arena = new Complex[w * h];
+        for (int y = 0, at = 0; y < h; y++) {
             plane.ReadShade(row: y, layer: 0, field.Span);
-            for (int x = 0; x < w; x++) { spectrum[(y * w) + x] = new Complex(field.Span[x].Luminance, 0.0); }
+            for (int x = 0; x < w; x++, at++) { arena[at] = new Complex(field.Span[x].Luminance, 0.0); }
         }
-        HeightField.Fourier2(spectrum, w, h, forward: true);
-        double[] axis = new double[w + h - 2];
+        return new SpectralArena.Interleaved(Values: arena, Lattice: plane.Grid)
+            .Transform(SpectralSense.Forward, SpectralScaling.Symmetric)
+            .Bind(static spectrum => spectrum.Power())
+            .Map(power => AxisFloor(power, w, h))
+            .ToOption();
+    }
+
+    // The DC-excluded median axis-bin fraction, walked in the lattice's own linearization order by a running index
+    // so no stride expression is re-derived beside the one CellLattice.Linear owns.
+    private static double AxisFloor(Arr<double> power, int width, int height) {
+        double[] axis = new double[width + height - 2];
         double total = 0.0;
         int taken = 0;
-        for (int y = 0; y < h; y++) {
-            for (int x = 0; x < w; x++) {
+        for (int y = 0, at = 0; y < height; y++) {
+            for (int x = 0; x < width; x++, at++) {
                 if (y is 0 && x is 0) { continue; }
-                double power = spectrum[(y * w) + x].MagnitudeSquared();
-                total += power;
-                if ((y is 0 || x is 0) && taken < axis.Length) { axis[taken++] = power; }
+                total += power[at];
+                if ((y is 0 || x is 0) && taken < axis.Length) { axis[taken++] = power[at]; }
             }
         }
         if (total <= 0.0 || taken is 0) { return 0.0; }
@@ -546,4 +675,4 @@ internal static class TileGate {
 
 ## [04]-[RESEARCH]
 
-- [TEXTILE_SCORER]-[BLOCKED]: which published tileability scorer ships weights whose OWN card declares a licence the `neural#MODEL_REGISTRY` `LicenseClass` band grants, and what fixed-shape tile contract does its export declare?; the registry's licence column reads the weight card and never the repository, so a scorer whose weights ship from a release or an archive stating nothing enters `Blocked` and grades nothing. It admits as one `PbrStage` row grading a candidate plane beside `TileProof.Grade`, the deterministic floor shipping unchanged, and never becomes the acceptance authority — a retired weight file takes the verdict with it.
+- (none)

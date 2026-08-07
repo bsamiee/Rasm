@@ -65,8 +65,10 @@ Three runtime owners carry the whole concern: `Path` is the one mutable geometry
 |  [05]   | `pathops.xor(…)`                           | pen-form   | symmetric difference into `outpen`                                           |
 |  [06]   | `pathops.operations.reverse_difference(…)` | pen-form   | clip − subject into `outpen` (top-level: `op(…, PathOp.REVERSE_DIFFERENCE)`) |
 |  [07]   | `OpBuilder(…)`                             | construct  | N-way boolean accumulator                                                    |
-|  [08]   | `OpBuilder.add(path, operator)`            | accumulate | stage one `Path` operand under a `PathOp`; the accumulator starts EMPTY, so the first operand adds under `UNION` — a first add under `INTERSECTION` intersects with nothing and resolves empty |
+|  [08]   | `OpBuilder.add(path, operator)`            | accumulate | stage one `Path` operand under a `PathOp`                                    |
 |  [09]   | `OpBuilder.resolve() -> Path`              | resolve    | fold every staged operand into one result `Path`                             |
+
+- `OpBuilder.add`: accumulation starts EMPTY, so the first operand adds under `UNION` — a first add under `INTERSECTION` intersects with nothing and resolves empty.
 
 [ENTRYPOINT_SCOPE]: simplify, stroke-to-outline, conic flatten
 - policy carry: `fix_winding`, `keep_starting_points`, `clockwise` (on `simplify`/`Path.simplify`)
@@ -100,11 +102,11 @@ Three runtime owners carry the whole concern: `Path` is the one mutable geometry
 
 [ENTRYPOINT_SCOPE]: transform, reverse, geometric query, introspection
 
-`Path.transform` is the full 3×3 affine (`scaleX`, `skewY`, `skewX`, `scaleY`, `translateX`, `translateY`, `perspectiveX`, `perspectiveY`, `perspectiveBias`, identity on the diagonal and bias). Query properties answer layout/hit-test/winding without re-deriving geometry; introspection views are the read side a winding/hole/contour consumer keys per loop.
+`Path.transform` is the full 3×3 affine (`scaleX`, `skewY`, `skewX`, `scaleY`, `translateX`, `translateY`, `perspectiveX`, `perspectiveY`, `perspectiveBias`, identity on the diagonal and bias) and RETURNS a new `Path`, leaving the receiver untouched, so an unbound call is a silent identity. Query properties answer layout/hit-test/winding without re-deriving geometry; introspection views are the read side a winding/hole/contour consumer keys per loop.
 
 | [INDEX] | [MEMBER]                                               | [KIND]     | [ROLE]                                                     |
 | :-----: | :----------------------------------------------------- | :--------- | :--------------------------------------------------------- |
-|  [01]   | `Path.transform(…)`                                    | transform  | apply a 3×3 affine/perspective, RETURNING a new `Path` — the receiver is untouched, so an unbound call is a silent identity |
+|  [01]   | `Path.transform(…)`                                    | transform  | apply a 3×3 affine/perspective, RETURNING a new `Path`     |
 |  [02]   | `Path.reverse()`                                       | transform  | reverse contour direction (flip winding)                   |
 |  [03]   | `Path.area` (property)                                 | query      | signed/absolute enclosed area (sign encodes winding)       |
 |  [04]   | `Path.bounds` / `Path.controlPointBounds` (properties) | query      | tight bbox / control-hull bbox `(xmin, ymin, xmax, ymax)`  |

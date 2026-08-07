@@ -58,17 +58,18 @@ Each family is a `readonly struct` with native operators, keyed by its `Quantity
 |  [22]   | `SpecificEntropy`         | `JoulePerKilogramKelvin`       | mass-specific entropy     |
 |  [23]   | `Frequency`               | `Hertz`                        | cyclic rate               |
 |  [24]   | `VolumeFlow`              | `CubicMeterPerSecond`          | volumetric flow rate      |
-|  [25]   | `RotationalSpeed`         | `RadianPerSecond`              | angular velocity          |
-|  [26]   | `Level`                   | `Decibel`                      | logarithmic level         |
-|  [27]   | `Illuminance`             | `Lux`                          | incident luminous flux    |
-|  [28]   | `Irradiance`              | `WattPerSquareMeter`           | radiant flux density      |
-|  [29]   | `Irradiation`             | `JoulePerSquareMeter`          | radiant exposure          |
-|  [30]   | `Luminance`               | `CandelaPerSquareMeter`        | directional surface light |
-|  [31]   | `LuminousFlux`            | `Lumen`                        | perceived light power     |
-|  [32]   | `LuminousIntensity`       | `Candela`                      | directional luminous flux |
-|  [33]   | `LinearDensity`           | `KilogramPerMeter`             | mass per unit length      |
-|  [34]   | `VolumePerLength`         | `CubicMeterPerMeter`           | volume per unit length    |
-|  [35]   | `RelativeHumidity`        | `Percent`                      | moisture ratio            |
+|  [25]   | `MassFlow`                | `GramPerSecond`                | mass flow rate            |
+|  [26]   | `RotationalSpeed`         | `RadianPerSecond`              | angular velocity          |
+|  [27]   | `Level`                   | `Decibel`                      | logarithmic level         |
+|  [28]   | `Illuminance`             | `Lux`                          | incident luminous flux    |
+|  [29]   | `Irradiance`              | `WattPerSquareMeter`           | radiant flux density      |
+|  [30]   | `Irradiation`             | `JoulePerSquareMeter`          | radiant exposure          |
+|  [31]   | `Luminance`               | `CandelaPerSquareMeter`        | directional surface light |
+|  [32]   | `LuminousFlux`            | `Lumen`                        | perceived light power     |
+|  [33]   | `LuminousIntensity`       | `Candela`                      | directional luminous flux |
+|  [34]   | `LinearDensity`           | `KilogramPerMeter`             | mass per unit length      |
+|  [35]   | `VolumePerLength`         | `CubicMeterPerMeter`           | volume per unit length    |
+|  [36]   | `RelativeHumidity`        | `Percent`                      | moisture ratio            |
 
 [PUBLIC_TYPE_SCOPE]: parsing, conversion, metadata, and registration
 
@@ -203,7 +204,7 @@ Each family is a `readonly struct` with native operators, keyed by its `Quantity
 
 Per-unit projection property names PLURALIZE the singular `<Quantity>Unit` enum row, and the plural falls on the leading noun of a compound unit, so a name derived mechanically from the enum misses on every compound. Every cross-quantity operator row above carries its commuted twin on the same declaring struct (decompile-verified for `Pressure*Area`, `Area*Length`, `Density*Volume`). `Angle` repeats the exemplar whole — `Angle.FromDegrees`, `Angle.ToUnit(AngleUnit)`, `AngleUnit.Degree`, the abbreviation render — so the plane-rotation family reads off this table without a second roster. Selectors below are the SI base-unit reads for the families whose fences project a canonical scalar.
 
-[SI_SELECTORS]: `Density.KilogramsPerCubicMeter` `ThermalConductivity.WattsPerMeterKelvin` `SpecificEntropy.JoulesPerKilogramKelvin` `HeatTransferCoefficient.WattsPerSquareMeterKelvin` `LinearDensity.KilogramsPerMeter` `VolumePerLength.CubicMetersPerMeter`
+[SI_SELECTORS]: `Density.KilogramsPerCubicMeter` `ThermalConductivity.WattsPerMeterKelvin` `SpecificEntropy.JoulesPerKilogramKelvin` `HeatTransferCoefficient.WattsPerSquareMeterKelvin` `LinearDensity.KilogramsPerMeter` `VolumePerLength.CubicMetersPerMeter` `MassFlow.GramsPerSecond`
 
 [ENTRYPOINT_SCOPE]: typed and dynamic parsing
 
@@ -268,14 +269,20 @@ Per-unit projection property names PLURALIZE the singular `<Quantity>Unit` enum 
 |  [39]   | `new UnitSystem(BaseUnits)`                                                                 | ctor     | custom policy                   |
 |  [40]   | `new UnitsNetSetup(ICollection<QuantityInfo>, UnitConverter)`                               | ctor     | configured service root         |
 |  [41]   | `UnitsNetSetup.Default`                                                                     | static   | ambient service root            |
-|  [42]   | `QuantityInfo.ValueType`                                                                    | property | quantity struct `Type`          |
-|  [43]   | `QuantityInfo.UnitType`                                                                     | property | unit-enum `Type`                |
-|  [44]   | `QuantityInfo.Zero`                                                                         | property | family additive identity        |
-|  [45]   | `Quantity.FromQuantityInfo(QuantityInfo, QuantityValue)`                                    | factory  | metadata-keyed construction     |
-|  [46]   | `UnitAbbreviationsCache.Default`                                                            | static   | ambient abbreviation cache      |
-|  [47]   | `UnitAbbreviationsCache.GetDefaultAbbreviation(Type, int, IFormatProvider?)`                | instance | erased default abbreviation     |
+|  [42]   | `UnitsNetSetup.UnitConverter`                                                               | property | the root's converter instance   |
+|  [43]   | `UnitsNetSetup.UnitAbbreviations`                                                           | property | the root's abbreviation cache   |
+|  [44]   | `UnitsNetSetup.UnitParser`                                                                  | property | the root's unit parser          |
+|  [45]   | `UnitsNetSetup.QuantityParser`                                                              | property | the root's quantity parser      |
+|  [46]   | `QuantityInfo.ValueType`                                                                    | property | quantity struct `Type`          |
+|  [47]   | `QuantityInfo.UnitType`                                                                     | property | unit-enum `Type`                |
+|  [48]   | `QuantityInfo.Zero`                                                                         | property | family additive identity        |
+|  [49]   | `Quantity.FromQuantityInfo(QuantityInfo, QuantityValue)`                                    | factory  | metadata-keyed construction     |
+|  [50]   | `UnitAbbreviationsCache.Default`                                                            | static   | ambient abbreviation cache      |
+|  [51]   | `UnitAbbreviationsCache.GetDefaultAbbreviation(Type, int, IFormatProvider?)`                | instance | erased default abbreviation     |
 
 - Row [26] returns ONE `UnitInfo` and throws where the `BaseUnits` match is ambiguous or absent; row [27] returns the whole `IEnumerable<UnitInfo>` and is the read the boxed `ToUnit(UnitSystem)` runs internally. `UnitInfo<TUnit>` re-declares both as `UnitInfo<TUnit>`-typed, and re-declares `Value` as `TUnit`.
+- Rows [42]-[45] are the setup root's own instances, and `UnitParser.Default`, `UnitAbbreviationsCache.Default`, and `UnitConverter.Default` are declared shortcuts FORWARDING to rows [44], [43], and [42] — one object under two spellings, so a surface composing the root reaches each instance there and a static facade beside it renames what it already holds.
+- `UnitConverter.Convert`/`TryConvert`/`ConvertByName`/`ConvertByAbbreviation` (rows [01]-[06]) carry NO instance twin on the root's converter, so those stay static reads; `QuantityInfoLookup` is `internal` and reaches no consumer.
 - Row [42] is the quantity STRUCT type (`ValueType` is assigned `zero.GetType()` at construction), so it is the argument rows [04], [05], and `Parse(Type, string)` take, while row [43] is the parallel `<Quantity>Unit` enum type; a boxed parse against a family therefore needs no per-family switch.
 - [UNITMATH_CONSTRAINTS]: rows [11], [14], and [16] constrain `TQuantity : IQuantity` alone, while rows [12], [13], and [15] constrain `TQuantity : IComparable, IQuantity` — the boxed `IQuantity` face satisfies neither comparison constraint, so `Min`, `Max`, and `Clamp` are unreachable from an erased quantity and a bound over a runtime-selected family projects through `As(unit)`, clamps the scalar, and rebuilds through `Quantity.From(value, unit)`.
 - [BASEUNITS_PARTIALITY]: rows [26], [27], [32], [37] resolve through full SEVEN-AXIS `BaseUnits` equality, and the metadata that walk needs is absent from most of the roster — `UnitInfo.BaseUnits` is `BaseUnits.Undefined` on the majority of unit rows, `MassUnit.Kilogram` and every `LinearDensityUnit`/`ThermalResistanceUnit` member included. Consequence: `GetUnitInfosFor(UnitSystem.SI.BaseUnits)` returns EMPTY and `IQuantity.ToUnit(UnitSystem.SI)` throws `ArgumentException("No units were found for the given UnitSystem")` for 69 of the 135 registry quantities (`Mass`, `Density`, `Torque`, `Frequency`, `HeatTransferCoefficient`, `ThermalConductivity`, `LinearDensity`, `ThermalResistance`, `VolumeFlow`, `ElectricResistance` among them), while `Force`, `Pressure`, and `Area` succeed. `BaseUnits.IsSubsetOf` is no remedy — it returns `false` for an `Undefined` receiver against a defined target by construction, and a subset walk resolves only 49 of 135. A canonical-SI resolution therefore ELECTS its target from `QuantityInfo.BaseUnitInfo` (SI-coherent for all but a named handful — `Angle`→`Degree`, `MassFlow`→`GramPerSecond`, `ThermalResistance`→`SquareMeterKelvinPerKilowatt` are the prefixed/convention exceptions) and never walks `BaseUnits`.

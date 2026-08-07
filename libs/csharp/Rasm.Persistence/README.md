@@ -25,7 +25,7 @@ It persists the graph over a Marten append substrate and depends up on the `Rasm
 
 [QUERY]:
 - [14]-[LANE](.planning/Query/lane.md): Read router discriminating authoritative from analytical over the selection algebra.
-- [15]-[RETRIEVAL](.planning/Query/retrieval.md): ANN retrieval subsystem fusing the vector and text branches, with the document full-text corpus lane serving the AppUi search wire.
+- [15]-[RETRIEVAL](.planning/Query/retrieval.md): ANN retrieval fusing the vector and text branches beside the document full-text corpus lane.
 - [16]-[TOPOLOGY](.planning/Query/topology.md): In-process QuikGraph view owning default synchronous traversal.
 - [17]-[COLUMNAR](.planning/Query/columnar.md): DuckDB analytical lane, flat-table projection, and the analytics residence family.
 - [18]-[CYPHER](.planning/Query/cypher.md): Optional self-hosted openCypher and pgrouting lane.
@@ -36,7 +36,7 @@ It persists the graph over a Marten append substrate and depends up on the `Rasm
 - [21]-[TABULAR](.planning/Ingest/tabular.md): Delimited and spreadsheet source lane.
 - [22]-[SCHEDULE](.planning/Ingest/schedule.md): Schedule-file codec and its durable task-relation DAG.
 - [23]-[GEOSPATIAL](.planning/Ingest/geospatial.md): Geospatial feature source lane.
-- [24]-[ISSUE](.planning/Ingest/issue.md): BCF issue-file codec — topics, viewpoints, and comments keyed to durable elements.
+- [24]-[ISSUE](.planning/Ingest/issue.md): BCF issue rows — GlobalId correlation, cycle reconcile, and the typed-row seam to the container custodian.
 
 [STORE]:
 - [25]-[BLOBSTORE](.planning/Store/blobstore.md): Content-keyed artifact object plane with its write-blob-first seal.
@@ -200,7 +200,7 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 - `Microsoft.Extensions.Compliance.Redaction` — classification attributes on egressed members; redactor binding stays at the app root.
 
 [TELEMETRY_CONTRACT]:
-- `Microsoft.Extensions.Telemetry.Abstractions` — the pooled per-operation latency ledger the `Query/lane` read phases stamp; activation and name registration stay at the app root.
+- `Microsoft.Extensions.Telemetry.Abstractions` — pooled per-operation latency ledger the `Query/lane` read phases stamp; activation stays app-root.
 
 [WIRE_CODEGEN]:
 - `Riok.Mapperly` — generated seam-to-wire and columnar marshal.

@@ -68,10 +68,10 @@ public readonly record struct DispatchPulse(Op Operation, PulseLane Lane, TimeSp
 // --- [SERVICES] -----------------------------------------------------------------------------
 internal static partial class RuntimeLog {
     [LoggerMessage(EventId = 4703, Level = LogLevel.Error, Message = "UiClock beat faulted: {Detail}")]
-    internal static partial void ClockFault(ILogger logger, string detail);
+    internal static partial void ClockFault(ILogger logger, [UserContent] string detail);
 
     [LoggerMessage(EventId = 4704, Level = LogLevel.Warning, Message = "Dispatch lane {Lane} breached its budget after {ElapsedMs}ms on {Operation}")]
-    internal static partial void DispatchStall(ILogger logger, int lane, double elapsedMs, string operation);
+    internal static partial void DispatchStall(ILogger logger, int lane, double elapsedMs, [MachineIdentity] string operation);
 }
 
 internal sealed class TapHandle<T>(Guid token, Atom<HashMap<Guid, Action<T>>> taps) : IDisposable {
@@ -771,7 +771,7 @@ public static class NoticeSurface {
                 Option<TrayIndicator> indicator = tray.Map(static lease => lease.Resource.Surface);
                 if (native.RequiresTrayIndicator && indicator.IsNone)
                     return Fin.Fail<Lease<NoticeMount>>(error: op.MissingContext());
-                native.Show(indicator: indicator.MatchUnsafe(Some: static item => item, None: static () => null));
+                native.Show(indicator: indicator.Match<TrayIndicator?>(Some: static item => item, None: static () => null));
                 NoticeMount mount = new(notification: native, image: valid.ContentImage, tray: tray);
                 return Fin.Succ((Lease<NoticeMount>)new Lease<NoticeMount>.Owned(Value: mount));
             });

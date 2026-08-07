@@ -7,7 +7,7 @@
 [PACKAGE_SURFACE]: `BrickSchema.Net`
 - package: `BrickSchema.Net` (MIT)
 - assembly: `BrickSchema.Net`
-- namespace: `BrickSchema.Net` (core graph), `.Classes` (+ `.Equipments`/`.Equipments.HVACType`/`.Chillers`/`.TerminalUnits`, `.Points`, `.Locations`, `.Measureable`, `.Collection`/`.Loop`, `.Devices`), `.Relationships`, `.Behaviors`, `.EntityProperties`, `.Shapes`, `.Helpers`
+- namespace: `BrickSchema.Net` (core graph), `.Classes` (+ `.Equipments` → `.Equipments.HVACType` → `.HVACType.Chillers`/`.HVACType.TerminalUnits` — nested, not siblings; `.Points`, `.Locations`, `.Measureable`, `.Collection`/`.Loop`, `.Devices`), `.Relationships`, `.Behaviors`, `.EntityProperties`, `.Shapes`, `.Helpers`
 - asset: `net7.0`; the `net10.0` consumer binds `lib/net7.0` (single TFM, binds forward)
 - depends: `Newtonsoft.Json` (JSON-LD codec), `Microsoft.Extensions.Logging.Abstractions` (`ILogger` behavior diagnostics)
 - rail: building-systems
@@ -66,18 +66,25 @@ Each `BrickRelationship : BrickEntity` is a directed edge between two nodes, tra
 |  [02]   | `BehaviorValue`       | class         | an output cell (value + weight) the entity stores and reads back                            |
 |  [03]   | `BehaviorReturnCodes` | enum          | `NotImplemented`=-1, `Good`=0, `Skip`=1, `HasWarning`=10, `HasError`=50, `HasException`=100 |
 
-[PUBLIC_TYPE_SCOPE]: taxonomy and device classes
+[PUBLIC_TYPE_SCOPE]: taxonomy and device classes, every namespace cell rooted at `.Classes`
 
-Generated `BrickClass` subclasses are the vocabulary instantiated through `AddEntity<T>` — one polymorphic family discriminated by the `<T>` argument, never separate call surfaces.
+Generated `BrickClass` subclasses are the vocabulary instantiated through `AddEntity<T>` — one polymorphic family discriminated by the `<T>` argument, never separate call surfaces. Every class on the chain is `public class` with a reachable parameterless ctor (`BrickEntity` → `BrickClass` → `Equipment`/`Point`/`Location`/`Measurable` → leaves) — NO abstract tier exists, so every leaf satisfies `where T : BrickEntity, new()`. IDENTITY TRAP: only the mid-tier ctors (`HVAC()`, `Point()`) stamp the `BrickClass` property with their own type name — a leaf with no declared ctor (`AHU`, `Sensor`) inherits the base stamp, so `AddEntity<AHU>()` carries `BrickClass == "HVAC"`; class-identity reads use the CLR type, never the property.
 
-| [INDEX] | [NAMESPACE]            | [CAPABILITY]                                                                                        |
-| :-----: | :--------------------- | :-------------------------------------------------------------------------------------------------- |
-|  [01]   | `.Classes.Equipments`  | HVAC + plant (+ `.HVACType`/`.Chillers`/`.TerminalUnits`) — `AHU`/`VAV`/`Chiller`/`Boiler`/`Pump`/… |
-|  [02]   | `.Classes.Points`      | telemetry — sensors, setpoints, commands, status, alarms, parameters                                |
-|  [03]   | `.Classes.Locations`   | spatial — `Building`/`Floor`/`Room`/`Zone`/`Space`/`CommonSpace`                                    |
-|  [04]   | `.Classes.Measureable` | quantities + substances — `Temperature`/`Pressure`/`ActivePower`/`Air`/`ChilledWater`/…             |
-|  [05]   | `.Classes.Collection`  | grouping (+ `.Loop`) — `Loop`/`System`/`Portfolio`/`PVArray`                                        |
-|  [06]   | `.Classes.Devices`     | BMS hardware — `BACnetDevice`/`ModbusDevice`/`Workstation`/`Server`/`Camera`                        |
+| [INDEX] | [NAMESPACE]                         | [CAPABILITY]                                                                               |
+| :-----: | :---------------------------------- | :----------------------------------------------------------------------------------------- |
+|  [01]   | `Equipments`                        | top-level equipment families                                                               |
+|  [02]   | `Equipments.HVACType`               | HVAC plant                                                                                 |
+|  [03]   | `Equipments.HVACType.TerminalUnits` | terminal boxes, diffusers, and radiant units                                               |
+|  [04]   | `Equipments.HVACType.Chillers`      | `ChillerLoadCOP` — `Load`/`COP` value pair, not a Brick class                              |
+|  [05]   | `Points`                            | telemetry — `Alarm` `Command` `Parameter` `PointValueQuality` `Sensor` `Setpoint` `Status` |
+|  [06]   | `Locations`                         | spatial — `Building`/`Floor`/`Room`/`Zone`/`Space`/`CommonSpace`                           |
+|  [07]   | `Measureable`                       | quantities + substances — `Temperature`/`Pressure`/`ActivePower`/`Air`/`ChilledWater`/…    |
+|  [08]   | `Collection`                        | grouping (+ `.Loop`) — `Loop`/`System`/`Portfolio`/`PVArray`                               |
+|  [09]   | `Devices`                           | BMS hardware — `BACnetDevice`/`ModbusDevice`/`Workstation`/`Server`/`Camera`               |
+
+[EQUIPMENTS]: `Camera` `Electrical` `Elevator` `FireSafety` `Furniture` `GasDistribution` `HVAC` `Lighting` `Meter` `Motor` `PVPanel` `Relay` `Safety` `Security` `SolarThermalCollector` `SteamDistribution` `Valve` `WaterDistribution` `WaterHeater` `WeatherStation`
+[HVAC_TYPE]: `AHU` `Boiler` `Chiller` `Compressor` `Condenser` `CoolingTower` `Damper` `Economizer` `Fan` `Filter` `HeatExchanger` `Humidifier` `Pump` `Thermostat`, plus the damper, fan, filter, valve, and deck families
+[TERMINAL_UNITS]: `AirDiffuser` `CAV` `ChilledBeam` `FCU` `FanCoilUnit` `InductionUnit` `RVAV` `RadiantPanel` `Radiator` `VAV` `VariableAirVolumeBox` `VariableAirVolumeBoxWithReheat` `ConstantAirVolumeBox`
 
 ## [03]-[ENTRYPOINTS]
 
@@ -86,14 +93,14 @@ Generated `BrickClass` subclasses are the vocabulary instantiated through `AddEn
 | [INDEX] | [SURFACE]                                                    | [SHAPE]  | [CAPABILITY]                                          |
 | :-----: | :----------------------------------------------------------- | :------- | :---------------------------------------------------- |
 |  [01]   | `BrickSchemaManager()` / `(string brickFilePath)`            | ctor     | empty graph / load-on-construct                       |
-|  [02]   | `AddEntity<T>(string? id, string? name) -> T`                | instance | polymorphic create — `<T>` is the Brick class         |
-|  [03]   | `GetEntity(string id, bool byRef) -> BrickEntity?`           | instance | id lookup                                             |
-|  [04]   | `GetEntities(bool byRef) -> List<BrickEntity>`               | instance | full roster                                           |
-|  [05]   | `GetEntities<T>(bool byRef) -> List<BrickEntity>`            | instance | type-filtered roster                                  |
+|  [02]   | `AddEntity<T>(string? id, string? name) -> T`                | instance | polymorphic create by `<T>`; IDEMPOTENT by id         |
+|  [03]   | `GetEntity(string id, bool byReference) -> BrickEntity?`     | instance | id lookup                                             |
+|  [04]   | `GetEntities(bool byReference) -> List<BrickEntity>`         | instance | full roster                                           |
+|  [05]   | `GetEntities<T>(bool byReference) -> List<BrickEntity>`      | instance | type-filtered roster                                  |
 |  [06]   | `SearchEntities(Func<dynamic,bool>) -> List<dynamic>`        | instance | the single predicate query                            |
 |  [07]   | `UpdateEntity(dynamic) -> bool`                              | instance | upsert by `Id`                                        |
 |  [08]   | `IsEntity(string) -> bool` / `IsTag(string) -> bool`         | instance | existence / tag test                                  |
-|  [09]   | `GetTag(string, bool byRef) -> Tag?`                         | instance | tag lookup by name                                    |
+|  [09]   | `GetTag(string, bool byReference) -> Tag?`                   | instance | tag lookup by name                                    |
 |  [10]   | `LoadSchema(string)` / `SaveSchema()` / `SaveSchema(string)` | instance | JSON-LD whole-graph read / write                      |
 |  [11]   | `GetBehaviors(List<string>, bool) -> List<BrickBehavior>`    | instance | behavior-registry query                               |
 |  [12]   | `GetEquipmentBehaviors(string, bool) -> List<BrickBehavior>` | instance | per-equipment behaviors                               |
@@ -131,7 +138,8 @@ Generated `BrickClass` subclasses are the vocabulary instantiated through `AddEn
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- One polymorphic entry owns each mutation, discriminated by `<T>`: `AddEntity<T>()` creates a node, `AddRelationship<T>(parentId)` wires a directed edge, `AddShape<T>()` attaches a rule shape; the `AddEquipment*`/`AddCollection*`/`AddRelationship*`/`AddShape*` named helpers are sugar over them, so a call discriminates by type argument, never a hand-picked factory name.
+- One polymorphic entry owns each mutation, discriminated by `<T>`: `AddEntity<T>()` creates a node, `AddRelationship<T>(parentId)` wires a directed edge (`where T : BrickRelationship, new()`), `AddShape<T>()` attaches a rule shape; the `AddEquipment*`/`AddCollection*`/`AddRelationship*`/`AddShape*` named helpers are sugar over them, so a call discriminates by type argument, never a hand-picked factory name.
+- `AddEntity<T>` is IDEMPOTENT BY ID and its idempotent return is an UNCHECKED CAST: a non-empty `id` the graph already holds returns the HELD entity as `(T)`, so the `name` argument is discarded on that path and a node re-requested under a second Brick class throws `InvalidCastException` rather than re-classifying. A builder reaching one node twice therefore holds its own minted-node ledger and re-requests on the SAME type argument, and a rename lands through `AddOrUpdateProperty(PropertiesEnum.Name, …)`, never through a second `AddEntity` call.
 - Query is one entry per shape: `SearchEntities(Func<dynamic,bool>)` for predicates, `GetEntities<T>` for type filters, `GetEntity(id)` for id lookup — there is no `GetByName`/`GetByType` family.
 - `byReference` selects the live graph node versus a clone: `true` mutates in place, `false` (default) returns a read-only copy, and mutating a `false`-fetched node never touches the graph.
 - A node's neighborhood is its typed relationship set, traversed through the `BrickEntity.Get*` helpers that resolve `Fedby`/`PointOf`/`PartOf`/`LocationOf`/`MeterBy` edges in the requested direction — `Point` access via `GetPointEntities`/`GetPointEntity(tagName)`, meter hierarchy via `GetMeterEntities`/`MeterBy`/`SubmeterOf`, spatial containment via `LocationOf` — never a raw `Relationships` walk.

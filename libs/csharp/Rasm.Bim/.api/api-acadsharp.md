@@ -52,6 +52,9 @@
 |  [06]   | `VertexFaceRecord` | class         | 1-based signed `Index1`..`Index4` (`short`; negative = hidden edge, 0 = unused)                 |
 |  [07]   | `PolygonMesh`      | class         | `Polyline<PolygonMeshVertex>` — `MVertexCount`×`NVertexCount` grid, `M`/`NSmoothSurfaceDensity` |
 |  [08]   | `Insert`           | class         | placed/arrayed nested-block reference — flattened via `Explode`/`GetTransform`                  |
+|  [09]   | `ModelerGeometry`  | abstract      | the ACIS-payload BASE — `Solid3D`, `Region`, `CadBody` derive; no managed tessellator exists    |
+
+- [09]-[ACIS_FAMILY]: `ModelerGeometry : Entity` is the ONE base every solid-modelling entity sits under, so a partition that must decline ACIS payloads matches the base and a sibling the package adds later declines with it; matching the leaf names instead misses `CadBody` outright (there is no `Body` or `Surface` type under this name) and misses every future leaf silently.
 
 [PUBLIC_TYPE_SCOPE]: entity base and `CSMath` value/transform algebra
 
@@ -65,6 +68,7 @@
 |  [06]   | `BoundingBox` | struct        | `Entity.GetBoundingBox()` extent for soup-bounds accumulation                                      |
 
 - [01]-[ENTITY_BASE]: `Layer`/`Color`/`LineWeight`/`Transparency`/`Material`/`IsInvisible` graphic props; package-owned bakes `ApplyTransform(Transform)`/`ApplyTranslation`/`ApplyRotation(axis,θ)`/`ApplyScaling(scale[,origin])`; `GetBoundingBox()`.
+- [01]-[HANDLE]: `Entity : CadObject`, so every entity carries the `ulong Handle` the drawing keys it by beside `Owner`, `Document`, `ObjectType`, and `ExtendedData` — the one stable identity a degrade row names an undecodable entity with.
 
 ## [03]-[ENTRYPOINTS]
 

@@ -32,7 +32,7 @@
 |  [13]   | `DataType`               | class         | IFC value data type — `DataType.Type` is `DataTypeEnum?`                                    |
 
 [ValueTypeKind]: `TypeSimpleProperty` `TypeComplexProperty` `TypePropertySingleValue` `TypePropertyBoundedValue` `TypePropertyEnumeratedValue` `TypePropertyListValue` `TypePropertyTableValue` `TypePropertyReferenceValue`
-[ValueCatalogue]: `ValueDef` `ValueRangeDef` `Value` `EnumList` `ConstantDef`
+[ValueCatalogue]: `ValueRangeDef` `Value` `EnumList` `ConstantDef` — the CURRENT constraint carriers; `PropertyDef.ValueDef` is retired upstream and composed nowhere
 [UnitAxis]: `UnitType` `SimplePropertyUnitType` `SimplePropertyDataType`
 [Enums]: `DataTypeEnum` `QtoTypeEnum` `templatetype`
 [QtoTypeEnum]: `Q_LENGTH` `Q_AREA` `Q_VOLUME` `Q_WEIGHT` `Q_COUNT` `Q_TIME`

@@ -1,4 +1,4 @@
-# [FABRICATION_TELEMETRY]
+# [RASM_FABRICATION_TELEMETRY]
 
 `FabricationFact` is the package's one fact vocabulary for measured production: every operational metric is a projection of a settled domain receipt flattened onto this union, and the instrument roster, the contributor port, the projection arms, the span band, and the classification rows all derive from it — a metric minted beside the fan is a second truth. Domain kernels stay pure; facts fire only where receipts settle on the run spine through `FabricationRuntime`'s one `FabricationTap` port.
 
@@ -18,22 +18,30 @@ Settled composition draws every mechanism from the kernel signal capsule — the
 
 - Owner: `FabricationFact` — the closed fact union; `FabricationEngine` and `EnginePhase` — the solver-lane and lane-point vocabularies every engine row, span scope, and span mark keys on; `SustainabilityQuantity` — the UCUM-unit axis every sealed passport measure resolves its instrument through; `FabricationWireContext` — the Strict serializer context whose polymorphism metadata is the one kind registry; `FabricationTap` — the runtime emission port; `FabricationSurface` — the sink-bound emission seam.
 - Cases: tool-wear · tool-refresh · cutting-fit · probe · capability · removal · cycle · estimate · fleet-match · run · quality-seal · traveler · delivery · engine.
+- Law: `FactKind` is the ONE kind roster and `FactField` the ONE wire-field roster. The polymorphic registration here and the arm table at `[04]` both key off `FactKind`, and every wire-arm read names a `FactField` const, so a kind cannot be serialized under one literal and mounted under another and a renamed property cannot leave an arm reading a field that no longer exists; a typed arm reads the case's own properties, the compiler holding for it what the const roster holds for the wire arms. Two rosters over one vocabulary is the named defect.
 - Entry: `FabricationTap.Fire(FabricationFact fact)` — the sole in-package emission verb; `FabricationSurface.Emit(CorrelationId correlation, FabricationFact fact)` binds sink and serializer once at composition and the app root wires the tap onto it, so `FabricationTap.Silent` keeps a headless kernel run emitting into unit with zero branching.
 - Auto: each `Of` projection flattens its receipt to measures and bounded dimensions at the fact boundary — a smart-enum spine value crosses as its key scalar, a NodaTime span as seconds — so the wire context serializes primitives only; wire kind derives from the polymorphic metadata pinned on the union under one declared discriminator const, and ambient `TenantContext.Current` threads into `Send` so the envelope tenant field partitions evidence; `ToolWear.Of` yields `None` on a receipt without a critical state and `ToolRefresh.Of` on a provider-digest source, so non-measured admissions project nothing rather than fabricate zeros, and `QualitySeal.Of` holds the same law across the whole passport evidence union — each sealed measure crosses as one row keyed by its own case name under the `SustainabilityQuantity` its unit selects, and an unsealed measure crosses as no row rather than a zero reading; every engine row derives its owning solver from its phase row, so the two vocabularies cannot drift and a hand-spelled solver string has no construction path.
 - Receipt: none — the union projects settled receipts. `Probe` mints at the datum-result fold because its pre-egress report is file-scoped there; every other case mints through its `Of` row here. `Removal.Of` consumes the public verification result, `Delivery.Of` consumes the settled program-delivery receipt, and each `Engine.Of` row consumes its solver receipt.
 - Packages: Thinktecture.Runtime.Extensions, Thinktecture.Runtime.Extensions.Json, LanguageExt.Core, NodaTime, BCL inbox.
-- Growth: a new measured concern is one case row, one `[JsonDerivedType]` registration, one `Of` projection, one roster row at `[03]`, and one projection arm at `[04]` — zero new surface; a new solver lane is one `FabricationEngine` row, gaining `EnginePhase` rows and an `Of` overload only where the lane counts internal steps; a new lane milestone is one uncounted `EnginePhase` row; a new sealed measure is one arm on the passport fold, and a measure in a unit no row carries is one `SustainabilityQuantity` row that mints its roster entry, its arm route, and its board panel together; a case whose receipt gains a measure widens that case, never a sibling.
+- Growth: a new measured concern is one case row, one `[JsonDerivedType]` registration, one `Of` projection, one roster row at `[03]`, one projection arm at `[04]`, and ONE `Fire` site at the fold where its receipt settles — a case complete on the first five and absent from the sixth declares an instrument nothing ever writes, which is the named defect and the shape a roster audit hunts for; a new solver lane is one `FabricationEngine` row, gaining `EnginePhase` rows and an `Of` overload only where the lane counts internal steps; a new lane milestone is one uncounted `EnginePhase` row; a new sealed measure is one arm on the passport fold, and a measure in a unit no row carries is one `SustainabilityQuantity` row that mints its roster entry, its arm route, and its board panel together; a case whose receipt gains a measure widens that case, never a sibling.
 - Boundary: fact cases carry no `ContentKey`, no personnel or heat identity, and no free-text detail — the receipt rail owns identity and the classification rows at `[05]` bar the classified members structurally; the `[JsonDerivedType]` kind column is the canonical spelling the envelope carries to the sink rail, so a kind outside this roster is receipt-only by declaration; a tap subscriber fault parks as `IsolatedFault` on the port's own cell and never re-enters the emitting fold, so a swallowed emission is still evidence a support bundle reads.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using System.Collections.Frozen;
+using System.Collections.Immutable;
+using System.Diagnostics;                       // Activity, ActivityEvent
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using LanguageExt;
+using Microsoft.Extensions.Compliance.Classification;   // DataClassification, DataClassificationAttribute
 using NodaTime;
-using Rasm.Domain;                              // CorrelationId, HookId, IsolatedFault, ReceiptEnvelope,
-                                                // ReceiptSinkPort, TelemetrySource, TenantContext, TraceScope, Fault
+using Rasm.Domain;                              // BoardPack, Buckets, ClassifiedValue, CorrelationId, Fault, HookId,
+                                                // HookModality, HookPoint, IHookPoint, InstrumentArm, InstrumentSet,
+                                                // InstrumentSpec, IsolatedFault, LevelBreach, MeasureForm, Objective,
+                                                // Op, PanelKind, PanelSpec, ReceiptEnvelope, ReceiptSinkPort, Sli,
+                                                // SpanBand, TelemetryContributorPort, TelemetryIdentity,
+                                                // TelemetrySource, TenantContext, TraceScope
 using Rasm.Fabrication.Additive;                // ScanReceipt
 using Rasm.Fabrication.Documentation;           // PassportEvidence, SustainabilityEvidence, TravelerArtifact
 using Rasm.Fabrication.Fixturing;               // SetupSchedule
@@ -43,7 +51,8 @@ using Rasm.Fabrication.Nesting;                 // NestEvidence
 using Rasm.Fabrication.Posting;                 // ProgramDelivery
 using Rasm.Fabrication.Spec;                    // CapabilityReport
 using Rasm.Fabrication.Toolpath;                // SkeletonReceipt
-using Rasm.Fabrication.Tooling;                 // CatalogReceipt, CatalogSource, PowerLawReceipt, WearReceipt
+using Rasm.Fabrication.Tooling;                 // CatalogReceipt, CatalogSource, MaintenanceDisposition,
+                                                // PowerLawReceipt, WearReceipt
 using Rasm.Fabrication.Verify;                  // EstimateReceipt, SimulationReceipt
 using Rasm.Processing;                          // AlignmentReceipt
 using Thinktecture;
@@ -130,22 +139,91 @@ public sealed partial class SustainabilityQuantity {
 }
 
 // --- [MODELS] -------------------------------------------------------------------------------
+// ONE kind roster. The polymorphic registration and the `[04]` arm table both key off these consts, so a kind can
+// never be spelled on the wire under one literal and mounted under another — the two-roster split is the named
+// defect the branch rulings forbid, and an attribute argument must be a const, which is exactly what these are.
+public static class FactKind {
+    public const string ToolWear = "tool-wear";
+    public const string ToolRefresh = "tool-refresh";
+    public const string CuttingFit = "cutting-fit";
+    public const string Probe = "probe";
+    public const string Capability = "capability";
+    public const string Removal = "removal";
+    public const string Cycle = "cycle";
+    public const string Estimate = "estimate";
+    public const string FleetMatch = "fleet-match";
+    public const string Run = "run";
+    public const string QualitySeal = "quality-seal";
+    public const string Traveler = "traveler";
+    public const string Delivery = "delivery";
+    public const string Engine = "engine";
+}
+
+// The wire field names the camelCase naming policy mints from each case's own properties, declared once so an arm
+// reads a name the fact declares rather than a literal that drifts the moment a property is renamed.
+public static class FactField {
+    public const string Action = "action";
+    public const string Amendments = "amendments";
+    public const string AgeSeconds = "ageSeconds";
+    public const string AirCutRatio = "airCutRatio";
+    public const string Basis = "basis";
+    public const string CarbonKg = "carbonKg";
+    public const string ClockSeconds = "clockSeconds";
+    public const string Conforming = "conforming";
+    public const string Controller = "controller";
+    public const string Count = "count";
+    public const string Currency = "currency";
+    public const string Determination = "determination";
+    public const string DistanceMm = "distanceMm";
+    public const string Effectiveness = "effectiveness";
+    public const string EnergyKwh = "energyKwh";
+    public const string Features = "features";
+    public const string FitResidual = "fitResidual";
+    public const string FractionRemaining = "fractionRemaining";
+    public const string Gouges = "gouges";
+    public const string Kinds = "kinds";
+    public const string Measure = "measure";
+    public const string Measured = "measured";
+    public const string Metric = "metric";
+    public const string Model = "model";
+    public const string Money = "money";
+    public const string OvercutMm3 = "overcutMm3";
+    public const string Phase = "phase";
+    public const string Process = "process";
+    public const string ProgramKind = "programKind";
+    public const string Quantity = "quantity";
+    public const string Residual = "residual";
+    public const string Rows = "rows";
+    public const string Scope = "scope";
+    public const string Seconds = "seconds";
+    public const string SimulationBacked = "simulationBacked";
+    public const string Sustainability = "sustainability";
+    public const string UncutMm3 = "uncutMm3";
+    public const string Utilization = "utilization";
+    public const string Value = "value";
+    public const string Verified = "verified";
+    public const string Verification = "verification";
+    public const string Violations = "violations";
+    public const string Warnings = "warnings";
+    public const string WorstDeviationMm = "worstDeviationMm";
+}
+
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 [JsonPolymorphic(TypeDiscriminatorPropertyName = FabricationFact.KindProperty)]
-[JsonDerivedType(typeof(ToolWear), "tool-wear")]
-[JsonDerivedType(typeof(ToolRefresh), "tool-refresh")]
-[JsonDerivedType(typeof(CuttingFit), "cutting-fit")]
-[JsonDerivedType(typeof(Probe), "probe")]
-[JsonDerivedType(typeof(Capability), "capability")]
-[JsonDerivedType(typeof(Removal), "removal")]
-[JsonDerivedType(typeof(Cycle), "cycle")]
-[JsonDerivedType(typeof(Estimate), "estimate")]
-[JsonDerivedType(typeof(FleetMatch), "fleet-match")]
-[JsonDerivedType(typeof(Run), "run")]
-[JsonDerivedType(typeof(QualitySeal), "quality-seal")]
-[JsonDerivedType(typeof(Traveler), "traveler")]
-[JsonDerivedType(typeof(Delivery), "delivery")]
-[JsonDerivedType(typeof(Engine), "engine")]
+[JsonDerivedType(typeof(ToolWear), FactKind.ToolWear)]
+[JsonDerivedType(typeof(ToolRefresh), FactKind.ToolRefresh)]
+[JsonDerivedType(typeof(CuttingFit), FactKind.CuttingFit)]
+[JsonDerivedType(typeof(Probe), FactKind.Probe)]
+[JsonDerivedType(typeof(Capability), FactKind.Capability)]
+[JsonDerivedType(typeof(Removal), FactKind.Removal)]
+[JsonDerivedType(typeof(Cycle), FactKind.Cycle)]
+[JsonDerivedType(typeof(Estimate), FactKind.Estimate)]
+[JsonDerivedType(typeof(FleetMatch), FactKind.FleetMatch)]
+[JsonDerivedType(typeof(Run), FactKind.Run)]
+[JsonDerivedType(typeof(QualitySeal), FactKind.QualitySeal)]
+[JsonDerivedType(typeof(Traveler), FactKind.Traveler)]
+[JsonDerivedType(typeof(Delivery), FactKind.Delivery)]
+[JsonDerivedType(typeof(Engine), FactKind.Engine)]
 public abstract partial record FabricationFact {
     // One const spells the discriminator the attribute declares and the surface reads back, never two literals.
     public const string KindProperty = "kind";
@@ -154,14 +232,17 @@ public abstract partial record FabricationFact {
 
     // Disposition keys the assessment population's own outcome dimension, so the [08] in-service share partitions
     // `ToolAssessments` and no serviceability bit crosses the wire for a consumer to re-derive.
-    public sealed record ToolWear(string Basis, double FractionRemaining, double ConservativeRemaining, string Action, double FitResidual) : FabricationFact {
+    // A receipt with no fit diagnostic has NO residual, and folding one out of an empty roster publishes a perfect
+    // fit into the residual histogram — the same fabricated zero the union's own law forbids everywhere else.
+    public sealed record ToolWear(string Basis, double FractionRemaining, double ConservativeRemaining, string Action,
+        Option<double> FitResidual) : FabricationFact {
         public static Option<ToolWear> Of(WearReceipt receipt) =>
             receipt.Critical.Map(critical => new ToolWear(
                 critical.Basis.Key,
                 critical.FractionRemaining,
                 critical.ConservativeRemaining,
                 receipt.Action.Disposition.Key,
-                receipt.Diagnostics.Map(static row => row.RootMeanSquareResidual).Fold(0.0, Math.Max)));
+                receipt.Diagnostics.Map(static row => row.RootMeanSquareResidual).Max()));
     }
 
     public sealed record ToolRefresh(double AgeSeconds) : FabricationFact {
@@ -230,24 +311,24 @@ public abstract partial record FabricationFact {
         public static QualitySeal Of(PassportEvidence passport) =>
             new(passport.Declarations.Count, passport.Sustainability.Map(Row).Strict());
 
-        // Evidence dispatches through its own total Switch, so an eleventh case breaks the build here rather than
-        // leaving its measure silently off every board; one declared row per sealed measure also keeps an
-        // undeclared measure absent instead of recording the zero a per-measure sum would fabricate.
+        // The measure TAG has one owner — `SustainabilityEvidence.Measure`, where the case is declared — so this
+        // arm selects the UNIT and reads the tag. Re-spelling all ten tags here is the two-rosters-over-one-
+        // vocabulary defect this page names, and it is the drift a case rename would publish silently. The
+        // dispatch stays total, so an eleventh case still breaks the build here rather than landing unmetered.
         static SustainabilityRow Row(SustainabilityEvidence evidence) => evidence.Switch(
-            state: evidence,
-            energyUse: static (held, value) => Measured(held, SustainabilityQuantity.Energy, value.Value.Joules),
-            carbon: static (held, value) => Measured(held, SustainabilityQuantity.Mass, value.Value.Kilograms),
-            waste: static (held, value) => Measured(held, SustainabilityQuantity.Mass, value.Value.Kilograms),
-            recycledContent: static (held, value) => Measured(held, SustainabilityQuantity.Fraction, value.Value.DecimalFractions),
-            waterUse: static (held, value) => Measured(held, SustainabilityQuantity.Volume, value.Value.Liters),
-            renewableEnergy: static (held, value) => Measured(held, SustainabilityQuantity.Fraction, value.Value.DecimalFractions),
-            recyclableMass: static (held, value) => Measured(held, SustainabilityQuantity.Mass, value.Value.Kilograms),
-            hazardousSubstance: static (held, value) => Measured(held, SustainabilityQuantity.Mass, value.Value.Kilograms),
-            repairability: static (held, value) => Measured(held, SustainabilityQuantity.Fraction, value.Value.DecimalFractions),
-            durability: static (held, value) => Measured(held, SustainabilityQuantity.Lifetime, value.Value.TotalSeconds));
+            energyUse: static value => Measured(value, SustainabilityQuantity.Energy, value.Value.Joules),
+            carbon: static value => Measured(value, SustainabilityQuantity.Mass, value.Value.Kilograms),
+            waste: static value => Measured(value, SustainabilityQuantity.Mass, value.Value.Kilograms),
+            recycledContent: static value => Measured(value, SustainabilityQuantity.Fraction, value.Value.DecimalFractions),
+            waterUse: static value => Measured(value, SustainabilityQuantity.Volume, value.Value.Liters),
+            renewableEnergy: static value => Measured(value, SustainabilityQuantity.Fraction, value.Value.DecimalFractions),
+            recyclableMass: static value => Measured(value, SustainabilityQuantity.Mass, value.Value.Kilograms),
+            hazardousSubstance: static value => Measured(value, SustainabilityQuantity.Mass, value.Value.Kilograms),
+            repairability: static value => Measured(value, SustainabilityQuantity.Fraction, value.Value.DecimalFractions),
+            durability: static value => Measured(value, SustainabilityQuantity.Lifetime, value.Value.TotalSeconds));
 
         static SustainabilityRow Measured(SustainabilityEvidence evidence, SustainabilityQuantity quantity, double value) =>
-            new(quantity.Key, evidence.GetType().Name, value);
+            new(quantity.Key, evidence.Measure, value);
     }
 
     public sealed record Traveler(int Amendments, int Produced) : FabricationFact {
@@ -255,7 +336,7 @@ public abstract partial record FabricationFact {
     }
 
     // Operator attestation stays on the receipt under its classification attribute; the fact carries the
-    // chain-of-custody verdict and controller identity alone.
+    // chain-of-custody verdict, the controller and its acknowledgement, and the physical-record count.
     public sealed record Delivery(string ProgramKind, bool Verified, string Controller, string Acknowledged, int Records) : FabricationFact {
         public static Delivery Of(ProgramDelivery delivery) => new(
             delivery.Image.Kind.Key,
@@ -306,7 +387,10 @@ public abstract partial record FabricationFact {
     UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow,
     RespectNullableAnnotations = true,
     RespectRequiredConstructorParameters = true,
-    Converters = [typeof(ThinktectureJsonConverterFactory)])]
+    // The kernel carrier factory (`Rasm/Domain/rails#CARRIER_CODEC`) is what lets `Seq<CapabilityFactRow>`
+    // decode at all; this mint stays explicit-null (no `OmitAbsent` modifier), so a `None` writes `null`
+    // and every `Option<T>` constructor parameter correctly carries no default.
+    Converters = [typeof(ThinktectureJsonConverterFactory), typeof(LanguageExtJsonConverterFactory)])]
 [JsonSerializable(typeof(FabricationFact))]
 public partial class FabricationWireContext : JsonSerializerContext;
 
@@ -344,15 +428,6 @@ public sealed class FabricationSurface(ReceiptSinkPort sink, FabricationWireCont
 - Boundary: instrument names are dotted `rasm.fabrication.<domain>.<measure>` with UCUM units, never pre-baked `_total` or unit suffixes; the port's `Scope` is the version-stamped package id the composing root admits by name; facts are event-shaped and ride counters and histograms while level-shaped measures ride pulled rows reading the composition's cells at collection cadence; every dimension key is a declared slot const carried on its own row's `Dimensions` column, so the governance leg derives view tag keys from the mounted roster and no second roster restates them; tenancy is the kernel `TenantContext` projection every job row declares and every `[04]` arm folds through the kernel `InstrumentSet.Tags` entry, so this page holds no tenant key, no baggage read, and no zero sentinel, and the fan projecting an envelope brackets it in that envelope's own `TenantContext.Stamp` before folding — the sink already stamps the frame onto every envelope, so a projection reading the ambient row inside that bracket attributes evidence to the tenant that produced it rather than to whichever tenant the draining thread happens to carry; a scalar pulled level carries no call-site tag, because a tag whose value flips between collections strands the previous value's series live forever, so a level holding one reading per basis or process is a keyed `Levels` family whose tag IS its cell key and whose reader emits every held key at collection — provenance beyond that key rides the event-shaped rows that carry it.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
-using LanguageExt;
-using Rasm.Domain;                              // Buckets, InstrumentSpec, MeasureForm, TelemetryContributorPort,
-                                                // TelemetryIdentity, TelemetrySource, TenantContext
-using static LanguageExt.Prelude;
-
-namespace Rasm.Fabrication.Process;
-
-// --- [SERVICES] -----------------------------------------------------------------------------
 public static partial class FabricationInstruments {
     public const string BasisSlot = "rasm.fabrication.basis";
     public const string ActionSlot = "rasm.fabrication.action";
@@ -387,7 +462,7 @@ public static partial class FabricationInstruments {
     // Residue is a fanned dimension over ONE distribution: each row pairs the receipt's wire field with the tag
     // value it writes under, so a third residue class is one row rather than a third write on the same series.
     private static readonly Seq<(string Field, string Value)> ResidueColumns = Seq(
-        ("uncutMm3", "uncut"), ("overcutMm3", "overcut"));
+        (FactField.UncutMm3, "uncut"), (FactField.OvercutMm3, "overcut"));
 
     // Flank-wear life is the Taylor fit by construction, so the wear residual shares the fit-model axis under the
     // model this package solves it with rather than a second residual instrument.
@@ -456,8 +531,10 @@ public static partial class FabricationInstruments {
         InstrumentSpec.Count(FleetMatches, "{match}", "machine matches assessed by process and ranking evidence", MeasureForm.Whole, TenantContext.TenantSlot, ProcessSlot, EvidenceSlot),
         InstrumentSpec.Advised(FleetUtilization, "1", "machine load factor at match assessment", MeasureForm.Real, Buckets.Fractions, TenantContext.TenantSlot, ProcessSlot),
         InstrumentSpec.Advised(FleetEffectiveness, "1", "machine effectiveness fraction at match assessment", MeasureForm.Real, Buckets.Fractions, TenantContext.TenantSlot, ProcessSlot),
-        // Keyed families, not scalars: one shop runs many processes and many wear bases at once, so a scalar
-        // cell reports whichever assessment landed last with nothing separating them.
+        // Keyed families, not scalars: one shop runs many processes and many wear bases at once, so a scalar cell
+        // reports whichever assessment landed last with nothing separating them. The absent tenant slot is
+        // STRUCTURAL — `LevelCells` projects a keyed entry as one `Measurement<T>` tagging the declared tag name
+        // with the cell key, so a slot beyond that tag exports nothing and would strand a derived view key.
         InstrumentSpec.Levels(FleetLoad, "1", "latest machine load factor at match assessment by process", MeasureForm.Real, ProcessSlot),
         InstrumentSpec.Levels(ToolFloor, "1", "latest remaining-life fraction at the critical wear state by basis", MeasureForm.Real, BasisSlot),
         InstrumentSpec.Advised(RunDuration, "s", "fabrication run wall duration", MeasureForm.Real, Buckets.CycleSeconds, TenantContext.TenantSlot, ProcessSlot, VerificationSlot),
@@ -479,180 +556,212 @@ public static partial class FabricationInstruments {
     // and `FabricationTrace` materializes its roster at the composition that reads it.
     public static TelemetryContributorPort Telemetry(string version, string schemaUrl = TelemetryIdentity.SchemaUrl) =>
         new(Scope: TelemetrySource.Fabrication.Key, Version: version, Instruments: Rows,
-            Planes: toSeq(FabricationTrace.Scopes), SchemaUrl: schemaUrl, Board: FabricationDescriptors.Pack);
+            Planes: toSeq(FabricationTrace.Scopes), Classifications: FabricationClassified.Values,
+            SchemaUrl: schemaUrl, Board: FabricationDescriptors.Pack);
 }
 ```
 
 ## [04]-[FACT_PROJECTION]
 
-- Owner: `FabricationInstruments.Arms` — the contributed kind-arm table over the Fabrication kind registry, the roster name the AppHost `[CONTRIBUTED_ARMS]` contributor table mounts.
-- Entry: `Arms` enters `ReceiptFan.Of` as one contributed table beside the Persistence `StoreInstruments.Arms` precedent and merges onto the fan's frozen arm map, so `ReceiptFan.Project` folds every envelope the sink emits into instrument writes with zero call-site metering; a duplicate kind across any two tables faults at the frozen merge.
+- Owner: `FabricationInstruments.Arms` — the contributed kind-arm table over the Fabrication kind registry, the roster name the AppHost `[CONTRIBUTED_ARMS]` contributor table mounts; `FabricationInstruments.Facts` — the typed-fact twin table the same fan mounts beside it.
+- Entry: `Arms` enters `ReceiptFan.Of` as one contributed table beside the Persistence `StoreInstruments.Arms` precedent and merges onto the fan's frozen arm map, so `ReceiptFan.Project` folds every envelope the sink emits into instrument writes with zero call-site metering; a duplicate kind across any two tables faults at the frozen merge; `Facts` enters the same `Of`'s typed side through `ReceiptFan.Arm`, covering the kinds whose emission and projection share the suite process — an in-process round reads its fields off the typed case the emitter just built, and every uncovered kind rides the typed dispatch's own wire fallthrough.
 - Auto: dimension values ride the payload's own key-scalar fields, so tag vocabularies stay bounded by the union's admission; every tag set materializes through the kernel `InstrumentSet.Tags` entry, which folds the ambient `TenantContext` partition in beside the arm's own slots, so a partitioned shop attributes every job row and a single-tenant one mints no dimension at all, while a hand-spelled `KeyValuePair` array beside it re-mints the one materialization the capsule owns and drops the partition on the arm that forgets it; a kind without a table row stays wire-only by declaration, and a fact field without an arm write stays wire evidence — `ConservativeRemaining` carries basis-keyed units one UCUM histogram cannot hold, `Score` is objective-relative, and the `Produced` and `Declarations` counts derive in the envelope store; the tool-wear and fleet-match arms also write the composition level cells the `[03]` pulled rows bind, so a level is current at every collection; the tool-wear, engine, and quality-seal arms each re-admit their key through the generated keyed `Validate` — disposition, phase, and quantity — so a dimension derives from its one vocabulary rather than a second wire field and an unadmitted key refuses rather than writing a value no partition selects and no roster row mounts; an outcome-partitioned population stamps its verdict on the one write that counts it, so a share's good half can never miss an occurrence its denominator recorded.
 - Packages: LanguageExt.Core, Rasm, BCL inbox.
 - Growth: a new projected kind is one table row here and its instrument row at `[03]-[INSTRUMENT_ROSTER]`.
-- Boundary: arm bodies are the one place fact wire names meet instrument writes — the platform-forced statement seam — and an arm re-reads only the one key its own tag vocabulary owns, never the payload fields its typed fact already admitted; arm execution rides the receipt-tap subscription the AppHost fan mounts on its hook rail, so a fan failure is that rail's shielded fault and never re-enters the emitting fold, and that fan brackets each envelope in the envelope's OWN `TenantContext.Stamp` before projecting, so the ambient row every arm folds is the tenant the sink already stamped rather than whichever partition the draining thread inherited; the two keyed level families and the catalog-cadence row carry no partition, because a keyed level's cell key IS its only tag and a provider refresh interval belongs to the shop rather than to a job; every write returns the kernel's typed rail and each arm folds its whole write set onto ONE `Fin`, so a refused write short-circuits its own arm and rides `InstrumentArm`'s own `Fin<Unit>` out through `ReceiptFan.Project` to the AppHost fan's rail-shaped `Observe`, which parks it point-attributed beside every other tap fault — no arm reaches a discard site and no folder mints a refusal cell of its own.
+- Boundary: arm bodies are the one place fact wire names meet instrument writes — the platform-forced statement seam — and an arm re-reads only the one key its own tag vocabulary owns, never the payload fields its typed fact already admitted; arm execution rides the receipt-tap subscription the AppHost fan mounts on its hook rail, so a fan failure is that rail's shielded fault and never re-enters the emitting fold, and that fan brackets each envelope in the envelope's OWN `TenantContext.Stamp` before projecting, so the ambient row every arm folds is the tenant the sink already stamped rather than whichever partition the draining thread inherited; the two keyed level families and the catalog-cadence row carry no partition, because a keyed level's cell key IS its only tag and a provider refresh interval belongs to the shop rather than to a job; the two per-event arms read the kernel `InstrumentSet.Enabled` listener gate behind their own admissions, so a quiet process skips their payload reads and tag mints while a malformed envelope still refuses, and a per-run arm takes no gate because its probe costs what its skipped write costs; every write returns the kernel's typed rail and each arm folds its whole write set onto ONE `Fin`, so a refused write short-circuits its own arm and rides `InstrumentArm`'s own `Fin<Unit>` out through `ReceiptFan.Project` to the AppHost fan's rail-shaped `Observe`, which parks it point-attributed beside every other tap fault — no arm reaches a discard site and no folder mints a refusal cell of its own.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
-using System.Collections.Frozen;
-using System.Text.Json;
-using LanguageExt;
-using Rasm.Domain;                              // Fault, InstrumentArm, InstrumentSet, TenantContext
-using Rasm.Fabrication.Tooling;                 // MaintenanceDisposition
-using static LanguageExt.Prelude;
-
-namespace Rasm.Fabrication.Process;
-
-// --- [TABLES] ------------------------------------------------------------------------------
 public static partial class FabricationInstruments {
     // Every arm returns the kernel write rail: refusals reach the subscribing seam instead of dying at the
     // delegate, and a fanned row set traverses its own table so the first refusal names the offending row.
+    // Kernel `InstrumentSet.Enabled` gates the two arms whose fire rate is per EVENT rather
+    // than per run — wear assessments and solver phases — and it seats BEHIND their admissions, so a malformed
+    // envelope refuses identically whether or not an exporter is attached and only the payload reads and tag
+    // mints behind a fully unlistened row set are skipped. `Enabled` reads an unmounted name as listened, so the
+    // gate can never absorb the mount refusal the write itself owes. Per-run arms take no gate: they fire once
+    // against a run's own cost, so the probe would cost what the skipped write costs.
     public static readonly FrozenDictionary<string, InstrumentArm> Arms =
         new Dictionary<string, InstrumentArm> {
             // Keyed levels demand a real key, so the basis admits on the rail BEFORE it serves as both the
             // tag and the family key — an absent basis collapses every edge onto one blank cell, replaying
             // exactly the scalar defect this keyed family deletes.
-            ["tool-wear"] = static (set, payload) =>
-                from edge in payload.GetProperty("basis").GetString() is { } key
+            [FactKind.ToolWear] = static (set, payload) =>
+                from edge in payload.GetProperty(FactField.Basis).GetString() is { } key
                     ? Fin.Succ(key)
                     : Fin.Fail<string>(new Fault.InvalidValue(Label: BasisSlot, Requirement: "a basis key on every wear assessment"))
                 // Dispositions re-admit through the generated keyed Validate exactly as the engine and quality-seal
                 // arms admit theirs, so the [08] in-service partition selects on a key the vocabulary owns and an
                 // unadmitted disposition refuses here rather than reporting a flat share of zero forever.
-                from disposition in MaintenanceDisposition.Validate(payload.GetProperty("action").GetString(), null, out MaintenanceDisposition? row) is null
+                from disposition in MaintenanceDisposition.Validate(payload.GetProperty(FactField.Action).GetString(), null, out MaintenanceDisposition? row) is null
                     ? Fin.Succ(row!)
                     : Fin.Fail<MaintenanceDisposition>(new Fault.InvalidValue(Label: ActionSlot, Requirement: "an admitted maintenance disposition key"))
-                from assessment in Fin.Succ(InstrumentSet.Tags(TenantContext.Current, (BasisSlot, edge), (ActionSlot, disposition.Key)))
-                from remaining in Fin.Succ(payload.GetProperty("fractionRemaining").GetDouble())
-                from _ in set.Write(ToolAssessments, 1L, assessment)
-                from _wear in set.Write(ToolWear, remaining, assessment)
-                from _fit in set.Write(FitResidual, payload.GetProperty("fitResidual").GetDouble(), InstrumentSet.Tags(TenantContext.Current, (ModelSlot, TaylorModel)))
-                // Shop state, not job state: the keyed floor holds one reading per basis for whichever tenant
-                // last ran that basis, so its cell key is its only tag and the tenant partition rides the
-                // event-shaped assessment rows above it.
-                from done in set.Level(ToolFloor, edge, remaining)
+                from done in set.Enabled(ToolAssessments, ToolWear, FitResidual, ToolFloor)
+                    ? from assessment in Fin.Succ(InstrumentSet.Tags(TenantContext.Current, (BasisSlot, edge), (ActionSlot, disposition.Key)))
+                      from remaining in Fin.Succ(payload.GetProperty(FactField.FractionRemaining).GetDouble())
+                      from _ in set.Write(ToolAssessments, 1L, assessment)
+                      from _wear in set.Write(ToolWear, remaining, assessment)
+                      from _fit in payload.TryGetProperty(FactField.FitResidual, out JsonElement residual)
+                          ? set.Write(FitResidual, residual.GetDouble(), InstrumentSet.Tags(TenantContext.Current, (ModelSlot, TaylorModel)))
+                          : Fin.Succ(unit)
+                      from floor in set.Level(ToolFloor, remaining, Some(edge))
+                      select floor
+                    : Fin.Succ(unit)
                 select done,
             // Catalog cadence is provider state no tenant commissions, so this row carries no partition.
-            ["tool-refresh"] = static (set, payload) =>
-                set.Write(ToolRefreshAge, payload.GetProperty("ageSeconds").GetDouble()),
-            ["cutting-fit"] = static (set, payload) =>
-                from model in Fin.Succ(InstrumentSet.Tags(TenantContext.Current, (ModelSlot, payload.GetProperty("model").GetString())))
-                from _ in set.Write(FitResidual, payload.GetProperty("residual").GetDouble(), model)
-                from done in set.Write(FitQuality, payload.GetProperty("determination").GetDouble(), model)
+            [FactKind.ToolRefresh] = static (set, payload) =>
+                set.Write(ToolRefreshAge, payload.GetProperty(FactField.AgeSeconds).GetDouble()),
+            [FactKind.CuttingFit] = static (set, payload) =>
+                from model in Fin.Succ(InstrumentSet.Tags(TenantContext.Current, (ModelSlot, payload.GetProperty(FactField.Model).GetString())))
+                from _ in set.Write(FitResidual, payload.GetProperty(FactField.Residual).GetDouble(), model)
+                from done in set.Write(FitQuality, payload.GetProperty(FactField.Determination).GetDouble(), model)
                 select done,
-            ["probe"] = static (set, payload) =>
-                from features in Fin.Succ(payload.GetProperty("features").GetInt64())
-                from conforming in Fin.Succ(payload.GetProperty("conforming").GetInt64())
+            [FactKind.Probe] = static (set, payload) =>
+                from features in Fin.Succ(payload.GetProperty(FactField.Features).GetInt64())
+                from conforming in Fin.Succ(payload.GetProperty(FactField.Conforming).GetInt64())
                 from partition in Fin.Succ(InstrumentSet.Tags(TenantContext.Current))
                 from _ in set.Write(ProbeFeatures, conforming, [.. partition, new(VerdictSlot, Pass)])
                 from _failed in set.Write(ProbeFeatures, features - conforming, [.. partition, new(VerdictSlot, Fail)])
-                from done in set.Write(ProbeDeviation, payload.GetProperty("worstDeviationMm").GetDouble(), partition)
+                from done in set.Write(ProbeDeviation, payload.GetProperty(FactField.WorstDeviationMm).GetDouble(), partition)
                 select done,
-            ["capability"] = static (set, payload) =>
-                from violations in Fin.Succ(payload.GetProperty("violations").GetInt64())
+            [FactKind.Capability] = static (set, payload) =>
+                from violations in Fin.Succ(payload.GetProperty(FactField.Violations).GetInt64())
                 from partition in Fin.Succ(InstrumentSet.Tags(TenantContext.Current))
-                from _ in toSeq(payload.GetProperty("rows").EnumerateArray()).TraverseM(row => set.Write(
-                    CapabilityIndex, row.GetProperty("value").GetDouble(),
-                    [.. partition, new(MetricSlot, row.GetProperty("metric").GetString())])).As()
+                from _ in toSeq(payload.GetProperty(FactField.Rows).EnumerateArray()).TraverseM(row => set.Write(
+                    CapabilityIndex, row.GetProperty(FactField.Value).GetDouble(),
+                    [.. partition, new(MetricSlot, row.GetProperty(FactField.Metric).GetString())])).As()
                 from _studies in set.Write(CapabilityStudies, 1L, [.. partition, new(VerdictSlot, violations == 0L ? Pass : Fail)])
                 from done in set.Write(CapabilityViolations, violations, partition)
                 select done,
-            ["removal"] = static (set, payload) =>
-                from gouges in Fin.Succ(payload.GetProperty("gouges").GetInt64())
+            [FactKind.Removal] = static (set, payload) =>
+                from gouges in Fin.Succ(payload.GetProperty(FactField.Gouges).GetInt64())
                 from partition in Fin.Succ(InstrumentSet.Tags(TenantContext.Current))
                 from _ in set.Write(RemovalVerifications, 1L, [.. partition, new(VerdictSlot, gouges == 0L ? Pass : Fail)])
                 from _defects in set.Write(RemovalDefects, gouges, partition)
                 from _residual in ResidueColumns.TraverseM(row => set.Write(
                     RemovalResidual, payload.GetProperty(row.Field).GetDouble(),
                     [.. partition, new(ResidueSlot, row.Value)])).As()
-                from done in set.Write(RemovalAirCut, payload.GetProperty("airCutRatio").GetDouble(), partition)
+                from done in set.Write(RemovalAirCut, payload.GetProperty(FactField.AirCutRatio).GetDouble(), partition)
                 select done,
-            ["cycle"] = static (set, payload) =>
+            [FactKind.Cycle] = static (set, payload) =>
                 Fin.Succ(InstrumentSet.Tags(TenantContext.Current)).Bind(partition =>
-                    set.Write(CycleDuration, payload.GetProperty("seconds").GetDouble(), partition)
-                        .Bind(_ => set.Write(CycleEnergy, payload.GetProperty("energyKwh").GetDouble(), partition))
-                        .Bind(_ => set.Write(CycleDistance, payload.GetProperty("distanceMm").GetDouble(), partition))),
-            ["estimate"] = static (set, payload) =>
-                from scope in Fin.Succ(InstrumentSet.Tags(TenantContext.Current, (ScopeSlot, payload.GetProperty("scope").GetString())))
-                from _ in set.Write(EstimateMoney, payload.GetProperty("money").GetDouble(),
-                    [.. scope, new(CurrencySlot, payload.GetProperty("currency").GetString())])
-                from _carbon in set.Write(EstimateCarbon, payload.GetProperty("carbonKg").GetDouble(), scope)
-                from done in set.Write(EstimateClock, payload.GetProperty("clockSeconds").GetDouble(),
-                    InstrumentSet.Tags(TenantContext.Current, (BackedSlot, payload.GetProperty("simulationBacked").GetBoolean() ? Simulation : Fallback)))
+                    set.Write(CycleDuration, payload.GetProperty(FactField.Seconds).GetDouble(), partition)
+                        .Bind(_ => set.Write(CycleEnergy, payload.GetProperty(FactField.EnergyKwh).GetDouble(), partition))
+                        .Bind(_ => set.Write(CycleDistance, payload.GetProperty(FactField.DistanceMm).GetDouble(), partition))),
+            [FactKind.Estimate] = static (set, payload) =>
+                from scope in Fin.Succ(InstrumentSet.Tags(TenantContext.Current, (ScopeSlot, payload.GetProperty(FactField.Scope).GetString())))
+                from _ in set.Write(EstimateMoney, payload.GetProperty(FactField.Money).GetDouble(),
+                    [.. scope, new(CurrencySlot, payload.GetProperty(FactField.Currency).GetString())])
+                from _carbon in set.Write(EstimateCarbon, payload.GetProperty(FactField.CarbonKg).GetDouble(), scope)
+                from done in set.Write(EstimateClock, payload.GetProperty(FactField.ClockSeconds).GetDouble(),
+                    InstrumentSet.Tags(TenantContext.Current, (BackedSlot, payload.GetProperty(FactField.SimulationBacked).GetBoolean() ? Simulation : Fallback)))
                 select done,
-            ["fleet-match"] = static (set, payload) =>
-                from machine in payload.GetProperty("process").GetString() is { } key
+            [FactKind.FleetMatch] = static (set, payload) =>
+                from machine in payload.GetProperty(FactField.Process).GetString() is { } key
                     ? Fin.Succ(key)
                     : Fin.Fail<string>(new Fault.InvalidValue(Label: ProcessSlot, Requirement: "a process key on every fleet match"))
                 from process in Fin.Succ(InstrumentSet.Tags(TenantContext.Current, (ProcessSlot, machine)))
-                from utilization in Fin.Succ(payload.GetProperty("utilization").GetDouble())
+                from utilization in Fin.Succ(payload.GetProperty(FactField.Utilization).GetDouble())
                 from _ in set.Write(FleetMatches, 1L,
-                    [.. process, new(EvidenceSlot, payload.GetProperty("measured").GetBoolean() ? Measured : Declared)])
+                    [.. process, new(EvidenceSlot, payload.GetProperty(FactField.Measured).GetBoolean() ? Measured : Declared)])
                 from _utilization in set.Write(FleetUtilization, utilization, process)
-                from _effect in set.Write(FleetEffectiveness, payload.GetProperty("effectiveness").GetDouble(), process)
-                // Machine load is shop state under its own process key, so the tenant partition stays on the
-                // event-shaped match rows and never multiplies this keyed family.
-                from done in set.Level(FleetLoad, machine, utilization)
+                from _effect in set.Write(FleetEffectiveness, payload.GetProperty(FactField.Effectiveness).GetDouble(), process)
+                from done in set.Level(FleetLoad, utilization, Some(machine))
                 select done,
-            ["run"] = static (set, payload) =>
+            [FactKind.Run] = static (set, payload) =>
                 from partition in Fin.Succ(InstrumentSet.Tags(TenantContext.Current))
-                from _ in set.Write(RunDuration, payload.GetProperty("seconds").GetDouble(), [
+                from _ in set.Write(RunDuration, payload.GetProperty(FactField.Seconds).GetDouble(), [
                     .. partition,
-                    new(ProcessSlot, payload.GetProperty("process").GetString()),
-                    new(VerificationSlot, payload.GetProperty("verification").GetString())])
-                from _warnings in set.Write(RunWarnings, payload.GetProperty("warnings").GetInt64(), partition)
-                from done in toSeq(payload.GetProperty("kinds").EnumerateArray()).TraverseM(kind => set.Write(
+                    new(ProcessSlot, payload.GetProperty(FactField.Process).GetString()),
+                    new(VerificationSlot, payload.GetProperty(FactField.Verification).GetString())])
+                from _warnings in set.Write(RunWarnings, payload.GetProperty(FactField.Warnings).GetInt64(), partition)
+                from done in toSeq(payload.GetProperty(FactField.Kinds).EnumerateArray()).TraverseM(kind => set.Write(
                     RunArtifacts, 1L, [.. partition, new(KindSlot, kind.GetString())])).As()
                 select unit,
             // One row per sealed measure, so the quantity key picks the mounted stream and the measure key rides the
             // tag — a per-measure write list here would re-enumerate the vocabulary the fact already resolved.
-            ["quality-seal"] = static (set, payload) =>
-                toSeq(payload.GetProperty("sustainability").EnumerateArray()).TraverseM(row =>
-                    SustainabilityQuantity.Validate(row.GetProperty("quantity").GetString(), null, out SustainabilityQuantity? quantity) is null
-                        ? set.Write(quantity!.Instrument, row.GetProperty("value").GetDouble(),
-                            InstrumentSet.Tags(TenantContext.Current, (MeasureSlot, row.GetProperty("measure").GetString())))
+            [FactKind.QualitySeal] = static (set, payload) =>
+                toSeq(payload.GetProperty(FactField.Sustainability).EnumerateArray()).TraverseM(row =>
+                    SustainabilityQuantity.Validate(row.GetProperty(FactField.Quantity).GetString(), null, out SustainabilityQuantity? quantity) is null
+                        ? set.Write(quantity!.Instrument, row.GetProperty(FactField.Value).GetDouble(),
+                            InstrumentSet.Tags(TenantContext.Current, (MeasureSlot, row.GetProperty(FactField.Measure).GetString())))
                         : Fin.Fail<Unit>(new Fault.InvalidValue(
                             Label: nameof(SustainabilityQuantity), Requirement: "an admitted sustainability quantity key"))).As()
                     .Map(static _ => unit),
-            ["traveler"] = static (set, payload) =>
-                set.Write(TravelerAmendments, payload.GetProperty("amendments").GetInt64(), InstrumentSet.Tags(TenantContext.Current)),
-            ["delivery"] = static (set, payload) =>
+            [FactKind.Traveler] = static (set, payload) =>
+                set.Write(TravelerAmendments, payload.GetProperty(FactField.Amendments).GetInt64(), InstrumentSet.Tags(TenantContext.Current)),
+            [FactKind.Delivery] = static (set, payload) =>
                 set.Write(DeliveryPrograms, 1L, InstrumentSet.Tags(TenantContext.Current,
-                    (KindSlot, payload.GetProperty("programKind").GetString()),
-                    (VerdictSlot, payload.GetProperty("verified").GetBoolean() ? Verified : Unverified),
-                    (ControllerSlot, payload.GetProperty("controller").GetString()))),
-            ["engine"] = static (set, payload) =>
-                EnginePhase.Validate(payload.GetProperty("phase").GetString(), null, out EnginePhase? phase) is null
-                    ? set.Write(EngineSteps, payload.GetProperty("count").GetInt64(), InstrumentSet.Tags(TenantContext.Current,
+                    (KindSlot, payload.GetProperty(FactField.ProgramKind).GetString()),
+                    (VerdictSlot, payload.GetProperty(FactField.Verified).GetBoolean() ? Verified : Unverified),
+                    (ControllerSlot, payload.GetProperty(FactField.Controller).GetString()))),
+            [FactKind.Engine] = static (set, payload) =>
+                EnginePhase.Validate(payload.GetProperty(FactField.Phase).GetString(), null, out EnginePhase? phase) is not null
+                    ? Fin.Fail<Unit>(new Fault.InvalidValue(Label: EngineSteps, Requirement: "an admitted engine phase key"))
+                    : set.Enabled(EngineSteps)
+                    ? set.Write(EngineSteps, payload.GetProperty(FactField.Count).GetInt64(), InstrumentSet.Tags(TenantContext.Current,
                         (SolverSlot, phase!.Solver.Key),
                         (PhaseSlot, phase.Key)))
-                    : Fin.Fail<Unit>(new Fault.InvalidValue(Label: EngineSteps, Requirement: "an admitted engine phase key")),
+                    : Fin.Succ(unit),
         }.ToFrozenDictionary(StringComparer.Ordinal);
+
+    // The typed twin table: an in-process round dispatches these off the fact the emitter just built, deleting
+    // the per-field name lookup and the per-read parse refusal — a typed case's vocabulary rows (`EnginePhase`
+    // here) admitted at construction, so the arm re-validates nothing the type already proves. Registration
+    // rides `ReceiptFan.Arm`, the fan's own key-pinning erasure, and every kind absent here stays
+    // wire-projected through the typed dispatch's fallthrough — two tables, ONE fan, never a parallel fan.
+    public static readonly FrozenDictionary<Type, InstrumentArm<object>> Facts =
+        new[] {
+            ReceiptFan.Arm<FabricationFact.Engine>(static (set, fact) =>
+                set.Enabled(EngineSteps)
+                    ? set.Write(EngineSteps, fact.Count, InstrumentSet.Tags(TenantContext.Current,
+                        (SolverSlot, fact.Phase.Solver.Key),
+                        (PhaseSlot, fact.Phase.Key)))
+                    : Fin.Succ(unit)),
+            ReceiptFan.Arm<FabricationFact.CuttingFit>(static (set, fact) =>
+                from model in Fin.Succ(InstrumentSet.Tags(TenantContext.Current, (ModelSlot, fact.Model)))
+                from _ in set.Write(FitResidual, fact.Residual, model)
+                from done in set.Write(FitQuality, fact.Determination, model)
+                select done),
+            ReceiptFan.Arm<FabricationFact.Cycle>(static (set, fact) =>
+                Fin.Succ(InstrumentSet.Tags(TenantContext.Current)).Bind(partition =>
+                    set.Write(CycleDuration, fact.Seconds, partition)
+                        .Bind(_ => set.Write(CycleEnergy, fact.EnergyKwh, partition))
+                        .Bind(_ => set.Write(CycleDistance, fact.DistanceMm, partition)))),
+        }.ToFrozenDictionary();
 }
 ```
 
 ## [05]-[CLASSIFICATION]
 
-- Owner: `FabricationClassified` — the sealed attribute rows binding this folder's classified receipt members to the suite taxonomy by value.
+- Owner: `FabricationClassified` — the sealed attribute rows binding this folder's classified receipt members to the suite taxonomy by value, and the `Values` roster contributing those same texts upward on the `[03]-[INSTRUMENT_ROSTER]` port.
 - Cases: personal · confidential · credential.
 - Auto: an annotated member redacts wherever a log or export seam expands it — HMAC for personnel and heat identity so cross-record correlation survives, erase for credential material — and sealed artifact bytes never redact: canonical documents are domain truth, classification governs telemetry egress alone.
-- Packages: Microsoft.Extensions.Compliance.Redaction, BCL inbox.
-- Growth: a newly classified member family is one attribute row binding an existing taxonomy key; a new sensitivity class is a suite-taxonomy decision, never a folder mint.
-- Boundary: taxonomy name and row keys are value federation to the suite `DataClassification` vocabulary — the attribute rows carry `(taxonomy, value)` string pairs and no type reference crosses the package boundary; annotated owners are `AttestationPayload.Signer` and `.Credential`, `HeatNumber`, `WelderQualification.Welder`, `TravelerAmendment.Actor`, and `ProgramDelivery.Operator`, each carrying its attribute at the declaring fence; `DataClassificationTypeConverter` string round-tripping stays under its `EXTEXP0002` gate as a declared policy value when a classification ever binds from configuration.
+- Packages: Microsoft.Extensions.Compliance.Redaction, Rasm (`ClassifiedValue`), LanguageExt.Core, BCL inbox.
+- Growth: a newly classified member family is one attribute row binding an existing taxonomy key plus its `ClassifiedValue` row on `Values`, both off one const; a new sensitivity class is a suite-taxonomy decision, never a folder mint.
+- Boundary: taxonomy name and row keys are value federation to the suite `DataClassification` vocabulary — the attribute rows carry `(taxonomy, value)` string pairs and no type reference crosses the package boundary, and `Values` STRENGTHENS that law rather than qualifying it: the contribution rides the existing `TelemetryContributorPort` seam as the identical text, so the suite's redaction owner proves this folder's values against its rostered set at boot and an unrostered value refuses at composition instead of reaching the erasing fallback at egress, where a deleted dimension raises nothing and is noticed only when someone misses it; annotated owners are `AttestationPayload.Signer` and `.Credential`, `HeatNumber`, `WelderQualification.Welder`, `TravelerAmendment.Actor`, and `ProgramDelivery.Operator`, each carrying its attribute at the declaring fence; `DataClassificationTypeConverter` string round-tripping stays under its `EXTEXP0002` gate as a declared policy value when a classification ever binds from configuration.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
-using Microsoft.Extensions.Compliance.Classification;   // DataClassification, DataClassificationAttribute
-
-namespace Rasm.Fabrication.Process;
-
-// --- [POLICIES] -----------------------------------------------------------------------------
 public static class FabricationClassified {
     const string SuiteTaxonomy = "DataClassification";
+    const string PersonalValue = "personal";
+    const string ConfidentialValue = "confidential";
+    const string CredentialValue = "credential";
 
-    public static readonly DataClassification Personal = new(SuiteTaxonomy, "personal");
-    public static readonly DataClassification Confidential = new(SuiteTaxonomy, "confidential");
-    public static readonly DataClassification Credential = new(SuiteTaxonomy, "credential");
+    public static readonly DataClassification Personal = new(SuiteTaxonomy, PersonalValue);
+    public static readonly DataClassification Confidential = new(SuiteTaxonomy, ConfidentialValue);
+    public static readonly DataClassification Credential = new(SuiteTaxonomy, CredentialValue);
+
+    // The CONTRIBUTED half of the federation: the same three `(taxonomy, value)` texts the framework rows
+    // above are minted from, published as kernel `ClassifiedValue` pairs so the suite's redaction owner
+    // ENUMERATES this folder's values at boot instead of meeting one for the first time at an egress seam,
+    // where an unrostered value resolves no redactor row and the fail-closed erasing fallback deletes the
+    // dimension while raising nothing. Both columns read one const per value, so a re-spelling cannot land on
+    // the framework row and miss the contribution; the crossing stays text and no compliance type reaches the
+    // kernel port, so the value-federation law gains its proof rather than an exception.
+    public static readonly Seq<ClassifiedValue> Values = Seq(
+        new ClassifiedValue(SuiteTaxonomy, PersonalValue),
+        new ClassifiedValue(SuiteTaxonomy, ConfidentialValue),
+        new ClassifiedValue(SuiteTaxonomy, CredentialValue));
 }
 
 public sealed class PersonalDataAttribute() : DataClassificationAttribute(FabricationClassified.Personal);
@@ -672,15 +781,6 @@ public sealed class CredentialDataAttribute() : DataClassificationAttribute(Fabr
 - Boundary: the band is composition-entered and reaches a solver through the run spine, never a process-static source a domain page reads ambiently — the nullable receiver is what makes a lane holding no band run untraced rather than mint one, so a headless kernel run needs no ambient source and no branch at the call site; `FabricationFact.Engine` stays the receipt truth and the span carries no counter — a metric read off a span is the sampling-dependent duplicate the fan already owns; an unadmitted scope refuses on the kernel rail, so a composition that omits this roster fails at the first bracket rather than silently dropping every solver span; trace-based exemplars join the `[03]` histograms to these spans at the provider, and the meter scope stays `TelemetrySource.Fabrication` — a `TraceScope` and a meter scope are distinct grammars and neither derives from the other.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
-using System.Collections.Immutable;
-using System.Diagnostics;                       // Activity, ActivityEvent
-using LanguageExt;
-using Rasm.Domain;                              // Op, SpanBand, TraceScope
-
-namespace Rasm.Fabrication.Process;
-
-// --- [SERVICES] -----------------------------------------------------------------------------
 public static class FabricationTrace {
     // Every solver row is one admitted band scope, so the roster travels whole on the contributor port and no
     // page names a second source; `ImmutableArray` freezes it once here and the port carries it as `Seq`.
@@ -717,15 +817,6 @@ public static class FabricationTrace {
 - Boundary: hook scope rides the `FabricationRuntime` instance, so two apps composing the library never share a mutable registry or shadow each other's subscribers; ids and modalities live on the roster rows alone, so a `Live` seat re-spelling either is the forked-vocabulary defect; ids obey the four-segment `rasm.<pkg>.<domain>.<point>` grammar the `HookId` admission enforces, and a veto refusal returns on the run's own rail as the subscriber's typed fault.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
-using LanguageExt;
-using Rasm.Domain;                              // HookId, HookModality, HookPoint, IHookPoint, IsolatedFault
-using Thinktecture;
-using static LanguageExt.Prelude;
-
-namespace Rasm.Fabrication.Process;
-
-// --- [TYPES] --------------------------------------------------------------------------------
 // Point roster keyed rasm.fabrication.<domain>.<point> — the kernel HookId four-segment grammar. Modality is the
 // kernel column deciding veto admission and replay retention, so id and delivery semantics belong to the row and
 // a `Live()` seat re-spelling either forks the vocabulary a construction literal would own.
@@ -779,16 +870,6 @@ public sealed record FabricationHooks(
 - Boundary: indicator, severity, panel, descriptor-row, and burn vocabularies are the kernel capsule's and cross the language boundary as values, never types; a success share is a partition over the ONE counter its outcome dimension already fans — a good-half twin doubles the series the roster mounts and strands its denominator on the next arm edit — while `Ratio` stays reserved for genuinely independent counters and a saturation indicator names one pulled level against a bound because a load or life reading forms no counter pair, its `LevelBreach` column carrying the direction so a utilization ceiling and a remaining-life floor need no second shape; a partition's good set is derived where a vocabulary owns the verdict and named off the axis const where the population itself owns it, never spelled as a value literal; every named series is written by an arm at `[04]` on every occurrence, so no denominator depends on a veto path; the shop's two headroom levels are KEYED families rather than scalars, so a floor holds per wear basis and a load per process instead of every assessment overwriting one cell, and each arm admits its key on the typed rail before it writes; the pack's boards and alerts stay descriptor data — query dialect, datasource binding, provisioning, and delivery routing are the deploy plane's, and the pack's own `Wire` column spells `fabrication.slo`, the provenance key that plane's closed tuple admits this projection under.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
-using LanguageExt;
-using NodaTime;
-using Rasm.Domain;                              // BoardPack, LevelBreach, Objective, PanelKind, PanelSpec, Sli
-using Rasm.Fabrication.Tooling;                 // MaintenanceDisposition
-using static LanguageExt.Prelude;
-
-namespace Rasm.Fabrication.Process;
-
-// --- [OPERATIONS] ---------------------------------------------------------------------------
 public static class FabricationDescriptors {
     public static readonly BoardPack Pack = new(
         Wire: "fabrication.slo", // the provenance key the deploy tuple admits this projection under; pack and key are one value

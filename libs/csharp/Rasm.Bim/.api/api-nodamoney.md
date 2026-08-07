@@ -44,14 +44,14 @@
 
 [PUBLIC_TYPE_SCOPE]: boundary serialization and failure
 
-| [INDEX] | [SYMBOL]                        | [TYPE_FAMILY]    | [CAPABILITY]                                                             |
-| :-----: | :------------------------------ | :--------------- | :----------------------------------------------------------------------- |
-|  [01]   | `MoneyJsonConverter`            | STJ converter    | `JsonConverter<Money>` — the `System.Text.Json` money codec              |
-|  [02]   | `CurrencyJsonConverter`         | STJ converter    | `JsonConverter<Currency>` — the currency-code codec                      |
-|  [03]   | `MoneyTypeConverter`            | TypeConverter    | the `System.ComponentModel` string↔value converter                       |
-|  [04]   | `CurrencyTypeConverter`         | TypeConverter    | the currency `System.ComponentModel` string↔value converter              |
-|  [05]   | `InvalidCurrencyException`      | currency failure | thrown on an unknown ISO 4217 code (`FromCode` miss)                     |
-|  [06]   | `MoneyContextMismatchException` | currency failure | thrown on a cross-currency op when `EnforceZeroCurrencyMatching` rejects |
+| [INDEX] | [SYMBOL]                        | [TYPE_FAMILY]    | [CAPABILITY]                                                              |
+| :-----: | :------------------------------ | :--------------- | :------------------------------------------------------------------------ |
+|  [01]   | `MoneyJsonConverter`            | STJ converter    | `JsonConverter<Money>` — the `System.Text.Json` money codec               |
+|  [02]   | `CurrencyJsonConverter`         | STJ converter    | `JsonConverter<Currency>` — the currency-code codec                       |
+|  [03]   | `MoneyTypeConverter`            | TypeConverter    | the `System.ComponentModel` string↔value converter                        |
+|  [04]   | `CurrencyTypeConverter`         | TypeConverter    | the currency `System.ComponentModel` string↔value converter               |
+|  [05]   | `InvalidCurrencyException`      | currency failure | unknown ISO 4217 code; also the cross-currency op and the zero-match gate |
+|  [06]   | `MoneyContextMismatchException` | context failure  | two operands carrying DIFFERENT `MoneyContext`s — `Add`/`Subtract`/`%`    |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -116,12 +116,12 @@
 - `Currency` is a `readonly record struct` over the ISO 4217 `Code`; `Symbol`/`MinimalAmount` resolve through `CurrencyInfo.GetInstance(currency)` against the embedded registry, and `Currency.NoCurrency` is the neutral sentinel.
 - `Money`'s `decimal` payload is the exact base-10 form a financial amount requires; `double`-amount ctors round to the currency's minor unit on construction, and `ToMinorUnits`/`FromMinorUnits` is the integer-penny round-trip a wire/ledger persists without float drift.
 - `MoneyExtensions.Split` distributes a total into equal shares or weighted integer ratios losslessly — the remainder pennies spread by the rounding rule so the parts sum exactly to the whole, the operation a naive `amount / n` multiply silently loses.
-- `MoneyContext` is the ambient rounding/precision policy — a thread-current `sealed record` installed through `CreateScope` — so a whole estimate folds under one `IRoundingStrategy` (`StandardRounding(ToEven)` banker's default, `NoRounding` exact, `CashDenominationRounding(decimals)` smallest-coin) rather than threading `MidpointRounding` through every constructor.
+- `MoneyContext` is a property of the VALUE, not of a block: the `Money` ctor stamps `MoneyContext.CurrentContext` into a 7-bit `MoneyContextIndex` in the value's own flag bits, `money.Context` reads it back, and `Add`/`Subtract`/`Remainder` THROW `MoneyContextMismatchException` on two operands carrying different contexts — so a policy is observed only where every mint sees it. `Create` builds the policy (its `IRoundingStrategy` the `StandardRounding(ToEven)` banker's default, `NoRounding` exact, or `CashDenominationRounding(decimals)` smallest-coin) rather than threading `MidpointRounding` per construction; `CreateAndSetDefault`/`DefaultThreadContext` seat it process-wide and the `IDisposable` `CreateScope` seats it on the AsyncLocal `ThreadContext` for a block.
 
 [STACKING]:
 - seam `MeasureValue` (`Rasm.Element/Properties/quantity#MEASURE_VALUE`): the `CostItem.ValueOf` join is the canonical stack — the seam owns the dimensioned takeoff read as the SI magnitude `Quantity.Si`, `Money` owns the priced scalar, and the line value is `Rate * (decimal)Quantity.Si` (`Money * decimal -> Money`); `Money / decimal` applies the `UnitBasis` per-basis denominator.
-- `GeometryGymIFC_Core` (`.api/api-geometrygym-ifc.md`): the `CostProjection.ValueOf` fold lifts the IFC `(double AppliedValue, string Currency, double UnitBasis)` triple off `IfcCostValue.AppliedValue`/`UnitBasis.UnitComponent`(`IfcMonetaryUnit.Currency`)/`UnitBasis.ValueComponent` into `new Money((decimal)amount, Currency.FromCode(iso4217))` then `Money / (decimal)basis`, so the foreign amount becomes typed money at the boundary.
-- `MPXJ.Net` (`Rasm.Persistence/.api/api-mpxj.md`): the 5D cost-input peer of the IFC graph — `ResourceAssignment.Cost`/`.BudgetCost`/`.Units` and `Resource.StandardRate`/`.Cost`/`.CostPerUse`/`.OvertimeRate` surface as parse-only foreign `double?`; the same `CostProjection.ValueOf` fold lifts each into `Money` at the boundary, the rate as `new Money((decimal)StandardRate.Amount, ...)` then `Money * (decimal)Units`. `QuikGraph` (`libs/csharp/.api/api-quikgraph.md`) owns the CPM schedule math over `Task.Predecessors`/`Successors`; `NodaMoney` owns only the priced scalar the resource loading projects onto.
+- `GeometryGymIFC_Core` (`.api/api-geometrygym-ifc.md`): the `CostProjection.ValueOf` fold lifts the IFC `(double AppliedValue, double UnitBasis)` pair off `IfcCostValue.AppliedValue`/`UnitBasis.ValueComponent` into `new Money((decimal)amount, currency)` then `Money / (decimal)basis`, the currency resolving from the project `IfcMonetaryUnit` alone (`UnitBasis.UnitComponent` is the measure denominator's unit, never a currency source), so the foreign amount becomes typed money at the boundary.
+- `MPXJ.Net` (`libs/csharp/Rasm.Persistence/.api/api-mpxj.md`): the 5D cost-input peer of the IFC graph — `ResourceAssignment.Cost`/`.BudgetCost`/`.Units` and `Resource.StandardRate`/`.Cost`/`.CostPerUse`/`.OvertimeRate` surface as parse-only foreign `double?`; the same `CostProjection.ValueOf` fold lifts each into `Money` at the boundary, the rate as `new Money((decimal)StandardRate.Amount, ...)` then `Money * (decimal)Units`. `QuikGraph` (`libs/csharp/.api/api-quikgraph.md`) owns the CPM schedule math over `Task.Predecessors`/`Successors`; `NodaMoney` owns only the priced scalar the resource loading projects onto.
 - `LanguageExt.Core`: an unknown ISO 4217 code traps through `CostMoney.Of` (`Try.lift<Money>(...).Run()` catching `InvalidCurrencyException`) onto the typed `Model/faults#FAULT_BAND` `BimFault.CodecReject` lifted bare onto `Fin<T>` (the band is `Expected`-derived, no `.ToError()` hop); `CostSchedule.Rollup` is a `Fold` over the `Money` additive operator with `Money.AdditiveIdentity` the no-currency anchor, and a cross-currency rollup reprices each line through `ExchangeRate.Convert` into the reporting currency first.
 - `Thinktecture.Runtime.Extensions` (`libs/csharp/.api/api-thinktecture-json.md`): the `CostCategory`/`CostScheduleKind`/`ResourceKind` `[SmartEnum]` rows own the cost discriminants and `Money` is the payload a priced line carries; the JSON wire serializes `Money`/`Currency` through `MoneyJsonConverter`/`CurrencyJsonConverter` at the `Exchange/wire` boundary.
 
@@ -130,7 +130,7 @@
 - currency resolution enters through `Currency.FromCode` against the ISO 4217 registry; a regional or custom currency registers through `CurrencyRegistry.TryAdd`/`TryRemove`.
 - a multi-share allocation (a lump-sum split across line items, a contingency drawdown across packages) enters through `MoneyExtensions.Split` so the parts sum exactly.
 - cross-currency repricing enters through `ExchangeRate.Convert` on a both-legs-matched fx row.
-- `MoneyContext` scope owns the rounding/precision policy, folding a whole estimate under one ambient rule.
+- `MoneyContext` is seated ONCE at the composition root (`CreateAndSetDefault`/`DefaultThreadContext`) so every mint in a fold carries one context; a block-scoped `CreateScope` around part of an estimate forks that space and the first `+` across the fork throws, and `ExchangeRate.Convert` (no context argument) can only ever carry the ambient one.
 - `Money`/`Currency` cross the `Exchange/wire` boundary through `MoneyJsonConverter`/`CurrencyJsonConverter` or the integer `ToMinorUnits` form; internal code holds the typed value per the boundary-mapping law.
 - `FastMoney` is admitted only where a hot inner aggregation needs its `long` 4-decimal storage, never as a parallel money model.
 

@@ -51,10 +51,14 @@ Cross-folder substrate every C# package composes. Libraries emit telemetry throu
 - `Alimer.Bindings.MeshOptimizer` — GPU-ready mesh optimization, meshlet, LOD, and `EXT_meshopt_compression` codec substrate.
 
 [GEOMETRY_INTERCHANGE]:
+- `ACadSharp` — DWG/DXF/SVG wire over one `CadDocument`: Bim mesh read, Fabrication profile read, AppUi drafting write.
 - `SharpGLTF.Core` — glTF 2.0 schema I/O and the process-global `ExtensionsFactory` every consumer registers on once.
 - `SharpGLTF.Toolkit` — typed vertex, mesh, scene, and material builders folding into a `ModelRoot`.
 - `SharpGLTF.Runtime` — scene templatization and per-instance animation decode.
 - `SharpGLTF.Ext.3DTiles` — `EXT_structural_metadata` and `EXT_mesh_features` overlay on the shared glTF graph.
+
+[MESH_PROCESSING]:
+- `geometry3Sharp` — `DMesh3` OBJ/STL/OFF text-mesh decode and the line-sourced `BiArcFit2` biarc fitter.
 
 [GRAPH_ALGORITHM]:
 - `QuikGraph` — pure-managed graph containers and `AlgorithmExtensions` for the graph-algorithm walks.
@@ -86,8 +90,9 @@ Cross-folder substrate every C# package composes. Libraries emit telemetry throu
 - `Generator.Equals` — source-generated structural equality and member-level diff; runtime `Generator.Equals.Runtime`.
 - `Google.Protobuf` — carries the `rasm.element.v1` graph wire messages.
 - `Grpc.AspNetCore` — gRPC server hosting for measured-execution endpoints.
+- `Grpc.Core.Api` — method descriptors, marshallers, and the per-call server context every hosted service binds.
 - `Grpc.Net.Client` — outbound gRPC channels with retry and hedging.
-- `Grpc.Tools` — message-only codegen (`GrpcServices=None`).
+- `Grpc.Tools` — build-only `<Protobuf>` codegen under `PrivateAssets=all`; each consumer sets its `GrpcServices` mode, server codegen at app roots.
 - `Microsoft.AspNetCore.JsonPatch.SystemTextJson` — RFC 6902 document mutation over the STJ wire.
 - `Riok.Mapperly` — compile-time graph↔DTO/proto/record mapping; runtime `Riok.Mapperly.Abstractions`.
 

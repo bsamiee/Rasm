@@ -11,12 +11,12 @@ Each payload discriminant composes from its owning sibling's vocabulary — the 
 ## [02]-[FAULT_BAND]
 
 - Owner: `GeometryFault` the closed `[Union]` at the `Rasm.Numerics` root, one case per reachable failure carrying its typed payload and band-2400 `Code`, lowered to the `Error` rail through `ToError()`; `FaultCluster` the `[SmartEnum<int>]` taxonomy resolving a code's cluster name and owning namespace by stride arithmetic with no lookup table beside the vocabulary; `ParametricStage`/`DevelopmentStage` the `StringOrdinal`-keyed stage vocabularies, string-keyed because the stage renders into the wire-bound `Message`.
-- Cases: cases sub-band by cluster across the 2400-2449 century — each sibling's cluster owns a four-wide stride, the `parametric` tail spending the final two codes; `DegenerateInput` at the band base is the one cross-cutting admission case every namespace routes, the recorded exception to cluster-locality, and the fence carries the case, code, and payload roster; its `Index` is `Option<int>` — a per-element degeneracy threads the real ordinal through the implicit lift, a whole-input degeneracy states absence as `None`, and a sentinel ordinal is the deleted form.
+- Cases: cases sub-band by cluster across the 2400-2449 century — each sibling's cluster owns a four-wide stride, the `parametric` tail spending the final two codes; the BASE stride carries the two cross-cutting cases every namespace routes and is the recorded exception to cluster-locality — `DegenerateInput` 2400 the admission refusal and `RunAbandoned` 2403 the cooperative-abandonment refusal, whose `Progress` is the fraction the abandoning stage measured and whose `Witness` names that stage, so a governed managed fold and a cancelled native engine run lower ONE vocabulary rather than a fault per lane; the fence carries the case, code, and payload roster; `DegenerateInput`'s `Index` is `Option<int>` — a per-element degeneracy threads the real ordinal through the implicit lift, a whole-input degeneracy states absence as `None`, and a sentinel ordinal is the deleted form.
 - Entry: each case is a positional record constructor returning the union; a sibling routes a failure as `GeometryFault.<Case>(...).ToError()`, the payload matched and read before lowering, `ToError` projecting the band `Code` and the parseable `Message` into the `Error` the `Fin<T>` failure channel carries.
 - Auto: `Code`, `Message`, and `Cluster` are total generated folds — a new case breaks every site at compile time, never a silent `_` arm; `Message` renders the `geometry:<case>:<field>=<value>` wire grammar with every keyed discriminant projected through its `Key`; `Cluster` is stride arithmetic over the single `FaultCluster` declaration.
 - Receipt: none — `GeometryFault` is the failure rail itself, the terminal value a `Fin<T>` carries; a fault is the residual.
 - Packages: Thinktecture.Runtime.Extensions for `[Union]`/`[SmartEnum]` and the `StringOrdinal` accessor, LanguageExt.Core for the `Error`/`Fin` failure channel, BCL `UInt128`.
-- Growth: a new reachable failure is one `GeometryFault` case carrying its typed payload and the next free ordinal in its sibling's sub-band; the 2400-2449 century is fully allocated across its clusters, so a genuinely new cluster is a federation re-plan against the AEC materials boundary, never a silent squeeze, and a new stage is one `static readonly` row every stage-reading fold re-proves at compile time.
+- Growth: a new reachable failure is one `GeometryFault` case carrying its typed payload and the next free ordinal in its sibling's sub-band, a cross-cutting failure no single cluster owns taking the base stride beside `DegenerateInput`; a sibling whose stride is spent widens nothing — the stride is uniform and `OfCode` is its arithmetic — so the case homes cross-cutting or the century re-plans; the 2400-2449 century is fully allocated across its clusters, so a genuinely new cluster is a federation re-plan against the AEC materials boundary, never a silent squeeze, and a new stage is one `static readonly` row every stage-reading fold re-proves at compile time.
 - Boundary: `GeometryFault` is the one fault union for geometry — a per-cluster `SpatialFault`/`NamingFault` family is the density defect collapsed onto it, the cluster a sub-band not a parallel union; the payload is never a generic `IFault` or an erased `string Detail` where a sibling vocabulary row, index, or measure types the cause, a `string` surviving only as a `Witness` field beside typed discriminants; `try`/`catch` is legal only at a host-numeric or native boundary, never in domain logic; the upward namespace references are legal by the one-assembly law — the kernel compiles as one `Rasm.csproj`, namespaces are cluster routing vocabulary with no build edge, and this root-consolidated union is the recorded exception to strata direction.
 
 ```csharp signature
@@ -79,6 +79,9 @@ public sealed partial class DevelopmentStage {
 
 // --- [ERRORS] -----------------------------------------------------------------------------
 // Record declaration order = Code/Message fold order; both folds total over the union, no silent _ arm.
+// The base stride 2400-2403 carries the two CROSS-CUTTING refusals every namespace routes — admission and
+// cooperative abandonment — and is the recorded exception to cluster-locality; each later stride is its
+// own cluster's. RunAbandoned.Progress is the fraction the abandoning stage measured, never a default.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record GeometryFault {
     private GeometryFault() { }
@@ -86,6 +89,7 @@ public abstract partial record GeometryFault {
     public sealed record DegenerateInput(Kind Kind, Option<int> Index, string Witness) : GeometryFault;
     public sealed record IndexMismatch(EntityKind Kind, int Expected, int Actual) : GeometryFault;
     public sealed record KindMismatch(SpatialKind Index, QueryKind Query) : GeometryFault;
+    public sealed record RunAbandoned(Kind Kind, double Progress, string Witness) : GeometryFault;
 
     public sealed record NameCollision(UInt128 Name, int Kind) : GeometryFault;
     public sealed record HashMismatch(UInt128 Name, int Kind) : GeometryFault;
@@ -127,6 +131,7 @@ public abstract partial record GeometryFault {
             degenerateInput:         static _ => 2400,
             indexMismatch:           static _ => 2401,
             kindMismatch:            static _ => 2402,
+            runAbandoned:            static _ => 2403,
             nameCollision:           static _ => 2404,
             hashMismatch:            static _ => 2405,
             unrepairableMesh:        static _ => 2408,
@@ -160,6 +165,7 @@ public abstract partial record GeometryFault {
             degenerateInput:         static f => $"geometry:degenerate-input:kind={f.Kind.Key}{f.Index.Map(static i => $":index={i}").IfNone("")}:{f.Witness}",
             indexMismatch:           static f => $"geometry:index-mismatch:kind={f.Kind.Key}:expected={f.Expected}:actual={f.Actual}",
             kindMismatch:            static f => $"geometry:kind-mismatch:index={f.Index.Key}:query={f.Query.Key}",
+            runAbandoned:            static f => $"geometry:run-abandoned:kind={f.Kind.Key}:progress={f.Progress}:{f.Witness}",
             nameCollision:           static f => $"geometry:name-collision:name={f.Name}:kind={f.Kind}",
             hashMismatch:            static f => $"geometry:hash-mismatch:name={f.Name}:kind={f.Kind}",
             unrepairableMesh:        static f => $"geometry:unrepairable-mesh:stage={f.Stage.Key}:iterations={f.Iterations}:remaining={f.Remaining}",

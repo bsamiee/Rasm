@@ -499,10 +499,10 @@
 |  [08]   | `SKGeoMap(IGeoMapView)`                                                 | ctor     | mirror a live map offscreen       |
 |  [09]   | `SKCartesianChart()` / `SKPieChart()` / `SKPolarChart()` / `SKGeoMap()` | ctor     | standalone offscreen chart        |
 |  [10]   | `InMemorySkiaSharpChart.SaveImage(SKCanvas)`                            | instance | encode into a caller-owned canvas |
-|  [09]   | `SKDefaultTooltip.Wedge` / `.Easing` / `.AnimationsSpeed`               | property | pointer size and reveal animation |
-|  [10]   | `SKDefaultLegend.Easing` / `.AnimationsSpeed`                           | property | legend reveal animation           |
-|  [11]   | `SKHeatLegend.Formatter` (`Func<double,string>`)                        | property | the heat legend's ONLY label text |
-|  [12]   | `SKHeatLegend.BadgePadding` (`Padding`) / `.BadgeWidth` (`double?`)     | property | ramp bar inset and thickness      |
+|  [11]   | `SKDefaultTooltip.Wedge` / `.Easing` / `.AnimationsSpeed`               | property | pointer size and reveal animation |
+|  [12]   | `SKDefaultLegend.Easing` / `.AnimationsSpeed`                           | property | legend reveal animation           |
+|  [13]   | `SKHeatLegend.Formatter` (`Func<double,string>`)                        | property | the heat legend's ONLY label text |
+|  [14]   | `SKHeatLegend.BadgePadding` (`Padding`) / `.BadgeWidth` (`double?`)     | property | ramp bar inset and thickness      |
 
 - Both drawn legends build their content in `GetLayout(Chart)` and neither admits a caller-supplied entry set, so what each can DRAW is fixed: `SKDefaultLegend` iterates `chart.Series.Where(x => x.IsVisibleAtLegend)` and emits exactly one `ISeries.GetMiniatureGeometry(null)` plus one `ISeries.Name` label per entry — no value column, no statistics cell, and no explicitly declared domain is reachable through it; `SKHeatLegend` takes the FIRST visible `IHeatSeries`, reads that series' own `HeatMap` and `WeightBounds`, and draws one `LinearGradientPaint` bar with exactly TWO `LabelGeometry` labels, `Formatter(WeightBounds.Min)` and `Formatter(WeightBounds.Max)`, so its whole label surface is that delegate and an intermediate stop label is undrawable. A heat legend whose chart has no visible heat series, or whose ramp is empty, calls `Hide(chart)` and draws nothing.
 - Both legends derive ORIENTATION from `chart.LegendPosition` alone (`Left` and `Right` lay out vertically, `Top` and `Bottom` horizontally) and both read `chart.GetLegendPosition()` for their own origin, so a caller-declared flow column would be overridden on two of the five positions and a corner placement is unreachable — `LegendPosition` spells four sides plus `Hidden` and no corner.

@@ -101,11 +101,12 @@ public sealed record PresetSnapshot(
 
 ## [02]-[POLICY_AND_OPERATION]
 
-`LayerFacet` derives every host flag from `RestoreLayerProperties`; no numeric mask is duplicated. `PresetOperation` includes reads and mutations, so a new table verb breaks one total dispatcher.
+`LayerFacet` derives every host flag from `RestoreLayerProperties`; no numeric mask is duplicated. `PresetOperation` includes reads and mutations and derives both its execution policy and its owning `PresetTable` through generated dispatch, so a new table verb breaks every total dispatcher at compile time. `PresetTable` is the one site naming a host roster member.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using Rasm.Rhino.Document;
+using Rhino;
 using Rhino.DocObjects.Tables;
 
 namespace Rasm.Rhino.Persistence;
@@ -198,11 +199,42 @@ public abstract partial record PresetOperation {
     public sealed record DeleteLayerStateCase(PresetName Name) : PresetOperation;
     public sealed record ImportLayerStatesCase(PresetArchivePath Path) : PresetOperation;
 
-    internal PresetExecution Execution => this switch {
-        ReadAllCase or ReadPositionTransformCase => PresetExecution.Read,
-        RestorePositionCase or RestoreLayerStateCase => PresetExecution.Restore,
-        _ => PresetExecution.Mutate,
-    };
+    internal PresetExecution Execution => Switch<PresetExecution>(
+        readAllCase: static _ => PresetExecution.Read,
+        putCPlaneCase: static _ => PresetExecution.Mutate,
+        deleteCPlaneCase: static _ => PresetExecution.Mutate,
+        savePositionCase: static _ => PresetExecution.Mutate,
+        restorePositionCase: static _ => PresetExecution.Restore,
+        updatePositionCase: static _ => PresetExecution.Mutate,
+        appendPositionCase: static _ => PresetExecution.Mutate,
+        renamePositionCase: static _ => PresetExecution.Mutate,
+        deletePositionCase: static _ => PresetExecution.Mutate,
+        readPositionTransformCase: static _ => PresetExecution.Read,
+        saveLayerStateCase: static _ => PresetExecution.Mutate,
+        restoreLayerStateCase: static _ => PresetExecution.Restore,
+        renameLayerStateCase: static _ => PresetExecution.Mutate,
+        deleteLayerStateCase: static _ => PresetExecution.Mutate,
+        importLayerStatesCase: static _ => PresetExecution.Mutate);
+
+    // A mutation censuses ONLY the table it touched; sweeping all three after a single-item edit read two rosters the
+    // operation could not have moved. Read cases touch none, so the column is optional at its source rather than
+    // inventing a table for an operation that has no roster to publish.
+    internal Option<PresetTable> Roster => Switch<Option<PresetTable>>(
+        readAllCase: static _ => Option<PresetTable>.None,
+        putCPlaneCase: static _ => Some(PresetTable.ConstructionPlanes),
+        deleteCPlaneCase: static _ => Some(PresetTable.ConstructionPlanes),
+        savePositionCase: static _ => Some(PresetTable.Positions),
+        restorePositionCase: static _ => Some(PresetTable.Positions),
+        updatePositionCase: static _ => Some(PresetTable.Positions),
+        appendPositionCase: static _ => Some(PresetTable.Positions),
+        renamePositionCase: static _ => Some(PresetTable.Positions),
+        deletePositionCase: static _ => Some(PresetTable.Positions),
+        readPositionTransformCase: static _ => Option<PresetTable>.None,
+        saveLayerStateCase: static _ => Some(PresetTable.LayerStates),
+        restoreLayerStateCase: static _ => Some(PresetTable.LayerStates),
+        renameLayerStateCase: static _ => Some(PresetTable.LayerStates),
+        deleteLayerStateCase: static _ => Some(PresetTable.LayerStates),
+        importLayerStatesCase: static _ => Some(PresetTable.LayerStates));
 }
 
 [SmartEnum<string>]
@@ -231,17 +263,26 @@ public sealed partial class PresetExecution {
     internal partial SessionNeed[] Needs();
 }
 
-public sealed record PresetRosters(
-    Seq<PresetName> ConstructionPlanes,
-    Seq<PresetName> Positions,
-    Seq<PresetName> LayerStates);
+[SmartEnum<string>]
+public sealed partial class PresetTable {
+    public static readonly PresetTable ConstructionPlanes = new(
+        "construction-planes",
+        names: static document => document.NamedConstructionPlanes.Map(static value => value.Name));
+    public static readonly PresetTable Positions = new("positions", names: static document => document.NamedPositions.Names);
+    public static readonly PresetTable LayerStates = new("layer-states", names: static document => document.NamedLayerStates.Names);
+
+    [UseDelegateFromConstructor]
+    internal partial IEnumerable<string> Names(RhinoDoc document);
+}
+
+public sealed record PresetRoster(PresetTable Table, Seq<PresetName> Names);
 
 public sealed record PresetMutationReceipt(
     PresetOperation Operation,
     Option<PresetName> Name,
     Option<Guid> Id,
     Option<int> Affected,
-    PresetRosters RostersAfter,
+    PresetRoster RosterAfter,
     Option<uint> UndoSerial);
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -258,7 +299,7 @@ public abstract partial record PresetAnswer {
 
 `PresetOperation.Execution` projects each case onto one policy row that owns mutation, redraw, and session needs. Mutations use one `UndoBracket`, restore cases request redraw, and read cases request only `SessionNeed.Read`.
 
-Rhino's table mutation, ref-parameter transform read, undo, and redraw calls form the platform-forced statement seam. `Apply` remains exhaustive across the full operation family, including typed rejection of read cases.
+Rhino's table mutation, ref-parameter transform read, undo, and redraw calls form the platform-forced statement seam. `Apply` and `Read` both stay exhaustive across the full operation family, each carrying typed rejection of the other's cases, so a new verb lands an arm on both or fails to compile.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -337,18 +378,18 @@ public static class Presets {
             .Map<PresetOperation>(static path => new PresetOperation.ImportLayerStatesCase(path)));
 
     private static Fin<CPlaneModel> Admit(CPlaneModel? model, Op op) =>
-        from source in Optional(model).ToFin(Fail: op.InvalidInput())
+        from source in op.Need(model)
         from name in AdmitName(source.Name, op)
         from grid in Admit(source.Grid, op)
-        from visibility in Optional(source.Visibility).ToFin(Fail: op.InvalidInput())
-        from palette in Optional(source.Palette).ToFin(Fail: op.InvalidInput())
+        from visibility in op.Need(source.Visibility)
+        from palette in op.Need(source.Palette)
         from admitted in op.AcceptValidated<CPlaneModel>(
             CPlaneModel.Validate(name, source.Plane, grid, visibility, palette, out CPlaneModel? value),
             value)
         select admitted;
 
     private static Fin<CPlaneGrid> Admit(CPlaneGrid? grid, Op op) =>
-        from source in Optional(grid).ToFin(Fail: op.InvalidInput())
+        from source in op.Need(grid)
         from admitted in op.AcceptValidated<CPlaneGrid>(
             CPlaneGrid.Validate(
                 source.GridSpacing,
@@ -360,7 +401,7 @@ public static class Presets {
         select admitted;
 
     private static Fin<PositionRef> Admit(PositionRef? position, Op op) =>
-        Optional(position).ToFin(Fail: op.InvalidInput()).Bind(value => value.Switch<Op, Fin<PositionRef>>(
+        op.Need(position).Bind(value => value.Switch<Op, Fin<PositionRef>>(
             state: op,
             idCase: static (op, id) => guard(id.Id != Guid.Empty, op.InvalidInput()).ToFin()
                 .Map<PositionRef>(_ => new PositionRef.IdCase(id.Id)),
@@ -368,14 +409,14 @@ public static class Presets {
                 .Map<PositionRef>(static admitted => new PositionRef.NameCase(admitted))));
 
     private static Fin<LayerRestore> Admit(LayerRestore? restore, Op op) =>
-        Optional(restore).ToFin(Fail: op.InvalidInput()).Bind(value => value.Switch<Op, Fin<LayerRestore>>(
+        op.Need(restore).Bind(value => value.Switch<Op, Fin<LayerRestore>>(
             state: op,
             allCase: static (_, _) => Fin.Succ<LayerRestore>(new LayerRestore.AllCase()),
             selectedCase: static (op, selected) => Admit(selected.Mask, op)
                 .Map<LayerRestore>(static mask => new LayerRestore.SelectedCase(mask))));
 
     private static Fin<LayerMask> Admit(LayerMask? mask, Op op) =>
-        from source in Optional(mask).ToFin(Fail: op.InvalidInput())
+        from source in op.Need(mask)
         from _facets in guard(source.Facets.ForAll(static facet => facet is not null), op.InvalidInput()).ToFin()
         from admitted in op.AcceptValidated<LayerMask>(LayerMask.Validate(source.Facets, out LayerMask? value), value)
         select admitted;
@@ -387,14 +428,28 @@ public static class Presets {
         Some: id => guard(id != Guid.Empty, op.InvalidInput()).ToFin().Map(_ => Some(id)),
         None: static () => Fin.Succ(Option<Guid>.None));
 
-    private static Fin<PresetAnswer> Read(RhinoDoc document, PresetOperation operation, Op op) => operation switch {
-        PresetOperation.ReadAllCase => Snapshot(document, op).Map<PresetAnswer>(static value => new PresetAnswer.SnapshotCase(value)),
-        PresetOperation.ReadPositionTransformCase read =>
-            from id in Resolve(document.NamedPositions, read.Position, op)
-            from transform in ObjectTransform(document.NamedPositions, id, read.ObjectId, op)
+    private static Fin<PresetAnswer> Read(RhinoDoc document, PresetOperation operation, Op op) =>
+        operation.Switch<(RhinoDoc Document, Op Op), Fin<PresetAnswer>>(
+        state: (document, op),
+        readAllCase: static (state, _) => Snapshot(state.Document, state.Op)
+            .Map<PresetAnswer>(static value => new PresetAnswer.SnapshotCase(value)),
+        putCPlaneCase: static (state, _) => Fin.Fail<PresetAnswer>(state.Op.InvalidInput()),
+        deleteCPlaneCase: static (state, _) => Fin.Fail<PresetAnswer>(state.Op.InvalidInput()),
+        savePositionCase: static (state, _) => Fin.Fail<PresetAnswer>(state.Op.InvalidInput()),
+        restorePositionCase: static (state, _) => Fin.Fail<PresetAnswer>(state.Op.InvalidInput()),
+        updatePositionCase: static (state, _) => Fin.Fail<PresetAnswer>(state.Op.InvalidInput()),
+        appendPositionCase: static (state, _) => Fin.Fail<PresetAnswer>(state.Op.InvalidInput()),
+        renamePositionCase: static (state, _) => Fin.Fail<PresetAnswer>(state.Op.InvalidInput()),
+        deletePositionCase: static (state, _) => Fin.Fail<PresetAnswer>(state.Op.InvalidInput()),
+        readPositionTransformCase: static (state, read) =>
+            from id in Resolve(state.Document.NamedPositions, read.Position, state.Op)
+            from transform in ObjectTransform(state.Document.NamedPositions, id, read.ObjectId, state.Op)
             select (PresetAnswer)new PresetAnswer.TransformCase(new PositionObject(read.ObjectId, transform)),
-        _ => Fin.Fail<PresetAnswer>(op.InvalidInput())
-    };
+        saveLayerStateCase: static (state, _) => Fin.Fail<PresetAnswer>(state.Op.InvalidInput()),
+        restoreLayerStateCase: static (state, _) => Fin.Fail<PresetAnswer>(state.Op.InvalidInput()),
+        renameLayerStateCase: static (state, _) => Fin.Fail<PresetAnswer>(state.Op.InvalidInput()),
+        deleteLayerStateCase: static (state, _) => Fin.Fail<PresetAnswer>(state.Op.InvalidInput()),
+        importLayerStatesCase: static (state, _) => Fin.Fail<PresetAnswer>(state.Op.InvalidInput()));
 
     private static Fin<PresetAnswer> Mutate(
         RhinoDoc document,
@@ -553,7 +608,7 @@ public static class Presets {
             source: () => document.NamedPositions.Ids,
             project: id => Capture(document.NamedPositions, id, op),
             op: op)
-        from layers in Names(() => document.NamedLayerStates.Names, op)
+        from layers in Names(() => PresetTable.LayerStates.Names(document), op)
         select new PresetSnapshot(cplanes, positions, new LayerStateSnapshot(layers));
 
     private static Fin<CPlaneModel> Capture(ConstructionPlane source, Op op) =>
@@ -663,13 +718,8 @@ public static class Presets {
         Op op) =>
         op.Catch(() => toSeq(source())
             .Map(project)
-            .Traverse(static value => value));
-
-    private static Fin<PresetRosters> Rosters(RhinoDoc document, Op op) =>
-        from cplanes in Names(() => document.NamedConstructionPlanes.Map(static value => value.Name), op)
-        from positions in Names(() => document.NamedPositions.Names, op)
-        from layers in Names(() => document.NamedLayerStates.Names, op)
-        select new PresetRosters(cplanes, positions, layers);
+            .Traverse(static value => value)
+            .As());
 
     private static Fin<PresetMutationReceipt> Confirm(
         Func<bool> mutate,
@@ -690,13 +740,15 @@ public static class Presets {
         Option<int> affected,
         RhinoDoc document,
         Op op) =>
-        Rosters(document, op).Map(rosters => new PresetMutationReceipt(operation, name, id, affected, rosters, None));
+        from table in operation.Roster.ToFin(Fail: op.InvalidInput())
+        from names in Names(() => table.Names(document), op)
+        select new PresetMutationReceipt(operation, name, id, affected, new PresetRoster(table, names), None);
 }
 ```
 
 ## [04]-[LIFECYCLE]
 
-`PresetOperation` admits once, `Presets.Commit` derives needs, and one total interpreter reaches the owning Rhino table. Named-position addresses resolve through table membership for both id and name forms, and object-id batches preserve their admitted sequence only when every id is unique. Mutation receipts carry the resolved name/id, post-operation roster, and sealed undo serial beside an OPTIONAL affected count: restore, update, rename, and delete answer only `bool`, so their count is unmeasured and absent, while the object-id save and the layer-state import are the two rails the host itself counts.
+`PresetOperation` admits once, `Presets.Commit` derives needs, and one total interpreter reaches the owning Rhino table. Named-position addresses resolve through table membership for both id and name forms, and object-id batches preserve their admitted sequence only when every id is unique. Mutation receipts carry the resolved name/id, the post-operation roster of the ONE table the operation touched, and the sealed undo serial beside an OPTIONAL affected count: restore, update, rename, and delete answer only `bool`, so their count is unmeasured and absent, while the object-id save and the layer-state import are the two rails the host itself counts. A full three-table census belongs to `ReadAllCase` alone.
 
 Construction-plane projection covers plane, grid, visibility, depth, and five colors. Named-position projection covers identity, participants, and every stored transform. Layer-state reads remain name-only because Rhino exposes no stored-property payload reader.
 

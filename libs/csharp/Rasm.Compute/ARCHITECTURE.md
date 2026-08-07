@@ -178,9 +178,12 @@ flowchart LR
     Runtime e29@-->|"[WIRE]: LakeGeneration"| Persistence
     Rasm e30@-->|"[WIRE]: EncodedGeometry"| Runtime
     Solver e8@<-->|"[SHAPE]: MaterialPropertySet"| Element
-    Symbolic e7@<-->|"[SHAPE]: DimensionMonomial"| Element
+    Element e7@-->|"[SHAPE]: Dimension"| Symbolic
     Element e5@-->|"[SHAPE]: ElementGraph"| Analysis
-    Element e22@-->|"[SHAPE]: AssessmentPayload"| Analysis
+    Element e40@-->|"[SHAPE]: ElementGraph"| Solver
+    Element e37@-->|"[SHAPE]: AssessmentPayload"| Analysis
+    Element e41@-->|"[SHAPE]: ObservationSeries"| Analysis
+    Runtime e42@-->|"[PROJECTION]: GraphDelta"| Element
     Runtime e6@<-->|"[CONTENT_KEY]: RepresentationContentHash"| Element
     Element e33@-->|"[SHAPE]: ImportedGeometry"| Runtime
     Element e10@-->|"[SHAPE]: AssemblyAggregator"| Analysis
@@ -193,6 +196,8 @@ flowchart LR
     Bim e24@<-->|"[TRANSPORT]: IdsVerdict"| Runtime
     Bim e25@-->|"[CONTENT_KEY]: RepresentationContentHash"| Runtime
     Bim e26@-->|"[CONTENT_KEY]: CostSchedule"| Analysis
+    Bim e38@-->|"[CONTENT_KEY]: EnergyArtifact"| Analysis
+    Analysis e39@-->|"[WIRE]: EnergyResult"| Bim
 ```
 
 ```mermaid
@@ -223,6 +228,7 @@ flowchart LR
     AppHost e1@-->|"[PORT]: WorkLane"| Runtime
     AppHost e2@-->|"[PORT]: IChatClient"| Model
     AppHost e17@-->|"[PORT]: ShedVerdict"| Runtime
+    AppHost e21@-->|"[PORT]: Spec"| Runtime
     Solver e3@-->|"[RECEIPT]: DigitalTwin"| AppHost
     Tensor e4@<-->|"[SHAPE]: PackKind"| AppHost
     Runtime e15@-->|"[PORT]: ComputeHookRail"| AppHost
@@ -233,7 +239,7 @@ flowchart LR
     Runtime e9@<-->|"[WIRE]: ProtoVocabulary"| PyRuntime
     Runtime e19@-->|"[WIRE]: XxHash128"| PyRuntime
     Compute e10@-->|"[GRADUATION]: HandoffAxis"| Runtime
-    Runtime e11@-->|"[WIRE]: GraduationEvidence"| Compute
+    Model e11@-->|"[GRADUATION]: GraduationEvidence"| Compute
     Symbolic e12@<-->|"[WIRE]: QuantityFamily"| Compute
     Solver e13@-->|"[SHAPE]: DoeDataset"| Data
     Data e20@-->|"[SHAPE]: GeoArrow"| Runtime

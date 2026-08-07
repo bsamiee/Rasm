@@ -2,49 +2,53 @@
 
 `WireEdm.Generate` admits one traveling-wire demand, resolves context-keyed pass law, derives access and recovery, registers lower-to-upper correspondence, and emits simultaneous-guide `WireBlock` rows through one typed rail. `WireProgram` preserves every electrical, hydraulic, geometric, station, and quality decision without flattening simultaneous guides into sequential motion.
 
-`WireEdm.Generate`, `WireProgram`, and `WireBlock` remain the wire seam names. `WireProgram.SpecializedDirective` projects simultaneous lower/upper guides, process action, lag, rotary state, and derived duration into the shared specialized-toolpath envelope. `ProcessBudget.Erosion` supplies admitted process evidence, `ArcAlgebra.Apply` owns offset topology, `CavalierContours` owns arc-native station measurement, and `FabricationFault.WireTaperExceeded` carries guide-envelope refusal.
+`WireEdm.Generate`, `WireProgram`, and `WireBlock` remain the wire seam names. `WirePolicy` is the admitted, profile-independent half of a wire job, so a CAM run routing an erosion boundary pass carries the policy it already holds and `WireDemand` is the profile and the budget joined to it — no eleven-column transcription stands between the two. `WireProgram.SpecializedDirective` projects simultaneous lower/upper guides, process action, lag, rotary state, and derived duration into the admitted specialized-toolpath envelope, and `WireEdm.Lower` projects the lower guide as the Cartesian path a routed erosion pass executes while the upper guide stays whole on that envelope. `ProcessBudget.Erosion` supplies admitted process evidence, `ArcOffset` owns offset topology, `CavalierContours` owns arc-native station measurement, and `FabricationFault.WireTaperExceeded` carries guide-envelope refusal.
 
 ## [01]-[INDEX]
 
-- [02]-[ADMISSION]: `WireDemand` materializes dimensional text once; generated owners admit guides, schedules, correspondence, access, retention, and recovery.
-- [03]-[GENERATION]: `WireCycle` closes contour, taper, four-axis, clearing, collar, rotary, variable-taper, and cutoff payload timing under one dispatch.
+- [02]-[ADMISSION]: `WirePolicy` closes guides, schedules, correspondence, access, retention, and recovery once; `WireDemand` joins it to a profile and a budget.
+- [03]-[GENERATION]: `WireCycle` closes contour, taper, four-axis, clearing, collar, rotary, variable-taper, and cutoff payload timing under one dispatch over shared occurrence columns.
 - [04]-[EGRESS]: `WireProgram` projects through a caller-supplied arrow while retaining simultaneous guides and process evidence.
 
 ## [02]-[ADMISSION]
 
-`WireJob` owns the whole trusted cutting context. Schedule compatibility is a declared relation over machine book, generator, material, wire, dielectric, and thickness; no named global roster can impersonate that evidence.
+`WireJob` owns the whole trusted cutting context as THREE columns — the admitted policy, the profile it cuts, and the budget it spends. Schedule compatibility is a declared relation over machine book, generator, material, wire, dielectric, and thickness; no named global roster can impersonate that evidence.
 
+- Owner: `WirePolicy` is the admitted cutting law independent of any one profile — cycle, wire radius, guide planes, schedule, access, retention, and recovery — so the same policy admits once and cuts many profiles, and a routed erosion pass carries it rather than re-parsing dimensions per contour.
 - Owner: `WireSchedule` re-admits contiguous generated `WirePass` rows and binds their provenance to `WireContext`; no field-parallel pass DTO survives beside the owner.
 - Owner: `WirePass` carries the electrical, hydraulic, and mechanical columns the wire bow and corner law read — `Tension`, `FlushPressure`, `WireSpeedMmPerMin`, and `CornerAngleDeg`; `LagMm` derives the taut-string deflection instead of admitting it as a caller knob.
 - Owner: `WireCorrespondence` binds seam, direction, and piecewise station anchors before any four-axis sample occurs.
 - Owner: `WireAccess` carries open-edge, drilled, automatic-thread, and inherited-channel access as occurrence payload.
 - Owner: `SlugRetention` carries explicit bridge intervals and a payload-bearing `WireRelease`; release evidence never rides a parallel integer knob.
 - Owner: `WireRecovery` carries break detection, retract, rethread, restart, and attempt evidence for unattended cuts.
-- Packages: `PhysicsQuantity.Length.Admit` converts dimensional text to machining-canonical `double`; `Interpolate.Linear` owns variable-taper evaluation; `TensorPrimitives.IsFiniteAll` admits numeric batches; `Thinktecture` generated owners close construction.
+- Law: admission runs ONCE per fact. `WirePolicy.Admit` crosses the dimension text and proves guides, schedule, cycle, retention, and recovery; `WireJob.Admit` then proves only what a profile adds — the ring itself and the access relation that reads it. A per-column presence bridge at the job boundary re-asks a question the policy already answered.
+- Packages: `Process/owner#RUN_DISPATCH` `QuantityArrow` is the ONE dimension-text entry, re-raising on this plane; `Interpolate.Linear` owns variable-taper evaluation, built once per dispatch rather than per station; `TensorPrimitives.IsFiniteAll` admits numeric batches; `Thinktecture` generated owners close construction.
 - Boundary: `WireDemand` is raw exactly once, and every interior function consumes `WireJob`.
 
 ## [03]-[GENERATION]
 
 `WireCycle` separates payload timing while `WireEdm.Generate` remains the one operation. `Contour`, `TaperContour`, `Collar`, and `VariableTaper` share the boundary-pass algebra; `FourAxis` supplies an independent upper profile with registered correspondence; `NoCorePocket` supplies recession; `Rotary` supplies a cylindrical station map; `Cutoff` supplies a terminal slug handoff.
 
+- Owner: the occurrence evidence every cycle publishes — taper demand, extra stations, correspondence, and spindle frame — rides BASE COLUMNS each case fills at construction, so dispatch is the two folds that genuinely differ per case and not six parallel eight-arm ladders restating one roster.
 - Exemption: vertex-station folding, span-frame normalization, and receipt reduction are measured kernel statement boundaries.
 - Entry: `Generate<TOut>` fixes ingress as `WireDemand?` and parameterizes the egress projection result.
-- Auto: every pass derives compound offset, vertex, bridge, taper, correspondence, access, and handoff stations, corner-control transitions, and simultaneous lower/upper samples.
+- Auto: every pass derives compound offset, vertex, bridge, taper, correspondence, access, and handoff stations, corner-control transitions, and simultaneous lower/upper samples; a clearing cycle carries its offset LEVEL on every block, so a span is measured inside one ring and a level boundary reports no length rather than being clamped to zero.
 - Auto: four-axis pairing maps registered physical stations rather than incidental indices or normalized-length coincidence.
-- Auto: corner control scales by the exact arc turn angle at the nearest vertex, so a tangent-continuous vertex never draws a reversal's slowdown.
+- Auto: corner control scales by the exact arc turn angle at the SHARPEST vertex inside the corner window — the sharpest corner is what the wire must survive, so the window folds a maximum and not a nearest — and the vertices index into window-width buckets, so a mark probes three buckets rather than the whole vertex roster.
 - Auto: `TaperCornerMode` applies every taper shift at full magnitude and owns only the upper corner radius, so no mode can silently flatten a taper.
 - Auto: access precedes cutting, recovery checkpoints preserve restart custody, and pass quality derives from schedule data.
-- Packages: `ArcAlgebra.Apply` owns offset topology; `Polyline<double>.PathLength`, `FindPointAtPathLength`, `PlineSeg.SegTangentVector`, `PrevWrappingIndex`, and `NextWrappingIndex` own arc-native stationing and turn measurement; `LanguageExt` `TraverseM`, `Fold`, and query syntax keep the rail flat.
-- Boundary: `FabricationFault.WireTaperExceeded` refuses guide demand without clamping, and offset failures remain typed.
+- Packages: `ArcOffset` owns offset topology; `Polyline<double>.PathLength`, `FindPointAtPathLength`, `PlineSeg.SegTangentVector`, `PrevWrappingIndex`, and `NextWrappingIndex` own arc-native stationing and turn measurement; `LanguageExt` `TraverseM`, `Fold`, and query syntax keep the rail flat.
+- Boundary: `FabricationFault.WireTaperExceeded` refuses guide demand without clamping, and offset failures remain typed. No absence rides an infinity: an empty taper law is refused at admission, so the taper demand column measures a real law rather than carrying a sentinel past a structural gate.
 
 ## [04]-[EGRESS]
 
-`WireProgram` is the inverse-sufficient receipt: every block carries simultaneous guides, physical station, traversed arc length, traversal progress, payload-timed action, wire bow, upper corner radius, and optional rotary position; program custody preserves access, retention, correspondence, context, and recovery beside pass quality evidence. `WireCycle` owns `Correspondence` and `Spindle` beside `Stations` and `TaperDemand`, so program custody reads occurrence evidence from the case rather than re-deriving it through a parallel dispatch.
+`WireProgram` is the inverse-sufficient receipt: every block carries simultaneous guides, physical station, offset level, traversed arc length, traversal progress, payload-timed action, wire bow, upper corner radius, and optional rotary position; program custody preserves access, retention, correspondence, context, and recovery beside pass quality evidence.
 
-- Law: posting retains guide-pair simultaneity, simulation retains specialized rows and duration, and estimation consumes that simulation receipt.
+- Law: posting retains guide-pair simultaneity, simulation retains specialized rows and duration, and estimation consumes that simulation receipt. The envelope is admitted ONCE at program construction through the S0 factory, so no consumer re-walks its rows, and `ToolpathRowMap` owns the block-to-row transcription — including the projection of the payload-bearing `WireAction` case onto the S0 `WireActionKind` row a preimage can frame.
+- Law: a routed erosion pass reaches this owner through `WireEdm.Lower`: the LOWER guide is the Cartesian path the machine's axes execute and every simultaneous, electrical, and rotary fact stays on the envelope, so routing preserves exactly what a flattened lower/upper move pair would destroy.
 - Output: `WireProgram.PostingSource` carries the typed envelope into canonical posting; the caller arrow retains other result projections.
-- Receipt: `WirePassReceipt` preserves schedule identity, quality, removed offset, arc-true cut length, consumed wire, peak wire bow, bridge count, and recovery budget; cut length folds `TraversedMm` deltas, never chord distance between sampled guides.
-- Growth: a machine-book capability is one `WirePass` row; a new occurrence payload is one `WireCycle` case; a new projection changes only the supplied arrow.
+- Receipt: `WirePassReceipt` preserves schedule identity, quality, removed offset, arc-true cut length, consumed wire, peak wire bow, bridge count, and recovery budget; cut length folds `TraversedMm` deltas within one ring, never chord distance between sampled guides.
+- Growth: a machine-book capability is one `WirePass` row; a new occurrence payload is one `WireCycle` case filling the shared columns; a new projection changes only the supplied arrow.
 - Boundary: sequential lower/upper `Move` rows cannot represent `WireBlock` and never cross this seam.
 
 ```csharp signature
@@ -56,10 +60,12 @@ using LanguageExt;
 using LanguageExt.Common;
 using MathNet.Numerics.Interpolation;
 using Rasm.Domain;
+using Rasm.Element.Projection;
 using Rasm.Fabrication.Geometry2D;
 using Rasm.Fabrication.Process;
 using Rasm.Numerics;
 using Rhino.Geometry;
+using Riok.Mapperly.Abstractions;
 using Thinktecture;
 using static LanguageExt.Prelude;
 
@@ -115,6 +121,7 @@ public abstract partial record WireRelease {
 
 // --- [ADMISSION] ----------------------------------------------------------------------------------------------------------------------------------
 [ComplexValueObject]
+[ValidationError<FabricationFault>]
 public sealed partial class WirePass {
     public int Pass { get; }
     public double SparkGapMm { get; }
@@ -149,8 +156,9 @@ public sealed partial class WirePass {
             : stations.Bind(station => Seq(station, station - CornerSlowMm / perimeter, station + CornerSlowMm / perimeter))
                 .Map(station => closed ? station - Math.Floor(station) : Math.Clamp(station, 0.0, 1.0));
 
+    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref ValidationError? validationError,
+        ref FabricationFault? validationError,
         ref int pass,
         ref double sparkGapMm,
         ref double overburnMm,
@@ -167,12 +175,12 @@ public sealed partial class WirePass {
         ref WireFinish finish) {
         ReadOnlySpan<double> values = [sparkGapMm, overburnMm, stockMm, speedScale, power, flushPressure, tension,
             feedMmPerMin, wireSpeedMmPerMin, cornerSlowMm, cornerSpeedScale, cornerAngleDeg];
-        if (pass < 1 || finish is null || !TensorPrimitives.IsFiniteAll<double>(values)
+        if (pass < 1 || !TensorPrimitives.IsFiniteAll<double>(values)
             || sparkGapMm < 0.0 || overburnMm < 0.0 || stockMm < 0.0 || speedScale <= 0.0
             || power <= 0.0 || flushPressure < 0.0 || tension <= 0.0 || feedMmPerMin <= 0.0
             || wireSpeedMmPerMin <= 0.0 || cornerSlowMm < 0.0 || cornerSpeedScale <= 0.0 || cornerSpeedScale > 1.0
             || cornerAngleDeg < 0.0 || cornerAngleDeg >= 180.0)
-            validationError = new ValidationError("wire:pass");
+            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "wire:pass");
     }
 }
 
@@ -184,31 +192,31 @@ public sealed record WireContext(
     string Dielectric);
 
 [ComplexValueObject]
+[ValidationError<FabricationFault>]
 public sealed partial class WireSchedule {
     public WireContext Context { get; }
     public double ThicknessMm { get; }
     public Arr<WirePass> Passes { get; }
 
     public static Fin<WireSchedule> Admit(WireContext context, double thicknessMm, Arr<WirePass> passes) =>
-        Validate(context, thicknessMm, passes, out WireSchedule admitted) is { } error
-            ? Fin.Fail<WireSchedule>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, error.Message))
-            : Fin.Succ(admitted);
+        Validate(context, thicknessMm, passes, out WireSchedule admitted).Admitted(admitted);
 
+    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref ValidationError? validationError,
+        ref FabricationFault? validationError,
         ref WireContext context,
         ref double thicknessMm,
         ref Arr<WirePass> passes) {
-        if (context is null || string.IsNullOrWhiteSpace(context.MachineBook) || string.IsNullOrWhiteSpace(context.Generator)
-            || string.IsNullOrWhiteSpace(context.Material) || string.IsNullOrWhiteSpace(context.Wire)
-            || string.IsNullOrWhiteSpace(context.Dielectric) || !double.IsFinite(thicknessMm) || thicknessMm <= 0.0
-            || passes.IsEmpty || passes.Exists(static pass => pass is null)
-            || passes.Map(static (pass, index) => pass.Pass == index + 1).Exists(static valid => !valid))
-            validationError = new ValidationError("wire:schedule");
+        if (!(Witness.Keyed(context.MachineBook) && Witness.Keyed(context.Generator) && Witness.Keyed(context.Material)
+            && Witness.Keyed(context.Wire) && Witness.Keyed(context.Dielectric) && Witness.Positive(thicknessMm)
+            && !passes.IsEmpty
+            && toSeq(passes).Map(static (pass, index) => pass.Pass == index + 1).ForAll(static valid => valid)))
+            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "wire:schedule");
     }
 }
 
 [ComplexValueObject]
+[ValidationError<FabricationFault>]
 public sealed partial class GuidePlanes {
     public double LowerZ { get; }
     public double UpperZ { get; }
@@ -229,25 +237,25 @@ public sealed partial class GuidePlanes {
     }
 
     public static Fin<GuidePlanes> Admit(double lowerZ, double upperZ, double programZ, double maxTaperDeg) =>
-        Validate(lowerZ, upperZ, programZ, maxTaperDeg, out GuidePlanes admitted) is { } error
-            ? Fin.Fail<GuidePlanes>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, error.Message))
-            : Fin.Succ(admitted);
+        Validate(lowerZ, upperZ, programZ, maxTaperDeg, out GuidePlanes admitted).Admitted(admitted);
 
+    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref ValidationError? validationError,
+        ref FabricationFault? validationError,
         ref double lowerZ,
         ref double upperZ,
         ref double programZ,
         ref double maxTaperDeg) {
         if (!TensorPrimitives.IsFiniteAll<double>([lowerZ, upperZ, programZ, maxTaperDeg])
             || upperZ <= lowerZ || maxTaperDeg < 0.0)
-            validationError = new ValidationError("wire:guides");
+            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "wire:guides");
     }
 }
 
 public readonly record struct StationPair(double Lower, double Upper);
 
 [ComplexValueObject]
+[ValidationError<FabricationFault>]
 public sealed partial class WireCorrespondence {
     public static readonly WireCorrespondence Identity = Create(
         WireDirection.Forward,
@@ -264,21 +272,19 @@ public sealed partial class WireCorrespondence {
             .IfNone(lower);
 
     public static Fin<WireCorrespondence> Admit(WireDirection direction, Arr<StationPair> anchors) =>
-        Validate(direction, anchors, out WireCorrespondence admitted) is { } error
-            ? Fin.Fail<WireCorrespondence>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, error.Message))
-            : Fin.Succ(admitted);
+        Validate(direction, anchors, out WireCorrespondence admitted).Admitted(admitted);
 
+    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref ValidationError? validationError,
+        ref FabricationFault? validationError,
         ref WireDirection upperDirection,
         ref Arr<StationPair> anchors) {
-        bool bounded = !anchors.IsEmpty && anchors.ForAll(static row => double.IsFinite(row.Lower) && double.IsFinite(row.Upper)
+        bool bounded = !anchors.IsEmpty && anchors.ForAll(static row => Witness.Finite(row.Lower, row.Upper)
             && row.Lower >= 0.0 && row.Lower <= 1.0 && row.Upper >= 0.0 && row.Upper <= 1.0);
         bool terminal = bounded && anchors[0] == new StationPair(0.0, 0.0) && anchors[^1] == new StationPair(1.0, 1.0);
-        bool monotone = terminal && toSeq(anchors).Zip(toSeq(anchors).Skip(1)).ForAll(static pair =>
-            pair.First.Lower < pair.Second.Lower && pair.First.Upper < pair.Second.Upper);
-        if (upperDirection is null || !monotone)
-            validationError = new ValidationError("wire:correspondence");
+        if (!(terminal && toSeq(anchors).Zip(toSeq(anchors).Skip(1)).ForAll(static pair =>
+                pair.First.Lower < pair.Second.Lower && pair.First.Upper < pair.Second.Upper)))
+            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "wire:correspondence");
     }
 }
 
@@ -297,6 +303,7 @@ public abstract partial record WireAccess {
 
     public WireBlock Entry(WireBlock first, WireGuidePoint guide) => first with {
         Pass = 0,
+        Ring = 0,
         Progress = 0.0,
         TraversedMm = 0.0,
         Lower = guide,
@@ -328,82 +335,56 @@ public abstract partial record SlugRetention {
 }
 
 [ComplexValueObject]
+[ValidationError<FabricationFault>]
 public sealed partial class WireRecovery {
     public int Attempts { get; }
     public double RetractMm { get; }
     public double RestartLeadMm { get; }
     public bool AutomaticRethread { get; }
 
+    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref ValidationError? validationError,
+        ref FabricationFault? validationError,
         ref int attempts,
         ref double retractMm,
         ref double restartLeadMm,
         ref bool automaticRethread) {
         if (attempts < 0 || !TensorPrimitives.IsFiniteAll<double>([retractMm, restartLeadMm])
-            || retractMm < 0.0 || restartLeadMm < 0.0 || !automaticRethread && attempts > 0)
-            validationError = new ValidationError("wire:recovery");
+            || retractMm < 0.0 || restartLeadMm < 0.0 || (!automaticRethread && attempts > 0))
+            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "wire:recovery");
     }
 }
 
+// Occurrence evidence rides the BASE columns each case fills at construction, so a consumer reads one member where
+// six parallel eight-arm folds restated the same roster and a new case had to answer all six to compile.
 [Union]
-public abstract partial record WireCycle {
-    public sealed record Contour(TaperCornerMode Corners) : WireCycle;
-    public sealed record TaperContour(double TaperDeg, TaperCornerMode Corners) : WireCycle;
-    public sealed record FourAxis(Loop UpperProfile, WireCorrespondence Correspondence) : WireCycle;
-    public sealed record NoCorePocket(double StepOverMm, int MaxPasses) : WireCycle;
-    public sealed record Collar(double LandZ, double TaperDeg, TaperCornerMode Corners) : WireCycle;
-    public sealed record Rotary(Point3d AxisOrigin, Vector3d Axis, double PitchMm) : WireCycle {
-        public RotaryFrame Frame => new(AxisOrigin, Axis, PitchMm);
-    }
-    public sealed record VariableTaper(Arr<TaperKnot> AngleLaw, TaperCornerMode Corners) : WireCycle {
-        public double At(double station) => Interpolate.Linear(
-            AngleLaw.Map(static knot => knot.Station).ToArray(),
-            AngleLaw.Map(static knot => knot.AngleDeg).ToArray()).Interpolate(station);
-    }
-    public sealed record Cutoff(double HandoffStation) : WireCycle;
-
-    public Seq<double> Stations => Switch(
-        contour: static _ => Seq<double>(),
-        taperContour: static _ => Seq<double>(),
-        fourAxis: static row => row.Correspondence.Anchors.Map(static anchor => anchor.Lower).ToSeq(),
-        noCorePocket: static _ => Seq<double>(),
-        collar: static _ => Seq<double>(),
-        rotary: static _ => Seq<double>(),
-        variableTaper: static row => row.AngleLaw.Map(static knot => knot.Station).ToSeq(),
-        cutoff: static row => Seq(row.HandoffStation));
-
-    public double TaperDemand => Switch(
-        contour: static _ => 0.0,
-        taperContour: static row => Math.Abs(row.TaperDeg),
-        fourAxis: static _ => 0.0,
-        noCorePocket: static _ => 0.0,
-        collar: static row => Math.Abs(row.TaperDeg),
-        rotary: static _ => 0.0,
-        variableTaper: static row => row.AngleLaw.IsEmpty
-            ? double.PositiveInfinity
-            : row.AngleLaw.Map(static knot => Math.Abs(knot.AngleDeg)).Max(),
-        cutoff: static _ => 0.0);
-
-    public Option<WireCorrespondence> Correspondence => Switch(
-        contour: static _ => Option<WireCorrespondence>.None,
-        taperContour: static _ => Option<WireCorrespondence>.None,
-        fourAxis: static row => Some(row.Correspondence),
-        noCorePocket: static _ => Option<WireCorrespondence>.None,
-        collar: static _ => Option<WireCorrespondence>.None,
-        rotary: static _ => Option<WireCorrespondence>.None,
-        variableTaper: static _ => Option<WireCorrespondence>.None,
-        cutoff: static _ => Option<WireCorrespondence>.None);
-
-    public Option<RotaryFrame> Spindle => Switch(
-        contour: static _ => Option<RotaryFrame>.None,
-        taperContour: static _ => Option<RotaryFrame>.None,
-        fourAxis: static _ => Option<RotaryFrame>.None,
-        noCorePocket: static _ => Option<RotaryFrame>.None,
-        collar: static _ => Option<RotaryFrame>.None,
-        rotary: static row => Some(row.Frame),
-        variableTaper: static _ => Option<RotaryFrame>.None,
-        cutoff: static _ => Option<RotaryFrame>.None);
+public abstract partial record WireCycle(
+    double TaperDemand,
+    Seq<double> Stations,
+    Option<WireCorrespondence> Correspondence,
+    Option<RotaryFrame> Spindle) {
+    public sealed record Contour(TaperCornerMode Corners)
+        : WireCycle(0.0, Seq<double>(), None, None);
+    public sealed record TaperContour(double TaperDeg, TaperCornerMode Corners)
+        : WireCycle(Math.Abs(TaperDeg), Seq<double>(), None, None);
+    public sealed record FourAxis(Loop UpperProfile, WireCorrespondence Registration)
+        : WireCycle(0.0, Registration.Anchors.Map(static anchor => anchor.Lower).ToSeq(), Some(Registration), None);
+    public sealed record NoCorePocket(double StepOverMm, int MaxPasses)
+        : WireCycle(0.0, Seq<double>(), None, None);
+    public sealed record Collar(double LandZ, double TaperDeg, TaperCornerMode Corners)
+        : WireCycle(Math.Abs(TaperDeg), Seq<double>(), None, None);
+    public sealed record Rotary(Point3d AxisOrigin, Vector3d Axis, double PitchMm)
+        : WireCycle(0.0, Seq<double>(), None, Some(new RotaryFrame(AxisOrigin, Axis, PitchMm)));
+    // The seeded fold answers zero on an empty law rather than an infinity a structural gate would then have to
+    // recognize downstream; the empty law itself is refused where the law is admitted.
+    public sealed record VariableTaper(Arr<TaperKnot> AngleLaw, TaperCornerMode Corners)
+        : WireCycle(
+            AngleLaw.Fold(0.0, static (peak, knot) => Math.Max(peak, Math.Abs(knot.AngleDeg))),
+            AngleLaw.Map(static knot => knot.Station).ToSeq(),
+            None,
+            None);
+    public sealed record Cutoff(double HandoffStation)
+        : WireCycle(0.0, Seq(HandoffStation), None, None);
 }
 
 public readonly record struct TaperKnot(double Station, double AngleDeg);
@@ -412,104 +393,129 @@ public readonly record struct RotaryFrame(Point3d Origin, Vector3d Axis, double 
     public double AngleAt(double cutLengthMm) => 360.0 * cutLengthMm / PitchMm;
 }
 
-public sealed record WireDemand(
-    WireCycle Cycle,
-    Loop Profile,
-    string WireRadius,
-    string Thickness,
-    double LowerGuideZ,
-    double UpperGuideZ,
-    double ProgramZ,
-    double MaxTaperDeg,
-    ProcessBudget.Erosion Budget,
-    WireContext Context,
-    Arr<WirePass> Schedule,
-    WireAccess Access,
-    SlugRetention Retention,
-    WireRecovery Recovery);
-
+// The admitted cutting law, independent of the profile it cuts. One admission serves every contour a run erodes,
+// and a CAM strategy routing an erosion boundary pass carries THIS rather than a re-transcribed raw column set.
 [ComplexValueObject]
-public sealed partial class WireJob {
+[ValidationError<FabricationFault>]
+public sealed partial class WirePolicy {
     public WireCycle Cycle { get; }
-    public Loop Profile { get; }
     public double WireRadiusMm { get; }
     public GuidePlanes Guides { get; }
-    public ProcessBudget.Erosion Budget { get; }
     public WireSchedule Schedule { get; }
     public WireAccess Access { get; }
     public SlugRetention Retention { get; }
     public WireRecovery Recovery { get; }
 
-    public static Fin<WireJob> Admit(WireDemand? candidate) =>
-        from raw in Optional(candidate).ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "wire:demand"))
-        from cycle in Optional(raw.Cycle).ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "wire:cycle"))
-        from profile in Optional(raw.Profile).ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "wire:profile"))
-        from budget in Optional(raw.Budget).ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "wire:budget"))
-        from access in Optional(raw.Access).ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "wire:access"))
-        from retention in Optional(raw.Retention).ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "wire:retention"))
-        from recovery in Optional(raw.Recovery).ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "wire:recovery"))
-        from radius in PhysicsQuantity.Length.Admit(raw.WireRadius)
-        from thickness in PhysicsQuantity.Length.Admit(raw.Thickness)
-        from guides in GuidePlanes.Admit(raw.LowerGuideZ, raw.UpperGuideZ, raw.ProgramZ, raw.MaxTaperDeg)
-        from _ in cycle.TaperDemand <= guides.MaxTaperDeg
-            ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(new FabricationFault.WireTaperExceeded(cycle.TaperDemand, guides.MaxTaperDeg).ToError())
-        from context in Optional(raw.Context).ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "wire:context"))
-        from schedule in WireSchedule.Admit(context, thickness, raw.Schedule)
-        from admitted in Validate(cycle, profile, radius, guides, budget, schedule,
-            access, retention, recovery, out WireJob job) is { } error
-            ? Fin.Fail<WireJob>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, error.Message))
-            : Fin.Succ(job)
+    public static Fin<WirePolicy> Admit(
+        WireCycle cycle,
+        string wireRadius,
+        string thickness,
+        double lowerGuideZ,
+        double upperGuideZ,
+        double programZ,
+        double maxTaperDeg,
+        WireContext context,
+        Arr<WirePass> passes,
+        WireAccess access,
+        SlugRetention retention,
+        WireRecovery recovery) =>
+        // The one dimension-text arrow: the axis names WHICH quantity parses and this plane names the fault its own
+        // refusal answers on, so no page outside `Process` opens a second textual boundary.
+        from radius in new QuantityArrow(PhysicsQuantity.Length, FabConcern.Toolpath, "wire:wire-radius").Admit(wireRadius)
+        from measure in new QuantityArrow(PhysicsQuantity.Length, FabConcern.Toolpath, "wire:thickness").Admit(thickness)
+        from guides in GuidePlanes.Admit(lowerGuideZ, upperGuideZ, programZ, maxTaperDeg)
+        from schedule in WireSchedule.Admit(context, measure, passes)
+        from admitted in Validate(cycle, radius, guides, schedule, access, retention, recovery, out WirePolicy policy)
+            .Admitted(policy)
         select admitted;
 
+    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref ValidationError? validationError,
+        ref FabricationFault? validationError,
         ref WireCycle cycle,
-        ref Loop profile,
         ref double wireRadiusMm,
         ref GuidePlanes guides,
-        ref ProcessBudget.Erosion budget,
         ref WireSchedule schedule,
         ref WireAccess access,
         ref SlugRetention retention,
         ref WireRecovery recovery) {
-        if (cycle is null || profile is null || guides is null || budget is null || schedule is null || access is null
-            || retention is null || recovery is null || profile.Count < 2 || !double.IsFinite(wireRadiusMm) || wireRadiusMm <= 0.0
-            || !Valid(cycle) || !Valid(access, profile) || !Valid(retention))
-            validationError = new ValidationError("wire:job");
+        validationError = (
+            AdmissionSlots.Gate(Witness.Positive(wireRadiusMm), Refusal("wire-radius")),
+            AdmissionSlots.Gate(Valid(cycle), Refusal("cycle")),
+            AdmissionSlots.Gate(Valid(retention), Refusal("retention")),
+            AdmissionSlots.Gate(cycle.TaperDemand <= guides.MaxTaperDeg, Refusal("taper-envelope")))
+            .Apply(static (_, _, _, _) => unit)
+            .As()
+            .Match<FabricationFault?>(
+                Fail: static error => new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, error.Message),
+                Succ: static _ => null);
     }
 
-    private static bool Valid(WireAccess access, Loop profile) => access.Switch(
-        state: profile,
-        openEdge: static (loop, row) => double.IsFinite(row.Station) && row.Station >= 0.0 && row.Station <= 1.0
-            && (loop.Closed || row.Station is 0.0 or 1.0),
-        startHole: static (_, row) => row.Point.IsValid && double.IsFinite(row.DiameterMm) && row.DiameterMm > 0.0,
-        automatic: static (_, row) => row.Point.IsValid && row.Attempts > 0,
-        channel: static (_, row) => row.Path is not null && double.IsFinite(row.Station) && row.Station >= 0.0 && row.Station <= 1.0);
+    private static Error Refusal(string slot) =>
+        new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, $"wire-policy:{slot}");
 
     private static bool Valid(SlugRetention retention) => retention.Switch(
         fullCut: static _ => true,
-        bridged: static row => row.Release is not null && !row.Windows.IsEmpty
-            && row.Windows.ForAll(static window => double.IsFinite(window.From) && double.IsFinite(window.To)
+        bridged: static row => !row.Windows.IsEmpty
+            && row.Windows.ForAll(static window => Witness.Finite(window.From, window.To)
                 && window.From >= 0.0 && window.From < window.To && window.To <= 1.0)
             && toSeq(row.Windows).Zip(toSeq(row.Windows).Skip(1))
                 .ForAll(static pair => pair.First.To <= pair.Second.From));
 
     private static bool Valid(WireCycle cycle) => cycle.Switch(
-        contour: static row => row.Corners is not null,
-        taperContour: static row => row.Corners is not null && double.IsFinite(row.TaperDeg),
-        fourAxis: static row => row.UpperProfile is not null && row.Correspondence is not null,
-        noCorePocket: static row => double.IsFinite(row.StepOverMm) && row.StepOverMm > 0.0 && row.MaxPasses > 0,
-        collar: static row => row.Corners is not null && double.IsFinite(row.LandZ) && double.IsFinite(row.TaperDeg),
+        contour: static _ => true,
+        taperContour: static row => double.IsFinite(row.TaperDeg),
+        fourAxis: static row => row.UpperProfile.Count >= 2,
+        noCorePocket: static row => Witness.Positive(row.StepOverMm) && row.MaxPasses > 0,
+        collar: static row => Witness.Finite(row.LandZ, row.TaperDeg),
         rotary: static row => row.AxisOrigin.IsValid && row.Axis.IsValid && row.Axis.Length > 0.0
-            && double.IsFinite(row.PitchMm) && row.PitchMm > 0.0,
-        variableTaper: static row => row.Corners is not null && row.AngleLaw.Count >= 2
-            && row.AngleLaw.ForAll(static knot => double.IsFinite(knot.Station) && double.IsFinite(knot.AngleDeg))
+            && Witness.Positive(row.PitchMm),
+        variableTaper: static row => row.AngleLaw.Count >= 2
+            && row.AngleLaw.ForAll(static knot => Witness.Finite(knot.Station, knot.AngleDeg))
             && row.AngleLaw[0].Station == 0.0 && row.AngleLaw[^1].Station == 1.0
             && toSeq(row.AngleLaw).Zip(toSeq(row.AngleLaw).Skip(1))
                 .ForAll(static pair => pair.First.Station < pair.Second.Station),
-        cutoff: static row => double.IsFinite(row.HandoffStation) && row.HandoffStation >= 0.0 && row.HandoffStation <= 1.0);
+        cutoff: static row => double.IsFinite(row.HandoffStation)
+            && row.HandoffStation >= 0.0 && row.HandoffStation <= 1.0);
+}
 
+// The demand is the admitted policy JOINED to what one contour adds: the ring and the budget it spends. A raw
+// eleven-column transcription between the policy a caller holds and the job an operation reads was one hop that
+// could only lose or corrupt facts already proven.
+public sealed record WireDemand(WirePolicy Policy, Loop Profile, ProcessBudget.Erosion Budget);
+
+[ComplexValueObject]
+[ValidationError<FabricationFault>]
+public sealed partial class WireJob {
+    public WirePolicy Policy { get; }
+    public Loop Profile { get; }
+    public ProcessBudget.Erosion Budget { get; }
+
+    public static Fin<WireJob> Admit(WireDemand? candidate) =>
+        from raw in Optional(candidate).ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "wire:demand"))
+        from admitted in Validate(raw.Policy, raw.Profile, raw.Budget, out WireJob job).Admitted(job)
+        select admitted;
+
+    // Only what the PROFILE adds is proved here: the ring itself and the access relation that reads it. Every other
+    // column crossed `WirePolicy.Admit` already.
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(
+        ref FabricationFault? validationError,
+        ref WirePolicy policy,
+        ref Loop profile,
+        ref ProcessBudget.Erosion budget) {
+        if (!(profile.Count >= 2 && Reachable(policy.Access, profile)))
+            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "wire:job");
+    }
+
+    private static bool Reachable(WireAccess access, Loop profile) => access.Switch(
+        state: profile,
+        openEdge: static (loop, row) => double.IsFinite(row.Station) && row.Station >= 0.0 && row.Station <= 1.0
+            && (loop.Closed || row.Station is 0.0 or 1.0),
+        startHole: static (_, row) => row.Point.IsValid && Witness.Positive(row.DiameterMm),
+        automatic: static (_, row) => row.Point.IsValid && row.Attempts > 0,
+        channel: static (_, row) => row.Path.Count >= 2
+            && double.IsFinite(row.Station) && row.Station >= 0.0 && row.Station <= 1.0);
 }
 
 // --- [EVIDENCE] -----------------------------------------------------------------------------------------------------------------------------------
@@ -533,22 +539,30 @@ public abstract partial record WireAction {
     public sealed record Bridge(double FeedMmPerMin) : WireAction;
     public sealed record Handoff : WireAction;
 
-    public string Key => Switch(
-        access: static _ => "access",
-        cut: static _ => "cut",
-        bridge: static _ => "bridge",
-        handoff: static _ => "handoff");
+    // The S0 discriminant every case answers, so the specialized row carries a framed key rather than this plane's
+    // payload types and a fifth case breaks here at compile time instead of reaching a preimage unnamed.
+    public WireActionKind Kind => Switch(
+        access: static _ => WireActionKind.Access,
+        cut: static _ => WireActionKind.Cut,
+        bridge: static _ => WireActionKind.Bridge,
+        handoff: static _ => WireActionKind.Handoff);
 
+    // Every feed reaching this fold crossed `WirePass` admission, so a zero-feed arm answers a state the rail has
+    // already refused; access and handoff carry no travel of their own.
     public double Duration(double distanceMm) => Switch(
         state: Math.Abs(distanceMm),
         access: static (_, _) => 0.0,
-        cut: static (distance, row) => row.Process.FeedMmPerMin > 0.0 ? distance / row.Process.FeedMmPerMin * 60.0 : 0.0,
-        bridge: static (distance, row) => row.FeedMmPerMin > 0.0 ? distance / row.FeedMmPerMin * 60.0 : 0.0,
+        cut: static (distance, row) => distance / row.Process.FeedMmPerMin * 60.0,
+        bridge: static (distance, row) => distance / row.FeedMmPerMin * 60.0,
         handoff: static (_, _) => 0.0);
 }
 
+// `Ring` is the offset LEVEL the block belongs to. A clearing cycle emits several concentric rings inside one pass,
+// so a span measured across a ring boundary is not travel at all — carrying the level is what lets the span read
+// zero at the boundary honestly instead of a negative delta clamped up to it.
 public readonly record struct WireBlock(
     int Pass,
+    int Ring,
     double Station,
     double Progress,
     double TraversedMm,
@@ -560,7 +574,7 @@ public readonly record struct WireBlock(
     Option<double> RotaryDeg,
     Option<WireRecovery> Recovery) {
     public double SpanTo(WireBlock next) =>
-        Pass == next.Pass ? Math.Max(0.0, next.TraversedMm - TraversedMm) : 0.0;
+        Pass == next.Pass && Ring == next.Ring ? next.TraversedMm - TraversedMm : 0.0;
 
     public double DurationTo(WireBlock next) => Action.Duration(SpanTo(next));
 }
@@ -583,12 +597,12 @@ public sealed record WirePassReceipt(
         return new WirePassReceipt(
             pass.Pass,
             pass.Finish,
-            pass.Offset(job.WireRadiusMm),
+            pass.Offset(job.Policy.WireRadiusMm),
             cut,
-            pass.FeedMmPerMin * pass.SpeedScale == 0.0 ? 0.0 : pass.WireSpeedMmPerMin * cut / (pass.FeedMmPerMin * pass.SpeedScale),
-            rows.IsEmpty ? 0.0 : rows.Map(static block => block.LagMm).Max(),
+            pass.WireSpeedMmPerMin * cut / (pass.FeedMmPerMin * pass.SpeedScale),
+            rows.Map(static block => block.LagMm).Max(0.0),
             rows.Filter(static block => block.Action is WireAction.Bridge).Count,
-            job.Recovery.Attempts,
+            job.Policy.Recovery.Attempts,
             job.Budget.Evidence);
     }
 }
@@ -601,29 +615,28 @@ public sealed record WireProgram(
     SlugRetention Retention,
     WireRecovery Recovery,
     Option<WireCorrespondence> Correspondence,
-    Option<RotaryFrame> Rotary) {
-    public WireProgram WithBlocks(WireJob job, Seq<WireBlock> blocks) => this with {
-        Blocks = blocks,
-        Passes = job.Schedule.Passes.Map(pass => WirePassReceipt.From(job, blocks, pass)),
-    };
-
-    public SpecializedToolpathEnvelope Specialized => new(
-        SpecializedToolpathKind.Wire,
-        Blocks.Map(static row => (SpecializedToolpathRow)new SpecializedToolpathRow.Wire(
-            row.Pass, row.Station, row.Progress, row.TraversedMm,
-            row.Lower.Point, row.Upper.Point, row.Action.Key, row.LagMm,
-            row.UpperCornerRadiusMm, row.RotaryDeg)),
-        Blocks.Zip(Blocks.Skip(1))
-            .Filter(static pair => pair.First.Pass == pair.Second.Pass)
-            .Sum(static pair => pair.First.DurationTo(pair.Second)));
-
+    Option<RotaryFrame> Rotary,
+    SpecializedToolpathEnvelope Specialized) {
     public MotionDirective SpecializedDirective => new MotionDirective.Specialized(
         Blocks.IsEmpty ? -1 : Blocks.Count - 1, Specialized);
     public PostSource PostingSource => new PostSource.Specialized(Specialized);
-
 }
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
+// The wire seam: every specialized column reads off a member the block already carries, so the guide-point
+// projection and the ten-column transcription generate instead of being spelled at the construction site. The
+// `[Mapper]` declaration is `Toolpath/motion`'s alone — one attribute per partial class.
+public static partial class ToolpathRowMap {
+    [MapProperty([nameof(WireBlock.Lower), nameof(WireGuidePoint.Point)], [nameof(SpecializedToolpathRow.Wire.Lower)])]
+    [MapProperty([nameof(WireBlock.Upper), nameof(WireGuidePoint.Point)], [nameof(SpecializedToolpathRow.Wire.Upper)])]
+    // The action reaches the atom as its S0 discriminant: the union's own payloads are this plane's shapes and the
+    // preimage frames a generated key, so the row carries `WireActionKind` and never the case itself.
+    [MapProperty([nameof(WireBlock.Action), nameof(WireAction.Kind)], [nameof(SpecializedToolpathRow.Wire.Action)])]
+    [MapperIgnoreSource(nameof(WireBlock.Ring))] // the offset level is span custody, not a machine word
+    [MapperIgnoreSource(nameof(WireBlock.Recovery))] // restart custody rides program evidence, not the block row
+    public static partial SpecializedToolpathRow.Wire ToRow(WireBlock block);
+}
+
 public static class WireEdm {
     public static Fin<TOut> Generate<TOut>(WireDemand? raw, Func<WireProgram, TOut> project) =>
         from _ in Optional(project).ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "wire:projection"))
@@ -633,81 +646,117 @@ public static class WireEdm {
             .MapFail(error => new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, $"wire:projection:{error.Message}"))
         select projected;
 
-    private static Fin<WireProgram> Dispatch(WireJob job) => job.Cycle.Switch(
-        state: job,
-        contour: static (admitted, row) => Boundary(admitted, taperAt: static _ => 0.0, admitted.Guides.LowerZ, row.Corners),
-        taperContour: static (admitted, row) => Boundary(admitted, _ => row.TaperDeg, admitted.Guides.LowerZ, row.Corners),
-        fourAxis: static (admitted, row) => Paired(admitted, row),
-        noCorePocket: static (admitted, row) => Clearing(admitted, row),
-        collar: static (admitted, row) => Boundary(admitted, _ => row.TaperDeg, row.LandZ, row.Corners),
-        rotary: static (admitted, row) => Rotary(admitted, row),
-        variableTaper: static (admitted, row) => Boundary(admitted, row.At, admitted.Guides.LowerZ, row.Corners),
-        cutoff: static (admitted, row) => Cutoff(admitted, row.HandoffStation));
+    // The Cartesian half of a routed erosion pass. The LOWER guide is the path the machine's axes execute, and the
+    // upper guide, the process action, the wire bow, and the rotary state stay whole on the specialized envelope —
+    // so an erosion boundary pass reaches the CAM element stream without a flattened guide pair that would destroy
+    // the simultaneity this owner exists to preserve.
+    public static Fin<(Seq<Move> Moves, MotionDirective Directive)> Lower(WireProgram program) =>
+        program.Blocks
+            .Map(static block => block.Action.Switch(
+                state: block.Lower.Point,
+                access: static (point, _) => Move.Rapid.Of(point),
+                cut: static (point, row) => Move.Linear.Of(point, row.Process.FeedMmPerMin),
+                bridge: static (point, row) => Move.Linear.Of(point, row.FeedMmPerMin),
+                handoff: static (point, _) => Move.Rapid.Of(point)))
+            .TraverseM(identity)
+            .As()
+            .Map(moves => (moves, program.SpecializedDirective));
 
-    private static Fin<WireProgram> Boundary(
+    private static Fin<WireProgram> Dispatch(WireJob job) => job.Policy.Cycle.Switch(
+        state: job,
+        contour: static (admitted, row) => Boundary(admitted, static _ => 0.0, admitted.Policy.Guides.LowerZ, row.Corners)
+            .Bind(rows => Program(admitted, rows)),
+        taperContour: static (admitted, row) => Boundary(admitted, _ => row.TaperDeg, admitted.Policy.Guides.LowerZ, row.Corners)
+            .Bind(rows => Program(admitted, rows)),
+        fourAxis: static (admitted, row) => Paired(admitted, row).Bind(rows => Program(admitted, rows)),
+        noCorePocket: static (admitted, row) => Clearing(admitted, row).Bind(rows => Program(admitted, rows)),
+        collar: static (admitted, row) => Boundary(admitted, _ => row.TaperDeg, row.LandZ, row.Corners)
+            .Bind(rows => Program(admitted, rows)),
+        rotary: static (admitted, row) => Boundary(admitted, static _ => 0.0, admitted.Policy.Guides.LowerZ, TaperCornerMode.ConstantLand)
+            .Map(rows => rows.Map(pass => RotaryBlocks(pass, new RotaryFrame(row.AxisOrigin, row.Axis, row.PitchMm))))
+            .Bind(rows => Program(admitted, rows)),
+        // The interpolant builds ONCE per dispatch: a per-station rebuild re-solved the same knot table for every
+        // mark on every pass.
+        variableTaper: static (admitted, row) => Boundary(admitted, Taper(row), admitted.Policy.Guides.LowerZ, row.Corners)
+            .Bind(rows => Program(admitted, rows)),
+        cutoff: static (admitted, row) => Boundary(admitted, static _ => 0.0, admitted.Policy.Guides.LowerZ, TaperCornerMode.Reduced)
+            .Map(rows => Cutoff(admitted, rows, row.HandoffStation))
+            .Bind(rows => Program(admitted, rows)));
+
+    private static Func<double, double> Taper(WireCycle.VariableTaper cycle) {
+        IInterpolation law = Interpolate.Linear(
+            cycle.AngleLaw.Map(static knot => knot.Station).ToArray(),
+            cycle.AngleLaw.Map(static knot => knot.AngleDeg).ToArray());
+        return law.Interpolate;
+    }
+
+    private static Fin<Seq<Seq<WireBlock>>> Boundary(
         WireJob job,
         Func<double, double> taperAt,
         double baseZ,
         TaperCornerMode corners) =>
-        job.Schedule.Passes.AsIterable().ToSeq().TraverseM(pass =>
-            Offset(job.Profile, pass.Offset(job.WireRadiusMm)).Bind(ring => Emit(job, ring, ring, pass,
-                station => job.Guides.ShiftAt(job.Guides.UpperZ, baseZ, taperAt(station)),
-                WireCorrespondence.Identity, corners))).As()
-            .Bind(rows => Program(job, rows));
+        job.Policy.Schedule.Passes.AsIterable().ToSeq().TraverseM(pass =>
+            ArcOffset.Single(job.Profile, pass.Offset(job.Policy.WireRadiusMm), "wire:offset")
+                .Bind(ring => Emit(job, ring, ring, pass, ring: 0,
+                    station => job.Policy.Guides.ShiftAt(job.Policy.Guides.UpperZ, baseZ, taperAt(station)),
+                    WireCorrespondence.Identity, corners))).As();
 
-    private static Fin<WireProgram> Paired(WireJob job, WireCycle.FourAxis cycle) =>
-        job.Schedule.Passes.AsIterable().ToSeq().TraverseM(pass =>
-            from lower in Offset(job.Profile, pass.Offset(job.WireRadiusMm))
-            from upper in Offset(cycle.UpperProfile, pass.Offset(job.WireRadiusMm))
-            from blocks in Emit(job, lower, upper, pass, static _ => 0.0, cycle.Correspondence, TaperCornerMode.Conical)
-            select blocks).As().Bind(rows => Program(job, rows));
+    private static Fin<Seq<Seq<WireBlock>>> Paired(WireJob job, WireCycle.FourAxis cycle) =>
+        job.Policy.Schedule.Passes.AsIterable().ToSeq().TraverseM(pass =>
+            from lower in ArcOffset.Single(job.Profile, pass.Offset(job.Policy.WireRadiusMm), "wire:offset")
+            from upper in ArcOffset.Single(cycle.UpperProfile, pass.Offset(job.Policy.WireRadiusMm), "wire:offset")
+            from blocks in Emit(job, lower, upper, pass, ring: 0, static _ => 0.0, cycle.Registration, TaperCornerMode.Conical)
+            select blocks).As();
 
-    private static Fin<WireProgram> Clearing(WireJob job, WireCycle.NoCorePocket cycle) =>
+    // Every clearing level is its own RING, so a span never crosses a level boundary and the pass receipt measures
+    // real traversal instead of a clamped delta between two unrelated rings.
+    private static Fin<Seq<Seq<WireBlock>>> Clearing(WireJob job, WireCycle.NoCorePocket cycle) =>
         from rough in toSeq(Enumerable.Range(0, cycle.MaxPasses)).TraverseM(level =>
-                OffsetMany(job.Profile, -(job.Schedule.Passes[0].Offset(job.WireRadiusMm) + level * cycle.StepOverMm)).Bind(rings =>
-                    rings.TraverseM(ring => Emit(job, ring, ring, job.Schedule.Passes[0], static _ => 0.0,
-                        WireCorrespondence.Identity, TaperCornerMode.Conical)).As()
-                        .Map(static rows => rows.Bind(static row => row)))).As()
+                ArcOffset.Family(
+                        job.Profile,
+                        -(job.Policy.Schedule.Passes[0].Offset(job.Policy.WireRadiusMm) + (level * cycle.StepOverMm)),
+                        "wire:offset")
+                    .Bind(rings => rings.Map((ring, ordinal) => (Ring: ring, Ordinal: ordinal)).TraverseM(row =>
+                        Emit(job, row.Ring, row.Ring, job.Policy.Schedule.Passes[0],
+                            (level * rings.Count) + row.Ordinal, static _ => 0.0,
+                            WireCorrespondence.Identity, TaperCornerMode.Conical)).As())).As()
             .Map(static levels => levels.Bind(static level => level))
-        from finish in job.Schedule.Passes.AsIterable().ToSeq().Tail.TraverseM(pass =>
-                Offset(job.Profile, pass.Offset(job.WireRadiusMm)).Bind(ring =>
-                    Emit(job, ring, ring, pass, static _ => 0.0, WireCorrespondence.Identity, TaperCornerMode.Conical))).As()
-        from program in Program(job, Seq(rough).Concat(finish))
-        select program;
-
-    private static Fin<WireProgram> Rotary(WireJob job, WireCycle.Rotary cycle) =>
-        Boundary(job, static _ => 0.0, job.Guides.LowerZ, TaperCornerMode.ConstantLand)
-            .Map(program => program.WithBlocks(job, RotaryBlocks(program.Blocks, cycle.Frame)));
+        from finish in job.Policy.Schedule.Passes.AsIterable().ToSeq().Tail.TraverseM(pass =>
+                ArcOffset.Single(job.Profile, pass.Offset(job.Policy.WireRadiusMm), "wire:offset").Bind(ring =>
+                    Emit(job, ring, ring, pass, ring: 0, static _ => 0.0,
+                        WireCorrespondence.Identity, TaperCornerMode.Conical))).As()
+        select rough + finish;
 
     private static Seq<WireBlock> RotaryBlocks(Seq<WireBlock> blocks, RotaryFrame frame) =>
         blocks.Fold(
             (Rows: Seq<WireBlock>(), Previous: Option<WireBlock>.None, Distance: 0.0),
-            (state, block) => {
-                double distance = state.Previous.Match(
-                    Some: previous => previous.Pass == block.Pass
-                        ? state.Distance + previous.SpanTo(block)
-                        : state.Distance,
-                    None: static () => 0.0);
-                return (
+            (state, block) => state.Previous
+                .Map(previous => state.Distance + previous.SpanTo(block))
+                .IfNone(0.0)
+                .Apply(distance => (
                     state.Rows.Add(block with { RotaryDeg = Some(frame.AngleAt(distance)) }),
                     Some(block),
-                    distance);
-            })
+                    distance)))
             .Rows;
 
-    private static Fin<WireProgram> Cutoff(WireJob job, double handoff) =>
-        from program in Boundary(job, static _ => 0.0, job.Guides.LowerZ, TaperCornerMode.Reduced)
-        let retained = program.Blocks.Filter(block => block.Action is WireAction.Access || block.Station <= handoff)
-        select program.WithBlocks(job, retained.Map((block, index) =>
-            index == retained.Count - 1 && block.Action is not WireAction.Access
-                ? block with { Action = new WireAction.Handoff(), Recovery = Option<WireRecovery>.None }
-                : block));
+    // The retained set is decided on PROGRESS, which is the order the program runs in; a station filter kept the
+    // wrong side of the seam whenever access started anywhere but the ring's own zero.
+    private static Seq<Seq<WireBlock>> Cutoff(WireJob job, Seq<Seq<WireBlock>> rows, double handoffStation) {
+        double start = job.Policy.Access.Start.IfNone(0.0);
+        double handoff = handoffStation >= start ? handoffStation - start : 1.0 - start + handoffStation;
+        return rows.Map(pass => pass.Filter(block => block.Action is WireAction.Access || block.Progress <= handoff))
+            .Map(static pass => pass.Map((block, index) =>
+                index == pass.Count - 1 && block.Action is not WireAction.Access
+                    ? block with { Action = new WireAction.Handoff(), Recovery = Option<WireRecovery>.None }
+                    : block));
+    }
 
     private static Fin<Seq<WireBlock>> Emit(
         WireJob job,
         Loop lower,
         Loop upper,
         WirePass pass,
+        int ring,
         Func<double, double> upperShift,
         WireCorrespondence correspondence,
         TaperCornerMode corners) =>
@@ -717,15 +766,15 @@ public static class WireEdm {
         let upperPath = Native(upper)
         let lowerLength = lowerPath.PathLength()
         let upperLength = upperPath.PathLength()
-        let lag = pass.LagMm(job.Schedule.ThicknessMm, job.WireRadiusMm)
+        let lag = pass.LagMm(job.Policy.Schedule.ThicknessMm, job.Policy.WireRadiusMm)
         from blocks in marks.TraverseM(mark =>
             from low in Sample(lowerPath, lower, mark.Station * lowerLength)
             from high in Sample(upperPath, upper, correspondence.UpperAt(mark.Station) * upperLength)
             let shift = upperShift(mark.Station)
             let upperPoint = high.Point + corners.Direction(high, upper) * shift
-            let lowerGuide = low with { Point = new Point3d(low.Point.X, low.Point.Y, job.Guides.LowerZ) }
-            let upperGuide = high with { Point = new Point3d(upperPoint.X, upperPoint.Y, job.Guides.UpperZ) }
-            from _ in job.Guides.Envelope(lowerGuide.Point, upperGuide.Point)
+            let lowerGuide = low with { Point = new Point3d(low.Point.X, low.Point.Y, job.Policy.Guides.LowerZ) }
+            let upperGuide = high with { Point = new Point3d(upperPoint.X, upperPoint.Y, job.Policy.Guides.UpperZ) }
+            from _ in job.Policy.Guides.Envelope(lowerGuide.Point, upperGuide.Point)
             let process = new WireProcess(
                 pass.FeedMmPerMin * pass.SpeedScale * mark.SpeedScale,
                 pass.Power,
@@ -733,36 +782,25 @@ public static class WireEdm {
                 pass.Tension)
             select new WireBlock(
                 pass.Pass,
+                ring,
                 mark.Station,
                 mark.Progress,
                 mark.Progress * lowerLength,
                 lowerGuide,
                 upperGuide,
-                job.Retention.Cutting(mark.Station, pass.Pass, job.Schedule.Passes.Count)
+                job.Policy.Retention.Cutting(mark.Station, pass.Pass, job.Policy.Schedule.Passes.Count)
                     ? new WireAction.Cut(process)
                     : new WireAction.Bridge(process.FeedMmPerMin),
                 lag * mark.SpeedScale,
                 mark.TurnDeg > 0.0 ? corners.CornerRadiusMm(shift) : 0.0,
                 Option<double>.None,
-                mark.Progress == 0.0 && job.Recovery.Attempts > 0 ? Some(job.Recovery) : Option<WireRecovery>.None)).As()
+                mark.Progress == 0.0 && job.Policy.Recovery.Attempts > 0
+                    ? Some(job.Policy.Recovery)
+                    : Option<WireRecovery>.None)).As()
         select blocks;
 
-    private static Fin<Loop> Offset(Loop loop, double distance) =>
-        OffsetMany(loop, distance).Bind(rows => rows.Count == 1
-            ? rows.Head.ToFin(new GeometryFault.DegenerateInput(Kind.Curve, None, "wire:offset-topology").ToError())
-            : Fin.Fail<Loop>(new GeometryFault.DegenerateInput(Kind.Curve, None, "wire:offset-topology").ToError()));
-
-    private static Fin<Seq<Loop>> OffsetMany(Loop loop, double distance) =>
-        ArcAlgebra.Apply(new ArcOp.Offset(new ArcOffsetSource.Path(loop), distance)).Bind(trace => trace.Switch(
-            forest: static row => Fin.Succ(row.Result.Loops),
-            paths: static row => Fin.Succ(row.Result),
-            motion: static _ => Fin.Fail<Seq<Loop>>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "wire:offset-result")),
-            inspection: static _ => Fin.Fail<Seq<Loop>>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "wire:offset-result")),
-            densified: static _ => Fin.Fail<Seq<Loop>>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "wire:offset-result")),
-            recovered: static _ => Fin.Fail<Seq<Loop>>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "wire:offset-result"))));
-
     private static Polyline<double> Native(Loop loop) =>
-        new(loop.Vertices.Map((point, index) => PlineVertex<double>.FromSlice([point.X, point.Y, loop.BulgeAt(index)])), loop.Closed);
+        new(toSeq(loop.Vertices).Map((point, index) => PlineVertex<double>.FromSlice([point.X, point.Y, loop.BulgeAt(index)])), loop.Closed);
 
     private static Fin<WireGuidePoint> Sample(Polyline<double> path, Loop source, double length) =>
         path.FindPointAtPathLength(length) switch {
@@ -821,24 +859,44 @@ public static class WireEdm {
             return Fin.Fail<(Polyline<double>, Seq<(double, double, double, double)>)>(
                 new GeometryFault.DegenerateInput(Kind.Curve, None, "wire:perimeter").ToError());
         Seq<(double Station, double TurnDeg)> vertices = VertexStations(loop, path, perimeter);
-        double start = job.Access.Start.IfNone(0.0);
+        double start = job.Policy.Access.Start.IfNone(0.0);
         double window = pass.CornerSlowMm / perimeter;
+        // Vertices bucket at the corner-window width, so each mark reads the three buckets its window can reach
+        // instead of the whole vertex roster. A zero window admits no vertex at all, which is the same verdict the
+        // per-vertex scan reached and the reason the bucket key is only meaningful above it.
+        HashMap<int, Seq<(double Station, double TurnDeg)>> corners = window > 0.0
+            ? vertices.Fold(
+                HashMap<int, Seq<(double Station, double TurnDeg)>>.Empty,
+                (index, vertex) => index.AddOrUpdate(
+                    (int)Math.Floor(vertex.Station / window), held => held.Add(vertex), Seq(vertex)))
+            : HashMap<int, Seq<(double Station, double TurnDeg)>>.Empty;
         Seq<(double Station, double Progress, double SpeedScale, double TurnDeg)> ordered =
             toSeq(pass.CornerStations(vertices.Map(static row => row.Station), perimeter, loop.Closed)
-                .Concat(job.Retention.Stations)
-                .Concat(job.Cycle.Stations)
+                .Concat(job.Policy.Retention.Stations)
+                .Concat(job.Policy.Cycle.Stations)
                 .Concat(Seq(0.0, 1.0, start))
                 .Filter(static station => double.IsFinite(station) && station >= 0.0 && station <= 1.0)
                 .Map(station => loop.Closed ? station - Math.Floor(station) : station)
-                .Distinct()
+                // Stations quantize to the loop's own tolerance before dedup, so two marks the geometry cannot
+                // distinguish never both survive as separate blocks.
+                .DistinctBy(station => Math.Round(station * perimeter / loop.Tolerance.Absolute.Value))
                 .Map(station => (
                     Station: station,
                     Progress: station >= start ? station - start : 1.0 - start + station,
-                    Turn: vertices
-                        .Filter(vertex => Math.Min(
-                            Math.Abs(vertex.Station - station),
-                            loop.Closed ? 1.0 - Math.Abs(vertex.Station - station) : double.PositiveInfinity) <= window)
-                        .Fold(0.0, static (peak, vertex) => Math.Max(peak, vertex.TurnDeg))))
+                    // The SHARPEST corner inside the window is the one the wire must survive, so the fold is a
+                    // maximum over the window and never the nearest vertex's own turn.
+                    Turn: window <= 0.0
+                        ? 0.0
+                        : Range(-1, 3).ToSeq()
+                            .Bind(shift => corners
+                                .Find((int)Math.Floor(station / window) + shift)
+                                .IfNone(Seq<(double Station, double TurnDeg)>()))
+                            // An open loop has no seam to wrap across, so its distance is the plain separation and
+                            // no stand-in maximum stands where the wrap term would be.
+                            .Filter(vertex => (loop.Closed
+                                ? Math.Min(Math.Abs(vertex.Station - station), 1.0 - Math.Abs(vertex.Station - station))
+                                : Math.Abs(vertex.Station - station)) <= window)
+                            .Fold(0.0, static (peak, vertex) => Math.Max(peak, vertex.TurnDeg))))
                 .Map(row => (row.Station, row.Progress, SpeedScale: pass.CornerScale(row.Turn), TurnDeg: row.Turn))
                 .Filter(row => loop.Closed || row.Station >= start)
                 .OrderBy(static row => row.Progress));
@@ -857,25 +915,30 @@ public static class WireEdm {
             .As()
         let cut = rows.Bind(static pass => pass)
         let blocks = access.Map(entry => Seq(entry).Concat(cut)).IfNone(cut)
+        from envelope in SpecializedToolpathEnvelope.Admit(
+            SpecializedToolpathKind.Wire,
+            blocks.Map(static row => (SpecializedToolpathRow)ToolpathRowMap.ToRow(row)),
+            blocks.Zip(blocks.Skip(1)).Sum(static pair => pair.First.DurationTo(pair.Second)))
         select new WireProgram(
             blocks,
-            job.Schedule.Passes.Map(pass => WirePassReceipt.From(job, blocks, pass)),
-            job.Schedule.Context,
-            job.Access,
-            job.Retention,
-            job.Recovery,
-            job.Cycle.Correspondence,
-            job.Cycle.Spindle);
+            job.Policy.Schedule.Passes.Map(pass => WirePassReceipt.From(job, blocks, pass)),
+            job.Policy.Schedule.Context,
+            job.Policy.Access,
+            job.Policy.Retention,
+            job.Policy.Recovery,
+            job.Policy.Cycle.Correspondence,
+            job.Policy.Cycle.Spindle,
+            envelope);
 
-    private static Fin<WireBlock> Access(WireJob job, WireBlock first) => job.Access.Switch(
+    private static Fin<WireBlock> Access(WireJob job, WireBlock first) => job.Policy.Access.Switch(
         state: (job, first),
-        openEdge: static (state, _) => Fin.Succ(state.job.Access.Entry(state.first, state.first.Lower)),
-        startHole: static (state, row) => Fin.Succ(state.job.Access.Entry(
+        openEdge: static (state, _) => Fin.Succ(state.job.Policy.Access.Entry(state.first, state.first.Lower)),
+        startHole: static (state, row) => Fin.Succ(state.job.Policy.Access.Entry(
             state.first, state.first.Lower with { Point = row.Point })),
-        automatic: static (state, row) => Fin.Succ(state.job.Access.Entry(
+        automatic: static (state, row) => Fin.Succ(state.job.Policy.Access.Entry(
             state.first, state.first.Lower with { Point = row.Point })),
         channel: static (state, row) => Sample(Native(row.Path), row.Path, row.Station * row.Path.Length())
-            .Map(guide => state.job.Access.Entry(state.first, guide)));
+            .Map(guide => state.job.Policy.Access.Entry(state.first, guide)));
 }
 ```
 

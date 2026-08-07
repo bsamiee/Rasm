@@ -28,58 +28,62 @@
 
 [PUBLIC_TYPE_SCOPE]: frame, view, and composition carriers
 
-| [INDEX] | [SYMBOL]                         | [TYPE_FAMILY] | [CAPABILITY]                                                 |
-| :-----: | :------------------------------- | :------------ | :----------------------------------------------------------- |
-|  [01]   | `SystemProperties`               | struct        | HMD name, vendor, graphics/tracking caps                     |
-|  [02]   | `View`                           | struct        | per-eye pose + field-of-view                                 |
-|  [03]   | `ViewConfigurationType`          | enum          | stereo/mono/quad view config                                 |
-|  [04]   | `ViewConfigurationView`          | struct        | recommended/max image rect + sample count                    |
-|  [05]   | `ViewState`                      | struct        | `ViewStateFlags` orientation/position valid + tracked bits   |
-|  [06]   | `Posef`                          | struct        | position quaternion + translation                            |
-|  [07]   | `Fovf`                           | struct        | asymmetric tangent field-of-view (`AngleLeft`/`Right`/`Up`/`Down`) |
-|  [08]   | `FrameState`                     | struct        | `PredictedDisplayTime`/`PredictedDisplayPeriod`/`ShouldRender` |
-|  [09]   | `CompositionLayerProjection`     | struct        | stereo projection layer (`LayerFlags`/`Space`/`ViewCount`/`Views`) |
-|  [10]   | `CompositionLayerProjectionView` | struct        | per-eye layer view (`Pose`/`Fov`/`SubImage`)                 |
-|  [11]   | `SwapchainSubImage`              | struct        | `Swapchain` + `Rect2Di ImageRect` + `ImageArrayIndex`        |
-|  [12]   | `Rect2Di`                        | struct        | `Offset2Di` + `Extent2Di` image rectangle                    |
-|  [13]   | `CompositionLayerFlags`          | enum (flags)  | `BlendTextureSourceAlphaBit` / `UnpremultipliedAlphaBit`     |
-|  [14]   | `SwapchainImageVulkanKHR`        | struct        | imported swapchain image handle                              |
-|  [15]   | `EnvironmentBlendMode`           | enum          | opaque/additive/alpha-blend passthrough                      |
-|  [16]   | `CompositionLayerQuad`           | struct        | world-anchored quad layer (`LayerFlags`/`Space`/`EyeVisibility`/`SubImage`/`Pose`/`Size`) under `StructureType.TypeCompositionLayerQuad` |
-|  [17]   | `Extent2Df`                      | struct        | `float Width` + `float Height`; the quad's metre extent      |
-|  [18]   | `EyeVisibility`                  | enum          | `Both` / `Left` / `Right` per-layer eye selection            |
-|  [19]   | `ReferenceSpaceType`             | enum          | `View` / `Local` / `Stage` reference-space selection         |
+| [INDEX] | [SYMBOL]                         | [TYPE_FAMILY] | [CAPABILITY]                                                                        |
+| :-----: | :------------------------------- | :------------ | :---------------------------------------------------------------------------------- |
+|  [01]   | `SystemProperties`               | struct        | HMD name, vendor, graphics/tracking caps                                            |
+|  [02]   | `View`                           | struct        | per-eye pose + field-of-view                                                        |
+|  [03]   | `ViewConfigurationType`          | enum          | stereo/mono/quad view config                                                        |
+|  [04]   | `ViewConfigurationView`          | struct        | recommended/max image rect + sample count                                           |
+|  [05]   | `ViewState`                      | struct        | `ViewStateFlags` orientation/position valid + tracked bits                          |
+|  [06]   | `Posef`                          | struct        | position quaternion + translation                                                   |
+|  [07]   | `Fovf`                           | struct        | asymmetric tangent field-of-view (`AngleLeft`/`Right`/`Up`/`Down`)                  |
+|  [08]   | `FrameState`                     | struct        | `PredictedDisplayTime`/`PredictedDisplayPeriod`/`ShouldRender`                      |
+|  [09]   | `CompositionLayerProjection`     | struct        | stereo projection layer (`LayerFlags`/`Space`/`ViewCount`/`Views`)                  |
+|  [10]   | `CompositionLayerProjectionView` | struct        | per-eye layer view (`Pose`/`Fov`/`SubImage`)                                        |
+|  [11]   | `SwapchainSubImage`              | struct        | `Swapchain` + `Rect2Di ImageRect` + `ImageArrayIndex`                               |
+|  [12]   | `Rect2Di`                        | struct        | `Offset2Di` + `Extent2Di` image rectangle                                           |
+|  [13]   | `CompositionLayerFlags`          | enum (flags)  | `BlendTextureSourceAlphaBit` / `UnpremultipliedAlphaBit`                            |
+|  [14]   | `SwapchainImageVulkanKHR`        | struct        | imported swapchain image handle                                                     |
+|  [15]   | `EnvironmentBlendMode`           | enum          | opaque/additive/alpha-blend passthrough                                             |
+|  [16]   | `CompositionLayerQuad`           | struct        | world-anchored quad (`LayerFlags`/`Space`/`EyeVisibility`/`SubImage`/`Pose`/`Size`) |
+|  [17]   | `Extent2Df`                      | struct        | `float Width` + `float Height`; the quad's metre extent                             |
+|  [18]   | `EyeVisibility`                  | enum          | `Both` / `Left` / `Right` per-layer eye selection                                   |
+|  [19]   | `ReferenceSpaceType`             | enum          | `View` / `Local` / `Stage` reference-space selection                                |
+
+- `CompositionLayerQuad`: rides `StructureType.TypeCompositionLayerQuad`.
 
 [PUBLIC_TYPE_SCOPE]: session-state and event-queue carriers — the runtime drives the session and the app answers on the event it dequeues
 
-| [INDEX] | [SYMBOL]                        | [TYPE_FAMILY] | [CAPABILITY]                                                        |
-| :-----: | :------------------------------ | :------------ | :------------------------------------------------------------------ |
-|  [01]   | `SessionState`                  | enum          | `Unknown`/`Idle`/`Ready`/`Synchronized`/`Visible`/`Focused`/`Stopping`/`LossPending`/`Exiting` |
-|  [02]   | `EventDataBuffer`               | struct        | 4000-byte `Varying` union the poll fills; `Type` selects the cast   |
-|  [03]   | `EventDataSessionStateChanged`  | struct        | `Session` + `SessionState State` + `long Time`                      |
-|  [04]   | `EventDataInstanceLossPending`  | struct        | runtime revoking the instance                                       |
-|  [05]   | `EventDataEventsLost`           | struct        | `uint LostEventCount` queue overflow                                |
-|  [06]   | `EventDataInteractionProfileChanged` | struct   | bound interaction profile changed; actions re-resolve               |
-|  [07]   | `StructureType`                 | enum          | `TypeEventData*` discriminant every event carries                   |
+[SESSION_STATE]: `Unknown` `Idle` `Ready` `Synchronized` `Visible` `Focused` `Stopping` `LossPending` `Exiting`
+
+| [INDEX] | [SYMBOL]                             | [TYPE_FAMILY] | [CAPABILITY]                                                      |
+| :-----: | :----------------------------------- | :------------ | :---------------------------------------------------------------- |
+|  [01]   | `SessionState`                       | enum          | session lifecycle the runtime drives                              |
+|  [02]   | `EventDataBuffer`                    | struct        | 4000-byte `Varying` union the poll fills; `Type` selects the cast |
+|  [03]   | `EventDataSessionStateChanged`       | struct        | `Session` + `SessionState State` + `long Time`                    |
+|  [04]   | `EventDataInstanceLossPending`       | struct        | runtime revoking the instance                                     |
+|  [05]   | `EventDataEventsLost`                | struct        | `uint LostEventCount` queue overflow                              |
+|  [06]   | `EventDataInteractionProfileChanged` | struct        | bound interaction profile changed; actions re-resolve             |
+|  [07]   | `StructureType`                      | enum          | `TypeEventData*` discriminant every event carries                 |
 
 [PUBLIC_TYPE_SCOPE]: descriptor and create-info carriers
 
-| [INDEX] | [SYMBOL]                                            | [TYPE_FAMILY] | [CAPABILITY]                                             |
-| :-----: | :-------------------------------------------------- | :------------ | :-------------------------------------------------------- |
-|  [01]   | `InstanceCreateInfo`                                | descriptor    | enabled extensions, app info                             |
-|  [02]   | `SystemGetInfo`                                     | descriptor    | form-factor request                                      |
-|  [03]   | `SessionCreateInfo`                                 | descriptor    | system id + graphics-binding `next` chain                |
-|  [04]   | `SessionBeginInfo`                                  | descriptor    | `PrimaryViewConfigurationType` the Ready answer carries  |
-|  [05]   | `SwapchainCreateInfo`                               | descriptor    | format, sample count, array size                         |
-|  [06]   | `SwapchainImageAcquireInfo` / `…WaitInfo` / `…ReleaseInfo` | descriptor | per-image acquire/wait (`long Timeout`)/release      |
-|  [07]   | `ReferenceSpaceCreateInfo`                          | descriptor    | stage/local/view reference space                         |
-|  [08]   | `ActionSetCreateInfo`                               | descriptor    | `fixed byte ActionSetName[64]` + localized + priority    |
-|  [09]   | `ActionCreateInfo`                                  | descriptor    | `fixed byte ActionName[64]`, type, subaction paths       |
-|  [10]   | `ActionSuggestedBinding` / `InteractionProfileSuggestedBinding` | descriptor | one binding array PER interaction profile   |
-|  [11]   | `SessionActionSetsAttachInfo`                       | descriptor    | action sets sealed to the session before any sync        |
-|  [12]   | `ActionSpaceCreateInfo` / `ActiveActionSet` / `ActionsSyncInfo` | descriptor | pose space + per-frame sync set              |
-|  [13]   | `ViewLocateInfo`                                    | descriptor    | view config + display time + base space                  |
-|  [14]   | `FrameWaitInfo` / `FrameBeginInfo` / `FrameEndInfo` | descriptor    | frame-loop carriers                                      |
+| [INDEX] | [SYMBOL]                                                        | [TYPE_FAMILY] | [CAPABILITY]                                          |
+| :-----: | :-------------------------------------------------------------- | :------------ | :---------------------------------------------------- |
+|  [01]   | `InstanceCreateInfo`                                            | descriptor    | enabled extensions, app info                          |
+|  [02]   | `SystemGetInfo`                                                 | descriptor    | form-factor request                                   |
+|  [03]   | `SessionCreateInfo`                                             | descriptor    | system id + graphics-binding `next` chain             |
+|  [04]   | `SessionBeginInfo`                                              | descriptor    | `PrimaryViewConfigurationType` on the Ready answer    |
+|  [05]   | `SwapchainCreateInfo`                                           | descriptor    | format, sample count, array size                      |
+|  [06]   | `SwapchainImageAcquireInfo` / `…WaitInfo` / `…ReleaseInfo`      | descriptor    | per-image acquire/wait (`long Timeout`)/release       |
+|  [07]   | `ReferenceSpaceCreateInfo`                                      | descriptor    | stage/local/view reference space                      |
+|  [08]   | `ActionSetCreateInfo`                                           | descriptor    | `fixed byte ActionSetName[64]` + localized + priority |
+|  [09]   | `ActionCreateInfo`                                              | descriptor    | `fixed byte ActionName[64]`, type, subaction paths    |
+|  [10]   | `ActionSuggestedBinding` / `InteractionProfileSuggestedBinding` | descriptor    | one binding array PER interaction profile             |
+|  [11]   | `SessionActionSetsAttachInfo`                                   | descriptor    | action sets sealed to the session before any sync     |
+|  [12]   | `ActionSpaceCreateInfo` / `ActiveActionSet` / `ActionsSyncInfo` | descriptor    | pose space + per-frame sync set                       |
+|  [13]   | `ViewLocateInfo`                                                | descriptor    | view config + display time + base space               |
+|  [14]   | `FrameWaitInfo` / `FrameBeginInfo` / `FrameEndInfo`             | descriptor    | frame-loop carriers                                   |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -101,44 +105,44 @@ Every surface is an `unsafe Result` instance method on the `XR.GetApi()` functio
 
 [ENTRYPOINT_SCOPE]: session state and the event queue — the runtime drives `SessionState` and the app answers here; no other surface reaches a rendering state
 
-| [INDEX] | [SURFACE]                                             | [SHAPE]  | [CAPABILITY]                                          |
-| :-----: | :---------------------------------------------------- | :------- | :----------------------------------------------------- |
-|  [01]   | `PollEvent(Instance, EventDataBuffer* eventData)`     | instance | dequeue one event; `Result.EventUnavailable` ends drain |
-|  [02]   | `BeginSession(Session, SessionBeginInfo*)`            | instance | the app's answer to `SessionState.Ready`               |
-|  [03]   | `EndSession(Session)`                                 | instance | the app's answer to `SessionState.Stopping`            |
-|  [04]   | `RequestExitSession(Session)`                         | instance | app-initiated exit; runtime drives to `Exiting`        |
-|  [05]   | `DestroySession(Session)` / `DestroyInstance(Instance)` | instance | terminal native release                              |
+| [INDEX] | [SURFACE]                                               | [SHAPE]  | [CAPABILITY]                                            |
+| :-----: | :------------------------------------------------------ | :------- | :------------------------------------------------------ |
+|  [01]   | `PollEvent(Instance, EventDataBuffer* eventData)`       | instance | dequeue one event; `Result.EventUnavailable` ends drain |
+|  [02]   | `BeginSession(Session, SessionBeginInfo*)`              | instance | the app's answer to `SessionState.Ready`                |
+|  [03]   | `EndSession(Session)`                                   | instance | the app's answer to `SessionState.Stopping`             |
+|  [04]   | `RequestExitSession(Session)`                           | instance | app-initiated exit; runtime drives to `Exiting`         |
+|  [05]   | `DestroySession(Session)` / `DestroyInstance(Instance)` | instance | terminal native release                                 |
 
 [ENTRYPOINT_SCOPE]: swapchain, space, and frame loop
 
-| [INDEX] | [SURFACE]                                                                          | [SHAPE]  | [CAPABILITY]            |
-| :-----: | :---------------------------------------------------------------------------------- | :------- | :---------------------- |
-|  [01]   | `CreateSwapchain(Session, SwapchainCreateInfo*, Swapchain*)`                       | instance | per-eye swapchain       |
-|  [02]   | `EnumerateSwapchainImages(Swapchain, SwapchainImageBaseHeader*)`                   | instance | image array             |
-|  [03]   | `AcquireSwapchainImage(Swapchain, SwapchainImageAcquireInfo*, uint* index)`        | instance | acquire eye image index |
-|  [04]   | `WaitSwapchainImage(Swapchain, SwapchainImageWaitInfo*)`                           | instance | wait image ready        |
-|  [05]   | `ReleaseSwapchainImage(Swapchain, SwapchainImageReleaseInfo*)`                     | instance | return the acquired image |
-|  [06]   | `CreateReferenceSpace(Session, ReferenceSpaceCreateInfo*, Space*)`                 | instance | stage/local space       |
-|  [07]   | `WaitFrame(Session, FrameWaitInfo*, FrameState*)`                                  | instance | predicted display time  |
-|  [08]   | `BeginFrame(Session, FrameBeginInfo*)`                                             | instance | frame begin             |
-|  [09]   | `LocateView(Session, ViewLocateInfo*, ViewState*, uint capacity, uint* count, View*)` | instance | per-eye pose/fov     |
-|  [10]   | `EndFrame(Session, FrameEndInfo*)`                                                 | instance | submit layers           |
+| [INDEX] | [SURFACE]                                                                             | [SHAPE]  | [CAPABILITY]              |
+| :-----: | :------------------------------------------------------------------------------------ | :------- | :------------------------ |
+|  [01]   | `CreateSwapchain(Session, SwapchainCreateInfo*, Swapchain*)`                          | instance | per-eye swapchain         |
+|  [02]   | `EnumerateSwapchainImages(Swapchain, SwapchainImageBaseHeader*)`                      | instance | image array               |
+|  [03]   | `AcquireSwapchainImage(Swapchain, SwapchainImageAcquireInfo*, uint* index)`           | instance | acquire eye image index   |
+|  [04]   | `WaitSwapchainImage(Swapchain, SwapchainImageWaitInfo*)`                              | instance | wait image ready          |
+|  [05]   | `ReleaseSwapchainImage(Swapchain, SwapchainImageReleaseInfo*)`                        | instance | return the acquired image |
+|  [06]   | `CreateReferenceSpace(Session, ReferenceSpaceCreateInfo*, Space*)`                    | instance | stage/local space         |
+|  [07]   | `WaitFrame(Session, FrameWaitInfo*, FrameState*)`                                     | instance | predicted display time    |
+|  [08]   | `BeginFrame(Session, FrameBeginInfo*)`                                                | instance | frame begin               |
+|  [09]   | `LocateView(Session, ViewLocateInfo*, ViewState*, uint capacity, uint* count, View*)` | instance | per-eye pose/fov          |
+|  [10]   | `EndFrame(Session, FrameEndInfo*)`                                                    | instance | submit layers             |
 
 [ENTRYPOINT_SCOPE]: input actions, poses, and haptics
 
-| [INDEX] | [SURFACE]                                                              | [SHAPE]  | [CAPABILITY]                        |
-| :-----: | :---------------------------------------------------------------------- | :------- | :----------------------------------- |
-|  [01]   | `CreateActionSet(Instance, ActionSetCreateInfo*, ActionSet*)`          | instance | action set                          |
-|  [02]   | `CreateAction(ActionSet, ActionCreateInfo*, Action*)`                  | instance | bound action                        |
-|  [03]   | `StringToPath(Instance, byte* pathString, ulong* path)`                | instance | interaction-profile + component path |
-|  [04]   | `SuggestInteractionProfileBinding(Instance, InteractionProfileSuggestedBinding*)` | instance | one binding array per profile |
-|  [05]   | `AttachSessionActionSets(Session, SessionActionSetsAttachInfo*)`       | instance | seal sets to session before sync    |
-|  [06]   | `CreateActionSpace(Session, ActionSpaceCreateInfo*, Space*)`           | instance | pose action space                   |
-|  [07]   | `SyncAction(Session, ActionsSyncInfo*)`                                | instance | per-frame poll                      |
-|  [08]   | `GetActionStatePose / GetActionStateBoolean / GetActionStateFloat / GetActionStateVector2` | instance | controller state |
-|  [09]   | `LocateSpace(Space, Space baseSpace, long time, SpaceLocation*)`       | instance | controller pose                     |
-|  [10]   | `LocateSpaces(Session, SpacesLocateInfo*, SpaceLocations*)`            | instance | batched pose location               |
-|  [11]   | `ApplyHapticFeedback(Session, HapticActionInfo*, HapticBaseHeader*)`   | instance | controller haptic                   |
+| [INDEX] | [SURFACE]                                                                         | [SHAPE]  | [CAPABILITY]                         |
+| :-----: | :-------------------------------------------------------------------------------- | :------- | :----------------------------------- |
+|  [01]   | `CreateActionSet(Instance, ActionSetCreateInfo*, ActionSet*)`                     | instance | action set                           |
+|  [02]   | `CreateAction(ActionSet, ActionCreateInfo*, Action*)`                             | instance | bound action                         |
+|  [03]   | `StringToPath(Instance, byte* pathString, ulong* path)`                           | instance | interaction-profile + component path |
+|  [04]   | `SuggestInteractionProfileBinding(Instance, InteractionProfileSuggestedBinding*)` | instance | one binding array per profile        |
+|  [05]   | `AttachSessionActionSets(Session, SessionActionSetsAttachInfo*)`                  | instance | seal sets to session before sync     |
+|  [06]   | `CreateActionSpace(Session, ActionSpaceCreateInfo*, Space*)`                      | instance | pose action space                    |
+|  [07]   | `SyncAction(Session, ActionsSyncInfo*)`                                           | instance | per-frame poll                       |
+|  [08]   | `GetActionState{Pose, Boolean, Float, Vector2}`                                   | instance | controller state                     |
+|  [09]   | `LocateSpace(Space, Space baseSpace, long time, SpaceLocation*)`                  | instance | controller pose                      |
+|  [10]   | `LocateSpaces(Session, SpacesLocateInfo*, SpaceLocations*)`                       | instance | batched pose location                |
+|  [11]   | `ApplyHapticFeedback(Session, HapticActionInfo*, HapticBaseHeader*)`              | instance | controller haptic                    |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

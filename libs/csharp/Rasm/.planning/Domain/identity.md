@@ -12,13 +12,13 @@ Identity and derivation never cross: a content key built from a `Deterministic` 
 ## [02]-[CONTENT_KEY]
 
 - Owner: `ContentHash` static class — one algorithm, seed zero; THE federation content key every partner composes. Caller owns the canonical byte projection, this owns the digest, so identity is byte-stable across packages and runtimes.
-- Entry: one name over two input shapes — `Of(ReadOnlySpan<byte> canonicalBytes)` folds a payload one span spans, `Of<TState>(TState state, Action<TState, XxHash128> chunks)` folds an ordered chunk stream through one seeded accumulator; both close on `UInt128` at seed zero, so the streaming leg is the same identity space and never a second key.
+- Entry: one name over two input shapes — `Of(ReadOnlySpan<byte> canonicalBytes)` folds a payload one span spans, `Of<TState>(TState state, Action<TState, XxHash128> chunks)` folds an ordered chunk stream through one seeded accumulator; both close on `UInt128` at seed zero, so the streaming leg is the same identity space and never a second key. `Half(UInt128 digest, int lane)` is the one indexed two-half projection off that currency — lane `0` the low 64 bits, lane `1` the high — so a fixture freezing a digest and a lane-keyed splitmix seeding read one spelling of the same split.
 - Law: canonicalization is the caller's proof — this entry hashes the bytes it is handed, so byte-stable member order, numeric normalization, and encoding are the projecting owner's obligation, and two semantically equal values with divergent canonical projections are two identities.
 - Law: chunk ORDER is the streaming leg's canonical projection — the accumulator is order-sensitive, so a producer emits its chunks under one declared traversal and a reordered emission is a different identity, exactly as a reordered span is.
 - Law: a payload whose byte length exceeds `int` range reaches no `ReadOnlySpan<byte>` at all, so the streaming leg is the only spelling for a large plane, tile arena, or segmented artifact; picking the one-shot there is unrepresentable rather than slow.
 - Packages: `System.IO.Hashing` (`XxHash128.HashToUInt128` static one-shot, `XxHash128(long)` seeded construction, `Append`, `GetCurrentHashAsUInt128`; MIT, managed, no native asset).
 - Growth: a new ingress shape lands as one overload on this entry name; a second hashing owner beside it forks the federation seed every partner reproduces.
-- Boundary: `UInt128` is the identity currency; wire and storage encodings (hex, two-lane `ulong`, byte order) are boundary projections at the consuming seam.
+- Boundary: `UInt128` is the identity currency and `Half` its one lane split; hex rendering, byte order, and every other wire or storage encoding stay boundary projections at the consuming seam. A consumer re-spelling the shift-and-narrow inline is how one digest acquires two lane conventions and a fixture stops matching the generator seeded from the same key.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -39,15 +39,25 @@ public static class ContentHash {
         chunks(state, accumulator);
         return accumulator.GetCurrentHashAsUInt128();
     }
+
+    // The lane index IS the projection, so no consumer spells the shift: lane 0 is the low half, lane 1 the high,
+    // little-endian like every other canonical scalar this federation frames. Two consumers each writing their own
+    // `(ulong)digest` / `(ulong)(digest >> 64)` pair is how a frozen fixture and a seeded generator drift apart on
+    // one key while both read correct in isolation.
+    public static ulong Half(UInt128 digest, int lane) =>
+        lane is 0 or 1
+            ? unchecked((ulong)(digest >> (lane * 64)))
+            : throw new ArgumentOutOfRangeException(nameof(lane));
 }
 ```
 
 ## [03]-[DETERMINISTIC_DERIVATION]
 
 - Owner: `Deterministic` static class — the one splitmix64 owner: `Mix` (finalizer) and `Advance` (golden-gamma stream) are the private mechanism, the public family is the unit draws, order keys, clamped intervals, lane-keyed draws, the bounded integer draw, the equidistributed family, and the one `System.Random` adapter; the mixer is unreachable outside the owner.
-- Entry: three modalities by input shape — stream sampling advances a `ref ulong state` seeded by the consuming algorithm's named policy seed (`NextSignedUnit` for real bases, `NextSignedComplexUnit` for Hermitian, `NextBelow` for an unbiased bounded index); coordinate keying is stateless (`OrderKey(coordinates, seed)`, the `Point3d` overload routing into the span floor, `UnitInterval(point, salt, seed)` for per-point draws); lane keying is stateless over integer lanes (`Stream(lanes, seed)` mints a threadable state, `Unit(lanes, seed)` projects one clamped draw). `Source(seed, lanes)` is THE one adapter for a package API whose SIGNATURE demands `System.Random` — it ADDS the replay guarantee the BCL type cannot carry, and it is the only sanctioned crossing.
+- Entry: three modalities by input shape — stream sampling advances a `ref ulong state` seeded by the consuming algorithm's named policy seed (`NextSignedUnit` for real bases, `NextSignedComplexUnit` for Hermitian, `NextBelow` for an unbiased bounded index at either integer width); coordinate keying is stateless (`OrderKey(coordinates, seed)`, the `Point3d` overload routing into the span floor, `UnitInterval(point, salt, seed)` for per-point draws); lane keying is stateless over integer lanes (`Stream(lanes, seed)` mints a threadable state, `Unit(lanes, seed)` projects one clamped draw). `Source(seed, lanes)` is THE one adapter for a package API whose SIGNATURE demands `System.Random` — it ADDS the replay guarantee the BCL type cannot carry, and it is the only sanctioned crossing.
 - Law: coordinate keys normalize the signed zero — `-0.0` projects to `+0.0` before bit extraction so the two zeros key identically, and the seed widens unsigned (`(uint)seed`) so a negative seed never sign-extends into the state.
 - Law: unit projections take the top 53 bits (`>> 11`, scaled `2^-53`) for an exact double; `UnitInterval` clamps to `[EpsilonPolicy.SqrtEpsilon, 1 - EpsilonPolicy.SqrtEpsilon]` — the one named epsilon owner — so log-weighted rejection draws (`-log(u) / weight`) stay finite at both ends.
+- Law: `Source` overrides EVERY `System.Random` virtual, because the base binds a derived instance to a compat implementation that seeds its own prng — `Sample()`, `Next()`, `NextBytes(byte[])`, and the large-range arm of `Next(int, int)` each draw from a stream this seed never touched unless the override exists, and MathNet's int32, full-range, and decimal generators reach two of those four; a missing override is a silent replay hole, never a compile gap. The adapter also answers the BCL's degenerate zero-width contracts, which the owner's own bounded draw refuses as caller errors.
 - Cases: consumers by member — the matrix eigensolver's LOBPCG starting bases (`NextSignedUnit`/`NextSignedComplexUnit` under its named basis-seed policy), the sampler's candidate ordering, active-set rotation, annulus, and weighted-rejection draws (`OrderKey`/`UnitInterval`), the fit consensus sampler's minimal-set draws (`NextBelow` over a `Stream`-minted state), per-(stream, ordinal, dimension) texel and jitter draws (`Unit`), Halton and Sobol coordinates (`RadicalInverse`/`ReverseBits`/`Hammersley`), MathNet distribution constructors (`Source`), and any reproducible tie-break in the processing suite (`OrderKey`).
 - Growth: a new reproducible draw shape is one member on this owner composing `Advance`/`OrderKey`.
 - Boundary: the span fold in `OrderKey` and the state-advancing `ref` members are the named kernel exemption; no member reads time, thread identity, or process state.
@@ -103,17 +113,25 @@ public static class Deterministic {
     public static double Unit(ReadOnlySpan<long> lanes, long seed = 0L) =>
         Math.Clamp(value: ((Stream(lanes: lanes, seed: seed) >> 11) + 1.0) * (1.0 / 9_007_199_254_740_992.0),
             min: EpsilonPolicy.SqrtEpsilon, max: 1.0 - EpsilonPolicy.SqrtEpsilon);
-    // Unbiased bounded integer draw (Lemire): the 64x64 widening multiply's high half is the scaled index and the
-    // low half rejects only the short tail, so a modulo's low-value bias never enters an ordering or a sample index.
-    public static int NextBelow(ref ulong state, int exclusiveCeiling) {
-        // Argument CONTRACT, not a domain state: a zero ceiling divides by zero in the threshold and a negative
-        // one casts to a near-2⁶⁴ bound — both caller programming errors the BCL throw-helper names at the
-        // boundary, never a Fin the hot draw loops would thread for an unreachable arm.
-        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(value: exclusiveCeiling);
-        ulong bound = (ulong)exclusiveCeiling, threshold = (0UL - bound) % bound;
+    // Unbiased bounded draw (Lemire): the 64x64 widening multiply's high half is the scaled index and the low half
+    // rejects only the short tail, so a modulo's low-value bias never enters an ordering or a sample index. ONE body
+    // spans both widths — the `int` arity narrows this draw — so a full-width signed span, an int64 ceiling, and a
+    // bounded index all reach the same rejection loop instead of a second transcribed copy that drifts from it.
+    public static ulong NextBelow(ref ulong state, ulong exclusiveCeiling) {
+        // Argument CONTRACT, not a domain state: a zero ceiling divides by zero in the threshold — a caller
+        // programming error the BCL throw-helper names at the boundary, never a Fin the hot draw loops would
+        // thread for an unreachable arm. The System.Random adapter below owns the BCL's own degenerate-span
+        // contract, so admitting a zero here to serve it would widen this draw for a caller that has no such arm.
+        ArgumentOutOfRangeException.ThrowIfZero(value: exclusiveCeiling);
+        ulong threshold = (0UL - exclusiveCeiling) % exclusiveCeiling;
         ulong draw = Advance(state: ref state);
-        while (unchecked(draw * bound) < threshold) draw = Advance(state: ref state);
-        return (int)Math.BigMul(left: draw, right: bound, low: out _);
+        while (unchecked(draw * exclusiveCeiling) < threshold) draw = Advance(state: ref state);
+        return Math.BigMul(a: draw, b: exclusiveCeiling, low: out _);
+    }
+    public static int NextBelow(ref ulong state, int exclusiveCeiling) {
+        // A negative ceiling casts to a near-2⁶⁴ bound, so it refuses here; zero refuses one hop down.
+        ArgumentOutOfRangeException.ThrowIfNegative(value: exclusiveCeiling);
+        return (int)NextBelow(state: ref state, exclusiveCeiling: (ulong)exclusiveCeiling);
     }
     // The EQUIDISTRIBUTED family beside the pseudo-random stream: RadicalInverse is the digit reversal onto [0, 1)
     // and Hammersley the (i/n, radicalInverse(i)) pair a bounded-tap spherical integral reads — splitmix64
@@ -141,11 +159,34 @@ public static class Deterministic {
     // THE one adapter for a package API whose SIGNATURE demands System.Random (MathNet distribution constructors).
     // Not a shim: it ADDS the replay guarantee the BCL type cannot carry, and it is the only sanctioned crossing.
     public static Random Source(long seed, params ReadOnlySpan<long> lanes) => new SplitMixRandom(seed: Stream(lanes: lanes, seed: seed));
+    // EVERY virtual is overridden, because the base type binds a derived instance to a compat implementation whose
+    // parameterless construction seeds an INDEPENDENT legacy prng, and four members read that prng rather than the
+    // override: `Sample()`, `Next()`, `NextBytes(byte[])`, and the large-range arm of `Next(int, int)`. MathNet's
+    // int32, full-range, and decimal generators reach `Next()` and `NextBytes(byte[])` directly, so a single missing
+    // override is a silent determinism hole no compiler reports. The explicit `NextInt64`/`NextSingle`/`NextDouble`
+    // arms carry no compat arithmetic either, keeping the draw budget legible: one Advance per scalar, one per eight
+    // bytes. Bounded arms honour the BCL's own degenerate contracts — a zero `maxValue` and an equal min and max
+    // return the floor — which the owner's draw refuses as caller errors, so the adapter answers them here.
     private sealed class SplitMixRandom(ulong seed) : Random {
         private ulong state = seed;
         protected override double Sample() => NextUnit(state: ref state);
-        public override int Next(int maxValue) => NextBelow(state: ref state, exclusiveCeiling: maxValue);
-        public override int Next(int minValue, int maxValue) => minValue + NextBelow(state: ref state, exclusiveCeiling: maxValue - minValue);
+        // The base contract EXCLUDES int.MaxValue, so the bounded draw states the ceiling rather than a 31-bit mask,
+        // which admits int.MaxValue itself and shifts the distribution of every consumer folding on the endpoint.
+        public override int Next() => NextBelow(state: ref state, exclusiveCeiling: int.MaxValue);
+        public override int Next(int maxValue) => maxValue == 0 ? 0 : NextBelow(state: ref state, exclusiveCeiling: maxValue);
+        // Extent computes in 64 bits: `maxValue - minValue` overflows `int` across the full signed span, and
+        // `CheckForOverflowUnderflow` turns that overflow into a raise exactly where the BCL returns a value.
+        public override int Next(int minValue, int maxValue) => (int)(minValue + (long)Draw(state: ref state, extent: Extent(floor: minValue, ceiling: maxValue)));
+        public override double NextDouble() => NextUnit(state: ref state);
+        // Top 24 bits scaled by 2⁻²⁴ is the exact float grid — NextUnit's top-53-bit rule one width down.
+        public override float NextSingle() => (float)(Advance(state: ref state) >> 40) * (1.0f / 16_777_216.0f);
+        public override long NextInt64() => (long)Draw(state: ref state, extent: (ulong)long.MaxValue);
+        public override long NextInt64(long maxValue) => (long)Draw(state: ref state, extent: Extent(floor: 0L, ceiling: maxValue));
+        public override long NextInt64(long minValue, long maxValue) => unchecked(minValue + (long)Draw(state: ref state, extent: Extent(floor: minValue, ceiling: maxValue)));
+        public override void NextBytes(byte[] buffer) {
+            ArgumentNullException.ThrowIfNull(argument: buffer);
+            NextBytes(buffer: buffer.AsSpan());
+        }
         public override void NextBytes(Span<byte> buffer) {
             while (buffer.Length >= sizeof(ulong)) {
                 BitConverter.TryWriteBytes(destination: buffer, value: Advance(state: ref state));
@@ -157,6 +198,12 @@ public static class Deterministic {
                 tail[..buffer.Length].CopyTo(destination: buffer);
             }
         }
+        // Widths compute unchecked because the full signed span is 2⁶⁴ − 1, which no signed subtraction holds.
+        private static ulong Extent(long floor, long ceiling) {
+            ArgumentOutOfRangeException.ThrowIfLessThan(value: ceiling, other: floor);
+            return unchecked((ulong)ceiling - (ulong)floor);
+        }
+        private static ulong Draw(ref ulong state, ulong extent) => extent == 0UL ? 0UL : NextBelow(state: ref state, exclusiveCeiling: extent);
     }
     // Signed zeros key identically: -0.0 normalizes before bit projection.
     private static ulong Bits(double value) => BitConverter.DoubleToUInt64Bits(value: value == 0.0 ? 0.0 : value);
@@ -170,4 +217,4 @@ public static class Deterministic {
 [SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
-- [DERIVED_RANDOM_VIRTUALS]-[OPEN]: which `System.Random` virtuals does .NET 10 route through a derived override versus its internal fast path, so `SplitMixRandom` covers every entry a MathNet distribution reaches (`Sample`, `Next()`, `Next(int)`, `Next(int,int)`, `NextDouble`, `NextBytes`, `NextInt64`, `NextSingle`); verify against the decompiled `System.Random` implementation on the assay api rail.
+(none)

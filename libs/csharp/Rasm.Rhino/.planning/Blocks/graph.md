@@ -50,44 +50,55 @@ public sealed partial class GraphEvidence {
     public bool IsComplete { get; }
 }
 
+// The three policy vocabularies close over `GraphFold`, which is vertex-generic, so pinning them to `Guid` made
+// the definition rail the only consumer a shared fold could serve: Chronicle's `Guid` web and the closure walk's
+// `string` archive graph both want these rows. Each closes over its own `TVertex` and each behavior rides a
+// generated delegate column, so a row IS its behavior and no consumer re-derives one.
 [SmartEnum<int>]
-public sealed partial class GraphBoundary {
-    public static readonly GraphBoundary Roots = new(
+public sealed partial class GraphBoundary<TVertex> where TVertex : notnull {
+    public static readonly GraphBoundary<TVertex> Roots = new(
         key: 0,
         select: static graph => toSeq(graph.Roots()));
-    public static readonly GraphBoundary Leaves = new(
+    public static readonly GraphBoundary<TVertex> Leaves = new(
         key: 1,
         select: static graph => toSeq(graph.Sinks()));
 
-    public Func<BidirectionalGraph<Guid, SEdge<Guid>>, Seq<Guid>> Select { get; }
+    [UseDelegateFromConstructor]
+    internal partial Seq<TVertex> Select(BidirectionalGraph<TVertex, SEdge<TVertex>> graph);
 }
 
 [SmartEnum<int>]
-public sealed partial class GraphGrouping {
-    public static readonly GraphGrouping Cycles = new(key: 0, select: static graph => GraphFold.Cycles(graph: graph));
-    public static readonly GraphGrouping Components = new(key: 1, select: static graph => GraphFold.Components(graph: graph));
+public sealed partial class GraphGrouping<TVertex> where TVertex : notnull {
+    public static readonly GraphGrouping<TVertex> Cycles = new(key: 0, select: static graph => GraphFold.Cycles(graph: graph));
+    public static readonly GraphGrouping<TVertex> Components = new(key: 1, select: static graph => GraphFold.Components(graph: graph));
 
-    public Func<BidirectionalGraph<Guid, SEdge<Guid>>, Seq<Seq<Guid>>> Select { get; }
+    [UseDelegateFromConstructor]
+    internal partial Seq<Seq<TVertex>> Select(BidirectionalGraph<TVertex, SEdge<TVertex>> graph);
 }
 
 [SmartEnum<int>]
-public sealed partial class GraphProjection {
-    public static readonly GraphProjection Closure = new(key: 0, project: static (graph, op) =>
+public sealed partial class GraphProjection<TVertex> where TVertex : notnull {
+    public static readonly GraphProjection<TVertex> Closure = new(key: 0, project: static (graph, op) =>
         op.Catch(() => Fin.Succ(value: graph.ComputeTransitiveClosure(
-            edgeFactory: static (source, target) => new SEdge<Guid>(source: source, target: target)))));
-    public static readonly GraphProjection Reduction = new(key: 1, project: static (graph, op) =>
+            edgeFactory: static (source, target) => new SEdge<TVertex>(source: source, target: target)))));
+    public static readonly GraphProjection<TVertex> Reduction = new(key: 1, project: static (graph, op) =>
         GraphFold.Reduced(graph: graph, op: op));
 
-    public Func<BidirectionalGraph<Guid, SEdge<Guid>>, Op, Fin<BidirectionalGraph<Guid, SEdge<Guid>>>> Project { get; }
+    [UseDelegateFromConstructor]
+    internal partial Fin<BidirectionalGraph<TVertex, SEdge<TVertex>>> Project(
+        BidirectionalGraph<TVertex, SEdge<TVertex>> graph, Op op);
 }
 
 // --- [MODELS] ------------------------------------------------------------------------------
+// The source axis and the unit crossed as RAW host enums on a public record, so a consumer read an ordinal the
+// folder already owns a vocabulary for — including the retired update ordinal `SourceMode` folds away, which no
+// caller could know to fold itself. Both columns take their boundary owner.
 public sealed record DefinitionNode(
     Guid Key,
     Option<int> Index,
     string Name,
-    Option<InstanceDefinitionUpdateType> UpdateType,
-    Option<UnitSystem> ArchiveUnits,
+    Option<SourceMode> Source,
+    Option<ModelUnit> ArchiveUnits,
     bool Opaque);
 
 public sealed record PlacementNode(Guid InstanceId, Guid DefinitionId);
@@ -99,15 +110,19 @@ internal sealed record Topology(
     GraphEvidence Evidence) : IDetachedDocumentResult {
     internal Fin<BidirectionalGraph<Guid, SEdge<Guid>>> Fold(Op key) {
         Seq<Guid> nodes = Nodes.Map(static node => node.Key);
+        // Endpoint proof is SET containment: the `Seq` scan ran the whole node roster twice per edge, so a
+        // document whose definitions and nesting edges both grow linearly paid quadratically for a check that is
+        // one hash lookup. The set is built once from the same roster the distinctness guard just proved.
+        LanguageExt.HashSet<Guid> keys = nodes.ToHashSet();
         return from _present in guard(!nodes.IsEmpty, key.InvalidResult()).ToFin()
                from _ in nodes
                    .Traverse(node => guard(node != Guid.Empty, key.InvalidResult()).ToFin().ToValidation())
                    .As()
                    .ToFin()
-               from __ in guard(nodes.Distinct().Count == nodes.Count, key.InvalidResult()).ToFin()
+               from __ in guard(keys.Count == nodes.Count, key.InvalidResult()).ToFin()
                from ___ in Edges
                    .Traverse(edge => guard(
-                       nodes.Contains(value: edge.Used) && nodes.Contains(value: edge.Container),
+                       keys.Contains(value: edge.Used) && keys.Contains(value: edge.Container),
                        key.InvalidResult()).ToFin().ToValidation())
                    .As()
                    .ToFin()
@@ -126,7 +141,7 @@ internal sealed record Topology(
 
 `BlockGraphAsk` closes direct host queries, whole-topology projections, structural algorithms, and archive closure under one entry. `BlockGraphAnswer` preserves result meaning: definition keys never masquerade as placement ids, paths never masquerade as order, and placement answers carry completeness evidence instead of projecting opaque links as top-level instances.
 
-`GraphFold` is the one vertex-generic `QuikGraph` fold surface — cycles, weak components, DAG-guarded order and reduction, and condensation — consumed by every graph projection in the assembly; a sibling rail re-deriving one of its folds is the deleted form. `GraphGrouping.Cycles` includes multi-vertex components and one-vertex components containing a self-edge, and reduction refuses a cyclic graph with the cycle detail. `GraphBoundary`, `GraphGrouping`, and `GraphProjection` carry paired algorithm choice as behavior rows instead of sibling request cases. `Containers`, `References`, `Nesting`, and `Tally` retain the host members that answer them directly and reject non-live sources.
+`GraphFold` is the one vertex-generic `QuikGraph` fold surface — cycles, weak components, DAG-guarded order and reduction, and condensation — consumed by every graph projection in the assembly; a sibling rail re-deriving one of its folds is the deleted form. `GraphGrouping<TVertex>.Cycles` includes multi-vertex components and one-vertex components containing a self-edge, and reduction refuses a cyclic graph with the cycle detail. `GraphBoundary<TVertex>`, `GraphGrouping<TVertex>`, and `GraphProjection<TVertex>` carry paired algorithm choice as generated delegate rows over the same vertex parameter `GraphFold` takes, so the definition rail's `Guid` graph and the closure walk's `string` graph read one vocabulary; a request case per algorithm, or a policy pinned to one vertex type, is the deleted form. `Containers`, `References`, `Nesting`, and `Tally` retain the host members that answer them directly and reject non-live sources.
 
 ```csharp signature
 // --- [TYPES] -------------------------------------------------------------------------------
@@ -137,11 +152,11 @@ public abstract partial record BlockGraphAsk {
     public sealed record Containers(ResourceRef Target) : BlockGraphAsk;
     public sealed record References(ResourceRef Target, ReferenceScope Scope) : BlockGraphAsk;
     public sealed record Nesting(ResourceRef Outer, ResourceRef Inner) : BlockGraphAsk;
-    public sealed record Boundary(GraphBoundary Policy) : BlockGraphAsk;
+    public sealed record Boundary(GraphBoundary<Guid> Policy) : BlockGraphAsk;
     public sealed record Path(ResourceRef From, ResourceRef To) : BlockGraphAsk;
     public sealed record Order : BlockGraphAsk;
-    public sealed record Groups(GraphGrouping Policy) : BlockGraphAsk;
-    public sealed record Projection(GraphProjection Policy) : BlockGraphAsk;
+    public sealed record Groups(GraphGrouping<Guid> Policy) : BlockGraphAsk;
+    public sealed record Projection(GraphProjection<Guid> Policy) : BlockGraphAsk;
     public sealed record Condensation : BlockGraphAsk;
     public sealed record Placed : BlockGraphAsk;
     public sealed record Tally(ResourceRef Target) : BlockGraphAsk;
@@ -198,36 +213,38 @@ public abstract partial record BlockGraphAnswer : IDetachedDocumentResult {
 public static partial class BlockGraph {
     public static Fin<BlockGraphAnswer> Ask(GraphSource source, BlockGraphAsk question) {
         Op op = Op.Of();
-        return from active in Optional(question).ToFin(Fail: op.InvalidInput())
+        return from active in op.Need(question)
                from answer in active.Switch(
                    context: (Source: source, Op: op),
                    definitions: static (ctx, _) =>
                        from topology in Of(source: ctx.Source, key: ctx.Op)
                        select (BlockGraphAnswer)new BlockGraphAnswer.Nodes(Values: topology.Nodes),
                    containers: static (ctx, ask) => Live(source: ctx.Source, op: ctx.Op, read: document =>
-                       from target in Optional(ask.Target).ToFin(Fail: ctx.Op.InvalidInput())
+                       from target in ctx.Op.Need(ask.Target)
                        from definition in Definitions.Resolve(target: target, document: document, key: ctx.Op)
                        select (BlockGraphAnswer)new BlockGraphAnswer.Definitions(
                            Keys: toSeq(definition.GetContainers()).Map(static container => container.Id))),
                    references: static (ctx, ask) => Live(source: ctx.Source, op: ctx.Op, read: document =>
-                       from target in Optional(ask.Target).ToFin(Fail: ctx.Op.InvalidInput())
+                       from target in ctx.Op.Need(ask.Target)
                        from definition in Definitions.Resolve(target: target, document: document, key: ctx.Op)
-                       from scope in Optional(ask.Scope).ToFin(Fail: ctx.Op.InvalidInput())
+                       from scope in ctx.Op.Need(ask.Scope)
                        select (BlockGraphAnswer)new BlockGraphAnswer.Placements(
                            Evidence: GraphEvidence.Complete,
                            Values: toSeq(definition.GetReferences(wheretoLook: scope.HostValue))
                                .Map(instance => new PlacementNode(InstanceId: instance.Id, DefinitionId: definition.Id)))),
                    nesting: static (ctx, ask) => Live(source: ctx.Source, op: ctx.Op, read: document =>
-                       from outerTarget in Optional(ask.Outer).ToFin(Fail: ctx.Op.InvalidInput())
-                       from innerTarget in Optional(ask.Inner).ToFin(Fail: ctx.Op.InvalidInput())
+                       from outerTarget in ctx.Op.Need(ask.Outer)
+                       from innerTarget in ctx.Op.Need(ask.Inner)
                        from outer in Definitions.Resolve(target: outerTarget, document: document, key: ctx.Op)
                        from inner in Definitions.Resolve(target: innerTarget, document: document, key: ctx.Op)
                        select (BlockGraphAnswer)new BlockGraphAnswer.Depth(
                            Levels: outer.UsesDefinition(otherIdefIndex: inner.Index))),
                    boundary: static (ctx, ask) =>
-                       from policy in Optional(ask.Policy).ToFin(Fail: ctx.Op.InvalidInput())
-                       from answer in Keys(source: ctx.Source, op: ctx.Op, project: policy.Select)
-                       select answer,
+                       from policy in ctx.Op.Need(ask.Policy)
+                       from topology in Complete(source: ctx.Source, op: ctx.Op)
+                       from graph in topology.Fold(key: ctx.Op)
+                       from values in ctx.Op.Catch(() => Fin.Succ(value: policy.Select(graph: graph)))
+                       select (BlockGraphAnswer)new BlockGraphAnswer.Definitions(Keys: values),
                    path: static (ctx, ask) =>
                        from topology in Complete(source: ctx.Source, op: ctx.Op)
                        from start in KeyOf(topology: topology, target: ask.From, op: ctx.Op)
@@ -247,14 +264,17 @@ public static partial class BlockGraph {
                        select (BlockGraphAnswer)new BlockGraphAnswer.Ordered(BakeOrder: ordered),
                    groups: static (ctx, ask) =>
                        from topology in Complete(source: ctx.Source, op: ctx.Op)
-                       from policy in Optional(ask.Policy).ToFin(Fail: ctx.Op.InvalidInput())
+                       from policy in ctx.Op.Need(ask.Policy)
                        from graph in topology.Fold(key: ctx.Op)
-                       from groups in ctx.Op.Catch(() => Fin.Succ(value: policy.Select(arg: graph)))
+                       from groups in ctx.Op.Catch(() => Fin.Succ(value: policy.Select(graph: graph)))
                        select (BlockGraphAnswer)new BlockGraphAnswer.Groups(Values: groups),
                    projection: static (ctx, ask) =>
-                       from policy in Optional(ask.Policy).ToFin(Fail: ctx.Op.InvalidInput())
-                       from answer in Project(source: ctx.Source, op: ctx.Op, project: policy.Project)
-                       select answer,
+                       from policy in ctx.Op.Need(ask.Policy)
+                       from topology in Complete(source: ctx.Source, op: ctx.Op)
+                       from folded in topology.Fold(key: ctx.Op)
+                       from graph in policy.Project(graph: folded, op: ctx.Op)
+                       select (BlockGraphAnswer)new BlockGraphAnswer.Graph(
+                           Edges: toSeq(graph.Edges).Map(static edge => (edge.Source, edge.Target))),
                    condensation: static (ctx, _) =>
                        from topology in Complete(source: ctx.Source, op: ctx.Op)
                        from graph in topology.Fold(key: ctx.Op)
@@ -268,7 +288,7 @@ public static partial class BlockGraph {
                            Evidence: topology.Evidence,
                            Values: topology.Evidence.IsComplete ? topology.Placements : Seq<PlacementNode>()),
                    tally: static (ctx, ask) => Live(source: ctx.Source, op: ctx.Op, read: document =>
-                       from target in Optional(ask.Target).ToFin(Fail: ctx.Op.InvalidInput())
+                       from target in ctx.Op.Need(ask.Target)
                        from definition in Definitions.Resolve(target: target, document: document, key: ctx.Op)
                        from usage in ctx.Op.Catch(() => {
                            int total = definition.UseCount(
@@ -279,30 +299,11 @@ public static partial class BlockGraph {
                        select (BlockGraphAnswer)new BlockGraphAnswer.Usage(Counts: usage)),
                    archives: static (ctx, ask) =>
                        from root in RootPath(source: ctx.Source, op: ctx.Op)
-                       from budget in Optional(ask.Budget).ToFin(Fail: ctx.Op.InvalidInput())
+                       from budget in ctx.Op.Need(ask.Budget)
                        from report in ArchiveClosure(rootPath: root, budget: budget, op: ctx.Op)
                        select (BlockGraphAnswer)new BlockGraphAnswer.Archives(Report: report))
                select answer;
     }
-
-    private static Fin<BlockGraphAnswer> Keys(
-        GraphSource source,
-        Op op,
-        Func<BidirectionalGraph<Guid, SEdge<Guid>>, Seq<Guid>> project) =>
-        from topology in Complete(source: source, op: op)
-        from graph in topology.Fold(key: op)
-        from values in op.Catch(() => Fin.Succ(value: project(arg: graph)))
-        select (BlockGraphAnswer)new BlockGraphAnswer.Definitions(Keys: values);
-
-    private static Fin<BlockGraphAnswer> Project(
-        GraphSource source,
-        Op op,
-        Func<BidirectionalGraph<Guid, SEdge<Guid>>, Op, Fin<BidirectionalGraph<Guid, SEdge<Guid>>>> project) =>
-        from topology in Complete(source: source, op: op)
-        from folded in topology.Fold(key: op)
-        from graph in project(folded, op)
-        select (BlockGraphAnswer)new BlockGraphAnswer.Graph(
-            Edges: toSeq(graph.Edges).Map(static edge => (edge.Source, edge.Target)));
 
     private static Fin<Topology> Complete(GraphSource source, Op op) =>
         Of(source: source, key: op).Bind(topology => topology.Evidence.IsComplete
@@ -310,7 +311,7 @@ public static partial class BlockGraph {
             : Fin.Fail<Topology>(error: op.InvalidResult(detail: nameof(GraphEvidence.OpaqueLinks))));
 
     private static Fin<Guid> KeyOf(Topology topology, ResourceRef target, Op op) =>
-        Optional(target).ToFin(Fail: op.InvalidInput()).Bind(active => active.Switch(
+        op.Need(target).Bind(active => active.Switch(
             context: (Topology: topology, Op: op),
             byId: static (ctx, value) => ctx.Topology.Nodes
                 .Find(node => node.Key == value.Value)
@@ -332,13 +333,13 @@ public static partial class BlockGraph {
                 .ToFin(Fail: ctx.Op.MissingContext())));
 
     private static Fin<Topology> Of(GraphSource source, Op key) =>
-        Optional(source).ToFin(Fail: key.InvalidInput()).Bind(request => request.Switch(
+        key.Need(source).Bind(request => request.Switch(
             context: key,
-            live: static (op, held) => Optional(held.Session).ToFin(Fail: op.InvalidInput()).Bind(session => session.Demand(
+            live: static (op, held) => op.Need(held.Session).Bind(session => session.Demand(
                 use: document => LiveTopology(document: document, op: op),
                 key: op,
                 needs: [SessionNeed.Read])),
-            loaded: static (op, held) => Optional(held.Archive).ToFin(Fail: op.InvalidInput())
+            loaded: static (op, held) => op.Need(held.Archive)
                 .Bind(archive => Offline(archive: archive, op: op)),
             stored: static (op, held) =>
                 from path in op.AcceptText(value: held.Path)
@@ -355,28 +356,30 @@ public static partial class BlockGraph {
         op.Catch(() => {
             Seq<InstanceDefinition> roster = toSeq(document.InstanceDefinitions.GetList(ignoreDeleted: true))
                 .Choose(static definition => Optional(definition));
-            Seq<DefinitionNode> nodes = roster.Map(static definition => new DefinitionNode(
-                Key: definition.Id,
-                Index: Some(definition.Index),
-                Name: definition.Name,
-                UpdateType: Some(definition.UpdateType),
-                ArchiveUnits: Option<UnitSystem>.None,
-                Opaque: false));
             Seq<(Guid Used, Guid Container)> edges = roster.Bind(definition =>
                 toSeq(definition.GetContainers()).Map(container => (definition.Id, container.Id))).Distinct();
             Seq<PlacementNode> placements = roster.Bind(definition => toSeq(definition
                 .GetReferences(wheretoLook: ReferenceScope.Direct.HostValue))
                 .Map(instance => new PlacementNode(InstanceId: instance.Id, DefinitionId: definition.Id)));
-            return Fin.Succ(value: new Topology(
-                Nodes: nodes,
-                Edges: edges,
-                Placements: placements,
-                Evidence: GraphEvidence.Complete));
+            return roster
+                .TraverseM(definition => SourceMode.Of(update: definition.UpdateType, key: op)
+                    .Map(source => new DefinitionNode(
+                        Key: definition.Id,
+                        Index: Some(definition.Index),
+                        Name: definition.Name,
+                        Source: Some(source),
+                        ArchiveUnits: Option<ModelUnit>.None,
+                        Opaque: false)))
+                .As()
+                .Map(nodes => new Topology(
+                    Nodes: nodes,
+                    Edges: edges,
+                    Placements: placements,
+                    Evidence: GraphEvidence.Complete));
         });
 
     private static Fin<Topology> Offline(File3dm archive, Op op) =>
-        op.Catch(() => {
-            UnitSystem units = archive.Settings.ModelUnitSystem;
+        ModelUnit.Of(value: archive.Settings.ModelUnitSystem, key: op).Bind(units => op.Catch(() => {
             Seq<InstanceDefinitionGeometry> roster = toSeq(archive.AllInstanceDefinitions);
             Seq<(Guid Definition, LanguageExt.HashSet<Guid> Members)> membership = roster.Map(definition => (
                 definition.Id,
@@ -403,7 +406,7 @@ public static partial class BlockGraph {
                     Key: definition.Id,
                     Index: Option<int>.None,
                     Name: definition.Name,
-                    UpdateType: Option<InstanceDefinitionUpdateType>.None,
+                    Source: Option<SourceMode>.None,
                     ArchiveUnits: Some(units),
                     Opaque: opaque);
             });
@@ -414,14 +417,14 @@ public static partial class BlockGraph {
                 Evidence: nodes.Exists(static node => node.Opaque)
                     ? GraphEvidence.OpaqueLinks
                     : GraphEvidence.Complete));
-        });
+        }));
 
     private static Fin<BlockGraphAnswer> Live(
         GraphSource source,
         Op op,
         Func<RhinoDoc, Fin<BlockGraphAnswer>> read) =>
         source is GraphSource.Live live
-            ? Optional(live.Session).ToFin(Fail: op.InvalidInput())
+            ? op.Need(live.Session)
                 .Bind(session => session.Demand(use: read, key: op, needs: [SessionNeed.Read]))
             : Fin.Fail<BlockGraphAnswer>(error: op.Unsupported(
                 geometryType: typeof(GraphSource),
@@ -514,7 +517,9 @@ internal static class GraphFold {
 
 `ClosureReport` is the bounded linked-archive walk: raw and resolved edges, source-aware broken links, self-inclusive cycle groups, unit facts, native read logs, resource usage, and typed completion evidence. `BlockGraphAsk.Archives` admits a closure budget plus only a stored path or a loaded archive carrying its path; each stored link resolves against its referencing archive directory.
 
-`ArchivePlane` is the platform seam stated once. Relative-to-a-pinned-handle opening is a POSIX capability with no Win32 peer — `openat` has no `CreateFileW` equivalent, and the segment walk is exactly what defeats a symlink race — so the plane vocabulary carries one row per servable ABI with its own `open` flag columns and its own path-comparison policy, and `ArchivePlane.Current` REFUSES typed on any other platform instead of binding a `libc` entry point that platform does not export. Every downstream comparison reads the selected row's column, so no traversal step re-asks which platform it is on.
+Completion accounts for REFUSALS, not only for budgets. The walk counts targets offered, opened, and refused; a target that would not open contributes no links, so every edge beyond it is missing and the terminal settles `Truncated` with those three counts rather than `Complete`. A budget terminal outranks truncation because it already names the ceiling that stopped the walk.
+
+`ArchivePlane` is the platform seam stated once. Relative-to-a-pinned-handle opening is a POSIX capability with no Win32 peer — `openat` has no `CreateFileW` equivalent, and the segment walk is exactly what defeats a symlink race — so the plane vocabulary carries one row per servable ABI with its own `open` flag columns and its own path-comparison policy, and `ArchivePlane.Current` REFUSES typed on any other platform instead of binding a `libc` entry point that platform does not export. Comparison is a per-plane column like the flags: Darwin's default APFS is case-insensitive, so an ordinal containment test there refuses a dependency that resolves and splits one archive reached under two spellings into two cycle vertices, while Linux keeps ordinal. Every downstream comparison reads the selected row's column, so no traversal step re-asks which platform it is on.
 
 The walk is a state-threaded fold, not a loop: `ClosureWalk` carries the frontier, the seen set, every accumulator, and the terminal as ONE value, `ClosureWalk.Step` advances exactly one frontier entry, and the drive is a bounded fixpoint whose tick count derives from `ClosureBudget.MaxArchives` — a settled walk re-emits itself, so the fold is total. Deduplication happens at ENQUEUE, so every frontier entry is new and the archive budget is the exact step bound; a link resolving onto an already-failed archive receipts its broken re-reference there rather than re-entering the frontier.
 
@@ -530,7 +535,7 @@ public sealed record BrokenLink(
     Option<string> ResolvedPath,
     string Detail);
 
-public sealed record UnitFact(string Path, UnitSystem Units);
+public sealed record UnitFact(string Path, ModelUnit Units);
 
 [SmartEnum<string>]
 public sealed partial class ClosureLimit {
@@ -540,14 +545,19 @@ public sealed partial class ClosureLimit {
     public static readonly ClosureLimit Bytes = new(key: nameof(Bytes));
 }
 
+// A REFUSED target is a hole in the answer, not a footnote: an archive that would not open contributes no links,
+// so every edge beyond it is absent from a report that still called itself `Complete`, and a consumer reading
+// `Sound` on a closure with one unreadable dependency believed the walk had seen everything. The terminal now
+// carries the walk's own census — offered, opened, refused — so a truncated closure names its own shortfall.
 [Union]
 public abstract partial record ClosureTerminal {
     private ClosureTerminal() { }
     public sealed record Complete : ClosureTerminal;
+    public sealed record Truncated(int Offered, int Opened, int Refused) : ClosureTerminal;
     public sealed record Exhausted(ClosureLimit Limit, long Observed, long Allowed, string Path) : ClosureTerminal;
 }
 
-public sealed record ClosureUsage(int Archives, long Links, int Depth, long Bytes);
+public sealed record ClosureUsage(int Offered, int Archives, int Refused, long Links, int Depth, long Bytes);
 
 public sealed record ClosureReport(
     Seq<ClosureEdge> Edges,
@@ -565,32 +575,38 @@ public sealed partial class ArchivePlane {
     // Flag columns are the platform's own `<fcntl.h>` ABI bits, declared per servable RID at this seam: they are
     // compile-time kernel ordinals no managed surface publishes, and they differ per plane, which is the whole
     // reason the plane owns them instead of a shared constant block.
+    // Path comparison is a PLANE column beside the flags, for the same reason the flags are: APFS is
+    // case-insensitive at its default configuration, so an ordinal containment test reads `/Blocks/a.3dm` as
+    // outside a root spelled `/blocks` and refuses a dependency that resolves fine — and the cycle grouping keyed
+    // on the same comparer splits one archive reached under two spellings into two vertices. Linux keeps ordinal
+    // because ext4 and its peers are case-sensitive; a shared constant could only be wrong on one of them.
     public static readonly ArchivePlane Darwin = new(
         key: "darwin",
         read: 0x00000000,
         noFollow: 0x00000100,
         directoryOnly: 0x00100000,
         closeOnExec: 0x01000000,
-        comparer: StringComparer.Ordinal);
+        comparer: StringComparer.OrdinalIgnoreCase,
+        comparison: StringComparison.OrdinalIgnoreCase);
     public static readonly ArchivePlane Linux = new(
         key: "linux",
         read: 0x00000000,
         noFollow: 0x00020000,
         directoryOnly: 0x00010000,
         closeOnExec: 0x00080000,
-        comparer: StringComparer.Ordinal);
+        comparer: StringComparer.Ordinal,
+        comparison: StringComparison.Ordinal);
 
     public int Read { get; }
     public int NoFollow { get; }
     public int DirectoryOnly { get; }
     public int CloseOnExec { get; }
     public StringComparer Comparer { get; }
+    public StringComparison Comparison { get; }
 
     internal int Walk => Read | NoFollow | DirectoryOnly | CloseOnExec;
 
     internal int Leaf => Read | NoFollow | CloseOnExec;
-
-    internal StringComparison Comparison => StringComparison.Ordinal;
 
     // A plane with no `openat` peer cannot serve a symlink-safe segment walk, so selection refuses rather
     // than binding a `libc` entry point the platform does not export.
@@ -609,10 +625,14 @@ public static partial class BlockGraph {
     [Union]
     private abstract partial record ArchiveScan {
         private ArchiveScan() { }
-        internal sealed record Read(UnitSystem Units, Seq<string> Links, string NativeLog) : ArchiveScan;
+        internal sealed record Read(ModelUnit Units, Seq<string> Links, string NativeLog) : ArchiveScan;
         internal sealed record Rejected(Error Error, string NativeLog) : ArchiveScan;
     }
 
+    // Exemption: both `Open` bodies are the symlink-safe segment walk itself. Each step must open one segment
+    // relative to the handle the PREVIOUS step produced and dispose that handle only after the next one lands, so
+    // the loop, the running handle, and the `finally` are the algorithm — a fold would either hold every
+    // intermediate handle open or drop one before its successor exists, which is the race the walk defeats.
     private sealed class ArchiveRoot : IDisposable {
         private readonly Microsoft.Win32.SafeHandles.SafeFileHandle directory;
         private readonly ArchivePlane plane;
@@ -764,7 +784,7 @@ public static partial class BlockGraph {
             Broken: Seq<BrokenLink>(),
             Units: Seq<UnitFact>(),
             Logs: Seq<string>(),
-            Usage: new ClosureUsage(Archives: 0, Links: 0, Depth: 0, Bytes: 0),
+            Usage: new ClosureUsage(Offered: 1, Archives: 0, Refused: 0, Links: 0, Depth: 0, Bytes: 0),
             Terminal: new ClosureTerminal.Complete());
 
         internal bool Running => Terminal is ClosureTerminal.Complete && !Pending.IsEmpty;
@@ -779,8 +799,10 @@ public static partial class BlockGraph {
             };
 
         internal ClosureWalk Refused(ArchiveTarget target, string detail) =>
-            (this with { Failed = Failed.AddOrUpdate(key: target.Path, value: detail) })
-                .Broke(from: target.FromPath, link: target.StoredLink, resolved: Some(target.Path), detail: detail);
+            (this with {
+                Failed = Failed.AddOrUpdate(key: target.Path, value: detail),
+                Usage = Usage with { Refused = checked(Usage.Refused + 1) },
+            }).Broke(from: target.FromPath, link: target.StoredLink, resolved: Some(target.Path), detail: detail);
 
         internal ClosureWalk Logged(string log) =>
             string.IsNullOrWhiteSpace(value: log) ? this : this with { Logs = Logs.Add(value: log) };
@@ -934,9 +956,13 @@ public static partial class BlockGraph {
                     Seen = walk.Seen.Add(value: resolved),
                     Pending = walk.Pending.Add(value: new ArchiveTarget(
                         FromPath: from, StoredLink: link, Path: resolved, Depth: depth)),
+                    Usage = walk.Usage with { Offered = checked(walk.Usage.Offered + 1) },
                 },
             };
 
+    // A budget terminal outranks truncation — it already names the exact ceiling that stopped the walk — but an
+    // otherwise-clean walk that refused even one target settles `Truncated`, never `Complete`, so the offered,
+    // opened, and refused counts travel with the verdict a consumer branches on.
     private static ClosureReport Reported(ClosureWalk walk, ArchivePlane plane) {
         BidirectionalGraph<string, SEdge<string>> graph = new(allowParallelEdges: false);
         walk.Edges.Iter(edge => edge.ResolvedPath.Iter(target => graph.AddVerticesAndEdge(
@@ -948,7 +974,10 @@ public static partial class BlockGraph {
             Units: walk.Units,
             NativeLog: walk.Logs,
             Usage: walk.Usage,
-            Terminal: walk.Terminal);
+            Terminal: walk.Terminal is ClosureTerminal.Complete && walk.Usage.Refused > 0
+                ? new ClosureTerminal.Truncated(
+                    Offered: walk.Usage.Offered, Opened: walk.Usage.Archives, Refused: walk.Usage.Refused)
+                : walk.Terminal);
     }
 
     private static Fin<string> Canonical(string path, Op op) => op.Catch(() => {
@@ -979,6 +1008,14 @@ public static partial class BlockGraph {
             && !relative.StartsWith(value: $"..{System.IO.Path.AltDirectorySeparatorChar}", comparisonType: comparison);
     }
 
+    // Exemption: the chunked copy is the snapshot itself — the offset loop, the rented buffer, and the `finally`
+    // that returns it and deletes the temp file are one resource bracket over a native reader that takes a PATH,
+    // not a handle, so the bytes must land on disk before `File3dm` can see them.
+    //
+    // `Guid.NewGuid` here is I/O UNIQUENESS, not identity: the name exists only to keep two concurrent snapshots
+    // from colliding in the temp directory and is deleted in the same `finally`, so it never enters a stamp, a
+    // receipt, or any replayed preimage — the determinism carve that bars a random guid elsewhere does not reach
+    // a filename with a lifetime shorter than the call that made it.
     private static Fin<ArchiveScan> InspectArchive(ArchiveInput input, Op op) => op.Catch(() => {
         string snapshot = System.IO.Path.Combine(
             path1: System.IO.Path.GetTempPath(),
@@ -1022,12 +1059,13 @@ public static partial class BlockGraph {
                 ? Fin.Succ<ArchiveScan>(value: new ArchiveScan.Rejected(
                     Error: op.InvalidResult(detail: log),
                     NativeLog: log))
-                : Fin.Succ<ArchiveScan>(value: new ArchiveScan.Read(
-                    Units: archive.Settings.ModelUnitSystem,
-                    Links: toSeq(archive.AllInstanceDefinitions)
-                        .Choose(static definition => Optional(definition.SourceArchive)
-                            .Filter(static source => !string.IsNullOrWhiteSpace(value: source))),
-                    NativeLog: log));
+                : ModelUnit.Of(value: archive.Settings.ModelUnitSystem, key: op)
+                    .Map(units => (ArchiveScan)new ArchiveScan.Read(
+                        Units: units,
+                        Links: toSeq(archive.AllInstanceDefinitions)
+                            .Choose(static definition => Optional(definition.SourceArchive)
+                                .Filter(static source => !string.IsNullOrWhiteSpace(value: source))),
+                        NativeLog: log));
         }
         finally {
             System.Buffers.ArrayPool<byte>.Shared.Return(array: buffer, clearArray: true);

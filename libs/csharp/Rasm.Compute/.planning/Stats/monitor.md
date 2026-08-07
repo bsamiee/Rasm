@@ -2,7 +2,7 @@
 
 Rasm.Compute stats monitor scores operational streams online: `StreamMonitor` is the closed stateful-capsule family — EWMA control limits, a P²-class quantile sketch, and a bounded window carrying one fitted `Stats/estimator` detector — advanced one sample at a time by `MonitorLane`, every verdict a typed fact the receipt rail folds. Batch changepoint detectors stay `Stats/estimator#ESTIMATOR_LANE` rows (`TemporalSpec` Cusum · BayesianOnline · CorrelatedResidual over `EstimatorModel.Detector`); the detector capsule calls its admitted `FittedModel.Predict` entry and never re-derives a recursion.
 
-`MonitorChannel` rows extract scalar streams from the identical `Seq<ComputeReceipt>` fact stream the `Runtime/receipts#FOLD_PROJECTIONS` views fold — solve-residual drift, remote-latency drift, backpressure cadence — so operational drift detection consumes the standing telemetry with zero new emit path, and a breach lands the `Runtime/receipts#RECEIPT_UNION` `Drift` case the `ComputeInstrumentFan` projects onto `rasm.compute.monitor.breaches`. `MonitorLane.AsDetector` projects a seeded capsule onto the `Solver/clash#CLASH_AND_TWIN` injected-detector slot, so the twin loop gains control-chart discipline through the seam it already holds. `ComputeReceipt`, `CorrelationId`, `AllocationClass`, NodaTime `IClock` (the App-owned `ClockPolicy` stays at composition), MathNet `Normal.InvCDF`, and the `ComparerAccessors.StringOrdinal` accessor arrive settled. Page is HOST-LOCAL.
+`MonitorChannel` rows extract scalar streams from the identical `Seq<ComputeReceipt>` fact stream the `Runtime/receipts#FOLD_PROJECTIONS` views fold — solve-residual drift, factorization-residual drift, remote-latency drift, backpressure cadence — so operational drift detection consumes the standing telemetry with zero new emit path, and a breach lands the `Runtime/receipts#RECEIPT_UNION` `Drift` case the `ComputeInstrumentFan` projects onto `rasm.compute.monitor.breaches`. `MonitorLane.AsDetector` projects a seeded capsule onto the `Solver/clash#CLASH_AND_TWIN` injected-detector slot, so the twin loop gains control-chart discipline through the seam it already holds. `ComputeReceipt`, `CorrelationId`, `AllocationClass`, NodaTime `IClock` (the App-owned `ClockPolicy` stays at composition), MathNet `Normal.InvCDF`, and the `ComparerAccessors.StringOrdinal` accessor arrive settled. Page is HOST-LOCAL.
 
 ## [01]-[INDEX]
 
@@ -11,16 +11,27 @@ Rasm.Compute stats monitor scores operational streams online: `StreamMonitor` is
 ## [02]-[MONITOR_LANE]
 
 - Owner: `StreamMonitor` `[Union]` the stateful capsule family whose cases carry their own advance state; `MonitorVerdict` the per-sample verdict carrier minting the `Drift` receipt case; `MonitorChannel` `[SmartEnum<string>]` the receipt-to-scalar extraction rows; `MonitorLane` the advance fold, stream observation, and the twin-detector projection.
-- Cases: `StreamMonitor` ewma (λ-smoothed level against time-varying control limits over an admitted kernel `Stat` baseline) · quantile (five-marker P² sketch tracking one probability against a policy bound) · detector (bounded residual window carrying one fitted `Stats/estimator` detector); `MonitorChannel` solve-residual · remote-seconds · backpressure-depth.
+- Cases: `StreamMonitor` ewma (λ-smoothed level against time-varying control limits over an admitted kernel `Stat` baseline) · quantile (five-marker P² sketch tracking one probability against a policy bound) · detector (bounded residual window carrying one fitted `Stats/estimator` detector); `MonitorChannel` solve-residual · factor-residual · remote-seconds · backpressure-depth.
 - Entry: `StreamMonitor.OfEwma(string monitorId, double lambda, double falseAlarm, int warmup)`, `OfQuantile(string monitorId, double probability, double limit)`, and `OfDetector(string monitorId, int capacity, FittedModel detector)` — validated mints, `Fin<T>` aborting an out-of-range policy or a non-detector carrier; `MonitorLane.Advance(StreamMonitor monitor, double sample, IClock clock)` — one sample in, the advanced capsule and its `MonitorVerdict` out through the generated total `Switch`; `MonitorLane.Observe(StreamMonitor monitor, MonitorChannel channel, Seq<ComputeReceipt> facts, IClock clock)` — extracts the channel and folds `Advance` across it; `MonitorLane.AsDetector(StreamMonitor.Detector seed, IClock clock)` — the stateful `Func<Matrix<double>, Fin<Prediction>>` projection the clash twin injects, admitting the detector capsule and exactly one evidence column before indexing.
 - Auto: the EWMA arm advances the kernel `Stat` moment summary one admitted sample at a time through its warmup — inheriting the sentinel screen a local mean/M2/count triple drops — then smooths `level = λ·x + (1−λ)·level` and derives the time-varying limit `L·σ·√(λ/(2−λ)·(1−(1−λ)^{2t}))` so early samples meet tighter bands and the asymptote is the textbook control limit; `OfEwma` admits a two-sided false-alarm rate and derives `L = Φ⁻¹(1 − α/2)` through `Normal.InvCDF` at the gate, rejecting a non-finite derived limit (a sub-representable rate rounds the quantile argument to 1 and lands `+∞`), so the knob is a probability admitted exactly once on the `Fin` rail, never a bare multiplier; the quantile arm runs the five-marker P² update — sorted seeding over the first five samples, then marker increment, desired-position drift, and parabolic (linear-fallback) height adjustment — tracking the running quantile with O(1) state; the detector arm pushes into its bounded window and delegates scoring to the injected detector, reading the LAST row's score and change flag exactly as the twin does.
-- Receipt: `Drift` — monitor id, statistic, optional policy limit, level, breach flag, and window count, minted by `MonitorVerdict.Receipt` under the caller's correlation; detector verdicts carry `null` because their fitted model owns classification without exposing a scalar boundary. `[02]-[RECEIPT_UNION]` counts breaches onto `rasm.compute.monitor.breaches`, and `ReceiptFolds.Breaches` is the operational view, so monitor evidence rides the standing stream.
+- Receipt: `Drift` — monitor id, statistic, optional policy limit, level, breach flag, and window count, minted by `MonitorVerdict.Receipt` under the caller's correlation; a verdict over an unestimated baseline carries `null` because a limit no estimate backs is not a boundary — detector arms because their fitted model owns classification without exposing a scalar, EWMA's rejected arm because the screened sample never advanced the baseline. `Runtime/receipts#RECEIPT_UNION` counts breaches onto `rasm.compute.monitor.breaches`, and `ReceiptFolds.Breaches` is the operational view, so monitor evidence rides the standing stream.
 - Packages: MathNet.Numerics (`Normal.InvCDF` static quantile), Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm (project, `Stat` the one admitted moment summary and its sentinel screen), BCL inbox
 - Growth: a new online statistic is one `StreamMonitor` case whose arm the `Advance` `Switch` demands at compile time; a new operational stream is one `MonitorChannel` row with its extractor column; a new false-alarm posture is one `OfEwma` rate value at composition; zero new surface — an `EwmaMonitor`/`QuantileTracker`/`DriftDetector` sibling family, a second receipt-scanning loop beside `MonitorChannel`, or a monitor-local CUSUM recursion re-deriving the estimator rows is the rejected form.
-- Boundary: capsules are immutable — `Advance` returns the next capsule, the caller owns placement (an `Atom<StreamMonitor>` at a session boundary, a threaded fold in a batch view) per the cell-and-thread law; changepoint state, thresholds, and anomaly classification for the detector arm live on its fitted `Stats/estimator` model, while the monitor holds only the bounded evidence window. `AsDetector` emits one score and one change flag per evidence row, and the closure-held capsule advances across calls. Extraction reads the same `Seq<ComputeReceipt>` the dashboards fold — a monitor that taps `ReceiptSurface.Emit` directly or mints a second fact stream is the deleted form; warmup samples score `Breach: false` because a limit over an unestimated baseline is noise, and the verdict still lands so cadence stays observable.
+- Boundary: capsules are immutable — `Advance` returns the next capsule and the caller owns placement (an `Atom<StreamMonitor>` at a session boundary, a threaded fold in a batch view) per the cell-and-thread law. The quantile arm holds its five markers and positions as inline-array struct fields on the case, so an advance copies fixed state through the stack and allocates no array; a marker set widened past five is a different estimator, not a longer buffer.
+- Boundary: changepoint state, thresholds, and anomaly classification for the detector arm live on its fitted `Stats/estimator` model, while the monitor holds only the bounded evidence window. `AsDetector` emits one score and one change flag per evidence row over a shared `Atom` cell that installs the advanced capsule beside the verdicts that transition emitted — the CAS function stays pure and re-runs whole on a losing exchange, where a lock around a mutable local publishes a torn advance the second caller reads as its own.
+- Boundary: extraction reads the same `Seq<ComputeReceipt>` the dashboards fold — a monitor that taps `ReceiptSurface.Emit` directly or mints a second fact stream is the deleted form; warmup samples score `Breach: false` because a limit over an unestimated baseline is noise, and the verdict still lands so cadence stays observable. `SolveResidual` and `FactorResidual` are two streams, never one: the first is the physics equilibrium residual a `Solve` fact reports against its convergence target, the second the linear-algebra residual a `Factorization` fact measures against its `ResidualCap`, and a drift in one carries no information about the other.
+- Boundary: this lane's P² sketch serves LIVE receipt streams alone. Exact small-sample batch quantiles are the kernel `Rasm/Domain/stats#STATISTICS` `Distribution.Of` fold over a bounded materialized sample, and the branch three-form quantile law binds both — an operational sketch crossing into a bounded-sample reading grades a value no run produced.
 
 ```csharp signature
 // --- [TYPES] -----------------------------------------------------------------------------------------------
+
+// P² marker state is FIXED at five slots by the estimator itself, so the sketch carries an inline-array struct
+// field rather than a collection: an advance copies the markers through the stack, where a builder allocated two
+// arrays per sample on the hottest path in the lane.
+[InlineArray(5)]
+public struct MarkerRow {
+    private double slot;
+}
 
 // Stateful capsule family: each case carries exactly its own advance state — EWMA level over a Welford
 // baseline, P² five-marker sketch, bounded detector window — so a knob record shared across modalities is
@@ -31,7 +42,7 @@ public abstract partial record StreamMonitor {
 
     public sealed record Ewma(string MonitorId, double Lambda, double ControlL, int Warmup, double Level, Option<Stat> Baseline, long Count) : StreamMonitor;
 
-    public sealed record Quantile(string MonitorId, double Probability, double Limit, ImmutableArray<double> Heights, ImmutableArray<double> Positions, long Count) : StreamMonitor;
+    public sealed record Quantile(string MonitorId, double Probability, double Limit, MarkerRow Heights, MarkerRow Positions, long Count) : StreamMonitor;
 
     public sealed record Detector(string MonitorId, int Capacity, Seq<double> Window, FittedModel Model) : StreamMonitor;
 
@@ -55,7 +66,7 @@ public abstract partial record StreamMonitor {
     public static Fin<StreamMonitor> OfQuantile(string monitorId, double probability, double limit) =>
         string.IsNullOrWhiteSpace(monitorId) || !double.IsFinite(probability) || probability is <= 0d or >= 1d || !double.IsFinite(limit)
             ? Fin.Fail<StreamMonitor>(ComputeFault.Create($"<monitor-quantile-policy:{monitorId}>"))
-            : Fin.Succ<StreamMonitor>(new Quantile(monitorId, probability, limit, [], [], Count: 0L));
+            : Fin.Succ<StreamMonitor>(new Quantile(monitorId, probability, limit, Heights: default, Positions: default, Count: 0L));
 
     public static Fin<StreamMonitor> OfDetector(string monitorId, int capacity, FittedModel detector) =>
         string.IsNullOrWhiteSpace(monitorId) || capacity < 8 || detector.Carrier is not EstimatorModel.Detector
@@ -78,6 +89,12 @@ public sealed record MonitorVerdict(string MonitorId, string Statistic, double L
 public sealed partial class MonitorChannel {
     public static readonly MonitorChannel SolveResidual = new("solve-residual",
         static fact => fact is ComputeReceipt.Solve solve ? Some(solve.Residual) : None);
+    // Factorization residual is a SECOND stream, not a spelling of the first: a Solve fact reports physics
+    // equilibrium against its convergence target, a Factorization fact the measured linear-algebra residual
+    // against its ResidualCap. The column is nullable because a route that computed no witness reports none,
+    // and Optional keeps that absence out of the moment stream instead of feeding it a fabricated zero.
+    public static readonly MonitorChannel FactorResidual = new("factor-residual",
+        static fact => fact is ComputeReceipt.Factorization factor ? Optional(factor.TrueResidual) : None);
     public static readonly MonitorChannel RemoteSeconds = new("remote-seconds",
         static fact => fact is ComputeReceipt.RemoteCall call ? call.Elapsed.Map(static elapsed => elapsed.TotalSeconds) : None);
     public static readonly MonitorChannel BackpressureDepth = new("backpressure-depth",
@@ -103,27 +120,25 @@ public static class MonitorLane {
     public static Fin<(StreamMonitor Settled, Seq<MonitorVerdict> Verdicts)> Observe(StreamMonitor monitor, MonitorChannel channel, Seq<ComputeReceipt> facts, IClock clock) =>
         Walk(monitor, channel.Extract(facts), clock);
 
-    // Twin-detector projection: the closure-held capsule advances across calls, and each evidence row lands one
-    // score and one change flag so the Anomaly carrier satisfies the clash cardinality proof.
+    // Twin-detector projection: the capsule advances across calls in an Atom, and each evidence row lands one
+    // score and one change flag so the Anomaly carrier satisfies the clash cardinality proof. The cell installs
+    // the advanced capsule BESIDE the verdicts that transition emitted, so the swap function stays pure and
+    // re-runs whole on a losing exchange while the caller still reads what the accepted transition produced —
+    // a lock around a mutable local instead publishes a half-advanced capsule the next caller scores against.
+    // A failed walk installs the unchanged capsule carrying the fault, so a refused sample never advances state.
     public static Func<Matrix<double>, Fin<Prediction>> AsDetector(StreamMonitor.Detector seed, IClock clock) {
-        var gate = new object();
-        StreamMonitor.Detector held = seed;
+        var cell = Atom((Held: seed, Emitted: Fin.Succ(Seq<MonitorVerdict>())));
 
-        Fin<Prediction> Score(Matrix<double> evidence) {
-            lock (gate) {
-                return Walk(held, toSeq(Enumerable.Range(0, evidence.RowCount)).Map(row => evidence[row, 0]), clock)
-                    .Map(walked => {
-                        held = (StreamMonitor.Detector)walked.Settled;
-                        return (Prediction)new Prediction.Anomaly(
-                            Vector<double>.Build.DenseOfArray([.. walked.Verdicts.Map(static verdict => verdict.Level)]),
-                            [.. walked.Verdicts.Map(static verdict => verdict.Breach)]);
-                    });
-            }
-        }
-
-        return evidence => evidence.ColumnCount == 1
-            ? Score(evidence)
-            : Fin.Fail<Prediction>(ComputeFault.Create($"<monitor-detector-columns:{evidence.ColumnCount}>"));
+        return evidence => evidence.ColumnCount != 1
+            ? Fin.Fail<Prediction>(ComputeFault.Create($"<monitor-detector-columns:{evidence.ColumnCount}>"))
+            : cell.Swap(state => Walk(state.Held, toSeq(Enumerable.Range(0, evidence.RowCount)).Map(row => evidence[row, 0]), clock)
+                    .Match(
+                        Succ: walked => (Held: (StreamMonitor.Detector)walked.Settled, Emitted: Fin.Succ(walked.Verdicts)),
+                        Fail: fault => (state.Held, Fin.Fail<Seq<MonitorVerdict>>(fault))))
+                .Emitted
+                .Map(static verdicts => (Prediction)new Prediction.Anomaly(
+                    Vector<double>.Build.DenseOfArray([.. verdicts.Map(static verdict => verdict.Level)]),
+                    [.. verdicts.Map(static verdict => verdict.Breach)]));
     }
 
     static Fin<(StreamMonitor Settled, Seq<MonitorVerdict> Verdicts)> Walk(StreamMonitor monitor, Seq<double> samples, IClock clock) =>
@@ -159,9 +174,9 @@ public static class MonitorLane {
             ? held.Baseline
             : held.Baseline.Match(
                 Some: prior => Stat.Update(prior, sample, key).ToOption(),
-                None: () => Stat.Of(Seq1(sample), key).ToOption());
+                None: () => Stat.Of(Seq(sample), key).ToOption());
         if (!warm && advanced.IsNone) {
-            return (held, new MonitorVerdict(held.MonitorId, "ewma-rejected", sample, sample, false, (int)Math.Min(held.Count, int.MaxValue), at));
+            return (held, new MonitorVerdict(held.MonitorId, "ewma-rejected", sample, null, false, (int)Math.Min(held.Count, int.MaxValue), at));
         }
 
         long count = held.Count + 1L;
@@ -176,32 +191,33 @@ public static class MonitorLane {
             new MonitorVerdict(held.MonitorId, "ewma-level", level, mean + Math.Sign(level - mean) * band, breach, (int)Math.Min(count, int.MaxValue), at));
     }
 
-    // Jain–Chlamtac P²: sorted five-sample seeding, then marker increment, desired-position drift, and
-    // parabolic height adjustment with the linear fallback — O(1) state per tracked probability.
+    // Jain–Chlamtac P²: insertion-sorted five-sample seeding, then marker increment, desired-position drift, and
+    // parabolic height adjustment with the linear fallback — O(1) state per tracked probability. Every buffer the
+    // textbook spelling allocates per sample — seed array, working heights, working positions, desired positions —
+    // is an inline-array copy, an in-place insert, or a switch arm here, because this runs once per receipt on the
+    // lane's hottest path. Markers 0 and 4 are the running extrema and never drift, so only 1..3 carry a desired
+    // position. Clamping the extrema BEFORE cell selection collapses the textbook's three-branch search to one
+    // ordered comparison chain: the clamp already placed an out-of-range sample inside the outermost cell.
     static (StreamMonitor Next, MonitorVerdict Verdict) Sketched(StreamMonitor.Quantile held, double sample, Instant at) {
         long count = held.Count + 1L;
-        if (held.Heights.Length < 5) {
-            double[] seeded = [.. held.Heights.Add(sample).OrderBy(static value => value)];
-            double estimate = seeded[(int)Math.Round(held.Probability * (seeded.Length - 1))];
+        MarkerRow q = held.Heights;
+        MarkerRow n = held.Positions;
+        if (held.Count < 5L) {
+            int filled = (int)held.Count;
+            int slot = filled;
+            while (slot > 0 && q[slot - 1] > sample) { q[slot] = q[slot - 1]; slot--; }
+            q[slot] = sample;
+            for (int marker = 0; marker <= filled; marker++) { n[marker] = marker + 1d; }
             return (
-                held with { Heights = [.. seeded], Positions = [.. Enumerable.Range(1, seeded.Length).Select(static position => (double)position)], Count = count },
-                new MonitorVerdict(held.MonitorId, "p2-quantile", estimate, held.Limit, Breach: false, (int)Math.Min(count, int.MaxValue), at));
+                held with { Heights = q, Positions = n, Count = count },
+                new MonitorVerdict(held.MonitorId, "p2-quantile", q[(int)Math.Round(held.Probability * filled)], held.Limit, Breach: false, (int)count, at));
         }
-        double[] q = [.. held.Heights];
-        double[] n = [.. held.Positions];
-        int cell = sample < q[0] ? 0 : sample >= q[4] ? 3 : Enumerable.Range(0, 4).First(index => sample >= q[index] && sample < q[index + 1]);
         if (sample < q[0]) { q[0] = sample; }
         if (sample > q[4]) { q[4] = sample; }
+        int cell = sample < q[1] ? 0 : sample < q[2] ? 1 : sample < q[3] ? 2 : 3;
         for (int marker = cell + 1; marker < 5; marker++) { n[marker] += 1d; }
-        double[] desired = [
-            1d,
-            1d + held.Probability * (count - 1) / 2d,
-            1d + held.Probability * (count - 1),
-            1d + (1d + held.Probability) * (count - 1) / 2d,
-            count,
-        ];
         for (int marker = 1; marker <= 3; marker++) {
-            double drift = desired[marker] - n[marker];
+            double drift = Desired(marker, held.Probability, count) - n[marker];
             if ((drift >= 1d && n[marker + 1] - n[marker] > 1d) || (drift <= -1d && n[marker - 1] - n[marker] < -1d)) {
                 double direction = Math.Sign(drift);
                 double parabolic = q[marker] + direction / (n[marker + 1] - n[marker - 1]) * (
@@ -213,11 +229,16 @@ public static class MonitorLane {
                 n[marker] += direction;
             }
         }
-        bool breach = q[2] > held.Limit;
         return (
-            held with { Heights = [.. q], Positions = [.. n], Count = count },
-            new MonitorVerdict(held.MonitorId, "p2-quantile", q[2], held.Limit, breach, (int)Math.Min(count, int.MaxValue), at));
+            held with { Heights = q, Positions = n, Count = count },
+            new MonitorVerdict(held.MonitorId, "p2-quantile", q[2], held.Limit, q[2] > held.Limit, (int)Math.Min(count, int.MaxValue), at));
     }
+
+    static double Desired(int marker, double probability, long count) => marker switch {
+        1 => 1d + probability * (count - 1L) / 2d,
+        2 => 1d + probability * (count - 1L),
+        _ => 1d + (1d + probability) * (count - 1L) / 2d,
+    };
 }
 ```
 

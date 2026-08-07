@@ -15,11 +15,11 @@
 [PUBLIC_TYPE_SCOPE]: client family + credential contract
 - `SecretClient` accepts any `TokenCredential`; the concrete `ManagedIdentityCredential`/`DefaultAzureCredential` impls live in the companion `azure-identity`, deployment-resolved as ADC backs the GCP arm.
 
-| [INDEX] | [SYMBOL]                                 | [TYPE_FAMILY] | [CAPABILITY]                                                 |
-| :-----: | :--------------------------------------- | :------------ | :----------------------------------------------------------- |
-|  [01]   | `SecretClient`                           | client        | sync client; the ladder's direct read arm                    |
-|  [02]   | `aio.SecretClient`                       | client        | asyncio twin for a native-async read leg                     |
-|  [03]   | `azure.core.credentials.TokenCredential` | protocol      | accepted `credential=` contract; `get_token` token provider  |
+| [INDEX] | [SYMBOL]                                 | [TYPE_FAMILY] | [CAPABILITY]                                                |
+| :-----: | :--------------------------------------- | :------------ | :---------------------------------------------------------- |
+|  [01]   | `SecretClient`                           | client        | sync client; the ladder's direct read arm                   |
+|  [02]   | `aio.SecretClient`                       | client        | asyncio twin for a native-async read leg                    |
+|  [03]   | `azure.core.credentials.TokenCredential` | protocol      | accepted `credential=` contract; `get_token` token provider |
 
 [PUBLIC_TYPE_SCOPE]: secret + metadata model graph
 - Read leg consumes `KeyVaultSecret`/`SecretProperties`; `DeletedSecret` and `ContentType` sit on the admin/soft-delete surface the runtime never mints.

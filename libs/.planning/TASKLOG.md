@@ -40,6 +40,12 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 - Unlocks: IDEAS.md [DAYLIGHTING_SCENE_DESCRIPTOR] — producer and consumer build against a settled descriptor, closing the loop on solar, shading, and daylight studies off the live model.
 - Anchors: `[DAYLIGHTING_SCENE_DESCRIPTOR]`; the geometry-flow law crossing at content identity and the GLB rail.
 
+[TOLERANCE_WIRE_CONTRACT]-[QUEUED]: The tolerance byte wire carries a proof obligation, so the C#-to-Python GD&T crossing stops holding by convention alone.
+- Capability: every cross-branch shape carries a corpus entry naming its producer, its consumer, and the payload class both sides prove against — the Tier-0 law the tolerance seam is the outstanding exception to; a seam whose two ends merely happen to spell the same encoder name proves nothing, and a rename at one end reaches the other only through the entry.
+- Shape: one `tests/contracts/MANIFEST.md` row under the `domain` class, one producer originating the semantic model; producer `csharp:Rasm.Fabrication/Spec/tolerance` `IToleranceEncoder` bytes, consumer `python:artifacts/drawing/dimension` `GdtFrame`.
+- Unlocks: the seam stops being convention-coincidence — the encoder's byte layout and the frame's decode are pinned to one fixture, so either end drifting is a corpus failure rather than a silent GD&T misread on a drawing.
+- Anchors: `csharp:Rasm.Fabrication` and `python:artifacts` seam registries, both now spelling the edge as an `IToleranceEncoder` byte wire; the `domain`-class rows already carrying a `wire-bytes` + `digest` payload.
+
 [OPLOG_ENTRY_SCHEMA]-[QUEUED]: `OperationId` and the op-log entry schema pin at the commit envelope.
 - Capability: `[HOST_OPLOG_CRDT_PRODUCER]` decomposes into the shared identity pin — the `OperationId` `[ComplexValueObject]` with sorted vector-clock encoding — and the entry schema over the sealed-commit facts, ruled before replay or merge lands anywhere.
 - Shape: Identity and entry rows at the C# wire owner; the `csharp:Rasm.Rhino/Document/events#STREAM_OWNER` tap and the `typescript:data` `[HOST_OPLOG_CRDT_CONSUMER]` decode consume the pinned schema.

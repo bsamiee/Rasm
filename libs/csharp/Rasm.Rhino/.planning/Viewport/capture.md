@@ -12,8 +12,9 @@ Capture rendering has one `CaptureRequest` union and one `Captures.Run` entry. S
 ## [02]-[SPEC_AXES]
 
 - Owner: `Size2i`, `Offset2i`, and `CaptureDpi` are generated values for positive integer extents, nonnegative integer origins, and finite positive DPI; each `Of` bridges generator rejection onto `Fin`. `CaptureAnchor` and `CaptureColor` `[SmartEnum<int>]` rows carry the complete host anchor and output-color projections. `CaptureSubject` `[Union]` closes view and page bases plus a preview that wraps either admitted base; every target is scalar, and the page case requires `ViewportTarget.PageCase`. `CaptureArea` and `CaptureScale` `[Union]` close their variant families; window geometry admits at the factory, and model scale enters the kernel `PositiveMagnitude` gate once.
-- Owner: generated `CaptureCrop`, `CaptureMargins`, `CaptureOffset`, `CaptureBanner`, and `PrintFidelity` values plus factory-only `MediaLayout` cases own admitted settings payloads. `CaptureFeature` rows carry nullable settings, transparent, and depth projection columns; each decor admits and applies from those same columns. `CaptureDecor` combines color and text payloads with an admitted frozen feature set. Crop admission performs checked bounds arithmetic, and every physical magnitude is finite and nonnegative in a known unit.
+- Owner: generated `CaptureCrop`, `CaptureMargins`, `CaptureOffset`, `CaptureBanner`, and `PrintFidelity` values plus factory-only `MediaLayout` cases own admitted settings payloads. `CaptureFeature` rows carry nullable settings, transparent, and depth projection columns; each decor admits from a column and applies through the ONE column-selected fold, so a new host surface is one column and one accessor. `CaptureDecor` combines color and text payloads with an admitted frozen feature set. Crop admission performs checked bounds arithmetic, and every physical magnitude is finite and nonnegative in a known unit.
 - Law: `MediaLayout` and `CaptureDecor` contain only members represented by `ViewCaptureSettings`. `DrawGridAxes`, `ScaleScreenItems`, and transparency belong exclusively to `TransparentCaptureSpec`; no settings-driven request silently ignores them.
+- Law: a unit regime crosses this page as the kernel `ModelUnit` — `CaptureMargins` and `CaptureOffset` hold it whole and lower `.System` at the host member, which takes a `UnitSystem`; a raw host enum on a public capture surface re-opens an admission the kernel already gated, and `UnitSystem.CustomUnits` refuses at admission because a custom scale lives only on `LengthUnit` and no margin or offset member accepts one.
 - Law: native `System.Drawing.Size` and `Rectangle` values mint only through the owners' own projections — `Size2i.Native` and `Offset2i.Window(Size2i)` — and integer position never rides the extent type. Preview preparation configures its view/page basis in full, calls `CreatePreviewSettings` once, validates the derived settings, and retires the basis before egress.
 
 ```csharp signature
@@ -225,9 +226,11 @@ public sealed partial class CaptureCrop {
         key.OrDefault().Catch(() => Fin.Succ(Create(media: media, origin: origin, extent: extent)));
 }
 
+// The regime arrives already admitted and lowers to `UnitSystem` only at the host member; a custom scale lives on
+// `LengthUnit`, which that member cannot take, so `CustomUnits` refuses here rather than at the native call.
 [ComplexValueObject]
 public sealed partial class CaptureMargins {
-    public UnitSystem Units { get; }
+    public ModelUnit Units { get; }
     public double Left { get; }
     public double Top { get; }
     public double Right { get; }
@@ -236,19 +239,18 @@ public sealed partial class CaptureMargins {
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
-        ref UnitSystem units,
+        ref ModelUnit units,
         ref double left,
         ref double top,
         ref double right,
         ref double bottom) {
-        validationError = Enum.IsDefined(value: units)
-            && units is not UnitSystem.Unset and not UnitSystem.None and not UnitSystem.CustomUnits
+        validationError = units is { System: not UnitSystem.CustomUnits }
             && new[] { left, top, right, bottom }.All(static value => double.IsFinite(value) && value >= 0.0)
                 ? validationError
                 : new ValidationError(message: "capture margins are invalid");
     }
 
-    public static Fin<CaptureMargins> Of(UnitSystem units, double left, double top, double right, double bottom, Op? key = null) =>
+    public static Fin<CaptureMargins> Of(ModelUnit units, double left, double top, double right, double bottom, Op? key = null) =>
         key.OrDefault().Catch(() => Fin.Succ(Create(units: units, left: left, top: top, right: right, bottom: bottom)));
 }
 
@@ -261,7 +263,7 @@ public sealed partial class OffsetOrigin {
 
 [ComplexValueObject]
 public sealed partial class CaptureOffset {
-    public UnitSystem Units { get; }
+    public ModelUnit Units { get; }
     public OffsetOrigin Origin { get; }
     public double X { get; }
     public double Y { get; }
@@ -269,18 +271,17 @@ public sealed partial class CaptureOffset {
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
-        ref UnitSystem units,
+        ref ModelUnit units,
         ref OffsetOrigin origin,
         ref double x,
         ref double y) {
-        validationError = Enum.IsDefined(value: units)
-            && units is not UnitSystem.Unset and not UnitSystem.None and not UnitSystem.CustomUnits
+        validationError = units is { System: not UnitSystem.CustomUnits }
             && origin is not null && double.IsFinite(x) && x >= 0.0 && double.IsFinite(y) && y >= 0.0
                 ? validationError
                 : new ValidationError(message: "capture offset is invalid");
     }
 
-    public static Fin<CaptureOffset> Of(UnitSystem units, OffsetOrigin origin, double x, double y, Op? key = null) =>
+    public static Fin<CaptureOffset> Of(ModelUnit units, OffsetOrigin origin, double x, double y, Op? key = null) =>
         key.OrDefault().Catch(() => Fin.Succ(Create(units: units, origin: origin, x: x, y: y)));
 }
 
@@ -391,7 +392,7 @@ public sealed partial class MediaPlacement {
     }
 
     internal Fin<Unit> Apply(ViewCaptureSettings settings, Op key) => key.Catch(() => {
-        _ = Offset.Iter(offset => settings.SetOffset(lengthUnits: offset.Units, fromMargin: offset.Origin.FromMargin, x: offset.X, y: offset.Y));
+        _ = Offset.Iter(offset => settings.SetOffset(lengthUnits: offset.Units.System, fromMargin: offset.Origin.FromMargin, x: offset.X, y: offset.Y));
         _ = Anchor.Iter(anchor => settings.OffsetAnchor = anchor.Native);
         return Aspect.ShouldMatch ? key.Confirm(success: settings.MatchViewportAspectRatio()) : Fin.Succ(unit);
     });
@@ -438,7 +439,7 @@ public abstract partial record MediaLayout {
         }),
         marginsCase: static (ctx, layout) =>
             from _ in ctx.Op.Confirm(success: ctx.Settings.SetMargins(
-                lengthUnits: layout.Margins.Units,
+                lengthUnits: layout.Margins.Units.System,
                 left: layout.Margins.Left,
                 top: layout.Margins.Top,
                 right: layout.Margins.Right,
@@ -521,26 +522,15 @@ public sealed partial class CaptureFeature {
     internal Action<ViewCapture, bool>? Transparent { get; }
     internal Action<ZBufferCapture, bool>? Depth { get; }
 
-    internal static Unit ApplySettings(ViewCaptureSettings target, FrozenSet<CaptureFeature> selected) {
-        foreach (CaptureFeature feature in Items) {
-            feature.Settings?.Invoke(target, selected.Contains(feature));
-        }
-        return unit;
-    }
-
-    internal static Unit ApplyTransparent(ViewCapture target, FrozenSet<CaptureFeature> selected) {
-        foreach (CaptureFeature feature in Items) {
-            feature.Transparent?.Invoke(target, selected.Contains(feature));
-        }
-        return unit;
-    }
-
-    internal static Unit ApplyDepth(ZBufferCapture target, FrozenSet<CaptureFeature> selected) {
-        foreach (CaptureFeature feature in Items) {
-            feature.Depth?.Invoke(target, selected.Contains(feature));
-        }
-        return unit;
-    }
+    // ONE fold over the roster serves every projection surface: the caller names the column, each row's own selector
+    // decides whether it participates, and an absent column is a row this surface does not project. A per-surface loop
+    // is the collapsed form — three bodies differing only in which column they read, and a fourth host surface would
+    // mint a fourth.
+    internal static Unit Apply<TTarget>(
+        TTarget target,
+        Func<CaptureFeature, Action<TTarget, bool>?> column,
+        FrozenSet<CaptureFeature> selected) =>
+        toSeq(Items).Iter(feature => column(feature)?.Invoke(target, selected.Contains(feature)));
 
     private static CaptureFeature Row(
         int key,
@@ -586,7 +576,7 @@ public sealed partial class CaptureDecor {
     internal Fin<Unit> Apply(ViewCaptureSettings settings, Op key) => key.Catch(() => {
         CaptureDecor self = this;
         settings.OutputColor = self.OutputColor.Native;
-        _ = CaptureFeature.ApplySettings(target: settings, selected: self.Features);
+        _ = CaptureFeature.Apply(target: settings, column: static row => row.Settings, selected: self.Features);
         _ = self.Banner.Iter(banner => {
             settings.HeaderText = banner.Header;
             settings.FooterText = banner.Footer;
@@ -785,7 +775,7 @@ public sealed partial class TransparentDecor {
     }
 
     internal Unit Apply(ViewCapture capture) =>
-        CaptureFeature.ApplyTransparent(target: capture, selected: Features);
+        CaptureFeature.Apply(target: capture, column: static row => row.Transparent, selected: Features);
 }
 
 public sealed record TransparentCaptureSpec {
@@ -848,7 +838,7 @@ public sealed partial class DepthChannels {
     }
 
     internal Unit Apply(ZBufferCapture capture) =>
-        CaptureFeature.ApplyDepth(target: capture, selected: Features);
+        CaptureFeature.Apply(target: capture, column: static row => row.Depth, selected: Features);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -1275,13 +1265,14 @@ public abstract partial record SequenceOp {
 
 ## [05]-[RUN_RAIL]
 
-- Owner: `CapturePlan` is the sink-free preparation value. `CaptureRequest` closes settings, transparent, depth, and sequence modalities behind their factories; `SettingsCase` alone pairs a non-empty plan sequence with a settings-driven sink and sink-derived cardinality admission. `PreparedCapture` is the internal disposable prepared-program resource; its settings sequence carries arity, its `Use` gate rejects use after disposal, and reverse release retires every native setting after the sole consumer settles.
+- Owner: `CapturePlan` is the sink-free preparation value. `CaptureRequest` closes settings, transparent, depth, and sequence modalities behind their factories; `SettingsCase` alone pairs a non-empty plan sequence with a settings-driven sink and sink-derived cardinality admission. `PreparedCapture` is the internal prepared-program bracket; its settings sequence carries arity, its `Use` gate refuses with `InvalidContext` after release, and reverse release retires every native setting once the sole consumer settles.
 - Entry: `Captures.Run(DocumentSession, CaptureRequest, Op?) : Fin<CaptureArtifact>` is the sole public execution rail. `CaptureRequest.Settings`, `Transparent`, `Depth`, and `Sequence` admit each modality; internal `Stage` shares settings acquisition with PDF composition without exposing `ViewCaptureSettings`, and admits its session on the same rail `Run` does rather than handing an unproved reference to the host work.
 - Law: bench identity spells the REQUEST factory (`nameof(CaptureRequest.<verb>)`), never the private staging helper that happens to share the verb's name — an unqualified `nameof` binds the helper and re-keys every recorded row the moment that helper is renamed.
 - Law: every capture entry crosses `HostThread.Run` with a `HostWork<T>.Session`; settings, transparent, and depth cases carry `SessionNeed.Redraw`, sequence adopt carries `SessionNeed.Mutate` plus `SessionNeed.Undo` around one sealed `UndoBracket`, and sequence inspect carries `SessionNeed.Read` only. Target resolution, host work, delivery, and disposal remain inside that command-thread scope.
-- Law: run-rail frame timing is the Modeling bench band — every `Captures.Run` case crosses `HostThread.Run`, brackets its in-host body in `BenchBand.Measured`, and stamps the `BenchEvidence` (operation identity from the request case, input scale from the case's own cardinality — plan count, pixel area, sample count, or frame count — duration, allocation, host fingerprint) onto `CaptureArtifact.Bench`, so allocation belongs to the executing host thread and bridge-run harvest sessions produce corpus-comparable rows with no second measurement path.
-- Law: batch preparation is one iterative `Fold`. A failed acquisition reverse-disposes every previously prepared setting, and the completed `PreparedCapture` reverse-disposes its sequence after the sole consumer settles.
-- Law: preparation applies viewport → area → layout → scale → decoration exactly once, then derives a preview from that completed basis when requested. Viewport binding precedes window projection, aspect matching, and fit scaling, and the bound viewport is the resolved row's own — a page address resolves to `RhinoPageView.MainViewport` and a detail address to `DetailViewObject.Viewport` at the target resolution, so no capture-side re-addressing exists. A settings handle never appears on a public signature, and internal prepared resources reject every use after their lease closes.
+- Law: run-rail frame timing is the Modeling bench band — every `Captures.Run` case crosses `HostThread.Run`, brackets its in-host body in `BenchBand.Measured`, and stamps the `BenchEvidence` (operation identity from the request case, input scale from the case's own cardinality — plan count, pixel area, sample count, or frame count — duration, allocation, host fingerprint) onto `CaptureArtifact.Bench`, so allocation belongs to the executing host thread and bridge-run harvest sessions produce corpus-comparable rows with no second measurement path. BOTH arms carry it: a refusal combines `CaptureBench` with its cause, because a run that spent its whole cost and then failed is the row a corpus most needs and the one a success-only stamp drops.
+- Law: batch preparation is one iterative `Fold`. A failed acquisition reverse-releases every previously prepared setting, and the completed bracket reverse-releases its sequence once the sole consumer settles.
+- Law: release ACCUMULATES and never preempts — every row is attempted, its refusals combine into one fault, and that fault joins the body's own outcome through the compensation merge this folder spells at every bracket. Rethrowing the first disposal exception discarded the artifact a completed body had already produced and every refusal behind the first, turning a cleanup defect into a lost run.
+- Law: preparation applies viewport → area → layout → scale → decoration exactly once, then derives a preview from that completed basis when requested. Viewport binding precedes window projection, aspect matching, and fit scaling, and the bound viewport is the resolved row's own — a page address resolves to `RhinoPageView.MainViewport` and a detail address to `DetailViewObject.Viewport` at the target resolution, so no capture-side re-addressing exists. A settings handle never appears on a public signature, and the prepared bracket refuses every use after release.
 
 ```csharp signature
 // --- [MODELS] -------------------------------------------------------------------------------
@@ -1339,37 +1330,57 @@ public abstract partial record CaptureRequest {
         key.OrDefault().Need(value: operation).Map(static admitted => (CaptureRequest)new SequenceCase(Operation: admitted));
 }
 
-// --- [RESOURCES] ----------------------------------------------------------------------------
-internal sealed class PreparedCapture : IDisposable {
-    private readonly Seq<ViewCaptureSettings> settings;
-    private bool disposed;
+// --- [ERRORS] -------------------------------------------------------------------------------
+// A refused capture is still a MEASURED capture — the band brackets the whole in-host body, so its duration and
+// allocation describe the failing run exactly as they describe a completed one, and the expensive half of every corpus
+// is the half that failed. No artifact exists to stamp, so the evidence rides the refusal beside the cause.
+public sealed record CaptureBench(BenchEvidence Evidence) : Expected {
+    public override string Message => string.Create(
+        provider: CultureInfo.InvariantCulture,
+        $"Capture '{Evidence.Operation}' failed after {Evidence.Duration.TotalMilliseconds:F3} ms over scale {Evidence.InputScale}.");
+    public override string Category => "Bench";
+}
 
-    internal PreparedCapture(Seq<ViewCaptureSettings> settings) => this.settings = settings;
+// --- [RESOURCES] ----------------------------------------------------------------------------
+// Preparation is a BRACKET, never a disposable value: release accumulates every refused native dispose beside the
+// body's own outcome, so one wedged setting neither stops the rows behind it nor preempts the artifact the run already
+// produced. A rethrow discarded both — the completed body's value and every refusal after the first.
+internal sealed class PreparedCapture {
+    private readonly Seq<ViewCaptureSettings> settings;
+    private bool released;
+
+    private PreparedCapture(Seq<ViewCaptureSettings> settings) => this.settings = settings;
+
+    internal static Fin<TOut> Bracket<TOut>(Seq<ViewCaptureSettings> settings, Func<PreparedCapture, Fin<TOut>> body, Op key) {
+        PreparedCapture prepared = new(settings: settings);
+        Fin<TOut> primary = key.Catch(() => body(prepared));
+        prepared.released = true;
+        return Merge(primary: primary, cleanup: Release(rows: settings, key: key));
+    }
 
     internal Fin<TOut> Use<TOut>(Func<Seq<ViewCaptureSettings>, Fin<TOut>> body, Op key) =>
-        from consumer in Optional(body).ToFin(Fail: key.InvalidInput())
-        from _live in guard(!disposed, key.InvalidResult())
+        from consumer in key.Need(body)
+        from _live in guard(!released, key.InvalidContext())
         from output in key.Catch(() => consumer(settings))
         select output;
 
-    public void Dispose() {
-        if (disposed) return;
-        disposed = true;
-        _ = Release(settings);
-    }
+    // Reverse release, every row attempted: the validation rail accumulates each refusal into one fault, so a wedged
+    // native setting reports beside the rows released after it rather than hiding them behind the first throw.
+    internal static Fin<Unit> Release(Seq<ViewCaptureSettings> rows, Op key) =>
+        rows.Rev()
+            .Traverse(row => key.Catch(() => {
+                row.Dispose();
+                return Fin.Succ(value: unit);
+            }).ToValidation())
+            .As()
+            .ToFin()
+            .Map(static _ => unit);
 
-    internal static Unit Release(Seq<ViewCaptureSettings> rows) {
-        Option<Exception> first = rows.Rev()
-            .Map(static row => {
-                try { row.Dispose(); return Option<Exception>.None; }
-                catch (Exception error) { return Some(error); }
-            })
-            .Bind(static error => error.ToSeq())
-            .Strict()
-            .Head;
-        _ = first.Iter(static error => System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(error).Throw());
-        return unit;
-    }
+    internal static Fin<TOut> Merge<TOut>(Fin<TOut> primary, Fin<Unit> cleanup) => cleanup.Match(
+        Succ: _ => primary,
+        Fail: release => primary.Match(
+            Succ: _ => Fin.Fail<TOut>(error: release),
+            Fail: failure => Fin.Fail<TOut>(error: failure + release)));
 }
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
@@ -1413,8 +1424,11 @@ public static class Captures {
                 Body: document => Measured(
                     operation: operation,
                     inputScale: inputScale,
-                    run: () => Prepare(document: document, plans: plans, key: key)
-                        .Bind(lease => lease.Use(prepared => sink.Render(prepared: prepared, op: key))))),
+                    run: () => Prepared(
+                        document: document,
+                        plans: plans,
+                        body: prepared => sink.Render(prepared: prepared, op: key),
+                        key: key))),
             key: key);
 
     private static Fin<CaptureArtifact> TransparentRun(
@@ -1473,6 +1487,9 @@ public static class Captures {
                             .Map(static receipt => (CaptureArtifact)new CaptureArtifact.SequenceCase(receipt: receipt)))),
                 key: ctx.Op));
 
+    // Both arms carry the measurement: a completed run stamps its artifact, a refused one combines `CaptureBench` with
+    // the cause, so the harvest corpus reads failed rows beside completed ones instead of losing every expensive
+    // refusal — a timeout, an out-of-memory raster, a wedged print spool are precisely the rows worth comparing.
     private static Fin<CaptureArtifact> Measured(
         string operation,
         long inputScale,
@@ -1481,7 +1498,9 @@ public static class Captures {
             operation: operation,
             inputScale: inputScale,
             run: run);
-        return outcome.Map(artifact => artifact with { Bench = Some(evidence) });
+        return outcome
+            .Map(artifact => artifact with { Bench = Some(evidence) })
+            .MapFail(cause => new CaptureBench(Evidence: evidence) + cause);
     }
 
     internal static Fin<TOut> Stage<TOut>(
@@ -1498,23 +1517,23 @@ public static class Captures {
                    work: new HostWork<TOut>.Session(
                        Document: owner,
                        Needs: [SessionNeed.Redraw],
-                       Body: document => Prepare(document: document, plans: requested, key: op)
-                           .Bind(lease => lease.Use(body))),
+                       Body: document => Prepared(document: document, plans: requested, body: body, key: op)),
                    key: op)
                select output;
     }
 
-    private static Fin<Lease<PreparedCapture>> Prepare(RhinoDoc document, Seq<CapturePlan> plans, Op key) =>
+    private static Fin<TOut> Prepared<TOut>(RhinoDoc document, Seq<CapturePlan> plans, Func<PreparedCapture, Fin<TOut>> body, Op key) =>
         plans.Fold(
                 Fin.Succ(value: Seq<ViewCaptureSettings>()),
                 (state, plan) => state.Bind(held => PrepareOne(document: document, plan: plan, key: key).Match(
                     Succ: prepared => Fin.Succ(value: held.Add(prepared)),
-                    Fail: error => key.Catch(() => Fin.Succ(value: PreparedCapture.Release(rows: held)))
-                        .Bind(_ => Fin.Fail<Seq<ViewCaptureSettings>>(error: error)))))
-            .Map(rows => (Lease<PreparedCapture>)new Lease<PreparedCapture>.Owned(Value: new PreparedCapture(settings: rows)));
+                    Fail: error => PreparedCapture.Merge(
+                        primary: Fin.Fail<Seq<ViewCaptureSettings>>(error: error),
+                        cleanup: PreparedCapture.Release(rows: held, key: key)))))
+            .Bind(rows => PreparedCapture.Bracket(settings: rows, body: body, key: key));
 
     private static Fin<ViewCaptureSettings> PrepareOne(RhinoDoc document, CapturePlan plan, Op key) =>
-        from admitted in Optional(plan).ToFin(Fail: key.InvalidInput())
+        from admitted in key.Need(plan)
         from row in admitted.Subject.Address.ResolveOne(document: document, key: key)
         from basis in Settings(row: row, subject: admitted.Subject, key: key)
         from configured in Apply(row: row, settings: basis, plan: admitted, key: key).Match(
@@ -1599,7 +1618,7 @@ public static class Captures {
         (Row: row, Op: key),
         viewCase: static (ctx, view) => ctx.Op.Catch(() => Fin.Succ(
             value: new ViewCaptureSettings(ctx.Row.View, view.Pixels.Native, view.Dpi.Value))),
-        pageCase: static (ctx, page) => Optional(ctx.Row.View as RhinoPageView).ToFin(Fail: ctx.Op.InvalidInput())
+        pageCase: static (ctx, page) => ctx.Op.Need(ctx.Row.View as RhinoPageView)
             .Bind(view => ctx.Op.Catch(() => Fin.Succ(value: new ViewCaptureSettings(view, page.Dpi.Value)))),
         previewCase: static (ctx, preview) => Settings(row: ctx.Row, subject: preview.Source, key: ctx.Op));
 

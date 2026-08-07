@@ -184,6 +184,7 @@ flowchart LR
     Bim e25@-->|"[PORT]: BimHooks"| Observability
     Bim e26@-->|"[RECEIPT]: BimBenchReceipt"| Observability
     Bim e39@-->|"[WIRE]: BimEvent"| Wire
+    Bim e43@-->|"[WIRE]: BrickGraph"| Wire
     Runtime e3@-->|"[PORT]: ProjectionContext"| Element
     Observability e31@-->|"[PORT]: InstrumentSet + SpanBand"| Element
     Materials e32@-->|"[PORT]: TelemetryContributorPort"| Observability
@@ -215,6 +216,8 @@ flowchart LR
 ```
 
 Two AppUi edges carry reciprocals the counterpart page names: `[TRANSPORT]: CollabWireContext` is the collab-delta feed whose `TraceContext` adapter and `CollabFrame` schema this package owns, `Collab/sync` framing each delta AppUi-side; `[PORT]: ProfileSampleSource` delivers correlation-keyed Pyroscope and EventPipe samples over an existing port row, `Diagnostics/devloop` folding them into its frame tree.
+
+`Rasm.Bim` `Model/systems` mints the `[WIRE]: BrickGraph` building-systems operations topology election-agnostically; this package's composition supplies the `BrickBinding` class election, persists the returned JSON-LD, and binds each Brick point to its external source through the `Wire/livewire` transport rows (BACnet, Modbus, MQTT), so Bim names no live transport and the livewire axis names no ontology.
 
 ## [04]-[INTERNAL]
 

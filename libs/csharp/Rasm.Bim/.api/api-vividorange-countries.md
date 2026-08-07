@@ -49,16 +49,14 @@
 - with `VividOrange.Cases` (`.api/api-vividorange-cases`) + `VividOrange.IStandards` (`.api/api-vividorange-istandards`): `Country` is the broad national axis and `NationalAnnex` the Eurocode parameter axis the `ENLoadCaseFactory`/`ENCombinationFactory` and `ITableA1_1`/`ITableA1_2.GetProperties` dispatch on; the two bridge BY NAME at the design layer — no compiled `Country`→`NationalAnnex` member exists, and the abbreviation table is internal to `VividOrange.Standards`
 - with `VividOrange.Stages` (`.api/api-vividorange-stages`): `IGovernance.Country` returns this `ICountry`, so a governing body's nation (RIBA/HOAI/CSLP) resolves through the same `Utility.GetCountry` value the structural standards key selects — one national-context owner across the structural and lifecycle families
 - with `VividOrange.ISerialization`: `ICountry: ITaxonomySerializable` rides the shared taxonomy-serialization marker
-- with `StructuralAnalysisFormat` (`.api/api-structuralanalysisformat`): a model's `ICountry` and selected `NationalAnnex` map onto the SAF `ExcelNationalCode` design-code axis (`EC_DIN_EN`/`EC_NF_EN`/`EC_UNI_EN`…) at the XLSX boundary, carried on the wire by `ExcelStructuralLoadCombination.NationalStandard`
-- with `Thinktecture.Runtime.Extensions` (`libs/csharp/.api/api-thinktecture-json.md`): a canonical national discriminant is a `[SmartEnum]`/`[ValueObject]` keyed by the ISO `CountryCode`; the `Country` enum and `ICountry` are the boundary vocabulary mapped onto it, never re-exported as the canonical shape
-- with `NetTopologySuite`/`ProjNET` (the `Semantics/georeference` owner): the ISO `CountryCode` keys the national CRS/datum and georeferenced site-context selection
+- with `StructuralAnalysisFormat` (`.api/api-structural-analysis-format`): a model's `ICountry` and selected `NationalAnnex` map onto the SAF `ExcelNationalCode` design-code axis (`EC_DIN_EN`/`EC_NF_EN`/`EC_UNI_EN`…) at the XLSX boundary, carried on the wire by `ExcelStructuralLoadCombination.NationalStandard`
 
 [LOCAL_ADMISSION]:
-- a model holds its national context as one `Country`/`ICountry` resolved through `Utility.GetCountry`, never a free-text country string; `Utility.GetCountry` is the canonical access path over `new`-ing a singleton per call
-- design-code selection never reads off `ICountry`; the design layer selects a `NationalAnnex`, defaulting to `NationalAnnex.RecommendedValues` for a nation with no national annex
+- this branch reaches `ICountry` through ONE landed path — `IGovernance.Country` off a `VividOrange.Stages` governing body — and `Utility.GetCountry` is the enum→singleton resolver any other reach takes, never a `new` per call and never a free-text country string
+- design-code selection never reads off `ICountry`; the Eurocode regime is a `NationalAnnex` the composition elects, `NationalAnnex.RecommendedValues` covering a nation with no national annex
 
 [RAIL_LAW]:
 - Package: `VividOrange.Countries`
 - Owns: the ISO 3166-1 national-context taxonomy — enum, per-nation singleton family, and resolver
 - Accept: national context held as `Country`/`ICountry`; resolution through `Utility.GetCountry`; the ISO `CountryCode` as the stable boundary key
-- Reject: a free-text country string, a parallel nation enum on the Bim graph, a fabricated compiled `Country`→`NationalAnnex` map, `new`-ing a singleton where `Utility.GetCountry` is canonical
+- Reject: a free-text country string, a parallel nation enum beside this one, a fabricated compiled `Country`→`NationalAnnex` map, `new`-ing a singleton where `Utility.GetCountry` is canonical

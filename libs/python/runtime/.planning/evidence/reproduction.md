@@ -148,6 +148,18 @@ _CORPUS: Final[Block[CorpusFixture]] = Block.of_seq((
         reference=Nothing,
         rows=Block.empty(),
     ),
+    # ELEMENT_CORPUS — the four graded `S`/`M`/`L`/`XL` snapshot addresses of the seeded `GraphForge` models; graduation
+    # waits on the first sanctioned execution of the settled forge (the manifest `[02.25]` blocker carries the arming), so
+    # the row holds the producing tag and no bytes.
+    CorpusFixture(
+        name="element-corpus",
+        kind="domain",
+        state="design_pin",
+        source="csharp:Rasm.Element/Graph/corpus#CORPUS_ROSTER",
+        fmt="element-graph",
+        reference=Nothing,
+        rows=Block.empty(),
+    ),
     # FAULT_TRIPLES — `FaultDetail` (package, code, case) triples spanning the disjoint fault-code bands, minted from this
     # branch's own fault vocabulary rather than decoded from a peer's.
     CorpusFixture(

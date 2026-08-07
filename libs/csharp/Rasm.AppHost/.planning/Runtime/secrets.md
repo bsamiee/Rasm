@@ -12,8 +12,8 @@ The credential-material lifecycle owner: a `SecretLease` row family acquires, re
 
 - Owner: `SecretLease` boundary capsule extending `ConfigSource.SecretsStore` — the only credential lifecycle owner; `LeaseTransition` `[Union]` lifecycle vocabulary; `SecretFault` `[Union]` fault family deriving its codes through `FaultBand.Secret`; `SecretReceipt` the redacted rotation evidence record.
 - Cases: lifecycle transitions Acquired | Renewed | Released | Zeroized; `SecretFault` = Text | AcquireRejected | RenewMissed | StoreUnavailable.
-- Entry: `Acquire(SecretRuntime runtime, string keyId)` returns `Fin<Atom<SecretLease>>` — the credential-store read folds the `ConfigLayer.SecretsSource` provider into the LIVE lease cell whose renewal occurrence rotates it in place, consumers reading the current material off the cell at use; `Rotate(SecretRuntime runtime, Atom<SecretLease> cell)` returns `IO<Unit>` — the renewal `ScheduleEntry.Work` binding folding `Renew` over the live cell inside `Swap(current => ...)`; `Renew(SecretRuntime runtime, SecretLease lease)` returns `Fin<SecretLease>` re-pulling before expiry and zeroizing the prior copy; `Zeroize(SecretLease lease)` returns `Unit`, the drain-forced terminal that overwrites the in-memory copy.
-- Auto: renewal registers one `ScheduleEntry` on Runtime/time#SCHEDULE_PORT at the credential-rotation `DeadlineClass` row carrying a `LeasePolicy` whose `CrashStaleness` outlives the renewal window, so a single occurrence row drives rotation ahead of expiry with no per-secret timer — the occurrence's `Work` binds `Rotate` over the live `Atom<SecretLease>` cell so the fire re-pulls the store, zeroizes the prior copy, and swaps the fresh lease in place (a rotation template the consumer must hand-bind is the deleted form, and a failed re-pull keeps the current lease so degradation rides the health rail); the zeroization registers as one Runtime/lifecycle#DRAIN_CONDUCTOR `DrainBand.Stores` participant row that runs under the drain-forced token so a hung renewal never strands a live secret; the credential bytes carry `DataClassification.Secret` so Observability/telemetry#REDACTION_TAXONOMY erases them at every egress and the receipt diff folds through the bound `Redactor`.
+- Entry: `Acquire(SecretRuntime runtime, string keyId)` returns `IO<Fin<Atom<SecretLease>>>` — the credential-store read folds the `ConfigLayer.SecretsSource` provider into the LIVE lease cell AND registers that cell's renewal occurrence on `SecretRuntime.Schedule` in the same motion, so a returned cell is always a rotating cell and consumers read the current material off it at use; `Rotate(SecretRuntime runtime, Atom<SecretLease> cell)` returns `IO<Unit>` — the renewal `ScheduleEntry.Work` binding folding `Renew` over the live cell inside `Swap(current => ...)`; `Renew(SecretRuntime runtime, SecretLease lease)` returns `Fin<SecretLease>` re-pulling before expiry and zeroizing the prior copy; `Zeroize(SecretRuntime runtime, SecretLease lease)` returns `Unit`, the drain-forced terminal that emits the transition and overwrites the in-memory copy.
+- Auto: `Acquire` registers one `ScheduleEntry` on the bound `Runtime/time#SCHEDULE_PORT` delegate at the credential-rotation `DeadlineClass` row carrying a `LeasePolicy` whose `CrashStaleness` outlives the renewal window, so a single occurrence row drives rotation ahead of expiry with no per-secret timer — the occurrence's `Work` binds `Rotate` over the live `Atom<SecretLease>` cell so the fire re-pulls the store, zeroizes the prior copy, and swaps the fresh lease in place (a rotation template the consumer must hand-bind and an entry constructed onto the lease record without a registration port are both the deleted forms, and a failed re-pull keeps the current lease so degradation rides the health rail); the zeroization registers as one Runtime/lifecycle#DRAIN_CONDUCTOR `DrainBand.Stores` participant row that runs under the drain-forced token so a hung renewal never strands a live secret; the credential bytes carry `DataClassification.Secret` so Observability/telemetry#REDACTION_TAXONOMY erases them at every egress and the receipt diff folds through the bound `Redactor`.
 - Receipt: `SecretReceipt` carries the lease window, the kernel content digest of the canonical credential bytes, and the redacted credential-id diff only — never a secret byte; the transition emits on ReceiptSinkPort.Send partitioned by `TenantId` so each tenant's rotation stream stays isolated.
 - Packages: Rasm (kernel `ContentHash.Of`), Microsoft.Extensions.Configuration.UserSecrets, Microsoft.Extensions.Compliance.Redaction, NodaTime, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
 - Growth: one lifecycle transition is one `LeaseTransition` case; one fault is one `SecretFault` case; a new credential source is one `SecretsSource` provider value on the existing `ConfigLayer`, never a second lease owner; zero new surface.
@@ -47,8 +47,13 @@ public sealed record SecretReceipt(
     string RedactedId,
     Instant At);
 
+// `Schedule` is the Runtime/time#SCHEDULE_PORT registration delegate the composition root binds — the same shape
+// `OrchestrationRuntime` carries. Without it the renewal `ScheduleEntry` was inert data on the lease record: no
+// occurrence ever fired, so `Rotate`, `Renew`, and `LeaseTransition.Renewed` had no live producer and a lease
+// silently expired under prose promising rotation ahead of expiry.
 public sealed record SecretRuntime(
     Func<string, Fin<byte[]>> Read,
+    Func<ScheduleEntry, IO<Unit>> Schedule,
     Redactor Redactor,
     LeasePolicy Lease,
     DeadlineClass Rotation,
@@ -70,22 +75,28 @@ public sealed record SecretLease(string KeyId, byte[] Material, Interval Window,
 }
 
 public static class SecretLeaseOps {
-    public static Fin<Atom<SecretLease>> Acquire(SecretRuntime runtime, string keyId) =>
+    // Acquire REGISTERS the renewal occurrence it constructs — the seat and the registration are one motion, so a
+    // returned cell is always a rotating cell. A constructed-but-unregistered entry is the deleted form.
+    public static IO<Fin<Atom<SecretLease>>> Acquire(SecretRuntime runtime, string keyId) =>
         runtime.Read(keyId)
             .MapFail(error => (Error)new SecretFault.AcquireRejected(keyId, error.Message))
-            .Map(material => {
-                var now = runtime.Clocks.Now;
-                var window = ClockPolicy.Window(now + runtime.Rotation.Allotted, runtime.Rotation.Allotted);
-                Atom<SecretLease>? cell = null;
-                var renewal = new ScheduleEntry(
-                    Key: $"secret-renew:{keyId}",
-                    Spec: new OccurrenceSpec.Every(runtime.Rotation.Allotted),
-                    Deadline: runtime.Rotation,
-                    Lease: Some(runtime.Lease),
-                    Work: () => Rotate(runtime, cell!));
-                cell = Atom(Emit(runtime, new SecretLease(keyId, material, window, renewal), new LeaseTransition.Acquired(keyId, window)));
-                return cell;
-            });
+            .Map(material => Seat(runtime, keyId, material))
+            .Match(
+                Succ: cell => runtime.Schedule(cell.Value.Renewal).Map(_ => Fin.Succ(cell)),
+                Fail: error => IO.pure(Fin.Fail<Atom<SecretLease>>(error)));
+
+    static Atom<SecretLease> Seat(SecretRuntime runtime, string keyId, byte[] material) {
+        var window = ClockPolicy.Window(runtime.Clocks.Now + runtime.Rotation.Allotted, runtime.Rotation.Allotted);
+        Atom<SecretLease>? cell = null;
+        var renewal = new ScheduleEntry(
+            Key: $"secret-renew:{keyId}",
+            Spec: new OccurrenceSpec.Every(runtime.Rotation.Allotted),
+            Deadline: runtime.Rotation,
+            Lease: Some(runtime.Lease),
+            Work: () => Rotate(runtime, cell!));
+        cell = Atom(Emit(runtime, new SecretLease(keyId, material, window, renewal), new LeaseTransition.Acquired(keyId, window)));
+        return cell;
+    }
 
     // The renewal occurrence IS the rotation: Renew re-pulls the store and zeroizes the prior copy,
     // the swap publishes the fresh lease into the live cell, and a missed renewal keeps the current
@@ -130,12 +141,12 @@ public static class SecretLeaseOps {
 
 - Owner: `PemLabel` `[SmartEnum<string>]` the closed RFC-7468 textual-encoding label vocabulary under the `ComparerAccessors.StringOrdinalIgnoreCase` accessor; `PemBlock` the single armored element; `CredentialBundle` the ordered multi-element bundle the canonical `\n` PEM-block delimiter joins; `CredentialPemWire` the redacted cross-language carrier; `PemFault` `[Union]` fault family deriving its codes through `FaultBand.Pem`; `CredentialPem` the static encode-decode-redact surface.
 - Cases: 6 label rows — certificate, public-key, private-key, ec-private-key, rsa-private-key, pkcs7 — the RFC-7468 armor labels the BCL `PemEncoding` writes between the `-----BEGIN {label}-----`/`-----END {label}-----` lines; `PemFault` = Text | LabelUnknown | ArmorMalformed | EmptyBundle.
-- Entry: `Encode(CredentialBundle bundle)` returns `string` — one fold writes each `PemBlock` through `PemEncoding.WriteString(label, der)` and joins the armored elements with the single `\n` RFC-7468 inter-block delimiter, so a certificate chain plus its private key crosses as one canonical bundle text whose element boundary is the `-----END-----`/`-----BEGIN-----` armor pair, never a hand-built `--SEP--` token; `Decode(string text)` returns `Fin<CredentialBundle>` — one fold walks `PemEncoding.TryFind` across the text, peeling each `-----BEGIN/END-----` armored element into a `PemBlock` so the decoder reads any RFC-7468 producer's bundle without a separator contract; `Carrier(CredentialBundle bundle, string keyId, Redactor redactor, ClockPolicy clocks)` returns `CredentialPemWire` — the redacted carrier the wire crosses, carrying the bundle's label set, the per-block kernel content digest, and the redacted key-id, never a private-key byte.
-- Auto: the bundle is the canonical wire shape the `SecretLease` produces and the TS verifier and Python admission consume — a credential-material wire crossing as a raw `byte[]`, a bare base64 string, or a hand-built `\n--SEP--\n`-joined envelope is the deleted form, the RFC-7468 armor IS the self-delimiting separator and the `\n` between an `-----END-----` and the next `-----BEGIN-----` is the only inter-block byte; the `CredentialBundle.Cert(X509Certificate2 certificate)` factory derives a certificate bundle from the cert's own DER (`X509Certificate2.RawData`) so the host never hand-encodes bytes it already owns through the BCL cert surface, and `CredentialPem.Decode` round-trips a `CERTIFICATE` block through `X509Certificate2.CreateFromPem(text)` so the decoder proves the armored bytes parse as a real certificate before admission; a `PrivateKey`-classed `PemBlock` carries `DataClassification.Secret` so Observability/telemetry#REDACTION_TAXONOMY erases its bytes at every egress and the `CredentialPemWire` never carries a private-key block's content, only its label and content digest; the per-block digest is the kernel `ContentHash.Of` identity value — non-cryptographic, forbidden a security claim — so the wire carrier proves bundle identity without exposing material and the rotation diff is a digest equality, never a constant-time pretense.
+- Entry: `Encode(CredentialBundle bundle)` returns `string` — one fold writes each `PemBlock` through `PemEncoding.WriteString(label, der)` and joins the armored elements with the single `\n` RFC-7468 inter-block delimiter, so a certificate chain with its private key crosses as one canonical bundle text whose element boundary is the `-----END-----`/`-----BEGIN-----` armor pair, never a hand-built `--SEP--` token; `Decode(string text)` returns `Fin<CredentialBundle>` — one fold walks `PemEncoding.TryFind` across the text, peeling each `-----BEGIN/END-----` armored element into a `PemBlock` so the decoder reads any RFC-7468 producer's bundle without a separator contract; `Carrier(CredentialBundle bundle, string keyId, Redactor redactor, ClockPolicy clocks)` returns `CredentialPemWire` — the redacted carrier the wire crosses, carrying the bundle's label set, the per-block kernel content digest, and the redacted key-id, never a private-key byte.
+- Auto: the bundle is the canonical wire shape the `SecretLease` produces and the TS verifier consumes — a credential-material wire crossing as a raw `byte[]`, a bare base64 string, or a hand-built `\n--SEP--\n`-joined envelope is the deleted form, the RFC-7468 armor IS the self-delimiting separator and the `\n` between an `-----END-----` and the next `-----BEGIN-----` is the only inter-block byte; the `CredentialBundle.Cert(X509Certificate2 certificate)` factory derives a certificate bundle from the cert's own DER (`X509Certificate2.RawData`) so the host never hand-encodes bytes it already owns through the BCL cert surface, and `CredentialPem.Decode` round-trips a `CERTIFICATE` block through `X509Certificate2.CreateFromPem(text)` so the decoder proves the armored bytes parse as a real certificate before admission; a `PrivateKey`-classed `PemBlock` carries `DataClassification.Secret` so Observability/telemetry#REDACTION_TAXONOMY erases its bytes at every egress and the `CredentialPemWire` never carries a private-key block's content, only its label and content digest; the per-block digest is the kernel `ContentHash.Of` identity value over the block's DER span — non-cryptographic, forbidden a security claim — so the wire carrier proves bundle identity without exposing material and the rotation diff is a digest equality, never a constant-time pretense; the whole-bundle digest folds the ordered `(label, block digest)` rows through the `Runtime/determinism#DETERMINISM_KERNEL` `Preimage` emitter, so a bundle's identity carries its block COUNT and each block's label ahead of its bytes and a hex-string concatenation — order-blind at the block boundary — is the deleted form.
 - Receipt: the credential rotation rides the `SecretReceipt` the `SECRET_LEASE` cluster mints — `SecretReceipt.ContentDigest` is the `CredentialBundle` per-block digest fold and `SecretReceipt.RedactedId` the carrier's redacted key-id, so the PEM axis adds no parallel receipt and the `CredentialPemWire` is the redacted projection the receipt sink already fans.
-- Packages: Rasm (kernel `ContentHash.Of`), System.Security.Cryptography, Microsoft.Extensions.Compliance.Redaction, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
+- Packages: Rasm (kernel `ContentHash.Of` with its ordered-chunk overload), System.Security.Cryptography, System.IO.Hashing, Microsoft.Extensions.Compliance.Redaction, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
 - Growth: one armor label is one `PemLabel` row; one bundle-element kind is one `PemBlock` carried in the existing ordered bundle, never a parallel envelope; one fault is one `PemFault` case; a new credential material kind rides the label axis already; zero new surface.
-- Boundary: the PEM axis is the suite's only credential-material wire owner — the `SecretLease` holds the live `byte[]` in memory and zeroizes it, while `CredentialPem` owns the canonical at-rest and on-wire encoding, so the lease lifecycle and the material encoding never merge into one surface and never split the material into two encodings; the BCL `PemEncoding` owns the RFC-7468 armor write/find and `X509Certificate2.ExportCertificatePem`/`CreateFromPem` own the certificate round-trip — a hand-rolled base64 wrap, a manual `-----BEGIN-----` string build, and a Newtonsoft or third-party PEM codec are the deleted forms; the bundle crosses to TS as the `CredentialPemWire` the `security/crypt/sign` `Material.admit` key-material fold decodes through `jose`'s own `importPKCS8`/`importSPKI`/`importX509` importers, and to Python as the carrier the `runtime/execution/admission` `SettingsAdmission` secret-file source reads through `cryptography`'s `load_pem_*` parse — both consumers decode the one C#-minted bundle and re-mint no parallel PEM vocabulary, per `libs/.planning/ARCHITECTURE.md` `[07]-[CROSS_LANGUAGE_WIRE]`; the private-key block never crosses in the `CredentialPemWire` carrier — only the public certificate chain, the label set, and the content digests cross, so a TS or Python verifier reads the credential's public identity off the wire while the private material stays host-side under the `SecretLease` zeroization; the label set is the closed RFC-7468 vocabulary the BCL writes, so an unknown armor label decodes to `PemFault.LabelUnknown` rather than admitting an unrecognized block.
+- Boundary: the PEM axis is the suite's only credential-material wire owner — the `SecretLease` holds the live `byte[]` in memory and zeroizes it, while `CredentialPem` owns the canonical at-rest and on-wire encoding, so the lease lifecycle and the material encoding never merge into one surface and never split the material into two encodings; the BCL `PemEncoding` owns the RFC-7468 armor write/find and `X509Certificate2.ExportCertificatePem`/`CreateFromPem` own the certificate round-trip — a hand-rolled base64 wrap, a manual `-----BEGIN-----` string build, and a Newtonsoft or third-party PEM codec are the deleted forms; the bundle crosses to TS as the `CredentialPemWire` the `security/crypt/sign` `Material.admit` key-material fold decodes through `jose`'s own `importSPKI`/`importX509` importers — the one consumer decodes the one C#-minted bundle and re-mints no parallel PEM vocabulary, per `libs/.planning/ARCHITECTURE.md` `[07]-[CROSS_LANGUAGE_WIRE]`, and `importPKCS8` never enters the decode list because the wire carries no private block for it to read; the private-key block never crosses in the `CredentialPemWire` carrier — only the public certificate chain, the label set, and the content digests cross, so a TS or Python verifier reads the credential's public identity off the wire while the private material stays host-side under the `SecretLease` zeroization; the label set is the closed RFC-7468 vocabulary the BCL writes, so an unknown armor label decodes to `PemFault.LabelUnknown` rather than admitting an unrecognized block.
 
 ```csharp signature
 [SmartEnum<string>]
@@ -153,7 +164,8 @@ public sealed partial class PemLabel {
 }
 
 public readonly record struct PemBlock(PemLabel Label, ReadOnlyMemory<byte> Der) {
-    public string Digest => ContentHash.Of(Der.Span).ToString("x32");
+    public UInt128 Content => ContentHash.Of(Der.Span);
+    public string Digest => Content.ToString("x32");
     public string Armor => PemEncoding.WriteString(Label.Key, Der.Span);
 }
 
@@ -168,6 +180,7 @@ public sealed record CredentialBundle(Seq<PemBlock> Blocks) {
 public readonly record struct CredentialPemWire(
     string KeyId,
     FrozenSet<string> Labels,
+    string Chain,
     Seq<string> BlockDigests,
     string BundleDigest,
     Instant At);
@@ -202,15 +215,22 @@ public static class CredentialPem {
         return blocks.IsEmpty ? Fin.Fail<CredentialBundle>(new PemFault.EmptyBundle()) : Fin.Succ(new CredentialBundle(blocks));
     }
 
+    // `Carrier` folds the bundle's ordered length-delimited chunks through Runtime/determinism#DETERMINISM_KERNEL
+    // `Preimage` — the one canonical-byte projection the suite owns. Concatenating per-block hex renders was the
+    // deleted form: an unlength-delimited join, so a two-block bundle and a differently-split one over the same
+    // bytes keyed identically and a rotation diff could read equal across a real material change.
     public static CredentialPemWire Carrier(CredentialBundle bundle, string keyId, Redactor redactor, ClockPolicy clocks) {
         Span<char> sink = stackalloc char[redactor.GetRedactedLength(keyId)];
         var written = redactor.Redact(keyId, sink);
-        var digests = bundle.Blocks.Map(static block => block.Digest);
         return new CredentialPemWire(
             KeyId: new string(sink[..written]),
             Labels: bundle.Labels,
-            BlockDigests: digests,
-            BundleDigest: ContentHash.Of(Encoding.UTF8.GetBytes(string.Concat(digests))).ToString("x32"),
+            // The public half crosses as armored text — every secret-labeled block stays host-side whole, so the
+            // consumer imports the chain it reads and the digests still cover every block, secret ones included.
+            Chain: Encode(new CredentialBundle(bundle.Blocks.Filter(static block => !block.Label.Secret))),
+            BlockDigests: bundle.Blocks.Map(static block => block.Digest),
+            BundleDigest: ContentHash.Of(bundle.Blocks, static (blocks, hash) =>
+                hash.Rows(blocks, static (block, inner) => inner.Field(block.Label.Key).Field(block.Content))).ToString("x32"),
             At: clocks.Now);
     }
 }
@@ -218,7 +238,8 @@ public static class CredentialPem {
 
 ## [04]-[TS_PROJECTION]
 
-- Owner: `CredentialPemWire` — the redacted credential-bundle carrier the TS `security/crypt/sign` and the Python `runtime/execution/admission` decode; the raw bundle text crosses as the standard RFC-7468 PEM string the consumers parse through their own key surfaces.
+- Owner: `CredentialPemWire` — the redacted credential-bundle carrier registered on the `apphost-wire` seam (`tests/contracts/MANIFEST.md` `[02.21]-[APPHOST_WIRE]`, one `[JsonSerializable]` row on the `Runtime/ports#WIRE_LAW` roster, decoded under the TS census `json` arm); the raw bundle text crosses as the standard RFC-7468 PEM string the consumers parse through their own key surfaces.
+- Law: this page MINTS the carrier and `libs/typescript/security/.planning/crypt/sign.md` `[03]-[KEY_MATERIAL]` BINDS the decode — `Material.admit` folds the landed `Credential` (the core interchange codec's decode of this carrier) into a `KeyHandle`, routing each block's RFC-7468 label onto `jose`'s `importSPKI`/`importX509` through its label-keyed importer table; the wire carries the public chain, label set, and digests alone, so `importPKCS8` reads nothing this carrier holds and a TS import of private material off it is the drift this law forecloses. The one consumer decodes the one C#-minted vocabulary and re-mints none, so a carrier column added here is a decode-side widening at the counterpart and never a second PEM family.
 - Entry: the bundle text crosses as the canonical multi-element PEM string (`-----BEGIN/END-----` armored blocks joined by `\n`), and the redacted carrier crosses as `CredentialPemWire` so a consumer reads the bundle's label set and content digests without the private-key bytes.
 - Packages: BCL inbox
 - Growth: one wire-member row per new carrier field; the label set crosses as a string array of the closed RFC-7468 labels; zero new surface.

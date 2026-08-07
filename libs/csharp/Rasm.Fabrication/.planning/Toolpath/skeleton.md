@@ -1,52 +1,56 @@
 # [RASM_FABRICATION_SKELETON]
 
-`Skeleton` owns clearance-derived constant-engagement milling over one admitted `SkeletonDemand`. Kernel `SkeletonGraph` supplies medial topology and per-node clearance radii, `WalkStrategy` rows own the motion grammar each cut modality demands, `EngagementLimit` rows own every competing radial ceiling, and `ArcAlgebra.Apply` owns arc-native emission. `Link.Route` remains the only inter-element travel owner.
+`Skeleton` owns clearance-derived constant-engagement milling over one admitted `SkeletonDemand`. Kernel `SkeletonGraph` supplies medial topology and per-node clearance radii, `WalkStrategy` rows own the motion grammar each cut modality demands, `EngagementLimit` rows own every competing ceiling on the two engagement axes, and `ArcAlgebra.Apply` owns arc-native emission. `Link.Route` remains the only inter-element travel owner.
 
-`Skeleton.Walk` partitions the graph into connected components and walks each one against its own clearance profile, so a single narrow channel constrains only the component containing it. Every emitted element carries the component that generated it as construction-time evidence, never a proximity reconstruction. `SkeletonDemand` admits topology once and carries it forward, so no consumer recomputes the graph. `Cam` alone repeats the planar result across axial depth and composes linking, workholding, guarding, and kinematics.
+`Skeleton.Walk` partitions the graph into connected components and walks each one against its own clearance profile, so a single narrow channel constrains only the component containing it. Each component walk is one `DepthFirstSearchAlgorithm` descent whose recorded tree edges and parent map build the Euler guide, and whose component label and visit ordinal ride the pass receipt as published columns. `SkeletonDemand` admits topology once and carries the walked graph forward, so no consumer rebuilds adjacency. `Cam` alone repeats the planar result across axial depth and composes linking, workholding, guarding, and kinematics.
 
 ## [01]-[INDEX]
 
-- [02]-[LIMITS]: `EngagementLimit` rows derive every competing radial ceiling and fold to the binding one.
+- [02]-[LIMITS]: `EngagementLimit` rows bind the radial and advance axes separately and fold to the binding row on each.
 - [03]-[STRATEGY]: `WalkStrategy` rows own the motion grammar each modality lowers into `ArcOp`.
-- [04]-[DEMAND]: `SkeletonDemand` closes stock, graph, cutter, engagement, strategy, and topology admission.
+- [04]-[DEMAND]: `SkeletonDemand` closes stock, graph, cutter, engagement, strategy, and topology admission through one hook.
 - [05]-[WALK]: `Skeleton.Walk` walks each component against its own clearance and emits typed receipts.
 
 ## [02]-[LIMITS]
 
-- Owner: `EngagementLimit` is the vocabulary of radial ceilings; each row carries its own `Ceiling` derivation delegate and the fold selects the minimum as the binding row.
-- Cases: `Channel` bounds engagement by the narrowest admitted clearance in the walked component; `Immersion` bounds it by the requested engagement angle; `Width` and `Scallop` bound it by the process budget and the finish demand; `Deflection`, `Stability`, and `ChipThinning` read the `ProcessBudget.Subtractive` columns the demand already admits, so tool-deflection, chatter, and chip-thinning ceilings bind the same fold as the geometric ones.
-- Law: a ceiling is a row, never an inline `double.Min` term — a new limit axis lands as one row with every consumer and every receipt untouched.
-- Law: `MeasuredLoad` reads the optional `Kinematics/observation.md` `LoadWindow` paired with its evaluation instant in one `Option` — a load without its instant is unrepresentable, never a sentinel-guarded state — scales a fresh positive sample around its reference radial depth, and returns a conservative zero for an invalid present window; only absence removes the ceiling. `EngagementSolution.Binding` still names the governing bound with no receipt change.
-- Receipt: `EngagementSolution` carries every row's keyed ceiling and the binding row itself, so a constrained walk names which physics bound it rather than reporting an unattributed scalar.
+- Owner: `EngagementAxis` names the two axes an adaptive cut prices independently — the arc's radial immersion and the advance between successive offset levels; `EngagementLimit` is the vocabulary of ceilings, each row carrying the axis it binds and its own `Ceiling` derivation delegate.
+- Cases: `Channel` bounds immersion by the narrowest admitted clearance in the walked component; `Immersion` bounds it by the requested engagement angle; `Deflection`, `Stability`, `ChipThinning`, and `MeasuredLoad` bound it from the `ProcessBudget.Subtractive` columns the demand already admits. `Width` and `Scallop` bind the ADVANCE axis, because a stepover is what the process budget's width of cut and the finish demand's scallop step actually constrain.
+- Law: a ceiling is `Option<double>` — a row that does not bind is ABSENT, never a positive-infinity sentinel a fold must filter and a receipt would publish as a measurement. `Ceilings` therefore holds the binding rows alone.
+- Law: `MeasuredLoad` reads the optional `Kinematics/observation.md` `LoadWindow` paired with its evaluation instant in one `Option` — a load without its instant is unrepresentable — scales a fresh positive sample around its reference radial depth, and binds conservatively at zero for an invalid present window; only absence removes the ceiling.
+- Entry: `EngagementLimit.Solve` returns `Fin<EngagementSolution>`, so an axis no row bound and a non-positive bound both refuse HERE naming the binding row, and every consumer reads an engagement it never has to re-gate.
+- Receipt: `EngagementSolution` carries every bound row's keyed ceiling and the binding row on each axis, so a constrained walk names which physics bound its immersion and which bound its advance rather than reporting one unattributed scalar.
 - Boundary: the fold owns selection; no consumer re-derives a ceiling or re-orders the rows.
 
 ## [03]-[STRATEGY]
 
 - Owner: `WalkStrategy` rows carry the `Operation` delegate lowering an admitted engagement into the `ArcOp` case that emits it.
-- Cases: `Clearing` walks the component's offset family at constant engagement; `Trochoid` walks the medial chain as overlapping loops for full-width slotting; `Peel` walks one flank at reduced radial depth and full axial depth.
+- Cases: `Clearing` drives the component's offset family at the full admitted immersion and the admitted advance; `Trochoid` caps immersion at the cutter's own radius so a full-width slot stays representable; `Peel` drives ONE flank at the advance width, which is the reduced radial engagement the grammar exists for.
+- Law: the three rows differ in the ARGUMENTS they draw from the two engagement axes, never in a shared scalar — a grammar whose immersion and advance both read one value cannot keep its own promise, so the axis split is what makes `Peel` a distinct cut rather than `Clearing` under another key.
 - Law: the medial chain is the guide, so motion follows the admitted clearance family rather than re-deriving a path from stock alone; a strategy differing only in emission is a row, never a sibling entrypoint.
 - Boundary: `ArcAlgebra` owns exact-arc generation; the row selects the case and its arguments, and owns no geometry.
 
 ## [04]-[DEMAND]
 
-- Owner: `SkeletonDemand` carries every value needed to reproduce the walk, topology included.
-- Law: the demand carries the topology it validated against, so `Walk` reads admitted evidence and no second graph pass exists.
+- Owner: `SkeletonTopology` owns the ONE admitted graph — the directed container carrying each medial arc in both senses, its component labels, its detached edge list, and its duplicate census; `SkeletonDemand` carries every value needed to reproduce the walk, that topology included.
+- Law: admission is CLOSED — the geometric fact fold runs inside the generated validation hook, so `Create`, `TryCreate`, and `Validate` all cross it and no caller can seat a demand whose graph the facts would have refused.
+- Law: the topology mints only through its own internal factory off a `SkeletonGraph`, so a fabricated label map or edge list cannot enter beside a graph that disagrees with it.
 - Law: each component's canonical `SkeletonArc.OriginEdge` set travels into every element key and pass receipt as a counted ordinal run, so the digest is self-delimiting and no delimiter collision forges equality.
-- Entry: `SkeletonDemand.Admit` mints `SkeletonTopology` once, folds stock, node, incidence, edge, geometry, budget, and clearance faults into one accumulated rail, and constructs through the generated factory.
-- Auto: `UndirectedGraph<int, SEdge<int>>` rejects parallel edges and supplies `ConnectedComponents` labels during admission; `SkeletonTopology` retains detached edges and component labels.
+- Auto: `BidirectionalGraph<int, SEdge<int>>` rejects parallel edges, so a repeated arc is counted rather than doubled; `WeaklyConnectedComponents` labels the symmetric pairs and `OutDegree` answers isolation in one probe.
 - Packages: `TensorPrimitives.IsFiniteAll` admits coordinate, radius, and process batches before scalar inequalities classify them.
-- Growth: a new graph producer projects the existing `SkeletonGraph`, and a new engagement axis becomes one `EngagementLimit` row.
-- Boundary: `SkeletonTopology` confines QuikGraph's mutable graph and label-map materialization to one admission seam; every carried field is detached evidence.
+- Growth: a new graph producer projects the existing `SkeletonGraph`, and a new engagement axis becomes one `EngagementLimit` row carrying the `EngagementAxis` it binds.
+- Boundary: `SkeletonTopology` confines QuikGraph's mutable container, its label materialization, and the per-component descent to one owner; every published field is detached evidence.
 
 ## [05]-[WALK]
 
 - Law: each connected component walks independently, so the binding limit is component-local and one narrow channel never collapses engagement across the whole part.
+- Law: the component descent is ONE `DepthFirstSearchAlgorithm` run — `OutEdgesFilter` carries the deterministic child order, `EdgeRecorderObserver` records the tree edges in discovery order, and `VertexPredecessorRecorderObserver` records the parent map the return legs ascend, both attached over the disposable scope the observer seam returns. The emitted guide is the Euler walk of that tree, so consecutive guide vertices stay adjacent and a hand recursive descent with its unbounded depth is the deleted form.
 - Law: `ElementVariant.Of` derives the walk's rotation penalty, thermal exposure, and pierce count off emitted motion at the link owner, so a placeholder and a page-local re-derivation are both deleted forms; `CutElement.Identify` mints the key from the component, its origin edges, and the run ordinal.
 - Entry: `Skeleton.Walk(SkeletonDemand)` is the only operation.
-- Auto: the component's medial chain orders from its maximum-clearance node outward and enters `ArcOp` as the guide loop, so emission follows the admitted skeleton.
+- Entry: `SkeletonBench.Workload` builds the `skeleton-offset` measured demand from literal ordinals — a multi-component chain graph with per-channel clearance bands over an injected cutter and engagement — and `SkeletonBench.Run` is the fold the corpus gate times against `FabricationBenchClaims.SkeletonOffset`; measurement and receipt projection stay the bench edge's under the AppHost claim-field map.
+- Auto: the component's medial chain seeds at its maximum-clearance node and enters `ArcOp` as the guide loop, so emission follows the admitted skeleton.
 - Output: each component's emitted moves become one `CutElement` per contiguous cutting run, with rapid delimiters dropped, so branch and component travel stays absent from the cutting owner.
-- Receipt: `SkeletonReceipt` carries per-component passes with their limit tables and binding rows, the graph census, and the flattened element projection `Cam` lowers; the settled census fires the `FabricationFact.Engine.Of` node, arc, and pass rows through the caller-supplied `FabricationTap`, defaulting silent for headless callers.
-- Packages: `LanguageExt.Core` owns accumulation, keyed lookup, and traversal; `Thinktecture.Runtime.Extensions` owns demand construction and the delegate-bearing rows; `QuikGraph` owns component topology; `System.Numerics.Tensors` owns batch finiteness; `CavalierContours` arrives through `ArcAlgebra.Apply`; `MTConnect.NET-Common` arrives through `CutterForm` admission.
+- Receipt: `SkeletonPass` publishes the algorithm's OWN outputs beside the geometry — the component label it walked, the discovery-ordered visit sequence, and the tree-edge count — so a consumer reads the traversal evidence rather than reconstructing it from proximity. `SkeletonReceipt` carries those passes with their limit tables and binding rows, the graph census, and the flattened element projection `Cam` lowers; the settled census fires the `FabricationFact.Engine.Of` node, arc, and pass rows through the caller-supplied `FabricationTap` on the rail, defaulting silent for headless callers.
+- Packages: `LanguageExt.Core` owns accumulation, keyed lookup, and traversal; `Thinktecture.Runtime.Extensions` owns demand construction and the delegate-bearing rows; `QuikGraph` owns component topology, the depth-first descent, and its observers; `System.Numerics.Tensors` owns batch finiteness; `CavalierContours` arrives through `ArcAlgebra.Apply`; `MTConnect.NET-Common` arrives through `CutterForm` admission.
 - Boundary: `ArcAlgebra` owns exact-arc path generation, `Cam` owns axial repetition and safety composition, and `Link` owns travel.
 
 ```csharp signature
@@ -58,6 +62,8 @@ using NodaTime;
 using Rasm.Domain;
 using QuikGraph;
 using QuikGraph.Algorithms;
+using QuikGraph.Algorithms.Observers;
+using QuikGraph.Algorithms.Search;
 using Rasm.Element.Projection;
 using Rasm.Fabrication.Geometry2D;
 using Rasm.Fabrication.Kinematics;
@@ -79,62 +85,80 @@ public readonly record struct EngagementInputs(
     ProcessBudget.Subtractive Budget,
     Option<(LoadWindow Window, Instant EvaluatedAt)> MeasuredLoad = default);
 
+// An adaptive cut prices two independent axes: how deep the arc immerses into material and how far the walk
+// advances between offset levels. Collapsing them onto one scalar is what made a reduced-flank grammar and a
+// full-immersion one emit byte-identical operations.
+[SmartEnum<string>]
+public sealed partial class EngagementAxis {
+    public static readonly EngagementAxis Radial = new("radial");
+    public static readonly EngagementAxis Advance = new("advance");
+}
+
 [SmartEnum<string>]
 public sealed partial class EngagementLimit {
-    public static readonly EngagementLimit Channel = new("channel", ChannelCeiling);
-    public static readonly EngagementLimit Immersion = new("immersion", ImmersionCeiling);
-    public static readonly EngagementLimit Width = new("width", WidthCeiling);
-    public static readonly EngagementLimit Scallop = new("scallop", ScallopCeiling);
-    public static readonly EngagementLimit Deflection = new("deflection", DeflectionCeiling);
-    public static readonly EngagementLimit Stability = new("stability", StabilityCeiling);
-    public static readonly EngagementLimit ChipThinning = new("chip-thinning", ChipThinningCeiling);
-    public static readonly EngagementLimit MeasuredLoad = new("measured-load", MeasuredLoadCeiling);
+    public static readonly EngagementLimit Channel = new("channel", EngagementAxis.Radial, ChannelCeiling);
+    public static readonly EngagementLimit Immersion = new("immersion", EngagementAxis.Radial, ImmersionCeiling);
+    public static readonly EngagementLimit Deflection = new("deflection", EngagementAxis.Radial, DeflectionCeiling);
+    public static readonly EngagementLimit Stability = new("stability", EngagementAxis.Radial, StabilityCeiling);
+    public static readonly EngagementLimit ChipThinning = new("chip-thinning", EngagementAxis.Radial, ChipThinningCeiling);
+    public static readonly EngagementLimit MeasuredLoad = new("measured-load", EngagementAxis.Radial, MeasuredLoadCeiling);
+    public static readonly EngagementLimit Width = new("width", EngagementAxis.Advance, WidthCeiling);
+    public static readonly EngagementLimit Scallop = new("scallop", EngagementAxis.Advance, ScallopCeiling);
 
+    public EngagementAxis Axis { get; }
+
+    // Absence IS the second state: a budget column carrying no deflection, stability, or chip-thinning law removes
+    // its ceiling rather than contributing an infinity every fold and every receipt would have to re-recognize.
     [UseDelegateFromConstructor]
-    public partial double Ceiling(EngagementInputs inputs);
+    public partial Option<double> Ceiling(EngagementInputs inputs);
 
-    private static double ChannelCeiling(EngagementInputs inputs) => inputs.ChannelClearance;
+    private static Option<double> ChannelCeiling(EngagementInputs inputs) => Some(inputs.ChannelClearance);
 
-    private static double ImmersionCeiling(EngagementInputs inputs) =>
-        inputs.CutterRadius * (1.0 - Math.Cos(inputs.TargetAngleDeg * Math.PI / 180.0));
+    private static Option<double> ImmersionCeiling(EngagementInputs inputs) =>
+        Some(inputs.CutterRadius * (1.0 - Math.Cos(inputs.TargetAngleDeg * Math.PI / 180.0)));
 
-    private static double WidthCeiling(EngagementInputs inputs) => inputs.Budget.WidthOfCut;
+    private static Option<double> WidthCeiling(EngagementInputs inputs) => Some(inputs.Budget.WidthOfCut);
 
-    private static double ScallopCeiling(EngagementInputs inputs) => inputs.ScallopStep;
+    private static Option<double> ScallopCeiling(EngagementInputs inputs) => Some(inputs.ScallopStep);
 
-    private static double DeflectionCeiling(EngagementInputs inputs) =>
+    private static Option<double> DeflectionCeiling(EngagementInputs inputs) =>
         inputs.Budget.DeflectionMm > 0.0
-            ? inputs.Budget.WidthOfCut * inputs.Budget.DeflectionMm / (inputs.Budget.DeflectionMm + inputs.CutterRadius)
-            : double.PositiveInfinity;
+            ? Some(inputs.Budget.WidthOfCut * inputs.Budget.DeflectionMm / (inputs.Budget.DeflectionMm + inputs.CutterRadius))
+            : None;
 
-    private static double StabilityCeiling(EngagementInputs inputs) =>
-        inputs.Budget.StabilityLimitMm > 0.0 ? inputs.Budget.StabilityLimitMm : double.PositiveInfinity;
+    private static Option<double> StabilityCeiling(EngagementInputs inputs) =>
+        inputs.Budget.StabilityLimitMm > 0.0 ? Some(inputs.Budget.StabilityLimitMm) : None;
 
-    private static double ChipThinningCeiling(EngagementInputs inputs) =>
-        inputs.Budget.ChipThinningFactor > 0.0
-            ? inputs.CutterRadius * inputs.Budget.ChipThinningFactor
-            : double.PositiveInfinity;
+    private static Option<double> ChipThinningCeiling(EngagementInputs inputs) =>
+        inputs.Budget.ChipThinningFactor > 0.0 ? Some(inputs.CutterRadius * inputs.Budget.ChipThinningFactor) : None;
 
     // Cutting load scales near-linearly with radial engagement. A present window that is zero, future, or expired
-    // binds conservatively to zero; only an absent window removes this ceiling.
-    private static double MeasuredLoadCeiling(EngagementInputs inputs) =>
-        inputs.MeasuredLoad.Match(
-            Some: static measured => measured.Window.Ceiling(measured.EvaluatedAt).IfNone(0.0),
-            None: static () => double.PositiveInfinity);
+    // binds conservatively at zero; only an absent window removes this ceiling.
+    private static Option<double> MeasuredLoadCeiling(EngagementInputs inputs) =>
+        inputs.MeasuredLoad.Map(static measured => measured.Window.Ceiling(measured.EvaluatedAt).IfNone(0.0));
 
-    public static EngagementSolution Solve(EngagementInputs inputs) =>
+    public static Fin<EngagementSolution> Solve(EngagementInputs inputs) =>
         Items.ToSeq()
-            .Map(row => (Row: row, Ceiling: row.Ceiling(inputs)))
+            .Choose(row => row.Ceiling(inputs).Filter(double.IsFinite).Map(ceiling => (Row: row, Ceiling: ceiling)))
             .Fold(
-                (Table: HashMap<EngagementLimit, double>(), Binding: Channel, Radial: double.PositiveInfinity),
+                (Table: HashMap<EngagementLimit, double>(),
+                 Bounds: HashMap<EngagementAxis, (EngagementLimit Row, double Value)>()),
                 static (state, row) => (
                     state.Table.Add(row.Row, row.Ceiling),
-                    row.Ceiling < state.Radial ? row.Row : state.Binding,
-                    double.Min(state.Radial, row.Ceiling)))
-            .Apply(state => new EngagementSolution(
-                state.Table,
-                state.Binding,
-                state.Radial));
+                    state.Bounds.AddOrUpdate(
+                        row.Row.Axis,
+                        held => row.Ceiling < held.Value ? (row.Row, row.Ceiling) : held,
+                        (row.Row, row.Ceiling))))
+            .Apply(state => (state.Bounds.Find(EngagementAxis.Radial), state.Bounds.Find(EngagementAxis.Advance))
+                .Apply((radial, advance) => new EngagementSolution(
+                    state.Table, radial.Row, radial.Value, advance.Row, advance.Value))
+                .As()
+                .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "skeleton:engagement-unbound")))
+            .Bind(static solution => solution.Radial > 0.0 && solution.Advance > 0.0
+                ? Fin.Succ(solution)
+                : Fin.Fail<EngagementSolution>(new FabricationFault.PolicyInadmissible(
+                    FabConcern.Toolpath,
+                    $"skeleton:engagement:{(solution.Radial > 0.0 ? solution.BindingAdvance : solution.BindingRadial).Key}")));
 }
 
 // Each row names the `CutStrategy` its emission IS, so the element key the canonical mint digests carries the same
@@ -148,36 +172,89 @@ public sealed partial class WalkStrategy {
     public CutStrategy Cut { get; }
 
     [UseDelegateFromConstructor]
-    public partial ArcOp Operation(ArcForest stock, Loop guide, EngagementSolution engagement, double cutterRadius, double feed, CutSense sense);
+    public partial ArcOp Operation(
+        ArcForest stock, Loop guide, EngagementSolution engagement, double cutterRadius, double feed, CutSense sense);
 
-    private static ArcOp ClearingOp(ArcForest stock, Loop guide, EngagementSolution engagement, double cutterRadius, double feed, CutSense sense) =>
-        new ArcOp.Adaptive(stock, Some(guide), cutterRadius, engagement.Radial, engagement.Step, feed, sense);
+    private static ArcOp ClearingOp(
+        ArcForest stock, Loop guide, EngagementSolution engagement, double cutterRadius, double feed, CutSense sense) =>
+        new ArcOp.Adaptive(stock, Some(guide), cutterRadius, engagement.Radial, engagement.Advance, feed, sense);
 
-    private static ArcOp TrochoidOp(ArcForest stock, Loop guide, EngagementSolution engagement, double cutterRadius, double feed, CutSense sense) =>
-        new ArcOp.Adaptive(stock, Some(guide), cutterRadius, double.Min(engagement.Radial, cutterRadius), engagement.Step, feed, sense);
+    // A full-width slot cannot immerse past the cutter's own radius whatever the clearance admits.
+    private static ArcOp TrochoidOp(
+        ArcForest stock, Loop guide, EngagementSolution engagement, double cutterRadius, double feed, CutSense sense) =>
+        new ArcOp.Adaptive(
+            stock, Some(guide), cutterRadius, double.Min(engagement.Radial, cutterRadius), engagement.Advance, feed, sense);
 
-    private static ArcOp PeelOp(ArcForest stock, Loop guide, EngagementSolution engagement, double cutterRadius, double feed, CutSense sense) =>
-        new ArcOp.Adaptive(stock, Some(guide), cutterRadius, engagement.Step, engagement.Step, feed, sense);
+    // Peeling drives one flank: the immersion IS the advance width, well under the clearance ceiling clearing takes.
+    private static ArcOp PeelOp(
+        ArcForest stock, Loop guide, EngagementSolution engagement, double cutterRadius, double feed, CutSense sense) =>
+        new ArcOp.Adaptive(stock, Some(guide), cutterRadius, engagement.Advance, engagement.Advance, feed, sense);
 }
 
 // --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
 public sealed record EngagementSolution(
     HashMap<EngagementLimit, double> Ceilings,
-    EngagementLimit Binding,
-    double Radial) {
-    public double Step => Radial;
-}
+    EngagementLimit BindingRadial,
+    double Radial,
+    EngagementLimit BindingAdvance,
+    double Advance);
 
-public sealed record SkeletonTopology(
-    Arr<(int From, int To)> Edges,
-    Arr<int> Components,
-    int ComponentCount,
-    int DuplicateEdges) {
+// The admitted graph and its evidence travel together. A sealed class rather than a record because the container is
+// the identity: two topologies built from one graph are the same topology, and a structural comparison of a mutable
+// adjacency index would answer a question the walk never asks.
+public sealed class SkeletonTopology {
+    private SkeletonTopology(
+        Arr<(int From, int To)> edges,
+        Arr<int> components,
+        int componentCount,
+        int duplicateEdges,
+        BidirectionalGraph<int, SEdge<int>> walked) =>
+        (Edges, Components, ComponentCount, DuplicateEdges, Walked) =
+            (edges, components, componentCount, duplicateEdges, walked);
+
+    public Arr<(int From, int To)> Edges { get; }
+    public Arr<int> Components { get; }
+    public int ComponentCount { get; }
+    public int DuplicateEdges { get; }
+
+    // The container the descent runs over. Every medial arc rides both senses, so one graph answers labelling,
+    // isolation, and the per-component walk with no second adjacency map anywhere downstream.
+    internal BidirectionalGraph<int, SEdge<int>> Walked { get; }
+
     public Seq<int> NodesOf(int component) =>
-        Range(0, Components.Count).ToSeq().Filter(index => Components[index] == component).ToSeq();
+        Range(0, Components.Count).ToSeq().Filter(index => Components[index] == component);
+
+    public bool Isolated(int node) => Walked.OutDegree(node) == 0;
+
+    internal static SkeletonTopology Of(SkeletonGraph source) {
+        int count = source.Nodes.Count;
+        BidirectionalGraph<int, SEdge<int>> walked = new(allowParallelEdges: false);
+        walked.AddVertexRange(Enumerable.Range(0, count));
+        (int Duplicates, Arr<(int From, int To)> Edges) folded = source.Arcs.Fold(
+            (Duplicates: 0, Edges: Arr<(int From, int To)>()),
+            (state, arc) => arc.From >= 0 && arc.From < count && arc.To >= 0 && arc.To < count && arc.From != arc.To
+                ? Both(walked, arc.From, arc.To)
+                    ? (state.Duplicates, state.Edges.Add((arc.From, arc.To)))
+                    : (state.Duplicates + 1, state.Edges)
+                : state);
+        Dictionary<int, int> labels = [];
+        int components = walked.WeaklyConnectedComponents(labels);
+        return new SkeletonTopology(
+            folded.Edges,
+            toSeq(Enumerable.Range(0, count).Select(index => labels.GetValueOrDefault(index, -1))).ToArr(),
+            components,
+            folded.Duplicates,
+            walked);
+    }
+
+    // Both senses or neither: a medial arc is symmetric, so a duplicate is the pair the container already holds and
+    // the non-short-circuiting join keeps a half edge from ever entering.
+    private static bool Both(BidirectionalGraph<int, SEdge<int>> graph, int from, int to) =>
+        graph.AddEdge(new SEdge<int>(from, to)) & graph.AddEdge(new SEdge<int>(to, from));
 }
 
 [ComplexValueObject]
+[ValidationError<FabricationFault>]
 public sealed partial class SkeletonDemand {
     public ArcForest Stock { get; }
     public SkeletonGraph Graph { get; }
@@ -198,17 +275,13 @@ public sealed partial class SkeletonDemand {
         WalkStrategy strategy,
         ProcessModality modality,
         Option<(LoadWindow Window, Instant EvaluatedAt)> measuredLoad = default) =>
-        from admitted in Optional(graph).ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "skeleton:graph-absent"))
-        let topology = Skeleton.Topology(admitted)
-        from _ in Skeleton.Facts(stock, admitted, cutter, engagement, topology).ToFin()
-        from demand in Validate(stock, admitted, cutter, engagement, sense, strategy, modality, topology, measuredLoad,
-            out SkeletonDemand row) is { } error
-            ? Fin.Fail<SkeletonDemand>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, error.Message))
-            : Fin.Succ(row)
-        select demand;
+        Validate(stock, graph, cutter, engagement, sense, strategy, modality, SkeletonTopology.Of(graph), measuredLoad,
+            out SkeletonDemand demand).Admitted(demand);
 
+    // The geometric fold runs HERE, so every construction path crosses it and the operation reads admitted evidence.
+    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref ValidationError? validationError,
+        ref FabricationFault? validationError,
         ref ArcForest stock,
         ref SkeletonGraph graph,
         ref CutterForm cutter,
@@ -217,10 +290,14 @@ public sealed partial class SkeletonDemand {
         ref WalkStrategy strategy,
         ref ProcessModality modality,
         ref SkeletonTopology topology,
-        ref Option<(LoadWindow Window, Instant EvaluatedAt)> measuredLoad) =>
-        validationError = topology is null || modality is null || topology.Components.Count != graph.Nodes.Count
-            ? new ValidationError("<skeleton-topology-mismatch>")
-            : null;
+        ref Option<(LoadWindow Window, Instant EvaluatedAt)> measuredLoad) {
+        Seq<Error> facts = topology.Components.Count == graph.Nodes.Count
+            ? Skeleton.Facts(stock, graph, cutter, engagement, topology)
+            : Seq((Error)new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "skeleton:topology-mismatch"));
+        if (!facts.IsEmpty)
+            validationError = new FabricationFault.PolicyInadmissible(
+                FabConcern.Toolpath, Error.Many([.. facts]).Message);
+    }
 }
 
 public sealed record SkeletonPass(
@@ -230,7 +307,9 @@ public sealed record SkeletonPass(
     EngagementSolution Engagement,
     double ChannelClearance,
     int NodeCount,
-    int ArcCount);
+    int ArcCount,
+    Seq<int> Visit,
+    int TreeEdges);
 
 public sealed record SkeletonReceipt(
     Seq<SkeletonPass> Passes,
@@ -245,7 +324,7 @@ public sealed record SkeletonReceipt(
 // --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
 public static class Skeleton {
     public static Fin<SkeletonReceipt> Walk(SkeletonDemand demand, FabricationTap? tap = null) =>
-        from tolerance in Tolerance.Apply(new ToleranceRequest.Scallop(demand.Engagement.Finish, demand.Cutter))
+        from tolerance in Tolerance.Apply(new ToleranceRequest.Scallop(demand.Engagement.Finish.Roughness, demand.Cutter))
         from scallop in tolerance is ToleranceReceipt.Scallop receipt
             ? Fin.Succ(receipt.StepMm)
             : Fin.Fail<double>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "skeleton:scallop-receipt"))
@@ -264,7 +343,9 @@ public static class Skeleton {
             demand.Graph.Nodes.Count,
             demand.Graph.Arcs.Count,
             cutterRadius)
-        let _fact = FabricationFact.Engine.Of(walked).Map((tap ?? FabricationTap.Silent).Fire).Strict()
+        // The census fires on the rail rather than inside a discarded `let`, so the emission is a step the fold
+        // sequences and never an effect hiding in a binding a reader takes for a value.
+        from _ in Fin.Succ(FabricationFact.Engine.Of(walked).Map((tap ?? FabricationTap.Silent).Fire).Strict())
         select walked;
 
     private static Fin<SkeletonPass> Component(
@@ -279,64 +360,34 @@ public static class Skeleton {
         from arcs in demand.Graph.Arcs.Filter(arc => demand.Topology.Components[arc.From] == component) is { IsEmpty: false } spans
             ? Fin.Succ(spans)
             : Fin.Fail<Seq<SkeletonArc>>(new GeometryFault.DegenerateInput(Kind.Curve, component, $"skeleton:component-{component}:arcs").ToError())
-        let origins = arcs.Map(static arc => arc.OriginEdge).Distinct().Order().ToSeq()
-        let clearance = arcs
-            .Map(arc => double.Min(demand.Graph.Nodes[arc.From].Radius, demand.Graph.Nodes[arc.To].Radius) - cutterRadius)
-            .Fold(double.PositiveInfinity, double.Min)
-        let engagement = EngagementLimit.Solve(
-            new EngagementInputs(
-                cutterRadius, clearance, demand.Engagement.TargetAngle, scallop, budget, demand.MeasuredLoad))
-        from _ in guard(
-            double.IsFinite(engagement.Radial) && engagement.Radial > 0.0
-                && double.IsFinite(engagement.Step) && engagement.Step > 0.0,
-            (Error)new FabricationFault.PolicyInadmissible(
-                FabConcern.Toolpath, $"skeleton:component-{component}:{engagement.Binding.Key}")).ToFin()
-        from guide in Chain(demand.Graph, demand.Topology, nodes, demand.Stock.Tolerance, component)
+        let origins = toSeq(arcs.Map(static arc => arc.OriginEdge).Distinct().Order())
+        // The component's arcs are proven non-empty above, so the narrowest channel seeds on a REAL span rather than
+        // on an infinity a receipt would then publish as a clearance.
+        let spans = arcs.Map(arc =>
+            double.Min(demand.Graph.Nodes[arc.From].Radius, demand.Graph.Nodes[arc.To].Radius) - cutterRadius)
+        let clearance = spans.Fold(spans[0], double.Min)
+        from engagement in EngagementLimit.Solve(new EngagementInputs(
+            cutterRadius, clearance, demand.Engagement.Finish.TargetAngleDeg, scallop, budget, demand.MeasuredLoad))
+        from walked in Chain(demand.Graph, demand.Topology, nodes, demand.Stock.Tolerance, component)
         from trace in ArcAlgebra.Apply(demand.Strategy.Operation(
-            demand.Stock, guide, engagement, cutterRadius, budget.FeedRate, demand.Sense))
+            demand.Stock, walked.Guide, engagement, cutterRadius, budget.FeedRate, demand.Sense))
         from motion in trace is ArcTrace.Motion moved
             ? Fin.Succ(moved.Receipt)
             : Fin.Fail<MotionReceipt>(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, $"skeleton:component-{component}:arc-trace"))
         from elements in Elements(demand, origins, component, motion.Moves)
-        select new SkeletonPass(component, origins, elements, engagement, clearance, nodes.Count, arcs.Count);
+        select new SkeletonPass(
+            component, origins, elements, engagement, clearance, nodes.Count, arcs.Count, walked.Visit, walked.TreeEdges);
 
-    internal static SkeletonTopology Topology(SkeletonGraph source) {
-        UndirectedGraph<int, SEdge<int>> graph = new(allowParallelEdges: false);
-        graph.AddVertexRange(Enumerable.Range(0, source.Nodes.Count));
-        (int Duplicates, Arr<(int From, int To)> Edges) topology = source.Arcs.Fold(
-            (Duplicates: 0, Edges: Arr<(int From, int To)>()),
-            (state, arc) => arc is null || arc.From < 0 || arc.From >= source.Nodes.Count
-                || arc.To < 0 || arc.To >= source.Nodes.Count || arc.From == arc.To
-                    ? state
-                    : graph.AddEdge(new SEdge<int>(arc.From, arc.To))
-                        ? (state.Duplicates, state.Edges.Add((arc.From, arc.To)))
-                        : (state.Duplicates + 1, state.Edges));
-        Dictionary<int, int> labels = [];
-        int components = graph.ConnectedComponents(labels);
-        return new SkeletonTopology(
-            topology.Edges,
-            Enumerable.Range(0, source.Nodes.Count).Select(index => labels.GetValueOrDefault(index, -1)).ToArr(),
-            components,
-            topology.Duplicates);
-    }
-
-    internal static Validation<Error, Unit> Facts(
-        ArcForest? stock,
+    internal static Seq<Error> Facts(
+        ArcForest stock,
         SkeletonGraph graph,
-        CutterForm? cutter,
-        EngagementPolicy? engagement,
+        CutterForm cutter,
+        EngagementPolicy engagement,
         SkeletonTopology topology) =>
-        (stock, cutter, engagement) switch {
-            ({ } admittedStock, { } admittedCutter, { } admittedEngagement) =>
-                (admittedCutter.Diameter / 2.0)
-                    .Apply(cutterRadius => DemandFacts(admittedStock, graph, admittedEngagement, topology)
-                        + NodeFacts(graph, cutterRadius, topology)
-                        + ArcFacts(graph, cutterRadius))
-                    .Apply(static facts => facts.IsEmpty
-                        ? Validation<Error, Unit>.Success(unit)
-                        : Validation<Error, Unit>.Fail(Error.Many([.. facts]))),
-            _ => Validation<Error, Unit>.Fail(new FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "skeleton:demand-absent")),
-        };
+        (cutter.Diameter / 2.0).Apply(cutterRadius =>
+            DemandFacts(stock, graph, engagement, topology)
+            + NodeFacts(graph, cutterRadius, topology)
+            + ArcFacts(graph, cutterRadius));
 
     private static Seq<Error> DemandFacts(
         ArcForest stock,
@@ -348,39 +399,34 @@ public static class Skeleton {
             (Ok: !graph.Nodes.IsEmpty, Axis: "nodes-empty"),
             (Ok: !graph.Arcs.IsEmpty, Axis: "arcs-empty"),
             (Ok: topology.DuplicateEdges == 0, Axis: "duplicate-edge"),
-            (Ok: engagement.Budget is ProcessBudget.Subtractive, Axis: "budget"),
-            (Ok: engagement.TargetAngle is > 0.0 and < 180.0, Axis: "target-angle")));
+            (Ok: engagement.Budget is ProcessBudget.Subtractive, Axis: "budget")));
 
     private static Seq<Error> NodeFacts(SkeletonGraph graph, double cutterRadius, SkeletonTopology topology) =>
         graph.Nodes
-            .Map((node, index) => node is null
-                ? Seq(new GeometryFault.DegenerateInput(Kind.Curve, index, $"skeleton:node-{index}:absent").ToError())
-                : Axes(index, Seq(
-                    (Ok: TensorPrimitives.IsFiniteAll<double>([node.At.X, node.At.Y, node.At.Z, node.Radius]), Axis: "finite"),
-                    (Ok: node.At.IsValid, Axis: "point"),
-                    (Ok: node.Radius > cutterRadius, Axis: "clearance"),
-                    (Ok: topology.Edges.Exists(edge => edge.From == index || edge.To == index), Axis: "isolated")), "node"))
+            .Map((node, index) => Axes(index, Seq(
+                (Ok: TensorPrimitives.IsFiniteAll<double>([node.At.X, node.At.Y, node.At.Z, node.Radius]), Axis: "finite"),
+                (Ok: node.At.IsValid, Axis: "point"),
+                (Ok: node.Radius > cutterRadius, Axis: "clearance"),
+                (Ok: !topology.Isolated(index), Axis: "isolated")), "node"))
             .Bind(static errors => errors);
 
     private static Seq<Error> ArcFacts(SkeletonGraph graph, double cutterRadius) =>
         graph.Arcs
-            .Map((arc, index) => arc switch {
-                null => Seq(new GeometryFault.DegenerateInput(Kind.Curve, index, $"skeleton:arc-{index}:absent").ToError()),
-                { } admitted => (
-                        Endpoints: admitted.From >= 0 && admitted.From < graph.Nodes.Count
-                            && admitted.To >= 0 && admitted.To < graph.Nodes.Count,
-                        Distinct: admitted.From != admitted.To)
-                    .Apply(state => (state.Endpoints && state.Distinct
-                            && graph.Nodes[admitted.From] is { } from && graph.Nodes[admitted.To] is { } to
-                                ? Some((Length: from.At.DistanceTo(to.At), Clearance: double.Min(from.Radius, to.Radius) - cutterRadius))
-                                : Option<(double Length, double Clearance)>.None)
-                        .Apply(span => Axes(index, Seq(
-                            (Ok: state.Endpoints, Axis: "endpoint"),
-                            (Ok: state.Distinct, Axis: "self-loop"),
-                            (Ok: admitted.OriginEdge >= 0, Axis: "origin-edge"),
-                            (Ok: span.ForAll(static value => double.IsFinite(value.Length) && value.Length > 0.0), Axis: "length"),
-                            (Ok: span.ForAll(static value => double.IsFinite(value.Clearance) && value.Clearance > 0.0), Axis: "channel")), "arc"))),
-            })
+            .Map((arc, index) => (
+                    Endpoints: arc.From >= 0 && arc.From < graph.Nodes.Count
+                        && arc.To >= 0 && arc.To < graph.Nodes.Count,
+                    Distinct: arc.From != arc.To)
+                .Apply(state => (state.Endpoints && state.Distinct
+                        ? Some((
+                            Length: graph.Nodes[arc.From].At.DistanceTo(graph.Nodes[arc.To].At),
+                            Clearance: double.Min(graph.Nodes[arc.From].Radius, graph.Nodes[arc.To].Radius) - cutterRadius))
+                        : Option<(double Length, double Clearance)>.None)
+                    .Apply(span => Axes(index, Seq(
+                        (Ok: state.Endpoints, Axis: "endpoint"),
+                        (Ok: state.Distinct, Axis: "self-loop"),
+                        (Ok: arc.OriginEdge >= 0, Axis: "origin-edge"),
+                        (Ok: span.ForAll(static value => double.IsFinite(value.Length) && value.Length > 0.0), Axis: "length"),
+                        (Ok: span.ForAll(static value => double.IsFinite(value.Clearance) && value.Clearance > 0.0), Axis: "channel")), "arc"))))
             .Bind(static errors => errors);
 
     private static Seq<Error> Axes(int index, Seq<(bool Ok, string Axis)> axes, string owner = "") =>
@@ -390,55 +436,65 @@ public static class Skeleton {
                 ? $"skeleton:{fact.Axis}"
                 : $"skeleton:{owner}-{index}:{fact.Axis}").ToError()));
 
-    private static Fin<Loop> Chain(
+    private static Fin<(Loop Guide, Seq<int> Visit, int TreeEdges)> Chain(
         SkeletonGraph graph,
         SkeletonTopology topology,
         Seq<int> nodes,
         Context tolerance,
         int component) =>
-        topology.Edges
-            .Filter(edge => topology.Components[edge.From] == component)
-            .Fold(
-                HashMap<int, Seq<int>>(),
-                static (map, edge) => map
-                    .AddOrUpdate(edge.From, existing => existing.Add(edge.To), Seq(edge.To))
-                    .AddOrUpdate(edge.To, existing => existing.Add(edge.From), Seq(edge.From)))
-            .Apply(adjacency => nodes
-                .Fold(
-                    (Seed: Option<int>.None, Radius: double.NegativeInfinity),
-                    (best, index) => graph.Nodes[index].Radius > best.Radius
-                        ? (Some(index), graph.Nodes[index].Radius)
-                        : best)
-                .Apply(best => best.Seed.Map(seed => Ordered(adjacency, seed)).IfNone(Seq<int>())))
-            .Apply(ordered => ordered.Count >= 2
-                ? Loop.Admit(
-                    ordered.Map(index => graph.Nodes[index].At).ToArr(),
-                    closed: false,
-                    Arr<double>(),
-                    tolerance)
-                : Fin.Fail<Loop>(new GeometryFault.DegenerateInput(Kind.Curve, component, $"skeleton:component-{component}:chain").ToError()));
+        // Absence carries the incumbent: the fold holds the widest node so far as an `Option`, so an empty component
+        // answers `None` instead of a negative infinity standing in for a radius no node has.
+        nodes.Fold(
+                Option<int>.None,
+                (best, index) => best
+                    .Filter(held => graph.Nodes[held].Radius >= graph.Nodes[index].Radius)
+                    .Match(Some: static held => Some(held), None: () => Some(index)))
+            .ToFin(new GeometryFault.DegenerateInput(Kind.Curve, component, $"skeleton:component-{component}:seed").ToError())
+            .Map(seed => Descend(topology, seed, nodes.Count))
+            .Bind(walk => walk.Order.Count >= 2
+                ? Loop.Admit(walk.Order.Map(index => graph.Nodes[index].At).ToArr(), closed: false, Arr<double>(), tolerance)
+                    .Map(guide => (Guide: guide, walk.Visit, walk.TreeEdges))
+                : Fin.Fail<(Loop, Seq<int>, int)>(
+                    new GeometryFault.DegenerateInput(Kind.Curve, component, $"skeleton:component-{component}:chain").ToError()));
 
-    private static Seq<int> Ordered(HashMap<int, Seq<int>> adjacency, int seed) {
-        HashSet<int> visited = [];
-        List<int> order = [];
-        Visit(seed, returnToParent: false);
-        return toSeq(order);
-
-        void Visit(int node, bool returnToParent) {
-            visited.Add(node);
-            order.Add(node);
-            int[] children = adjacency.Find(node).IfNone(Seq<int>()).Order().ToArray();
-            for (int index = 0; index < children.Length; index++) {
-                int next = children[index];
-                if (visited.Contains(next))
-                    continue;
-                bool childReturns = returnToParent || children.Skip(index + 1).Any(candidate => !visited.Contains(candidate));
-                Visit(next, childReturns);
-                if (childReturns)
-                    order.Add(node);
-            }
-        }
+    // ONE descent per component. `ProcessAllComponents` stays false, so the seeded run covers exactly the seed's
+    // component; the filter carries the deterministic child order the guide's replayability depends on; and the two
+    // observers carry the whole result — discovery-ordered tree edges and the parent map the return legs ascend.
+    private static (Seq<int> Order, Seq<int> Visit, int TreeEdges) Descend(SkeletonTopology topology, int seed, int bound) {
+        DepthFirstSearchAlgorithm<int, SEdge<int>> search = new(
+            host: null,
+            topology.Walked,
+            new Dictionary<int, GraphColor>(),
+            static edges => edges.OrderBy(static edge => edge.Target));
+        EdgeRecorderObserver<int, SEdge<int>> tree = new();
+        VertexPredecessorRecorderObserver<int, SEdge<int>> parents = new();
+        using (tree.Attach(search))
+        using (parents.Attach(search))
+            search.Compute(seed);
+        Seq<SEdge<int>> edges = toSeq(tree.Edges);
+        HashMap<int, int> parent = toHashMap(parents.VerticesPredecessors.Select(static row => (row.Key, row.Value.Source)));
+        return (
+            Order: edges.Fold(
+                (Cursor: seed, Nodes: Seq(seed)),
+                (state, edge) => (
+                    edge.Target,
+                    state.Nodes + Ascent(parent, state.Cursor, edge.Source, bound).Add(edge.Target))).Nodes,
+            Visit: Seq(seed) + edges.Map(static edge => edge.Target),
+            TreeEdges: edges.Count);
     }
+
+    // Depth-first discovery guarantees the next tree edge leaves the cursor or one of its ancestors, so the return
+    // leg terminates at the shared ancestor and the component's own node count bounds it without recursion.
+    private static Seq<int> Ascent(HashMap<int, int> parents, int from, int to, int bound) =>
+        Range(0, bound).ToSeq()
+            .Fold(
+                (Cursor: from, Path: Seq<int>()),
+                (state, _) => state.Cursor == to
+                    ? state
+                    : parents.Find(state.Cursor).Match(
+                        Some: parent => (parent, state.Path.Add(parent)),
+                        None: () => (to, state.Path)))
+            .Path;
 
     private static Fin<Seq<CutElement>> Elements(
         SkeletonDemand demand,
@@ -458,9 +514,8 @@ public static class Skeleton {
 
     // Identity and the objective axes are BOTH the link owner's: the walk supplies its discriminants — the walked
     // component, its canonical origin-edge set, and the contiguous run's ordinal — and `CutElement.Identify` digests
-    // them beside tool, work offset, cutter geometry, and every move. An interpolated page-local string could not
-    // separate two walks of one component that differ only in emitted arcs, and it minted a second identity scheme
-    // beside the canonical one. `Cam` owns the modality this element runs under, so the demand carries it forward.
+    // them beside tool, work offset, cutter geometry, and every move. `Cam` owns the modality this element runs
+    // under, so the demand carries it forward.
     private static Fin<CutElement> Element(
         SkeletonDemand demand,
         Seq<int> origins,
@@ -471,24 +526,51 @@ public static class Skeleton {
             component,
             origins,
             index,
-            demand.Strategy.Cut,
-            ToolKey(demand),
-            demand.Engagement.WorkOffset,
-            demand.Cutter.Family.Key,
-            demand.Cutter.Diameter,
-            demand.Cutter.CornerRadius,
-            demand.Cutter.TaperAngle,
-            demand.Cutter.FluteLength,
-            path))
+            CutSignature.Of(demand.Strategy.Cut, ToolKey(demand), demand.Engagement.Route.WorkOffset, demand.Cutter, path)))
         from element in CutElement.Admit(
             key,
             ToolKey(demand),
-            demand.Engagement.WorkOffset,
+            demand.Engagement.Route.WorkOffset,
             new EntryFamily.Fixed(ElementVariant.Of(key, path, demand.Modality)))
         select element;
 
     private static string ToolKey(SkeletonDemand demand) =>
         demand.Cutter.Evidence.Map(static evidence => evidence.ToolId).IfNone(demand.Cutter.Family.Key);
+}
+
+// The skeleton-offset measuring case for the FabricationBenchClaims.SkeletonOffset no-regression claim: a
+// deterministic multi-component channel graph derived from literal ordinals — chained spans per channel,
+// per-node radius on a declared band above the injected cutter radius plus a per-channel offset, so every
+// channel binds a distinct minimum clearance and no arc repeats — admitted through the same hook every
+// production demand crosses. Cutter and engagement arrive admitted from their owners; the measured fold is
+// the exact entry the claim's lane columns spell, and measurement stays the bench edge's.
+public static class SkeletonBench {
+    private const int Channels = 3;
+    private const int Spans = 32;
+    private const double SpacingMm = 4.0;
+    private const double PitchMm = 40.0;
+
+    public static Fin<SkeletonDemand> Workload(CutterForm cutter, EngagementPolicy engagement) =>
+        from tolerance in Context.Millimeters().ToFin()
+        from boundary in Loop.Admit(
+            Arr(new Point3d(-PitchMm, -PitchMm, 0.0), new Point3d((Spans * SpacingMm) + PitchMm, -PitchMm, 0.0),
+                new Point3d((Spans * SpacingMm) + PitchMm, Channels * PitchMm, 0.0), new Point3d(-PitchMm, Channels * PitchMm, 0.0)),
+            true, [], tolerance)
+        from stock in ArcForest.Admit(Seq(boundary), tolerance, boundary.Plane)
+        from demand in SkeletonDemand.Admit(stock, Channel(cutter.Diameter * 0.5), cutter, engagement,
+            CutSense.Climb, WalkStrategy.Clearing, ProcessModality.Subtractive)
+        select demand;
+
+    public static Fin<SkeletonReceipt> Run(SkeletonDemand demand) => Skeleton.Walk(demand);
+
+    // Chain topology per channel: consecutive nodes link once, so duplicate edges and isolated nodes are
+    // structurally impossible and the per-arc channel span stays strictly above the cutter radius.
+    private static SkeletonGraph Channel(double cutterRadius) => new(
+        Range(0, Channels * Spans).ToSeq().Map(node => new ClearanceNode(
+            new Point3d((node % Spans) * SpacingMm, (node / Spans) * PitchMm, 0.0),
+            cutterRadius + 0.5 + (0.25 * (node % 5)) + (node / Spans), node)),
+        Range(0, Channels * Spans).ToSeq().Filter(static node => node % Spans != Spans - 1)
+            .Map(node => new SkeletonArc(node, node + 1, node)));
 }
 ```
 

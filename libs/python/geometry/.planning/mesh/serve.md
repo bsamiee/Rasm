@@ -15,6 +15,7 @@ Geometry authors NO wire vocabulary: `TessellationRequest`/`TessellationReceipt`
 - Law: `companion` is the daemon-entry composition root and the durable evidence plane's ONE binding site. Runtime owns every lifecycle stage the entry drives — bind, credentials, health, the sd-notify handshake, supervision, the ordered drain — and takes this folder's contribution as DATA, so geometry hands a route roster and a `(Ledger, Custody)` PAIR and imports no CLI surface. The pair is inseparable because a journal that lands rows it cannot shred is not a lawful plane, and it binds here because this is the only site that knows which datasets and which KEK boundary a deployment owns; `vault` is the posture rather than `local`, so the KEK resolves per call and a rotation reaches the next wrap with no rebind. An unbound `Nothing` is the honest unjournalled daemon the runtime boot installs no plane for — never a default ledger this folder would have to invent a store, a retention, and a key custody for.
 - Law: the `Sync` leg answers ring first, durable tier second, typed wire fault last — a key past the ring horizon is NOT necessarily an unknown artifact, since a warm-restarted process and a fleet peer each hold no ring at all, so the read-through answers an unchanged model before a consumer is told to re-request a tessellation nobody needs to re-run. Serve still derives NO hash: the object is addressed by the exact `artifact_id` the frame carries, through the daemon's own `spill_path`, so the address IS the identity and a re-hash here would mint the second key this page exists without. A refused, absent, or unbound tier all answer the ONE unknown-artifact fault, because all three mean one thing to the consumer and surfacing a store transport fault would hand the C# rail a refusal it has no arm and no useful retry for.
 - Law: the parked ring is BOUNDED by one `SERVED_DEPTH` policy value on the folder's only process-lifetime servicer — an unbounded index grows its resident set monotonically with every distinct model ever tessellated, since a serve process outlives every drain — so `_park` folds admissions and evictions in one pass over an insertion-ordered log and the ring holds the most recent `SERVED_DEPTH` artifacts, a `Sync` past the horizon answering the same typed wire fault an unknown id answers.
+- Law: the caller-dialed deadline is SPENT here. The host admits it off the call's remaining time onto `RuntimeContext`, and `_tessellate` threads `context.budget` into the drive so the daemon carries it onto each unit's kernel and the lane folds it against its own standing bound — an abandonment on the calling side stops the tessellation instead of paying it out, and the lane's contained trip still answers the partial as a `rejected` receipt. A handler reading the request alone is the unbounded leg the admitted budget exists to close, and a serve-side cancel scope is the ruled-out shape because it strips the drain of the receipt the lane owes.
 - Law: `mount` proves the graduation install BEFORE it registers a route — `registered(composition)` runs the charter census and mounts the pulse points under the servicer's own composition key, so a divergent charter row or a colliding pulse id refuses at admission with typed evidence rather than killing the first record of a live served call; the install rail binds the route registration, never runs beside it.
 - Law: `bench` rides the graduation `bench_seam` fold over the whole `_tessellate` entry — decode, daemon drive, receipt floor, the real tessellation seam the C# rail pays — under subject `rasm.geometry.mesh.serve.tessellate`; latency and throughput rows land beside the per-call evidence-duration histogram with zero instrument rows, and graduation's `bench_terminal` wraps the fold in the runtime `JobRun.bounded` envelope for a process-terminal run.
 - Entry: `mount` is the runtime `Entrypoint` fold's install step, so lifecycle — bind, credentials, health, graceful drain — stays runtime-owned and geometry contributes only rows; `_tessellate` returns through the graduation weave seeded `EvidenceScope.MESH_SERVE`, its span nested INTERNAL under the host interceptor's SERVER span, so serve latency is the geometry evidence-duration row and pool depth stays the lane spine's own gauges. Every weave, install, and bench call threads the servicer's composition `ScopeKey`, so an embedded host's evidence and charter series partition from the process root's.
@@ -203,7 +204,10 @@ class GeometryServe:
         match _source(request):
             case Result(tag="ok", ok=source):
                 rail = await evidence_run(
-                    EvidenceScope.MESH_SERVE, "tessellate", partial(self._drive, source, _policy(request)), composition=self._composition
+                    EvidenceScope.MESH_SERVE,
+                    "tessellate",
+                    partial(self._drive, source, _policy(request), context.budget),
+                    composition=self._composition,
                 )
                 return rail.bind(
                     lambda results: results.try_head()
@@ -213,13 +217,20 @@ class GeometryServe:
             case Result(tag="error") as refused:
                 return refused
 
-    async def _drive(self, source: TessellationSource, mesher: TessellationPolicy) -> "RuntimeRail[Block[TessellationResult]]":
+    async def _drive(
+        self, source: TessellationSource, mesher: TessellationPolicy, budget: "Option[float]"
+    ) -> "RuntimeRail[Block[TessellationResult]]":
+        # `budget` is the caller-dialed deadline the host lifted off `time_remaining()` into the admitted context, and
+        # this is the site that spends it: the daemon threads it onto each unit's kernel, where the lane folds it
+        # against its own standing bound. Dropped here, the whole tessellation runs under the composition-time
+        # deadline alone and an abandoned call keeps paying for a GLB nobody will read — the admitted budget would be
+        # a value the rail carries and no leg reads. A serve-side `move_on_after` is the ruled-out shape: it cancels
+        # the drain out from under its own receipt, where the lane's contained trip still answers the partial.
         # a sharpened echo mints a per-request daemon over the same lane so the cache keys stay policy-distinct —
-        # never a mutated shared daemon.
-        # the per-request daemon inherits the SAME durable tier: a sharpened policy keys its own cache slot, and a
-        # spill under a tier the request-scoped daemon never saw would leave that policy's artifacts undurable.
+        # never a mutated shared daemon — inheriting the SAME durable tier, since a spill under a tier the
+        # request-scoped daemon never saw would leave that policy's artifacts undurable.
         daemon = self._daemon if mesher == CANONICAL_TESSELLATION else TessellationDaemon(self._lane, mesher, store=self._store)
-        rail = await daemon.tessellate(source)
+        rail = await daemon.tessellate(source, budget=budget)
         self._harvest(daemon)
         return rail.map(self._park)
 

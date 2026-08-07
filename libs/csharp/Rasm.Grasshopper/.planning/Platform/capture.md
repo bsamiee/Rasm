@@ -149,13 +149,13 @@ public readonly record struct CaptureTie(long Row, long Frame, TimeSpan Lag);
 // --- [SERVICES] -----------------------------------------------------------------------------
 internal static partial class CaptureLog {
     [LoggerMessage(EventId = 4706, Level = LogLevel.Error, Message = "Capture stream stopped by host: {Detail}")]
-    internal static partial void StreamFault(ILogger logger, string detail);
+    internal static partial void StreamFault(ILogger logger, [UserContent] string detail);
 
     [LoggerMessage(EventId = 4707, Level = LogLevel.Error, Message = "Capture frame projection faulted: {Detail}")]
-    internal static partial void FrameFault(ILogger logger, string detail);
+    internal static partial void FrameFault(ILogger logger, [UserContent] string detail);
 
     [LoggerMessage(EventId = 4713, Level = LogLevel.Error, Message = "Capture session release faulted: {Detail}")]
-    internal static partial void ReleaseFault(ILogger logger, string detail);
+    internal static partial void ReleaseFault(ILogger logger, [UserContent] string detail);
 }
 
 internal sealed class FrameSink(Action<CMSampleBuffer> deliver) : NSObject, ISCStreamOutput {

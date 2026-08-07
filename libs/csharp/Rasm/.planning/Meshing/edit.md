@@ -13,8 +13,8 @@
 
 - Owner: `ArenaPolicy` the arena policy row — capacity seed, the weld-tolerance knob, and the parallel floor every arena fold derives from; `MeshEdit` the `sealed class` single-writer arena over pooled SoA columns rented from `ArrayPool<T>.Shared` and grown by amortized doubling; `Kernels` the static primitive family operating on the arena — union-find tolerance-grid weld, the determinant-derived affine transform pass carrying the orientation repair a reversing map owes, and the exact quad-diagonal split gate the mesh-ingress triangulation rides, its projection plane read off the Numerics `Axis.DominantOf` admission.
 - Cases: `Of` discriminates on argument type — a `MeshSpace` or a raw triangle soup — one owner, not a name pair; the soup modality is the kernel's one triangle-soup adapter, folding per-page `Soup(MeshSpace)` copies into a single `DuplicateNative` with quad faces split through the exact diagonal gate. Mutation verbs dirty-mark their slots — `SetFace` is the corner rewrite the decimate edge-collapse and remesh edge-flip land on, face indices stable under mutation; read projections return frozen span views, never copies.
-- Entry: arena admission is total, no rail — a `MeshSpace` is already-admitted truth and a raw soup's validity is decided at freeze. `ToSpace(Context, Op?)` is the one publish seam: a one-pass `TensorPrimitives.IsFiniteAll<double>` bulk gate per coordinate column, live faces rebuilt into a native `Mesh`, orphaned vertices compacted, then re-admission through `MeshSpace.Of`; the finiteness gate routes `GeometryFault.DegenerateInput` with the offending column, every other failure `MeshSpace.Of`'s own rail. `Kernels.WeldDuplicates` welds in place at the arena's `WeldTolerance`, total.
-- Auto: `Of(MeshSpace)` calls `DuplicateNative` once, triangulates quads through the exact diagonal gate, and bulk-fills the columns; capacity grows by doubling every column together, so the offset-page under-allocation class — a store sized `2n` where the algorithm writes past it — is structurally impossible. `KillFace` tombstones a row and `ToSpace` compacts, the sentinel arena-internal and never observable past the freeze; dirty tracking is two packed bitsets replacing persistent `Set<int>` accumulation, enumerated for incremental consumers; `Parallel` runs a caller struct action over a caller-named index extent via `ParallelHelper`, allocation-free with the floor a policy row; the per-corner UV pair rents lazily on first `SetCornerUv`, rides faces so a weld never disturbs it, ingests per-vertex native texture coordinates at `Of(MeshSpace)`, and publishes wedge-faithfully at the freeze — a seam vertex whose corners disagree splits once per distinct UV, so no island's UV overwrites another's.
+- Entry: arena admission is total, no rail — a `MeshSpace` is already-admitted truth and a raw soup's validity is decided at freeze. `ToSpace(Context, Op?)` is the one publish seam: a one-pass `TensorPrimitives.IsFiniteAll<double>` bulk gate per coordinate column, live faces rebuilt into a native `Mesh`, orphaned vertices compacted, then re-admission through `MeshSpace.Of`; the finiteness gate routes `GeometryFault.DegenerateInput` with the offending column, every other failure `MeshSpace.Of`'s own rail. `Kernels.WeldDuplicates` welds in place at the arena's `WeldTolerance`, sweeping to a merge-free pass, total.
+- Auto: `Of(MeshSpace)` calls `DuplicateNative` once, triangulates quads through the exact diagonal gate, and bulk-fills the columns; capacity grows by doubling every column together, so the offset-page under-allocation class — a store sized `2n` where the algorithm writes past it — is structurally impossible. `KillFace` tombstones a row and `ToSpace` compacts, the sentinel arena-internal and never observable past the freeze; dirty tracking is two packed bitsets replacing persistent `Set<int>` accumulation, enumerated for incremental consumers and cleared once the admission fill completes so a set bit names a kernel edit and never the build; `Parallel` runs a caller struct action over a caller-named index extent via `ParallelHelper`, allocation-free with the floor a policy row; the per-corner UV pair rents lazily on first `SetCornerUv`, rides faces so a weld never disturbs it, ingests per-vertex native texture coordinates at `Of(MeshSpace)`, and publishes wedge-faithfully at the freeze — a seam vertex whose corners disagree splits once per distinct UV, so no island's UV overwrites another's.
 - Receipt: none — the arena is build state, not evidence; the `MeshSpace` the freeze publishes is the receipt-bearing artifact, and dirty bitsets are working state a consumer projects.
 - Packages: CommunityToolkit.HighPerformance (span planes, `ArrayPool` rent-resize, pooled kernel staging, `ParallelHelper` struct-action folds, packed bitsets), System.Numerics.Tensors (`TensorPrimitives.IsFiniteAll<double>` the freeze gate), `Rasm.Meshing` (`MeshSpace`/`MeshSpace.Of` freeze re-admission and native `Mesh` rebuild), `Rasm.Numerics` (`Predicate.Orient2D` + `Axis` the exact quad-diagonal gate), Rasm.Domain (`Context`, `Op`, `Kind`), LanguageExt.Core (`Fin` the freeze rail), Rhino.Geometry (`Mesh`/`MeshFace`/`Point3d` native seam, `Transform`/`Transform.Determinant` the transform pass's map and its orientation discriminant), BCL inbox (`ArrayPool<T>`).
 - Growth: a new bulk mutation — an edge-split pass, a tangential-relax sweep, a further per-vertex or per-corner attribute column — is one arena verb or one further SoA column on the same rent/resize/dirty machinery the UV pair already rides; a new build primitive is one `Kernels` member over the same columns; a new parallel fold is one struct action; zero new carriers.
@@ -38,6 +38,10 @@ namespace Rasm.Meshing;
 
 // --- [CONSTANTS] ------------------------------------------------------------------------------
 // WeldTolerance is THE weld knob, sited on the arena so dedup is an arena op; ParallelFloor feeds every ParallelHelper fold as minimumActionsPerThread.
+// The freeze publishes float32 vertices — the native Mesh vertex list is Point3f — so re-admission quantizes every
+// coordinate onto a lattice whose spacing at magnitude 1e3 is ~6e-5, COARSER than the 1e-6 band. Two consequences are
+// page law: a re-admitted vertex can land across a weld class the pre-freeze arena resolved, and a band tightened
+// below the float32 spacing at working magnitude welds nothing a freeze has already touched.
 public sealed record ArenaPolicy(int Capacity, double WeldTolerance, int ParallelFloor) {
     public static readonly ArenaPolicy Canonical = new(Capacity: 1_024, WeldTolerance: 1e-6, ParallelFloor: 4_096);
 }
@@ -92,6 +96,7 @@ public sealed class MeshEdit : IDisposable {
                 edit.SetCornerUv(f, UvAt(native, a), UvAt(native, b), UvAt(native, c));
             }
         }
+        edit.Baseline();
         return edit;
     }
 
@@ -101,8 +106,14 @@ public sealed class MeshEdit : IDisposable {
         MeshEdit edit = new(policy ?? ArenaPolicy.Canonical);
         foreach (Point3d p in vertices) edit.AddVertex(p);
         foreach ((int a, int b, int c) in faces) edit.AddFace(a, b, c);
+        edit.Baseline();
         return edit;
     }
+
+    // Admission is not mutation: the fill runs through AddVertex/AddFace, which dirty every slot they write, so both
+    // bitsets clear once the fill completes. A set bit therefore always names a kernel edit and never the build, and a
+    // consumer's affected seed carries information instead of the whole mesh.
+    void Baseline() { Array.Clear(dirtyVertex); Array.Clear(dirtyFace); }
 
     // --- [READ_SURFACE] — frozen/partition-disjoint span views; never a copy
     public ArenaPolicy Policy => policy;
@@ -257,53 +268,61 @@ public sealed class MeshEdit : IDisposable {
 // --- [OPERATIONS] -------------------------------------------------------------------------------
 public static class Kernels {
     // --- [WELD]
-    // Union-find over a tolerance grid, compacted IN PLACE on the SoA columns — no scratch copy of the store.
-    // Idempotent: a welded arena re-welds to itself. The weld band reads off the arena's ArenaPolicy knob.
+    // Union-find over a tolerance grid, compacted IN PLACE on the SoA columns — no scratch copy of the store. The weld
+    // band reads off the arena's ArenaPolicy knob. ONE pass is not a fixpoint: a class collapses to its centroid, which
+    // migrates up to half the band toward a neighbour and can chain two classes the same pass measured apart, so the
+    // sweep repeats until a pass merges nothing. Every merging pass strictly shrinks the vertex extent, so the loop is
+    // bounded by the vertex count, and the published arena IS idempotent — re-welding re-runs one merge-free pass.
     public static MeshEdit WeldDuplicates(MeshEdit edit) {
-        double tolerance = double.Max(edit.Policy.WeldTolerance, double.Epsilon);
-        int n = edit.VertexCount;
-        using SpanOwner<int> parentOwner = SpanOwner<int>.Allocate(n);
-        Span<int> parent = parentOwner.Span;
-        for (int v = 0; v < n; v++) parent[v] = v;
-
-        Dictionary<(long, long, long), List<int>> grid = new();
-        for (int v = 0; v < n; v++) {
-            (long cx, long cy, long cz) = Cell(edit, v, tolerance);
-            for (long dx = -1; dx <= 1; dx++) for (long dy = -1; dy <= 1; dy++) for (long dz = -1; dz <= 1; dz++) {
-                if (!grid.TryGetValue((cx + dx, cy + dy, cz + dz), out List<int>? bucket)) continue;
-                foreach (int u in bucket) {
-                    if (edit.Position(v).DistanceTo(edit.Position(u)) <= tolerance) Union(parent, v, u);
-                }
-            }
-            (grid.TryGetValue((cx, cy, cz), out List<int>? own) ? own : grid[(cx, cy, cz)] = []).Add(v);
-        }
-
-        using SpanOwner<int> remapOwner = SpanOwner<int>.Allocate(n);
-        Span<int> remap = remapOwner.Span;
-        int classes = 0;
-        for (int v = 0; v < n; v++) if (Find(parent, v) == v) remap[v] = classes++;
-        for (int v = 0; v < n; v++) remap[v] = remap[Find(parent, v)];
-        using SpanOwner<int> sizeOwner = SpanOwner<int>.Allocate(classes, AllocationMode.Clear);
-        using SpanOwner<double> sxOwner = SpanOwner<double>.Allocate(classes, AllocationMode.Clear);
-        using SpanOwner<double> syOwner = SpanOwner<double>.Allocate(classes, AllocationMode.Clear);
-        using SpanOwner<double> szOwner = SpanOwner<double>.Allocate(classes, AllocationMode.Clear);
-        (Span<int> classSize, Span<double> sumX, Span<double> sumY, Span<double> sumZ) =
-            (sizeOwner.Span, sxOwner.Span, syOwner.Span, szOwner.Span);
-        for (int v = 0; v < n; v++) {
-            int w = remap[v];
-            (sumX[w], sumY[w], sumZ[w], classSize[w]) = (sumX[w] + edit.X[v], sumY[w] + edit.Y[v], sumZ[w] + edit.Z[v], classSize[w] + 1);
-        }
-        edit.Compact(classes, sumX, sumY, sumZ, classSize, remap);
+        while (Merged(edit) > 0) { }
         return edit;
 
-        static (long, long, long) Cell(MeshEdit edit, int v, double tolerance) => (
-            (long)Math.Floor(edit.X[v] / tolerance), (long)Math.Floor(edit.Y[v] / tolerance), (long)Math.Floor(edit.Z[v] / tolerance));
+        static int Merged(MeshEdit edit) {
+            double tolerance = double.Max(edit.Policy.WeldTolerance, double.Epsilon);
+            int n = edit.VertexCount;
+            using SpanOwner<int> parentOwner = SpanOwner<int>.Allocate(n);
+            Span<int> parent = parentOwner.Span;
+            for (int v = 0; v < n; v++) parent[v] = v;
 
-        static int Find(Span<int> parent, int i) { while (parent[i] != i) { parent[i] = parent[parent[i]]; i = parent[i]; } return i; }
+            Dictionary<(long, long, long), List<int>> grid = new();
+            for (int v = 0; v < n; v++) {
+                (long cx, long cy, long cz) = Cell(edit, v, tolerance);
+                for (long dx = -1; dx <= 1; dx++) for (long dy = -1; dy <= 1; dy++) for (long dz = -1; dz <= 1; dz++) {
+                    if (!grid.TryGetValue((cx + dx, cy + dy, cz + dz), out List<int>? bucket)) continue;
+                    foreach (int u in bucket) {
+                        if (edit.Position(v).DistanceTo(edit.Position(u)) <= tolerance) Union(parent, v, u);
+                    }
+                }
+                (grid.TryGetValue((cx, cy, cz), out List<int>? own) ? own : grid[(cx, cy, cz)] = []).Add(v);
+            }
 
-        static void Union(Span<int> parent, int a, int b) {
-            int ra = Find(parent, a), rb = Find(parent, b);
-            if (ra != rb) parent[int.Max(ra, rb)] = int.Min(ra, rb);
+            using SpanOwner<int> remapOwner = SpanOwner<int>.Allocate(n);
+            Span<int> remap = remapOwner.Span;
+            int classes = 0;
+            for (int v = 0; v < n; v++) if (Find(parent, v) == v) remap[v] = classes++;
+            for (int v = 0; v < n; v++) remap[v] = remap[Find(parent, v)];
+            using SpanOwner<int> sizeOwner = SpanOwner<int>.Allocate(classes, AllocationMode.Clear);
+            using SpanOwner<double> sxOwner = SpanOwner<double>.Allocate(classes, AllocationMode.Clear);
+            using SpanOwner<double> syOwner = SpanOwner<double>.Allocate(classes, AllocationMode.Clear);
+            using SpanOwner<double> szOwner = SpanOwner<double>.Allocate(classes, AllocationMode.Clear);
+            (Span<int> classSize, Span<double> sumX, Span<double> sumY, Span<double> sumZ) =
+                (sizeOwner.Span, sxOwner.Span, syOwner.Span, szOwner.Span);
+            for (int v = 0; v < n; v++) {
+                int w = remap[v];
+                (sumX[w], sumY[w], sumZ[w], classSize[w]) = (sumX[w] + edit.X[v], sumY[w] + edit.Y[v], sumZ[w] + edit.Z[v], classSize[w] + 1);
+            }
+            edit.Compact(classes, sumX, sumY, sumZ, classSize, remap);
+            return n - classes;
+
+            static (long, long, long) Cell(MeshEdit edit, int v, double tolerance) => (
+                (long)Math.Floor(edit.X[v] / tolerance), (long)Math.Floor(edit.Y[v] / tolerance), (long)Math.Floor(edit.Z[v] / tolerance));
+
+            static int Find(Span<int> parent, int i) { while (parent[i] != i) { parent[i] = parent[parent[i]]; i = parent[i]; } return i; }
+
+            static void Union(Span<int> parent, int a, int b) {
+                int ra = Find(parent, a), rb = Find(parent, b);
+                if (ra != rb) parent[int.Max(ra, rb)] = int.Min(ra, rb);
+            }
         }
     }
 
@@ -364,7 +383,7 @@ One arena, one policy row, one kernel family; capability is a row, case, or fold
 
 - [01]-[ARENA_POLICY]: `record` policy row — capacity seed, weld-tolerance knob, parallel floor.
 - [02]-[BUILD_ARENA]: `sealed class` single-writer pooled SoA — one polymorphic `Of` (space | soup), mutation verbs, dirty bitsets, partition-disjoint `Parallel`, freeze.
-- [03]-[ARENA_KERNELS]: static primitive family — union-find tolerance-grid weld (idempotent, in-place), determinant-derived affine transform with its orientation repair, exact quad-diagonal gate over the `Axis.DominantOf` plane admission.
+- [03]-[ARENA_KERNELS]: static primitive family — union-find tolerance-grid weld (in-place, swept to a merge-free pass), determinant-derived affine transform with its orientation repair, exact quad-diagonal gate over the `Axis.DominantOf` plane admission.
 
 ## [05]-[RESEARCH]
 

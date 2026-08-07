@@ -62,6 +62,8 @@
 
 [Compression]: `None` `RLE` `ZIPS` `ZIP` `PIZ` `PXR24` `B44` `B44A` `DWAA` `DWAB` `HTJ2K256` `HTJ2K32`
 
+[TileLevelMode]: `OneLevel` `MipmapLevels` `RipmapLevels` — [TileRoundingMode]: `RoundDown` `RoundUp`
+
 [PUBLIC_TYPE_SCOPE]: V3 pixel and image folds — `TinyEXR.V3`
 
 | [INDEX] | [SYMBOL]                                                  | [TYPE_FAMILY]      | [CAPABILITY]                                            |
@@ -108,7 +110,7 @@
 |  [07]   | `ExrVersion` / `ExrAttribute` / `ExrBox2i`          | class, struct | version flags, attribute, window        |
 |  [08]   | `ResultCode`                                        | enum          | the V1 status vocabulary                |
 |  [09]   | `CompressionType` and the four V1 header enums      | enum          | the V1 header vocabularies              |
-|  [10]   | `SinglePartExrReader` / `ScanlineExrWriter`         | sealed class  | the facade's own reader and writer      |
+|  [10]   | `SinglePartExrReader` / `ScanlineExrWriter`         | class         | the facade's own reader and writer      |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -163,22 +165,24 @@
 
 [ENTRYPOINT_SCOPE]: image model construction and navigation
 
-| [INDEX] | [SURFACE]                                                                                 | [SHAPE]  | [CAPABILITY]              |
-| :-----: | :---------------------------------------------------------------------------------------- | :------- | :------------------------ |
-|  [01]   | `new Header(PartType, Box2i, IEnumerable<Channel>, Compression, …)`                       | ctor     | declare a part            |
-|  [02]   | `new Channel(string, PixelType, int, int, bool)`                                          | ctor     | declare one channel       |
-|  [03]   | `new ChannelBuffer(string, PixelType, ReadOnlySpan<byte>)`                                | ctor     | bind one channel's bytes  |
-|  [04]   | `new TileDescription(uint, uint, TileLevelMode, TileRoundingMode)`                        | ctor     | declare tiling and levels |
-|  [05]   | `new Box2i(int, int, int, int)`                                                           | ctor     | declare a window          |
-|  [06]   | `new Image(IEnumerable<Part>)` / `new Part(Header, IEnumerable<PartLevel>, bool)`         | ctor     | assemble the model        |
-|  [07]   | `new FlatLevel(int, int, Box2i, IEnumerable<ChannelBuffer>)`                              | ctor     | one flat level            |
-|  [08]   | `new DeepLevel(int, int, Box2i, ReadOnlySpan<int>, IEnumerable<ChannelBuffer>)`           | ctor     | one deep level and counts |
-|  [09]   | `Image.Parts -> IReadOnlyList<Part>` / `Image.IsMultipart` / `Image.GetPart(string)`      | instance | part roster and lookup    |
-|  [10]   | `Part.Levels -> IReadOnlyList<PartLevel>` / `Part.GetLevel(int, int) -> PartLevel`        | instance | level roster and lookup   |
-|  [11]   | `PartLevel.GetChannel(string) -> ChannelBuffer` / `PartLevel.Channels` / `Region`         | instance | channel access, extent    |
-|  [12]   | `DeepLevel.SampleCounts -> ReadOnlySpan<int>` / `DeepLevel.TotalSamples`                  | property | per-texel deep counts     |
-|  [13]   | `Header.IsTiled` / `IsDeep` / `Channels` / `Attributes` / `DataWindow` / `Chromaticities` | property | declared part facts       |
-|  [14]   | `ChannelBuffer.Data` / `ByteLength` / `SampleCount` / `Name` / `PixelType`                | property | the raw channel window    |
+| [INDEX] | [SURFACE]                                                                                       | [SHAPE]  | [CAPABILITY]              |
+| :-----: | :---------------------------------------------------------------------------------------------- | :------- | :------------------------ |
+|  [01]   | `new Header(PartType, Box2i, IEnumerable<Channel>, Compression, …)`                             | ctor     | declare a part            |
+|  [02]   | `new Channel(string, PixelType, int, int, bool)`                                                | ctor     | declare one channel       |
+|  [03]   | `new ChannelBuffer(string, PixelType, ReadOnlySpan<byte>)`                                      | ctor     | bind one channel's bytes  |
+|  [04]   | `new TileDescription(uint, uint, TileLevelMode, TileRoundingMode)`                              | ctor     | declare tiling and levels |
+|  [05]   | `new Box2i(int, int, int, int)`                                                                 | ctor     | declare a window          |
+|  [06]   | `new Image(IEnumerable<Part>)` / `new Part(Header, IEnumerable<PartLevel>, bool)`               | ctor     | assemble the model        |
+|  [07]   | `new FlatLevel(int, int, Box2i, IEnumerable<ChannelBuffer>)`                                    | ctor     | one flat level            |
+|  [08]   | `new DeepLevel(int, int, Box2i, ReadOnlySpan<int>, IEnumerable<ChannelBuffer>)`                 | ctor     | one deep level and counts |
+|  [09]   | `Image.Parts -> IReadOnlyList<Part>` / `Image.IsMultipart` / `Image.GetPart(string)`            | instance | part roster and lookup    |
+|  [10]   | `Part.Header -> Header` / `Part.Levels -> IReadOnlyList<PartLevel>` / `Part.GetLevel(int, int)` | instance | header, levels, lookup    |
+|  [11]   | `PartLevel.GetChannel(string) -> ChannelBuffer` / `PartLevel.Channels` / `Region`               | instance | channel access, extent    |
+|  [12]   | `DeepLevel.SampleCounts -> ReadOnlySpan<int>` / `DeepLevel.TotalSamples`                        | property | per-texel deep counts     |
+|  [13]   | `Header.IsTiled` / `IsDeep` / `Channels` / `Attributes` / `DataWindow` / `Chromaticities`       | property | declared part facts       |
+|  [14]   | `ChannelBuffer.Data` / `ByteLength` / `SampleCount` / `Name` / `PixelType`                      | property | the raw channel window    |
+|  [15]   | `new Chromaticities(float, float, float, float, float, float, float, float)`                    | ctor     | eight positional f32 xy   |
+|  [16]   | `Chromaticities.RedX` / `RedY` / `GreenX` / `GreenY` / `BlueX` / `BlueY` / `WhiteX` / `WhiteY`  | property | declared primaries, f32   |
 
 [ENTRYPOINT_SCOPE]: pixel conversion, resample, tone map, transfer, and LUT
 
@@ -198,10 +202,11 @@
 |  [12]   | `StreamingImageResizer.PushRow(int, ReadOnlySpan<float>)` / `PullRow(…) -> ExrResult`     | instance | streamed resample     |
 |  [13]   | `Lut3D.TryParseCube(string?, out Lut3D?) -> ExrResult`                                    | static   | parse a `.cube` LUT   |
 |  [14]   | `Lut3D.Apply(ReadOnlySpan<float>, Span<float>, int, LutInterpolation)`                    | instance | apply the LUT         |
-|  [15]   | `PartConversion.ToInterleavedFloat(Part) -> InterleavedFloatImage`                        | static   | planar to interleaved |
-|  [16]   | `PartConversion.FromInterleavedFloat(ReadOnlySpan<float>, int, int, int, …) -> Part`      | static   | interleaved to a part |
-|  [17]   | `PartConversion.LuminanceChromaToRgbaFloat(Part) -> InterleavedFloatImage`                | static   | chroma expansion      |
-|  [18]   | `PartConversion.IsLuminanceChroma(Part) -> bool`                                          | static   | chroma-basis probe    |
+|  [15]   | `Lut3D.Data -> ReadOnlySpan<float>` / `Lut3D.Size` / `DomainMinimum` / `DomainMaximum`    | property | the parsed lattice    |
+|  [16]   | `PartConversion.ToInterleavedFloat(Part) -> InterleavedFloatImage`                        | static   | planar to interleaved |
+|  [17]   | `PartConversion.FromInterleavedFloat(ReadOnlySpan<float>, int, int, int, …) -> Part`      | static   | interleaved to a part |
+|  [18]   | `PartConversion.LuminanceChromaToRgbaFloat(Part) -> InterleavedFloatImage`                | static   | chroma expansion      |
+|  [19]   | `PartConversion.IsLuminanceChroma(Part) -> bool`                                          | static   | chroma-basis probe    |
 
 [ENTRYPOINT_SCOPE]: spectral channels — `TinyEXR.V3.Spectral`
 
@@ -241,18 +246,20 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- Two API planes, one file format. Its V1 facade (`Exr`, `ExrImage`, `ExrHeader`) round-trips a whole image through `out` parameters and a `ResultCode`; the V3 plane (`ExrReader`, `ExrWriter`, `ExrFile`, `Image`/`Part`/`Header`/`ChannelBuffer`) is the block-level model. Composing surfaces pick ONE and never mix their vocabularies — `TinyEXR.PixelType` and `TinyEXR.V3.PixelType` are distinct types with the same rows.
+- Two API planes, one file format. Its V1 facade (`Exr`, `ExrImage`, `ExrHeader`) round-trips a whole image through `out` parameters and a `ResultCode`; the V3 plane (`ExrReader`, `ExrWriter`, `ExrFile`, `Image`/`Part`/`Header`/`ChannelBuffer`) is the block-level model. Composing surfaces pick ONE and never mix their vocabularies — `TinyEXR.ExrPixelType` and `TinyEXR.V3.PixelType` are distinct types with the same rows.
 - V3 models a part planar and named: a `Part` holds `PartLevel`s, each holding `ChannelBuffer`s keyed by channel NAME. There is no fixed RGBA slot — an arbitrary AOV set is the natural shape, and `PartConversion.ToInterleavedFloat` is what flattens one part into an interleaved plane.
+- `new ChannelBuffer(string, PixelType, ReadOnlySpan<byte>)` COPIES: it delegates to a private array constructor through `data.ToArray()`, so a rented scratch re-filled per channel is safe and a per-channel array allocated beside it buys a lifetime the buffer already owns. The constructor validates the span's length against whole native samples, and `Data`/`ByteLength`/`SampleCount` read that owned array.
+- A block write validates each `ChannelBuffer`'s `ByteLength` against the BLOCK's own region — the region's sample count times the pixel-type width — and refuses any other length by name, so a border tile padded out to the full tile description is a hard refusal rather than a zero-filled remainder the file absorbs.
 - Every V3 call returns a `ReaderResult`/`WriterResult` value carrying `Status`, `Pending`, `Error`, and `BytesWritten` rather than throwing on a data fault; `IsSuccess` reads `Status == ExrResult.Success` and the typed exceptions fire only for limit breaches and plan violations.
 - `ExrResult.WouldBlock` is the pull protocol: the reader returns it with `Pending` naming the byte `DataRange` it needs, so a `SuppliedDataSource` feeds exactly that window and the call repeats. Callers treating `WouldBlock` as failure stall a perfectly healthy incremental read.
 - Writing is a three-phase plan: `AddPart` per part, then `Begin`, then the block, tile, or deep writes in any order, then `End` — which seeks back and patches the offset tables, so the sink must genuinely seek and the writer must reach `End` or the file is headerless.
 - Tiling and levels ride `Header.Tiles`: `TileLevelMode` selects one-level, mipmap, or ripmap, and `ExrReader.ReadTile(part, tileX, tileY, levelX, levelY)` addresses a tile within a level. This is the only mip-in-one-file EXR path in the estate.
-- Deep parts are two reads: `DecodeDeepCounts` fills the per-pixel sample counts, then `DecodeDeepSamples` fills the destinations those counts size. Reversing the order sizes nothing.
+- Deep parts on the incremental reader are two reads: `DecodeDeepCounts` fills the per-pixel sample counts, then `DecodeDeepSamples` fills the destinations those counts size — reversing the order sizes nothing. The whole-file model materializes counts and samples together, so `DeepLevel.SampleCounts` off a loaded `Image` is the same counts-first law already discharged.
 - Compression is per part on `Header.Compression`, spanning the whole roster through DWAA, DWAB, and the HTJ2K rows; `PIZ` and `B44` are lossless-for-half and lossy-for-half respectively, and `PXR24` truncates float to 24 bits — a solver-grade plane takes `ZIP` or `ZIPS`.
 - `HTJ2K256` and `HTJ2K32` do NOT round-trip a float plane and their failure is not the graded truncation the other lossy rows carry. MEASURED against the EXR core both branches write, across the extent range a mip ladder spans: a `16×16` level and a `2×512` sheet decode ALL-NaN, extents at or below eight decode inexact, and only a mid band is byte-exact, while `ZIP` is exact at every one. Any pyramid folding to `1×1` crosses the broken range on EVERY set, so the two rows are unusable for a plane rather than merely lossy, and the compression roster's completeness is a package fact this estate does not spend.
 - Processing folds operate on interleaved float spans, never on the container: `Resize`, `ToneMap`, `ApplyColorMatrix`, `EncodeTransfer`/`DecodeTransfer`, and `Lut3D.Apply` all take a `ReadOnlySpan<float>` and a channel count, so they compose over any float plane the estate holds.
 - Fold arities, each with defaulted tails: `Resize(source, sourceWidth, sourceHeight, destination, destinationWidth, destinationHeight, channels, ResizeFilter = Mitchell, EdgeMode = Clamp, alphaChannel = -1, …)` — the extent groups bracket the two spans and the channel count follows BOTH, so a source-extent-then-channel-count spelling silently transposes the destination; `ToneMap(source, destination, channels, ToneMapOperator, ToneMapParameters? = null)`; `EncodeTransfer`/`DecodeTransfer(source, destination, TransferFunction)`; `Lut3D.Apply(source, destination, channels, LutInterpolation = Trilinear)`; `PartConversion.FromInterleavedFloat(source, width, height, channels, PixelType = Half, Compression = ZIP)` — leaving `destinationType` defaulted narrows a solver-grade plane to half at the container edge.
-- Every span fold admits a destination aliasing its source at the SAME start and refuses a partial overlap, so one scratch span threads a whole row rail; the refusal is an `ArgumentException`, never a silent miscompute.
+- The `ImageProcessing` and `Lut3D` folds admit a destination aliasing their source at the SAME start and refuse a partial overlap, so one scratch span threads a whole row rail; the `PixelConversion` family refuses ANY overlap outright. Every refusal is an `ArgumentException`, never a silent miscompute.
 - `ToInterleavedFloat` and `LuminanceChromaToRgbaFloat` are ONE DISCRIMINATION over `PartConversion.IsLuminanceChroma(part)`, never a caller choice: a `Y`/`RY`/`BY` part flattened through the plain bridge hands three lanes of a chroma basis to a consumer expecting RGB, and nothing downstream can tell those lanes from colour. Probing reads the part's channel names, so the file decides the arm and the reader never declares it.
 - `ApplyColorMatrix` takes a matrix it does not produce: `ImageProcessing.GetColorMatrix(ColorSpace from, ColorSpace to)` mints the primaries transform between two rostered spaces and `ImageProcessing.GetLuminanceWeights(Chromaticities?)` derives the luma triple from a file's own declared primaries (or the default set when the header carries none). Hand-writing a 3×3 beside either mints a second colour authority.
 - `SpectrumType.Polarised` names a STOKES-COMPONENT FAMILY, never one more wavelength axis: a channel name carries BOTH a wavelength and a Stokes index — `S<0..3>.<nm>nm` on the emissive and polarised arms, `T.<nm>nm` on the reflective one — so `GetSpectrumType` reports `Polarised` exactly when some channel's Stokes index is nonzero, and a reader parsing only `TryParseChannelWavelength` collapses four polarisation components onto one channel.
@@ -279,4 +286,4 @@
 - Package: `TinyEXR.NET`
 - Owns: the managed OpenEXR estate beyond flat scanline — block, tile, and mip-level addressing; deep scanline and deep tiled parts; multi-part files; the full compression roster through PIZ, PXR24, B44, DWAA, DWAB, and HTJ2K; the named-channel planar model with its luminance-chroma discrimination; and the float-span folds for pixel-type conversion, separable and streaming resample, tone mapping, colour-matrix derivation and application, luminance-weight derivation, transfer transforms, `.cube` LUT application, and wavelength-sampled spectral parts across the reflective, emissive, and Stokes-component polarised arms.
 - Accept: the V3 plane throughout — `ExrReader`/`ExrWriter` over a `Stream`, memory, or supplied source and sink; `ReaderResult`/`WriterResult` folded onto the typed fault rail with `WouldBlock` resumed; explicit `ReaderLimits`/`WriterLimits` on outside input; `Header` + `Channel` + `ChannelBuffer` as the model; `Compression.ZIP`/`ZIPS` for durable planes; `PartConversion` as the bridge to any interleaved consumer.
-- Reject: V1 and V3 vocabularies mixed in one fold; the V1 facade across a folder boundary; a lossy compression row on a content-keyed or solver-grade plane; `WouldBlock` classed as failure; a deep sample read before its counts; a write that never reaches `End`; a fixed RGBA slot assumption over a named-channel part; `ToInterleavedFloat` reached without the `IsLuminanceChroma` probe, or the chroma expander offered as a caller knob; a hand-rolled colour matrix, luminance weight triple, half-to-float, resample, tone-map, or transfer fold this surface already lowers; a spectral read parsing wavelengths without `TryGetStokesComponent`, which flattens the four polarisation components of one wavelength onto one channel.
+- Reject: V1 and V3 vocabularies mixed in one fold; the V1 facade across a folder boundary; a lossy compression row on a content-keyed or solver-grade plane; `WouldBlock` classed as failure; a deep sample read before its counts; a write that never reaches `End`; a fixed RGBA slot assumption over a named-channel part; `ToInterleavedFloat` reached without the `IsLuminanceChroma` probe, or the chroma expander offered as a caller knob; a hand-rolled colour matrix, luminance weight triple, span-shaped half-to-float, resample, tone-map, or transfer fold this surface already lowers — a per-texel half decode inside a struct texel rail sits outside the span folds and stays legal; a spectral read parsing wavelengths without `TryGetStokesComponent`, which flattens the four polarisation components of one wavelength onto one channel.

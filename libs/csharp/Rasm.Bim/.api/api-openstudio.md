@@ -31,7 +31,7 @@
 
 - `Optional<T>`: `is_initialized()` `isNull()` `get()` `value_or(T)` `set(T)` `reset()`.
 - `OpenStudioUtilitiesCore`: `toPath(string)` `toString(Path)` `createUUID()` `toUUID(string)`.
-- `ProgressBar`: `protected ProgressBar()` ctor, `virtual onPercentageUpdated(double)` override sink. Its whole virtual surface is `minimum`/`setMinimum`/`maximum`/`setMaximum`/`value`/`setValue`/`setRange`/`windowTitle`/`setWindowTitle`/`text`/`isVisible`/`setVisible` beside the percentage sink — NO abort, cancel, or interrupt member exists, so a running translator cannot be stopped and the director callback is the finest point a managed token can be READ while native code runs.
+- `ProgressBar`: `class ProgressBar : IDisposable` with a `protected ProgressBar()` ctor and a `virtual onPercentageUpdated(double)` override sink, so every subclass instance brackets `using` like the rest of the SWIG surface. Its whole virtual surface is `minimum`/`setMinimum`/`maximum`/`setMaximum`/`value`/`setValue`/`setRange`/`windowTitle`/`setWindowTitle`/`text`/`isVisible`/`setVisible` beside the percentage sink — NO abort, cancel, or interrupt member exists, so a running translator runs to completion and the director callback is the finest point a managed token READS while native code runs.
 
 [PUBLIC_TYPE_SCOPE]: model and IDF/IDD object store
 
@@ -42,10 +42,51 @@
 |  [03]   | `IdfFile` / `OptionalIdfFile`       | class         | the EnergyPlus IDF text model                                |
 |  [04]   | `IddFile` / `Idd` / `IddObjectType` | class         | the Input Data Dictionary; `IddObjectType` keys the type get |
 |  [05]   | `ModelObject`                       | class         | base of every model object, the `translateModelObject` input |
-|  [06]   | leaf `ModelObject`s                 | class         | `Building` `Space` `Surface` `ThermalZone` `Construction`    |
+|  [06]   | leaf `ModelObject`s                 | class         | `Building` `Space` `Surface` `SubSurface` `ThermalZone` …    |
 
 - `Model`: ctors `Model()` `Model(IdfFile)` `Model(Workspace)` `Model(Model)`; `modelObjects(bool sorted)` → `ModelObjectVector`; load and save are `[03]`'s.
-- `Workspace`: `getObjectsByType(IddObjectType)` → `WorkspaceObjectVector`; `getObjectByTypeAndName(IddObjectType, string)` → `OptionalWorkspaceObject`; `getObject(UUID)`; `objects(bool sorted)`; `save(Path, bool overwrite)`.
+- `Workspace`: `getObjectsByType(IddObjectType)`/`(IddObject)`/`(string)` → `WorkspaceObjectVector`; `getObjectByTypeAndName(IddObjectType, string)`/`(string, string)` → `OptionalWorkspaceObject`; `getObject(UUID)`; `getObjects(UUIDVector)`; `objects(bool sorted)`; `toIdfFile()`; `save(Path, bool overwrite)` and `save(Path)`. `Model : Workspace`, so an OSM write is `model.save(path, overwrite)`.
+
+[PUBLIC_TYPE_SCOPE]: the handle-keyed typed getters — the ONE downcast path off a statically-based vector element
+
+Every `*Vector` element is typed to its family base (`Material`, `ConstructionBase`), so the concrete leaf is reached by re-reading the element's `handle()` through the model's own typed getter, never a managed cast. Each returns an `Optional*` gated `is_initialized()` then `get()`.
+
+| [INDEX] | [SURFACE]                                                                  | [CAPABILITY]                                         |
+| :-----: | :------------------------------------------------------------------------- | :--------------------------------------------------- |
+|  [01]   | `Model.getConstruction(UUID)` → `OptionalConstruction`                     | the layered construction behind a `ConstructionBase` |
+|  [02]   | `Model.getStandardOpaqueMaterial(UUID)` → `OptionalStandardOpaqueMaterial` | the opaque leaf behind a `Material`                  |
+|  [03]   | `Model.getStandardGlazing(UUID)` → `OptionalStandardGlazing`               | the glazing leaf behind a `Material`                 |
+|  [04]   | `Model.get*ByName(string)` / `get*sByName(string, bool)`                   | the name-keyed siblings of each typed getter         |
+|  [05]   | `Model.getSpaces()` → `SpaceVector`                                        | every space, the raise fold's root read              |
+
+[PUBLIC_TYPE_SCOPE]: geometry and grouping leaves the energy raise reads
+
+| [INDEX] | [SYMBOL]        | [CAPABILITY]                                                                                     |
+| :-----: | :-------------- | :----------------------------------------------------------------------------------------------- |
+|  [01]   | `Space`         | `surfaces` (PROPERTY → `SurfaceVector`), `buildingStory()`, `thermalZone()`, `multiplier()`      |
+|  [02]   | `Surface`       | `surfaceType()` → `string`, `subSurfaces()` → `SubSurfaceVector`, `vertices()`, `construction()` |
+|  [03]   | `SubSurface`    | `subSurfaceType()` → `string`, `validSubSurfaceTypeValues()` → `StringVector`, `vertices()`      |
+|  [04]   | `BuildingStory` | `nameString()`, `spaces()`, `nominalZCoordinate()`, `nominalFloortoCeilingHeight()`              |
+|  [05]   | `ThermalZone`   | `nameString()`, `spaces()`, `multiplier()`                                                       |
+|  [06]   | `PlanarSurface` | the `Surface`/`SubSurface` base carrying `construction()` → `OptionalConstructionBase`           |
+
+- `Space.surfaces` is a PROPERTY, not a method — the one shape break in an otherwise method-shaped surface.
+- `SubSurface.validSubSurfaceTypeValues()` is the closed roster an opening-type map keys on; `isSubSurfaceTypeDefaulted()` distinguishes an authored token from the assigned default.
+
+[PUBLIC_TYPE_SCOPE]: material leaves — the `OptionalDouble`-versus-bare getter split
+
+`StandardOpaqueMaterial` publishes every thermal input as a BARE `double`. `StandardGlazing` splits: the six normal-incidence transmittance and reflectance fractions return `OptionalDouble` — the IDD field is genuinely unset-able, and the plain `solarTransmittance()`/`visibleTransmittance()` siblings THROW over that same unset field — while the infrared trio, `conductivity()`, and `thickness()` return bare `double`s under IDD defaults.
+
+| [INDEX] | [SURFACE]                                                                                       | [SHAPE]          |
+| :-----: | :---------------------------------------------------------------------------------------------- | :--------------- |
+|  [01]   | `StandardGlazing.solarTransmittanceatNormalIncidence()`                                         | `OptionalDouble` |
+|  [02]   | `StandardGlazing.frontSideSolarReflectanceatNormalIncidence()` / `backSide…`                    | `OptionalDouble` |
+|  [03]   | `StandardGlazing.visibleTransmittanceatNormalIncidence()`                                       | `OptionalDouble` |
+|  [04]   | `StandardGlazing.frontSideVisibleReflectanceatNormalIncidence()` / `backSide…`                  | `OptionalDouble` |
+|  [05]   | `StandardGlazing.infraredTransmittanceatNormalIncidence()` / the two hemispherical emissivities | `double`         |
+|  [06]   | `StandardGlazing.conductivity()` / `thickness()`                                                | `double`         |
+|  [07]   | `StandardOpaqueMaterial.conductivity()` / `density()` / `specificHeat()` / `thickness()`        | `double`         |
+|  [08]   | `ConstructionBase.uFactor()`                                                                    | `OptionalDouble` |
 
 [PUBLIC_TYPE_SCOPE]: translators — the exchange matrix
 

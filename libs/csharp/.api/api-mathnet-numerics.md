@@ -15,46 +15,49 @@
 
 [PUBLIC_TYPE_SCOPE]: distribution seams and the univariate roster under its constructor parameterization
 
-| [INDEX] | [SYMBOL]                                           | [TYPE_FAMILY] | [CAPABILITY]                              |
-| :-----: | :------------------------------------------------- | :------------ | :---------------------------------------- |
-|  [01]   | `IDistribution`                                    | interface     | `RandomSource` ownership every draw reads |
-|  [02]   | `IUnivariateDistribution`                          | interface     | moments and `CumulativeDistribution`      |
-|  [03]   | `IContinuousDistribution`                          | interface     | density, mode, and continuous sampling    |
-|  [04]   | `IDiscreteDistribution`                            | interface     | mass, mode, and integer sampling          |
-|  [05]   | `Normal(mean, stddev)`                             | class         | Gaussian                                  |
-|  [06]   | `LogNormal(mu, sigma)`                             | class         | log-Gaussian                              |
-|  [07]   | `Gamma(shape, rate)`                               | class         | Gamma, rate-parameterized                 |
-|  [08]   | `InverseGamma(shape, scale)`                       | class         | inverse Gamma                             |
-|  [09]   | `Erlang(shape, rate)`                              | class         | integer-shape Gamma                       |
-|  [10]   | `Beta(a, b)`                                       | class         | unit-interval Beta                        |
-|  [11]   | `BetaScaled(a, b, location, scale)`                | class         | affine-mapped Beta                        |
-|  [12]   | `ChiSquared(freedom)`                              | class         | chi-squared                               |
-|  [13]   | `Chi(freedom)`                                     | class         | chi                                       |
-|  [14]   | `StudentT(location, scale, freedom)`               | class         | Student t                                 |
-|  [15]   | `FisherSnedecor(d1, d2)`                           | class         | F ratio                                   |
-|  [16]   | `Exponential(rate)`                                | class         | exponential                               |
-|  [17]   | `Weibull(shape, scale)`                            | class         | Weibull                                   |
-|  [18]   | `Rayleigh(scale)`                                  | class         | Rayleigh                                  |
-|  [19]   | `Pareto(scale, shape)`                             | class         | Pareto                                    |
-|  [20]   | `Cauchy(location, scale)`                          | class         | Cauchy                                    |
-|  [21]   | `Laplace(location, scale)`                         | class         | Laplace                                   |
-|  [22]   | `Logistic(mean, scale)`                            | class         | logistic                                  |
-|  [23]   | `Stable(alpha, beta, scale, location)`             | class         | stable, heavy-tailed                      |
-|  [24]   | `SkewedGeneralizedT(location, scale, skew, p, q)`  | class         | skew and kurtosis-tunable t               |
-|  [25]   | `SkewedGeneralizedError(location, scale, skew, p)` | class         | skew-tunable error                        |
-|  [26]   | `Triangular(lower, upper, mode)`                   | class         | triangular                                |
-|  [27]   | `ContinuousUniform(lower, upper)`                  | class         | continuous uniform                        |
-|  [28]   | `Bernoulli(p)`                                     | class         | single trial                              |
-|  [29]   | `Binomial(p, n)`                                   | class         | successes in a trial count                |
-|  [30]   | `BetaBinomial(n, a, b)`                            | class         | over-dispersed binomial                   |
-|  [31]   | `NegativeBinomial(r, p)`                           | class         | failures before a success count           |
-|  [32]   | `Geometric(p)`                                     | class         | trials to first success                   |
-|  [33]   | `Poisson(lambda)`                                  | class         | Poisson count                             |
-|  [34]   | `ConwayMaxwellPoisson(lambda, nu)`                 | class         | dispersion-tuned Poisson                  |
-|  [35]   | `Hypergeometric(population, success, draws)`       | class         | draws without replacement                 |
-|  [36]   | `DiscreteUniform(lower, upper)`                    | class         | discrete uniform                          |
-|  [37]   | `Categorical(probabilityMass)`                     | class         | arbitrary mass vector                     |
-|  [38]   | `Zipf(s, n)`                                       | class         | power-law rank                            |
+| [INDEX] | [SYMBOL]                                           | [TYPE_FAMILY] | [CAPABILITY]                                       |
+| :-----: | :------------------------------------------------- | :------------ | :------------------------------------------------- |
+|  [01]   | `IDistribution`                                    | interface     | `RandomSource` ownership every draw reads          |
+|  [02]   | `IUnivariateDistribution`                          | interface     | moments and `CumulativeDistribution`               |
+|  [03]   | `IContinuousDistribution`                          | interface     | density, mode, and continuous sampling             |
+|  [04]   | `IDiscreteDistribution`                            | interface     | mass, mode, and integer sampling                   |
+|  [05]   | `Normal(mean, stddev)`                             | class         | Gaussian                                           |
+|  [06]   | `LogNormal(mu, sigma)`                             | class         | log-Gaussian                                       |
+|  [07]   | `InverseGaussian(mu, lambda)`                      | class         | Wald — mean/shape, the inverse-Gaussian GLM family |
+|  [08]   | `Gamma(shape, rate)`                               | class         | Gamma, rate-parameterized                          |
+|  [09]   | `InverseGamma(shape, scale)`                       | class         | inverse Gamma                                      |
+|  [10]   | `Erlang(shape, rate)`                              | class         | integer-shape Gamma                                |
+|  [11]   | `Beta(a, b)`                                       | class         | unit-interval Beta                                 |
+|  [12]   | `BetaScaled(a, b, location, scale)`                | class         | affine-mapped Beta                                 |
+|  [13]   | `ChiSquared(freedom)`                              | class         | chi-squared                                        |
+|  [14]   | `Chi(freedom)`                                     | class         | chi                                                |
+|  [15]   | `StudentT(location, scale, freedom)`               | class         | Student t                                          |
+|  [16]   | `FisherSnedecor(d1, d2)`                           | class         | F ratio                                            |
+|  [17]   | `Exponential(rate)`                                | class         | exponential                                        |
+|  [18]   | `Weibull(shape, scale)`                            | class         | Weibull                                            |
+|  [19]   | `Rayleigh(scale)`                                  | class         | Rayleigh                                           |
+|  [20]   | `Pareto(scale, shape)`                             | class         | Pareto                                             |
+|  [21]   | `TruncatedPareto(scale, shape, truncation)`        | class         | Pareto capped at a truncation point T > xm         |
+|  [22]   | `Burr(a, c, k)`                                    | class         | Burr XII — scale a, shape pair (c, k)              |
+|  [23]   | `Cauchy(location, scale)`                          | class         | Cauchy                                             |
+|  [24]   | `Laplace(location, scale)`                         | class         | Laplace                                            |
+|  [25]   | `Logistic(mean, scale)`                            | class         | logistic                                           |
+|  [26]   | `Stable(alpha, beta, scale, location)`             | class         | stable, heavy-tailed                               |
+|  [27]   | `SkewedGeneralizedT(location, scale, skew, p, q)`  | class         | skew and kurtosis-tunable t                        |
+|  [28]   | `SkewedGeneralizedError(location, scale, skew, p)` | class         | skew-tunable error                                 |
+|  [29]   | `Triangular(lower, upper, mode)`                   | class         | triangular                                         |
+|  [30]   | `ContinuousUniform(lower, upper)`                  | class         | continuous uniform                                 |
+|  [31]   | `Bernoulli(p)`                                     | class         | single trial                                       |
+|  [32]   | `Binomial(p, n)`                                   | class         | successes in a trial count                         |
+|  [33]   | `BetaBinomial(n, a, b)`                            | class         | over-dispersed binomial                            |
+|  [34]   | `NegativeBinomial(r, p)`                           | class         | failures before a success count                    |
+|  [35]   | `Geometric(p)`                                     | class         | trials to first success                            |
+|  [36]   | `Poisson(lambda)`                                  | class         | Poisson count                                      |
+|  [37]   | `ConwayMaxwellPoisson(lambda, nu)`                 | class         | dispersion-tuned Poisson                           |
+|  [38]   | `Hypergeometric(population, success, draws)`       | class         | draws without replacement                          |
+|  [39]   | `DiscreteUniform(lower, upper)`                    | class         | discrete uniform                                   |
+|  [40]   | `Categorical(probabilityMass)`                     | class         | arbitrary mass vector                              |
+|  [41]   | `Zipf(s, n)`                                       | class         | power-law rank                                     |
 
 [MULTIVARIATE]: `Dirichlet` `Multinomial` `NormalGamma` `MeanPrecisionPair` `MatrixNormal` `Wishart` `InverseWishart`
 
@@ -107,6 +110,10 @@
 |  [18]   | `IterationStatus`                     | enum          | per-iteration verdict the iterator settles on                     |
 
 [ITERATION_STATUS]: `Continue` `Converged` `Diverged` `StoppedWithoutConvergence` `Cancelled` `Failure`
+[EVD_PAIR_ORDER]: the real Schur reduction writes each conjugate pair as `e[k] = +z`, `e[k + 1] = −z` with `z` a non-negative square root, so the POSITIVE imaginary part always occupies the lower index and a negative-imaginary eigenvalue always has its partner at `j − 1`; index `0` therefore never carries a negative imaginary part and a backward modal-column read cannot underflow.
+
+[INTERPOLATION_CAPABILITY]: the two `IInterpolation` flags are an ORTHOGONAL pair, not a ladder — `NevillePolynomialInterpolation` (`Interpolate.Polynomial`) reports `SupportsDifferentiation` true and `SupportsIntegration` false, `Barycentric` (`Interpolate.Common`) reports both false, and `CubicSpline`/`LinearSpline`/`StepInterpolation` report both true.
+
 [DENSE_FACTORIZATION]: `LU<T>` `QR<T>` `Cholesky<T>` `Svd<T>` `Evd<T>` `GramSchmidt<T>` — each an `MathNet.Numerics.LinearAlgebra.Factorization` owner a `Matrix<T>` instance member builds. `SparseMatrix` declares NO `Cholesky()` override — a sparse operator routed there factorizes DENSELY through `UserCholesky.Create` with no fill-reducing ordering; sparse direct stays the CSparse peer's.
 [ITERATIVE_SOLVER]: `BiCgStab` `GpBiCg` `TFQMR` `MlkBiCgStab` — `MathNet.Numerics.LinearAlgebra.Double.Solvers` owners; each precision plane (`Single`, `Double`, `Complex`, `Complex32`) carries its own closed set (`IncompleteLU` exists on NO plane — the spellings are the `ILU*Preconditioner` trio), so the solver and its preconditioner spell the plane's namespace and never a shared generic.
 [PRECONDITIONER_CTOR]: `MILU0Preconditioner(bool modified = true)` exposing `UseModified` · `ILUTPPreconditioner()` and `ILUTPPreconditioner(double fillLevel, double dropTolerance, double pivotTolerance)` over defaults `200.0`/`1e-4`/`0.0`, pivoting off at zero.
@@ -138,6 +145,9 @@
 
 [STATIC_FAMILY]: `PDF` `PDFLn` `PMF` `PMFLn` `CDF` `InvCDF` `Sample` `Samples` `IsValidParameterSet`
 [MOMENTS]: `Mean` `Variance` `StdDev` `Entropy` `Skewness` `Median` `Mode` `Minimum` `Maximum`
+
+- The quantile roster is NOT uniform: `Poisson` and `Binomial` ship no inverse at all (neither `InvCDF` nor `InverseCumulativeDistribution`), `Gamma` ships both spellings, and `InverseGaussian` alone spells its INSTANCE quantile `InvCDF(double)` where every sibling spells `InverseCumulativeDistribution(double)` — so a generic quantile call over a distribution set binds four different contracts.
+- `InverseGaussian.Median` has no closed form: it Brent-solves numerically and CAN THROW, unlike every other row's arithmetic `Median`.
 
 [ENTRYPOINT_SCOPE]: sequence and signal generation via `Generate`
 

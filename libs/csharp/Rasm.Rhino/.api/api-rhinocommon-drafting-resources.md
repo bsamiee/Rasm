@@ -40,10 +40,10 @@
 
 [ENUM_ROSTERS]:
 - `HatchPatternFillType` — `Solid` `Lines` `Gradient`.
-- `Font.FontWeight : byte` — `Unset` `Thin` `Ultralight` `Light` `Normal` `Medium` `Semibold` `Bold` `Ultrabold` `Heavy`.
-- `Font.FontStyle : byte` — `Unset` `Upright` `Italic` `Oblique`.
-- `Font.FontStretch : byte` — `Unset` `Ultracondensed` `Extracondensed` `Condensed` `Semicondensed` `Medium` `Semiexpanded` `Expanded` `Extraexpanded` `Ultraexpanded`.
-- `Font.FontOrigin : byte` — `Unset=0` `Unknown=1` `WindowsFont=2` `AppleFont=3`; `Font.FontType : byte` — `Unset=0` `ManagedFont=1` `InstalledFont=2`; neither surfaces through a public `Font` property.
+- `Font.FontWeight -> byte` — `Unset` `Thin` `Ultralight` `Light` `Normal` `Medium` `Semibold` `Bold` `Ultrabold` `Heavy`.
+- `Font.FontStyle -> byte` — `Unset` `Upright` `Italic` `Oblique`.
+- `Font.FontStretch -> byte` — `Unset` `Ultracondensed` `Extracondensed` `Condensed` `Semicondensed` `Medium` `Semiexpanded` `Expanded` `Extraexpanded` `Ultraexpanded`.
+- `Font.FontOrigin -> byte` — `Unset=0` `Unknown=1` `WindowsFont=2` `AppleFont=3`; `Font.FontType -> byte` — `Unset=0` `ManagedFont=1` `InstalledFont=2`; neither surfaces through a public `Font` property.
 - `SectionBackgroundFillMode : byte` — `None` `Viewport` `SolidColor`.
 - `ObjectSectionFillRule` — `ClosedCurves` `SolidObjects`.
 - Edge-mapped external owners: `Rhino.Display.LineCapStyle`/`LineJoinStyle` carry a `Linetype`'s caps and joins; `Rhino.UnitSystem` carries pattern and width units.
@@ -68,25 +68,26 @@
 
 [HATCH_PATTERN]:
 
-| [INDEX] | [SURFACE]                                                                   | [SHAPE]  | [CAPABILITY]                          |
-| :-----: | :-------------------------------------------------------------------------- | :------- | :------------------------------------ |
-|  [01]   | `new HatchPattern()` / `new HatchPattern(HatchPattern)`                     | ctor     | fresh + copy, detached before `Add`   |
-|  [02]   | `HatchPattern.GetDefaultHatchPatterns() -> HatchPattern[]`                  | static   | built-in pattern roster               |
-|  [03]   | `HatchPattern.ReadFromFile(string, bool) -> HatchPattern[]`                 | static   | `.pat` import to a roster             |
-|  [04]   | `HatchPattern.WriteToFile(string, HatchPattern\|IEnumerable<HatchPattern>)` | static   | `.pat` export, one or many            |
-|  [05]   | `HatchPattern.CreatePreviewGeometry(int, int, double) -> Line[]`            | instance | swatch preview lines                  |
-|  [06]   | `HatchPattern.AddHatchLine(HatchLine) -> int` / `HatchLineAt(int)`          | instance | append a line; get one by index       |
-|  [07]   | `HatchPattern.RemoveHatchLine(int)` / `RemoveAllHatchLines()`               | instance | remove one line or all                |
-|  [08]   | `HatchPattern.SetHatchLines(IEnumerable<HatchLine>) -> int`                 | instance | replace the whole line set            |
-|  [09]   | `new HatchLine()` / `new HatchLine(HatchLine)`                              | ctor     | one dash-line generator, fresh + copy |
-|  [10]   | `HatchLine.SetDashes(IEnumerable<double>)` / `AppendDash(double)`           | instance | set the dash run; append one dash     |
-|  [11]   | `HatchLine.DashAt(int) -> double` / `GetDashes -> IEnumerable<double>`      | instance | read one dash; read the run           |
+| [INDEX] | [SURFACE]                                                              | [SHAPE]  | [CAPABILITY]                          |
+| :-----: | :--------------------------------------------------------------------- | :------- | :------------------------------------ |
+|  [01]   | `new HatchPattern()` / `new HatchPattern(HatchPattern)`                | ctor     | fresh + copy, detached before `Add`   |
+|  [02]   | `HatchPattern.GetDefaultHatchPatterns() -> HatchPattern[]`             | static   | built-in pattern roster               |
+|  [03]   | `HatchPattern.ReadFromFile(string, bool) -> HatchPattern[]`            | static   | `.pat` import to a roster             |
+|  [04]   | `HatchPattern.WriteToFile(string, HatchPattern) -> bool`               | static   | `.pat` export of one pattern          |
+|  [05]   | `HatchPattern.WriteToFile(string, IEnumerable<HatchPattern>) -> bool`  | static   | `.pat` export of a roster             |
+|  [06]   | `HatchPattern.CreatePreviewGeometry(int, int, double) -> Line[]`       | instance | swatch preview lines                  |
+|  [07]   | `HatchPattern.AddHatchLine(HatchLine) -> int` / `HatchLineAt(int)`     | instance | append a line; get one by index       |
+|  [08]   | `HatchPattern.RemoveHatchLine(int)` / `RemoveAllHatchLines()`          | instance | remove one line or all                |
+|  [09]   | `HatchPattern.SetHatchLines(IEnumerable<HatchLine>) -> int`            | instance | replace the whole line set            |
+|  [10]   | `new HatchLine()` / `new HatchLine(HatchLine)`                         | ctor     | one dash-line generator, fresh + copy |
+|  [11]   | `HatchLine.SetDashes(IEnumerable<double>)` / `AppendDash(double)`      | instance | set the dash run; append one dash     |
+|  [12]   | `HatchLine.DashAt(int) -> double` / `GetDashes -> IEnumerable<double>` | instance | read one dash; read the run           |
 
 [HATCH_LINE_SET]: `HatchLineCount` `HatchLines` — count and enumerate the pattern's lines
 [HATCH_PATTERN_CONFIG]: `Name` `Description` `FillType` `PatternUnitSystem` `AlwaysModelDistances` `Index` `InUse` — settable config and usage
 [HATCH_PATTERN_DEFAULTS]: `Solid` `Hatch1` `Hatch2` `Hatch3` `Dash` `Grid` `Grid60` `Plus` `Squares` — static `Defaults` catalog, each a fresh built-in
 [HATCH_LINE_GEOMETRY]: `Angle` `BasePoint` `Offset` `DashCount` `PatternLength` — one generator line's geometry
-- `HatchPattern` user-string bag: `SetUserString`/`GetUserString`/`GetUserStrings`/`DeleteUserString`/`DeleteAllUserStrings`.
+- `HatchPattern` re-declares the user-string roster `libs/csharp/Rasm.Rhino/.api/api-rhinocommon-persistence.md` owns.
 
 [HATCH_TABLE]:
 
@@ -114,15 +115,15 @@
 |  [08]   | `Linetype.PatternString(bool) -> string`                                        | instance | `.lin` string of this definition   |
 |  [09]   | `Linetype.CreateFromPatternString(string, bool) -> Linetype`                    | static   | build from a `.lin` string         |
 |  [10]   | `Linetype.ReadFromFile(string) -> Linetype[]`                                   | static   | read a `.lin` file                 |
-|  [11]   | `Linetype.DuplicateLinetype() -> Linetype` / `Default()` / `CommitChanges()`    | instance | copy, reset, commit the definition |
+|  [11]   | `Linetype(Linetype)` / `DuplicateLinetype()` / `Default()` / `CommitChanges()`  | instance | copy, reset, commit the definition |
 
-- `Linetype.DuplicateLinetype`: copy clears name and id — re-stamp the name before `Modify`.
+- `Linetype.DuplicateLinetype` clears the name, the id, AND the locked bits and answers null on failure; `Linetype(Linetype other)` is the whole-native copy carrying all three that cannot answer null, so a duplicate-then-`Modify` revision takes the constructor.
 - a segment is the `(double length, bool isSolid)` pair (no segment-shape enum); named defaults live only on `LinetypeTable` (`ContinuousLinetypeName`/`ByLayerLinetypeName`/`ByParentLinetypeName` + `LoadDefaultLinetypes`).
-- `Linetype` user-string bag: `SetUserString`/`GetUserString`/`GetUserStrings`/`DeleteUserString`/`DeleteAllUserStrings`.
+- `Linetype` re-declares the user-string roster `libs/csharp/Rasm.Rhino/.api/api-rhinocommon-persistence.md` owns.
 [LINETYPE_SEGMENT_READ]: `SegmentCount` `PatternLength` — segment-run measures
 [LINETYPE_SHAPES]: `HasShapes` `ShapeSpacing` `ShapeGap` `ShapeLocalOffset` `ShapeBounds` — embedded-shape placement
 [LINETYPE_STROKE]: `LineCapStyle` `LineJoinStyle` `Width` `WidthUnits` `AlwaysModelDistances` `IsPatternLocked` — stroke config
-[LINETYPE_IDENTITY]: `Name` `LinetypeIndex` `InUse` `IsModified` `UserStringCount` — identity and state
+[LINETYPE_IDENTITY]: `Name` `LinetypeIndex` `InUse` `IsModified` — identity and state
 
 [LINETYPE_TABLE]:
 
@@ -183,11 +184,11 @@
 |  [02]   | `SectionStyleTable.Find(string) -> int` / `Find(Guid, bool) -> int`                     | instance | resolve to index by name or id   |
 |  [03]   | `SectionStyleTable.Add(SectionStyle) -> int` / `AddReferenceSectionStyle(SectionStyle)` | instance | add from definition or reference |
 |  [04]   | `SectionStyleTable.Modify(SectionStyle, int, bool)`                                     | instance | rewrite one                      |
-|  [05]   | `SectionStyleTable.Delete(int, bool)` / `Delete(IEnumerable<int>, bool, int)`           | instance | delete one or batch              |
+|  [05]   | `SectionStyleTable.Delete(int, bool)` / `Delete(IEnumerable<int>, bool[, int])`         | instance | delete one or batch              |
 |  [06]   | `SectionStyleTable.InUse(int, out int, out int, out int) -> bool`                       | instance | usage census before delete       |
 
 - `SectionStyleTable.InUse`: three-way census of definitions, objects, and layers before a delete.
-- `Delete(IEnumerable<int>, bool quiet, int deleteWarning)` reads its third argument as an in-use-warning verdict — `0` refuses every warned row, `1` admits every warned row, `2` asks the operator — and the two-argument overload derives it as `quiet ? 0 : 2`, so a bare literal at a call site re-spells a derivation the host already owns.
+- `Delete(IEnumerable<int>, bool quiet, int deleteWarning)` reads its third argument as an in-use-warning verdict — `0` refuses every warned row, `1` admits every warned row, `2` asks the operator — and the two-argument `Delete(IEnumerable<int>, bool)` overload derives it as `quiet ? 0 : 2`; the three-argument form exists to OVERRIDE that derivation, so a caller wanting the derived verdict spells the two-argument call.
 [SECTION_TABLE_STATE]: `GetUnusedSectionStyleName()` `ActiveCount` — name-mint and active-count state
 
 ## [04]-[IMPLEMENTATION_LAW]
@@ -199,10 +200,11 @@
 - `SectionStyle` composes the other resources: `HatchIndex` binds a `HatchPattern`, `BoundaryLinetypeIndex` a `Linetype`; presentation is background fill, boundary stroke, and cut-fill hatch, and `InUse` censuses definitions, objects, and layers before a delete.
 
 [STACKING]:
-- `LanguageExt.Core`(`../../.api/api-languageext.md`): table `bool`/`int` outcomes project to `Fin<Unit>`/`Fin<int>`; nullable `Find*`/`GetBoundaryLinetype` reads lift to `Option<A>`; `Create -> Hatch[]` and roster reads (`InstalledFonts`, `GetDefaultHatchPatterns`, `ReadFromFile`) land as `Seq<A>`; `GetSegment`/`InUse`/`CreateDisplayGeometry` `out` results fold into `Fin<A>` carrying the payload only on success.
-- `Thinktecture.Runtime.Extensions`(`../../.api/api-thinktecture-runtime-extensions.md`): `HatchPatternFillType`, `FontWeight`/`FontStyle`/`FontStretch`/`FontOrigin`/`FontType`, `SectionBackgroundFillMode`, `ObjectSectionFillRule`, and the referenced `LineCapStyle`/`LineJoinStyle`/`UnitSystem`/`ObjectLinetypeSource` map at the edge to `[SmartEnum]` owners; a pattern/linetype/font/section-style `Guid` is a `[ValueObject<Guid>]`; a table index is a bounded index owner, so an index never crosses as a bare `int`.
+- `RhinoCommon` value substrate(`libs/csharp/.api/api-rhinocommon.md`): the `Point3d`/`Plane`/`Line`/`Transform` carriers this boundary threads cross the wire from the substrate; it composes them and re-derives none.
+- `LanguageExt.Core`(`libs/csharp/.api/api-languageext.md`): table `bool`/`int` outcomes project to `Fin<Unit>`/`Fin<int>`; nullable `Find*`/`GetBoundaryLinetype` reads lift to `Option<A>`; `Create -> Hatch[]` and roster reads (`InstalledFonts`, `GetDefaultHatchPatterns`, `ReadFromFile`) land as `Seq<A>`; `GetSegment`/`InUse`/`CreateDisplayGeometry` `out` results fold into `Fin<A>` carrying the payload only on success.
+- `Thinktecture.Runtime.Extensions`(`libs/csharp/.api/api-thinktecture-runtime-extensions.md`): `HatchPatternFillType`, `FontWeight`/`FontStyle`/`FontStretch`/`FontOrigin`/`FontType`, `SectionBackgroundFillMode`, `ObjectSectionFillRule`, and the referenced `LineCapStyle`/`LineJoinStyle`/`UnitSystem`/`ObjectLinetypeSource` map at the edge to `[SmartEnum]` owners; a pattern/linetype/font/section-style `Guid` is a `[ValueObject<Guid>]`; a table index is a bounded index owner, so an index never crosses as a bare `int`.
 - `Rasm` kernel: hatch planes, base points, pattern transforms, dash lengths, taper points, and font point sizes compose the kernel numeric and unit owners; every `Color`-valued fill, boundary, and hatch field composes the kernel color rail, never a host channel average.
-- `api-rhinocommon-annotation.md`: a `DimensionStyle.Font` and an embedded linetype shape resolve here; `api-rhinocommon-display.md` draws hatches (`DrawHatch`) and builds a `DisplayPen` from a `Linetype` (`FromLinetype`).
+- `libs/csharp/Rasm.Rhino/.api/api-rhinocommon-annotation.md`: a `DimensionStyle.Font` and an embedded linetype shape resolve here; `libs/csharp/Rasm.Rhino/.api/api-rhinocommon-display.md` draws hatches (`DrawHatch`) and builds a `DisplayPen` from a `Linetype` (`FromLinetype`).
 
 [LOCAL_ADMISSION]:
 - a resource enters through its table `Add`/`Modify`, fully composed (lines, segments, shapes, indices) before the add and mutated only through `Modify` after. A section style's `HatchIndex`/`BoundaryLinetypeIndex` binds only after the referenced pattern and linetype resolve in their tables.

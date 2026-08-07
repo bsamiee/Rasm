@@ -49,15 +49,20 @@
 
 [ENTRYPOINT_SCOPE]: typed construction and scaling
 
-| [INDEX] | [SURFACE]                             | [SHAPE]  | [CAPABILITY]                                       |
-| :-----: | :------------------------------------ | :------- | :------------------------------------------------- |
-|  [01]   | `PointForce(Force, Force, Force)`     | ctor     | spatial point force from typed `Force` components  |
-|  [02]   | `LineForce(...)` / `AreaForce(...)`   | ctor     | line/area action from `ForcePerLength`/`Pressure`  |
-|  [03]   | `Gravity(Ratio)` / `Gravity()`        | ctor     | gravity field as a `Ratio` g-multiplier            |
-|  [04]   | `implicit operator PointForce(Force)` | operator | a bare `Force` lifts to a Z-axis `PointForce`      |
-|  [05]   | `ILoad.Factor(Ratio) -> ILoad`        | instance | rebuilt load, each component × `.DecimalFractions` |
-|  [06]   | `ILoad.Label -> string`               | property | human-facing label carried across `Factor`         |
-|  [07]   | `PointForce.X`/`.Y`/`.Z`              | property | typed `UnitsNet` quantity per axis                 |
+| [INDEX] | [SURFACE]                                                 | [SHAPE]  | [CAPABILITY]                                       |
+| :-----: | :-------------------------------------------------------- | :------- | :------------------------------------------------- |
+|  [01]   | `PointForce(Force, Force, Force)`                         | ctor     | spatial point force from typed `Force` components  |
+|  [02]   | `LineForce(...)` / `AreaForce(...)`                       | ctor     | line/area action from `ForcePerLength`/`Pressure`  |
+|  [03]   | `Gravity(Ratio)` / `Gravity()`                            | ctor     | gravity field as a `Ratio` g-multiplier            |
+|  [04]   | `implicit operator PointForce(Force)`                     | operator | a bare `Force` lifts to a Z-axis `PointForce`      |
+|  [05]   | `ILoad.Factor(Ratio) -> ILoad`                            | instance | rebuilt load, each component × `.DecimalFractions` |
+|  [06]   | `ILoad.Label -> string`                                   | property | human-facing label carried across `Factor`         |
+|  [07]   | `PointForce.X`/`.Y`/`.Z`                                  | property | typed `UnitsNet` quantity per axis                 |
+|  [08]   | `PointForce(Force, Force, Force)`                         | ctor     | the three-axis spatial form (`X`, `Y`, `Z`)        |
+|  [09]   | `PointMoment(Torque, Torque, Torque)`                     | ctor     | the three-axis moment form (`Xx`, `Yy`, `Zz`)      |
+|  [10]   | `LineForce(ForcePerLength ×3, LoadApplication)`           | ctor     | distributed line action in a stated frame          |
+|  [11]   | `AreaForce(Pressure)` + `X`/`Y`/`Z`/`Application` setters | ctor     | Z-form ctor, the other axes set after              |
+|  [12]   | `Gravity()` / `Gravity(Ratio)`                            | ctor     | g-multiplier field, empty or Z-stated              |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -70,17 +75,17 @@
 - `UnitsNet` (`libs/csharp/.api/api-unitsnet.md`): every load component IS a `UnitsNet` typed quantity, so a `PointForce` reduction is `UnitMath.Sum(forces, ForceUnit.Newton)` and SI coercion is the shared `ToUnit(UnitSystem.SI)`; the `Factor(Ratio)` argument is the `Ratio` whose `.DecimalFractions` is the dimensionless multiplier
 - `VividOrange.ISerialization`: `ILoad: ITaxonomySerializable` keys the VividOrange serializer, so a load round-trips through the one taxonomy-serialization rail the whole structural taxonomy shares
 - `VividOrange.Cases` (`.api/api-vividorange-cases`): `ILoadCase.Loads` is `IList<ILoad>` and `ILoadCombination.GetFactoredLoads()` returns `IList<ILoad>`; the load taxonomy is the payload `Combinations.Utility.FactorLoads<T>` and `ENCombinationFactory.CreateStrGeoSetB` fold `ILoad.Factor` across
-- `Thinktecture.Runtime.Extensions` (`libs/csharp/.api/api-thinktecture-json.md`): the canonical in-graph discriminant is `Model/structural` `StructuralLoadKind` `[SmartEnum<string>]`; the concrete load type and `LoadApplication` enum are boundary vocabulary mapped onto the Bim record at ingest, never re-exported as the canonical shape
-- `StructuralAnalysisFormat` (`.api/api-structuralanalysisformat`): the SAF load model is quantity-isomorphic — `ExcelStructuralPointAction<Force>` ↔ `PointForce`, `ExcelStructuralCurveAction<ForcePerLength>` ↔ `LineForce`, `ExcelStructuralSurfaceAction` ↔ `AreaForce`, `ExcelStructuralPointMoment` ↔ `PointMoment`, `ExcelStructuralPointSupportDeformation` ↔ `PointDisplacement`; the round-trip is a per-component `UnitsNet` map, so a Eurocode-authored model exports to the SAF XLSX wire with no unit loss
+- `Thinktecture.Runtime.Extensions` (`libs/csharp/.api/api-thinktecture-json.md`): `Model/structural#STRUCTURAL_PROJECTION` `EurocodeAction` is the `[SmartEnum<string>]` whose rows carry the `ENLoadCaseFactory` mint each action resolves through; the concrete load type and `LoadApplication` enum stay boundary vocabulary the projector lowers onto neutral seam rows, never a shape crossing the seam
+- `StructuralAnalysisFormat` (`.api/api-structural-analysis-format`): the SAF load model is quantity-isomorphic — `ExcelStructuralPointAction<Force>` ↔ `PointForce`, `ExcelStructuralCurveAction<ForcePerLength>` ↔ `LineForce`, `ExcelStructuralSurfaceAction` ↔ `AreaForce`, `ExcelStructuralPointMoment` ↔ `PointMoment`, `ExcelStructuralPointSupportDeformation` ↔ `PointDisplacement`; the round-trip is a per-component `UnitsNet` map, so a Eurocode-authored model exports to the SAF XLSX wire with no unit loss
 - `LanguageExt.Core`: an out-of-range or unparseable foreign load quantity at the SAF/IFC ingest boundary lowers onto `Model/faults#FAULT_BAND` `BimFault.CodecReject`/`Fin<T>` through `.ToError()`, never a thrown exception inside the load fold
 
 [LOCAL_ADMISSION]:
-- `Model/structural#STRUCTURAL_PROJECTION` `LoadGroup` owns load-group topology by GlobalId while the typed `ILoad` carries the applied action quantity; the group references items, the load carries the force, and the two never merge into one stringly-typed record
-- a load quantity is always a `UnitsNet` struct; SI-base coercion is the `libs/csharp/.api/api-unitsnet.md` `ToUnit(UnitSystem.SI)` path
-- `PointForce`/`LineForce`/… concrete classes are mutable settable-property carriers; ingest them as boundary DTOs and project onto the immutable Bim record set, never as in-graph authority
+- `Model/structural#STRUCTURAL_PROJECTION` mints one carrier per `IfcStructuralLoad` subtype and lowers the neutral component rows beside it; the group topology rides the seam's own edges, so the typed load carries the action quantity alone
+- carrier components are minted FROM already-coerced SI magnitudes (`Force.FromNewtons`, `ForcePerLength.FromNewtonsPerMeter`, `Pressure.FromPascals`, `Torque.FromNewtonMeters`) and read back through the matching SI accessor; the `ToUnit(UnitSystem.SI)` registry path throws for every quantity whose SI unit-info walk is empty, so it never enters this lane
+- `PointForce`/`LineForce`/… concrete classes are mutable settable-property carriers; they live inside the fold that mints them and the projection that leaves is the neutral row set, never a settable carrier crossing a seam signature
 
 [RAIL_LAW]:
 - Package: `VividOrange.Loads` over `VividOrange.ILoads`
 - Owns: the typed structural-load value taxonomy and the `Factor(Ratio)` scaling combinator
 - Accept: load components as `UnitsNet` quantities; combination scaling through `ILoad.Factor`; serialization through `ITaxonomySerializable`
-- Reject: bare-`double` components, hand-multiplied partial-factor scaling, a per-load-type parallel record family on the Bim graph (the owner is `Model/structural` `LoadGroup` + `StructuralLoadKind`), a SAF round-trip reinterpreting a scalar instead of mapping the typed unit
+- Reject: bare-`double` components, hand-multiplied partial-factor scaling, a per-load-type parallel record family on the Bim graph (the seam carries neutral rows on its own edges), a SAF round-trip reinterpreting a scalar instead of mapping the typed unit

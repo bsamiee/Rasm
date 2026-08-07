@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `GeometryGymIFC_Core`
-- package: `GeometryGymIFC_Core`
+- package: `GeometryGymIFC_Core` (MIT)
 - assembly: `GeometryGymIFCcore`
 - namespace: `GeometryGym.Ifc`
 - namespace: `GeometryGym.STEP`
@@ -57,7 +57,7 @@
 |  [16]   | `IfcLogicalEnum`                   | three-valued logical                                                   |
 |  [17]   | `IfcWorkScheduleTypeEnum`          | work-schedule kind                                                     |
 
-[RELEASE_VALUES]: `ReleaseVersion` `IFC2x3` `IFC4A2` `IFC4X3` `IFC4X3_ADD2` `IFC4X4_DRAFT`.
+[RELEASE_VALUES]: `ReleaseVersion` full roster in declaration order — `IFC2X` (retired), `IFC2x2` (retired), `IFC2x3`, `IFC4` (retired), `IFC4A1` (withdrawn), `IFC4A2`, `IFC4X1` (withdrawn), `IFC4X2` (withdrawn), `IFC4X3_RC1`-`RC4` (superseded), `IFC4X3`, `IFC4X3_ADD2`, `IFC4X4_DRAFT` (tunnel deployment testing, never production); the retired members remain live sniff/lower inputs, and no IFC5 slot exists. Enum members across the assembly carry version-added and deletion metadata; TYPE declarations carry neither, and the token attributes diverge from schema truth on grown enums (`IfcWallTypeEnum` annotates the retired 2x3 trio `IFC4` and leaves the IFC4-added trio bare), so span truth stays the schema-derived overlay and the attribute is a cross-check.
 
 [MODEL_VIEW_VALUES]: `ModelView` `Ifc4Reference` `Ifc4DesignTransfer` `Ifc2x3Coordination` `IFC4X3Reference` `IFC4X3AlignmentBasedView` `Ifc4X3NotAssigned`.
 
@@ -152,6 +152,8 @@
 |  [28]   | `IfcDuration`                | ISO duration scalar                                                                        |
 |  [29]   | `IfcTimeStamp`               | Unix-time scalar                                                                           |
 
+[GENERATED_PSET_SURFACE]: the assembly ships generated buildingSMART authoring types — the `Pset_*` family (each `: IfcPropertySet` with SET-ONLY properties pushing typed `IfcPropertySingleValue`/`IfcPropertyEnumeratedValue` rows, e.g. `Pset_WallCommon.FireRating`), the `PEnum_*` enums those setters take, and the `Qto_*` quantity-set family. WRITE-ONLY surfaces: property names and CLR value types enumerate by reflection, but no value reads back off the constructed set — reads ride the generic `IfcPropertySet.HasProperties` path.
+
 [PROPERTY_REFERENCE_MEMBERS]: `IfcPropertyReferenceValue` constructs from `(DatabaseIfc db, string name)` or `(string name, IfcObjectReferenceSelect obj)` and carries settable `UsageName` and `PropertyReference`.
 
 [SCALAR_VALUE_MEMBERS]: `IfcInteger(long)` and `IfcReal(double)` carry `Magnitude`; `IfcBinary(byte[])` carries `Binary`; `IfcDate(DateTime)`, `IfcDateTime(DateTime)`, `IfcTime` (parameterless, settable `Value`), `IfcDuration` (settable `Years`/`Months`/`Days`/`Hours`/`Minutes`/`Seconds`), and `IfcTimeStamp(int)` carry the neutral typed-value scalars.
@@ -166,9 +168,15 @@
 
 [MATERIAL_LAYER_MEMBERS]: Each `IfcMaterialLayerSet.MaterialLayers` entry extends `IfcMaterialDefinition`, constructs from `(IfcMaterial, double thickness, string name)`, and carries `Material`, `LayerThickness`, `Priority`, `Category`, and `IsVentilated`.
 
+[MATERIAL_SET_CONSTRUCTION]: each assembly SET definition constructs name-first or row-first — `IfcMaterialLayerSet(IEnumerable<IfcMaterialLayer>, string name)` beside `(IfcMaterialLayer, string name)`, `IfcMaterialConstituentSet(string name, IEnumerable<IfcMaterialConstituent>)` beside `(IEnumerable<IfcMaterialConstituent>)`, and `IfcMaterialProfileSet(string name, List<IfcMaterialProfile>)` beside `(string name, IfcMaterialProfile)`, the profile set alone taking a concrete `List<T>`. Every set reads its `DatabaseIfc` off the rows it is handed, so no set constructor takes one.
+
+[MATERIAL_SUBSTANCE_CONSTRUCTION]: `IfcMaterial(DatabaseIfc, string name)` is the substance entry every layer, constituent, and profile row shares. `IfcMaterialProfileSet.CompositeProfile` publishes a get/set `IfcCompositeProfileDef` a compound set stamps after construction.
+
+[MATERIAL_PROFILE_CONSTRUCTION]: `IfcMaterialProfile(string name, IfcMaterial, IfcProfileDef)` is the base row and `IfcMaterialProfileWithOffsets` extends it at its declared LIST[1:2] arity through `(string name, IfcMaterial, IfcProfileDef, double startOffset)` and `(…, double startOffset, double endOffset)` — two constructors, no padded third — while `IfcMaterialProfile(DatabaseIfc)` is the row-less form. `Category` and `Priority` are post-construction setters on every row.
+
 [MATERIAL_CONSTITUENT_MEMBERS]: Each `IfcMaterialConstituentSet.MaterialConstituents` entry extends `IfcMaterialDefinition`, constructs from `(string name, IfcMaterial)`, and carries `Material`, `Name`, `Category`, and `Fraction`.
 
-[MATERIAL_OFFSET_MEMBERS]: `IfcMaterialProfileWithOffsets.OffsetValues` is a `public double[]` of arity one or two behind public constructors; `IfcMaterialLayerWithOffsets` keeps `mOffsetValues` internal behind internal constructors and publishes no accessor.
+[MATERIAL_OFFSET_MEMBERS]: `IfcMaterialProfileWithOffsets.OffsetValues` is a `public double[]` of arity one or two; `IfcMaterialLayerWithOffsets` keeps `mOffsetValues` internal behind internal constructors and publishes no accessor, so the LAYER offsets are unreachable at the public surface while the PROFILE offsets fold.
 
 [SIMPLE_QUANTITY_TYPES]: `IfcPhysicalSimpleQuantity` covers `IfcQuantityLength` `IfcQuantityArea` `IfcQuantityVolume` `IfcQuantityWeight` `IfcQuantityCount` `IfcQuantityTime` `IfcQuantityNumber` — SEVEN concretes, the IFC4.3 `IfcQuantityNumber` (`NumberValue` a `double`) included.
 
@@ -270,6 +278,12 @@
 
 [BOUNDARY_CONDITION_CTORS]: `IfcBoundaryCondition` spans `IfcBoundaryNodeCondition` and `IfcBoundaryEdgeCondition`; `IfcBoundaryNodeCondition` constructs from `(db)`, `(db, name, 6x bool restraints)`, or `(db, name, 3x IfcTranslationalStiffnessSelect + 3x IfcRotationalStiffnessSelect)`.
 
+[BOUNDARY_CONDITION_MEMBERS]: `IfcBoundaryNodeCondition` carries settable `TranslationalStiffnessX`/`Y`/`Z` (`IfcTranslationalStiffnessSelect`) and `RotationalStiffnessX`/`Y`/`Z` (`IfcRotationalStiffnessSelect`); `IfcBoundaryEdgeCondition` carries settable `LinearStiffnessByLengthX`/`Y`/`Z` (`IfcModulusOfTranslationalSubgradeReactionSelect`) and `RotationalStiffnessByLengthX`/`Y`/`Z` (`IfcModulusOfRotationalSubgradeReactionSelect`). `IfcStructuralConnectionCondition` is abstract and carries `Name` alone.
+
+[WARPING_CONDITION_SEALED]: `IfcBoundaryNodeConditionWarping` extends the node condition and constructs from `(db, name, 3x translational, 3x rotational, IfcWarpingStiffnessSelect)`, yet its `mWarpingStiffness` field stays INTERNAL with no public accessor — the warping DOF authors and never reads, the sealed-payload shape `IfcStructuralLoadSingleDisplacement` also holds.
+
+[STRUCTURAL_CONNECTION_MEMBERS]: `IfcRelConnectsStructuralMember` carries settable `SupportedLength` (`double`), `AppliedCondition`, `AdditionalConditions`, and `ConditionCoordinateSystem` beside its relating/related pair. `IfcStructuralActivity` carries settable `GlobalOrLocal` (`IfcGlobalOrLocalEnum`) beside `AppliedLoad`. `IfcVertexPoint` carries settable `VertexGeometry` (`IfcPoint`, the setter back-registering the vertex on the point).
+
 [STRUCTURAL_LOAD_CONFIGURATION_MEMBERS]: `IfcStructuralLoadConfiguration` extends `IfcStructuralLoad`, exposes `Values` as `LIST<IfcStructuralLoadOrResult>` and `Locations` as `List<List<double>>`, and constructs from `(val, length)`, `(vals, locations)`, or `(val1, loc1, val2, loc2)` for trapezoid vector lowering.
 
 [GROUP_ASSIGNMENT_MEMBERS]: `IfcRelAssignsToGroup.RelatedObjects` is the `SET<IfcObjectDefinition>` reached through `IfcGroup.IsGroupedBy` for `IfcGroup`, `IfcSystem`, and `IfcStructuralLoadGroup` membership.
@@ -292,11 +306,30 @@
 |  [08]   | `IfcRelServicesBuildings`            | binds a system to the spatial structures it serves                                          |
 |  [09]   | `IfcRelConnectsPortToElement`        | connects an `IfcDistributionPort` to its owning distribution element                        |
 |  [10]   | `IfcRelConnectsPorts`                | port-to-port connection edge; `RelatingPort`, `RelatedPort`, `RealizingElement`             |
-|  [11]   | `IfcRelFlowControlElements`          | flow-control binding under `IfcRelConnects`; public pair is `RelatingPort`/`RelatedElement` |
+|  [11]   | `IfcRelFlowControlElements`          | flow-control binding under `IfcRelConnects`                                                 |
 
 [BUILT_SYSTEM_MEMBERS]: `IfcBuiltSystem` carries `PredefinedType` as `IfcBuiltSystemTypeEnum`; the assembly contains no `IfcBuildingSystem` member.
 
-[FLOW_CONTROL_MEMBERS]: `IfcRelFlowControlElements` extends `IfcRelConnects` and carries settable `RelatingPort` (`IfcPort`) and `RelatedElement` (`IfcElement`).
+[FLOW_CONTROL_MEMBERS]: `IfcRelFlowControlElements` extends `IfcRelConnects` and carries settable `RelatingPort` (`IfcPort`) and `RelatedElement` (`IfcElement`). `IfcRelConnectsPortToElement` carries the same pair shape at narrower types — `RelatingPort` (`IfcPort`) and `RelatedElement` (`IfcElement`) — so a port-side edge fold reads one spelling across both.
+
+[PUBLIC_TYPE_SCOPE]: relationship long tail — the rostered `IfcRel*` wire names beyond the core assign/compose/connect set
+
+| [INDEX] | [SYMBOL]                       | [CAPABILITY]                                                       |
+| :-----: | :----------------------------- | :----------------------------------------------------------------- |
+|  [01]   | `IfcRelAdheresToElement`       | surface features adhering to an element, under `IfcRelDecomposes`  |
+|  [02]   | `IfcRelProjectsElement`        | a projection feature added to an element, under `IfcRelDecomposes` |
+|  [03]   | `IfcRelPositions`              | an alignment or linear positioning element positioning products    |
+|  [04]   | `IfcRelDefinesByObject`        | occurrence-to-occurrence definition under `IfcRelDefines`          |
+|  [05]   | `IfcRelSpaceBoundary1stLevel`  | first-level space boundary carrying its parent boundary            |
+|  [06]   | `IfcRelSpaceBoundary2ndLevel`  | second-level space boundary carrying its corresponding boundary    |
+|  [07]   | `IfcRelAssignsToGroupByFactor` | group assignment carrying a scalar participation factor            |
+|  [08]   | `IfcRelOverridesProperties`    | property override under `IfcRelDefinesByProperties`                |
+
+[RELATION_LONG_TAIL_PAIRS]: `IfcRelAdheresToElement` pairs `RelatingElement` (`IfcElement`) with `RelatedSurfaceFeatures` (`SET<IfcSurfaceFeature>`, get-only); `IfcRelProjectsElement` pairs `RelatingElement` (`IfcElement`) with `RelatedFeatureElement` (`IfcFeatureElementAddition`); `IfcRelPositions` pairs `RelatingPositioningElement` (`IfcPositioningElement`) with `RelatedProducts` (`SET<IfcProduct>`, get-only); `IfcRelDefinesByObject` pairs `RelatingObject` (`IfcObject`) with `RelatedObjects` (`SET<IfcObject>`, get-only).
+
+[RELATION_LONG_TAIL_PAYLOADS]: `IfcRelAssignsToGroupByFactor` adds `Factor` (`double`) to the inherited group pair; `IfcRelOverridesProperties` adds `OverridingProperties` (`SET<IfcProperty>`, get-only) to the inherited definition pair. Both override `StepClassName`.
+
+[SPACE_BOUNDARY_MEMBERS]: `IfcRelSpaceBoundary1stLevel` carries `ParentBoundary` (`IfcRelSpaceBoundary1stLevel`) and constructs from `(IfcSpaceBoundarySelect, IfcElement, IfcPhysicalOrVirtualEnum, IfcInternalOrExternalEnum, IfcRelSpaceBoundary1stLevel)`; `IfcRelSpaceBoundary2ndLevel` extends it with `CorrespondingBoundary` (`IfcRelSpaceBoundary2ndLevel`) and appends that boundary to the same constructor.
 
 [ZONE_MEMBERS]: `IfcZone` carries `LongName`, constructs from `(IfcSpatialElement, string, List<IfcSpace>)`, and has no `PredefinedType`.
 
@@ -314,7 +347,7 @@
 |  [06]   | `IfcWorkCalendar`                  | working/exception time calendar; `WorkingTimes`, `ExceptionTimes`                      |
 |  [07]   | `IfcRelSequence`                   | task dependency edge                                                                   |
 |  [08]   | `IfcRelAssignsToProcess`           | assigns products/resources to a process; `RelatingProcess`, `RelatedObjects`           |
-|  [09]   | `IfcCostSchedule`                  | cost schedule under `IfcControl`; `Controls`, `PredefinedType`, `SubmittedOn`          |
+|  [09]   | `IfcCostSchedule`                  | cost schedule under `IfcControl`; `Controls`, `PredefinedType`, approval state         |
 |  [10]   | `IfcCostItem`                      | cost line item; `CostValues` (`IfcCostValue`), `CostQuantities`, `PredefinedType`      |
 |  [11]   | `IfcCostValue`                     | applied cost value/rate; `AppliedValue` (`IfcAppliedValue`), `UnitBasis`, `Category`   |
 |  [12]   | `IfcConstructionResource`          | construction-resource base; `Usage`, `BaseCosts`, `BaseQuantity`                       |
@@ -328,7 +361,13 @@
 
 [PROCESS_MEMBERS]: `IfcProcess` carries `IsSuccessorFrom`, `IsPredecessorTo` (`IfcRelSequence` collections), and `OperatesOn`.
 
-[TASK_TIME_MEMBERS]: `IfcTaskTime` carries `ScheduleStart`, `ScheduleFinish`, `ScheduleDuration`, `ActualStart`, and `ActualFinish`.
+[TASK_TIME_MEMBERS]: `IfcTaskTime` extends `IfcSchedulingTime` and carries `DurationType` (`IfcTaskDurationEnum`), `IsCritical` (`bool`), and `Completion` (`double`, unset NaN). Its duration slots — `ScheduleDuration`/`ActualDuration`/`RemainingTime`/`FreeFloat`/`TotalFloat` — are `IfcDuration`, whose `ValueString` is the ISO-8601 wire; its instant slots — `ScheduleStart`/`ScheduleFinish`/`EarlyStart`/`EarlyFinish`/`LateStart`/`LateFinish`/`ActualStart`/`ActualFinish`/`StatusTime` — are `IfcDateTime`. `IfcResourceTime` extends the same base and carries `ScheduleWork` (`string`).
+
+[COST_SCHEDULE_STATUS_MEMBER]: `IfcCostSchedule`'s approval state is spelled `Staus` — the upstream member name, `public string`, carrying free IFC text (`PLANNED`/`APPROVED`/`AGREED`/`ISSUED`), never a bounded enum; a `Status` spelling fails to compile against this assembly.
+
+[NESTING_MEMBER]: `IfcObjectDefinition.IsNestedBy` is `SET<IfcRelNests>`, get-only and self-registering, so every `IfcCostItem`, `IfcWorkPlan`, and `IfcTask` reaches its nesting children through the one inherited member; `IfcPropertySetDefinition.DefinesType` is likewise `SET<IfcTypeObject>`, get-only.
+
+[APPLIED_VALUE_MEMBERS]: `IfcAppliedValue` carries `ArithmeticOperator` (`IfcArithmeticOperatorEnum`, `NONE` the unset sentinel) beside its `Components` tree, constructing the operator arity from `(IfcAppliedValue, IfcArithmeticOperatorEnum, IfcAppliedValue)`.
 
 [REL_SEQUENCE_MEMBERS]: `IfcRelSequence` carries `RelatingProcess`, `RelatedProcess`, `TimeLag`, and `SequenceType`.
 
@@ -348,20 +387,30 @@
 
 [PUBLIC_TYPE_SCOPE]: IFC4.3 infrastructure entities — alignment and facility
 
-| [INDEX] | [SYMBOL]                      | [CAPABILITY]                                     |
-| :-----: | :---------------------------- | :----------------------------------------------- |
-|  [01]   | `IfcAlignment`                | linear-referencing alignment positioning element |
-|  [02]   | `IfcAlignmentHorizontal`      | horizontal alignment layout                      |
-|  [03]   | `IfcAlignmentVertical`        | vertical alignment layout                        |
-|  [04]   | `IfcAlignmentCant`            | rail cant alignment layout                       |
-|  [05]   | `IfcAlignmentSegment`         | one parameterized alignment segment              |
-|  [06]   | `IfcLinearPlacement`          | placement along a curve via distance expression  |
-|  [07]   | `IfcLinearPositioningElement` | base for linear referencing positioning          |
-|  [08]   | `IfcReferent`                 | referent point along an alignment                |
-|  [09]   | `IfcBridge`                   | bridge facility                                  |
-|  [10]   | `IfcRailway`                  | railway facility                                 |
-|  [11]   | `IfcRoad`                     | road facility                                    |
-|  [12]   | `IfcMarineFacility`           | marine facility                                  |
+| [INDEX] | [SYMBOL]                        | [CAPABILITY]                                     |
+| :-----: | :------------------------------ | :----------------------------------------------- |
+|  [01]   | `IfcAlignment`                  | linear-referencing alignment positioning element |
+|  [02]   | `IfcAlignmentHorizontal`        | horizontal alignment layout                      |
+|  [03]   | `IfcAlignmentVertical`          | vertical alignment layout                        |
+|  [04]   | `IfcAlignmentCant`              | rail cant alignment layout                       |
+|  [05]   | `IfcAlignmentSegment`           | one parameterized alignment segment              |
+|  [06]   | `IfcLinearPlacement`            | placement along a curve via distance expression  |
+|  [07]   | `IfcLinearPositioningElement`   | base for linear referencing positioning          |
+|  [08]   | `IfcReferent`                   | referent point along an alignment                |
+|  [09]   | `IfcBridge`                     | bridge facility                                  |
+|  [10]   | `IfcRailway`                    | railway facility                                 |
+|  [11]   | `IfcRoad`                       | road facility                                    |
+|  [12]   | `IfcMarineFacility`             | marine facility                                  |
+|  [13]   | `IfcPointByDistanceExpression`  | a point located by distance along a basis curve  |
+|  [14]   | `IfcAlignmentHorizontalSegment` | horizontal design-parameter segment              |
+|  [15]   | `IfcAlignmentVerticalSegment`   | vertical design-parameter segment                |
+|  [16]   | `IfcAlignmentCantSegment`       | cant design-parameter segment                    |
+
+[ALIGNMENT_SEGMENT_MEMBERS]: `IfcAlignmentHorizontalSegment` extends `IfcAlignmentParameterSegment` and carries `StartPoint` (`IfcCartesianPoint`), `StartDirection`, `StartRadiusOfCurvature`, `EndRadiusOfCurvature`, `SegmentLength`, `GravityCenterLineHeight` (`double`, unset NaN), and `PredefinedType` (`IfcAlignmentHorizontalSegmentTypeEnum`); the `StartRadiusOfCurvature` setter coerces a NaN assignment to `0.0`.
+
+[DISTANCE_EXPRESSION_MEMBERS]: `IfcPointByDistanceExpression` extends `IfcPoint` and carries `DistanceAlong` (`IfcCurveMeasureSelect` — the length-or-parameter select), `OffsetLateral`, `OffsetVertical`, `OffsetLongitudinal` (`double`, unset NaN), and `BasisCurve` (`IfcCurve`).
+
+[REFERENT_MEMBERS]: `IfcReferent` carries `RestartDistance` (`double`, unset NaN) beside its `PredefinedType` (`IfcReferentTypeEnum`); STEP emits the distance only below `IFC4X3`.
 
 [PUBLIC_TYPE_SCOPE]: IFC4.3 infrastructure entities — earthworks and geotechnics
 
@@ -397,6 +446,8 @@
 |  [16]   | `IfcRepresentationMap`              | reusable type-bound geometry library             |
 
 [REPRESENTATION_MAP_MEMBERS]: `IfcRepresentationMap` carries `MappingOrigin` as `IfcAxis2Placement`, `MappedRepresentation` as `IfcRepresentation`, and `HasShapeAspects`; `IfcMappedItem.MappingSource` references it.
+
+[REPRESENTATION_MEMBERS]: `IfcRepresentation` carries `RepresentationIdentifier` and `RepresentationType` as settable `string` (both empty-string unset, the identifier defaulting off the context's `ContextIdentifier`), beside `ContextOfItems` and `Items`; `IfcShapeRepresentation` inherits both, so the `Axis`/`Body`/`Box`/`FootPrint` discriminant reads off the inherited property and no subtype-local spelling exists.
 
 [PUBLIC_TYPE_SCOPE]: parameterized profile-definition family
 
@@ -435,15 +486,29 @@
 
 [PUBLIC_TYPE_SCOPE]: tessellation geometry — AP242/IFC4.3 mesh interchange
 
-| [INDEX] | [SYMBOL]                  | [CAPABILITY]                                                                           |
-| :-----: | :------------------------ | :------------------------------------------------------------------------------------- |
-|  [01]   | `IfcTessellatedItem`      | abstract tessellated geometry item base; derives from `IfcGeometricRepresentationItem` |
-|  [02]   | `IfcTessellatedFaceSet`   | abstract indexed face mesh base; `Closed`, `HasColours`, `HasTextures` properties      |
-|  [03]   | `IfcTriangulatedFaceSet`  | triangle mesh: `CoordIndex`, `Normals`, `NormalIndex`, `PnIndex`                       |
-|  [04]   | `IfcPolygonalFaceSet`     | polygon mesh; `IfcTessellatedFaceSet` subtype                                          |
-|  [05]   | `IfcCartesianPointList`   | abstract packed point list base                                                        |
-|  [06]   | `IfcCartesianPointList3D` | packed 3D point list; used as `Coordinates` by tessellated face sets                   |
-|  [07]   | `IfcCartesianPointList2D` | packed 2D point list                                                                   |
+| [INDEX] | [SYMBOL]                           | [CAPABILITY]                                                          |
+| :-----: | :--------------------------------- | :-------------------------------------------------------------------- |
+|  [01]   | `IfcTessellatedItem`               | abstract tessellated item base under `IfcGeometricRepresentationItem` |
+|  [02]   | `IfcTessellatedFaceSet`            | abstract mesh base carrying coordinates, closure, colour, and texture |
+|  [03]   | `IfcTriangulatedFaceSet`           | triangle mesh over BCL tuple index and normal lists                   |
+|  [04]   | `IfcPolygonalFaceSet`              | polygon mesh over the GeometryGym `LIST<T>` face collection           |
+|  [05]   | `IfcIndexedPolygonalFace`          | polygon face carrying its coordinate indices and UV-row join          |
+|  [06]   | `IfcIndexedPolygonalFaceWithVoids` | voided polygon face carrying inner rings; not fan-triangulable        |
+|  [07]   | `IfcTextureCoordinateIndices`      | per-face UV row joining a face to its texture-coordinate run          |
+|  [08]   | `IfcIndexedPolygonalTextureMap`    | polygonal texture map over UV rows; constructors internal             |
+|  [09]   | `IfcIndexedTextureMap`             | abstract texture-map base binding a face set to a UV vertex list      |
+|  [10]   | `IfcTextureVertexList`             | UV store over BCL double-pair tuples                                  |
+|  [11]   | `IfcCartesianPointList`            | abstract packed point-list base; no members                           |
+|  [12]   | `IfcCartesianPointList3D`          | packed 3D point store with its optional tag list                      |
+|  [13]   | `IfcCartesianPointList2D`          | packed 2D point store; a curve-set payload, never a face-set body     |
+
+[FACE_SET_MEMBERS]: `IfcTessellatedFaceSet` carries `Coordinates` typed to the ABSTRACT `IfcCartesianPointList` (discriminate 3D at read), `Closed`, `HasColours` (`IfcIndexedColourMap`, get+set), and `HasTextures` (`SET<IfcIndexedTextureMap>`, get-only). `IfcTriangulatedFaceSet` carries `CoordIndex`/`NormalIndex` (`List<Tuple<int,int,int>>`, get-only, 1-based), `Normals` (`List<Tuple<double,double,double>>`, get-only), and `PnIndex` (`List<int>`, get-only). `IfcPolygonalFaceSet` carries `Faces` (`LIST<IfcIndexedPolygonalFace>`) and `PnIndex` (`LIST<int>`) — GeometryGym's own `LIST<T>`, NOT the triangulated subtype's BCL `List<T>`.
+
+[POLYGONAL_FACE_MEMBERS]: `IfcIndexedPolygonalFace` carries `CoordIndex` (`List<int>`, get-only, 1-based) and `HasTexCoords` (`IfcTextureCoordinateIndices`, get+set — the direct face-to-UV-row join), constructing from `(DatabaseIfc, IEnumerable<int>)` and the 3/4-int arities. `IfcIndexedPolygonalFaceWithVoids` adds `InnerCoordIndices` (`List<List<int>>`, get-only).
+
+[TEXTURE_MAP_MEMBERS]: `IfcTextureCoordinateIndices` carries `TexCoordIndex` (`List<int>`, get-only), `TexCoordsOf` (`IfcIndexedPolygonalFace`, get+set), and `ToTexMap` (get+set), with three PUBLIC constructors including `(IEnumerable<int>, IfcIndexedPolygonalFace)`. `IfcIndexedPolygonalTextureMap` carries `TexCoordIndices` (`LIST<IfcTextureCoordinateIndices>`, get+set) and its constructors are INTERNAL — reachable through factory duplication or STEP parse alone. `IfcIndexedTextureMap` carries `MappedTo` (`IfcTessellatedFaceSet`, the setter self-registering into `HasTextures`) and `TexCoords` (`IfcTextureVertexList`); `IfcTextureVertexList` carries `TexCoordsList` (`List<Tuple<double,double>>`, get-only).
+
+[POINT_LIST_MEMBERS]: `IfcCartesianPointList3D` carries `CoordList` (`List<Tuple<double,double,double>>`, get-only, mutable in place) and `TagList`, constructs from `(DatabaseIfc, IEnumerable<Tuple<double,double,double>>)`, and gates its STEP tag emission at `>= IFC4X1`. `IfcCartesianPointList2D` carries `CoordList` (`List<Tuple<double,double>>`, get+set).
 
 [PUBLIC_TYPE_SCOPE]: material appearance and presentation interchange
 
@@ -499,22 +564,25 @@
 
 [PUBLIC_TYPE_SCOPE]: units, presentation, and attributes
 
-| [INDEX] | [SYMBOL]                     | [CAPABILITY]                                                 |
-| :-----: | :--------------------------- | :----------------------------------------------------------- |
-|  [01]   | `IfcUnitAssignment`          | per-context unit set; nested `Length` enum for project ctors |
-|  [02]   | `IfcSIUnit`                  | SI base/derived unit                                         |
-|  [03]   | `IfcConversionBasedUnit`     | unit defined by conversion factor                            |
-|  [04]   | `IfcDerivedUnit`             | compound derived unit                                        |
-|  [05]   | `IfcMonetaryUnit`            | ISO 4217 currency unit                                       |
-|  [06]   | `IfcMeasureWithUnit`         | value bound to a unit                                        |
-|  [07]   | `IfcClassificationReference` | external-classification reference                            |
-|  [08]   | `IfcClassification`          | classification source dictionary                             |
-|  [09]   | `VersionAddedAttribute`      | reflection attribute marking schema-version availability     |
-|  [10]   | `IfcMeasureValue`            | abstract numeric measure-value base                          |
-|  [11]   | `IfcMonetaryMeasure`         | monetary amount measure                                      |
-|  [12]   | `IfcNamedUnit`               | abstract base of SI/conversion/context units                 |
-|  [13]   | `IfcConversionBasedUnitWithOffset` | conversion unit carrying an affine offset              |
-|  [14]   | `IfcUnit`                    | unit SELECT over named, derived, and monetary units          |
+| [INDEX] | [SYMBOL]                           | [CAPABILITY]                                                 |
+| :-----: | :--------------------------------- | :----------------------------------------------------------- |
+|  [01]   | `IfcUnitAssignment`                | per-context unit set; nested `Length` enum for project ctors |
+|  [02]   | `IfcSIUnit`                        | SI base/derived unit                                         |
+|  [03]   | `IfcConversionBasedUnit`           | unit defined by conversion factor                            |
+|  [04]   | `IfcDerivedUnit`                   | compound derived unit                                        |
+|  [05]   | `IfcMonetaryUnit`                  | ISO 4217 currency unit                                       |
+|  [06]   | `IfcMeasureWithUnit`               | value bound to a unit                                        |
+|  [07]   | `IfcClassificationReference`       | external-classification reference                            |
+|  [08]   | `IfcClassification`                | classification source dictionary                             |
+|  [09]   | `VersionAddedAttribute`            | reflection attribute marking schema-version availability     |
+|  [10]   | `IfcMeasureValue`                  | abstract numeric measure-value base                          |
+|  [11]   | `IfcMonetaryMeasure`               | monetary amount measure                                      |
+|  [12]   | `IfcNamedUnit`                     | abstract base of SI/conversion/context units                 |
+|  [13]   | `IfcConversionBasedUnitWithOffset` | conversion unit carrying an affine offset                    |
+|  [14]   | `IfcUnit`                          | unit SELECT over named, derived, and monetary units          |
+|  [15]   | `IfcDerivedMeasureValue`           | abstract base of every SI-derived measure leaf               |
+|  [16]   | `IfcNormalisedRatioMeasure`        | unit-interval ratio measure                                  |
+|  [17]   | `IfcPositiveRatioMeasure`          | strictly-positive ratio measure                              |
 
 [MONETARY_UNIT_MEMBERS]: `IfcMonetaryUnit.Currency` is an ISO 4217 string and supplies the `IfcMeasureWithUnit.UnitComponent` of a priced `IfcCostValue`.
 
@@ -526,11 +594,15 @@
 
 [PER_VALUE_UNIT_CARRIERS]: every value carrier publishes its own optional unit as a PUBLIC read — `IfcPropertySingleValue.Unit` (`IfcUnit`), `IfcPropertyBoundedValue.Unit`, `IfcPropertyListValue.Unit`, `IfcPropertyTableValue.DefiningUnit` and `DefinedUnit` (SEPARATE per column), and `IfcPhysicalSimpleQuantity.Unit` (`IfcNamedUnit`) — so a measure overrides the project regime at its own site. `IfcPropertyEnumeratedValue` publishes none.
 
-[CLASSIFICATION_REFERENCE_MEMBERS]: `IfcClassificationReference` carries `ReferencedSource` (`IfcClassificationReferenceSelect`) and inherits `Identification`, `Location`, and `Name` from `IfcExternalReference`.
+[CLASSIFICATION_REFERENCE_MEMBERS]: `IfcClassificationReference` carries `ReferencedSource` (`IfcClassificationReferenceSelect`), `Description`, and `Sort`, and inherits `Identification`, `Location`, and `Name` from `IfcExternalReference`. It constructs from `(IfcClassificationReferenceSelect referencedSource)` — the ctor that binds the reference to its dictionary and reads the database from it — or `(DatabaseIfc)` for a source-less reference; `ReferencedClassification()` walks to the root dictionary and `FindItem(identification, prefixHierarchy)` searches beneath it.
 
-[CLASSIFICATION_MEMBERS]: `IfcClassificationReference.ReferencedSource` names an `IfcClassification` dictionary; `Name` carries the dictionary title, `Source` and `Edition` the publisher and edition, `EditionDate` defaulting to `DateTime.MinValue` when unset, and `Location` the dictionary URI.
+[CLASSIFICATION_MEMBERS]: `IfcClassificationReference.ReferencedSource` names an `IfcClassification` dictionary, which constructs from `(DatabaseIfc, string name)` and carries `Name` the dictionary title, `Source` and `Edition` the publisher and edition, `EditionDate` (a `DateTime`) defaulting to `DateTime.MinValue` when unset, `Description`, `ReferenceTokens`, the `HasReferences` set, and `Specification` the dictionary URI. `IfcClassification.Associate(IfcDefinitionSelect)` reuses an existing `IfcRelAssociatesClassification` when the dictionary already has one.
+
+[CLASSIFICATION_URI_SPLIT]: `Specification` is the LIVE dictionary-URI member — `IfcClassification.Location` is its retired IFC4X3-renamed predecessor over the same backing field and never spells in a fence. `IfcClassificationReference.Location` is the PER-REFERENCE identifier URI, a distinct live member inherited from `IfcExternalReference`, so the two URIs never share a spelling.
 
 [MEASURE_VALUE_MEMBERS]: `IfcMeasureValue` extends `IfcValue`, carries double `Measure`, and is the per-basis denominator narrow target for `IfcMeasureWithUnit.ValueComponent`.
+
+[TYPED_MEASURE_LEAVES]: `IfcDerivedMeasureValue` is a `public abstract class` implementing `IfcValue`, and every SI-derived leaf beneath it is a `public class` with a single `(double value)` constructor — the roster an authored property column names its own datum by rather than flattening to `IfcReal`: `IfcMassDensityMeasure` `IfcModulusOfElasticityMeasure` `IfcPressureMeasure` `IfcThermalConductivityMeasure` `IfcSpecificHeatCapacityMeasure` `IfcThermalTransmittanceMeasure` `IfcThermalExpansionCoefficientMeasure` `IfcAreaDensityMeasure` `IfcMonetaryMeasure`. `IfcMeasureValue` is the sibling abstract base carrying `IfcMassMeasure`, `IfcTimeMeasure`, `IfcNormalisedRatioMeasure` (also an `IfcColourOrFactor`), and `IfcPositiveRatioMeasure`.
 
 [MONETARY_MEASURE_MEMBERS]: `IfcMonetaryMeasure` extends `IfcDerivedMeasureValue` and `IfcValue`, carries double `Measure`, and is the applied-cost narrow target for `IfcCostValue.AppliedValue`.
 
@@ -562,6 +634,12 @@
 |  [22]   | `IfcCircleProfileDef`                 | circular profile and nominal-diameter carrier |
 |  [23]   | `IfcVibrationIsolator`                | isolation-bearing element component           |
 |  [24]   | `IfcVibrationIsolatorTypeEnum`        | vibration-isolator kind                       |
+|  [25]   | `IfcTendonConduit`                    | post-tensioning duct element                  |
+|  [26]   | `IfcTendonConduitTypeEnum`            | tendon-conduit kind                           |
+|  [27]   | `IfcElementAssembly`                  | realizing composite element                   |
+|  [28]   | `IfcElementAssemblyTypeEnum`          | element-assembly kind                         |
+|  [29]   | `IfcAssemblyPlaceEnum`                | factory-vs-site assembly place                |
+|  [30]   | `IfcMechanicalFastenerType`           | mechanical-fastener type object               |
 
 [CONNECTS_ELEMENTS_MEMBERS]: `IfcRelConnectsElements` carries `RelatingElement`/`RelatedElement` (`IfcElement`) and `ConnectionGeometry` (`IfcConnectionGeometry`).
 
@@ -580,6 +658,12 @@
 [DISCRETE_ACCESSORY_MEMBERS]: `IfcDiscreteAccessory` extends `IfcElementComponent`, carries `PredefinedType` as `IfcDiscreteAccessoryTypeEnum`, models the framing-connector body, and binds its separate `IfcMechanicalFastener` through `IfcRelConnectsWithRealizingElements`.
 
 [DISCRETE_ACCESSORY_VALUES]: `IfcDiscreteAccessoryTypeEnum` `NOTDEFINED` `USERDEFINED` `ANCHORPLATE` `BRACKET` `SHOE` `EXPANSION_JOINT_DEVICE` `BIRDPROTECTION` `CABLEARRANGER` `INSULATOR` `LOCK` `TENSIONINGEQUIPMENT` `RAILPAD` `SLIDINGCHAIR`.
+
+[TENDON_CONDUIT_MEMBERS]: `IfcTendonConduit` extends `IfcReinforcingElement`, carries `PredefinedType` as `IfcTendonConduitTypeEnum`, and inherits `SteelGrade`; its `(DatabaseIfc, IfcTendonConduitTypeEnum)` and `(IfcObjectDefinition, IfcObjectPlacement, IfcProductDefinitionShape)` constructors are public.
+
+[ELEMENT_ASSEMBLY_MEMBERS]: `IfcElementAssembly` extends `IfcElement` and carries `AssemblyPlace` (`IfcAssemblyPlaceEnum`) beside `PredefinedType` (`IfcElementAssemblyTypeEnum`); its parts reach through the inherited `IfcObjectDefinition.IsDecomposedBy` (`SET<IfcRelAggregates>`) whose `RelatedObjects` is a public `SET<IfcObjectDefinition>`.
+
+[MECHANICAL_FASTENER_TYPE_MEMBERS]: `IfcMechanicalFastenerType` extends `IfcElementComponentType` and publishes `PredefinedType` ALONE — `mNominalDiameter` and `mNominalLength` are internal with no public getter, so there is NO type-edge diameter fallback for the occurrence's own sealed scalar.
 
 [REINFORCING_ELEMENT_MEMBERS]: `IfcReinforcingElement` extends `IfcElementComponent` and carries `SteelGrade` for bar and mesh subtypes.
 
@@ -787,7 +871,7 @@
 - Authoring bootstraps from `new IfcProject(...)`, nests through `IfcRelAggregates`/`IfcObjectDefinition.AddAggregated`, and binds property, material, and type definitions through the `IfcRelDefinesByProperties`/`IfcRelAssociatesMaterial`/`IfcRelDefinesByType` families.
 
 [STACKING]:
-- `geometry3sharp`(`api-geometry3sharp.md`): `IfcTriangulatedFaceSet.CoordIndex` over `IfcCartesianPointList3D.Coordinates` lowers to a `g3.DMesh3` indexed triangle mesh for host-free geometry.
+- `geometry3Sharp`(`libs/csharp/.api/api-geometry3sharp.md`): `IfcTriangulatedFaceSet.CoordIndex` over `IfcCartesianPointList3D.Coordinates` lowers to a `g3.DMesh3` indexed triangle mesh for host-free geometry.
 - `sharpgltf`(`libs/csharp/.api/api-sharpgltf.md`): the same tessellated face-set stream feeds `SceneBuilder.AddRigidMesh(IMeshBuilder<M>, ...)` -> `ToGltf2` glTF export.
 - `honeybee-schema`(`api-honeybee-schema.md`): the `IfcSpace`/`IfcBuildingStorey` spatial graph maps to `HoneybeeSchema.Room` on the energy-exchange rail.
 - Bim `Exchange` owner: composes `DatabaseIfc` import/export and `BaseClassIfc.Extract<T>` traversal as the IFC leg of the model-exchange owner feeding the geometry-interchange rail.

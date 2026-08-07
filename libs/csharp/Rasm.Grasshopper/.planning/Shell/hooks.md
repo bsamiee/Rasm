@@ -33,7 +33,7 @@ Composed settled: the kernel capsule — `HookPoint<TFact>` with its synchronous
 ## [03]-[RAIL]
 
 - Owner: `HookScope` `[ValueObject<string>]` — the per-plugin namespace admitted trimmed and nonblank; subscriber identity is the `(point, scope)` composite instance, so two composing plugins subscribe the same point without collision and a scope's subscribers release together. `HookSignal` `[Union]` — `EventCase` carries a typed `UiEvent` fact, `EvidenceCase` carries a `GhEvidence` receipt, `IntentCase` carries the pre-commit `Op` and owning document identity a veto point judges. `GhHooks` — the per-load-context composition folding kernel `HookPoint<HookSignal>` instances, each seated as a `HookRegistration` carrying its rank beside the cell holding that seat's live detachers.
-- Entry: `Subscribe` discriminates by subscriber shape — a veto gate `Func<HookSignal, Fin<HookSignal>>` reaches the instance's `Veto` (a gate on a non-veto point refuses typed from the capsule), an observe tap `Func<HookSignal, IO<Unit>>` reaches `Observe` — each returning a TRACKED detacher that drops its own row from the seat before disposing the capsule's; `GhHooks.Raise(GrasshopperPoint, HookSignal, Option<HookScope> = default, Op? = null)` → `Fin<HookSignal>` — the one raise fold; `GhHooks.Replay(HookScope, GrasshopperPoint, Seq<HookSignal> captured, Op? = null)` → `Fin<Unit>` — re-fires captured signals at one scope's instance on a `Replay` point, aborting on the first veto or firing failure so `Ok` certifies the whole window re-fired; `GhHooks.ReleaseScope(HookScope, Op? = null)` → `Fin<Unit>` — releases every subscriber of one plugin namespace and drops its seats; `GhHooks.Faults` — the shared `Atom<Seq<IsolatedFault>>` evidence cell the telemetry fold subscribes.
+- Entry: `Subscribe` discriminates by subscriber shape — a veto gate `Func<HookSignal, Fin<HookSignal>>` reaches the instance's `Veto` (a gate on a non-veto point refuses typed from the capsule), an observe tap `Func<HookSignal, IO<Unit>>` reaches `Observe` — each returning a TRACKED detacher that drops its own row from the seat before disposing the capsule's; `GhHooks.Raise(GrasshopperPoint, HookSignal, Option<HookScope> = default, Op? = null)` → `Fin<HookSignal>` — the one raise fold; `GhHooks.Replay(HookScope, GrasshopperPoint, Seq<HookSignal> captured, Op? = null)` → `Fin<Unit>` — re-fires captured signals at one scope's instance on a `Replay` point, aborting on the first veto or firing failure so `Ok` certifies the whole window re-fired; `GhHooks.ReleaseScope(HookScope, Op? = null)` → `Fin<Unit>` — releases every subscriber of one plugin namespace and drops its seats; `GhHooks.Faults` — the shared `Atom<Seq<IsolatedFault>>` evidence cell the telemetry fold subscribes, bounded to the newest 512 rows per raise with `FaultsShed` counting what the trim dropped, so a fault storm never grows the cell unbounded and a trimmed cell reads apart from a quiet one.
 - Law: the registry key IS the `(point, scope)` composite — a boundary raise leaves `scope` as `None` and every scope's instance witnesses the host truth, a `Some` raise bounds delivery to one plugin namespace; each seat mints on first touch with the roster row's modality and the shared evidence cell, so delivery never crosses into a scope the subscriber did not admit. Seat resolution is a typed rail: a registry that fails to publish the seat it just installed is `Fault.InvalidResult`, never an unregistered capsule minted on the miss — such a capsule is invisible to the raise fold, never fires, and never releases.
 - Law: release is subscriber-deep, so the release-together contract has a producer — `ReleaseScope` drains each seat's detacher cell and disposes them in reverse-registration order BEFORE the map rows drop, the first fault settling the returned rail while every later detacher still runs, so one throwing subscriber never strands a plugin's teardown. A subscription attached after that drain lands on an unreachable seat and delivers nothing, which is release-equivalent.
 - Law: the raise fold fires every resolved instance in first-registration order — each successful instance hands its transformed signal to the next, while the first `Fail` settles the returned verdict and later instances witness the original signal only on that explicit failure-observation path. Subscriber isolation is the capsule's — a throwing or refused tap parks as `IsolatedFault` on the shared cell and delivery continues, so no subscriber sinks the raise site or starves a sibling.
@@ -92,28 +92,44 @@ internal readonly record struct HookRegistration(long Rank, HookPoint<HookSignal
 // set release drains; collectible plugin ALCs isolate both statics per plugin.
 [BoundaryAdapter]
 public static class GhHooks {
+    // The evidence cell is bounded like every sibling evidence surface (drain 1024, journal 2048): each raise
+    // trims to the newest window and counts what it shed, so a fault storm never grows the cell past the cap
+    // and the shed count separates a quiet cell from a trimmed one.
+    private const int FaultCap = 512;
+
     private static readonly Atom<HashMap<(string Point, HookScope Scope), HookRegistration>> Points =
         Atom(HashMap<(string Point, HookScope Scope), HookRegistration>());
+    private static readonly Atom<long> Shed = Atom(0L);
     private static long nextRank;
 
     public static Atom<Seq<IsolatedFault>> Faults { get; } = Atom(Seq<IsolatedFault>());
 
+    public static long FaultsShed => Shed.Value;
+
     public static Fin<IDisposable> Subscribe(HookScope scope, GrasshopperPoint point, Func<HookSignal, Fin<HookSignal>> gate, Op? key = null) {
         Op op = key.OrDefault();
-        return from valid in op.Need(gate)
+        return from named in Admitted(scope: scope, op: op)
+               from valid in op.Need(gate)
                from row in op.Need(point)
-               from seat in Resolve(point: row, scope: scope, op: op)
+               from seat in Resolve(point: row, scope: named, op: op)
                from detacher in seat.Instance.Veto(gate: valid)
                select Tracked(seat: seat, detacher: detacher);
     }
 
     public static Fin<IDisposable> Subscribe(HookScope scope, GrasshopperPoint point, Func<HookSignal, IO<Unit>> tap, Op? key = null) {
         Op op = key.OrDefault();
-        return from valid in op.Need(tap)
+        return from named in Admitted(scope: scope, op: op)
+               from valid in op.Need(tap)
                from row in op.Need(point)
-               from seat in Resolve(point: row, scope: scope, op: op)
+               from seat in Resolve(point: row, scope: named, op: op)
                select Tracked(seat: seat, detacher: seat.Instance.Observe(tap: valid));
     }
+
+    // HookScope is a struct value object, so `default` skips the factory and reaches a positional parameter
+    // unvalidated; reading its key throws on an uninitialized instance, and this funnel turns that into the
+    // typed refusal every scope-taking gate shares.
+    private static Fin<HookScope> Admitted(HookScope scope, Op op) =>
+        op.Catch(body: () => Fin.Succ((string)scope)).Map(_ => scope);
 
     // The fold's verdict is the RESULT, so it binds as a query step: selecting an already-Fin expression nests the
     // rail one deep and the member's own return type refuses it. op.Catch funnels a throwing veto gate — the capsule
@@ -125,7 +141,18 @@ public static class GhHooks {
                from settled in op.Catch(body: () => Instances(point: row, scope: scope)
                    .Fold(Fin.Succ(fact), (verdict, instance) =>
                        Witness(verdict: verdict, instance: instance, original: fact)))
+               from _ in op.Catch(body: () => Fin.Succ(Trim()))
                select settled;
+    }
+
+    private static Unit Trim() {
+        Seq<IsolatedFault> held = Faults.Value;
+        return held.Count <= FaultCap
+            ? unit
+            : (ignore(Shed.Swap(count => count + (held.Count - FaultCap))),
+               ignore(Faults.Swap(current => current.Count <= FaultCap
+                   ? current
+                   : toSeq(current.Skip(current.Count - FaultCap)).Strict()))).Item2;
     }
 
     public static Fin<Unit> Replay(HookScope scope, GrasshopperPoint point, Seq<HookSignal> captured, Op? key = null) {
@@ -134,8 +161,9 @@ public static class GhHooks {
         // means the whole captured window re-fired; contained subscriber raises stay parked on the Faults cell inside
         // Fire, and op.Catch keeps the host-raise funnel — isolation preserved, verdicts no longer discarded.
         return from row in op.Need(point)
+               from named in Admitted(scope: scope, op: op)
                from replayable in guard(row.Modality == HookModality.Replay, op.InvalidInput()).ToFin()
-               from seat in Resolve(point: row, scope: scope, op: op)
+               from seat in Resolve(point: row, scope: named, op: op)
                from replayed in op.Catch(body: () =>
                    captured.TraverseM(fact => seat.Instance.Fire(fact: fact)).As().Map(static _ => unit))
                select replayed;
@@ -143,13 +171,14 @@ public static class GhHooks {
 
     public static Fin<Unit> ReleaseScope(HookScope scope, Op? key = null) {
         Op op = key.OrDefault();
-        return op.Catch(body: () => {
-            Seq<HookRegistration> released = toSeq(Points.Value)
+        return Admitted(scope: scope, op: op).Bind(_ => op.Catch(body: () => {
+            Seq<HookRegistration> released = Points.Value.AsIterable()
                 .Filter(pair => pair.Key.Scope == scope)
-                .Map(static pair => pair.Value);
+                .Map(static pair => pair.Value)
+                .ToSeq();
             ignore(Points.Swap(current => current.Filter((pair, _) => pair.Scope != scope)));
             return released.Fold(Fin.Succ(unit), (settled, seat) => Drop(settled: settled, seat: seat, op: op));
-        });
+        }));
     }
 
     // The candidate mints ONCE outside the transition: Swap re-runs its body on every CAS retry, so a rank increment
@@ -186,12 +215,10 @@ public static class GhHooks {
     }
 
     private static Seq<HookPoint<HookSignal>> Instances(GrasshopperPoint point, Option<HookScope> scope) =>
-        toSeq(Points.Value)
+        toSeq(Points.Value.AsIterable()
             .Filter(pair => pair.Key.Point == point.Key && scope.Match(Some: only => pair.Key.Scope == only, None: static () => true))
             .OrderBy(static pair => pair.Value.Rank)
-            .Map(static pair => pair.Value.Instance)
-            .AsIterable()
-            .ToSeq();
+            .Select(static pair => pair.Value.Instance));
 
     private static Fin<HookSignal> Witness(
         Fin<HookSignal> verdict, HookPoint<HookSignal> instance, HookSignal original) => verdict.Match(

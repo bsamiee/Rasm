@@ -11,10 +11,13 @@
 
 ## [02]-[VOCABULARY]
 
-- Owner: `MappingKind` closes every `TextureMappingType` value and carries primitive recovery behavior; `MappingSpace`, `MappingProjection`, `MappingCap`, and `CoordinateInvalidation` close the host policy axes.
+- Owner: `MappingKind` closes every `TextureMappingType` value and carries primitive recovery behavior over `MappingRecovery`; `SideCode` closes the host's evaluated side ordinals; `MappingSpace`, `MappingProjection`, `MappingCap`, and `CoordinateInvalidation` close the host policy axes.
 - Law: host enums exist only inside each correspondence owner; detached state carries generated rows, native lookup derives from `Items`, and an uncatalogued host ordinal rejects.
+- Law: `MappingRecovery` splits the inverse into a value channel and a native-mesh channel because the host does — the mesh inverse is the only one answering a native, so nothing else pays a lease and the detached snapshot carries values alone.
+- Law: the surface-primitive, brep-primitive, and false-colors kinds share the one `Bare` behavior pair — the host publishes no inverse accessor and no factory for them, so their spec is structurally absent; each keeps its own row because the native discriminant round-trips through `MappingSnapshot.Kind` and `ChannelTag.Native`.
+- Law: a magic evaluation ordinal never appears inline — `SideCode` rows carry the host's documented side codes per mapping type, and a type owning no rows answers `General` on any positive code.
 - Law: `MappingCap` is the sole cap authority on capped `MappingSpec` cases; mint and recovery consume the same payload, so construction and inverse evidence cannot disagree.
-- Growth: a host classification adds one row with its recovery behavior; a policy value adds one row with its host projection.
+- Growth: a host classification adds one row with its recovery behavior; a policy value adds one row with its host projection; a new evaluated side is one `SideCode` row.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -67,95 +70,111 @@ public sealed partial class CoordinateInvalidation {
     internal bool Native => Key;
 }
 
+// Recovery answers on two channels because the host does: every inverse but the mesh one yields pure values, and
+// `TryGetMappingMesh` yields a NATIVE mesh. Keeping them one field forced a lease into the detached snapshot; splitting
+// them lets the snapshot carry values alone while the mesh rides its own `Lease<Mesh>` out of the read window.
+public readonly record struct MappingRecovery(Option<MappingSpec> Spec, Option<Lease<Mesh>> Coordinates) {
+    public static MappingRecovery Bare { get; } = new(Spec: None, Coordinates: None);
+
+    internal static MappingRecovery Of(MappingSpec spec) => new(Spec: Some(spec), Coordinates: None);
+}
+
 [SmartEnum<string>]
 public sealed partial class MappingKind {
     public static readonly MappingKind None = new(
-        "none", TextureMappingType.None, static spec => spec.IsNone,
-        static (_, _) => Fin.Succ(Option<MappingSpec>.None));
+        "none", TextureMappingType.None, Specless, Bare);
     public static readonly MappingKind SurfaceParameter = new(
         "surface-parameter", TextureMappingType.SurfaceParameters,
-        static spec => spec is { IsSome: true, Case: MappingSpec.SurfaceParameter },
-        static (_, _) => Fin.Succ(Some((MappingSpec)new MappingSpec.SurfaceParameter())));
+        static recovered => recovered.Spec is { IsSome: true, Case: MappingSpec.SurfaceParameter }
+            && recovered.Coordinates.IsNone,
+        static (_, _) => Fin.Succ(MappingRecovery.Of(new MappingSpec.SurfaceParameter())));
     public static readonly MappingKind Plane = new(
         "plane", TextureMappingType.PlaneMapping,
-        static spec => spec is { IsSome: true, Case: MappingSpec.Planar }, RecoverPlane);
+        Values<MappingSpec.Planar>(), RecoverPlane);
     public static readonly MappingKind Cylinder = new(
         "cylinder", TextureMappingType.CylinderMapping,
-        static spec => spec is { IsSome: true, Case: MappingSpec.Cylindrical }, RecoverCylinder);
+        Values<MappingSpec.Cylindrical>(), RecoverCylinder);
     public static readonly MappingKind Sphere = new(
         "sphere", TextureMappingType.SphereMapping,
-        static spec => spec is { IsSome: true, Case: MappingSpec.Spherical }, RecoverSphere);
+        Values<MappingSpec.Spherical>(), RecoverSphere);
     public static readonly MappingKind Box = new(
         "box", TextureMappingType.BoxMapping,
-        static spec => spec is { IsSome: true, Case: MappingSpec.Boxed }, RecoverBox);
+        Values<MappingSpec.Boxed>(), RecoverBox);
     public static readonly MappingKind Mesh = new(
         "mesh", TextureMappingType.MeshMappingPrimitive,
-        static spec => spec is { IsSome: true, Case: MappingSpec.MeshCustom }, RecoverMesh);
-    public static readonly MappingKind Surface = new(
-        "surface", TextureMappingType.SurfaceMappingPrimitive, static spec => spec.IsNone,
-        static (_, _) => Fin.Succ(Option<MappingSpec>.None));
-    public static readonly MappingKind Brep = new(
-        "brep", TextureMappingType.BrepMappingPrimitive, static spec => spec.IsNone,
-        static (_, _) => Fin.Succ(Option<MappingSpec>.None));
+        static recovered => recovered.Spec.IsNone && recovered.Coordinates.IsSome, RecoverMesh);
     public static readonly MappingKind Ocs = new(
         "ocs", TextureMappingType.OcsMapping,
-        static spec => spec is { IsSome: true, Case: MappingSpec.Ocs }, RecoverOcs);
+        Values<MappingSpec.Ocs>(), RecoverOcs);
+    // Host truth: `TextureMapping` publishes `TryGetMappingPlane`/`Box`/`Sphere`/`Cylinder`/`Mesh` and NOTHING for the
+    // surface-primitive, brep-primitive, or false-colors kinds — no inverse accessor and no `Create*` factory either. Their
+    // spec is structurally absent rather than merely unread, so the three share the one `Bare` behavior pair. Each keeps its
+    // own row because the native discriminant round-trips through `MappingSnapshot.Kind` and `ChannelTag.Native`.
+    public static readonly MappingKind Surface = new(
+        "surface", TextureMappingType.SurfaceMappingPrimitive, Specless, Bare);
+    public static readonly MappingKind Brep = new(
+        "brep", TextureMappingType.BrepMappingPrimitive, Specless, Bare);
     public static readonly MappingKind FalseColors = new(
-        "false-colors", TextureMappingType.FalseColors, static spec => spec.IsNone,
-        static (_, _) => Fin.Succ(Option<MappingSpec>.None));
+        "false-colors", TextureMappingType.FalseColors, Specless, Bare);
 
     internal TextureMappingType Native { get; }
 
     [UseDelegateFromConstructor]
-    internal partial bool Accepts(Option<MappingSpec> spec);
+    internal partial bool Accepts(MappingRecovery recovered);
 
     [UseDelegateFromConstructor]
-    internal partial Fin<Option<MappingSpec>> Recover(TextureMapping mapping, Op key);
+    internal partial Fin<MappingRecovery> Recover(TextureMapping mapping, Op key);
 
     internal static Fin<MappingKind> Of(TextureMappingType native, Op key) => key.Row(Items, native, static item => item.Native);
 
-    private static Fin<Option<MappingSpec>> RecoverPlane(TextureMapping mapping, Op key) => key.Catch(() =>
+    private static Func<MappingRecovery, bool> Specless =>
+        static recovered => recovered is { Spec.IsNone: true, Coordinates.IsNone: true };
+
+    private static Fin<MappingRecovery> Bare(TextureMapping _, Op __) => Fin.Succ(MappingRecovery.Bare);
+
+    private static Func<MappingRecovery, bool> Values<TCase>() where TCase : MappingSpec =>
+        static recovered => recovered.Spec is { IsSome: true, Case: TCase } && recovered.Coordinates.IsNone;
+
+    private static Fin<MappingRecovery> RecoverPlane(TextureMapping mapping, Op key) => key.Catch(() =>
         mapping.TryGetMappingPlane(out Plane frame, out Interval dx, out Interval dy, out Interval dz, out bool capped)
-            ? Some((MappingSpec)new MappingSpec.Planar(frame, dx, dy, dz, MappingCap.Of(capped)))
-            : Option<MappingSpec>.None);
+            ? MappingRecovery.Of(new MappingSpec.Planar(frame, dx, dy, dz, MappingCap.Of(capped)))
+            : MappingRecovery.Bare);
 
-    private static Fin<Option<MappingSpec>> RecoverOcs(TextureMapping mapping, Op key) => key.Catch(() =>
+    private static Fin<MappingRecovery> RecoverOcs(TextureMapping mapping, Op key) => key.Catch(() =>
         mapping.TryGetMappingPlane(out Plane frame, out Interval _, out Interval _, out Interval _)
-            ? Some((MappingSpec)new MappingSpec.Ocs(frame))
-            : Option<MappingSpec>.None);
+            ? MappingRecovery.Of(new MappingSpec.Ocs(frame))
+            : MappingRecovery.Bare);
 
-    private static Fin<Option<MappingSpec>> RecoverCylinder(TextureMapping mapping, Op key) => key.Catch(() =>
+    private static Fin<MappingRecovery> RecoverCylinder(TextureMapping mapping, Op key) => key.Catch(() =>
         mapping.TryGetMappingCylinder(out Cylinder body, out bool capped)
-            ? Some((MappingSpec)new MappingSpec.Cylindrical(body, MappingCap.Of(capped)))
-            : Option<MappingSpec>.None);
+            ? MappingRecovery.Of(new MappingSpec.Cylindrical(body, MappingCap.Of(capped)))
+            : MappingRecovery.Bare);
 
-    private static Fin<Option<MappingSpec>> RecoverSphere(TextureMapping mapping, Op key) => key.Catch(() =>
+    private static Fin<MappingRecovery> RecoverSphere(TextureMapping mapping, Op key) => key.Catch(() =>
         mapping.TryGetMappingSphere(out Sphere body)
-            ? Some((MappingSpec)new MappingSpec.Spherical(body))
-            : Option<MappingSpec>.None);
+            ? MappingRecovery.Of(new MappingSpec.Spherical(body))
+            : MappingRecovery.Bare);
 
-    private static Fin<Option<MappingSpec>> RecoverBox(TextureMapping mapping, Op key) => key.Catch(() =>
+    private static Fin<MappingRecovery> RecoverBox(TextureMapping mapping, Op key) => key.Catch(() =>
         mapping.TryGetMappingBox(out Plane frame, out Interval dx, out Interval dy, out Interval dz, out bool capped)
-            ? Some((MappingSpec)new MappingSpec.Boxed(frame, dx, dy, dz, MappingCap.Of(capped)))
-            : Option<MappingSpec>.None);
+            ? MappingRecovery.Of(new MappingSpec.Boxed(frame, dx, dy, dz, MappingCap.Of(capped)))
+            : MappingRecovery.Bare);
 
-    private static Fin<Option<MappingSpec>> RecoverMesh(TextureMapping mapping, Op key) => key.Catch(() => {
-        bool found = mapping.TryGetMappingMesh(out Mesh mesh);
-        if (!found) {
-            mesh?.Dispose();
-            return Fin.Succ(Option<MappingSpec>.None);
-        }
-        return Fin.Succ(Some((MappingSpec)new MappingSpec.MeshCustom(new Lease<Mesh>.Owned(Value: mesh))));
-    });
+    // The losing branch still receives an out mesh, so the refusal path releases it before answering bare.
+    private static Fin<MappingRecovery> RecoverMesh(TextureMapping mapping, Op key) => key.Catch(() =>
+        mapping.TryGetMappingMesh(out Mesh mesh)
+            ? Fin.Succ(new MappingRecovery(
+                Spec: None, Coordinates: Some((Lease<Mesh>)new Lease<Mesh>.Owned(Value: mesh))))
+            : Fin.Succ((Op.Side(() => mesh?.Dispose()), MappingRecovery.Bare).Item2));
 }
 ```
 
 ## [03]-[SPEC_AND_STATE]
 
 - Owner: `MappingSpec` closes the verified factory family and owns custom-mesh custody; `MappingProfile` owns texture space, projection, and UVW exactly once, while the primitive transform is minted from the spec frame and read back as snapshot evidence, so profile application never overwrites the constructed primitive and the same axis cannot carry two authorities.
-- Owner: `MappingSnapshot` carries classification, identity, total profile, derived primitive and normal evidence, inverse evidence, and object motion; absence of `Spec` records that the host mapping destroys or withholds inverse-sufficient construction data, and a recovered spec whose snapshot admission fails is disposed on that path — custody transfers to the snapshot only on success.
+- Owner: `MappingSnapshot` carries classification, identity, total profile, derived primitive and normal evidence, value-only inverse evidence, and object motion; absence of `Spec` records that the host mapping destroys or withholds inverse-sufficient construction data, or that the kind's inverse is the mesh channel. A mesh mapping's native coordinates exit beside the snapshot on their own `Lease<Mesh>` owned by `MappingResult.Snapshot`, and every refusal path releases both recovery channels before the fault leaves — custody transfers only on success.
 - Owner: `MappingProbe`, `MappingSide`, `MappingFrame`, `ChannelTag`, and `CoordinateBlock` admit evaluation, side taxonomy, decomposition, tag, and coordinate-cache evidence without leaking provider classifications.
-- Law: `MappingSpec.Mint` and `MappingKind.Recover` are the two directions of one correspondence; unsupported inverse kinds retain their admitted kind and profile while `Spec` remains absent.
+- Law: `MappingSpec.Mint` and `MappingKind.Recover` are the two directions of one correspondence — mint takes the lease-carrying spec, recovery answers the split `MappingRecovery`; unsupported inverse kinds retain their admitted kind and profile while both recovery channels stay absent.
 - Law: `TextureCoordinates.Run` owns cache prime, read, presence, and invalidation modalities; invalidation scope is a policy row, never a boolean knob.
 - Boundary: `MappingTag` crosses only through `ChannelTag.Of` and `ChannelTag.Native`; custom meshes transfer through `Lease<Mesh>`, and native property application, cache mutation, losing mesh recovery, plus coordinate-wrapper disposal are the platform-forced statement seams.
 
@@ -239,8 +258,11 @@ public sealed partial class MappingProfile {
     }
 }
 
+// The detached result carries VALUES alone — no lease reaches a field, so nothing about it needs disposing and it survives
+// the read window as an ordinary value. A mesh mapping's native coordinates leave beside it on their own `Lease<Mesh>`,
+// which the result case that carries them owns.
 [ComplexValueObject]
-public sealed partial class MappingSnapshot : IDisposable, IDetachedDocumentResult {
+public sealed partial class MappingSnapshot : IDetachedDocumentResult {
     public MappingKind Kind { get; }
     public Guid Id { get; }
     public MappingProfile Profile { get; }
@@ -260,23 +282,33 @@ public sealed partial class MappingSnapshot : IDisposable, IDetachedDocumentResu
         ref Option<MappingSpec> spec,
         ref Option<Transform> objectMotion) {
         validationError = kind is not null && id != Guid.Empty && profile is not null
-            && primitive.IsValid && normal.IsValid && kind.Accepts(spec)
+            && primitive.IsValid && normal.IsValid
+            && spec.ForAll(static held => held is not MappingSpec.MeshCustom)
             && objectMotion.Map(static motion => motion.IsValid).IfNone(true)
             ? validationError
             : new ValidationError(message: "mapping snapshot is invalid");
     }
 
-    internal static Fin<MappingSnapshot> Of(TextureMapping mapping, Option<Transform> motion, Op key) =>
+    internal static Fin<(MappingSnapshot Value, Option<Lease<Mesh>> Coordinates)> Of(
+        TextureMapping mapping, Option<Transform> motion, Op key) =>
         from kind in MappingKind.Of(mapping.MappingType, key)
         from profile in MappingProfile.Of(mapping, key)
-        from spec in kind.Recover(mapping, key)
+        from recovered in kind.Recover(mapping, key)
+        from _ in guard(kind.Accepts(recovered), key.InvalidResult())
+            .ToFin()
+            .MapFail(fault => Released(recovered, fault))
         from snapshot in key.AcceptValidated(
-                Validate(kind, mapping.Id, profile, mapping.PrimitiveTransform, mapping.NormalTransform, spec, motion, out MappingSnapshot? value),
+                Validate(kind, mapping.Id, profile, mapping.PrimitiveTransform, mapping.NormalTransform, recovered.Spec, motion, out MappingSnapshot? value),
                 value)
-            .MapFail(fault => { spec.Iter(static held => held.Dispose()); return fault; })
-        select snapshot;
+            .MapFail(fault => Released(recovered, fault))
+        select (Value: snapshot, Coordinates: recovered.Coordinates);
 
-    public void Dispose() => Spec.Iter(static spec => spec.Dispose());
+    // Custody transfers to the caller only on success; every refusal path releases both channels before the fault leaves.
+    private static Error Released(MappingRecovery recovered, Error fault) {
+        _ = recovered.Spec.Iter(static held => held.Dispose());
+        _ = recovered.Coordinates.Iter(static lease => lease.Dispose());
+        return fault;
+    }
 }
 
 [ComplexValueObject]
@@ -324,22 +356,46 @@ public abstract partial record MappingSide {
     public sealed record BoxBottom : MappingSide;
     public sealed record BoxTop : MappingSide;
 
-    internal static Fin<MappingSide> Of(TextureMappingType type, int side, Op key) => (type, side) switch {
-        (TextureMappingType.CylinderMapping, 1) => Fin.Succ<MappingSide>(new CylinderWall()),
-        (TextureMappingType.CylinderMapping, 2) => Fin.Succ<MappingSide>(new CylinderBottom()),
-        (TextureMappingType.CylinderMapping, 3) => Fin.Succ<MappingSide>(new CylinderTop()),
-        (TextureMappingType.BoxMapping, 1) => Fin.Succ<MappingSide>(new BoxFront()),
-        (TextureMappingType.BoxMapping, 2) => Fin.Succ<MappingSide>(new BoxRight()),
-        (TextureMappingType.BoxMapping, 3) => Fin.Succ<MappingSide>(new BoxBack()),
-        (TextureMappingType.BoxMapping, 4) => Fin.Succ<MappingSide>(new BoxLeft()),
-        (TextureMappingType.BoxMapping, 5) => Fin.Succ<MappingSide>(new BoxBottom()),
-        (TextureMappingType.BoxMapping, 6) => Fin.Succ<MappingSide>(new BoxTop()),
-        (TextureMappingType.CylinderMapping, _) => Fin.Fail<MappingSide>(key.InvalidResult()),
-        (TextureMappingType.BoxMapping, _) => Fin.Fail<MappingSide>(key.InvalidResult()),
-        (TextureMappingType.None, _) => Fin.Fail<MappingSide>(key.InvalidResult()),
-        (_, > 0) => MappingKind.Of(type, key).Map(static kind => (MappingSide)new General(kind)),
-        _ => Fin.Fail<MappingSide>(key.InvalidResult()),
-    };
+    internal static Fin<MappingSide> Of(TextureMappingType type, int side, Op key) =>
+        toSeq(SideCode.Items).Find(row => row.Owner == type && row.Ordinal == side).Case switch {
+            SideCode row => Fin.Succ(value: row.Side()),
+            _ when type is TextureMappingType.None
+                || side <= 0
+                || toSeq(SideCode.Items).Exists(row => row.Owner == type) =>
+                Fin.Fail<MappingSide>(key.InvalidResult(detail: $"{type}:{side}")),
+            _ => MappingKind.Of(type, key).Map(static kind => (MappingSide)new General(kind)),
+        };
+}
+
+// Host truth: `TextureMapping.Evaluate` answers nonzero on success, and for BOX and CAPPED-CYLINDER mappings ALONE that
+// value names the side. These rows are the host's own documented ordinals; every other mapping type publishes no side
+// vocabulary, so its positive code is bare success, and `TextureMappingType.None` evaluates to nothing at all.
+[SmartEnum<string>]
+public sealed partial class SideCode {
+    public static readonly SideCode CylinderWall = new(
+        "cylinder-wall", TextureMappingType.CylinderMapping, 1, static () => new MappingSide.CylinderWall());
+    public static readonly SideCode CylinderBottom = new(
+        "cylinder-bottom", TextureMappingType.CylinderMapping, 2, static () => new MappingSide.CylinderBottom());
+    public static readonly SideCode CylinderTop = new(
+        "cylinder-top", TextureMappingType.CylinderMapping, 3, static () => new MappingSide.CylinderTop());
+    public static readonly SideCode BoxFront = new(
+        "box-front", TextureMappingType.BoxMapping, 1, static () => new MappingSide.BoxFront());
+    public static readonly SideCode BoxRight = new(
+        "box-right", TextureMappingType.BoxMapping, 2, static () => new MappingSide.BoxRight());
+    public static readonly SideCode BoxBack = new(
+        "box-back", TextureMappingType.BoxMapping, 3, static () => new MappingSide.BoxBack());
+    public static readonly SideCode BoxLeft = new(
+        "box-left", TextureMappingType.BoxMapping, 4, static () => new MappingSide.BoxLeft());
+    public static readonly SideCode BoxBottom = new(
+        "box-bottom", TextureMappingType.BoxMapping, 5, static () => new MappingSide.BoxBottom());
+    public static readonly SideCode BoxTop = new(
+        "box-top", TextureMappingType.BoxMapping, 6, static () => new MappingSide.BoxTop());
+
+    internal TextureMappingType Owner { get; }
+    internal int Ordinal { get; }
+
+    [UseDelegateFromConstructor]
+    internal partial MappingSide Side();
 }
 
 [ComplexValueObject]
@@ -423,7 +479,7 @@ public sealed partial class ChannelTag : IComparable<ChannelTag>, IDetachedDocum
 
     public static Fin<ChannelTag> Of(MappingTag tag, Op? key = null) {
         Op op = key.OrDefault();
-        return from source in Optional(tag).ToFin(Fail: op.InvalidInput())
+        return from source in op.Need(tag)
                from kind in MappingKind.Of(source.MappingType, op)
                from value in op.AcceptValidated(Validate(source.Id, kind, source.MappingCRC, source.MeshTransform, out ChannelTag? admitted), admitted)
                select value;
@@ -482,21 +538,21 @@ public abstract partial record CoordinateResult : IDetachedDocumentResult {
 public static class TextureCoordinates {
     public static Fin<CoordinateResult> Run(Mesh mesh, CoordinateRequest request, Op? key = null) {
         Op op = key.OrDefault();
-        return from activeMesh in Optional(mesh).ToFin(Fail: op.InvalidInput())
-               from activeRequest in Optional(request).ToFin(Fail: op.InvalidInput())
+        return from activeMesh in op.Need(mesh)
+               from activeRequest in op.Need(request)
                from result in activeRequest.Switch(
                    context: (Mesh: activeMesh, Op: op),
                    read: static (context, query) => Read(context.Mesh, query.MappingId, context.Op),
                    prime: static (context, command) =>
-                       from source in Optional(command.Object).ToFin(Fail: context.Op.InvalidInput())
-                       from material in Optional(command.Material).ToFin(Fail: context.Op.InvalidInput())
+                       from source in context.Op.Need(command.Object)
+                       from material in context.Op.Need(command.Material)
                        from state in context.Op.Catch(() => {
                            context.Mesh.SetCachedTextureCoordinatesFromMaterial(source, material);
                            return Fin.Succ<CoordinateResult>(new CoordinateResult.Primed(context.Mesh.HasCachedTextureCoordinates));
                        })
                        select state,
                    invalidate: static (context, command) =>
-                       from scope in Optional(command.Scope).ToFin(Fail: context.Op.InvalidInput())
+                       from scope in context.Op.Need(command.Scope)
                        from state in context.Op.Catch(() => {
                            context.Mesh.InvalidateCachedTextureCoordinates(scope.Native);
                            return Fin.Succ<CoordinateResult>(new CoordinateResult.Invalidated(context.Mesh.HasCachedTextureCoordinates));
@@ -566,8 +622,8 @@ public abstract partial record MappingRequest {
 public abstract partial record MappingResult : IDetachedDocumentResult {
     private MappingResult() { }
     public sealed record Changed(ContentReceipt Receipt) : MappingResult;
-    public sealed record Snapshot(MappingSnapshot Value) : MappingResult, IDisposable {
-        public void Dispose() => Value.Dispose();
+    public sealed record Snapshot(MappingSnapshot Value, Option<Lease<Mesh>> Coordinates) : MappingResult, IDisposable {
+        public void Dispose() => Coordinates.Iter(static lease => lease.Dispose());
     }
     public sealed record Evaluated(MappingEvaluation Value) : MappingResult;
     public sealed record Decomposed(MappingFrame Value) : MappingResult;
@@ -576,19 +632,20 @@ public abstract partial record MappingResult : IDetachedDocumentResult {
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
 public static class Mappings {
-    public static Fin<MappingResult> Run(DocumentSession session, MappingRequest request) {
-        Op op = Op.Of();
-        return from activeSession in Optional(session).ToFin(Fail: op.InvalidInput())
-               from activeRequest in Optional(request).ToFin(Fail: op.InvalidInput()).Bind(command => command.Admit(op))
+    public static Fin<MappingResult> Run(DocumentSession session, MappingRequest request, Op? key = null) {
+        Op op = key.OrDefault();
+        return from activeSession in op.Need(session)
+               from activeRequest in op.Need(request).Bind(command => command.Admit(op))
                from result in activeRequest.Switch(
                    context: (Session: activeSession, Op: op),
                    bind: static (state, command) => Bind(state.Session, command, state.Op)
                        .Map(static receipt => (MappingResult)new MappingResult.Changed(receipt)),
                    snapshot: static (state, query) => Read(state.Session, query.Object, query.Channel, state.Op, unit,
                        static (_, mapping, motion, key) => MappingSnapshot.Of(mapping, motion, key)
-                           .Map(static value => (MappingResult)new MappingResult.Snapshot(value))),
+                           .Map(static recovered => (MappingResult)new MappingResult.Snapshot(
+                               Value: recovered.Value, Coordinates: recovered.Coordinates))),
                    evaluate: static (state, query) =>
-                       from probe in Optional(query.Probe).ToFin(Fail: state.Op.InvalidInput())
+                       from probe in state.Op.Need(query.Probe)
                        from result in Read(state.Session, query.Object, query.Channel, state.Op, probe,
                            static (admitted, mapping, _, key) => admitted.Evaluate(mapping, key)
                                .Map(static value => (MappingResult)new MappingResult.Evaluated(value)))
@@ -605,10 +662,10 @@ public static class Mappings {
     }
 
     private static Fin<ContentReceipt> Bind(DocumentSession session, MappingRequest.Bind command, Op op) =>
-        from objects in Optional(command.Objects).ToFin(Fail: op.InvalidInput())
-        from profile in Optional(command.Profile).ToFin(Fail: op.InvalidInput())
-        from spec in Optional(command.Spec).ToFin(Fail: op.InvalidInput())
-        from redraw in Optional(command.Redraw).ToFin(Fail: op.InvalidInput())
+        from objects in op.Need(command.Objects)
+        from profile in op.Need(command.Profile)
+        from spec in op.Need(command.Spec)
+        from redraw in op.Need(command.Redraw)
         from _ in guard(
             (spec is not MappingSpec.Ocs || command.Channel.Value == ObjectAttributes.OCSMappingChannelId)
             && command.ObjectMotion.Map(static motion => motion.IsValid).IfNone(true),
@@ -648,8 +705,8 @@ public static class Mappings {
         Op op,
         TState state,
         Func<TState, TextureMapping, Option<Transform>, Op, Fin<MappingResult>> project) =>
-        from activeTarget in Optional(target).ToFin(Fail: op.InvalidInput())
-        from activeProject in Optional(project).ToFin(Fail: op.InvalidInput())
+        from activeTarget in op.Need(target)
+        from activeProject in op.Need(project)
         from answer in session.Demand(
             use: document =>
                 from ids in activeTarget.Resolve(document, op)
@@ -671,7 +728,7 @@ public static class Mappings {
         select answer;
 
     private static Fin<MappingCensus> Census(DocumentSession session, TableTarget target, Op op) =>
-        from activeTarget in Optional(target).ToFin(Fail: op.InvalidInput())
+        from activeTarget in op.Need(target)
         from census in session.Demand(
             use: document =>
                 from ids in activeTarget.Resolve(document, op)
@@ -693,14 +750,16 @@ public static class Mappings {
 | [INDEX] | [CONCERN]        | [OWNER]             | [FORM]                                     | [ENTRY]                     |
 | :-----: | :--------------- | :------------------ | :----------------------------------------- | :-------------------------- |
 |  [01]   | host vocabulary  | `MappingKind`       | keyed rows with inverse behavior           | `Of` / `Recover`            |
-|  [02]   | mapping policy   | `MappingProfile`    | admitted non-derived host state            | `Validate` / `Of` / `Apply` |
-|  [03]   | construction     | `MappingSpec`       | factory union with custom-mesh custody     | `Mint`                      |
-|  [04]   | inverse evidence | `MappingSnapshot`   | kind plus optional recoverable spec        | `Of` / `Dispose`            |
-|  [05]   | point and frame  | `MappingRequest`    | evaluation and decomposition cases         | `Mappings.Run`              |
-|  [06]   | channel mutation | `MappingRequest`    | one bind case under demand and undo        | `Mappings.Run`              |
-|  [07]   | channel census   | `MappingRequest`    | attribute-gated per-object channel rows    | `Mappings.Run`              |
-|  [08]   | tag round trip   | `ChannelTag`        | admitted kind with native projection       | `Of` / `Native`             |
-|  [09]   | coordinate cache | `CoordinateRequest` | prime, read, probe, or scoped invalidation | `TextureCoordinates.Run`    |
+|  [02]   | inverse channels | `MappingRecovery`   | value spec beside the native mesh lease    | `Of` / `Bare`               |
+|  [03]   | mapping policy   | `MappingProfile`    | admitted non-derived host state            | `Validate` / `Of` / `Apply` |
+|  [04]   | construction     | `MappingSpec`       | factory union with custom-mesh custody     | `Mint`                      |
+|  [05]   | inverse evidence | `MappingSnapshot`   | value-only kind plus recoverable spec      | `Of`                        |
+|  [06]   | side taxonomy    | `SideCode`          | host side ordinals per mapping type        | `MappingSide.Of`            |
+|  [07]   | point and frame  | `MappingRequest`    | evaluation and decomposition cases         | `Mappings.Run`              |
+|  [08]   | channel mutation | `MappingRequest`    | one bind case under demand and undo        | `Mappings.Run`              |
+|  [09]   | channel census   | `MappingRequest`    | attribute-gated per-object channel rows    | `Mappings.Run`              |
+|  [10]   | tag round trip   | `ChannelTag`        | admitted kind with native projection       | `Of` / `Native`             |
+|  [11]   | coordinate cache | `CoordinateRequest` | prime, read, probe, or scoped invalidation | `TextureCoordinates.Run`    |
 
 ## [06]-[RESEARCH]
 

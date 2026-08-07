@@ -185,7 +185,7 @@ public sealed class IdentityShape(bool embedded) : IEntityTypeConfiguration<Elem
             identity.Property(static e => e.Embedding).HasColumnType("vector(1536)")
                 .HasConversion(
                     new ValueConverter<Option<Pgvector.Vector>, Pgvector.Vector?>(
-                        static o => o.MatchUnsafe(Some: static v => v, None: static () => null),
+                        static o => o.Match<Pgvector.Vector?>(Some: static v => v, None: static () => null),
                         static v => Optional(v)),
                     new ValueComparer<Option<Pgvector.Vector>>(
                         static (x, y) => x == y, static v => v.GetHashCode(), static v => v));

@@ -1,8 +1,8 @@
 # [RASM_RHINO_API_RHINOCOMMON_GEOMETRY]
 
-This catalog owns the host-bound `Rhino.Geometry` crossing surface the substrate value algebra does not carry: the `GeometryBase` identity and duplication seam (shallow-duplicate/document-control identity, user strings, `DataCRC` hashing), `ClippingPlaneSurface` clip participation, the `Mesh` texture-coordinate cache, the `HiddenLineDrawing`/`Silhouette` Make2D projection surface, the `Rhino.Geometry.Intersect` roster recorded as host parity, the `Rhino.Collections` point and curve buffers, and the `Light` geometry type.
+This catalog owns the host-bound `Rhino.Geometry` crossing surface the substrate value algebra does not carry: the `GeometryBase` identity and duplication seam (shallow-duplicate/document-control identity, `DataCRC` hashing), `ClippingPlaneSurface` clip participation, the `Mesh` texture-coordinate cache, the `HiddenLineDrawing`/`Silhouette` Make2D projection surface, the `Rhino.Geometry.Intersect` roster recorded as host parity, the `Rhino.Collections` point and curve buffers, and the `Light` geometry type.
 
-Substrate `api-rhinocommon` owns the `Transform` factory/decomposition/inverse algebra, the `BoundingBox` member set, the `GeometryBase.GetBoundingBox` bounds triple, `GeometryBase.Transform(Transform)`, and the `Point3d`/`Vector3d`/`Plane`/`Line`/`Box` carriers, which this crossing registers. Kernel-grade geometry algorithms live in `Rasm` and compose the host surface; the hidden-line and intersection families catalog the host offering a design page reads for parity, and the kernel reservation binds those pages.
+Substrate `libs/csharp/.api/api-rhinocommon.md` owns the `Transform` factory/decomposition/inverse algebra, the `BoundingBox` member set, the `GeometryBase.GetBoundingBox` bounds triple, `GeometryBase.Transform(Transform)`, and the `Point3d`/`Vector3d`/`Plane`/`Line`/`Box` carriers, which this crossing registers. Kernel-grade geometry algorithms live in `Rasm` and compose the host surface; the hidden-line and intersection families catalog the host offering a design page reads for parity, and the kernel reservation binds those pages.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -18,14 +18,14 @@ Substrate `api-rhinocommon` owns the `Transform` factory/decomposition/inverse a
 
 [PUBLIC_TYPE_SCOPE]: crossing owners
 
-`Transform`, `BoundingBox`, `Point3d`/`Vector3d`/`Plane`/`Line`/`Box`, and `TransformSimilarityType` register from the substrate `api-rhinocommon`.
+`Transform`, `BoundingBox`, `Point3d`/`Vector3d`/`Plane`/`Line`/`Box`, and `TransformSimilarityType` register from the substrate `libs/csharp/.api/api-rhinocommon.md`.
 
-| [INDEX] | [SYMBOL]               | [TYPE_FAMILY] | [CAPABILITY]                                                              |
-| :-----: | :--------------------- | :------------ | :------------------------------------------------------------------------ |
-|  [01]   | `GeometryBase`         | class         | identity, duplication, user-strings, `DataCRC`, and the type discriminant |
-|  [02]   | `ClippingPlaneSurface` | class         | clip-plane depth and per-object/per-layer clip participation              |
-|  [03]   | `ObjectType`           | enum          | geometry-type discriminant returned by `GeometryBase.ObjectType`          |
-|  [04]   | `Mesh`                 | class         | texture-coordinate cache lifecycle                                        |
+| [INDEX] | [SYMBOL]               | [TYPE_FAMILY] | [CAPABILITY]                                                     |
+| :-----: | :--------------------- | :------------ | :--------------------------------------------------------------- |
+|  [01]   | `GeometryBase`         | class         | identity, duplication, `DataCRC`, and the type discriminant      |
+|  [02]   | `ClippingPlaneSurface` | class         | clip-plane depth and per-object/per-layer clip participation     |
+|  [03]   | `ObjectType`           | enum          | geometry-type discriminant returned by `GeometryBase.ObjectType` |
+|  [04]   | `Mesh`                 | class         | texture-coordinate cache lifecycle                               |
 
 [PUBLIC_TYPE_SCOPE]: Make2D hidden-line drawing family (`Rhino.Geometry`)
 
@@ -55,7 +55,7 @@ Substrate `api-rhinocommon` owns the `Transform` factory/decomposition/inverse a
 
 [PUBLIC_TYPE_SCOPE]: point and curve buffers (`Rhino.Collections`)
 
-`ArchivableDictionary` registers from the persistence catalog `api-rhinocommon-persistence`.
+`ArchivableDictionary` registers from the persistence catalog `libs/csharp/Rasm.Rhino/.api/api-rhinocommon-persistence.md`.
 
 | [INDEX] | [SYMBOL]              | [TYPE_FAMILY] | [CAPABILITY]                                                      |
 | :-----: | :-------------------- | :------------ | :---------------------------------------------------------------- |
@@ -85,25 +85,35 @@ Substrate `api-rhinocommon` owns the `Transform` factory/decomposition/inverse a
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: geometry identity, mutation, and user strings
+[ENTRYPOINT_SCOPE]: geometry identity and mutation
 
-`GeometryBase.Transform(Transform)` and the `GetBoundingBox(bool)`/`GetBoundingBox(Transform)`/`GetBoundingBox(Plane, out Box)` bounds triple register from the substrate `api-rhinocommon`.
+`GeometryBase.Transform(Transform)` and the `GetBoundingBox(bool)`/`GetBoundingBox(Transform)`/`GetBoundingBox(Plane, out Box)` bounds triple register from the substrate `libs/csharp/.api/api-rhinocommon.md`; `IsDocumentControlled` registers from `libs/csharp/Rasm.Rhino/.api/api-rhinocommon-runtime.md` on the `CommonObject` base, and `GeometryBase` re-declares the user-string roster `libs/csharp/Rasm.Rhino/.api/api-rhinocommon-persistence.md` owns.
 
 | [INDEX] | [SURFACE]                                                | [SHAPE]  | [CAPABILITY]                             |
 | :-----: | :------------------------------------------------------- | :------- | :--------------------------------------- |
 |  [01]   | `GeometryBase.DuplicateShallow() -> GeometryBase`        | instance | shares the native pointer, no deep copy  |
 |  [02]   | `GeometryBase.IsShallowDuplicate`                        | property | shares another instance's native pointer |
 |  [03]   | `GeometryBase.Duplicate() -> GeometryBase`               | instance | deep copy off document control           |
-|  [04]   | `GeometryBase.IsDocumentControlled`                      | property | document owns the geometry lifetime      |
-|  [05]   | `GeometryBase.ObjectType`                                | property | geometry-type discriminant               |
-|  [06]   | `GeometryBase.DataCRC(uint) -> uint`                     | instance | content hash for change and identity     |
-|  [07]   | `GeometryBase.Translate(Vector3d) -> bool`               | instance | in-place translation                     |
-|  [08]   | `GeometryBase.Scale(double) -> bool`                     | instance | in-place uniform scale                   |
-|  [09]   | `GeometryBase.Rotate(double, Vector3d, Point3d) -> bool` | instance | in-place rotation about an axis          |
-|  [10]   | `GeometryBase.SetUserString(string, string) -> bool`     | instance | write a key-value user string            |
-|  [11]   | `GeometryBase.GetUserString(string) -> string`           | instance | read a user string by key                |
-|  [12]   | `GeometryBase.GetUserStrings() -> NameValueCollection`   | instance | full user-string collection              |
-|  [13]   | `GeometryBase.DeleteUserString(string) -> bool`          | instance | remove a user string by key              |
+|  [04]   | `GeometryBase.ObjectType`                                | property | geometry-type discriminant               |
+|  [05]   | `GeometryBase.DataCRC(uint) -> uint`                     | instance | in-process content hash, chainable       |
+|  [06]   | `GeometryBase.Translate(Vector3d) -> bool`               | instance | in-place translation                     |
+|  [07]   | `GeometryBase.Scale(double) -> bool`                     | instance | in-place uniform scale                   |
+|  [08]   | `GeometryBase.Rotate(double, Vector3d, Point3d) -> bool` | instance | in-place rotation about an axis          |
+|  [09]   | `GeometryBase.DeleteAllUserStrings() -> void`            | instance | atomic bag clear, no success answer      |
+|  [10]   | `GeometryBase.UserStringCount`                           | property | bag population without materializing it  |
+
+- `DeleteAllUserStrings` takes no argument and answers `void`, so a caller proves the clear by re-reading the bag; `UserStringCount` is the cheap proof and needs no `GetUserStrings()` materialization.
+- `DataCRC` is a running remainder over the native representation and carries NO cross-process, cross-version, or round-trip guarantee — it answers "did this handle change under me" and never durable identity.
+
+[ENTRYPOINT_SCOPE]: clipping-plane construction
+
+| [INDEX] | [SURFACE]                                    | [SHAPE] | [CAPABILITY]                   |
+| :-----: | :------------------------------------------- | :------ | :----------------------------- |
+|  [01]   | `ClippingPlaneSurface()`                     | ctor    | unset surface, no frame seated |
+|  [02]   | `ClippingPlaneSurface(Plane plane)`          | ctor    | seats an unbounded plane frame |
+|  [03]   | `ClippingPlaneSurface(PlaneSurface surface)` | ctor    | seats a bounded plane surface  |
+
+- Three constructors, and the parameterless one seats no frame — a caller composing a clip plane names one of the two seated forms and never the default, which produces a surface no participation write can meaningfully address.
 
 [ENTRYPOINT_SCOPE]: mesh texture-coordinate cache
 
@@ -260,7 +270,7 @@ Members dot off `Silhouette` and return `Silhouette[]`.
 - `[CurveIntersections]`: `Count` `this[int]` `CopyTo(IntersectionEvent[], int)` `Dispose()` — indexed disposable event list.
 - `[IntersectionEvent]`: `IsPoint` `IsOverlap` `PointA` `PointA2` `PointB` `PointB2` `ParameterA` `ParameterB` `OverlapA` `OverlapB`; `SurfacePointParameter(out double, out double)` and `SurfaceOverlapParameter(out Interval, out Interval)` read surface parameters.
 - `[MeshCurveIntersection]`: `Incidence` `FaceIndex` `CurveParameter` `PointA` `PointB` `BarycentricA` `BarycentricB` `IsPoint` `IsOverlap`.
-- `[MeshClash]`: `MeshA` `MeshB` `ClashPoint` `ClashRadius`. `Search` is arity-polymorphic over the geometry pair — `(Mesh, Mesh, double, int)`, `(Mesh, IEnumerable<Mesh>, double, int)`, `(IEnumerable<Mesh>, IEnumerable<Mesh>, double, int)` all return `MeshClash[]`, while the document-object pair `(IEnumerable<RhinoObject>, IEnumerable<RhinoObject>, double)` and its `(…, MeshType, MeshingParameters)` sibling return `MeshInterference[]` keyed by set index — so mesh-grain and object-grain clash are one member family with two result carriers, and the meshing policy enters as a value on the object-grain overload rather than a pre-meshing pass. `FindDetail(RhinoObject, RhinoObject, double) -> Mesh[]` and its `(…, MeshType, MeshingParameters)` sibling resolve one interfering pair to its overlap meshes.
+- `[MeshClash]`: `MeshA` `MeshB` `ClashPoint` `ClashRadius`. `Search` is arity-polymorphic over the geometry pair — `(Mesh, Mesh, double, int)`, `(Mesh, IEnumerable<Mesh>, double, int)`, `(IEnumerable<Mesh>, IEnumerable<Mesh>, double, int)` all return `MeshClash[]`, while the document-object pair `(IEnumerable<RhinoObject>, IEnumerable<RhinoObject>, double)` and its `(…, MeshType, MeshingParameters)` sibling return `MeshInterference[]` keyed by set index — so mesh-grain and object-grain clash are one member family with two result carriers, and the meshing policy enters as a value on the object-grain overload rather than a pre-meshing pass. `maxEventCount` is dead, live-proven: every overload returns the full event set regardless of cap, at one event per clashing mesh PAIR however many disjoint contact regions the pair holds. `FindDetail(RhinoObject, RhinoObject, double) -> Mesh[]` and its `(…, MeshType, MeshingParameters)` sibling resolve one interfering pair to its overlap meshes.
 - `[RayShootEvent]`: `GeometryIndex` `BrepFaceIndex` `Point`. `[MeshInterference]`: `IndexA` `IndexB` `HitPoints`.
 
 [ENTRYPOINT_SCOPE]: collection buffers
@@ -322,9 +332,9 @@ Members dot off `Silhouette` and return `Silhouette[]`.
 - `Light` is one geometry type discriminated by `LightStyle`: the point, spot, directional, linear, rectangular, ambient, and sun kinds share the pose, intensity/power, color, shadow, and attenuation members, and the boundary reads the kind through the `Is*Light` predicates and the `LightStyle` value rather than branching on construction.
 
 [STACKING]:
-- `RhinoCommon` value substrate(`api-rhinocommon`): the `Transform` factory/decomposition/inverse surface, the `BoundingBox` member set, `GeometryBase.GetBoundingBox` and `GeometryBase.Transform(Transform)`, and the `Point3d`/`Vector3d`/`Plane`/`Line`/`Box` carriers cross the wire from the substrate; this crossing re-derives none of it.
-- `LanguageExt.Core`(`api-languageext`): a `bool` transform or user-string mutation projects to `Fin<Unit>`; a nullable `GetUserString` or coordinate wrapper lifts to `Option<string>`/`Option<CachedTextureCoordinates>`; `GetUserStrings` and the clip participation lists land as `HashMap<string, string>` and `Seq<Guid>`/`Seq<int>`; `HiddenLineDrawing.Compute` and every `Intersection` static land on `Fin<A>` with the parallel out-parameter arrays fanned into one result record (`Seq<Curve>`/`Seq<Point3d>`/`Seq<IntersectionEvent>`); a `CurveIntersections` or `MeshIntersectionCache` disposable is `use`-bracketed, and an empty or nullable host array crosses as `Option`/`Seq`.
-- `Thinktecture.Runtime.Extensions`(`api-thinktecture-runtime-extensions`): `ObjectType`, the `Intersection` outcome enums, `LightStyle`, and `Light.Attenuation` wrap as `[SmartEnum<TKey>]`/`[Flags]`-backed owners; a `DataCRC` content key wraps as a `[ValueObject<T>]`; the clip participation state models as a `[Union]` over disabled, inclusion-list, and exclusion-list cases.
+- `RhinoCommon` value substrate(`libs/csharp/.api/api-rhinocommon.md`): the `Transform` factory/decomposition/inverse surface, the `BoundingBox` member set, `GeometryBase.GetBoundingBox` and `GeometryBase.Transform(Transform)`, and the `Point3d`/`Vector3d`/`Plane`/`Line`/`Box` carriers cross the wire from the substrate; this crossing re-derives none of it.
+- `LanguageExt.Core`(`libs/csharp/.api/api-languageext.md`): a `bool` transform projects to `Fin<Unit>`; a nullable coordinate wrapper lifts to `Option<CachedTextureCoordinates>`; the clip participation lists land as `Seq<Guid>`/`Seq<int>`; `HiddenLineDrawing.Compute` and every `Intersection` static land on `Fin<A>` with the parallel out-parameter arrays fanned into one result record (`Seq<Curve>`/`Seq<Point3d>`/`Seq<IntersectionEvent>`); a `CurveIntersections` or `MeshIntersectionCache` disposable is `use`-bracketed, and an empty or nullable host array crosses as `Option`/`Seq`.
+- `Thinktecture.Runtime.Extensions`(`libs/csharp/.api/api-thinktecture-runtime-extensions.md`): `ObjectType`, the `Intersection` outcome enums, `LightStyle`, and `Light.Attenuation` wrap as `[SmartEnum<TKey>]`/`[Flags]`-backed owners; a `DataCRC` content key wraps as a `[ValueObject<T>]`; the clip participation state models as a `[Union]` over disabled, inclusion-list, and exclusion-list cases.
 - `Rasm` kernel: composed intersection and hidden-line algorithms are the kernel's — the catalog records the host `Intersection`/`HiddenLineDrawing` surface as parity, and a design page reserves the kernel algorithm rather than calling the host static.
 
 [LOCAL_ADMISSION]:
@@ -333,6 +343,6 @@ Members dot off `Silhouette` and return `Silhouette[]`.
 
 [RAIL_LAW]:
 - Package: `RhinoCommon`
-- Owns: native geometry identity and duplication, user-string carriage, `DataCRC` content hashing, mesh texture-coordinate cache lifecycle, clip participation, the `HiddenLineDrawing`/`Silhouette` Make2D projection surface, the `Rhino.Geometry.Intersect` roster recorded as host parity, the `Rhino.Collections` point/curve buffers, and the `Light` geometry type.
+- Owns: native geometry identity and duplication, `DataCRC` content hashing, mesh texture-coordinate cache lifecycle, clip participation, the `HiddenLineDrawing`/`Silhouette` Make2D projection surface, the `Rhino.Geometry.Intersect` roster recorded as host parity, the `Rhino.Collections` point/curve buffers, and the `Light` geometry type.
 - Accept: document-control-aware duplication, content-keyed identity, coordinate-cache prime/read/invalidation, clip participation projected onto `Fin`/`Option` rails, Make2D projection compute and result classification, intersection results fanned onto `Fin`/`Seq` rails, host list buffers read into canonical collections, and a `Light` kind read through `LightStyle`/`Is*Light`.
 - Reject: re-deriving the kernel geometry algorithms `Rasm` owns, retaining document-controlled geometry without duplication, leaking host geometry types past the boundary, calling the host `Intersection`/`HiddenLineDrawing` static where a design page reserves the kernel, retaining a host `RhinoList`/`Point3dList` past the boundary, and branching a light on construction rather than its `LightStyle`.

@@ -122,18 +122,18 @@ scripts/codex.sh --task <task-file> --dir <run-dir> [--law <law-file>] [--cwd <d
 - `--` passes the remainder to `codex exec` verbatim — the one extension point for every axis the flags above do not carry.
 - Nested lookups from INSIDE a codex turn pin to `get_latest_package_version`.
 
-| [INDEX] | [NEED]                                   | [FLAGS]                                                                         |
-| :-----: | :--------------------------------------- | :------------------------------------------------------------------------------ |
-|  [01]   | Run rooted in another directory          | `--cwd <dir>`                                                                   |
-|  [02]   | Durable report artifact                  | `--out <file>` — the final message at completion, overwriting the path          |
-|  [03]   | Live web search                          | `--web` — default `cached` answers from an index, no live fetch                 |
-|  [04]   | Wedge and ceiling bounds                 | `--idle <sec>` / `--max <sec>` — exit `124` / `125` name the kill               |
-|  [05]   | Typed JSON final message                 | `-- --output-schema <schema.json>` — validated final-message shape              |
-|  [06]   | Attach images (screenshots, diagrams)    | `-- -i <file>` (repeatable)                                                     |
-|  [07]   | Feature toggles per run                  | `-- --enable <feature>` / `-- --disable <feature>` (repeatable)                 |
-|  [08]   | Fan-out legs with no session persistence | `-- --ephemeral` — not resumable                                                |
+| [INDEX] | [NEED]                                   | [FLAGS]                                                                          |
+| :-----: | :--------------------------------------- | :------------------------------------------------------------------------------- |
+|  [01]   | Run rooted in another directory          | `--cwd <dir>`                                                                    |
+|  [02]   | Durable report artifact                  | `--out <file>` — the final message at completion, overwriting the path           |
+|  [03]   | Live web search                          | `--web` — default `cached` answers from an index, no live fetch                  |
+|  [04]   | Wedge and ceiling bounds                 | `--idle <sec>` / `--max <sec>` — exit `124` / `125` name the kill                |
+|  [05]   | Typed JSON final message                 | `-- --output-schema <schema.json>` — validated final-message shape               |
+|  [06]   | Attach images (screenshots, diagrams)    | `-- -i <file>` (repeatable)                                                      |
+|  [07]   | Feature toggles per run                  | `-- --enable <feature>` / `-- --disable <feature>` (repeatable)                  |
+|  [08]   | Fan-out legs with no session persistence | `-- --ephemeral` — not resumable                                                 |
 |  [09]   | Per-run completion push                  | `-- -c 'notify=["<sink>","<label>"]'` — sink runs at turn end, one JSON argument |
-|  [10]   | Replace the shipped system prompt        | `-- -c model_instructions_file=<path>` — deliberate use only, never the law     |
+|  [10]   | Replace the shipped system prompt        | `-- -c model_instructions_file=<path>` — deliberate use only, never the law      |
 
 [WRAPPER]: An agent delegating to codex owns custody alone — law, task, launch, hold, receipt, product verification — and performs, edits, judges, or relays none of the delegated work:
 

@@ -81,5 +81,8 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 [OBSERVABILITY]:
 - `Microsoft.Extensions.Logging.Abstractions` — app-neutral logger admission for the `GhTelemetry` capsule; the metric surface ships BCL in-box.
 
+[DATA_CLASSIFICATION]:
+- `Microsoft.Extensions.Compliance.Redaction` — `DataClassification` grammar the `GhSensitivity` rows spell; the redactor runs at the app root alone.
+
 [DEPENDENCY_FLOORS]:
 - `System.Drawing.Common` — compile-time GDI carrier interop at the GH1 icon boundary.

@@ -398,8 +398,8 @@ public sealed class EdgeResize {
                    scope.Canvas.ToFin(op.MissingContext()).Bind(_ => op.Catch(body: () =>
                        Fin.Succ(new EdgeResize(frame: new ResizingFrame(
                            original, min, max,
-                           constraints.MatchUnsafe(Some: static held => held, None: static () => null),
-                           settings.MatchUnsafe(Some: static held => held, None: static () => null)))))), key: op)
+                           constraints.Match<SnappingConstraints?>(Some: static held => held, None: static () => null),
+                           settings.Match<SnappingSettings?>(Some: static held => held, None: static () => null)))))), key: op)
                select frame;
     }
 
@@ -437,6 +437,8 @@ public sealed class EdgeResize {
         return GhSession.Run(ScopeTarget.CanvasHost, scope =>
             scope.Canvas.ToFin(op.MissingContext()).Bind(surface => op.Catch(body: () => {
                 Volatile.Write(location: ref _active, value: 0);
+                // Snap actions are per-drag host feedback the ResizingFrame writes during Continue; null IS
+                // their rest state between drags, so End clears feedback rather than clobbering a prior owner.
                 surface.SnapXAction = null;
                 surface.SnapYAction = null;
                 return Fin.Succ(value: unit);

@@ -128,12 +128,12 @@ Every surface is an unsafe instance method on the `Sdl.GetApi()` root; only the 
 
 [ENTRYPOINT_SCOPE]: joystick axis read — the source leg a haptic device's own controller carries
 
-| [INDEX] | [SURFACE]                                                | [SHAPE]  | [CAPABILITY]                  |
-| :-----: | :------------------------------------------------------- | :------- | :---------------------------- |
-|  [01]   | `JoystickNumAxes(Joystick*) -> int`                      | instance | axis count on an open device  |
-|  [02]   | `JoystickGetAxis(Joystick*, int) -> short`               | instance | one axis deflection           |
-|  [03]   | `JoystickGetAxisInitialState(Joystick*, int, ref short)` | instance | initial-state probe           |
-|  [04]   | `JoystickIsHaptic(Joystick*) -> int`                     | instance | actuator capability           |
+| [INDEX] | [SURFACE]                                                | [SHAPE]  | [CAPABILITY]                 |
+| :-----: | :------------------------------------------------------- | :------- | :--------------------------- |
+|  [01]   | `JoystickNumAxes(Joystick*) -> int`                      | instance | axis count on an open device |
+|  [02]   | `JoystickGetAxis(Joystick*, int) -> short`               | instance | one axis deflection          |
+|  [03]   | `JoystickGetAxisInitialState(Joystick*, int, ref short)` | instance | initial-state probe          |
+|  [04]   | `JoystickIsHaptic(Joystick*) -> int`                     | instance | actuator capability          |
 
 - `JoystickGetAxis` spans `-32768..32767`; the negative extreme exceeds the positive by one step, so a `[-1,1]` projection divides by `32767` and clamps.
 - `Sdl.InitJoystick` is `512u` and `Sdl.InitHaptic` is `4096u`; a device serving both legs arms both flags.

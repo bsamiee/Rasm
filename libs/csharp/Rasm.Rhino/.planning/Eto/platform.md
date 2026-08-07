@@ -24,6 +24,7 @@ using Eto;
 using Eto.Forms;
 using Rasm.Csp;
 using Rasm.Domain;
+using Rasm.Rhino.Document;
 
 namespace Rasm.Rhino.Eto;
 
@@ -194,9 +195,10 @@ public sealed class NativeAttachment : UiLease {
 
 - Owner: `ThemeProgram` generates the complete role-by-variant grid; `ThemeCatalog` retains the contrast rules and publishes one immutable `ThemeSnapshot`; `ThemeSeam` registers styles and rebroadcasts the accepted snapshot to tracked controls, and `StyleLease` is its inverse — the same interlocked one-shot `UiLease` every other Eto capsule carries.
 - Cases: `ThemeVariant` carries light, dark, and high-contrast axes; `PaletteRole` carries semantic paint roles without embedding colors; `ThemeShift` closes the transition family — `Generated` selects a variant from the frozen grid, `Hosted` merges live host-detached `PerceptualColor` cells over that variant's row, so the generator palette and the host theme meet in one owner.
-- Entry: `ThemeCatalog.Freeze` admits the cell generator, the initial variant, every contrast endpoint, and every finite ratio floor through one applicative fold, so every absence reports together; `ThemeSeam.Register` returns a `StyleLease` and `ThemeSeam.Change` rails registration, callback failure, and rebroadcast over one polymorphic `ThemeShift`.
+- Entry: `ThemeCatalog.Freeze` admits the cell generator, the initial variant, every contrast endpoint, and every finite ratio floor through one applicative fold, so every absence reports together; `ThemeSeam.Register` claims its `StyleKey` on the caller's `PluginKey` and returns a `StyleLease`, and `ThemeSeam.Change` rails registration, callback failure, and rebroadcast over one polymorphic `ThemeShift`.
 - Law: the host style registry APPENDS per key and publishes only a whole-registry clear, so a registration's inverse is a dispatch cell the lease empties — never a re-registration, which stacks a second handler beside the first, and never a provider swap, which is process-wide policy at the wrong grain; a released registration stays resident and inert, and stating the host constraint here is what keeps a reader from hunting for the removal overload.
-- Auto: `ThemeProgram.Generate` derives every cell from the cross-product of generated vocabulary items, so missing-cell fallbacks cannot exist; a `Hosted` merge re-enters the same contrast gate `Freeze` runs, so an ingested cell breaching a floor rejects without touching the grid.
+- Law: that same append-only registry makes the key process-global contended state, so a `StyleKey` is CLAIMED on plugin identity — first claim wins, a foreign claimant refuses typed rather than stacking an unarbitrated second handler under one identity, the owning plugin re-registers only itself, and the lease drops the claim with the cell so a reloaded plugin re-claims its own keys.
+- Auto: `ThemeProgram.Generate` derives every cell from the cross-product of generated vocabulary items, so missing-cell fallbacks cannot exist; a `Hosted` merge re-enters the same contrast gate `Freeze` runs, so an ingested cell breaching a floor rejects without touching the grid — the refusal is the caller's answer alone and never becomes the state a later reader inherits.
 - Receipt: `ThemeChange` carries the accepted generation, variant, changed-role set, and rebroadcast failures; a content-identical shift emits an empty changed set and holds the generation.
 - Growth: a role or variant is one generated row plus generator support; another transition modality is one `ThemeShift` case; every consumer remains unchanged.
 - Boundary: `ThemeSeam.Change` accepts the HostUi-selected shift — the variant polarity and any live host swatches arrive injected; Eto code never reads Rhino theme globals.
@@ -289,18 +291,14 @@ public sealed class ThemeCatalog {
 
     private sealed record ThemeState(
         HashMap<ThemeVariant, HashMap<PaletteRole, PerceptualColor>> Grid,
-        ThemeSnapshot Snapshot,
-        Fin<ThemeChange> Outcome);
+        ThemeSnapshot Snapshot);
 
     private ThemeCatalog(
         HashMap<ThemeVariant, HashMap<PaletteRole, PerceptualColor>> grid,
         Seq<ContrastRule> contrast,
         ThemeSnapshot seed) {
         this.contrast = contrast;
-        current = Atom(new ThemeState(
-            grid,
-            seed,
-            Fin.Succ(new ThemeChange(seed.Generation, seed.Variant, [], []))));
+        current = Atom(new ThemeState(grid, seed));
     }
 
     public ThemeSnapshot Current => current.Value.Snapshot;
@@ -335,27 +333,30 @@ public sealed class ThemeCatalog {
             .Bind(admitted => Shifted(shift: admitted, op: op));
     }
 
+    // A refused shift never reaches the cell: the merge and the contrast gate run against the held state and only an
+    // ADMITTED snapshot is installed, so the swap body is a pure projection over a value already proven. Parking the
+    // failure in the state instead made the next reader of the catalog inherit a fault belonging to someone else's
+    // rejected shift, and made a contrast breach outlive the call that caused it.
     private Fin<ThemeChange> Shifted(ThemeShift shift, Op op) {
         (ThemeVariant variant, HashMap<PaletteRole, PerceptualColor> overlay) = shift.Merge();
         return variant is null || !toSeq(ThemeVariant.Items).Contains(variant)
             ? Fin.Fail<ThemeChange>(new UiFault.Rejected(
                 Key: op, Field: nameof(ThemeShift), Reason: "shift variant must belong to the declared theme vocabulary"))
-            : op.Catch(() => current.Swap(held => {
+            : op.Catch(() => {
+                ThemeState held = current.Value;
                 HashMap<PaletteRole, PerceptualColor> merged = toHashMap(toSeq(PaletteRole.Items)
                     .Map(role => (role, overlay.Find(role).IfNone(() => held.Grid[variant][role]))));
-                return Admitted(merged, contrast, op).ToFin().Match(
-                    Succ: admitted => {
-                        Seq<PaletteRole> changed = toSeq(PaletteRole.Items)
-                            .Filter(role => !held.Snapshot.Cells[role].Equals(admitted[role]))
-                            .Strict();
-                        ThemeSnapshot snapshot = held.Snapshot.Variant == variant && changed.IsEmpty
-                            ? held.Snapshot
-                            : new ThemeSnapshot(held.Snapshot.Generation + 1L, variant, admitted);
-                        ThemeChange change = new(snapshot.Generation, snapshot.Variant, changed, []);
-                        return new ThemeState(held.Grid, snapshot, Fin.Succ(change));
-                    },
-                    Fail: fault => held with { Outcome = Fin.Fail<ThemeChange>(fault) });
-            }).Outcome);
+                return Admitted(merged, contrast, op).ToFin().Map(admitted => {
+                    Seq<PaletteRole> changed = toSeq(PaletteRole.Items)
+                        .Filter(role => !held.Snapshot.Cells[role].Equals(admitted[role]))
+                        .Strict();
+                    ThemeSnapshot snapshot = held.Snapshot.Variant == variant && changed.IsEmpty
+                        ? held.Snapshot
+                        : new ThemeSnapshot(held.Snapshot.Generation + 1L, variant, admitted);
+                    _ = current.Swap(_ => held with { Snapshot = snapshot });
+                    return new ThemeChange(snapshot.Generation, snapshot.Variant, changed, []);
+                });
+            });
     }
 
     private static Validation<Error, HashMap<PaletteRole, PerceptualColor>> Admitted(
@@ -406,6 +407,7 @@ public sealed class StyleLease(Func<Fin<Unit>> release) : UiLease {
 }
 
 public sealed class ThemeSeam(ThemeCatalog catalog) {
+    private static readonly Atom<HashMap<StyleKey, PluginKey>> Claims = Atom(HashMap<StyleKey, PluginKey>());
     private readonly Atom<Seq<Error>> failures = Atom(Seq<Error>());
     private readonly Atom<Seq<WeakReference<Control>>> tracked = Atom(Seq<WeakReference<Control>>());
 
@@ -413,10 +415,12 @@ public sealed class ThemeSeam(ThemeCatalog catalog) {
 
     // `Add` APPENDS into the active provider's per-key handler list, and the only host-side removal is the provider's
     // whole-registry `Clear`, so re-registering under a live key stacks a second handler beside the first and retires
-    // nothing. The inverse is therefore indirection: the handler dispatches through a per-registration cell the lease
-    // empties, so a plugin reloaded into a fresh load context leaves its predecessors INERT rather than running dead
-    // handlers that still hold a retired catalog. A seam with no inverse at all is the form this replaces.
+    // nothing. Two consequences, one shape: the KEY is process-global contended state, so it is claimed on plugin
+    // identity first-claim-wins and a foreign claimant refuses typed instead of silently stacking; and the inverse is
+    // indirection, the handler dispatching through a per-registration cell the lease empties as it drops the claim, so
+    // a plugin reloaded into a fresh load context leaves its predecessors INERT and its identity free to re-claim.
     public Fin<StyleLease> Register<TWidget>(
+        PluginKey plugin,
         StyleKey key,
         Action<TWidget, ThemeSnapshot> apply,
         Action<Error> report,
@@ -424,19 +428,27 @@ public sealed class ThemeSeam(ThemeCatalog catalog) {
         Op op = operation.OrDefault();
         return string.IsNullOrWhiteSpace(key.Value)
             ? Fin.Fail<StyleLease>(new UiFault.Rejected(Key: op, Field: nameof(key), Reason: "style identity requires an admitted key"))
-            : op.Catch(() => {
-                Atom<Option<Action<TWidget, ThemeSnapshot>>> live = Atom(Some(apply));
-                Style.Add<TWidget>(key.Value, widget => {
-                    if (widget is Control control) _ = Track(control);
-                    _ = live.Value.Iter(body => {
-                        _ = op.Catch(() => Fin.Succ(Op.Side(() => body(widget, catalog.Current)))).Match(
-                            Succ: static applied => applied,
-                            Fail: fault => Retain(fault, report, op));
+            : Claims.Swap(held => held.ContainsKey(key) ? held : held.Add(key, plugin))
+                .Find(key)
+                .Filter(holder => holder == plugin)
+                .ToFin(new UiFault.Rejected(Key: op, Field: nameof(key), Reason: "style identity is claimed by another plugin"))
+                .Bind(_ => op.Catch(() => {
+                    Atom<Option<Action<TWidget, ThemeSnapshot>>> live = Atom(Some(apply));
+                    Style.Add<TWidget>(key.Value, widget => {
+                        if (widget is Control control) _ = Track(control);
+                        _ = live.Value.Iter(body => {
+                            _ = op.Catch(() => Fin.Succ(Op.Side(() => body(widget, catalog.Current)))).Match(
+                                Succ: static applied => applied,
+                                Fail: fault => Retain(fault, report, op));
+                        });
                     });
-                });
-                return Fin.Succ(new StyleLease(release: () => op.Catch(() => Fin.Succ(ignore(live.Swap(static _ => None))))));
-            });
+                    return Fin.Succ(new StyleLease(release: () => op.Catch(() => Fin.Succ(
+                        (ignore(live.Swap(static _ => None)), Unclaim(key, plugin)).Item2))));
+                }).MapFail(fault => (Unclaim(key, plugin), fault).Item2));
     }
+
+    private static Unit Unclaim(StyleKey key, PluginKey plugin) => ignore(Claims.Swap(held =>
+        held.Find(key).Filter(holder => holder == plugin).Match(Some: _ => held.Remove(key), None: () => held)));
 
     public Unit Track(Control control) => ignore(tracked.Swap(held => {
         Seq<WeakReference<Control>> live = held.Filter(static reference => reference.TryGetTarget(out _)).Strict();

@@ -218,7 +218,7 @@ public abstract partial record ExtractionDomain {
         from results in levels.TraverseM(level => IsoContour.Detailed(field: field, grid: grid, policy: new IsoContourPolicy(IsoValue: level), context: context, key: key)).As()
         from batch in AcceptCurves(
             curves: results.Bind(static result => result.Loops.Map(static chain => (Curve)chain.Points.ToPolylineCurve())),
-            attempted: results.Map(static result => result.Loops.Count).Sum(),
+            attempted: results.Sum(static result => result.Loops.Count),
             nativeRouted: false, tolerance: ExtractionTolerance.FromContext(context.Absolute.Value), key: key)
         select batch;
     private static Fin<CurveBatch> CurvesFromCloud(VectorCloud.ClusterCase cloud, ContourPolicy policy, Context context, Op key) =>

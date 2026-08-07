@@ -155,6 +155,7 @@ flowchart LR
     Bim e7@-->|"[WIRE]: IfcWire"| Codec
     Bim e8@-->|"[WIRE]: BcfTopicWire"| Codec
     Bim e9@-->|"[WIRE]: GeoFeatureWire"| Codec
+    Bim e20@-->|"[WIRE]: PredicateWire"| Codec
     Materials e10@-->|"[WIRE]: MaterialWire"| Codec
     Materials e18@-->|"[WIRE]: TextureSetWire"| Codec
     Artifacts e19@-->|"[WIRE]: AssetSetManifest"| Codec

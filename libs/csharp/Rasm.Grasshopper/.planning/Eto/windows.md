@@ -14,7 +14,7 @@ Rhino-styled presentation is a policy row: `ChromeRow.Rhino` routes through the 
 ## [02]-[COMMANDS]
 
 - Owner: `CommandSpec` — one row per reusable action: `CommandTag` `[ValueObject<string>]` intent identity, menu text, optional bar text and tooltip, optional `Keys` chord, the enablement seed, the `CommandRole` row, the radio group tag, the toggle seed, and the `Fin`-railed effect. `CommandRole` `[SmartEnum<int>]` — `Push` (`Command`), `Toggle` (`CheckCommand` with seeded `Checked`), `Radio` (`RadioCommand` wired to its group head's `Controller`) — carries construction as one `[UseDelegateFromConstructor]` column, so a stateful or grouped verb is a row value, never a sibling spec family.
-- Owner: `CommandForge.Mint` — the one deck fold: every spec mints its native command, radio rows resolve their group head through the fold's accumulating head map (the first row of a group becomes the controller), and every `Executed` raise runs the effect under `Op.Catch`, stamping a `CommandEcho` (tag, settlement, latency) from one kernel `MonotonicTimeline` into the deck's journal atom. `CommandDeck` is the leased result — the tag-keyed command map, the journal, and the exact delegate identities the fold attached — and duplicate tags refuse at the seal.
+- Owner: `CommandForge.Mint` — the one deck fold: every spec mints its native command, radio rows resolve their group head through the fold's accumulating head map (the first row of a group becomes the controller), and every `Executed` raise runs the effect under `Op.Catch`, stamping a `CommandEcho` (tag, settlement, `Option` latency, and the `Option<Error>` fault a failed effect rides — the journal carries the failure, never a bare bool) from one kernel `MonotonicTimeline` into the deck's journal atom. `CommandDeck` is the leased result — the tag-keyed command map, the journal, and the exact delegate identities the fold attached — and duplicate tags refuse at the seal.
 - Entry: `CommandForge.Mint(Seq<CommandSpec> specs, Op? key = null)` → `Fin<Lease<CommandDeck>>`; `CommandDeck.Verb(CommandTag)` → `Option<Command>`.
 - Law: the mint has an inverse — a subscription IS the detacher attach returned, so the deck carries every `(Command, EventHandler)` pair it wired and releases them in reverse mint order on one idempotent UI-affine arrow, exactly as `OwnedContextMenu` releases its `MenuItem`s. A refusal mid-fold unwinds every pair already attached before the fault returns, so no spec set can leave a live handler behind a deck no consumer holds.
 - Law: an effect never throws into the host event pump — the `Executed` handler is the one exception funnel, a faulted effect stamps an unsettled echo and the fault rides the journal, so palette ranking, usage attribution, and failure surfacing are folds over one echo stream.
@@ -54,9 +54,14 @@ public sealed record CommandSpec(
     CommandTag Tag, string MenuText, Option<string> BarText, Option<string> Hint, Option<Keys> Chord,
     bool Enabled, CommandRole Role, Option<CommandTag> Group, Option<bool> Checked, Func<Fin<Unit>> Effect);
 
+// The fault RIDES the echo — a settled bool alone cannot carry the failure the journal law promises, and a
+// zero-latency sentinel from a failed capture is indistinguishable from an instantaneous command, so latency
+// is Option-shaped and absence spells the failed clock read.
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct CommandEcho(CommandTag Tag, bool Settled, TimeSpan Latency) : IValidityEvidence {
-    public bool IsValid => ValidityClaim.All(ValidityClaim.Nonnegative(value: Latency.TotalSeconds));
+public readonly record struct CommandEcho(CommandTag Tag, bool Settled, Option<TimeSpan> Latency, Option<Error> Fault) : IValidityEvidence {
+    public bool IsValid => ValidityClaim.All(
+        ValidityClaim.Of(holds: Latency.ForAll(static held => held >= TimeSpan.Zero)),
+        ValidityClaim.Of(holds: Settled == Fault.IsNone));
 }
 
 internal sealed record CommandFold(
@@ -73,14 +78,14 @@ internal static class EtoLifetime {
     internal static Fin<Unit> Preserve(Fin<Unit> first, Fin<Unit> next) => first.IsFail ? first : next;
 
     internal static Fin<Unit> Release<T>(Seq<Lease<T>> resources, Op key) where T : class, IDisposable =>
-        resources.Reverse().Aggregate(
-            seed: Fin.Succ(unit),
-            func: (first, resource) => Preserve(
+        resources.Rev().Fold(
+            Fin.Succ(unit),
+            (first, resource) => Preserve(
                 first: first,
                 next: key.Catch(body: () => Fin.Succ(resource.Dispose()))));
 
     internal static Fin<Unit> Detach(Seq<(Command Verb, EventHandler<EventArgs> Handler)> attached, Op key) =>
-        attached.Reverse().Fold(
+        attached.Rev().Fold(
             Fin.Succ(unit),
             (first, row) => Preserve(
                 first: first,
@@ -115,7 +120,9 @@ public sealed class CommandDeck : IDisposable {
             Succ: _ => { Volatile.Write(location: ref releaseState, value: 2); return unit; },
             Fail: error => {
                 ignore(lastFault.Swap(_ => Some(error)));
-                Volatile.Write(location: ref releaseState, value: 0);
+                // released-with-fault, never re-armed: resetting to 0 re-runs the WHOLE teardown over natives
+                // already detached — the double-dispose the sibling lease arrows (UiClock, NoticeMount) foreclose.
+                Volatile.Write(location: ref releaseState, value: 2);
                 return unit;
             });
         return released;
@@ -152,14 +159,15 @@ public static class CommandForge {
                 spec.Chord.Iter(chord => verb.Shortcut = chord);
                 EventHandler<EventArgs> raised = (_, _) => {
                     Fin<MonotonicStamp> entered = timeline.Capture(key: op);
-                    bool settled = op.Catch(body: spec.Effect).IsSucc;
-                    TimeSpan latency = (
+                    Fin<Unit> outcome = op.Catch(body: spec.Effect);
+                    Option<TimeSpan> latency = (
                         from start in entered
                         from end in timeline.Capture(key: op)
                         from elapsed in timeline.Elapsed(start: start, end: end, key: op)
-                        select elapsed).IfFail(TimeSpan.Zero);
+                        select elapsed).ToOption();
                     ignore(journal.Swap(held => held.Add(new CommandEcho(
-                        Tag: spec.Tag, Settled: settled, Latency: latency))));
+                        Tag: spec.Tag, Settled: outcome.IsSucc, Latency: latency,
+                        Fault: outcome.Match(Succ: static _ => Option<Error>.None, Fail: Some)))));
                 };
                 verb.Executed += raised;
                 return Fin.Succ(new CommandFold(
@@ -223,7 +231,9 @@ internal sealed class OwnedContextMenu(Seq<MenuBranch> branches) : ContextMenu {
             Succ: _ => { Volatile.Write(location: ref releaseState, value: 2); return unit; },
             Fail: error => {
                 ignore(lastFault.Swap(_ => Some(error)));
-                Volatile.Write(location: ref releaseState, value: 0);
+                // released-with-fault, never re-armed: resetting to 0 re-runs the WHOLE teardown over natives
+                // already detached — the double-dispose the sibling lease arrows (UiClock, NoticeMount) foreclose.
+                Volatile.Write(location: ref releaseState, value: 2);
                 return unit;
             });
     }
@@ -429,7 +439,9 @@ public sealed class WindowMount : IDisposable {
             Succ: _ => { Volatile.Write(location: ref releaseState, value: 2); return unit; },
             Fail: error => {
                 ignore(lastFault.Swap(_ => Some(error)));
-                Volatile.Write(location: ref releaseState, value: 0);
+                // released-with-fault, never re-armed: resetting to 0 re-runs the WHOLE teardown over natives
+                // already detached — the double-dispose the sibling lease arrows (UiClock, NoticeMount) foreclose.
+                Volatile.Write(location: ref releaseState, value: 2);
                 return unit;
             });
         return released;

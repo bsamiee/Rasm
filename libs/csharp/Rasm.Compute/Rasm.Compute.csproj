@@ -59,6 +59,9 @@
         <PackageReference Include="MQTTnet" />
         <PackageReference Include="Microsoft.IO.RecyclableMemoryStream" />
         <PackageReference Include="NATS.Net" />
+        <PackageReference Include="PureHDF" />
+        <PackageReference Include="PureHDF.Filters.BZip2.SharpZipLib" />
+        <PackageReference Include="PureHDF.Filters.Lzf" />
         <PackageReference Include="SharpGLTF.Core" />
         <PackageReference Include="SharpGLTF.Ext.3DTiles" />
         <PackageReference Include="SharpGLTF.Toolkit" />
@@ -90,6 +93,7 @@
         <PackageReference Include="Generator.Equals" />
         <PackageReference Include="Google.Protobuf" />
         <PackageReference Include="Grpc.AspNetCore" />
+        <PackageReference Include="Grpc.Core.Api" />
         <PackageReference Include="Grpc.Net.Client" />
         <PackageReference Include="Grpc.Tools" PrivateAssets="all" />
         <PackageReference Include="NodaTime.Serialization.Protobuf" />

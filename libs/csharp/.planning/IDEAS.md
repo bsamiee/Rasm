@@ -20,11 +20,12 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 -->
 
 [APP_SHELL_TEXTURE_CONCERT]-[BLOCKED]: the app-shell tier composes the Materials texture estate into the host and exchange shells, closing the round trips the strata forbid any single package from owning.
-- Capability: one composition root joins texture-set products to host materials and exchange styling — the S2-peer joins (Bim↔Materials roster hand-off, Rhino adapter) that no package may reference directly.
-- Shape: an app-root composition page at the product shell — a shell-join owner whose JOINS are rows, the texture estate entering as rows and never the page's identity — the Rhino `RenderMaterial` adapter over the existing `Registry.Run(ContentTransaction)` texture-admission and material-mutation flow, and the `Rasm.Bim` `StyledAppearance` texture roster handed to `Rasm.Materials` `SetIngest.Classify`.
+- Capability: one composition root joins texture-set products to host materials and exchange styling — the shell joins no package may own: the host adapter reachable only from an app root, and the scan/intent enrichment the Materials ingest law assigns the root.
+- Shape: an app-root composition page at the product shell — a shell-join owner whose JOINS are rows, the texture estate entering as rows and never the page's identity — the Rhino `RenderMaterial` adapter over the existing `Registry.Run(ContentTransaction)` texture-admission and material-mutation flow (S1-host-plane composition, no S2 seam can carry it), and the app-root scan filling `PlaneProbe` evidence and lifting the wire facts into `IngestIntent`.
 - Unlocks: photo→PBR and baked sets reach a Rhino document and a glTF export through one join owner rather than a package reaching across the strata for its peer.
-- Anchors: `libs/csharp/Rasm.Materials/.planning/Raster/set.md` `SetIngest`/`SetBind`; `libs/csharp/Rasm.Bim/.planning/Semantics/appearance.md` + `Exchange/export.md`; the `Rasm.Rhino` `ContentAdmission.Texture`/`ContentMutation` transaction flow; `libs/csharp/.planning/ARCHITECTURE.md` `[02]-[STRATA]`.
-- Arms: a product shell (app-root composition root) landing in the corpus.
+- Anchors: `libs/csharp/Rasm.Materials/.planning/Raster/set.md` `SetIngest`/`SetBind`; `libs/csharp/Rasm.Bim/.planning/Exchange/export.md` composing-edge binder; the `Rasm.Rhino` `ContentAdmission.Texture`/`ContentMutation` transaction flow; `libs/csharp/.planning/ARCHITECTURE.md` `[02]-[STRATA]` S5 shell law.
+- Arms: a product shell (app-root composition root) landing in the corpus — today `apps/` carries one packaging-convention README with placeholder rows and no plugin project, `libs/.planning/planning-targets.md` names no shell target, and the branch composition-root ruling holds every listed join at the shell.
+- Ripple: follows `TASKLOG.md [TEXTURE_ROSTER_SEAM]` — the Bim `StyledAppearance` roster→`SetIngest.Classify` leg left this card as shell-free seam work on the `TypeCandidate` precedent.
 
 ## [02]-[CLOSED]
 

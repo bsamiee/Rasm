@@ -10,14 +10,14 @@
 
 ## [02]-[RECONSTRUCTION]
 
-- Owner: `ReconstructionPolicy` `[Union]` is the one construction discriminant, each case carrying its typed policy payload and deriving its `ReconstructionMode` row; `Reconstruction` is the build/evaluate kernel; `SignedHeatDiscretization` `[Union]` the spine discriminant and `SignedHeatSpine` its one four-stage signed-heat law; `MeshSdf` the mesh-SDF dispatch over `SdfMeshMethod`; `IsoSurface` the native extraction adapter; `TetMeshDomain` the validated tetrahedral domain deriving its full boundary-face topology at admission. Every knob is a validated policy row carrying a preset.
-- Cases: `ReconstructionPolicy` cases `RbfCase`/`MlsCase`/`LevinCase`/`ApssCase`/`PoissonCase` select the build kernel; `ReconstructionMode` carries the seven modes with normals, sparse-system, degree, and status columns; `SignedHeatDiscretization` cases `TetFem`/`BoundarySource`/`ClosedVolumeGrid`; `SdfMeshMethod` carries `GeneralizedWindingNumber`/`BoundarySignedHeat`/`ClosedSurfaceSignedHeat`, and the method row IS the mesh-SDF classification; `PoissonBoundary` carries `Neumann` (singular) and `Dirichlet` (definite); `IsoSurfaceStatus` carries four rows, each with its own receipt-evidence predicate. Every single-value policy enum lands one row in the fence.
+- Owner: `ReconstructionPolicy` `[Union]` is the one construction discriminant, each case carrying its typed policy payload and deriving its `ReconstructionMode` row; `Reconstruction` is the build/evaluate kernel; `SignedHeatDiscretization` `[Union]` the spine discriminant and `SignedHeatSpine` its one four-stage signed-heat law; `MeshSdf` the mesh-SDF dispatch over `SdfMeshMethod`; `IsoSurface` the native extraction adapter; `TetMeshDomain` the validated tetrahedral domain deriving its full face roster and boundary topology at admission, `TetFace` the Crouzeix-Raviart degree of freedom that roster seats. Every knob is a validated policy row carrying a preset.
+- Cases: `ReconstructionPolicy` cases `RbfCase`/`MlsCase`/`LevinCase`/`ApssCase`/`PoissonCase`/`SibsonCase` select the build kernel; `ReconstructionMode` carries the eight modes with normals, sparse-system, degree, and status columns; `SignedHeatDiscretization` cases `TetFem`/`BoundarySource`/`ClosedVolumeGrid`; `SdfMeshMethod` carries `GeneralizedWindingNumber`/`BoundarySignedHeat`/`ClosedSurfaceSignedHeat`, and the method row IS the mesh-SDF classification; `PoissonBoundary` carries `Neumann` (singular) and `Dirichlet` (definite); `IsoSurfaceStatus` carries three reachable rows, each with its own receipt-evidence predicate. Every single-value policy enum lands one row in the fence.
 - Entry: `Reconstruction.Reconstruct` is the one reconstruction entry — the policy case selects the build kernel, admission internalizes per case (finite positions/normals/values, mode-specific guards), and the result carries a frozen `Spatial/fields` case with `ReconstructionReceipt`. `SignedHeatSpine.Solve` routes each `SignedHeatDiscretization` case to its row kernel over the same four-stage law. `MeshSdf.SignedDistanceDetailed` dispatches on `policy.Method` and `MeshSdf.Prewarm` factors and caches the solves without sampling. `IsoSurface.Detailed` returns the classified receipt for every native outcome — admission failures alone fail the rail, consumers gate on `Receipt.Valid`. `IsoContour.Detailed` is the rank-2 managed analogue, gated `grid.Rank is 2`, chaining crossings into oriented `Meshing/intersect` `Chain` loops. No per-mode public factory siblings on the surface.
-- Auto: RBF selects interpolation vs approximation by the smoothing row (`≤ ZeroTolerance` → exact kernel-matrix solve; `> 0` → `√smoothing`-diagonal-augmented least squares) — the mode split is a value consequence, not a knob. MLS solves the 4-equation-per-neighbor design (`[1, −offset] · [value; gradient]` rows weighted by `√profile`) and gates on rank ≥ 4 and normal agreement ≥ 0.5 against the weighted normal. Levin runs step one as covariance plane seed (smallest eigenvector, orientation-corrected) then alternates Brent root-finding on the weighted energy derivative along the normal (bracket/accuracy scale-derived from support) with normal re-estimation (at most `NormalMaxIter` inner steps against `NormalTau`, offset/normal convergence at `StepEps`/`NormalStepTol`), gated by the planarity ratio `λ0/λ2 ≤ PlanarityTau`; step two fits the ridge-regularized degree-`PolyDegree` height polynomial in the local tangent frame. APSS fits the algebraic sphere `(hc, hl, hq)` by Pratt normalization, classifies the plane-degenerate branch by `DegeneracyRatio ≤ EpsDegeneracy`, and projects iteratively with `StepDamping` under `ProjTol`. Poisson splats inward normals trilinearly onto the `2^Depth` lattice — the degree-1 discretization, the ONE splat the lattice owns (splat radius `Width`-scaled per cell; density estimate normalized by `SamplesPerNode` with weight floor `max(√ε, Density)`; bounding box grown by `Scale`) — assembles the 7-point Laplacian with one-sided boundary differences, adds `α = 8^Depth · PointWeight` screening outer products per sample when screened, imposes Dirichlet rows when `Boundary.IsDirichlet`, solves definite systems by `CholeskySparse` and singular ones by `SingularSolveDetailed` under `GaugePolicy.PinConstant(interior, GaugeShift.PinZero)` — residual-gated against `Solver.ResidualTolerance` like every other solve on this page — and derives the isovalue `γ` as the density-weighted mean sample indicator. Signed-heat rows specialize the same four stages across tet FEM, boundary CR, and closed volume-grid discretizations, heat time resolving per row from `SignedHeatTime`.
-- Receipt: every build, point evaluation, and spine step carries its typed receipt as one `ValidityClaim.All` fold. `ReconstructionReceipt`/`ReconstructionSampleReceipt` ride the RBF/MLS rail with the interpolation verdict on `Mode.Status`; the deep `LevinMlsSampleReceipt`/`ApssSampleReceipt` carry their solver witnesses; `PoissonReceipt` carries the splat-conservation claim; `SignedHeatReceipt`/`VolumeGridReceipt`/`TetSignedHeatReceipt` sit per spine row, `SdfMeshReceipt` on the mesh-SDF rail, `IsoSurfaceReceipt` inside `IsoSurfaceResult`, and `IsoContourReceipt` witnessing the lattice, isovalue, ambiguous-cell census, and open-run count inside `IsoContourResult`.
-- Packages: `Rasm.Numerics` `Numerics/matrix` (sparse and dense solves, gauge policy, solve receipts) and `Numerics/calculus` (kernel-profile math, composed never re-minted); `Meshing/mesh` (the `MeshSpace` snapshot, cache memo slots, `TopologyReceipt`) and `Meshing/dec` (CR heat-system assembly, face-field sampling, intrinsic divergence); `Spatial/fields` (`ScalarField` frozen cases as the build product); `Spatial/index` (`Spatial.Apply` over `SpatialQuery.Winding`, the accelerated GWN lane); `Domain/rails` and `Domain/context`; MathNet.Numerics (`RootFinding.Brent` for the Levin energy root); RhinoCommon (`Mesh.CreateFromIsosurface` and the inside/closest/orientation predicates, genuinely Rhino-boundary, never thinned); LanguageExt.Core; BCL (`Interlocked`).
+- Auto: RBF selects interpolation vs approximation by the smoothing row (`≤ ZeroTolerance` → exact kernel-matrix solve; `> 0` → `√smoothing`-diagonal-augmented least squares) — the mode split is a value consequence, not a knob. MLS solves the 4-equation-per-neighbor design (`[1, −offset] · [value; gradient]` rows weighted by `√profile`) and gates on rank ≥ 4 and normal agreement ≥ 0.5 against the weighted normal. Levin runs step one as covariance plane seed (smallest eigenvector, orientation-corrected) then alternates Brent root-finding on the weighted energy derivative along the normal (bracket/accuracy scale-derived from support) with normal re-estimation (at most `NormalMaxIter` inner steps against `NormalTau`, offset/normal convergence at `StepEps`/`NormalStepTol`), gated by the planarity ratio `λ0/λ2 ≤ PlanarityTau`; step two fits the ridge-regularized degree-`PolyDegree` height polynomial in the local tangent frame. APSS fits the algebraic sphere `(hc, hl, hq)` by Pratt normalization, classifies the plane-degenerate branch by `DegeneracyRatio ≤ EpsDegeneracy`, and projects iteratively with `StepDamping` under `ProjTol`. Poisson splats inward normals trilinearly onto the `2^Depth` lattice — the degree-1 discretization, the ONE splat the lattice owns (splat radius `Width`-scaled per cell; density estimate normalized by `SamplesPerNode` with weight floor `max(√ε, Density)`; bounding box grown by `Scale`) — assembles the 7-point Laplacian with one-sided boundary differences, adds `α = 8^Depth · PointWeight` screening outer products per sample when screened, imposes Dirichlet rows when `Boundary.IsDirichlet`, solves definite systems by `CholeskySparse` and singular ones by `SingularSolveDetailed` under `GaugePolicy.PinConstant(interior, GaugeShift.PinZero)` — residual-gated against `Solver.ResidualTolerance` like every other solve on this page — and derives the isovalue `γ` as the density-weighted mean sample indicator. Sibson is EVALUATED, never fitted: the build admits the position/value pairs and resolves the dual tolerance, and each query derives its own natural-neighbour weights from the `Spatial/cloud` Voronoi dual over samples-plus-query, so the exactness at the samples is a property of the weights rather than of a solve. Signed-heat rows specialize the same four stages across Crouzeix-Raviart tet FEM, boundary CR, and closed volume-grid discretizations — the tet row seating one degree of freedom per FACE and closing with the `(AᵀMA)w = AᵀMu` projection onto vertices — heat time resolving per row from `SignedHeatTime` against that row's own node spacing.
+- Receipt: every build, point evaluation, and spine step carries its typed receipt as one `ValidityClaim.All` fold. `ReconstructionReceipt`/`ReconstructionSampleReceipt` ride the RBF/MLS/Sibson rail with the interpolation verdict on `Mode.Status` and every measurement an arm skips — kernel, radius, rank, condition, agreement, gradient, solve — on its own optional slot; the deep `LevinMlsSampleReceipt`/`ApssSampleReceipt` carry their solver witnesses; `PoissonReceipt` carries the splat-conservation claim; `SignedHeatReceipt`/`VolumeGridReceipt`/`TetSignedHeatReceipt` sit per spine row, `SdfMeshReceipt` on the mesh-SDF rail, `IsoSurfaceReceipt` inside `IsoSurfaceResult`, and `IsoContourReceipt` witnessing the lattice, isovalue, ambiguous-cell census, and open-run count inside `IsoContourResult`.
+- Packages: `Rasm.Numerics` `Numerics/matrix` (sparse and dense solves, gauge policy, solve receipts) and `Numerics/calculus` (kernel-profile math, composed never re-minted); `Meshing/mesh` (the `MeshSpace` snapshot, cache memo slots, `TopologyReceipt`) and `Meshing/dec` (CR heat-system assembly, face-field sampling, intrinsic divergence); `Spatial/fields` (`ScalarField` frozen cases as the build product); `Spatial/index` (`Spatial.Apply` over `SpatialQuery.Winding`, the accelerated GWN lane); `Spatial/cloud` (`CloudKernel.NaturalNeighborWeights` over the `VoronoiMesh` dual — the one hull owner, never a page-local dual); `Domain/rails` and `Domain/context`; MathNet.Numerics (`RootFinding.Brent` for the Levin energy root); RhinoCommon (`Mesh.CreateFromIsosurface` and the inside/closest/orientation predicates, genuinely Rhino-boundary, never thinned); LanguageExt.Core; BCL (`Interlocked`).
 - Growth: a new reconstruction family (partition-of-unity implicits, neural pull) is one `ReconstructionPolicy` case + one `ReconstructionMode` row + one build arm producing a new frozen field case; a new signed-heat discretization (polygon FEM, adaptive octree grid) is one `SignedHeatDiscretization` case + one stage row on the same four-stage spine — never a parallel heat→Poisson pipeline; a new mesh-SDF method is one `SdfMeshMethod` row; a new lattice boundary condition is one `PoissonBoundary` row with its column values; a grid ceiling change is a policy-row edit; a managed 3D iso lane is one `IsoSurfaceRoute` row over the same receipt law — the `BooleanRoute` pattern one rank up from the landed `IsoContour` rail; zero new entry surface.
-- Boundary: `SignedHeatSpine` owns one heat→divergence→Poisson→calibrate law. Boundary-source rows reject flipped intrinsic snapshots; closed-grid rows admit only watertight, solid, closed, oriented topology. Lattice-backed samples outside the grid return the positive far value, never a clamp-to-edge fabricated interior. Native evaluator callbacks count failures with `Interlocked`; every linear solve routes through `Numerics/matrix`, and `Op.Catch` converts the native callback boundary.
+- Boundary: `SignedHeatSpine` owns one heat→divergence→Poisson→calibrate law, and each row states its own heat-time scale — `0.5·MeanEdgeLength` for the boundary-source row, the source mesh's `MeanEdgeLength` for the closed grid, and the mean tet face-barycenter pair spacing for the tet row — so no row inherits another's clock. Boundary-source rows reject flipped intrinsic snapshots; closed-grid rows admit only closed, oriented topology and carry the orientation integer onto every source normal instead of a heuristic interior flip. Lattice-backed samples outside the grid take the exact eikonal extension off the clamped point, never a fabricated far constant nor a clamp-to-edge interior reading. `Mesh.IsPointInside` is BARRED — it is the tolerance-bearing approximate predicate the generalized winding test `|w| > 0.5` replaces, and the winding test is the only inside test on this page. Native evaluator callbacks count failures with `Interlocked` and return `NaN`, which the extractor absorbs as inside, so that tally is the sole failure evidence; every linear solve routes through `Numerics/matrix`, and `Op.Catch` converts the native callback boundary.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -57,6 +57,9 @@ public sealed partial class ReconstructionMode {
     public static readonly ReconstructionMode AlgebraicPointSetSurfaces = new(key: 4, requiresNormals: true, requiresSparseSystem: false, polynomialDegree: 2, status: ReconstructionStatus.ApproximateSdf);
     public static readonly ReconstructionMode Poisson                   = new(key: 5, requiresNormals: true, requiresSparseSystem: true, polynomialDegree: 0, status: ReconstructionStatus.PoissonIndicator);
     public static readonly ReconstructionMode ScreenedPoisson           = new(key: 6, requiresNormals: true, requiresSparseSystem: true, polynomialDegree: 0, status: ReconstructionStatus.PoissonIndicator);
+    // Natural-neighbour interpolation needs no normals, no system, and no polynomial: the weights are the Voronoi
+    // areas the query itself steals, so the fit is exact at every sample and degree zero is the honest column.
+    public static readonly ReconstructionMode NaturalNeighbor           = new(key: 7, requiresNormals: false, requiresSparseSystem: false, polynomialDegree: 0, status: ReconstructionStatus.ExactInterpolation);
     public bool RequiresNormals { get; }
     public bool RequiresSparseSystem { get; }
     public int PolynomialDegree { get; }
@@ -87,21 +90,24 @@ public sealed partial class SdfSignConvention {
     public double Multiplier { get; }
 }
 
+// Three rows, closed: the native extractor has a SINGLE non-null exit, so an empty extraction returns a valid handle
+// carrying zero vertices whose IsValid is false and routes NativeInvalidMesh. A returned-null row is unreachable —
+// its evidence predicate can never fire — and an unreachable status row is a defect, never future-proofing.
 [SmartEnum<int>]
 public sealed partial class IsoSurfaceStatus {
     public static readonly IsoSurfaceStatus NativeValid = new(key: 0,
         admitsEvidence: static (failures, vertices, faces, naked) => failures == 0 && vertices > 0 && faces > 0 && naked.IsSome);
     public static readonly IsoSurfaceStatus EvaluatorFailure = new(key: 1,
         admitsEvidence: static (failures, _, _, _) => failures > 0);
-    public static readonly IsoSurfaceStatus NativeReturnedNull = new(key: 2,
-        admitsEvidence: static (failures, vertices, faces, naked) => failures == 0 && vertices == 0 && faces == 0 && naked.IsNone);
-    public static readonly IsoSurfaceStatus NativeInvalidMesh = new(key: 3,
+    public static readonly IsoSurfaceStatus NativeInvalidMesh = new(key: 2,
         admitsEvidence: static (failures, _, _, naked) => failures == 0 && naked.IsNone);
 
     [UseDelegateFromConstructor]
     internal partial bool AdmitsEvidence(int failures, int vertices, int faces, Option<int> nakedBoundaryLoops);
 }
 
+// One row: the Crouzeix-Raviart Poisson gauge pins the constant at the first BOUNDARY FACE, the degree of freedom
+// this discretization actually carries — a vertex pin would gauge a system whose unknowns are not vertices.
 [SmartEnum<int>] public sealed partial class TetGaugePolicy { public static readonly TetGaugePolicy PinnedFirstBoundary = new(key: 0); }
 [SmartEnum<int>] public sealed partial class TetInterpolation { public static readonly TetInterpolation Barycentric = new(key: 0); }
 [SmartEnum<int>] public sealed partial class VolumeSolverKind { public static readonly VolumeSolverKind SparseCholeskyPinned = new(key: 0); }
@@ -118,17 +124,20 @@ public abstract partial record ReconstructionPolicy {
     public sealed record LevinCase(LevinMlsPolicy Policy) : ReconstructionPolicy;
     public sealed record ApssCase(ApssPolicy Policy) : ReconstructionPolicy;
     public sealed record PoissonCase(PoissonPolicy Policy) : ReconstructionPolicy;
+    public sealed record SibsonCase(SibsonPolicy Policy) : ReconstructionPolicy;
     public static Fin<ReconstructionPolicy> Rbf(KernelKind kernel, double radius, double smoothing = 0.0, Op? key = null);
     public static Fin<ReconstructionPolicy> Mls(KernelKind kernel, double radius, Op? key = null);
     public static Fin<ReconstructionPolicy> Levin(LevinMlsPolicy policy, Op? key = null);
     public static Fin<ReconstructionPolicy> Apss(ApssPolicy policy, Op? key = null);
     public static Fin<ReconstructionPolicy> Poisson(PoissonPolicy policy, Op? key = null);
+    public static Fin<ReconstructionPolicy> Sibson(SibsonPolicy policy, Op? key = null);
     public ReconstructionMode Mode => Switch(
         rbfCase:     static c => c.Smoothing <= EpsilonPolicy.ZeroTolerance ? ReconstructionMode.RbfInterpolation : ReconstructionMode.RbfApproximation,
         mlsCase:     static _ => ReconstructionMode.MovingLeastSquares,
         levinCase:   static _ => ReconstructionMode.LevinMovingLeastSquares,
         apssCase:    static _ => ReconstructionMode.AlgebraicPointSetSurfaces,
-        poissonCase: static c => c.Policy.PointWeight > 0.0 ? ReconstructionMode.ScreenedPoisson : ReconstructionMode.Poisson);
+        poissonCase: static c => c.Policy.PointWeight > 0.0 ? ReconstructionMode.ScreenedPoisson : ReconstructionMode.Poisson,
+        sibsonCase:  static _ => ReconstructionMode.NaturalNeighbor);
 }
 
 // THE spine discriminant: each case carries its domain and policy; the spine runs ONE four-stage law over the row.
@@ -205,6 +214,24 @@ public readonly record struct LevinMlsPolicy(
         bool planeThroughPoint = false, bool orientNormals = true, WeightKernelFamily? weightKernel = null, Op? key = null);
 }
 
+// Natural-neighbour interpolation carries two axes and no more: the dual's coplanarity tolerance and the neighbour
+// floor. Tolerance is Option so an absent value resolves from the model Context at build — the package default is a
+// bare 1e-10 that judges metres and millimetres identically, so a kernel run never leaves it standing. MinNeighbors
+// floors at five because a query's cell is bounded only strictly inside the sample hull, and four cospherical-free
+// points bound no interior cell; extrapolation past the hull is undefined and fails typed rather than extending flat.
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct SibsonPolicy(Option<PositiveMagnitude> Tolerance, int MinNeighbors) {
+    public static Fin<SibsonPolicy> Of(double tolerance = 0.0, int minNeighbors = 5, Op? key = null) =>
+        key.OrDefault() switch {
+            Op op => from _ in guard(minNeighbors >= 5 && double.IsFinite(tolerance) && tolerance >= 0.0, op.InvalidInput())
+                     from admitted in tolerance > 0.0
+                         ? op.AcceptValidated<PositiveMagnitude>(candidate: tolerance).Map(Some)
+                         : Fin.Succ(Option<PositiveMagnitude>.None)
+                     select new SibsonPolicy(Tolerance: admitted, MinNeighbors: minNeighbors),
+        };
+    internal PositiveMagnitude Resolve(Context context) => Tolerance.IfNone(noneValue: PositiveMagnitude.Create(value: context.Absolute.Value));
+}
+
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct ApssPolicy(
     PositiveMagnitude Support, WeightKernelFamily WeightKernel, double Beta, double NeglectEps, double EpsDegeneracy,
@@ -226,9 +253,19 @@ public readonly record struct PoissonPolicy(
         double density = 0.0, Op? key = null);
 }
 
+// The native root finder returns `default` at a nonpositive step budget, so MaxRootSteps is admitted at or above one.
+// The extractor's iso-level is HARDCODED to 0.0 — every sign test reads `> 0.0` — so an isovalue is expressed by the
+// evaluator returning `value - IsoValue`, never by a level argument the native surface does not carry. The cell
+// ceiling is the admitted CellLattice's own, so no second budget field exists here.
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct IsoSurfacePolicy(Dimension MaxRootSteps, long MaxCells) {
-    public static readonly IsoSurfacePolicy Default = new(MaxRootSteps: Dimension.Create(value: 32), MaxCells: 16_777_216L);
+public readonly record struct IsoSurfacePolicy(Dimension MaxRootSteps, double IsoValue) {
+    public static readonly IsoSurfacePolicy Default = new(MaxRootSteps: Dimension.Create(value: 32), IsoValue: 0.0);
+    public static Fin<IsoSurfacePolicy> Of(int maxRootSteps = 32, double isoValue = 0.0, Op? key = null) =>
+        key.OrDefault() switch {
+            Op op => from steps in op.AcceptValidated<Dimension>(candidate: maxRootSteps)
+                     from _ in guard(steps.Value >= 1 && double.IsFinite(isoValue), op.InvalidInput())
+                     select new IsoSurfacePolicy(MaxRootSteps: steps, IsoValue: isoValue),
+        };
 }
 
 // --- [MODELS] -------------------------------------------------------------------------------
@@ -264,15 +301,18 @@ public readonly record struct ReconstructionSample(double Value, ReconstructionS
 }
 
 // Status rides Mode.Status. Kernel/Radius are Option like the build receipt — Levin and APSS weight through
-// WeightKernelFamily + Support on their deep receipts, so a fabricated KernelKind here would lie.
+// WeightKernelFamily + Support on their deep receipts, so a fabricated KernelKind here would lie. Rank is Option for
+// the same reason: the closed-form and weight-fold arms run no design solve, so a rank is a measurement they never
+// take and a stored integer there would be an asserted copy of a number no run produced.
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct ReconstructionSampleReceipt(
     ReconstructionMode Mode, Option<KernelKind> Kernel, Option<double> Radius, int SampleCount,
-    int NeighborhoodCount, int RejectedWeightCount, double WeightSum, int Rank,
+    int NeighborhoodCount, int RejectedWeightCount, double WeightSum, Option<int> Rank,
     Option<double> Condition, Option<double> NormalAgreement, Option<double> GradientNorm, Option<SolveReceipt> Solve) : IValidityEvidence {
     public bool IsValid => ValidityClaim.All(
         ValidityClaim.CountAtLeast(count: SampleCount, floor: 1), ValidityClaim.CountAtLeast(count: NeighborhoodCount, floor: 0),
-        ValidityClaim.CountAtLeast(count: RejectedWeightCount, floor: 0), ValidityClaim.CountAtLeast(count: Rank, floor: 0),
+        ValidityClaim.CountAtLeast(count: RejectedWeightCount, floor: 0),
+        ValidityClaim.Of(Rank.Map(static rank => rank >= 1).IfNone(noneValue: true)),
         ValidityClaim.Nonnegative(WeightSum),
         ValidityClaim.Of(Radius.Map(static r => ValidityClaim.Positive(r).Holds).IfNone(noneValue: true)),
         ValidityClaim.Of(Solve.Map(static receipt => receipt.IsValid).IfNone(noneValue: true)));
@@ -337,13 +377,19 @@ public readonly record struct PoissonReceipt(
         ValidityClaim.Of(Gauge.Map(static receipt => receipt.IsValid).IfNone(noneValue: true)));
 }
 
+// SourceNormalAgreement is the ONE witness of the rotation convention: the mean of the reconstructed face field
+// against the nearest source normal is non-negative when the sampler's basis and the source encoder's basis agree,
+// and a mismatch rotates the field ninety degrees while every residual, symmetry, and count gate still passes. It is
+// Option because only the boundary-source row has sources to compare against.
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct SignedHeatReceipt(
     int BoundarySourceVertexCount, int BoundaryEncodedEdgeSourceCount, int BoundaryRejectedPointCount,
     int BoundaryUnmatchedSegmentCount, Option<SolveReceipt> HeatSolve, SolveReceipt PoissonSolve,
-    Option<SpectralAssemblyReceipt> EdgeAssembly = default, Option<double> SpdMassShift = default) : IValidityEvidence {
+    Option<SpectralAssemblyReceipt> EdgeAssembly = default, Option<double> SpdMassShift = default,
+    Option<double> SourceNormalAgreement = default) : IValidityEvidence {
     // Boundary counts floor at ZERO — the closed-grid spine row shares this receipt with no boundary sources.
     public bool IsValid => ValidityClaim.All(
+        ValidityClaim.Of(SourceNormalAgreement.Map(static agreement => double.IsFinite(agreement) && agreement >= 0.0).IfNone(noneValue: true)),
         ValidityClaim.CountAtLeast(count: BoundarySourceVertexCount, floor: 0),
         ValidityClaim.CountAtLeast(count: BoundaryEncodedEdgeSourceCount, floor: 0),
         ValidityClaim.CountAtLeast(count: BoundaryRejectedPointCount, floor: 0),
@@ -382,25 +428,53 @@ public readonly record struct SdfMeshReceipt(
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct TetCell(int A, int B, int C, int D) { internal int[] Indices => [A, B, C, D]; }
 
-// Admission derives the FULL boundary topology once: face-count map -> boundary faces (count==1) -> boundary vertices,
-// cell volumes, interior count, total volume. Admit() re-derives and cross-checks a carried domain against rebuild.
+// The face IS the Crouzeix-Raviart degree of freedom, so the roster is domain material, not a solver intermediate:
+// Cell0/Cell1 give the incidence the stiffness scatter walks, a Cell1 below zero marks the face boundary, and the
+// opposite-vertex slot names which barycentric the face's basis 1 - 3*lambda is built on.
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct TetFace(int A, int B, int C, int Cell0, int Cell1, int Opposite0, int Opposite1) {
+    internal bool IsBoundary => Cell1 < 0;
+}
+
+// Admission derives the FULL face topology once: face-count map -> the face roster with its cell incidence ->
+// boundary faces (count==1) -> boundary vertices, cell volumes, interior count, total volume. Admit() re-derives and
+// cross-checks a carried domain against rebuild, so a hand-assembled domain cannot smuggle a stale roster past it.
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct TetMeshDomain(
-    Seq<Point3d> Vertices, Seq<TetCell> Cells, Context Context, Arr<double> CellVolumes, Seq<int> BoundaryVertices,
-    BoundingBox Bounds, int BoundaryFaceCount, int InteriorVertexCount, double TotalVolume) {
+    Seq<Point3d> Vertices, Seq<TetCell> Cells, Seq<TetFace> Faces, Context Context, Arr<double> CellVolumes,
+    Seq<int> BoundaryVertices, BoundingBox Bounds, int BoundaryFaceCount, int InteriorVertexCount, double TotalVolume) {
     public static Fin<TetMeshDomain> Of(Seq<Point3d> vertices, Seq<TetCell> cells, Context context, Op? key = null);
     internal Fin<TetMeshDomain> Admit(Op key);
-    internal static Fin<TetCellMetric> MetricOf(Point3d[] points, TetCell cell, Op key);   // Jacobian-inverse P1 gradients
+    // V = det[p1-p0, p2-p0, p3-p0]/6; the outward area-weighted normal opposite corner i is N_i = 0.5*(u-w)x(v-w) over
+    // the other three, and the P1 gradient closes as grad(lambda_i) = -N_i/(3V) with sum(grad) = 0 the assembly
+    // self-check. The CR gradient is -3*grad(lambda_i), so every face quantity reads off this ONE metric.
+    internal static Fin<TetCellMetric> MetricOf(Point3d[] points, TetCell cell, Op key);
+    // Mean tet face-barycenter pair spacing: the six pairwise distances per cell, divided by 6*CellCount. This is the
+    // node spacing the CR discretization actually resolves — a cell-size or edge-length substitute mis-times the heat.
+    internal double MeanNodeSpacing();
 }
-internal readonly record struct TetCellMetric(double Volume, Vector3d[] Gradients);
+internal readonly record struct TetCellMetric(double Volume, Vector3d[] Gradients) {
+    internal Vector3d FaceNormal(int corner) => -3.0 * Volume * Gradients[corner];
+    internal Vector3d CrouzeixGradient(int corner) => -3.0 * Gradients[corner];
+}
 
+// The system dimension is the FACE count, not the vertex count — Crouzeix-Raviart seats one degree of freedom per
+// face — so every operator identity closes on FaceCount and the vertex census survives only for the terminal
+// projection, whose |F| x |V| averaging matrix is the one place the two rosters meet.
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct TetFemReceipt(
-    int VertexCount, int CellCount, int BoundaryVertexCount, int BoundaryFaceCount, int InteriorVertexCount,
+    int VertexCount, int CellCount, int FaceCount, int BoundaryVertexCount, int BoundaryFaceCount, int InteriorVertexCount,
     int IncidenceCount, double TotalVolume, double MinCellVolume, double MaxCellVolume,
-    int MassNonZeros, int StiffnessNonZeros, int HeatOperatorNonZeros, int DivergenceNonZeros, int RejectedGradientCellCount) : IValidityEvidence {
+    int MassNonZeros, int StiffnessNonZeros, int HeatOperatorNonZeros, int DivergenceNonZeros,
+    int ProjectionRows, int ProjectionCols, int RejectedGradientCellCount) : IValidityEvidence {
     public bool IsValid => ValidityClaim.All(
         ValidityClaim.CountExactly(count: BoundaryVertexCount + InteriorVertexCount, expected: VertexCount),
+        ValidityClaim.CountExactly(count: ProjectionRows, expected: FaceCount),
+        ValidityClaim.CountExactly(count: ProjectionCols, expected: VertexCount),
+        ValidityClaim.CountAtLeast(count: FaceCount, floor: BoundaryFaceCount),
+        // Every interior face is shared by two cells and every boundary face by one, and each cell contributes four
+        // incidences: 4*CellCount == 2*FaceCount - BoundaryFaceCount cross-checks the roster against the cell census.
+        ValidityClaim.CountExactly(count: 4 * CellCount, expected: (2 * FaceCount) - BoundaryFaceCount),
         ValidityClaim.Ordered(lower: MinCellVolume, upper: MaxCellVolume),
         ValidityClaim.CountAtLeast(count: CellCount, floor: 1), ValidityClaim.Positive(TotalVolume),
         ValidityClaim.CountAtLeast(count: RejectedGradientCellCount, floor: 0));
@@ -414,7 +488,7 @@ public readonly record struct TetInterpolationReceipt(TetInterpolation Interpola
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct TetSignedHeatReceipt(
     TetFemReceipt Fem, SignedHeatTime Heat, VolumeSolverPolicy Solver, SdfSignConvention SignConvention,
-    TetGaugePolicy Gauge, TetInterpolation Interpolation, int GaugeVertex, double HeatTime,
+    TetGaugePolicy Gauge, TetInterpolation Interpolation, int GaugeFace, double HeatTime,
     double BoundaryShift, double InteriorMean, SolveReceipt HeatSolve, SolveReceipt PoissonSolve) : IValidityEvidence {
     public bool IsValid => ValidityClaim.All(
         ValidityClaim.Evidence(Fem), ValidityClaim.Positive(HeatTime),
@@ -432,14 +506,16 @@ public readonly record struct TetSignedHeatSample(double Value, TetSignedHeatRec
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct IsoSurfaceReceipt(
     bool NativeRouted, IsoSurfaceStatus Status, CellLattice Grid, long HexCellCount, long CornerSampleCount,
-    long CenterSampleCount, long InitialSampleCount, int MaxRootSteps, bool ParallelCallback,
-    int EvaluatorFailures, int VertexCount, int FaceCount, Option<int> NakedBoundaryLoopCount,
+    long CenterSampleCount, long InitialSampleCount, int MaxRootSteps, double IsoValue, bool NativeNormalsDiscarded,
+    bool ParallelCallback, int EvaluatorFailures, int VertexCount, int FaceCount, Option<int> NakedBoundaryLoopCount,
     Option<double> FixedTolerance, Option<double> FixedNormalSampleDistance, Option<SdfMeshReceipt> MeshPreflight) : IValidityEvidence {
     public bool Valid => Status is not null && Status.Equals(IsoSurfaceStatus.NativeValid);
     public bool IsValid => ValidityClaim.All(
         ValidityClaim.Of(Status is not null && Status.AdmitsEvidence(
             failures: EvaluatorFailures, vertices: VertexCount, faces: FaceCount, nakedBoundaryLoops: NakedBoundaryLoopCount)),
         ValidityClaim.CountAtLeast(count: EvaluatorFailures, floor: 0),
+        ValidityClaim.Of(HexCellCount == Grid.CellCount && CornerSampleCount == Grid.NodeCount),
+        ValidityClaim.Finite(IsoValue), ValidityClaim.Of(NativeNormalsDiscarded),
         ValidityClaim.Of(NakedBoundaryLoopCount.Map(static count => count >= 0).IfNone(noneValue: true)),
         ValidityClaim.Of(MeshPreflight.Map(static receipt => receipt.IsValid).IfNone(noneValue: true)));
 }
@@ -472,7 +548,8 @@ public static class Reconstruction {
                 mlsCase:     c => BuildMls(samples: samples, kernel: c.Kernel, radius: c.Radius, context: context, key: op),
                 levinCase:   c => BuildLevin(samples: samples, policy: c.Policy, context: context, key: op),
                 apssCase:    c => BuildApss(samples: samples, policy: c.Policy, context: context, key: op),
-                poissonCase: c => BuildPoisson(samples: samples, policy: c.Policy, context: context, key: op)),
+                poissonCase: c => BuildPoisson(samples: samples, policy: c.Policy, context: context, key: op),
+                sibsonCase:  c => BuildSibson(samples: samples, policy: c.Policy, context: context, key: op)),
         };
     // RBF (RK-1): centers ARE the samples. Exact interpolation solves Φc = v; approximation stacks √smoothing·I under
     // Φ against a zero tail — the Tikhonov normal equations without forming ΦᵀΦ. A conditionally-positive-definite
@@ -527,6 +604,18 @@ public static class Reconstruction {
         let receipt = new ReconstructionReceipt(Mode: ReconstructionMode.AlgebraicPointSetSurfaces, Kernel: Option<KernelKind>.None, Radius: Some(policy.Support.Value),
             Smoothing: Option<double>.None, SampleCount: samples.Count, CenterCount: samples.Count, PolynomialDegree: 2, Solve: Option<SolveReceipt>.None)
         select new ReconstructionResult(Field: new ScalarField.ApssCase(Samples: samples, Policy: policy, Receipt: receipt), Receipt: receipt);
+    // Sibson (RK-9): BUILD IS ADMISSION ONLY, like MLS — natural-neighbour weights are a property of the QUERY, so
+    // there are no coefficients to fit and a build that produced any would be publishing a stale dual. The case
+    // carries the admitted position/value pairs and the RESOLVED tolerance, so the evaluator never re-reads Context.
+    private static Fin<ReconstructionResult> BuildSibson(Seq<MlsSample> samples, SibsonPolicy policy, Context context, Op key) =>
+        from _ in guard(samples.Count >= policy.MinNeighbors && samples.ForAll(static s => s.Position.IsValid && double.IsFinite(s.Value)), key.InvalidInput()).ToFin()
+        let tolerance = policy.Resolve(context: context)
+        let receipt = new ReconstructionReceipt(Mode: ReconstructionMode.NaturalNeighbor, Kernel: Option<KernelKind>.None,
+            Radius: Option<double>.None, Smoothing: Option<double>.None, SampleCount: samples.Count,
+            CenterCount: samples.Count, PolynomialDegree: 0, Solve: Option<SolveReceipt>.None)
+        select new ReconstructionResult(
+            Field: new ScalarField.SibsonCase(Samples: samples.Map(static s => (s.Position, s.Value)), Tolerance: tolerance, Receipt: receipt),
+            Receipt: receipt);
 
     // Poisson (RK-7): the lattice body at degree 1. (a) grow the sample box by Scale and admit the 2^Depth lattice
     // through CellLattice.Of — the ceiling derives from Depth, so an over-deep request refuses at admission; (b)
@@ -568,7 +657,7 @@ public static class Reconstruction {
     // RK-2 — total point fold: compact rows contribute exact zeros past q > 1, so no neighborhood cull exists.
     internal static Fin<double> EvaluateRbf(Seq<(Point3d Position, double Value)> samples, KernelKind kernel, double radius, Arr<double> coefficients, Point3d sample, Op key) =>
         from _ in guard(coefficients.Count == samples.Count, key.InvalidInput()).ToFin()
-        from value in key.AcceptValue(value: samples.Map((index, s) => coefficients[index] * kernel.Weight(distance: sample.DistanceTo(other: s.Position), radius: radius)).Sum())
+        from value in key.AcceptValue(value: samples.Map((s, index) => coefficients[index] * kernel.Weight(distance: sample.DistanceTo(other: s.Position), radius: radius)).Fold(0.0, static (acc, term) => acc + term))
         select value;
     // RK-4 — the four-equation-per-neighbor linear design: for each neighbor with offset d = pᵢ − sample and
     // w = √profile, one value row w·[1, −d] and three gradient rows w·[0, eⱼ] against w·nᵢ·eⱼ; solved 4n×4 by
@@ -584,7 +673,7 @@ public static class Reconstruction {
                select new ReconstructionSample(Value: solve.Solution[0],
                    Receipt: new ReconstructionSampleReceipt(Mode: ReconstructionMode.MovingLeastSquares, Kernel: Some(kernel), Radius: Some(radius),
                        SampleCount: samples.Count, NeighborhoodCount: hood.Length, RejectedWeightCount: samples.Count - hood.Length,
-                       WeightSum: hood.Sum(static n => n.Weight), Rank: 4,
+                       WeightSum: hood.Sum(static n => n.Weight), Rank: Some(4),
                        Condition: Option<double>.None, NormalAgreement: Some(agreement), GradientNorm: Some(gradient.Length), Solve: Some(solve)));
         static Fin<(Matrix Matrix, Arr<double> Rhs)> DesignOf(Neighbor[] hood, Op key);
         static double AgreementOf(Vector3d gradient, Neighbor[] hood);
@@ -612,7 +701,7 @@ public static class Reconstruction {
         select (new ReconstructionSample(Value: fit.Value,
                 Receipt: new ReconstructionSampleReceipt(Mode: ReconstructionMode.LevinMovingLeastSquares, Kernel: Option<KernelKind>.None,
                     Radius: Some(policy.Support.Value), SampleCount: samples.Count, NeighborhoodCount: hood.Length,
-                    RejectedWeightCount: samples.Count - hood.Length, WeightSum: hood.Sum(static n => n.Weight), Rank: fit.Rank,
+                    RejectedWeightCount: samples.Count - hood.Length, WeightSum: hood.Sum(static n => n.Weight), Rank: Some(fit.Rank),
                     Condition: Some(fit.DesignCondition), NormalAgreement: Some(fit.NormalAgreement),
                     GradientNorm: Some(fit.Gradient.Length), Solve: Some(fit.Solve))),
             receipt);
@@ -656,7 +745,9 @@ public static class Reconstruction {
         select (new ReconstructionSample(Value: value,
                 Receipt: new ReconstructionSampleReceipt(Mode: ReconstructionMode.AlgebraicPointSetSurfaces, Kernel: Option<KernelKind>.None,
                     Radius: Some(policy.Support.Value), SampleCount: samples.Count, NeighborhoodCount: hood.Length,
-                    RejectedWeightCount: samples.Count - hood.Length, WeightSum: hood.Sum(static n => n.Weight), Rank: 4,
+                    // The algebraic-sphere fit is a closed-form weighted-moment fold with no design solve, so it takes
+                    // no rank measurement — the constant this slot once carried named a system that never ran.
+                    RejectedWeightCount: samples.Count - hood.Length, WeightSum: hood.Sum(static n => n.Weight), Rank: Option<int>.None,
                     Condition: Option<double>.None, NormalAgreement: Option<double>.None,
                     GradientNorm: Some(gradient.Length), Solve: Option<SolveReceipt>.None)),
             receipt);
@@ -671,6 +762,27 @@ public static class Reconstruction {
     // Damped sphere projection: p ← p − StepDamping·f(p)·∇f(p)/|∇f(p)|² until |f| ≤ ProjTol within ProjMaxIter;
     // TaubinResidual = f(sample)/|∇f(sample)| — the first-order distance the receipt witnesses beside the walk.
     private static (int Iterations, double Displacement, double TaubinResidual) ProjectApss(AlgebraicSphere fit, Point3d sample, ApssPolicy policy);
+    // RK-9 — natural-neighbour evaluation. The weights are the areas the QUERY's own Voronoi cell steals from each
+    // sample's cell in the dual of samples-plus-query, so they derive from the `Spatial/cloud` dual owner rather than
+    // from any fit here — a page-local dual would be the second hull owner the RULINGS hull split forbids. They are
+    // a partition of unity by construction, which is exactly why the sum is the residual worth gating: a drifted sum
+    // means the dual returned an unbounded or degenerate cell, and a bare weighted average would hide it.
+    // A query outside the sample hull has an UNBOUNDED cell — natural-neighbour extrapolation is undefined there —
+    // so the empty weight set fails typed rather than extending the nearest value flat across the exterior.
+    internal static Fin<ReconstructionSample> EvaluateSibson(Seq<(Point3d Position, double Value)> samples, PositiveMagnitude tolerance, Point3d sample, Op key) {
+        (Point3d Position, double Value)[] points = [.. samples];
+        return from weights in CloudKernel.NaturalNeighborWeights(sites: samples.Map(static s => s.Position), query: sample, tolerance: tolerance.Value, key: key)
+               from _ in guard(!weights.IsEmpty && weights.ForAll(w => w.Site >= 0 && w.Site < points.Length), key.InvalidResult()).ToFin()
+               let sum = weights.Fold(0.0, static (acc, w) => acc + w.Weight)
+               from __ in guard(Math.Abs(value: 1.0 - sum) <= EpsilonPolicy.SqrtEpsilon, key.InvalidResult()).ToFin()
+               select new ReconstructionSample(
+                   Value: weights.Fold(0.0, (acc, w) => acc + (w.Weight * points[w.Site].Value)),
+                   Receipt: new ReconstructionSampleReceipt(Mode: ReconstructionMode.NaturalNeighbor, Kernel: Option<KernelKind>.None,
+                       Radius: Option<double>.None, SampleCount: points.Length, NeighborhoodCount: weights.Count,
+                       RejectedWeightCount: points.Length - weights.Count, WeightSum: sum, Rank: Option<int>.None,
+                       Condition: Option<double>.None, NormalAgreement: Option<double>.None,
+                       GradientNorm: Option<double>.None, Solve: Option<SolveReceipt>.None));
+    }
     // RK-8 — THE one neighborhood fold RK-4..RK-6 share; a per-kernel cull is the deleted form. Neglect radius
     // = support·√(ln(1/eps)); weights below context.Relative drop; a survivor count under minNeighbors fails typed.
     private static Fin<Neighbor[]> CollectNeighborhood(Seq<MlsSample> samples, Point3d sample, double support, WeightKernelFamily kernel, double neglectEps, int minNeighbors, Context context, Op key) {
@@ -712,8 +824,29 @@ public static class SignedHeatSpine {
                     Interpolation: policy.Interpolation, BoundaryCondition: policy.BoundaryCondition),
                 compute: () => ComputeClosedSignedHeatDetailed(space: space, policy: policy, key: key)));
 
-    // ROW 1 — P1 tet FEM: (M + tK) heat, per-cell unit gradients, -V*(grad(phi_i) . g) divergence, PinConstant Poisson,
-    // boundary-mean shift + interior-mean sign calibration.
+    // ROW 1 — Crouzeix-Raviart tet FEM, the published volumetric discretization: one degree of freedom per FACE,
+    // basis 1 - 3*lambda over the opposite corner. Heat time resolves against domain.MeanNodeSpacing() — the mean tet
+    // face-barycenter pair spacing, six pairs per cell — never a cell size or an edge length.
+    //  (0) Per cell, TetMeshDomain.MetricOf gives V and the four gradients; N_l = -3V*grad(lambda_l) is the outward
+    //      area-weighted face normal and grad(psi_l) = -3*grad(lambda_l) the CR gradient, both read off that one metric.
+    //  (1) Scatter K[l,k] += (N_l . N_k)/V over each cell's four faces, and the CR mass M[l,k] += -(1/20)*V off the
+    //      diagonal with M[l,l] += (2/5)*V accumulated over the cell's incidences.
+    //  (2) Stage I heat: X0[l] = |f_l| * N_hat_l on a boundary face and the zero vector on an interior one, then
+    //      (M + tK) X = X0 solved componentwise x3 against ONE factorization. The right-hand side is the RAW X0 — a
+    //      mass-multiplied X0 is a different, wrong source and reads plausible at every residual gate.
+    //  (3) Stage II normalize: X_tet = mean of the cell's four face vectors, Y_tet = X_tet/||X_tet|| under the
+    //      zero-guard (||X_tet|| <= ZeroTolerance yields the zero vector, counted on RejectedGradientCellCount).
+    //  (4) Stage III divergence: b[l] = sum over cells containing l of +V_t * (grad(psi_l^t) . Y_t). The PLUS pairs
+    //      with the SPD K below and reproduces exactness — for phi(x) = Y.x, K*phi = b holds identically. The (K, -b)
+    //      pairing inverts phi and silently hands the correction to the Stage V guard, which is not its job.
+    //  (5) Stage IV Poisson: K phi = b, K positive semidefinite with a one-dimensional constant nullspace, gauged by
+    //      GaugePolicy.PinConstant at the first BOUNDARY FACE — the CR seating of TetGaugePolicy.PinnedFirstBoundary.
+    //  (6) Stage V calibration: BoundaryShift = area-weighted mean of phi over boundary faces, phi -= BoundaryShift;
+    //      InteriorMean = volume-weighted mean over interior degrees of freedom, and InteriorMean > 0 flips the sign.
+    //      That flip is a GUARD ONLY — the sign is already fixed at Stage IV by the (K, +b) pairing, so a flip that
+    //      ever fires is evidence of a defect upstream, never the mechanism that makes the convention hold.
+    //  (7) Terminal projection to vertices: (A^T M A) w = A^T M u with A the |F| x |V| one-third averaging matrix, so
+    //      the face field lands on the vertex roster every sampler and consumer reads.
     internal static Fin<(Arr<double> Values, TetSignedHeatReceipt Receipt)> SolveTetSignedHeat(TetMeshDomain domain, TetSignedHeatPolicy policy, Op key);
     internal static Fin<TetSignedHeatSample> SampleTetSignedHeat(TetMeshDomain domain, TetSignedHeatPolicy policy, Arr<double> values, Point3d sample, Context context, Op key);
 
@@ -744,19 +877,62 @@ public static class SignedHeatSpine {
                        BoundaryRejectedPointCount: admitted.Source.RejectedBoundaryPointCount,
                        BoundaryUnmatchedSegmentCount: admitted.Source.UnmatchedBoundarySegmentCount,
                        HeatSolve: Some(heatSolve), PoissonSolve: poissonSolve,
-                       EdgeAssembly: Some(heatFactor.Receipt), SpdMassShift: Some(space.Cache.SpdMassShift)),
+                       EdgeAssembly: Some(heatFactor.Receipt), SpdMassShift: Some(space.Cache.SpdMassShift),
+                       SourceNormalAgreement: SourceNormalAgreementOf(space: space, imesh: imesh, source: admitted.Source, faceField: faceField)),
                    Topology: admitted.Topology);
     }
+    // X0 in C^|E| over the CR edge degrees of freedom, one contribution per source polyline segment:
+    //  - a segment lying ALONG edge e contributes X0[e] += length * i, the imaginary unit NEGATED when the segment
+    //    runs Hi->Lo, which is what makes the encoded source direction independent of edge storage order;
+    //  - a segment INTERIOR to face f contributes to ALL THREE of that face's edges as X0[e] += (cos, sin) with
+    //    sin = segment . edgeUnit and cos = rotate90(segment) . edgeUnit. The published form carries an extra
+    //    phi_ij(m) factor and then records that omitting it is more accurate — it is OMITTED here, matching the
+    //    reference, and re-introducing it degrades the result rather than correcting anything;
+    //  - a polyline point snapping to no face or edge rejects into BoundaryRejectedPointCount, and a segment
+    //    surviving with fewer than two nodes drops into UnmatchedBoundarySegmentCount.
+    // The rotation convention here and Meshing/dec's SampleCrouzeixRaviartFaceField are ONE declared convention:
+    // a mismatch rotates the diffused field ninety degrees, which no residual, count, or symmetry gate can see.
     private static Fin<(TopologyReceipt Topology, BoundarySignedHeatSource Source)> AdmitBoundarySignedHeat(MeshSpace space, MeshKernel.IntrinsicMesh imesh, Op key);
+    // THE negation site, stated once: the cached factor holds the POSITIVE cotangent Laplacian, so the Poisson
+    // solution arrives as -phi and is negated HERE, before the source-mean shift — the reference's own ordering.
+    // Negating after the shift, or at the divergence call as well, re-inverts the field and makes SdfSignConvention
+    // mean the opposite of its name while every residual still passes.
     private static Fin<Arr<double>> ShiftSignedHeat(Arr<double> phi, Seq<int> sourceVertices, int vertexCount, Op key);
 
-    // ROW 3 — closed-surface regular grid: watertight-solid-closed-oriented gate; padded grid under the MaxNodes
-    // policy ceiling; softened heat kernel Area*e^(-r/sqrt(t))/r per node over all source triangles (the hot triple
-    // loop is the named kernel); 7-pt FD Poisson under MeanZeroConstant(MinZero); source-mean + interior-sign calibrate.
+    // ROW 3 — closed-surface regular grid. Admission is IsValid && IsClosed && SolidOrientation() != 0, and the
+    // orientation INTEGER multiplies every source normal: an inward-oriented solid then diffuses the correct field
+    // with no heuristic interior flip anywhere downstream, which is the whole reason the gate reads the integer
+    // rather than a boolean. Heat time resolves against the SOURCE MESH's mean edge length — never the cell size,
+    // which would re-time the diffusion with every resolution change.
+    //  (1) NODE-centred lattice: cellSizes[i] = diagonal[i] / (resolution[i] - 1), so the padded box's corners ARE
+    //      lattice nodes; a cell-centred spacing offsets every sample by half a cell against the source geometry.
+    //  (2) Stages I and II FUSE into a direct Yukawa convolution with NO linear solve — per node,
+    //      Y(x) = sum over triangles of |f| * (orient * N_f) * exp(-lambda*r_f)/r_f with lambda = sqrt(1/t) and
+    //      r_f = ||x - barycenter(f)||, then Y(x) /= ||Y(x)||. SignedHeatReceipt.HeatSolve is therefore legitimately
+    //      None on this row: there is no heat solve to witness, and a fabricated one would report a phantom.
+    //      The reference carries no singularity softening and zeroes non-finite divergence after the fact;
+    //      KernelSofteningRatio clamps r_eff = max(r_f, ratio * min(cellSize)) instead, each clamp counted on
+    //      VolumeGridReceipt.RejectedVectorCount so the softening is measured rather than silent.
+    //  (3) Stages III and IV: the forward-difference gradient D (3N x N) and the 7-point Laplacian BOTH mirror at the
+    //      boundary — the far node substitutes the current index and the current substitutes its inward neighbour —
+    //      then b = D^T Y with non-finite entries zeroed, K = -L because the assembled 7-point L is negative definite
+    //      (its diagonal is -2*(hx2 + hy2 + hz2)), and K phi = b under the MeanZeroConstant gauge.
+    //  (4) Stage V: SurfaceShift is the area-weighted mean of trilinearly interpolated phi at the source triangle
+    //      barycenters, and a barycenter falling outside the grid is SKIPPED, never clamped — a clamped barycenter
+    //      contributes an edge value as if it were a surface value and biases the whole shift.
     internal static Fin<ClosedSignedHeatSolution> ComputeClosedSignedHeatDetailed(MeshSpace space, SdfMeshPolicy policy, Op key);
     private static Fin<VolumeGridReceipt> VolumeGridOf(BoundingBox source, VolumeGridPolicy grid, Op key);   // grid.MaxNodes passes as the CellLattice.Of ceiling — the one budget gate
+    // A sample inside the lattice reads the LatticeInterpolation row. A sample OUTSIDE reads the exact eikonal
+    // extension phi(q) = phi(clamp(q, Grid.Bounds)) + ||q - clamp(q, Grid.Bounds)||, valid because the padding places
+    // the surface strictly interior, so phi is positive on the box boundary and |grad phi| = 1 outside it. A constant
+    // far value states a distance no geometry has, and a bare clamp-to-edge fabricates an interior reading.
     internal static Fin<double> InterpolateVolumeGrid(VolumeGridReceipt grid, Arr<double> values, Point3d sample, Op key);
-    internal readonly record struct BoundarySignedHeatSource(Arr<double> Rhs, Seq<int> SourceVertices, int EncodedEdgeSourceCount, int RejectedBoundaryPointCount, int UnmatchedBoundarySegmentCount);
+    // SourceNormals is the per-encoded-segment in-surface normal the X0 construction already computes as
+    // rotate90(segment); carrying it costs nothing and is what makes the rotation-convention agreement measurable.
+    internal readonly record struct BoundarySignedHeatSource(Arr<double> Rhs, Seq<int> SourceVertices, Arr<Vector3d> SourceNormals, int EncodedEdgeSourceCount, int RejectedBoundaryPointCount, int UnmatchedBoundarySegmentCount);
+    // Mean of dot(faceField, nearest source normal) over the source-incident faces — non-negative when the sampler's
+    // basis and the encoder's basis are the one declared convention. None when the source set is empty.
+    private static Option<double> SourceNormalAgreementOf(MeshSpace space, MeshKernel.IntrinsicMesh imesh, BoundarySignedHeatSource source, Vector3d[] faceField);
 }
 
 // Mesh-SDF dispatch: the SdfMeshMethod row's generated Switch is exhaustive — no when-Equals chain, no dead
@@ -780,19 +956,54 @@ public static class MeshSdf {
                     from receipt in ReceiptOf(space: space, policy: active, signedHeat: Some(solution.Receipt), topology: Some(solution.Topology), volumeGrid: Some(solution.Grid))
                     select new SdfMeshSample(Distance: active.SignConvention.Multiplier * signed, Receipt: receipt))),
         };
+    // Prewarm factors and caches without sampling — for the GWN method that is the BVH build alone. It runs ONLY for
+    // a mesh-backed field, so a non-mesh field preflights to None rather than to a fabricated empty receipt.
     public static Fin<SdfMeshReceipt> Prewarm(MeshSpace space, SdfMeshPolicy policy, Op? key = null);
     private static Fin<SdfMeshReceipt> ReceiptOf(MeshSpace space, SdfMeshPolicy policy, Option<SignedHeatReceipt> signedHeat, Option<TopologyReceipt> topology = default, Option<VolumeGridReceipt> volumeGrid = default);
     // GWN rides Spatial/index's accelerated Winding query, the ONE distance-field lane: TriangleSoup's per-triangle
     // boxes build ONE Bvh per MeshSpace (Spatial.Apply over SpatialOp.Build(SpatialKind.Bvh, boxes, BuildPolicy.Canonical),
     // memoized under WindingIndexKey), then every probe batch is ONE Spatial.Apply over SpatialOp.Query with
     // SpatialQuery.Winding(samples, triangles, policy.WindingBetaSquared), read SpatialAnswer.Result → QueryResult.Field.
-    // |w| > 0.5 -> inside -> negative native-ClosestPoint distance; SpatialIndex owns the solid-angle descent, so a local walker is deleted.
+    // The per-triangle term is the exact Van Oosterom-Strackee solid angle — one atan2 over the numerator det[a;b;c]
+    // and the denominator |a||b||c| + (b.c)|a| + (c.a)|b| + (a.b)|c|, divided by 2*pi — so no tolerance and no
+    // orientation predicate enter. WindingBetaSquared is the Barill far-field acceptance beta^2, default 4.0 for
+    // beta = 2, and the comparison stays SQUARED so no root runs on the descent.
+    // WindingIndexKey is EMPTY by design and beta NEVER enters it: the soup is a pure function of the frozen snapshot
+    // and the cache is already keyed on snapshot identity, so admitting a query-time parameter into the key would
+    // rebuild the whole BVH per beta while proving nothing.
     internal readonly record struct WindingIndexKey;
     internal static Fin<double[]> WindingFieldOf(MeshSpace space, Point3d[] samples, SdfMeshPolicy policy, Op key);
-    private static Fin<double> GeneralizedWindingDistance(MeshSpace space, SdfMeshPolicy policy, Point3d sample, Op key);   // singleton batch over WindingFieldOf
+    // |w| > 0.5 is the inside test and the ONLY one on this page; the unsigned magnitude is the native closest-point
+    // distance, whose negative return fails typed rather than reading as a zero distance.
+    private static Fin<double> GeneralizedWindingDistance(MeshSpace space, SdfMeshPolicy policy, Point3d sample, Op key) =>
+        from field in WindingFieldOf(space: space, samples: [sample], policy: policy, key: key)
+        from winding in field.Length == 1 ? Fin.Succ(field[0]) : Fin.Fail<double>(key.InvalidResult())
+        from distance in ClosestDistanceOf(space: space, sample: sample, key: key)
+        select Math.Abs(value: winding) > 0.5 ? -distance : distance;
+    // The host writes the point and returns the hit face index; a NEGATIVE return is its refusal and fails typed,
+    // never a zero distance the sign convention would then publish as an exactly-on-surface sample.
+    private static Fin<double> ClosestDistanceOf(MeshSpace space, Point3d sample, Op key) =>
+        space.Native.ClosestPoint(testPoint: sample, pointOnMesh: out Point3d hit, maximumDistance: 0.0) < 0
+            ? Fin.Fail<double>(key.InvalidResult())
+            : Fin.Succ(sample.DistanceTo(other: hit));
     // Kernels.QuadDiagonal splits every quad; Boxes[i] bounds half-open Triangles[3i..3i+3).
     private static (BoundingBox[] Boxes, Point3d[] Triangles) TriangleSoup(MeshSpace space);
-    private static Fin<double> InterpolateOnMesh(MeshSpace space, Point3d sample, Arr<double> perVertex, Op key);   // barycentric at ClosestMeshPoint
+    // Barycentric read at the unbounded closest mesh point (maximumDistance 0.0 IS unbounded on this host surface).
+    // mp.T carries four weights indexed by the FACE's corner SLOT, and mp.Triangle names which slot triple of a quad
+    // they address — A is (0,1,2), B is (0,2,3) — so each term pairs the weight at its slot with the vertex at that
+    // slot; reading T positionally over a triple instead scatters B's weights onto the wrong corners.
+    // LAW: Kernels.QuadDiagonal — the same splitter TriangleSoup runs — MUST agree with the host's A/B split, or the
+    // interpolation silently reads the wrong corner pair on every split quad while every count and residual agrees.
+    // A null point or a negative face index fails typed, never a zero sample.
+    private static Fin<double> InterpolateOnMesh(MeshSpace space, Point3d sample, Arr<double> perVertex, Op key) =>
+        Optional(space.Native.ClosestMeshPoint(testPoint: sample, maximumDistance: 0.0))
+            .Filter(static point => point.FaceIndex >= 0)
+            .ToFin(key.InvalidResult())
+            .Bind(point => CornerSlotsOf(face: space.Native.Faces[index: point.FaceIndex], triangle: point.Triangle)
+                .ToFin(key.Unsupported(geometryType: typeof(MeshPoint), outputType: typeof(double)))
+                .Bind(slots => guard(slots.ForAll(slot => slot.Vertex >= 0 && slot.Vertex < perVertex.Count), key.InvalidResult()).ToFin()
+                    .Map(_ => slots.Fold(0.0, (sum, slot) => sum + (point.T[slot.Slot] * perVertex[index: slot.Vertex])))));
+    private static Option<Seq<(int Slot, int Vertex)>> CornerSlotsOf(MeshFace face, char triangle);
 }
 
 // Native marching-cubes: prewarm mesh-backed fields, count evaluator failures via Interlocked, and the Op.Catch funnel converts the one native callback boundary.
@@ -802,40 +1013,53 @@ public static class IsoSurface {
     private const double NativeFixedNormalSampleDistance = 1.0e-5;
     // CellLattice IS the sweep request: an admitted CellLattice expresses a rotated, sheared, or per-axis-anisotropic
     // sweep no (bounds, int resolution) pair can spell, and its Of ceiling replaced the local cell-census gate. The
-    // native evaluator samples INDEX space at the max-axis census (its one-resolution limitation), the evaluator maps
-    // each native point through IndexToWorld, and the emitted mesh transforms back to world — the receipt's lattice
-    // witnesses the true request either way.
+    // native evaluator samples INDEX space, the evaluator maps each native point through IndexToWorld, and the
+    // emitted mesh transforms back to world — the receipt's lattice witnesses the true request either way.
+    // The native cell size is `box.Diagonal.MinimumCoordinate / resolution`, so the MINIMUM axis census is the one
+    // that makes cellSize exactly 1.0 in index space and the per-axis counts exactly (Columns, Rows, Layers) — which
+    // is also what makes HexCellCount == grid.CellCount and CornerSampleCount == grid.NodeCount true. Passing the
+    // MAXIMUM instead drives cellSize below one and inflates the sample count by (max/min)^3 while breaking both.
     public static Fin<IsoSurfaceResult> Detailed(ScalarField field, CellLattice grid, IsoSurfacePolicy policy, Context context, Op? key = null) {
         Op op = key.OrDefault();
         return PreflightOf(field: field, context: context, key: op)
             .Bind(preflight => op.Catch(() => {
                 int failures = 0;
-                int resolution = Math.Max(val1: grid.Columns.Value, val2: Math.Max(val1: grid.Rows.Value, val2: grid.Layers.Value));
+                int resolution = Math.Min(val1: grid.Columns.Value, val2: Math.Min(val1: grid.Rows.Value, val2: grid.Layers.Value));
                 BoundingBox indexBox = new(min: Point3d.Origin, max: new Point3d(x: grid.Columns.Value, y: grid.Rows.Value, z: grid.Layers.Value));
+                // The extractor's level is fixed at zero, so the isovalue rides the evaluator as a subtraction.
+                // A failed sample returns NaN, which every `> 0.0` sign test reads as inside and nothing throws — safe
+                // by construction, and the Interlocked tally is therefore the SOLE evidence a sample ever failed.
                 // Increment only — assigning the returned count back would race the parallel callback (lost update).
                 double EvaluateIso(Point3d point) =>
                     field.SampleScalar(sample: grid.IndexToWorld * point, context: context, key: op).Match(
-                        Succ: static value => value,
+                        Succ: value => value - policy.IsoValue,
                         Fail: _ => { _ = Interlocked.Increment(location: ref failures); return double.NaN; });
                 Mesh? result = Mesh.CreateFromIsosurface(scalarFieldEvaluator: EvaluateIso, box: indexBox, resolution: resolution, RootFindingMaxSteps: policy.MaxRootSteps.Value);
                 _ = result?.Transform(xform: grid.IndexToWorld);
+                // Native normals are DISCARDED. The extractor's normal estimator wraps every sampled value into
+                // [-pi, pi] before differencing — it assumes an angle-valued field — so for any distance field
+                // exceeding pi in world units the emitted normals invert across the wrapped band. Vertex positions and
+                // faces are unaffected, and no field scaling repairs it because the wrap applies to the samples, not
+                // to their difference; the rebuild from the emitted topology is the only correct normal set.
+                _ = result?.RebuildNormals();
                 Option<int> nakedBoundaryLoops = result switch {
                     { IsValid: true, IsClosed: true } => Some(0),
                     { IsValid: true } mesh => Optional(mesh.GetNakedEdges()).Map(static loops => loops.Length),
                     _ => Option<int>.None,
                 };
-                IsoSurfaceStatus status = (failures, result) switch {
+                IsoSurfaceStatus status = (failures, nakedBoundaryLoops.IsSome) switch {
                     ( > 0, _) => IsoSurfaceStatus.EvaluatorFailure,
-                    (_, null) => IsoSurfaceStatus.NativeReturnedNull,
-                    (_, { IsValid: true }) when nakedBoundaryLoops.IsSome => IsoSurfaceStatus.NativeValid,
+                    (_, true) => IsoSurfaceStatus.NativeValid,
                     _ => IsoSurfaceStatus.NativeInvalidMesh,
                 };
+                // The three native Parallel.For sweeps all complete before the call returns, so that happens-before
+                // makes the plain read of `failures` correct; a Volatile.Read here would state a race there is not.
                 return Fin.Succ(new IsoSurfaceResult(
                     Mesh: result ?? new Mesh(),
                     Receipt: new IsoSurfaceReceipt(NativeRouted: true, Status: status, Grid: grid,
                         HexCellCount: grid.CellCount, CornerSampleCount: grid.NodeCount,
                         CenterSampleCount: grid.CellCount, InitialSampleCount: grid.NodeCount + grid.CellCount,
-                        MaxRootSteps: policy.MaxRootSteps.Value,
+                        MaxRootSteps: policy.MaxRootSteps.Value, IsoValue: policy.IsoValue, NativeNormalsDiscarded: true,
                         ParallelCallback: true, EvaluatorFailures: failures,
                         VertexCount: result?.Vertices.Count ?? 0, FaceCount: result?.Faces.Count ?? 0,
                         NakedBoundaryLoopCount: nakedBoundaryLoops,
@@ -844,7 +1068,9 @@ public static class IsoSurface {
     }
     // Every classified native outcome RETURNS its receipt — a terminal Valid gate here would strip the failure
     // evidence the extract rail inspects; admission failures alone fail the rail, consumers gate on Receipt.Valid.
-    private static Fin<Option<SdfMeshReceipt>> PreflightOf(ScalarField field, Context context, Op key);                  // MeshSdf.Prewarm for mesh-backed fields
+    // Preflight is admission, so its FAILURE fails the rail: a mesh-backed field runs MeshSdf.Prewarm and any other
+    // field answers Option.None, which is absence of a preflight rather than a preflight that found nothing.
+    private static Fin<Option<SdfMeshReceipt>> PreflightOf(ScalarField field, Context context, Op key);
 }
 
 // MANAGED 2D iso extraction — the IsoSurface analogue one rank down, gated grid.Rank is 2: the managed correctness
@@ -904,7 +1130,7 @@ flowchart LR
     accTitle: Reconstruction dispatch
     accDescr: Reconstruction policies produce scalar fields, signed heat shares one spine, and native extraction returns typed evidence.
     MlsSample -->|one entry, policy-case dispatch| Reconstruct
-    Reconstruct -->|Rbf / Mls / Levin / Apss| ScalarField
+    Reconstruct -->|Rbf / Mls / Levin / Apss / Sibson| ScalarField
     Reconstruct -->|splat + 7pt Laplacian + gauge solve| PoissonGrid
     SignedHeatDiscretization -->|heat -> unit-gradient divergence -> Poisson -> calibrate| SignedHeatSpine
     SignedHeatSpine -->|TetFem row| TetSignedHeatReceipt
@@ -925,13 +1151,13 @@ Each `[RAIL]` cell names the one return rail its owner exposes; the per-axis col
 
 | [INDEX] | [AXIS_CONCERN]    | [OWNER]                                               | [RAIL]                                        | [CASES] |
 | :-----: | :---------------- | :---------------------------------------------------- | :-------------------------------------------- | :-----: |
-|  [01]   | Construction      | `ReconstructionPolicy` → `Reconstruction.Reconstruct` | `Reconstruct → Fin<ReconstructionResult>`     |    5    |
-|  [02]   | Mode vocabulary   | `ReconstructionMode`                                  | discriminant                                  |    7    |
+|  [01]   | Construction      | `ReconstructionPolicy` → `Reconstruction.Reconstruct` | `Reconstruct → Fin<ReconstructionResult>`     |    6    |
+|  [02]   | Mode vocabulary   | `ReconstructionMode`                                  | discriminant                                  |    8    |
 |  [03]   | Signed-heat spine | `SignedHeatDiscretization` → `SignedHeatSpine.Solve`  | `Solve → Fin<SignedHeatOutcome>`              |    3    |
 |  [04]   | Mesh SDF          | `SdfMeshPolicy` → `MeshSdf`                           | `SignedDistanceDetailed → Fin<SdfMeshSample>` |    3    |
 |  [05]   | Tet domain        | `TetMeshDomain`                                       | `Of → Fin<TetMeshDomain>`                     |    1    |
 |  [06]   | Volume grid       | `VolumeGridPolicy` / `VolumeGridReceipt`              | `VolumeGridOf → Fin<VolumeGridReceipt>`       |    —    |
-|  [07]   | Iso extraction    | `IsoSurface`                                          | `Detailed → Fin<IsoSurfaceResult>`            |    4    |
+|  [07]   | Iso extraction    | `IsoSurface`                                          | `Detailed → Fin<IsoSurfaceResult>`            |    3    |
 |  [08]   | Iso contouring    | `IsoContour`                                          | `Detailed → Fin<IsoContourResult>`            |    —    |
 |  [09]   | Policy family     | `SignedHeatTime` … `PoissonPolicy`                    | `Of → Fin<policy>` per record                 |    —    |
 
@@ -952,5 +1178,4 @@ Each `[RAIL]` cell names the one return rail its owner exposes; the per-axis col
 [SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
-- [SIGNED_HEAT_SPINE]-[OPEN]: Which transcription-complete row bodies close the P1 tet FEM, boundary-source CR, and closed-volume-grid stages under one heat-to-Poisson law?; verify time derivation, source proximity, sign calibration, residual gates, and every solve receipt.
-- [MESH_SDF_AND_ISO]-[OPEN]: Which transcription-complete mesh-SDF helper bodies close cached winding, signed-heat projection, and native isosurface preflight without admitting approximate predicates?; verify evaluator-failure counting and receipt invalidation against `Mesh.CreateFromIsosurface` and `Interlocked`.
+(none)

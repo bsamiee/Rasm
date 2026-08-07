@@ -49,7 +49,7 @@
 - Under WebAssembly the handler renames `User-Agent` to `X-User-Agent` and flags the request for streaming responses.
 
 [STACKING]:
-- `Grpc.Core.Api`(`api-grpc-common.md`): a translated call classifies its `RpcException` through the same status fold the HTTP/2 rail uses, so gRPC-Web rewrites the frame, never the typed-fault vocabulary.
+- `Grpc.Core.Api`(`libs/csharp/.api/api-grpc-core-api.md`): a translated call classifies its `RpcException` through the same status fold the HTTP/2 rail uses, so gRPC-Web rewrites the frame, never the typed-fault vocabulary.
 - remote-client folder: `GrpcWebHandler(GrpcWebMode.GrpcWeb, inner)` wraps the BCL `SocketsHttpHandler` and enters `Grpc.Net.Client` through `GrpcChannelOptions.HttpHandler`; the channel-policy owner threads the `SocketsHttpHandler` keepalive and pooling members (`KeepAlivePingDelay`, `EnableMultipleHttp2Connections`, `PooledConnectionIdleTimeout`) and carries HTTP-version posture on `GrpcChannelOptions.HttpVersion`/`HttpVersionPolicy`, leaving the handler to rewrite the wire frame alone.
 
 [LOCAL_ADMISSION]:

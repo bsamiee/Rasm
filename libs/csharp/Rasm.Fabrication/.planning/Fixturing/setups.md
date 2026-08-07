@@ -2,36 +2,42 @@
 
 `SetupSchedule` owns operation precedence, datum lineage, fixture and machine assignment, physical reorientation, carrier loading, per-instance work-offset allocation, transfer, probing, stock continuity, and schedule evidence. `SetupPlan` admits every operation, relation, fixture candidate, carrier station, part instance, resource row, and controller slot once; the search consumes only admitted identities and typed evidence.
 
-`Fixture`, `FixtureSet`, `ExclusionZone`, `Setup`, `WcsSlot`, and `SetupSchedule` remain the in-process wire vocabulary. `SetupSchedule.Apply` closes admission, scheduling, rebasing, and projection over `SetupOp`, and every egress carries the content key minted through `ContentKey.Of`.
+`Fixture`, `FixtureSet`, `ExclusionZone`, `Setup`, `WcsSlot`, and `SetupSchedule` remain the in-process wire vocabulary. `SetupSchedule.Apply` closes admission, scheduling, rebasing, and projection over `SetupOp`, and every egress carries the content key minted through `ContentKey.Of`. Scalar admission predicates, the `DatumTransfer` fold over the `Joining/sequence` `DisplacementReceipt`, and the restraint and clearance entries all compose `workholding#EVALUATION`, so this page re-declares no quantity guard and no holding algebra. Cost is one `SetupAxis` row table over `CostTerms`, so an objective weight, its scale, and its term travel together and the branch-and-bound bound reads the same rows the incumbent cost does. Every preimage composes `Process/owner#RUN_DISPATCH` `FabricationCanon` over the one `Rasm.Element` `CanonicalWriter`.
 
 ## [01]-[INDEX]
 
-- [02]-[VOCABULARY]: operation, relation, objective, mounting, work-offset, and evidence owners.
-- [03]-[SCHEDULE]: graph admission, candidate evidence, bounded partitioning, datum transfer, and WCS allocation.
-- [04]-[PROJECTION]: machine, probing, posting, traveler, and evidence egress.
+- [02]-[VOCABULARY]: operation, relation, cost-axis, mounting, work-offset, carrier, and evidence owners.
+- [03]-[SCHEDULE]: graph admission, the admissible assignment bound, bounded partitioning, datum transfer, rebasing, and WCS allocation.
+- [04]-[PROJECTION]: machine, probing, posting, traveler, inspection, and evidence egress.
 
 ## [02]-[VOCABULARY]
 
-- Owner: `SetupOperation` carries one physical operation instance; `SetupRelation` carries precedence, datum, stock, probe, and resource edges without collapsing them into an untyped pair.
-- Owner: `SetupObjective` carries setup, changeover, reorientation, travel, linear and angular datum-transfer, rigidity, and risk weights with their unit scales as one admitted policy value.
-- Owner: `WcsSlot` is a closed payload family for base, extended, dynamic, rotary, and local offsets; controller syntax remains posting-owned.
-- Owner: `Carrier`, `CarrierStation`, and `PartInstance` model pallet and tombstone occupancy, station frames, derived local offsets, and amortized tool-change cost without cloning operations.
+- Owner: `SetupOperation` carries one physical operation instance over a `SetupRoster` of admissible resources and a `SetupDemand` of dimensioned requirements; `SetupRelation` carries precedence, datum, stock, probe, and resource edges without collapsing them into an untyped pair.
+- Owner: `SetupAxis` is the cost algebra — one row per objective axis carrying the term it reads off `CostTerms` under `SetupScales`, so `SetupObjective` is a weight per row and a scale bundle rather than twelve parallel columns, and adding an axis changes no cost expression.
+- Owner: `WcsSlot` is a closed payload family for base, extended, dynamic, rotary, and local offsets; controller syntax remains posting-owned. `Carrier`, `CarrierStation`, and `PartInstance` model pallet and tombstone occupancy, station frames, derived local offsets, and amortized tool-change cost without cloning operations.
 - Cases: `Mounting` closes table, pallet, tombstone face, rotary index, trunnion, spindle, robot positioner, and floor-cell mounting.
 - Receipt: `SetupEvidence` retains compatibility, typed kinematics, optional robot-cell placement, workholding, clearance, guard, probe, stock, datum, and resource receipts; `SetupBoundaryEvidence.Key` fingerprints every provider-owned field before admission.
-- Growth: a new scheduling concern lands as one relation case, objective column, mounting case, or evidence field; no delegate column or entrypoint appears beside the owner.
+- Growth: a new scheduling concern lands as one relation case, one `SetupAxis` row, one mounting case, or one evidence field; no delegate column or entrypoint appears beside the owner.
+- Boundary: scalar admission is `workholding#EVALUATION` `Fixtures`, so a `As(unit) >= 0 && double.IsFinite(...)` clause spelled at this page is the deleted form.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
-using System.Collections.Generic;
 using LanguageExt;
 using LanguageExt.Common;
+using LanguageExt.Traits;
 using QuikGraph;
 using QuikGraph.Algorithms;
 using QuikGraph.Algorithms.Assignment;
 using Rasm.Element.Projection;
+using Rasm.Fabrication.Joining;
 using Rasm.Fabrication.Kinematics;
 using Rasm.Fabrication.Process;
+using Rasm.Numerics;
 using Rhino.Geometry;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
 using Thinktecture;
 using UnitsNet;
 using UnitsNet.Units;
@@ -39,8 +45,8 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Fabrication.Fixturing;
 
-// --- [VOCABULARY] --------------------------------------------------------------------------------------------------------------------------------
-[Union]
+// --- [TYPES] --------------------------------------------------------------------------------------------------------------------------------------
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record WcsSlot {
     private WcsSlot() { }
 
@@ -49,9 +55,34 @@ public abstract partial record WcsSlot {
     public sealed record Dynamic(int Ordinal) : WcsSlot;
     public sealed record Rotary(int Ordinal, int Axis) : WcsSlot;
     public sealed record Local(int Ordinal, int Parent) : WcsSlot;
+
+    // A local shift addresses its parent's ordinal, so it publishes none of its own to the controller roster.
+    public Option<int> Controller => Switch<Option<int>>(
+        @base: static row => Some(row.Ordinal),
+        extended: static row => Some(row.Ordinal),
+        dynamic: static row => Some(row.Ordinal),
+        rotary: static row => Some(row.Ordinal),
+        local: static _ => None);
+
+    public bool Valid(Seq<WcsSlot> roster) => Switch(
+        state: roster,
+        @base: static (_, row) => Witness.Index(row.Ordinal),
+        extended: static (_, row) => Witness.Index(row.Ordinal),
+        dynamic: static (_, row) => Witness.Index(row.Ordinal),
+        rotary: static (_, row) => Witness.Index(row.Ordinal) && Witness.Index(row.Axis),
+        local: static (slots, row) => Witness.Index(row.Ordinal) && Witness.Index(row.Parent) && row.Parent != row.Ordinal
+            && slots.Count(slot => slot.Controller.Contains(row.Parent)) == 1);
+
+    public CanonicalWriter CanonicalBytes(CanonicalWriter writer) => Switch(
+        state: writer,
+        @base: static (held, row) => held.String(nameof(Base)).Ordinal(row.Ordinal),
+        extended: static (held, row) => held.String(nameof(Extended)).Ordinal(row.Ordinal),
+        dynamic: static (held, row) => held.String(nameof(Dynamic)).Ordinal(row.Ordinal),
+        rotary: static (held, row) => held.String(nameof(Rotary)).Ordinal(row.Ordinal).Ordinal(row.Axis),
+        local: static (held, row) => held.String(nameof(Local)).Ordinal(row.Ordinal).Ordinal(row.Parent));
 }
 
-[Union]
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record Mounting {
     private Mounting() { }
 
@@ -84,52 +115,31 @@ public abstract partial record Mounting {
         spindle: static (next, _) => new Spindle(next),
         positioner: static (next, row) => new Positioner(row.Key, next),
         cell: static (next, _) => new Cell(next));
+
+    public bool Valid => Frame.IsValid && Switch(
+        table: static _ => true,
+        pallet: static row => Witness.Keyed(row.Key),
+        tombstone: static row => Witness.Keyed(row.Key) && Witness.Index(row.Face),
+        rotary: static row => Witness.Index(row.Axis) && Fixtures.Finite(row.Angle),
+        trunnion: static row => Fixtures.Finite(row.A) && Fixtures.Finite(row.C),
+        spindle: static _ => true,
+        positioner: static row => Witness.Keyed(row.Key),
+        cell: static _ => true);
+
+    public CanonicalWriter CanonicalBytes(CanonicalWriter writer) => Switch(
+        state: writer,
+        table: static (held, _) => held.String(nameof(Table)),
+        pallet: static (held, row) => held.String(nameof(Pallet)).String(row.Key),
+        tombstone: static (held, row) => held.String(nameof(Tombstone)).String(row.Key).Ordinal(row.Face),
+        rotary: static (held, row) => held.String(nameof(Rotary)).Ordinal(row.Axis).Double(row.Angle.As(AngleUnit.Radian)),
+        trunnion: static (held, row) => held.String(nameof(Trunnion))
+            .Double(row.A.As(AngleUnit.Radian)).Double(row.C.As(AngleUnit.Radian)),
+        spindle: static (held, _) => held.String(nameof(Spindle)),
+        positioner: static (held, row) => held.String(nameof(Positioner)).String(row.Key),
+        cell: static (held, _) => held.String(nameof(Cell)));
 }
 
-[ComplexValueObject]
-public sealed partial class SetupObjective {
-    public double SetupWeight { get; }
-    public double ChangeWeight { get; }
-    public double OrientWeight { get; }
-    public double TravelWeight { get; }
-    public double DatumWeight { get; }
-    public double RigidityWeight { get; }
-    public double RiskWeight { get; }
-    public Duration TimeScale { get; }
-    public Length TravelScale { get; }
-    public Length DatumScale { get; }
-    public Angle DatumAngleScale { get; }
-    public double ConditionScale { get; }
-
-    static partial void ValidateFactoryArguments(
-        ref ValidationError? validationError,
-        ref double setupWeight,
-        ref double changeWeight,
-        ref double orientWeight,
-        ref double travelWeight,
-        ref double datumWeight,
-        ref double rigidityWeight,
-        ref double riskWeight,
-        ref Duration timeScale,
-        ref Length travelScale,
-        ref Length datumScale,
-        ref Angle datumAngleScale,
-        ref double conditionScale) {
-        double totalWeight = setupWeight + changeWeight + orientWeight + travelWeight + datumWeight + rigidityWeight + riskWeight;
-        validationError = Seq(setupWeight, changeWeight, orientWeight, travelWeight, datumWeight, rigidityWeight, riskWeight)
-                .ForAll(static weight => double.IsFinite(weight) && weight >= 0.0)
-            && double.IsFinite(totalWeight) && totalWeight > 0.0
-            && timeScale.As(DurationUnit.Second) > 0.0 && double.IsFinite(timeScale.As(DurationUnit.Second))
-            && travelScale.As(LengthUnit.Millimeter) > 0.0 && double.IsFinite(travelScale.As(LengthUnit.Millimeter))
-            && datumScale.As(LengthUnit.Millimeter) > 0.0 && double.IsFinite(datumScale.As(LengthUnit.Millimeter))
-            && datumAngleScale.As(AngleUnit.Radian) > 0.0 && double.IsFinite(datumAngleScale.As(AngleUnit.Radian))
-            && conditionScale > 0.0 && double.IsFinite(conditionScale)
-                ? null
-                : new ValidationError(message: "<invalid-setup-objective>");
-    }
-}
-
-[Union]
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record SetupRelation {
     private SetupRelation() { }
 
@@ -141,6 +151,7 @@ public abstract partial record SetupRelation {
     public sealed record SameFixture : SetupRelation;
     public sealed record SameOrientation : SetupRelation;
 
+    // Ordering edges enter the precedence graph; co-location edges constrain candidate FIT and carry no direction.
     public bool Orders => Switch(
         precedes: static _ => true,
         datum: static _ => true,
@@ -149,49 +160,159 @@ public abstract partial record SetupRelation {
         resource: static _ => true,
         sameFixture: static _ => false,
         sameOrientation: static _ => false);
+
+    public bool Valid => Switch(
+        precedes: static _ => true,
+        datum: static _ => true,
+        stock: static _ => true,
+        probe: static _ => true,
+        resource: static row => Witness.Keyed(row.Key),
+        sameFixture: static _ => true,
+        sameOrientation: static _ => true);
+
+    public CanonicalWriter CanonicalBytes(CanonicalWriter writer) => Switch(
+        state: writer,
+        precedes: static (held, _) => held.String(nameof(Precedes)),
+        datum: static (held, _) => held.String(nameof(Datum)),
+        stock: static (held, _) => held.String(nameof(Stock)),
+        probe: static (held, _) => held.String(nameof(Probe)),
+        resource: static (held, row) => held.String(nameof(Resource)).String(row.Key),
+        sameFixture: static (held, _) => held.String(nameof(SameFixture)),
+        sameOrientation: static (held, _) => held.String(nameof(SameOrientation)));
 }
 
 public readonly record struct SetupEdge(int Source, int Target, SetupRelation Relation) : IEdge<int>;
 
-[ValueObject<string>]
-public readonly partial struct CarrierKey {
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) =>
-        validationError = string.IsNullOrWhiteSpace(value) ? new ValidationError(message: "<invalid-carrier-key>") : null;
+// Every scalar an objective axis reads, gathered once per placement so a term is a projection rather than a
+// re-derivation from three receipts.
+public readonly record struct CostTerms(
+    bool Extended,
+    Duration Changeover,
+    Duration Reorientation,
+    Length Travel,
+    Length DatumError,
+    Angle AngularDatumError,
+    double RigidityMargin,
+    double JacobianCondition,
+    Duration Operation,
+    Duration ToolChange,
+    int Instances);
+
+public readonly record struct SetupScales(
+    Duration Time,
+    Length Travel,
+    Length Datum,
+    Angle DatumAngle,
+    double Condition) {
+    public bool Valid =>
+        Fixtures.Positive(Time) && Fixtures.Positive(Travel) && Fixtures.Positive(Datum)
+        && Fixtures.Positive(DatumAngle) && Witness.Positive(Condition);
 }
 
+// One row per cost axis. `Bounding` marks the rows whose term is derivable BEFORE evidence exists and depends on
+// the operation-fixture pair alone — those and only those form the branch-and-bound remainder, so the bound stays
+// admissible by construction and can never outrun the cost it bounds.
+[SmartEnum<string>]
+public sealed partial class SetupAxis {
+    public static readonly SetupAxis Setup = new("setup", bounding: false,
+        static (terms, _) => terms.Extended ? 0.0 : 1.0);
+    public static readonly SetupAxis Change = new("change", bounding: false,
+        static (terms, scales) => (terms.Changeover.As(DurationUnit.Second)
+            + (terms.ToolChange.As(DurationUnit.Second) / Math.Max(terms.Instances, 1)))
+            / scales.Time.As(DurationUnit.Second));
+    public static readonly SetupAxis Orient = new("orient", bounding: false,
+        static (terms, scales) => terms.Reorientation.As(DurationUnit.Second) / scales.Time.As(DurationUnit.Second));
+    public static readonly SetupAxis Travel = new("travel", bounding: false,
+        static (terms, scales) => terms.Travel.As(LengthUnit.Millimeter) / scales.Travel.As(LengthUnit.Millimeter));
+    public static readonly SetupAxis Datum = new("datum", bounding: false,
+        static (terms, scales) => (terms.DatumError.As(LengthUnit.Millimeter) / scales.Datum.As(LengthUnit.Millimeter))
+            + (terms.AngularDatumError.As(AngleUnit.Radian) / scales.DatumAngle.As(AngleUnit.Radian)));
+    public static readonly SetupAxis Rigidity = new("rigidity", bounding: true,
+        static (terms, _) => 1.0 / Math.Max(terms.RigidityMargin, EpsilonPolicy.SqrtEpsilon));
+    public static readonly SetupAxis Risk = new("risk", bounding: true,
+        static (terms, scales) => (terms.JacobianCondition / scales.Condition)
+            + (terms.Operation.As(DurationUnit.Second) / scales.Time.As(DurationUnit.Second)));
+
+    public bool Bounding { get; }
+    public Func<CostTerms, SetupScales, double> Term { get; }
+}
+
+[ComplexValueObject]
+[ValidationError<FabricationFault>]
+public sealed partial class SetupObjective {
+    public Map<SetupAxis, double> Weights { get; }
+    public SetupScales Scales { get; }
+
+    public double Weight(SetupAxis axis) => Weights.Find(axis).IfNone(0.0);
+    public double Total => Weights.Values.Sum();
+
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(
+        ref FabricationFault? validationError,
+        ref Map<SetupAxis, double> weights,
+        ref SetupScales scales) {
+        if (!(toSeq(SetupAxis.Items).ForAll(axis => weights.Find(axis).Exists(static weight => double.IsFinite(weight) && weight >= 0.0))
+            && Witness.Positive(weights.Values.Sum()) && scales.Valid))
+            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Fixturing, "setup-objective");
+    }
+
+    public static Fin<SetupObjective> Admit(Map<SetupAxis, double> weights, SetupScales scales) =>
+        Validate(weights, scales, out SetupObjective objective).Admitted(objective);
+
+    public double Cost(CostTerms terms) =>
+        toSeq(SetupAxis.Items).Sum(axis => Weight(axis) * axis.Term(terms, Scales));
+
+    // The bounding rows alone: every other axis term is nonnegative, so dropping them leaves an admissible
+    // remainder no completion can undercut.
+    public double Bound(CostTerms terms) =>
+        toSeq(SetupAxis.Items).Filter(static axis => axis.Bounding).Sum(axis => Weight(axis) * axis.Term(terms, Scales));
+}
+
+[ValueObject<string>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
+[ValidationError<FabricationFault>]
+public readonly partial struct CarrierKey {
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref string value) {
+        value = value.Trim();
+        if (!Witness.Keyed(value))
+            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Fixturing, "carrier-key");
+    }
+
+    public static Fin<CarrierKey> Admit(string value) => Admission.OfValue<CarrierKey, string>(value);
+}
+
+// --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
 public readonly record struct CarrierStation(int Index, Plane Frame, WcsSlot Wcs);
 
-public sealed record Carrier(
-    CarrierKey Key,
-    Mounting Mounting,
-    Seq<CarrierStation> Stations,
-    Duration ToolChange);
+public sealed record Carrier(CarrierKey Key, Mounting Mounting, Seq<CarrierStation> Stations, Duration ToolChange);
 
-public readonly record struct PartInstance(
-    int Key,
-    int Operation,
-    CarrierKey Carrier,
-    int Station,
-    Plane LocalFrame);
+public readonly record struct PartInstance(int Key, int Operation, CarrierKey Carrier, int Station, Plane LocalFrame);
 
 public readonly record struct InstanceWcs(int Instance, WcsSlot Slot, Transform Frame);
 
-public sealed record SetupOperation(
-    int Key,
-    int Process,
+// The admissible resources one operation may consume, and the dimensioned demand it places on whichever it gets.
+public sealed record SetupRoster(
     Seq<int> Features,
     Seq<Mounting> Mountings,
     Seq<int> FixtureKeys,
     Seq<int> MachineKeys,
-    Seq<LoadCase> Loads,
-    Seq<ToolCorridor> Corridors,
-    Seq<string> Resources,
+    Seq<string> Resources);
+
+public readonly record struct SetupDemand(
     Duration Duration,
     Length DatumTolerance,
     Angle DatumAngularTolerance,
     double RigidityDemand,
     Ratio SafetyFactor,
     bool RequiresProbe);
+
+public sealed record SetupOperation(
+    int Key,
+    int Process,
+    SetupRoster Roster,
+    Seq<LoadCase> Loads,
+    Seq<ToolCorridor> Corridors,
+    SetupDemand Demand);
 
 public readonly record struct KinematicReceipt(
     int Machine,
@@ -201,11 +322,10 @@ public readonly record struct KinematicReceipt(
     Length Travel,
     Duration Reorientation,
     Option<CellPlacementReceipt> Robot) {
-    public bool Reachable => Axes.Count > 0
-        && Axes.ForAll(static axis => double.IsFinite(axis.As(AngleUnit.Radian)))
-        && JacobianCondition > 0.0 && double.IsFinite(JacobianCondition)
-        && Clearance.As(LengthUnit.Millimeter) >= 0.0 && double.IsFinite(Clearance.As(LengthUnit.Millimeter))
-        && Travel.As(LengthUnit.Millimeter) >= 0.0 && double.IsFinite(Travel.As(LengthUnit.Millimeter))
+    public bool Reachable =>
+        !Axes.IsEmpty && Axes.ForAll(Fixtures.Finite)
+        && Witness.Positive(JacobianCondition)
+        && Fixtures.Nonnegative(Clearance) && Fixtures.Nonnegative(Travel)
         && Robot.ForAll(static receipt => double.IsFinite(receipt.Selected.Score));
 }
 
@@ -217,9 +337,25 @@ public readonly record struct DatumReceipt(
     Length ProbeCorrection,
     Angle AngularProbeCorrection,
     bool Probed,
-    bool Traceable);
+    bool Traceable) {
+    public bool Valid =>
+        Witness.Index(Anchor)
+        && Lineage.ForAll(Witness.Index) && Lineage.Distinct().Count == Lineage.Count
+        && Fixtures.Nonnegative(TransferError) && Fixtures.Nonnegative(AngularTransferError)
+        && Fixtures.Nonnegative(ProbeCorrection) && Fixtures.Nonnegative(AngularProbeCorrection);
 
-public readonly record struct ResourceReceipt(Seq<string> Held, Duration Changeover, bool Available);
+    public CanonicalWriter CanonicalBytes(CanonicalWriter writer) => writer
+        .Ordinal(Anchor).Bool(Probed).Bool(Traceable)
+        .Rows(Lineage, static (held, anchor) => held.Ordinal(anchor))
+        .Double(TransferError.As(LengthUnit.Millimeter))
+        .Double(AngularTransferError.As(AngleUnit.Radian))
+        .Double(ProbeCorrection.As(LengthUnit.Millimeter))
+        .Double(AngularProbeCorrection.As(AngleUnit.Radian));
+}
+
+public readonly record struct ResourceReceipt(Seq<string> Held, Duration Changeover, bool Available) {
+    public bool Valid => Held.ForAll(Witness.Keyed) && Fixtures.Nonnegative(Changeover);
+}
 
 public readonly record struct SetupBoundaryEvidence(
     KinematicReceipt Reach,
@@ -228,6 +364,7 @@ public readonly record struct SetupBoundaryEvidence(
     ResourceReceipt Resources,
     ContentKey Key);
 
+// --- [SERVICES] -----------------------------------------------------------------------------------------------------------------------------------
 public interface ISetupEvidenceSource {
     Fin<SetupBoundaryEvidence> Evaluate(int machine, SetupOperation operation, Fixture fixture, Mounting mounting);
 }
@@ -243,36 +380,46 @@ public sealed record SetupEvidence(
     DatumReceipt Datum,
     ResourceReceipt Resources,
     double RigidityMargin,
-    ContentKey Key);
+    ContentKey Key) {
+    public bool Valid =>
+        Key.Kind == EgressKind.Plan && Datum.Valid && Resources.Valid;
+}
 ```
 
 ## [03]-[SCHEDULE]
 
-- Owner: `SetupPlan` is raw ingress; `Setup` is one admitted physical orientation and resource custody interval; `SetupSchedule` is the proof-bearing ordered result.
-- Law: branch-and-bound expands existing and new setups over one `SearchSpace` carrying the admission-derived operation index, and `BoundOf` derives each admissible remainder from the same nonnegative duration term used by `Cost`; ingress cannot falsify optimality.
-- Law: `Cut` records the least bound the search refused, so present `ProvenLowerBound` states the real optimality gap. Search without a refused branch proves its incumbent optimal; rebase clears proof presence, and `NodeBudget` exhaustion fails typed.
+- Owner: `SetupPlan` is raw ingress over one `SetupCatalog` of shop resources and one `SearchBudget`; `Setup` is one admitted physical orientation and resource custody interval; `SetupSchedule` is the proof-bearing ordered result; `Setups` owns every fold.
+- Law: the branch-and-bound bound is column-DEPENDENT and admissible. `SearchSpace` memoizes one pair bound per operation-and-fixture — the `SetupAxis.Bounding` rows alone, whose rigidity term reads that fixture's own restraint margin — so an operation's remainder is the minimum over its admissible fixtures and no relaxation exceeds the cost it bounds. A pair-independent seed makes every remainder equal to the incumbent's own accumulated cost, which prunes the root and refuses every plan; that form is deleted.
+- Law: `HungarianAlgorithm` over that same pair-bound matrix is the ROOT lower bound and an infeasibility oracle in one solve — no perfect operation-to-fixture matching means no schedule exists, so `SetupInfeasible` answers before any node expands. The search itself opens with no incumbent, `Cut` records the least bound it refused, and `ProvenLowerBound` publishes the stronger of the root bound and that cut, clipped to the incumbent cost — refusing nothing proves the incumbent optimal.
+- Law: `Search` reads the abandonment token at every node and lowers `FabricationFault.RunAbandoned(FabConcern.Fixturing, done, "setup-search")` carrying the fraction of the topological order it reached, never `PolicyInadmissible` and never a thrown cancellation.
 - Law: controller and carrier-station WCS rows come from the unconsumed admitted roster remainder; setup indices never derive controller syntax, array position, or offset availability, and makespan accumulates per machine so setups on distinct machines do not serialize.
-- Law: a measured frame re-enters through the same evidence boundary that admitted the setup, and a correction exceeding the tightest datum tolerance the setup's operations carry rejects rather than stamping traceability.
-- Exemption: QuikGraph construction with `Search`, `Candidates`, and `Commit` forms the bounded scheduling kernel; mutation remains inside admitted graph, schedule-state, and `Atom` containers.
+- Law: transitive reduction takes NO edge factory and returns the ORIGINAL edges, so the surviving pair set is a `Set<(int, int)>` read once and the original relation rows filter against it in one pass — the per-edge rescan of the whole edge list is quadratic in the relation count and is deleted.
+- Law: a measured frame re-enters through the same evidence boundary that admitted the setup, and a correction exceeding the tightest datum tolerance the setup's operations carry rejects rather than stamping traceability. The `Joining/sequence` `DisplacementReceipt` narrows that tolerance through `workholding#FIXTURE` `DatumTransfer` before the comparison, so a distortion the weld plane measured consumes the datum budget rather than being re-estimated.
+- Exemption: `AssignmentBound` fills the rectangular integer cost matrix `HungarianAlgorithm` binds, and `Search` threads the bounded scheduling recursion; mutation stays inside admitted graph, schedule-state, and `Atom` containers.
 - Entry: identity, relation references, WCS slots, carrier stations, part instances, machine keys, fixture keys, mounting frames, objective values, and operation payloads accumulate before graph construction.
 - Auto: one applicative evidence fan-in composes machine or robot-cell reach, rebuilt workholding restraint and corridor checks, guard, machined-stock, datum transfer, probing, and resource availability.
-- Receipt: the scheduled arm fires the `FabricationFact.Engine.Of` decision-count row through the `FabricationTap` `Apply` accepts, defaulting silent for headless callers, so branch-and-bound cost attribution rides the telemetry rail with zero kernel writes.
-- Packages: `BidirectionalGraph<int, SetupEdge>` preserves isolated operations, typed edge payloads, source-first order, strongly connected cycle evidence, and transitive reduction; `HungarianAlgorithm` over the operation-by-fixture cost matrix seeds the branch-and-bound incumbent with a feasible allocation instead of infinity.
-- Boundary: ordinary infeasibility prunes one candidate as `Option.None`; malformed input, failed geometry, exhausted budget, or boundary failure remains a typed `Fin` failure.
+- Receipt: the scheduled arm fires the `FabricationFact.Engine.Of` decision-count row through the `FabricationTap` `Apply` accepts, defaulting silent for headless callers. A cyclic precedence graph publishes its strongly-connected COMPONENT MEMBERS on `SetupChain.Components`, so the refusal names the operations a caller must break rather than a count.
+- Packages: `BidirectionalGraph<int, SetupEdge>` preserves isolated operations, typed edge payloads, source-first order, strongly connected cycle evidence, and transitive reduction; `HungarianAlgorithm` at `QuikGraph.Algorithms.Assignment` binds the rectangular `int[,]` cost matrix alone.
+- Boundary: ordinary infeasibility prunes one candidate as `Option.None`; malformed input, failed geometry, exhausted budget, withdrawn run, or boundary failure remains a typed `Fin` failure.
 
 ```csharp signature
 // --- [SCHEDULE] -----------------------------------------------------------------------------------------------------------------------------------
-public sealed record SetupPlan(
-    Seq<SetupOperation> Operations,
-    Seq<SetupEdge> Relations,
+public sealed record SetupCatalog(
     FixtureSet Fixtures,
     Seq<int> Machines,
     Seq<WcsSlot> Wcs,
     Seq<Carrier> Carriers,
-    Seq<PartInstance> Instances,
+    Seq<PartInstance> Instances);
+
+public readonly record struct SearchBudget(int MaxSetups, int NodeBudget);
+
+public sealed record SetupPlan(
+    Seq<SetupOperation> Operations,
+    Seq<SetupEdge> Relations,
+    SetupCatalog Catalog,
     SetupObjective Objective,
-    int MaxSetups,
-    int NodeBudget,
+    SearchBudget Budget,
+    Option<DisplacementReceipt> Distortion,
     ISetupEvidenceSource Evidence);
 
 public sealed record Setup(
@@ -302,14 +449,24 @@ public sealed record ScheduleState(
     Arr<Setup> Setups,
     Seq<SetupDecision> Decisions,
     Set<int> Placed,
-    double Cost,
-    double LowerBound) {
-    public static ScheduleState Empty => new(Arr<Setup>(), Seq<SetupDecision>(), Set<int>(), 0.0, 0.0);
+    double Cost) {
+    public static ScheduleState Empty => new(Arr<Setup>(), Seq<SetupDecision>(), Set<int>(), 0.0);
 }
 
 public readonly record struct WcsAssignment(int Setup, WcsSlot Slot);
 
-[Union]
+// The cyclic refusal carries its COMPONENT MEMBERS: the strongly-connected labels are what the detecting walk
+// already computed, and an operation count names nothing a caller can break.
+public sealed record SetupChain(Seq<int> Operations, Seq<Arr<int>> Components, Seq<(int Before, int After)> Lineage) {
+    public ReadOnlySpan<byte> Canonical(double toleranceMm) =>
+        new CanonicalWriter(toleranceMm)
+            .Rows(Operations, static (held, operation) => held.Ordinal(operation))
+            .Rows(Components, static (held, component) => held.Rows(component.ToSeq(), static (row, member) => row.Ordinal(member)))
+            .Rows(Lineage, static (held, edge) => held.Ordinal(edge.Before).Ordinal(edge.After))
+            .ToBytes().Span;
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record SetupOp {
     private SetupOp() { }
 
@@ -319,7 +476,7 @@ public abstract partial record SetupOp {
     public sealed record Project(SetupSchedule Schedule, SetupProjection Projection) : SetupOp;
 }
 
-[Union]
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record SetupResult {
     private SetupResult() { }
 
@@ -329,7 +486,7 @@ public abstract partial record SetupResult {
     public sealed record Projected(SetupArtifact Artifact) : SetupResult;
 }
 
-public sealed partial record SetupSchedule(
+public sealed record SetupSchedule(
     SetupPlan Plan,
     Arr<Setup> Setups,
     Seq<WcsAssignment> Wcs,
@@ -338,38 +495,55 @@ public sealed partial record SetupSchedule(
     double Cost,
     Option<double> ProvenLowerBound,
     ContentKey Key) {
-    public static Fin<SetupResult> Apply(SetupOp? candidate, FabricationTap? tap = null) =>
-        Optional(candidate).ToFin(new FabricationFault.FixtureInadmissible(new FixturingWitness.Absent()).ToError()).Bind(op => op.Switch(
-            state: tap ?? FabricationTap.Silent,
-            admit: static (_, row) => Admit(row.Plan).Map<SetupResult>(static plan => new SetupResult.Admitted(plan)),
-            schedule: static (port, row) => Admit(row.Plan).Bind(Solve).Map<SetupResult>(schedule =>
-                (FabricationFact.Engine.Of(schedule).Map(port.Fire).Strict(), new SetupResult.Scheduled(schedule)).Item2),
-            rebase: static (_, row) => Rebase(row.Schedule, row.Setup, row.Measured).Map<SetupResult>(static schedule => new SetupResult.Rebased(schedule)),
-            project: static (_, row) => Project(row.Schedule, row.Projection).Map<SetupResult>(static artifact => new SetupResult.Projected(artifact))));
+    public static Fin<SetupResult> Apply(SetupOp? candidate, FabricationTap? tap = null, CancellationToken cancel = default) =>
+        Optional(candidate)
+            .ToFin(new FabricationFault.FixtureInadmissible(new FixturingWitness.Absent()).ToError())
+            .Bind(op => op.Switch(
+                state: (Tap: tap ?? FabricationTap.Silent, Cancel: cancel),
+                admit: static (_, row) => Setups.Admit(row.Plan).Map<SetupResult>(static plan => new SetupResult.Admitted(plan)),
+                schedule: static (state, row) => Setups.Admit(row.Plan)
+                    .Bind(plan => Setups.Solve(plan, state.Cancel))
+                    .Map<SetupResult>(schedule =>
+                        (FabricationFact.Engine.Of(schedule).Map(state.Tap.Fire).Strict(), new SetupResult.Scheduled(schedule)).Item2),
+                rebase: static (_, row) => Setups.Rebase(row.Schedule, row.Setup, row.Measured)
+                    .Map<SetupResult>(static schedule => new SetupResult.Rebased(schedule)),
+                project: static (_, row) => Setups.Project(row.Schedule, row.Projection)
+                    .Map<SetupResult>(static artifact => new SetupResult.Projected(artifact))));
+}
 
-    static Fin<SetupPlan> Admit(SetupPlan? candidate) =>
-        Optional(candidate).ToFin(new FabricationFault.FixtureInadmissible(new FixturingWitness.Absent()).ToError()).Bind(plan =>
-        (GatePlan(plan), GateOperations(plan), GateRelations(plan), GateWcs(plan), GateCarriers(plan))
-            .Apply(static (accepted, _, _, _, _) => accepted)
-            .As()
-            .ToFin());
+// --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
+internal static partial class Setups {
+    // Assignment solves over integers, so a pair bound quantizes at one part in ten thousand and an inadmissible
+    // pair carries a cost no feasible allocation can beat.
+    private const double BoundScale = 1e4;
+    private const int Blocked = int.MaxValue / 4;
 
-    static K<Validation<Error>, SetupPlan> GatePlan(SetupPlan plan) =>
-        plan.MaxSetups > 0 && plan.MaxSetups <= plan.Wcs.Count && plan.NodeBudget > 0
-        && plan.Objective is not null && plan.Evidence is not null
-        && plan.Machines.Count > 0 && plan.Machines.ForAll(static machine => machine >= 0)
-        && plan.Machines.Distinct().Count == plan.Machines.Count
-        && plan.Fixtures is not null && plan.Fixtures.Fixtures.Count > 0
-        && plan.Fixtures.Fixtures.ForAll(static fixture => fixture.Constraint.Constrained)
-            ? Validation<Error, SetupPlan>.Success(plan)
-            : Validation<Error, SetupPlan>.Fail(new FabricationFault.FixtureInadmissible(new FixturingWitness.Plan(
-                plan.Operations.Count, plan.Machines.Count, plan.Fixtures.Fixtures.Count, plan.MaxSetups)).ToError());
+    // --- [ADMISSION]
+    internal static Fin<SetupPlan> Admit(SetupPlan? candidate) =>
+        Optional(candidate)
+            .ToFin(new FabricationFault.FixtureInadmissible(new FixturingWitness.Absent()).ToError())
+            .Bind(static plan =>
+                (GatePlan(plan), GateOperations(plan), GateRelations(plan), GateWcs(plan), GateCarriers(plan))
+                    .Apply(static (accepted, _, _, _, _) => accepted)
+                    .As()
+                    .ToFin());
 
-    static K<Validation<Error>, Unit> GateOperations(SetupPlan plan) {
-        if (plan.Fixtures is null || !plan.Operations.ForAll(static operation => operation is not null))
-            return Validation<Error, Unit>.Fail(new FabricationFault.FixtureInadmissible(
-                new FixturingWitness.Operation(-1, nameof(SetupPlan.Operations))).ToError());
-        Set<int> keys = plan.Operations.Map(static operation => operation.Key).ToSet();
+    private static K<Validation<Error>, SetupPlan> GatePlan(SetupPlan plan) =>
+        AdmissionSlots.Gate(
+            plan.Budget.MaxSetups > 0 && plan.Budget.MaxSetups <= plan.Catalog.Wcs.Count && plan.Budget.NodeBudget > 0
+            && !plan.Catalog.Machines.IsEmpty && plan.Catalog.Machines.ForAll(Witness.Index)
+            && plan.Catalog.Machines.Distinct().Count == plan.Catalog.Machines.Count
+            && !plan.Catalog.Fixtures.Fixtures.IsEmpty
+            && plan.Catalog.Fixtures.Fixtures.ForAll(static fixture => fixture.Constraint.Constrained),
+            new FabricationFault.FixtureInadmissible(new FixturingWitness.Plan(
+                plan.Operations.Count,
+                plan.Catalog.Machines.Count,
+                plan.Catalog.Fixtures.Fixtures.Count,
+                plan.Budget.MaxSetups)))
+            .Map(_ => plan);
+
+    private static K<Validation<Error>, Unit> GateOperations(SetupPlan plan) {
+        Set<int> keys = toSet(plan.Operations.Map(static operation => operation.Key));
         return AdmissionSlots.Gate(
             keys.Count == plan.Operations.Count && plan.Operations.ForAll(operation => Valid(operation, plan)),
             new FabricationFault.FixtureInadmissible(new FixturingWitness.Operation(
@@ -377,238 +551,265 @@ public sealed partial record SetupSchedule(
                 nameof(SetupOperation))));
     }
 
-    static K<Validation<Error>, Unit> GateRelations(SetupPlan plan) {
-        if (!plan.Operations.ForAll(static operation => operation is not null))
-            return Validation<Error, Unit>.Fail(new FabricationFault.FixtureInadmissible(
-                new FixturingWitness.Operation(-1, nameof(SetupPlan.Relations))).ToError());
-        Set<int> keys = plan.Operations.Map(static operation => operation.Key).ToSet();
+    private static K<Validation<Error>, Unit> GateRelations(SetupPlan plan) {
+        Set<int> keys = toSet(plan.Operations.Map(static operation => operation.Key));
         return AdmissionSlots.Gate(
             plan.Relations.Distinct().Count == plan.Relations.Count
-            && plan.Relations.ForAll(edge => edge.Relation is not null && keys.Contains(edge.Source) && keys.Contains(edge.Target) && edge.Source != edge.Target
-            && edge.Relation.Switch(
-                precedes: static _ => true,
-                datum: static _ => true,
-                stock: static _ => true,
-                probe: static _ => true,
-                resource: static row => !string.IsNullOrWhiteSpace(row.Key),
-                sameFixture: static _ => true,
-                sameOrientation: static _ => true)),
+            && plan.Relations.ForAll(edge => keys.Contains(edge.Source) && keys.Contains(edge.Target)
+                && edge.Source != edge.Target && edge.Relation.Valid),
             Broken(
-                new SetupChain(keys.ToSeq(), plan.Relations.Map(static edge => (edge.Source, edge.Target))),
+                new SetupChain(keys.ToSeq(), Seq<Arr<int>>(), plan.Relations.Map(static edge => (edge.Source, edge.Target))),
                 Grid(plan.Operations)));
+    }
 
-    // Lineage faults carry a content-keyed subject, so the readable chain rides the
-    // schedule while the fault carries its key.
-    static Error Broken(SetupChain chain, double toleranceMm) =>
+    private static K<Validation<Error>, Unit> GateWcs(SetupPlan plan) =>
+        AdmissionSlots.Gate(
+            plan.Catalog.Wcs.Count >= plan.Budget.MaxSetups
+            && plan.Catalog.Wcs.ForAll(slot => slot.Valid(plan.Catalog.Wcs))
+            && plan.Catalog.Wcs.Distinct().Count == plan.Catalog.Wcs.Count,
+            new FabricationFault.FixtureInadmissible(new FixturingWitness.Offsets(
+                plan.Catalog.Wcs.Count, plan.Catalog.Wcs.Distinct().Count, plan.Budget.MaxSetups)));
+
+    private static K<Validation<Error>, Unit> GateCarriers(SetupPlan plan) {
+        HashMap<CarrierKey, Carrier> carriers = plan.Catalog.Carriers.Fold(
+            HashMap<CarrierKey, Carrier>(), static (index, row) => index.Add(row.Key, row));
+        Set<int> operations = toSet(plan.Operations.Map(static row => row.Key));
+        Set<int> instances = toSet(plan.Catalog.Instances.Map(static row => row.Key));
+        Option<PartInstance> orphan = plan.Catalog.Instances.Find(instance => !carriers.ContainsKey(instance.Carrier));
+        return AdmissionSlots.Gate(
+            carriers.Count == plan.Catalog.Carriers.Count && instances.Count == plan.Catalog.Instances.Count
+            && plan.Catalog.Carriers.ForAll(carrier => Valid(carrier, plan.Catalog.Wcs))
+            && plan.Catalog.Instances.ForAll(instance => Witness.Index(instance.Key)
+                && operations.Contains(instance.Operation) && carriers.ContainsKey(instance.Carrier)
+                && carriers[instance.Carrier].Stations.Exists(station => station.Index == instance.Station)
+                && instance.LocalFrame.IsValid)
+            && toSeq(plan.Catalog.Instances.GroupBy(static instance => instance.Operation))
+                .ForAll(static group => toSeq(group).Map(static instance => instance.Carrier).Distinct().Count == 1),
+            new FabricationFault.FixtureInadmissible(new FixturingWitness.Roster(
+                orphan.Map(static instance => instance.Carrier).IfNone(() => CarrierKey.Create(nameof(Carrier))),
+                orphan.Map(static instance => instance.Station).IfNone(-1),
+                plan.Catalog.Instances.Count)));
+    }
+
+    private static bool Valid(SetupOperation operation, SetupPlan plan) =>
+        Witness.Index(operation.Key)
+        && Distinct(operation.Roster.Mountings) && operation.Roster.Mountings.ForAll(static mounting => mounting.Valid)
+        && Distinct(operation.Roster.FixtureKeys) && operation.Roster.FixtureKeys.ForAll(plan.Catalog.Fixtures.ByOperation.ContainsKey)
+        && Distinct(operation.Roster.MachineKeys) && operation.Roster.MachineKeys.ForAll(plan.Catalog.Machines.Contains)
+        && Distinct(operation.Roster.Features) && operation.Roster.Features.ForAll(Witness.Index)
+        && Distinct(operation.Roster.Resources) && operation.Roster.Resources.ForAll(Witness.Keyed)
+        && !operation.Loads.IsEmpty && operation.Loads.ForAll(static load => load.Valid)
+        && operation.Corridors.ForAll(Valid)
+        && Fixtures.Nonnegative(operation.Demand.Duration)
+        && Fixtures.Nonnegative(operation.Demand.DatumTolerance)
+        && Fixtures.Nonnegative(operation.Demand.DatumAngularTolerance)
+        && Fixtures.AtLeastUnit(operation.Demand.SafetyFactor)
+        && double.IsFinite(operation.Demand.RigidityDemand) && operation.Demand.RigidityDemand >= 0.0;
+
+    private static bool Valid(Carrier carrier, Seq<WcsSlot> roster) =>
+        !carrier.Stations.IsEmpty && Witness.Keyed(carrier.Key.Value) && carrier.Mounting.Valid
+        && Fixtures.Nonnegative(carrier.ToolChange)
+        && toSet(carrier.Stations.Map(static station => station.Index)).Count == carrier.Stations.Count
+        && carrier.Stations.Map(static station => station.Wcs).Distinct().Count == carrier.Stations.Count
+        && carrier.Stations.ForAll(station => Witness.Index(station.Index) && station.Frame.IsValid
+            && station.Wcs.Valid(roster) && roster.Contains(station.Wcs));
+
+    private static bool Valid(ToolCorridor corridor) =>
+        corridor.Stations.Count >= 2
+        && corridor.Stations.ForAll(static station => Fixtures.Finite(station.Point)
+            && Seq(station.Cutter, station.Holder, station.Chip, station.Coolant).ForAll(Fixtures.Nonnegative));
+
+    private static bool Distinct<T>(Seq<T> rows) => rows.Distinct().Count == rows.Count;
+
+    // Lineage faults carry a content-keyed subject, so the readable chain rides the schedule while the fault
+    // carries its key.
+    private static Error Broken(SetupChain chain, double toleranceMm) =>
         new FabricationFault.DatumLineageBroken(new FaultSubject.Lineage(
             ContentKey.Of(EgressKind.Plan, chain.Canonical(toleranceMm)))).ToError();
-    static K<Validation<Error>, Unit> GateWcs(SetupPlan plan) =>
-        AdmissionSlots.Gate(
-            plan.Wcs.Count >= plan.MaxSetups && plan.Wcs.ForAll(slot => Valid(slot, plan.Wcs))
-            && plan.Wcs.Distinct().Count == plan.Wcs.Count,
-            new FabricationFault.FixtureInadmissible(new FixturingWitness.Offsets(
-                plan.Wcs.Count, plan.Wcs.Distinct().Count, plan.MaxSetups)));
 
-    static bool Valid(SetupOperation operation, SetupPlan plan) =>
-        operation.Key >= 0 && operation.Mountings.Count > 0 && operation.FixtureKeys.Count > 0 && operation.MachineKeys.Count > 0
-        && operation.MachineKeys.ForAll(plan.Machines.Contains) && operation.FixtureKeys.ForAll(plan.Fixtures.ByOperation.ContainsKey)
-        && operation.Mountings.ForAll(Valid) && operation.Mountings.Distinct().Count == operation.Mountings.Count
-        && operation.Features.ForAll(static feature => feature >= 0) && operation.Features.Distinct().Count == operation.Features.Count
-        && operation.FixtureKeys.Distinct().Count == operation.FixtureKeys.Count
-        && operation.MachineKeys.Distinct().Count == operation.MachineKeys.Count
-        && operation.Loads.Count > 0 && operation.Loads.ForAll(static load => load is not null)
-        && operation.Corridors.ForAll(Valid)
-        && operation.Resources.ForAll(static resource => !string.IsNullOrWhiteSpace(resource))
-        && operation.Resources.Distinct().Count == operation.Resources.Count
-        && operation.Duration.As(DurationUnit.Second) >= 0.0 && double.IsFinite(operation.Duration.As(DurationUnit.Second))
-        && operation.DatumTolerance.As(LengthUnit.Millimeter) >= 0.0 && double.IsFinite(operation.DatumTolerance.As(LengthUnit.Millimeter))
-        && operation.DatumAngularTolerance.As(AngleUnit.Radian) >= 0.0 && double.IsFinite(operation.DatumAngularTolerance.As(AngleUnit.Radian))
-        && operation.SafetyFactor.As(RatioUnit.DecimalFraction) >= 1.0 && double.IsFinite(operation.SafetyFactor.As(RatioUnit.DecimalFraction))
-        && operation.RigidityDemand >= 0.0 && double.IsFinite(operation.RigidityDemand);
-
-    static bool Valid(WcsSlot slot, Seq<WcsSlot> roster) => slot is not null && slot.Switch(
-        state: roster,
-        @base: static (_, row) => row.Ordinal >= 0,
-        extended: static (_, row) => row.Ordinal >= 0,
-        dynamic: static (_, row) => row.Ordinal >= 0,
-        rotary: static (_, row) => row.Ordinal >= 0 && row.Axis >= 0,
-        local: static (slots, row) => row.Ordinal >= 0 && row.Parent >= 0 && row.Parent != row.Ordinal
-            && slots.Filter(slot => ControllerOrdinal(slot).Contains(row.Parent)).Count == 1);
-
-    static Option<int> ControllerOrdinal(WcsSlot? slot) => Optional(slot).Bind(value => value.Switch<Option<int>>(
-        @base: static row => Some(row.Ordinal),
-        extended: static row => Some(row.Ordinal),
-        dynamic: static row => Some(row.Ordinal),
-        rotary: static row => Some(row.Ordinal),
-        local: static _ => None));
-
-    static bool Valid(Mounting mounting) => mounting is not null && mounting.Switch(
-        table: static row => row.Frame.IsValid,
-        pallet: static row => !string.IsNullOrWhiteSpace(row.Key) && row.Frame.IsValid,
-        tombstone: static row => !string.IsNullOrWhiteSpace(row.Key) && row.Face >= 0 && row.Frame.IsValid,
-        rotary: static row => row.Axis >= 0 && double.IsFinite(row.Angle.As(AngleUnit.Radian)) && row.Frame.IsValid,
-        trunnion: static row => double.IsFinite(row.A.As(AngleUnit.Radian)) && double.IsFinite(row.C.As(AngleUnit.Radian)) && row.Frame.IsValid,
-        spindle: static row => row.Frame.IsValid,
-        positioner: static row => !string.IsNullOrWhiteSpace(row.Key) && row.Frame.IsValid,
-        cell: static row => row.Frame.IsValid);
-
-    static bool Valid(ToolCorridor corridor) => corridor is not null && corridor.Kind is not null && corridor.Stations.Count >= 2
-        && corridor.Stations.ForAll(static station => double.IsFinite(station.Point.X) && double.IsFinite(station.Point.Y)
-            && double.IsFinite(station.Point.Z)
-            && Seq(station.Cutter, station.Holder, station.Chip, station.Coolant)
-                .Map(static radius => radius.As(LengthUnit.Millimeter))
-                .ForAll(static radius => double.IsFinite(radius) && radius >= 0.0));
-
-    static K<Validation<Error>, Unit> GateCarriers(SetupPlan plan) {
-        if (!plan.Carriers.ForAll(static carrier => carrier is not null)
-            || !plan.Operations.ForAll(static operation => operation is not null)
-            || !plan.Instances.ForAll(static instance => instance is not null))
-            return Validation<Error, Unit>.Fail(new FabricationFault.FixtureInadmissible(
-                new FixturingWitness.Roster(CarrierKey.Create(nameof(SetupPlan.Carriers)), -1, plan.Instances.Count)).ToError());
-        HashMap<CarrierKey, Carrier> carriers = plan.Carriers.Fold(HashMap<CarrierKey, Carrier>(), static (index, row) => index.Add(row.Key, row));
-        Set<int> operations = plan.Operations.Map(static row => row.Key).ToSet();
-        Set<int> instances = plan.Instances.Map(static row => row.Key).ToSet();
-        return AdmissionSlots.Gate(
-            carriers.Count == plan.Carriers.Count && instances.Count == plan.Instances.Count
-            && plan.Carriers.ForAll(static carrier => carrier.Stations.Count > 0
-                && !string.IsNullOrWhiteSpace(carrier.Key.Value)
-                && carrier.Stations.Map(static station => station.Index).ToSet().Count == carrier.Stations.Count
-                && carrier.Stations.Map(static station => station.Wcs).Distinct().Count == carrier.Stations.Count
-                && Valid(carrier.Mounting) && carrier.ToolChange.As(DurationUnit.Second) >= 0.0
-                && double.IsFinite(carrier.ToolChange.As(DurationUnit.Second))
-                && carrier.Stations.ForAll(station => station.Index >= 0 && station.Frame.IsValid && Valid(station.Wcs, plan.Wcs)
-                    && plan.Wcs.Contains(station.Wcs)))
-            && plan.Instances.ForAll(instance => instance.Key >= 0 && !string.IsNullOrWhiteSpace(instance.Carrier.Value)
-                && operations.Contains(instance.Operation) && carriers.ContainsKey(instance.Carrier)
-                && carriers[instance.Carrier].Stations.Exists(station => station.Index == instance.Station) && instance.LocalFrame.IsValid)
-            && plan.Instances.GroupBy(static instance => instance.Operation)
-                .ForAll(static group => group.Map(static instance => instance.Carrier).Distinct().Count == 1),
-            new FabricationFault.FixtureInadmissible(new FixturingWitness.Roster(
-                plan.Instances.Find(instance => !carriers.ContainsKey(instance.Carrier))
-                    .Map(static instance => instance.Carrier).IfNone(() => CarrierKey.Create(nameof(Carrier))),
-                plan.Instances.Find(instance => !carriers.ContainsKey(instance.Carrier)).Map(static instance => instance.Station).IfNone(-1),
-                plan.Instances.Count)));
+    // --- [SEARCH]
+    // Operation indexing and the pair-bound table are admission-time derivations, not per-node folds; `Cut` records
+    // the least bound the search refused, and `Budget` bounds a tree whose candidate fan is machines by fixtures by
+    // mountings per level.
+    internal sealed record SearchSpace(
+        Arr<int> Order,
+        HashMap<int, SetupOperation> Operations,
+        HashMap<(int Operation, int Fixture), double> PairBounds,
+        HashMap<int, double> Remainders,
+        SetupPlan Plan,
+        Atom<int> Budget,
+        Atom<double> Cut,
+        Atom<int> Deepest,
+        CancellationToken Cancel) {
+        public double Remaining(int cursor) => Order.Skip(cursor).Sum(key => Remainders[key]);
     }
 
-    // Assignment solves over integers, so setup cost quantizes at one part in ten thousand and an inadmissible
-    // pair carries a cost no feasible allocation can beat.
-    private const double SeedScale = 1e4;
-    private const int Blocked = int.MaxValue / 4;
-
-    static Fin<SetupSchedule> Solve(SetupPlan plan) {
+    internal static Fin<SetupSchedule> Solve(SetupPlan plan, CancellationToken cancel) {
         BidirectionalGraph<int, SetupEdge> graph = Graph(plan);
-        if (!graph.IsDirectedAcyclicGraph()) return Fin.Fail<SetupSchedule>(Broken(Cycles(graph), Grid(plan.Operations)));
-        Arr<int> order = graph.SourceFirstBidirectionalTopologicalSort().ToArr();
-        SearchSpace space = new(
-            order,
-            plan.Operations.Fold(HashMap<int, SetupOperation>(), static (index, row) => index.Add(row.Key, row)),
-            plan,
-            Atom(plan.NodeBudget),
-            Atom(double.PositiveInfinity),
-            Atom(0));
-        return Search(space, cursor: 0, ScheduleState.Empty, Seed(space))
-            .Bind(result => result.ToFin(FabricationFault.SetupInfeasible(
-                order.At(space.Deepest.Value).IfNone(-1), plan.MaxSetups).ToError()))
-            .Map(state => Finalize(plan, graph, state, space.Cut.Value));
+        return !graph.IsDirectedAcyclicGraph()
+            ? Fin.Fail<SetupSchedule>(Broken(Cycles(graph), Grid(plan.Operations)))
+            : Space(plan, toSeq(graph.SourceFirstBidirectionalTopologicalSort()).ToArr(), cancel)
+                .Bind(space => RootBound(space).Bind(root => Search(space, cursor: 0, ScheduleState.Empty, double.PositiveInfinity)
+                    .Bind(result => result.ToFin(new FabricationFault.SetupInfeasible(
+                        space.Order.At(space.Deepest.Value).IfNone(-1), plan.Budget.MaxSetups).ToError()))
+                    .Map(state => Finalize(plan, graph, state, Math.Max(root, space.Cut.Value)))));
     }
 
-    static BidirectionalGraph<int, SetupEdge> Graph(SetupPlan plan) {
+    private static BidirectionalGraph<int, SetupEdge> Graph(SetupPlan plan) {
         BidirectionalGraph<int, SetupEdge> graph = new(allowParallelEdges: true);
         graph.AddVertexRange(plan.Operations.Map(static operation => operation.Key));
         graph.AddEdgeRange(plan.Relations.Filter(static edge => edge.Relation.Orders));
         return graph;
     }
 
-    static SetupChain Cycles(BidirectionalGraph<int, SetupEdge> graph) {
-        Dictionary<int, int> labels = new();
-        graph.StronglyConnectedComponents(labels);
-        Set<int> cyclic = labels.GroupBy(static pair => pair.Value)
-            .Filter(static group => group.Count() > 1)
-            .Bind(static group => group.Map(static pair => pair.Key))
-            .ToSet();
-        return new SetupChain(cyclic.ToSeq(), graph.Edges.Filter(edge => cyclic.Contains(edge.Source) && cyclic.Contains(edge.Target))
-            .Map(static edge => (edge.Source, edge.Target)).ToSeq());
+    // The pair bound is the ONE column-dependent quantity available before evidence: the fixture's own restraint
+    // margin under this operation's loads. It is exactly the `Bounding` axis terms with every non-pair term at its
+    // zero, so it never exceeds the cost the same axes contribute at placement.
+    private static Fin<SearchSpace> Space(SetupPlan plan, Arr<int> order, CancellationToken cancel) {
+        HashMap<int, SetupOperation> operations = plan.Operations.Fold(
+            HashMap<int, SetupOperation>(), static (index, row) => index.Add(row.Key, row));
+        return order
+            .ToSeq()
+            .Bind(key => operations[key].Roster.FixtureKeys.Map(fixture => (Operation: key, Fixture: fixture)))
+            .Traverse(pair => PairBound(operations[pair.Operation], plan.Catalog.Fixtures.ByOperation[pair.Fixture], plan.Objective)
+                .Map(bound => (pair, bound))
+                .ToValidation())
+            .As().ToFin()
+            .Map(rows => {
+                HashMap<(int, int), double> bounds = rows.Fold(HashMap<(int, int), double>(),
+                    static (index, row) => index.Add(row.pair, row.bound));
+                return new SearchSpace(
+                    order,
+                    operations,
+                    bounds,
+                    // The seed is the fold's IDENTITY, and `Min` folds it in: a zero seed pins every remainder at
+                    // zero, `SearchSpace.Remaining` collapses to nothing, and the branch-and-bound loses the
+                    // lookahead its own admissibility law rests on while `SetupDecision.Bound` publishes a column
+                    // that can only be zero. Every pair bound is non-negative, so infinity is the true identity.
+                    order.ToSeq().Fold(HashMap<int, double>(), (index, key) => index.Add(key,
+                        operations[key].Roster.FixtureKeys
+                            .Map(fixture => bounds[(key, fixture)])
+                            .Min(double.PositiveInfinity))),
+                    plan,
+                    Atom(plan.Budget.NodeBudget),
+                    Atom(double.PositiveInfinity),
+                    Atom(0),
+                    cancel);
+            });
     }
 
-    // Operation indexing is an admission-time derivation, not a per-node fold; `Cut` records the
-    // least bound the search refused so `ProvenLowerBound` states a real optimality gap, and
-    // `Budget` bounds a tree whose candidate fan is machines by fixtures by mountings per level.
-    public sealed record SearchSpace(
-        Arr<int> Order,
-        HashMap<int, SetupOperation> Operations,
-        SetupPlan Plan,
-        Atom<int> Budget,
-        Atom<double> Cut,
-        Atom<int> Deepest);
+    private static Fin<double> PairBound(SetupOperation operation, Fixture fixture, SetupObjective objective) =>
+        Holding(operation, fixture).Map(holding => objective.Bound(new CostTerms(
+            Extended: false,
+            Changeover: Duration.Zero,
+            Reorientation: Duration.Zero,
+            Travel: Length.Zero,
+            DatumError: Length.Zero,
+            AngularDatumError: Angle.Zero,
+            RigidityMargin: holding.MinimumMargin / Math.Max(operation.Demand.RigidityDemand, EpsilonPolicy.SqrtEpsilon),
+            JacobianCondition: 0.0,
+            Operation: operation.Demand.Duration,
+            ToolChange: Duration.Zero,
+            Instances: 1)));
 
-    static Fin<Option<ScheduleState>> Search(SearchSpace space, int cursor, ScheduleState state, double bound) {
-        double remaining = space.Order.Skip(cursor).Sum(key => BoundOf(space.Operations[key], space.Plan.Objective));
+    // Exemption: the rectangular integer matrix is the shape `HungarianAlgorithm` binds. A row with no admissible
+    // column, or an assignment that lands on a blocked cell, proves NO schedule exists — the matching oracle is the
+    // cheapest infeasibility proof the plan admits, so it answers before the first node expands.
+    private static Fin<double> RootBound(SearchSpace space) {
+        Arr<int> fixtures = toSeq(space.Plan.Catalog.Fixtures.ByOperation.Keys.Order()).ToArr();
+        int[,] costs = new int[space.Order.Count, fixtures.Count];
+        for (int row = 0; row < space.Order.Count; row++) {
+            for (int column = 0; column < fixtures.Count; column++) {
+                costs[row, column] = space.PairBounds
+                    .Find((space.Order[row], fixtures[column]))
+                    .Map(static bound => (int)Math.Ceiling(bound * BoundScale))
+                    .IfNone(Blocked);
+            }
+        }
+        int[] allocation = new HungarianAlgorithm(costs).Compute();
+        return allocation.Length != space.Order.Count
+            || Range(0, allocation.Length).Exists(row => allocation[row] < 0 || costs[row, allocation[row]] == Blocked)
+                ? Fin.Fail<double>(new FabricationFault.SetupInfeasible(
+                    space.Order.At(0).IfNone(-1), space.Plan.Budget.MaxSetups).ToError())
+                : Fin.Succ(Range(0, allocation.Length).Sum(row => costs[row, allocation[row]]) / BoundScale);
+    }
+
+    private static Fin<Option<ScheduleState>> Search(SearchSpace space, int cursor, ScheduleState state, double bound) {
+        if (space.Cancel.IsCancellationRequested)
+            return Fin.Fail<Option<ScheduleState>>(new FabricationFault.RunAbandoned(
+                FabConcern.Fixturing, (double)cursor / Math.Max(space.Order.Count, 1), "setup-search"));
+        double remaining = space.Remaining(cursor);
         _ = space.Deepest.Swap(held => Math.Max(held, cursor));
         if (space.Budget.Swap(static held => Math.Max(0, held - 1)) == 0)
             return Fin.Fail<Option<ScheduleState>>(new FabricationFault.FixtureInadmissible(new FixturingWitness.Plan(
-                space.Order.Count, cursor, state.Setups.Count, space.Plan.NodeBudget)).ToError());
+                space.Order.Count, cursor, state.Setups.Count, space.Plan.Budget.NodeBudget)).ToError());
         if (state.Cost + remaining >= bound) {
             _ = space.Cut.Swap(held => Math.Min(held, state.Cost + remaining));
             return Fin.Succ(Option<ScheduleState>.None);
         }
         return cursor == space.Order.Count
-            ? Fin.Succ(Some(state with { LowerBound = state.Cost }))
+            ? Fin.Succ(Some(state))
             : Candidates(state, space.Operations[space.Order[cursor]], space.Plan).Fold(
                 Fin.Succ(Option<ScheduleState>.None),
-                (rail, candidate) => rail.Bind(best => Place(state, space.Operations[space.Order[cursor]], candidate, space.Plan)
+                (rail, candidate) => rail.Bind(best => Place(space, state, space.Operations[space.Order[cursor]], candidate)
                     .Bind(next => next.Match(
-                        Some: admitted => Search(space, cursor + 1, admitted, best.Match(Some: held => Math.Min(bound, held.Cost), None: () => bound)),
+                        Some: admitted => Search(space, cursor + 1, admitted,
+                            best.Match(Some: held => Math.Min(bound, held.Cost), None: () => bound)),
                         None: static () => Fin.Succ(Option<ScheduleState>.None)))
                     .Map(found => Better(best, found))));
     }
 
-    static Seq<(Option<int> Setup, int Machine, Fixture Fixture, Mounting Mounting, Option<Carrier> Carrier)> Candidates(
+    private static Seq<(Option<int> Setup, int Machine, Fixture Fixture, Mounting Mounting, Option<Carrier> Carrier)> Candidates(
         ScheduleState state,
         SetupOperation operation,
         SetupPlan plan) {
-        Set<CarrierKey> carriers = plan.Instances.Filter(instance => instance.Operation == operation.Key).Map(static instance => instance.Carrier).ToSet();
+        Set<CarrierKey> carriers = toSet(plan.Catalog.Instances
+            .Filter(instance => instance.Operation == operation.Key)
+            .Map(static instance => instance.Carrier));
         Seq<(Option<int>, int, Fixture, Mounting, Option<Carrier>)> existing = state.Setups
-            .Filter(setup => operation.MachineKeys.Contains(setup.Machine) && operation.FixtureKeys.Contains(setup.Fixture.Operation))
-            .Filter(setup => operation.Mountings.Exists(mounting => mounting.Frame == setup.Mounting.Frame))
-            .Filter(setup => carriers.IsEmpty || setup.Carrier.Exists(carrier => carriers.Contains(carrier.Key)))
+            .Filter(setup => operation.Roster.MachineKeys.Contains(setup.Machine)
+                && operation.Roster.FixtureKeys.Contains(setup.Fixture.Operation)
+                && (carriers.IsEmpty || setup.Carrier.Exists(carrier => carriers.Contains(carrier.Key))))
             .Map(setup => (Some(setup.Index), setup.Machine, setup.Fixture, setup.Mounting, setup.Carrier));
-        Seq<(Option<int>, int, Fixture, Mounting, Option<Carrier>)> opened = operation.MachineKeys.Bind(machine =>
-            operation.FixtureKeys.Bind(fixture =>
+        Seq<(Option<int>, int, Fixture, Mounting, Option<Carrier>)> opened = operation.Roster.MachineKeys.Bind(machine =>
+            operation.Roster.FixtureKeys.Bind(fixture =>
                 (carriers.IsEmpty
-                    ? operation.Mountings.Map(mounting => (Option<int>.None, machine, plan.Fixtures.ByOperation[fixture], mounting, Option<Carrier>.None))
+                    ? operation.Roster.Mountings.Map(mounting =>
+                        (Option<int>.None, machine, plan.Catalog.Fixtures.ByOperation[fixture], mounting, Option<Carrier>.None))
                     : Seq<(Option<int>, int, Fixture, Mounting, Option<Carrier>)>())
-                + plan.Carriers.Filter(carrier => carriers.Contains(carrier.Key))
-                    .Map(carrier => (Option<int>.None, machine, plan.Fixtures.ByOperation[fixture], carrier.Mounting, Some(carrier)))));
-        return (state.Setups.Count >= plan.MaxSetups ? existing : existing + opened)
-            .Filter(candidate => operation.Mountings.Exists(mounting => mounting.Frame == candidate.Mounting.Frame))
+                + plan.Catalog.Carriers.Filter(carrier => carriers.Contains(carrier.Key))
+                    .Map(carrier => (Option<int>.None, machine, plan.Catalog.Fixtures.ByOperation[fixture], carrier.Mounting, Some(carrier)))));
+        return (state.Setups.Count >= plan.Budget.MaxSetups ? existing : existing + opened)
+            .Filter(candidate => operation.Roster.Mountings.Exists(mounting => mounting.Frame == candidate.Mounting.Frame))
             .Filter(candidate => FitsRelations(state, operation, candidate.Fixture, candidate.Mounting, plan));
     }
 
-    static bool FitsRelations(ScheduleState state, SetupOperation operation, Fixture fixture, Mounting mounting, SetupPlan plan) =>
+    private static bool FitsRelations(ScheduleState state, SetupOperation operation, Fixture fixture, Mounting mounting, SetupPlan plan) =>
         plan.Relations.Filter(edge => edge.Source == operation.Key || edge.Target == operation.Key).ForAll(edge => {
             int other = edge.Source == operation.Key ? edge.Target : edge.Source;
             Option<Setup> placed = state.Setups.Find(setup => setup.Operations.Contains(other));
             return edge.Relation.Switch(
+                state: (Placed: placed, Fixture: fixture, Mounting: mounting),
                 precedes: static (_, _) => true,
                 datum: static (_, _) => true,
                 stock: static (_, _) => true,
                 probe: static (_, _) => true,
                 resource: static (_, _) => true,
                 sameFixture: static (held, _) => held.Placed.ForAll(setup => setup.Fixture.Operation == held.Fixture.Operation),
-                sameOrientation: static (held, _) => held.Placed.ForAll(setup => setup.Mounting.Frame == held.Mounting.Frame),
-                state: (Placed: placed, Fixture: fixture, Mounting: mounting));
+                sameOrientation: static (held, _) => held.Placed.ForAll(setup => setup.Mounting.Frame == held.Mounting.Frame));
         });
 
-    static Fin<Option<ScheduleState>> Place(
+    private static Fin<Option<ScheduleState>> Place(
+        SearchSpace space,
         ScheduleState state,
         SetupOperation operation,
-        (Option<int> Setup, int Machine, Fixture Fixture, Mounting Mounting, Option<Carrier> Carrier) candidate,
-        SetupPlan plan) =>
-        Evidence(operation, candidate.Machine, candidate.Fixture, candidate.Mounting, plan).Bind(evidence => evidence.Match(
-            Some: accepted => Commit(state, operation, candidate, accepted, plan).Map(Some),
+        (Option<int> Setup, int Machine, Fixture Fixture, Mounting Mounting, Option<Carrier> Carrier) candidate) =>
+        Evidence(operation, candidate.Machine, candidate.Fixture, candidate.Mounting, space.Plan).Bind(evidence => evidence.Match(
+            Some: accepted => Commit(space, state, operation, candidate, accepted).Map(Some),
             None: static () => Fin.Succ(Option<ScheduleState>.None)));
 
-    static Fin<Option<SetupEvidence>> Evidence(
+    // --- [EVIDENCE]
+    internal static Fin<Option<SetupEvidence>> Evidence(
         SetupOperation operation,
         int machine,
         Fixture fixture,
@@ -620,7 +821,7 @@ public sealed partial record SetupSchedule(
          Machined(fixture).ToValidation())
             .Apply((boundary, holding, clearance, hit) => new SetupEvidence(
                 operation.Key,
-                operation.MachineKeys.Contains(machine),
+                operation.Roster.MachineKeys.Contains(machine),
                 boundary.Reach,
                 holding,
                 clearance,
@@ -628,90 +829,91 @@ public sealed partial record SetupSchedule(
                 hit,
                 boundary.Datum,
                 boundary.Resources,
-                holding.MinimumMargin / Math.Max(operation.RigidityDemand, 1e-9),
+                holding.MinimumMargin / Math.Max(operation.Demand.RigidityDemand, EpsilonPolicy.SqrtEpsilon),
                 boundary.Key))
-            .Map(evidence => Valid(evidence) && evidence.Compatible && evidence.Reach.Reachable && evidence.Holding.Holds
-                && evidence.Clearance.ForAll(static row => row.Clear) && evidence.Guarded && evidence.MachinedHit.IsNone
-                && evidence.Datum.Traceable && (!operation.RequiresProbe || evidence.Datum.Probed)
-                && evidence.Datum.TransferError <= operation.DatumTolerance && evidence.Resources.Available
-                && evidence.Datum.AngularTransferError <= operation.DatumAngularTolerance
-                && evidence.RigidityMargin >= 1.0 && RelationEvidence(operation, evidence, plan)
-                    ? Some(evidence)
-                    : Option<SetupEvidence>.None)
+            .Map(evidence => Admissible(operation, evidence, plan) ? Some(evidence) : Option<SetupEvidence>.None)
             .As()
             .ToFin();
 
-    static bool Valid(SetupEvidence evidence) => evidence.Key is not null && evidence.Key.Kind == EgressKind.Plan
-        && evidence.Datum.Anchor >= 0
-        && evidence.Datum.Lineage.ForAll(static operation => operation >= 0)
-        && evidence.Datum.Lineage.Distinct().Count == evidence.Datum.Lineage.Count
-        && evidence.Datum.TransferError.As(LengthUnit.Millimeter) >= 0.0
-        && double.IsFinite(evidence.Datum.TransferError.As(LengthUnit.Millimeter))
-        && evidence.Datum.AngularTransferError.As(AngleUnit.Radian) >= 0.0
-        && double.IsFinite(evidence.Datum.AngularTransferError.As(AngleUnit.Radian))
-        && evidence.Datum.ProbeCorrection.As(LengthUnit.Millimeter) >= 0.0
-        && double.IsFinite(evidence.Datum.ProbeCorrection.As(LengthUnit.Millimeter))
-        && evidence.Datum.AngularProbeCorrection.As(AngleUnit.Radian) >= 0.0
-        && double.IsFinite(evidence.Datum.AngularProbeCorrection.As(AngleUnit.Radian))
-        && evidence.Resources.Held.ForAll(static resource => !string.IsNullOrWhiteSpace(resource))
-        && evidence.Resources.Changeover.As(DurationUnit.Second) >= 0.0
-        && double.IsFinite(evidence.Resources.Changeover.As(DurationUnit.Second));
+    // The datum budget the distortion receipt already consumed narrows the tolerance BEFORE the comparison, so a
+    // weld-plane displacement spends the setup's repeatability rather than arriving as a second estimate.
+    private static bool Admissible(SetupOperation operation, SetupEvidence evidence, SetupPlan plan) {
+        Length tolerance = plan.Distortion.Match(
+            Some: receipt => DatumTransfer
+                .Of(operation.Demand.DatumTolerance, receipt, toSet(operation.Roster.Features))
+                .Remaining,
+            None: () => operation.Demand.DatumTolerance);
+        return evidence.Valid && evidence.Compatible && evidence.Reach.Reachable && evidence.Holding.Holds
+            && evidence.Clearance.ForAll(static row => row.Clear) && evidence.Guarded && evidence.MachinedHit.IsNone
+            && evidence.Datum.Traceable && (!operation.Demand.RequiresProbe || evidence.Datum.Probed)
+            && evidence.Datum.TransferError <= tolerance && evidence.Resources.Available
+            && evidence.Datum.AngularTransferError <= operation.Demand.DatumAngularTolerance
+            && evidence.RigidityMargin >= 1.0 && RelationEvidence(operation, evidence, plan);
+    }
 
-    static bool RelationEvidence(SetupOperation operation, SetupEvidence evidence, SetupPlan plan) =>
+    private static bool RelationEvidence(SetupOperation operation, SetupEvidence evidence, SetupPlan plan) =>
         plan.Relations.Filter(edge => edge.Target == operation.Key).ForAll(edge => edge.Relation.Switch(
+            state: (Source: edge.Source, Evidence: evidence),
             precedes: static (_, _) => true,
             datum: static (held, _) => held.Evidence.Datum.Lineage.Contains(held.Source),
             stock: static (held, _) => held.Evidence.MachinedHit.IsNone,
             probe: static (held, _) => held.Evidence.Datum.Probed,
             resource: static (held, row) => held.Evidence.Resources.Held.Contains(row.Key),
             sameFixture: static (_, _) => true,
-            sameOrientation: static (_, _) => true,
-            state: (Source: edge.Source, Evidence: evidence)));
+            sameOrientation: static (_, _) => true));
 
-    static Fin<HoldingReceipt> Holding(SetupOperation operation, Fixture fixture) =>
-        Workholding.Apply(new WorkholdingOp.Restrain(fixture, operation.Loads, operation.SafetyFactor)).Bind(static result => result switch {
-            WorkholdingResult.Restrained(var receipt) => Fin.Succ(receipt),
-            _ => Fin.Fail<HoldingReceipt>(new FabricationFault.WitnessMalformed(nameof(WorkholdingResult.Restrained), nameof(HoldingReceipt)).ToError()),
-        });
-
-    static Fin<Seq<WorkholdingResult.Clearance>> Clearance(SetupOperation operation, Fixture fixture) =>
-        operation.Corridors.Traverse(corridor => Workholding.Apply(new WorkholdingOp.Clear(fixture, FixtureState.Cut, corridor))
+    private static Fin<HoldingReceipt> Holding(SetupOperation operation, Fixture fixture) =>
+        Workholding.Apply(new WorkholdingOp.Restrain(fixture, operation.Loads, operation.Demand.SafetyFactor))
             .Bind(static result => result switch {
-                WorkholdingResult.Clearance receipt => Fin.Succ(receipt),
-                _ => Fin.Fail<WorkholdingResult.Clearance>(new FabricationFault.WitnessMalformed(nameof(WorkholdingResult.Clearance), nameof(ExclusionZone)).ToError()),
-            }).ToValidation()).As().ToFin();
+                WorkholdingResult.Restrained(var receipt) => Fin.Succ(receipt),
+                _ => Fin.Fail<HoldingReceipt>(new FabricationFault.WitnessMalformed(
+                    nameof(WorkholdingResult.Restrained), nameof(HoldingReceipt)).ToError()),
+            });
 
-    static Fin<Option<Point3d>> Machined(Fixture fixture) =>
+    private static Fin<Seq<WorkholdingResult.Clearance>> Clearance(SetupOperation operation, Fixture fixture) =>
+        operation.Corridors.Traverse(corridor =>
+            Workholding.Apply(new WorkholdingOp.Clear(fixture, FixtureState.Cut, corridor))
+                .Bind(static result => result switch {
+                    WorkholdingResult.Clearance receipt => Fin.Succ(receipt),
+                    _ => Fin.Fail<WorkholdingResult.Clearance>(new FabricationFault.WitnessMalformed(
+                        nameof(WorkholdingResult.Clearance), nameof(ExclusionZone)).ToError()),
+                }).ToValidation()).As().ToFin();
+
+    private static Fin<Option<Point3d>> Machined(Fixture fixture) =>
         fixture.Spec.Current.Match(
             Some: stock => Workholding.Apply(new WorkholdingOp.Machined(fixture, stock)).Bind(static result => result switch {
                 WorkholdingResult.MachinedHit(var point) => Fin.Succ(point),
-                _ => Fin.Fail<Option<Point3d>>(new FabricationFault.WitnessMalformed(nameof(WorkholdingResult.MachinedHit), nameof(StockSnapshot)).ToError()),
+                _ => Fin.Fail<Option<Point3d>>(new FabricationFault.WitnessMalformed(
+                    nameof(WorkholdingResult.MachinedHit), nameof(StockSnapshot)).ToError()),
             }),
             None: static () => Fin.Succ(Option<Point3d>.None));
 
-    static Fin<ScheduleState> Commit(
+    // --- [COMMIT]
+    private static Fin<ScheduleState> Commit(
+        SearchSpace space,
         ScheduleState state,
         SetupOperation operation,
         (Option<int> Setup, int Machine, Fixture Fixture, Mounting Mounting, Option<Carrier> Carrier) candidate,
-        SetupEvidence evidence,
-        SetupPlan plan) {
+        SetupEvidence evidence) {
+        SetupPlan plan = space.Plan;
         bool extended = candidate.Setup.IsSome;
         int index = candidate.Setup.IfNone(state.Setups.Count);
         int position = candidate.Setup.Map(identity => state.Setups.TakeWhile(setup => setup.Index != identity).Count).IfNone(-1);
         if (extended && (position < 0 || position >= state.Setups.Count))
             return Fin.Fail<ScheduleState>(new FabricationFault.FixtureInadmissible(
-                new FixturingWitness.Offsets(index, state.Setups.Count, plan.MaxSetups)).ToError());
-        // Offsets come from the unconsumed roster remainder; array position is not an allocator,
-        // and two setups on different machines do not serialize against each other.
-        Option<WcsSlot> slot = plan.Wcs.Find(row => !state.Setups.Exists(setup => setup.Wcs == row));
-        if (candidate.Setup.IsNone && slot.IsNone)
+                new FixturingWitness.Offsets(index, state.Setups.Count, plan.Budget.MaxSetups)).ToError());
+        // Offsets come from the unconsumed roster remainder; array position is not an allocator, and two setups on
+        // different machines do not serialize against each other.
+        Option<WcsSlot> slot = plan.Catalog.Wcs.Find(row => !state.Setups.Exists(setup => setup.Wcs == row));
+        if (!extended && slot.IsNone)
             return Fin.Fail<ScheduleState>(new FabricationFault.FixtureInadmissible(
-                new FixturingWitness.Offsets(state.Setups.Count + 1, plan.Wcs.Count, plan.MaxSetups)).ToError());
+                new FixturingWitness.Offsets(state.Setups.Count + 1, plan.Catalog.Wcs.Count, plan.Budget.MaxSetups)).ToError());
         Duration start = Duration.FromSeconds(state.Setups
             .Filter(setup => setup.Machine == candidate.Machine)
             .Map(static setup => setup.Finish.As(DurationUnit.Second)).Fold(0.0, Math.Max));
         Seq<PartInstance> instances = candidate.Carrier.Match(
-            Some: carrier => plan.Instances.Filter(instance => instance.Operation == operation.Key && instance.Carrier == carrier.Key),
+            Some: carrier => plan.Catalog.Instances.Filter(instance =>
+                instance.Operation == operation.Key && instance.Carrier == carrier.Key),
             None: static () => Seq<PartInstance>());
         Seq<InstanceWcs> offsets = candidate.Carrier.Match(
             Some: carrier => instances.Bind(instance => carrier.Stations
@@ -719,110 +921,86 @@ public sealed partial record SetupSchedule(
                 .Map(station => new InstanceWcs(instance.Key, station.Wcs,
                     Transform.PlaneToPlane(Plane.WorldXY, station.Frame) * Transform.PlaneToPlane(Plane.WorldXY, instance.LocalFrame)))),
             None: static () => Seq<InstanceWcs>());
-        Setup next = candidate.Setup.Match(
-            Some: _ => state.Setups[position] with {
+        Setup next = extended
+            ? state.Setups[position] with {
                 Operations = state.Setups[position].Operations.Add(operation.Key),
                 Instances = state.Setups[position].Instances + instances,
                 InstanceWcs = state.Setups[position].InstanceWcs + offsets,
-                Finish = state.Setups[position].Finish + operation.Duration,
-                Resources = state.Setups[position].Resources.Union(operation.Resources),
-            },
-            None: () => new Setup(index, candidate.Machine, candidate.Fixture, candidate.Mounting, slot.IfNone(plan.Wcs[0]), candidate.Carrier,
-                instances, offsets, evidence.Datum, Arr(operation.Key), operation.Resources.ToSet(), start, start + operation.Duration));
-        double increment = Cost(operation, next, evidence, extended, plan.Objective);
-        double lowerBound = BoundOf(operation, plan.Objective);
-        SetupDecision decision = new(operation.Key, index, extended, increment, lowerBound, evidence);
+                Finish = state.Setups[position].Finish + operation.Demand.Duration,
+                Resources = state.Setups[position].Resources.Union(operation.Roster.Resources),
+            }
+            : new Setup(index, candidate.Machine, candidate.Fixture, candidate.Mounting,
+                slot.IfNone(() => plan.Catalog.Wcs[0]), candidate.Carrier, instances, offsets, evidence.Datum,
+                Arr(operation.Key), toSet(operation.Roster.Resources), start, start + operation.Demand.Duration);
+        double increment = plan.Objective.Cost(Terms(operation, next, evidence, extended));
+        SetupDecision decision = new(operation.Key, index, extended, increment,
+            space.Remainders[operation.Key], evidence);
         return Fin.Succ(state with {
             Setups = extended ? state.Setups.SetItem(position, next) : state.Setups.Add(next),
             Decisions = state.Decisions.Add(decision),
             Placed = state.Placed.Add(operation.Key),
             Cost = state.Cost + increment,
-            LowerBound = state.LowerBound + lowerBound,
         });
     }
 
-    static double Cost(SetupOperation operation, Setup setup, SetupEvidence evidence, bool extended, SetupObjective objective) =>
-        (extended ? 0.0 : objective.SetupWeight)
-        + (evidence.Resources.Changeover.As(DurationUnit.Second) / objective.TimeScale.As(DurationUnit.Second) * objective.ChangeWeight)
-        + (evidence.Reach.Reorientation.As(DurationUnit.Second) / objective.TimeScale.As(DurationUnit.Second) * objective.OrientWeight)
-        + (evidence.Reach.Travel.As(LengthUnit.Millimeter) / objective.TravelScale.As(LengthUnit.Millimeter) * objective.TravelWeight)
-        + ((evidence.Datum.TransferError.As(LengthUnit.Millimeter) / objective.DatumScale.As(LengthUnit.Millimeter)
-            + evidence.Datum.AngularTransferError.As(AngleUnit.Radian) / objective.DatumAngleScale.As(AngleUnit.Radian)) * objective.DatumWeight)
-        + ((1.0 / Math.Max(evidence.RigidityMargin, 1e-9)) * objective.RigidityWeight)
-        + (((evidence.Reach.JacobianCondition / objective.ConditionScale)
-            + (operation.Duration.As(DurationUnit.Second) / objective.TimeScale.As(DurationUnit.Second))) * objective.RiskWeight)
-        + setup.Carrier.Match(
-            Some: carrier => carrier.ToolChange.As(DurationUnit.Second) / objective.TimeScale.As(DurationUnit.Second)
-                / Math.Max(setup.Instances.Count, 1) * objective.ChangeWeight,
-            None: static () => 0.0);
+    private static CostTerms Terms(SetupOperation operation, Setup setup, SetupEvidence evidence, bool extended) => new(
+        extended,
+        evidence.Resources.Changeover,
+        evidence.Reach.Reorientation,
+        evidence.Reach.Travel,
+        evidence.Datum.TransferError,
+        evidence.Datum.AngularTransferError,
+        evidence.RigidityMargin,
+        evidence.Reach.JacobianCondition,
+        operation.Demand.Duration,
+        setup.Carrier.Map(static carrier => carrier.ToolChange).IfNone(Duration.Zero),
+        setup.Instances.Count);
 
-    static double BoundOf(SetupOperation operation, SetupObjective objective) =>
-        operation.Duration.As(DurationUnit.Second) / objective.TimeScale.As(DurationUnit.Second) * objective.RiskWeight;
-
-    // Operation-to-fixture allocation IS a bipartite assignment, so the optimal one over the same setup-cost matrix
-    // is one Hungarian solve and its total is a FEASIBLE allocation's cost — an upper bound the search starts from
-    // instead of infinity, pruning every branch that cannot beat it. The seed changes no proof: `Cut` still records
-    // that least refused lower bound, and an operation whose fixture roster is empty leaves the seed at infinity.
-    // Integer costs force quantization, so the objective's own time scale supplies it and the ceiling keeps the
-    // seed an upper bound under rounding.
-    static double Seed(SearchSpace space) {
-        Arr<int> fixtures = space.Plan.Fixtures.ByOperation.Keys.Order().ToArr();
-        if (fixtures.IsEmpty || space.Order.IsEmpty
-            || space.Order.Exists(key => space.Operations[key].FixtureKeys.IsEmpty))
-            return double.PositiveInfinity;
-        int[,] costs = new int[space.Order.Count, fixtures.Count];
-        for (int row = 0; row < space.Order.Count; row++) {
-            SetupOperation operation = space.Operations[space.Order[row]];
-            for (int column = 0; column < fixtures.Count; column++) {
-                costs[row, column] = operation.FixtureKeys.Contains(fixtures[column])
-                    ? (int)Math.Ceiling(BoundOf(operation, space.Plan.Objective) * SeedScale)
-                    : Blocked;
-            }
-        }
-        int[] allocation = new HungarianAlgorithm(costs).Compute();
-        return allocation.Length != space.Order.Count
-            || Range(0, allocation.Length).Exists(row => allocation[row] < 0 || costs[row, allocation[row]] == Blocked)
-                ? double.PositiveInfinity
-                : Range(0, allocation.Length).Sum(row => costs[row, allocation[row]]) / SeedScale;
-    }
-
-    static Option<ScheduleState> Better(Option<ScheduleState> current, Option<ScheduleState> candidate) =>
+    private static Option<ScheduleState> Better(Option<ScheduleState> current, Option<ScheduleState> candidate) =>
         current.Match(
             Some: best => candidate.Match(Some: next => next.Cost < best.Cost ? candidate : current, None: () => current),
             None: () => candidate);
 
-    // Refusing nothing proves the incumbent optimal, so the bound is the cost itself; cutting a
-    // branch proves only the least bound the search refused.
-    static SetupSchedule Finalize(SetupPlan plan, BidirectionalGraph<int, SetupEdge> graph, ScheduleState state, double cut) {
-        Seq<SetupEdge> reduced = graph.ComputeTransitiveReduction(static (source, target) => new SetupEdge(source, target, new SetupRelation.Precedes())).Edges.ToSeq()
-            .Bind(edge => graph.Edges.Filter(reason => reason.Source == edge.Source && reason.Target == edge.Target)).Distinct().ToSeq();
-        double lowerBound = double.IsPositiveInfinity(cut) ? state.Cost : Math.Min(cut, state.Cost);
-        Option<double> proof = Some(lowerBound);
-        ContentKey key = ContentKey.Of(
-            EgressKind.Plan,
-            Canonical(state.Setups, state.Decisions, reduced, state.Cost, proof, Grid(plan.Operations)));
-        return new SetupSchedule(plan, state.Setups, state.Setups.Map(static setup => new WcsAssignment(setup.Index, setup.Wcs)).ToSeq(),
-            reduced, state.Decisions, state.Cost, proof, key);
+    // --- [RECEIPT]
+    // Reduction returns the ORIGINAL edge instances, so the surviving pairs read once into a set and the original
+    // relation rows filter against it: every relation justifying a kept pair survives, and no edge rescans the list.
+    private static SetupSchedule Finalize(
+        SetupPlan plan,
+        BidirectionalGraph<int, SetupEdge> graph,
+        ScheduleState state,
+        double lowerBound) {
+        Set<(int Source, int Target)> kept = toSet(toSeq(graph.ComputeTransitiveReduction().Edges)
+            .Map(static edge => (edge.Source, edge.Target)));
+        Seq<SetupEdge> reduced = plan.Relations
+            .Filter(edge => edge.Relation.Orders && kept.Contains((edge.Source, edge.Target)));
+        Option<double> proof = Some(Math.Min(state.Cost, double.IsPositiveInfinity(lowerBound) ? state.Cost : lowerBound));
+        return new SetupSchedule(
+            plan,
+            state.Setups,
+            state.Setups.Map(static setup => new WcsAssignment(setup.Index, setup.Wcs)).ToSeq(),
+            reduced,
+            state.Decisions,
+            state.Cost,
+            proof,
+            ContentKey.Of(EgressKind.Plan, Canonical(
+                state.Setups, state.Decisions, reduced, state.Cost, proof, Grid(plan.Operations))));
     }
 
-    // Measured frames move the part, so planned-frame reach, clearance, and stability evidence
-    // no longer describe this setup: correction re-enters through the same
-    // evidence boundary that admitted it, and a correction past the operation's own datum
-    // tolerance is a rejection, never a traceable rebase.
-    static Fin<SetupSchedule> Rebase(SetupSchedule schedule, int setup, Plane measured) {
+    // Measured frames move the part, so planned-frame reach, clearance, and stability evidence no longer describe
+    // this setup: correction re-enters through the same evidence boundary that admitted it, and a correction past
+    // the operation's own datum tolerance is a rejection, never a traceable rebase.
+    internal static Fin<SetupSchedule> Rebase(SetupSchedule schedule, int setup, Plane measured) {
         int position = schedule.Setups.TakeWhile(row => row.Index != setup).Count;
         if (position >= schedule.Setups.Count || !measured.IsValid)
-            return Fin.Fail<SetupSchedule>(new FabricationFault.FixtureInadmissible(new FixturingWitness.Rebase(
-                setup, Length.Zero, Angle.Zero, Length.Zero)).ToError());
+            return Fin.Fail<SetupSchedule>(new FabricationFault.FixtureInadmissible(
+                new FixturingWitness.Rebase(setup, Length.Zero, Angle.Zero, Length.Zero)).ToError());
         Setup held = schedule.Setups[position];
         Transform correction = Transform.PlaneToPlane(held.Mounting.Frame, measured);
         Length offset = Length.FromMillimeters(held.Mounting.Frame.Origin.DistanceTo(measured.Origin));
         Angle rotation = Rotation(correction);
         Seq<SetupOperation> operations = schedule.Plan.Operations.Filter(row => held.Operations.Contains(row.Key));
-        Option<Length> tolerance = operations.Map(static row => row.DatumTolerance).Fold(Option<Length>.None,
-            static (least, row) => least.Filter(held => held <= row).IfNone(row));
-        Option<Angle> angular = operations.Map(static row => row.DatumAngularTolerance).Fold(Option<Angle>.None,
-            static (least, row) => least.Filter(held => held <= row).IfNone(row));
+        Option<Length> tolerance = Least(operations.Map(static row => row.Demand.DatumTolerance));
+        Option<Angle> angular = Least(operations.Map(static row => row.Demand.DatumAngularTolerance));
         if (tolerance.Exists(bound => offset > bound) || angular.Exists(bound => rotation > bound))
             return Fin.Fail<SetupSchedule>(new FabricationFault.FixtureInadmissible(
                 new FixturingWitness.Rebase(setup, offset, rotation, tolerance.IfNone(Length.Zero))).ToError());
@@ -830,29 +1008,26 @@ public sealed partial record SetupSchedule(
             ProbeCorrection = offset,
             AngularProbeCorrection = rotation,
             Probed = true,
-            Traceable = held.Datum.Traceable,
         };
         Mounting reframed = held.Mounting.Reframed(measured);
-        return operations.Traverse(row =>
-            Evidence(row, held.Machine, held.Fixture, reframed, schedule.Plan)
-                .Bind(evidence => evidence.ToFin(FabricationFault.SetupInfeasible(row.Key, schedule.Setups.Count).ToError()))
+        return operations
+            .Traverse(row => Evidence(row, held.Machine, held.Fixture, reframed, schedule.Plan)
+                .Bind(evidence => evidence.ToFin(new FabricationFault.SetupInfeasible(row.Key, schedule.Setups.Count).ToError()))
                 .ToValidation())
             .As().ToFin().Map(proven => {
                 HashMap<int, SetupEvidence> reproven = proven.Fold(HashMap<int, SetupEvidence>(),
                     static (index, evidence) => index.Add(evidence.Operation, evidence));
+                HashMap<int, SetupOperation> byKey = operations.Fold(HashMap<int, SetupOperation>(),
+                    static (index, operation) => index.Add(operation.Key, operation));
                 Setup next = held with {
                     Mounting = reframed,
                     InstanceWcs = held.InstanceWcs.Map(row => row with { Frame = correction * row.Frame }),
                     Datum = datum,
                 };
-                HashMap<int, SetupOperation> operationIndex = operations.Fold(HashMap<int, SetupOperation>(),
-                    static (index, operation) => index.Add(operation.Key, operation));
-                Seq<SetupDecision> decisions = schedule.Decisions.Map(decision => {
-                    if (decision.Setup != setup) return decision;
-                    SetupEvidence evidence = reproven[decision.Operation] with { Datum = datum };
-                    double incremental = Cost(operationIndex[decision.Operation], next, evidence, decision.Extended, schedule.Plan.Objective);
-                    return decision with { Evidence = evidence, IncrementalCost = incremental };
-                });
+                Seq<SetupDecision> decisions = schedule.Decisions.Map(decision => decision.Setup != setup
+                    ? decision
+                    : Reproven(decision, reproven[decision.Operation] with { Datum = datum },
+                        byKey[decision.Operation], next, schedule.Plan.Objective));
                 SetupSchedule draft = schedule with {
                     Setups = schedule.Setups.SetItem(position, next),
                     Decisions = decisions,
@@ -861,137 +1036,101 @@ public sealed partial record SetupSchedule(
                 };
                 // The grid reads the WHOLE plan, exactly as `Finalize` does: a rebase that narrowed the grid to the
                 // corrected setup's own operations would re-key an unchanged schedule.
-                return draft with { Key = ContentKey.Of(EgressKind.Plan, Canonical(
-                    draft.Setups, draft.Decisions, draft.Precedence, draft.Cost, draft.ProvenLowerBound,
-                    Grid(schedule.Plan.Operations))) };
+                return draft with {
+                    Key = ContentKey.Of(EgressKind.Plan, Canonical(
+                        draft.Setups, draft.Decisions, draft.Precedence, draft.Cost, draft.ProvenLowerBound,
+                        Grid(schedule.Plan.Operations))),
+                };
             });
     }
 
-    static Angle Rotation(Transform correction) => new(Math.Acos(Math.Clamp(
-        0.5 * ((correction.M00 + correction.M11 + correction.M22) - 1.0), -1.0, 1.0)), AngleUnit.Radian);
+    private static SetupDecision Reproven(
+        SetupDecision decision,
+        SetupEvidence evidence,
+        SetupOperation operation,
+        Setup setup,
+        SetupObjective objective) =>
+        decision with {
+            Evidence = evidence,
+            IncrementalCost = objective.Cost(Terms(operation, setup, evidence, decision.Extended)),
+        };
 
-    // Every adjacent collection is count-framed and every discriminant rides its own ordinal with
-    // framed payload: separator-joined keys let a colon inside a pallet name shift two field
-    // splits onto one digest, and round-trip angle text keys a value the buffer already holds
-    // exactly.
-    // The ONE byte codec on this page is the `Rasm.Element` `CanonicalWriter`: `Double` folds `-0.0` to `+0.0` and
-    // every NaN payload to one quiet pattern, `String` frames by UTF-8 byte count, and every collection writes
-    // `Ordinal(count)` first — so a colon inside a pallet name cannot shift two field splits onto one digest and a
-    // round-trip angle text never keys a value the codec already holds exactly. The grid is the schedule's own
-    // strictest datum tolerance, threaded from `SetupOperation.DatumTolerance`, never a literal.
-    static ReadOnlySpan<byte> Canonical(
+    // --- [GRAPH_EVIDENCE]
+    // The strongly-connected labels ARE the evidence: the components a caller must break publish as member rows,
+    // and this is the ONE grouping both Fixturing precedence graphs read.
+    internal static Seq<Arr<TVertex>> Components<TVertex, TEdge>(IVertexListGraph<TVertex, TEdge> graph)
+        where TEdge : IEdge<TVertex> {
+        Dictionary<TVertex, int> labels = new();
+        _ = graph.StronglyConnectedComponents(labels);
+        return toSeq(labels.GroupBy(static row => row.Value))
+            .Filter(static group => group.Count() > 1)
+            .Map(static group => toSeq(group).Map(static row => row.Key).ToArr());
+    }
+
+    private static SetupChain Cycles(BidirectionalGraph<int, SetupEdge> graph) {
+        Seq<Arr<int>> components = Components<int, SetupEdge>(graph);
+        Set<int> cyclic = toSet(components.Bind(static component => component.ToSeq()));
+        return new SetupChain(
+            cyclic.ToSeq(),
+            components,
+            toSeq(graph.Edges)
+                .Filter(edge => cyclic.Contains(edge.Source) && cyclic.Contains(edge.Target))
+                .Map(static edge => (edge.Source, edge.Target)));
+    }
+
+    // --- [CANONICAL]
+    // Every preimage composes `FabricationCanon` over the ONE `Rasm.Element` `CanonicalWriter`: `Double` folds
+    // `-0.0` to `+0.0` and every NaN payload to one quiet pattern, `String` frames by UTF-8 byte count, and `Rows`
+    // writes the count first — so a colon inside a pallet name cannot shift two field splits onto one digest.
+    private static ReadOnlySpan<byte> Canonical(
         Arr<Setup> setups,
         Seq<SetupDecision> decisions,
         Seq<SetupEdge> precedence,
         double cost,
         Option<double> provenLowerBound,
-        double toleranceMm) {
-        CanonicalWriter buffer = new(toleranceMm);
-        Frame(buffer, setups.ToSeq(), static (held, setup) => {
-            held.Ordinal(setup.Index).Ordinal(setup.Machine).Ordinal(setup.Fixture.Operation);
-            WriteWcs(WriteMounting(held, setup.Mounting), setup.Wcs);
-            Pose(held, setup.Mounting.Frame);
-            Frame(held, setup.Operations.ToSeq(), static (inner, operation) => inner.Ordinal(operation));
-            Frame(held, setup.Instances, static (inner, instance) => Pose(
-                inner.Ordinal(instance.Key).Ordinal(instance.Operation)
-                    .String(instance.Carrier.Value).Ordinal(instance.Station),
-                instance.LocalFrame));
-            Frame(held, setup.InstanceWcs, static (inner, instance) => WriteWcs(inner.Ordinal(instance.Instance), instance.Slot));
-            held.Double(setup.Start.As(DurationUnit.Second)).Double(setup.Finish.As(DurationUnit.Second))
-                .Ordinal(setup.Datum.Anchor).Bool(setup.Datum.Probed).Bool(setup.Datum.Traceable);
-            Frame(held, setup.Datum.Lineage, static (inner, anchor) => inner.Ordinal(anchor))
-                .Double(setup.Datum.TransferError.As(LengthUnit.Millimeter))
-                .Double(setup.Datum.AngularTransferError.As(AngleUnit.Radian))
-                .Double(setup.Datum.ProbeCorrection.As(LengthUnit.Millimeter))
-                .Double(setup.Datum.AngularProbeCorrection.As(AngleUnit.Radian));
-        });
-        Frame(buffer, decisions, static (held, decision) => Key(
-            held.Ordinal(decision.Operation).Ordinal(decision.Setup).Bool(decision.Extended)
-                .Double(decision.IncrementalCost).Double(decision.Bound),
-            decision.Evidence.Key));
-        Frame(buffer, precedence, static (held, edge) =>
-            WriteRelation(held.Ordinal(edge.Source).Ordinal(edge.Target), edge.Relation));
-        buffer.Double(cost);
-        provenLowerBound.Match(
-            Some: bound => buffer.Bool(true).Double(bound),
-            None: () => buffer.Bool(false));
-        return buffer.ToBytes().Span;
-    }
+        double toleranceMm) =>
+        new CanonicalWriter(toleranceMm)
+            .Rows(setups.ToSeq(), static (held, setup) => setup.Datum.CanonicalBytes(setup.Wcs
+                .CanonicalBytes(setup.Mounting.CanonicalBytes(held
+                    .Ordinal(setup.Index).Ordinal(setup.Machine).Ordinal(setup.Fixture.Operation)))
+                .Pose(setup.Mounting.Frame)
+                .Rows(setup.Operations.ToSeq(), static (row, operation) => row.Ordinal(operation))
+                .Rows(setup.Instances, static (row, instance) => row
+                    .Ordinal(instance.Key).Ordinal(instance.Operation)
+                    .String(instance.Carrier.Value).Ordinal(instance.Station)
+                    .Pose(instance.LocalFrame))
+                .Rows(setup.InstanceWcs, static (row, instance) => instance.Slot.CanonicalBytes(row.Ordinal(instance.Instance)))
+                .Double(setup.Start.As(DurationUnit.Second)).Double(setup.Finish.As(DurationUnit.Second))))
+            .Rows(decisions, static (held, decision) => decision.Evidence.Key.CanonicalBytes(held
+                .Ordinal(decision.Operation).Ordinal(decision.Setup).Bool(decision.Extended)
+                .Double(decision.IncrementalCost).Double(decision.Bound)))
+            .Rows(precedence, static (held, edge) => edge.Relation.CanonicalBytes(
+                held.Ordinal(edge.Source).Ordinal(edge.Target)))
+            .Double(cost)
+            .Maybe(provenLowerBound, static (held, bound) => held.Double(bound))
+            .ToBytes().Span;
+
+    // A frame's origin and its two in-plane axes fix the third, so nine doubles carry the pose and the fourth axis
+    // is derived rather than digested twice.
+    private static CanonicalWriter Pose(this CanonicalWriter writer, Plane frame) =>
+        writer.Coords(frame.Origin).Coords(frame.XAxis).Coords(frame.YAxis);
 
     // The strictest datum tolerance the plan carries IS the canonical grid: quantizing looser than the tightest
     // datum a setup must hold would address two schedules that differ exactly where the plan cares most.
-    static double Grid(Seq<SetupOperation> operations) =>
-        operations.Map(static row => row.DatumTolerance)
-            .Fold(Option<Length>.None, static (least, row) => least.Filter(held => held <= row).IfNone(row))
-            .IfNone(Length.Zero)
-            .As(LengthUnit.Millimeter);
+    private static double Grid(Seq<SetupOperation> operations) =>
+        Least(operations.Map(static row => row.Demand.DatumTolerance)).IfNone(Length.Zero).As(LengthUnit.Millimeter);
 
-    static CanonicalWriter WriteMounting(CanonicalWriter buffer, Mounting mounting) => mounting.Switch(
-        state: buffer,
-        table: static (held, _) => Tag(held, 0),
-        pallet: static (held, row) => Tag(held, 1).String(row.Key),
-        tombstone: static (held, row) => Tag(held, 2).String(row.Key).Ordinal(row.Face),
-        rotary: static (held, row) => Tag(held, 3).Ordinal(row.Axis).Double(row.Angle.As(AngleUnit.Radian)),
-        trunnion: static (held, row) => Tag(held, 4)
-            .Double(row.A.As(AngleUnit.Radian)).Double(row.C.As(AngleUnit.Radian)),
-        spindle: static (held, _) => Tag(held, 5),
-        positioner: static (held, row) => Tag(held, 6).String(row.Key),
-        cell: static (held, _) => Tag(held, 7));
+    private static Option<T> Least<T>(Seq<T> rows) where T : IComparable<T> =>
+        rows.Fold(Option<T>.None, static (least, row) => least.Filter(held => held.CompareTo(row) <= 0).IfNone(row));
 
-    static CanonicalWriter WriteWcs(CanonicalWriter buffer, WcsSlot slot) => slot.Switch(
-        state: buffer,
-        @base: static (held, row) => Tag(held, 0).Ordinal(row.Ordinal),
-        extended: static (held, row) => Tag(held, 1).Ordinal(row.Ordinal),
-        dynamic: static (held, row) => Tag(held, 2).Ordinal(row.Ordinal),
-        rotary: static (held, row) => Tag(held, 3).Ordinal(row.Ordinal).Ordinal(row.Axis),
-        local: static (held, row) => Tag(held, 4).Ordinal(row.Ordinal).Ordinal(row.Parent));
-
-    static CanonicalWriter WriteRelation(CanonicalWriter buffer, SetupRelation relation) => relation.Switch(
-        state: buffer,
-        precedes: static (held, _) => Tag(held, 0),
-        datum: static (held, _) => Tag(held, 1),
-        stock: static (held, _) => Tag(held, 2),
-        probe: static (held, _) => Tag(held, 3),
-        resource: static (held, row) => Tag(held, 4).String(row.Key),
-        sameFixture: static (held, _) => Tag(held, 5),
-        sameOrientation: static (held, _) => Tag(held, 6));
-
-    // One discriminant writer: a case's payload chains onto the returned codec, so field arity is read at the arm
-    // that owns it instead of being encoded in an overload roster.
-    static CanonicalWriter Tag(CanonicalWriter buffer, int discriminant) => buffer.Ordinal(discriminant);
-
-    static CanonicalWriter Frame<T>(CanonicalWriter buffer, Seq<T> rows, Action<CanonicalWriter, T> write) {
-        buffer.Ordinal(rows.Count);
-        _ = rows.Iter(row => write(buffer, row));
-        return buffer;
-    }
-
-    static CanonicalWriter Pose(CanonicalWriter buffer, Plane frame) =>
-        buffer.Double(frame.Origin.X).Double(frame.Origin.Y).Double(frame.Origin.Z)
-            .Double(frame.XAxis.X).Double(frame.XAxis.Y).Double(frame.XAxis.Z)
-            .Double(frame.YAxis.X).Double(frame.YAxis.Y).Double(frame.YAxis.Z);
-
-    static CanonicalWriter Key(CanonicalWriter buffer, ContentKey value) =>
-        buffer.String(value.Kind.Key).U128(value.Digest);
-}
-}
-
-public sealed record SetupChain(Seq<int> Operations, Seq<(int Before, int After)> Lineage) {
-    public ReadOnlySpan<byte> Canonical(double toleranceMm) {
-        CanonicalWriter buffer = new(toleranceMm);
-        buffer.Ordinal(Operations.Count);
-        _ = Operations.Iter(operation => buffer.Ordinal(operation));
-        buffer.Ordinal(Lineage.Count);
-        _ = Lineage.Iter(edge => buffer.Ordinal(edge.Before).Ordinal(edge.After));
-        return buffer.ToBytes().Span;
-    }
+    private static Angle Rotation(Transform correction) => new(Math.Acos(Math.Clamp(
+        0.5 * ((correction.M00 + correction.M11 + correction.M22) - 1.0), -1.0, 1.0)), AngleUnit.Radian);
 }
 ```
 
 ## [04]-[PROJECTION]
 
 - Owner: `SetupProjection` selects machine, probing, posting, traveler, inspection, and evidence views; `SetupArtifact` carries the selected view without reopening the schedule.
-- Exemption: `Canonical`, `Frame`, `Tag`, and the three union writers compose the `Rasm.Element` `CanonicalWriter` — the one byte codec — over the schedule's strictest datum tolerance, and `Rebase` is the bounded frame-correction kernel; statements remain inside those seams, every adjacent collection count-framed and every discriminant an ordinal beside its framed payload.
 - Output: projection preserves the keyed schedule result, WCS, precedence, datum lineage, evidence, cost, and proven bound; raw search policy and evidence-provider capabilities remain ingress-only.
 - Boundary: posting receives WCS identity and values, probing receives datum and correction targets, and documentation receives immutable schedule evidence; no consumer derives setup order from array position alone.
 
@@ -1007,7 +1146,7 @@ public sealed partial class SetupProjection {
     public static readonly SetupProjection Evidence = new("evidence");
 }
 
-[Union]
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record SetupArtifact {
     private SetupArtifact() { }
 
@@ -1026,19 +1165,17 @@ public abstract partial record SetupArtifact {
         Option<double> ProvenLowerBound) : SetupArtifact;
 }
 
-public sealed partial record SetupSchedule {
-    static Fin<SetupArtifact> Project(SetupSchedule? schedule, SetupProjection? projection) =>
-        (Optional(schedule).ToFin(new FabricationFault.FixtureInadmissible(new FixturingWitness.Absent()).ToError()),
-         Optional(projection).ToFin(new FabricationFault.FixtureInadmissible(new FixturingWitness.Absent()).ToError()))
-            .Apply((accepted, kind) => kind.Switch<SetupArtifact>(
-                machine: () => new SetupArtifact.Machine(accepted.Key, accepted.Setups, accepted.Wcs),
-                probing: () => new SetupArtifact.Probing(accepted.Key, accepted.Setups.Map(static setup => setup.Datum).ToSeq()),
-                posting: () => new SetupArtifact.Posting(accepted.Key, accepted.Wcs, accepted.Precedence),
-                traveler: () => new SetupArtifact.Traveler(accepted.Key, accepted.Setups, accepted.Decisions),
-                inspection: () => new SetupArtifact.Inspection(accepted.Key, accepted.Decisions.Map(static decision => decision.Evidence)),
-                evidence: () => new SetupArtifact.Evidence(accepted.Key, accepted.Setups, accepted.Wcs, accepted.Precedence,
-                    accepted.Decisions, accepted.Cost, accepted.ProvenLowerBound)))
-            .As().ToFin();
+internal static partial class Setups {
+    internal static Fin<SetupArtifact> Project(SetupSchedule schedule, SetupProjection projection) =>
+        Fin.Succ(projection.Switch<SetupArtifact>(
+            machine: () => new SetupArtifact.Machine(schedule.Key, schedule.Setups, schedule.Wcs),
+            probing: () => new SetupArtifact.Probing(schedule.Key, schedule.Setups.Map(static setup => setup.Datum).ToSeq()),
+            posting: () => new SetupArtifact.Posting(schedule.Key, schedule.Wcs, schedule.Precedence),
+            traveler: () => new SetupArtifact.Traveler(schedule.Key, schedule.Setups, schedule.Decisions),
+            inspection: () => new SetupArtifact.Inspection(schedule.Key,
+                schedule.Decisions.Map(static decision => decision.Evidence)),
+            evidence: () => new SetupArtifact.Evidence(schedule.Key, schedule.Setups, schedule.Wcs,
+                schedule.Precedence, schedule.Decisions, schedule.Cost, schedule.ProvenLowerBound)));
 }
 ```
 

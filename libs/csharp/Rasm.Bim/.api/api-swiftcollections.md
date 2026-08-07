@@ -1,6 +1,6 @@
 # [RASM_BIM_API_SWIFTCOLLECTIONS]
 
-`SwiftCollections.Lean` owns the 3D AABB broad-phase behind the `Model/systems#INTERFERENCE` clash-candidate build and the `Review/coordination#COORDINATION` `ClashProposal` fold. `SwiftBVH`, `SwiftOctree`, and `SwiftSpatialHash` implement one generic `IBoundVolume<TVolume>` contract, so the clash engine binds the contract once and the concrete structure is a tuning choice; the handle-stable `SwiftBucket`/`SwiftSparseMap` collections hold the element-id↔volume registry with zero per-element allocation.
+`SwiftCollections.Lean` owns the 3D AABB broad-phase behind the `Model/systems#INTERFERENCE` clash-candidate build and the `Review/coordination#COORDINATION` `ClashProposal` fold. `SwiftBVH`, `SwiftOctree`, and `SwiftSpatialHash` implement one generic `IBoundVolume<TVolume>` contract, so each answers the modality its partition fits — the BVH tight-volume overlap, the hash the padded neighborhood ring. The handle-stable `SwiftBucket`/`SwiftSparseMap` collections own the handle↔volume registry a co-indexed pair shares.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -34,7 +34,7 @@ Each of `SwiftBVH`/`SwiftOctree`/`SwiftSpatialHash` ships a built-in `<TKey>` fo
 
 [PUBLIC_TYPE_SCOPE]: handle-stable backing collections
 
-Each backing collection holds the `BimElement` GlobalId→AABB mapping under stable integer handles, so a model update mutates one slot instead of rebuilding the index.
+Each backing collection holds the member→AABB mapping under stable integer handles, so a model update mutates one slot instead of rebuilding the index.
 
 | [INDEX] | [SYMBOL]               | [TYPE_FAMILY] | [CAPABILITY]                                                             |
 | :-----: | :--------------------- | :------------ | :----------------------------------------------------------------------- |
@@ -51,24 +51,42 @@ Each backing collection holds the `BimElement` GlobalId→AABB mapping under sta
 
 `TKey` is the element handle and `TVolume` the AABB; the design binds this shared surface, not a concrete structure.
 
-| [INDEX] | [SURFACE]                                                                    | [SHAPE]  | [CAPABILITY]                                   |
-| :-----: | :--------------------------------------------------------------------------- | :------- | :--------------------------------------------- |
-|  [01]   | `new SwiftBVH(int)`                                                          | ctor     | pre-sized BVH node pool                        |
-|  [02]   | `new SwiftOctree(TVolume, SwiftOctreeOptions, IOctreeBoundsPartitioner)`     | ctor     | bounded subdivision, pluggable partition       |
-|  [03]   | `new SwiftOctree<TKey>(BoundVolume, SwiftOctreeOptions, float)`              | ctor     | built-in-volume form, minimum node size        |
-|  [04]   | `new SwiftSpatialHash(int, ISpatialHashCellMapper, SwiftSpatialHashOptions)` | ctor     | uniform grid, pluggable cell mapper            |
-|  [05]   | `Insert(TKey, TVolume) -> bool`                                              | instance | index an element AABB                          |
-|  [06]   | `UpdateEntryBounds(TKey, TVolume) -> void\|bool`                             | instance | in-place refit; return diverges per structure  |
-|  [07]   | `Query(TVolume, ICollection<TKey>)`                                          | instance | sink of overlapping entries — candidates       |
-|  [08]   | `SwiftSpatialHash.QueryNeighborhood(TVolume, ICollection<TKey>)`             | instance | widen the query by the padded cell ring        |
-|  [09]   | `Remove(TKey) -> bool`                                                       | instance | drop an element from the index                 |
-|  [10]   | `TryGetBounds(TKey, out TVolume) -> bool`                                    | instance | read back a stored AABB (octree/hash)          |
-|  [11]   | `Contains(TKey) -> bool` / `Count`                                           | instance | membership and entry count                     |
-|  [12]   | `SwiftBVH.FindEntry(TKey) -> int`                                            | instance | leaf index of an indexed key                   |
-|  [13]   | `EnsureCapacity(int)` / `Clear()`                                            | instance | pre-grow the node pool / reset                 |
+| [INDEX] | [SURFACE]                                                                    | [SHAPE]  | [CAPABILITY]                                  |
+| :-----: | :--------------------------------------------------------------------------- | :------- | :-------------------------------------------- |
+|  [01]   | `new SwiftBVH(int)`                                                          | ctor     | pre-sized BVH node pool                       |
+|  [02]   | `new SwiftOctree(TVolume, SwiftOctreeOptions, IOctreeBoundsPartitioner)`     | ctor     | bounded subdivision, pluggable partition      |
+|  [03]   | `new SwiftOctree<TKey>(BoundVolume, SwiftOctreeOptions, float)`              | ctor     | built-in-volume form, minimum node size       |
+|  [04]   | `new SwiftSpatialHash(int, ISpatialHashCellMapper, SwiftSpatialHashOptions)` | ctor     | uniform grid, pluggable cell mapper           |
+|  [05]   | `new SwiftSpatialHash<TKey>(int, float[, SwiftSpatialHashOptions])`          | ctor     | built-in volume form: capacity, CELL SIZE     |
+|  [06]   | `Insert(TKey, TVolume) -> bool`                                              | instance | index an element AABB                         |
+|  [07]   | `UpdateEntryBounds(TKey, TVolume) -> void\|bool`                             | instance | in-place refit; return diverges per structure |
+|  [08]   | `Query(TVolume, ICollection<TKey>)`                                          | instance | sink of overlapping entries — candidates      |
+|  [09]   | `SwiftSpatialHash.QueryNeighborhood(TVolume, ICollection<TKey>)`             | instance | widen the query by the padded cell ring       |
+|  [10]   | `Remove(TKey) -> bool`                                                       | instance | drop an element from the index                |
+|  [11]   | `SwiftSpatialHash.Contains(TKey) -> bool`                                    | instance | membership probe — hash only                  |
+|  [12]   | `TryGetBounds(TKey, out TVolume) -> bool`                                    | instance | read back a stored AABB (octree/hash)         |
+|  [13]   | `SwiftBVH.FindEntry(TKey) -> int` (`-1` absent)                              | instance | leaf index — the BVH's only membership probe  |
+|  [14]   | `Count`                                                                      | property | indexed entry count                           |
+|  [15]   | `EnsureCapacity(int)` / `Clear()`                                            | instance | pre-grow the node pool / reset                |
 
-- `UpdateEntryBounds` is the ONE surface whose return shape diverges across the three structures: `SwiftBVH<TKey,TVolume>` declares it `void` while `SwiftSpatialHash<TKey,TVolume>` and `SwiftOctree<TKey,TVolume>` both declare it `bool`, so a structure-generic refit delegate wraps the BVH leg in a block returning `true` and passes the other two as a bare method group.
-- `TryGetBounds` is octree and hash only; the BVH reads a stored volume through `FindEntry` and its leaf pool instead.
+- `UpdateEntryBounds` is the ONE surface whose return shape diverges across the three structures: `SwiftBVH<TKey,TVolume>` declares it `void` while `SwiftSpatialHash<TKey,TVolume>` and `SwiftOctree<TKey,TVolume>` both declare it `bool`, so a structure-generic refit delegate wraps the BVH leg in a block returning `true` and passes the other two as a bare method group. A pair of structures co-indexed on one handle takes the BOOLEAN leg as the refit verdict, because the void leg reports nothing.
+- Membership probes diverge with it: `SwiftBVH` carries `FindEntry` and NEITHER `Contains` nor `TryGetBounds`, while `SwiftSpatialHash` carries `Contains` and `TryGetBounds` and NO `FindEntry`. `SwiftBVH.UpdateEntryBounds` silently no-ops on an unindexed key, so a BVH refit gates on `FindEntry` or on the owning handle registry first.
+- `SwiftSpatialHash`'s built-in-volume ctor takes a CELL SIZE, not a padding distance: `SwiftSpatialHashOptions.NeighborhoodPadding` is a ring count over cells (`.Default` is 1), so a neighborhood covers `padding × cellSize` beyond the query volume and the cell size is what a clearance distance derives.
+
+[ENTRYPOINT_SCOPE]: handle registry (`SwiftBucket<T>`) — the key space a co-indexed structure pair shares
+
+| [INDEX] | [SURFACE]                               | [SHAPE]  | [CAPABILITY]                                         |
+| :-----: | :-------------------------------------- | :------- | :--------------------------------------------------- |
+|  [01]   | `new SwiftBucket<T>(int capacity)`      | ctor     | pre-sized dense slab                                 |
+|  [02]   | `Add(T) -> int`                         | instance | seat a value and RETURN its stable slot handle       |
+|  [03]   | `TryGetValue(int, out T) -> bool`       | instance | read a slot; false on an unallocated handle          |
+|  [04]   | `IsAllocated(int) -> bool`              | instance | slot occupancy probe — the refit and iteration gate  |
+|  [05]   | `this[int]`                             | property | get and set a slot; both throw on an unallocated one |
+|  [06]   | `TryRemoveAt(int) -> bool` / `RemoveAt` | instance | free a slot, leaving every other handle stable       |
+|  [07]   | `Count` / `PeakCount` / `Capacity`      | property | live count, high-water slot bound, backing length    |
+|  [08]   | `Contains(T)` / `Exists(Predicate<T>)`  | instance | value membership and predicate probe                 |
+
+- `PeakCount` is the high-water slot bound, so a full traversal ranges `0..PeakCount` and filters on `IsAllocated` — `Count` is the LIVE count and skips the freed slots a stable-handle space deliberately keeps.
 
 [ENTRYPOINT_SCOPE]: BoundVolume — AABB algebra
 
@@ -86,12 +104,13 @@ Each backing collection holds the `BimElement` GlobalId→AABB mapping under sta
 - Every structure binds one `IBoundVolume<TVolume>` contract (`Union`/`Intersects`/`GetCost`/`BoundsEquals`), so the clash engine folds through a single code path and the concrete structure and volume type are tuning choices, never forked implementations.
 
 [STACKING]:
-- `NetTopologySuite`(`.api/api-nettopologysuite`): `SwiftBVH`/`SwiftOctree` own the 3D AABB volumetric broad-phase while the NTS `STRtree<TItem>`/`Quadtree<TItem>` own the 2D planar Simple-Features index — the COORDINATION owner routes element-vs-element clash to the 3D index and footprint/site predicates to the NTS 2D index, neither reimplementing the other's dimension.
+- `NetTopologySuite`(`libs/csharp/.api/api-nettopologysuite.md`): `SwiftBVH`/`SwiftOctree` own the 3D AABB volumetric broad-phase while the NTS `STRtree<TItem>`/`Quadtree<TItem>` own the 2D planar Simple-Features index — the `Model/systems#INTERFERENCE` owner routes element-vs-element clash to the 3D index and footprint/site predicates to the NTS 2D index, neither reimplementing the other's dimension.
 - `Smino.Bcf.Toolkit`(`.api/api-smino-bcf-toolkit`): the `ClashProposal` fold consumes the `Query` candidate set, runs the narrow-phase exact test, and authors one `BcfTopic` per confirmed clash through `BcfBuilder.AddMarkup` → `Build` → `Worker.ToBcf` — broad-phase, narrow-phase, and issue exchange meet at the candidate set and the `ElementPredicate` algebra.
-- within-lib: the INTERFERENCE engine binds the shared `Insert`/`UpdateEntryBounds`/`Query` surface, so `SwiftBVH`, `SwiftOctree`, and `SwiftSpatialHash` are one code path selected by a `CoordinationRule` row; `UpdateEntryBounds` refits a single moved element so a `ModelDiff` `moved` arm re-runs the clash incrementally, and the `IStateBacked` registry (`SwiftSparseMap`/`SwiftBucket`) snapshots the GlobalId→`BoundVolume` map for a replayable `ClashProposal` receipt.
+- within-lib: `Model/systems#INTERFERENCE` retains TWO structures over one `SwiftBucket` handle space — the `SwiftBVH` tight-volume tree answering hard overlap through `Query` and the `SwiftSpatialHash` answering the clearance modality through `QueryNeighborhood` — and refits both through `UpdateEntryBounds` so a `ModelDiff` `moved` arm re-clashes incrementally against the handles the registry gates.
 
 [LOCAL_ADMISSION]:
 - `SwiftCollections.Query` and the handle-stable registry collections are admitted for broad-phase indexing only; the general-purpose `Pool`/`Dimensions`/`Diagnostics` surfaces are not this folder's owners.
+- The handle a `SwiftBucket.Add` returns is the index's whole key space: a second registry keyed on a domain id beside it desynchronizes on the first partial refit, so a co-indexed structure pair takes the bucket handle and gates every refit on `IsAllocated`/`TryGetValue`.
 - Narrow-phase exact intersection, clash policy, and `BcfTopic` authoring stay COORDINATION concerns; structure kind, entry count, and candidate-pair count are the receipt facts the INTERFERENCE/COORDINATION fold records.
 
 [RAIL_LAW]:

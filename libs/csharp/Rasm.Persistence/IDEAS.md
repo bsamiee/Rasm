@@ -30,7 +30,7 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 - Capability: the as-built half of the model lifecycle — scan header/metadata rows, registration transform, chunked blob residence, per-region cells — feeding compare-to-design compute without owning scan semantics.
 - Shape: one new Ingest codec page at `libs/csharp/Rasm.Persistence/.planning/Ingest/pointcloud.md` under the [A.4] growth row, bytes through Store/blobstore#MULTIPART_TRANSFER + Element/codec#CONTENT_CHUNKING, region cells through Element/identity H3Cell.
 - Unlocks: scan-to-BIM verification; the heaviest residence-demanding payload class gains an entry point.
-- Anchors: Element/codec#CONTENT_CHUNKING (FastCDC, segmented ingress with the artifact ceiling lifted), Element/identity H3Cell, Ingest/geospatial and Ingest/issue (the [A.4] codec-page pattern), the surveyed `Aardvark.Data.E57` and `Unofficial.laszip.netstandard` codec pair.
+- Anchors: Element/codec#CONTENT_CHUNKING (FastCDC, segmented ingress with the artifact ceiling lifted), Element/identity H3Cell, Ingest/geospatial and Ingest/schedule (the [A.4] codec-page pattern), the surveyed `Aardvark.Data.E57` and `Unofficial.laszip.netstandard` codec pair.
 - Ripple: follows `TASKLOG.md` `[POINTCLOUD_CODEC_ADMIT_ROSTER]`.
 
 [CLASS_PREFIXED_OBJECT_NAMES]-[QUEUED]: Object names carry their retention class, so the provider's own lifecycle engine does the tiering the sweep pays full egress for.

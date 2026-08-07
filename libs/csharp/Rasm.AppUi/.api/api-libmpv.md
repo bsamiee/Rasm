@@ -94,24 +94,24 @@
 
 [ENTRYPOINT_SCOPE]: playback commands on `MpvContext` — `MpvCommand`-projected instance methods.
 
-| [INDEX] | [SURFACE]                            | [CAPABILITY]             |
-| :-----: | :----------------------------------- | :----------------------- |
-|  [01]   | `LoadFile(path, append, appendPlay)` | open media into playlist |
-|  [02]   | `LoadPlaylist(path, append)`         | open a playlist file     |
-|  [03]   | `Seek(units, SeekOption)`            | relative/absolute seek   |
-|  [04]   | `RevertSeek(bool mark)`              | mark, or revert to mark  |
-|  [05]   | `FrameStep` / `FrameBackStep`        | single-frame advance     |
-|  [06]   | `Stop`                               | halt playback and unload |
-|  [07]   | `PlaylistNext` / `PlaylistPrev`      | move playlist position   |
-|  [08]   | `SubAdd` / `SubRemove` / `SubReload` | external subtitle tracks |
-|  [09]   | `AudioAdd` / `AudioRemove`           | external audio tracks    |
-|  [10]   | `VideoAdd` / `VideoRemove`           | external video tracks    |
-|  [11]   | `Screenshot(ScreenshotOptions)`      | frame capture to config  |
-|  [12]   | `ScreenshotToFile(path, options)`    | frame capture to a path  |
-|  [13]   | `PlaylistClear` / `…Remove` / `…Move`| playlist mutation        |
-|  [14]   | `PlaylistShuffle` / `…Unshuffle`     | playlist ordering        |
-|  [15]   | `Add` / `Cycle` / `Multiply`         | relative property change |
-|  [16]   | `Quit(exitCode)`                     | terminate the player     |
+| [INDEX] | [SURFACE]                             | [CAPABILITY]             |
+| :-----: | :------------------------------------ | :----------------------- |
+|  [01]   | `LoadFile(path, append, appendPlay)`  | open media into playlist |
+|  [02]   | `LoadPlaylist(path, append)`          | open a playlist file     |
+|  [03]   | `Seek(units, SeekOption)`             | relative/absolute seek   |
+|  [04]   | `RevertSeek(bool mark)`               | mark, or revert to mark  |
+|  [05]   | `FrameStep` / `FrameBackStep`         | single-frame advance     |
+|  [06]   | `Stop`                                | halt playback and unload |
+|  [07]   | `PlaylistNext` / `PlaylistPrev`       | move playlist position   |
+|  [08]   | `SubAdd` / `SubRemove` / `SubReload`  | external subtitle tracks |
+|  [09]   | `AudioAdd` / `AudioRemove`            | external audio tracks    |
+|  [10]   | `VideoAdd` / `VideoRemove`            | external video tracks    |
+|  [11]   | `Screenshot(ScreenshotOptions)`       | frame capture to config  |
+|  [12]   | `ScreenshotToFile(path, options)`     | frame capture to a path  |
+|  [13]   | `PlaylistClear` / `…Remove` / `…Move` | playlist mutation        |
+|  [14]   | `PlaylistShuffle` / `…Unshuffle`      | playlist ordering        |
+|  [15]   | `Add` / `Cycle` / `Multiply`          | relative property change |
+|  [16]   | `Quit(exitCode)`                      | terminate the player     |
 
 - `SubAdd(string path, LoadOption option = Select, string? title = null, string? lang = null)` and `AudioAdd` share that arity; `LoadOption` = `Select` · `Auto` · `Cached`.
 - `RevertSeek(true)` MARKS the current position and `RevertSeek(false)` returns to the last mark, so a scrub-and-cancel is two calls on the player's own memory rather than a caller-held snapshot.
@@ -119,34 +119,34 @@
 
 [ENTRYPOINT_SCOPE]: typed properties on `MpvContext`; the backing wrapper carries the read/write capability.
 
-| [INDEX] | [SURFACE]                                                   | [CAPABILITY]                  |
-| :-----: | :---------------------------------------------------------- | :---------------------------- |
-|  [01]   | `Pause -> MpvOption<bool>`                                  | play/pause state              |
-|  [02]   | `Speed -> MpvOption<double>`                                | playback rate                 |
-|  [03]   | `Volume -> MpvOption<double>`                               | audio level                   |
-|  [04]   | `Mute -> MpvOption<bool>`                                   | audio mute                    |
-|  [05]   | `AudioDelay -> MpvOption<double>`                           | audio sync offset             |
-|  [06]   | `TimePos -> MpvPropertyWrite<double>`                       | absolute time position        |
-|  [07]   | `PercentPos -> MpvPropertyWrite<double>`                    | percentage position           |
-|  [08]   | `PlaybackTime -> MpvPropertyWrite<double>`                  | playback clock                |
-|  [09]   | `Duration -> MpvPropertyRead<double>`                       | media length                  |
-|  [10]   | `TimeRemaining -> MpvPropertyRead<double>`                  | remaining time                |
-|  [11]   | `EofReached -> MpvPropertyRead<bool>`                       | end-of-file flag              |
-|  [12]   | `Seeking -> MpvPropertyRead<bool>`                          | seek-in-progress flag         |
-|  [13]   | `AudioId` / `SubId` / `VideoId -> MpvOptionWithAutoNo<int>` | active track selection        |
-|  [14]   | `LoopFile` / `LoopPlaylist -> MpvOptionString`              | file and playlist loop policy |
-|  [15]   | `AbLoopA` / `AbLoopB` / `AbLoopCount -> MpvOptionString`    | A-B section loop policy       |
-|  [16]   | `Start -> MpvOptionString`                                  | pre-load entry position       |
-|  [17]   | `DemuxerCacheTime` / `…Duration -> MpvPropertyRead<double>` | buffered extent and span      |
-|  [18]   | `DemuxerCacheState -> MpvPropertyReadRef<DemuxerCacheState>`| structured cache state        |
-|  [19]   | `SubText -> MpvPropertyReadString`                          | active subtitle cue text      |
-|  [20]   | `SubStart` / `SubEnd -> MpvPropertyRead<float>`             | active cue bounds             |
-|  [21]   | `SubDelay` / `SubVisibility` / `SubPos` / `SubScale`        | subtitle presentation options |
-|  [22]   | `PlaylistPosition -> MpvPropertyWrite<int>`                 | current playlist index        |
-|  [23]   | `PlaylistCount -> MpvPropertyRead<int>`                     | playlist length               |
-|  [24]   | `TrackListCount -> MpvPropertyRead<int>`                    | enumerable track count        |
-|  [25]   | `Duration` / `TimeRemaining` / `PlaytimeRemaining`          | length and remaining reads    |
-|  [26]   | `MediaTitle` / `FileName` / `Path -> MpvPropertyReadString` | source identity reads         |
+| [INDEX] | [SURFACE]                                                    | [CAPABILITY]                  |
+| :-----: | :----------------------------------------------------------- | :---------------------------- |
+|  [01]   | `Pause -> MpvOption<bool>`                                   | play/pause state              |
+|  [02]   | `Speed -> MpvOption<double>`                                 | playback rate                 |
+|  [03]   | `Volume -> MpvOption<double>`                                | audio level                   |
+|  [04]   | `Mute -> MpvOption<bool>`                                    | audio mute                    |
+|  [05]   | `AudioDelay -> MpvOption<double>`                            | audio sync offset             |
+|  [06]   | `TimePos -> MpvPropertyWrite<double>`                        | absolute time position        |
+|  [07]   | `PercentPos -> MpvPropertyWrite<double>`                     | percentage position           |
+|  [08]   | `PlaybackTime -> MpvPropertyWrite<double>`                   | playback clock                |
+|  [09]   | `Duration -> MpvPropertyRead<double>`                        | media length                  |
+|  [10]   | `TimeRemaining -> MpvPropertyRead<double>`                   | remaining time                |
+|  [11]   | `EofReached -> MpvPropertyRead<bool>`                        | end-of-file flag              |
+|  [12]   | `Seeking -> MpvPropertyRead<bool>`                           | seek-in-progress flag         |
+|  [13]   | `AudioId` / `SubId` / `VideoId -> MpvOptionWithAutoNo<int>`  | active track selection        |
+|  [14]   | `LoopFile` / `LoopPlaylist -> MpvOptionString`               | file and playlist loop policy |
+|  [15]   | `AbLoopA` / `AbLoopB` / `AbLoopCount -> MpvOptionString`     | A-B section loop policy       |
+|  [16]   | `Start -> MpvOptionString`                                   | pre-load entry position       |
+|  [17]   | `DemuxerCacheTime` / `…Duration -> MpvPropertyRead<double>`  | buffered extent and span      |
+|  [18]   | `DemuxerCacheState -> MpvPropertyReadRef<DemuxerCacheState>` | structured cache state        |
+|  [19]   | `SubText -> MpvPropertyReadString`                           | active subtitle cue text      |
+|  [20]   | `SubStart` / `SubEnd -> MpvPropertyRead<float>`              | active cue bounds             |
+|  [21]   | `SubDelay` / `SubVisibility` / `SubPos` / `SubScale`         | subtitle presentation options |
+|  [22]   | `PlaylistPosition -> MpvPropertyWrite<int>`                  | current playlist index        |
+|  [23]   | `PlaylistCount -> MpvPropertyRead<int>`                      | playlist length               |
+|  [24]   | `TrackListCount -> MpvPropertyRead<int>`                     | enumerable track count        |
+|  [25]   | `Duration` / `TimeRemaining` / `PlaytimeRemaining`           | length and remaining reads    |
+|  [26]   | `MediaTitle` / `FileName` / `Path -> MpvPropertyReadString`  | source identity reads         |
 
 - `LoopFile` / `LoopPlaylist` admit `"inf"`, `"no"`, or a count string; `AbLoopA` / `AbLoopB` / `AbLoopCount` carry the section bounds and repetition count.
 - `Start` is an OPTION (`start`), not a property: it sets the entry position BEFORE a load, where `TimePos` does not exist because it is a property of a loaded file — a pre-load `TimePos` write is silently inert.
@@ -155,29 +155,29 @@
 
 [ENTRYPOINT_SCOPE]: indexed list properties — `MpvPropertyIndexRead<TIndex,T,TRaw>` exposes `this[TIndex] -> MpvPropertyRead<T,TRaw>` by formatting its `{0}` template, so each element is an ordinary typed read wrapper with its own `Changed` event.
 
-| [INDEX] | [SURFACE]                                                           | [CAPABILITY]                |
-| :-----: | :------------------------------------------------------------------ | :-------------------------- |
-|  [01]   | `TrackListId` / `TrackListSrcId` / `TrackListFfIndex`               | per-track identity          |
-|  [02]   | `TrackListType` (`"audio"`/`"video"`/`"sub"`)                       | per-track lane token        |
-|  [03]   | `TrackListLanguage` / `TrackListCodec` / `TrackListDecoderDesc`     | per-track description       |
-|  [04]   | `TrackListIsDefault` / `…IsForced` / `…IsSelected` / `…IsExternal`  | per-track flags             |
-|  [05]   | `TrackListDemuxWidth` / `…Height` / `…Fps` / `…Bitrate`             | per-track stream facts      |
-|  [06]   | `PlaylistFileName` / `PlaylistTitle`                                | per-entry playlist identity |
-|  [07]   | `PlaylistIsCurrent` / `PlaylistIsPlaying`                           | per-entry playlist state    |
-|  [08]   | `ChapterListTitle` / `ChapterListTime`                              | per-chapter identity        |
-|  [09]   | `EditionListId` / `EditionListTitle` / `EditionListDefault`         | per-edition identity        |
+| [INDEX] | [SURFACE]                                                          | [CAPABILITY]                |
+| :-----: | :----------------------------------------------------------------- | :-------------------------- |
+|  [01]   | `TrackListId` / `TrackListSrcId` / `TrackListFfIndex`              | per-track identity          |
+|  [02]   | `TrackListType` (`"audio"`/`"video"`/`"sub"`)                      | per-track lane token        |
+|  [03]   | `TrackListLanguage` / `TrackListCodec` / `TrackListDecoderDesc`    | per-track description       |
+|  [04]   | `TrackListIsDefault` / `…IsForced` / `…IsSelected` / `…IsExternal` | per-track flags             |
+|  [05]   | `TrackListDemuxWidth` / `…Height` / `…Fps` / `…Bitrate`            | per-track stream facts      |
+|  [06]   | `PlaylistFileName` / `PlaylistTitle`                               | per-entry playlist identity |
+|  [07]   | `PlaylistIsCurrent` / `PlaylistIsPlaying`                          | per-entry playlist state    |
+|  [08]   | `ChapterListTitle` / `ChapterListTime`                             | per-chapter identity        |
+|  [09]   | `EditionListId` / `EditionListTitle` / `EditionListDefault`        | per-edition identity        |
 
 - `track-list/{0}/type` spells the subtitle lane `"sub"` while its option spells it `sid`, so a lane vocabulary spanning both states the correspondence once.
 
 [ENTRYPOINT_SCOPE]: per-wrapper observation — the OBSERVE seam a UI feed subscribes.
 
-| [INDEX] | [SURFACE]                                                         | [CAPABILITY]                          |
-| :-----: | :---------------------------------------------------------------- | :------------------------------------ |
-|  [01]   | `MpvPropertyRead<T,TRaw>.Changed`                                 | self-registering typed change event   |
+| [INDEX] | [SURFACE]                                                         | [CAPABILITY]                           |
+| :-----: | :---------------------------------------------------------------- | :------------------------------------- |
+|  [01]   | `MpvPropertyRead<T,TRaw>.Changed`                                 | self-registering typed change event    |
 |  [02]   | `MpvPropertyReadRef<T,TRaw>.Changed`                              | self-registering reference-typed event |
-|  [03]   | `MpvValueChangedEventArgs<T,TRaw>.PropertyName` / `NewValue : T?` | changed name and nullable typed value |
-|  [04]   | `MpvValueChangedEventArgs<T,TRaw>.NewValueRaw : TRaw`             | the unparsed payload                  |
-|  [05]   | `MpvPropertyEventArgs.Format` / `Name` / `Data` / `RequestId`     | raw client-event payload              |
+|  [03]   | `MpvValueChangedEventArgs<T,TRaw>.PropertyName` / `NewValue : T?` | changed name and nullable typed value  |
+|  [04]   | `MpvValueChangedEventArgs<T,TRaw>.NewValueRaw : TRaw`             | the unparsed payload                   |
+|  [05]   | `MpvPropertyEventArgs.Format` / `Name` / `Data` / `RequestId`     | raw client-event payload               |
 
 - `Changed` OWNS its registration: a first subscription mints a unique request id, calls `ObserveProperty(id, PropertyName, Format)`, and hooks the context's `PropertyChanged`; a last unsubscribe unhooks and calls `UnobserveProperty(id)`. Its handler filters by that request id and parses `MpvPropertyEventArgs.Data` through the wrapper's own `ParseValue`, so a subscriber spells no property name, tracks no request id, and receives a genuinely optional value.
 
@@ -203,21 +203,21 @@
 
 [ENTRYPOINT_SCOPE]: typed property and option wrapper operations.
 
-| [INDEX] | [SURFACE]                             | [CAPABILITY]              |
-| :-----: | :------------------------------------ | :------------------------ |
-|  [01]   | `MpvPropertyRead.Get / GetAsync`      | read property value       |
-|  [02]   | `MpvPropertyWrite.Set / SetAsync`     | write property value      |
-|  [03]   | `MpvPropertyWrite.Add / AddAsync`     | relative property change  |
-|  [04]   | `MpvPropertyWrite.Multiply / …Async`  | scale a property value    |
-|  [05]   | `MpvPropertyWrite.Cycle / CycleAsync` | step a bounded property   |
-|  [06]   | `MpvOption.Get / Set`                 | startup option access     |
-|  [07]   | `MpvOptionWithAuto.SetAuto / GetAuto` | the `auto` sentinel       |
-|  [08]   | `MpvOptionWithAutoNo.SetNo / GetNo`   | the `no` sentinel         |
-|  [09]   | `MpvOptionList.Add / AddAsync`        | append list entry         |
-|  [10]   | `MpvOptionList.Remove / RemoveAsync`  | drop list entry           |
-|  [11]   | `MpvOptionList.Toggle / ToggleAsync`  | flip list membership      |
-|  [12]   | `MpvOptionList.Clear / ClearAsync`    | empty the list option     |
-|  [13]   | `MpvCommand.Invoke / InvokeAsync`     | dispatch a built command  |
+| [INDEX] | [SURFACE]                             | [CAPABILITY]             |
+| :-----: | :------------------------------------ | :----------------------- |
+|  [01]   | `MpvPropertyRead.Get / GetAsync`      | read property value      |
+|  [02]   | `MpvPropertyWrite.Set / SetAsync`     | write property value     |
+|  [03]   | `MpvPropertyWrite.Add / AddAsync`     | relative property change |
+|  [04]   | `MpvPropertyWrite.Multiply / …Async`  | scale a property value   |
+|  [05]   | `MpvPropertyWrite.Cycle / CycleAsync` | step a bounded property  |
+|  [06]   | `MpvOption.Get / Set`                 | startup option access    |
+|  [07]   | `MpvOptionWithAuto.SetAuto / GetAuto` | the `auto` sentinel      |
+|  [08]   | `MpvOptionWithAutoNo.SetNo / GetNo`   | the `no` sentinel        |
+|  [09]   | `MpvOptionList.Add / AddAsync`        | append list entry        |
+|  [10]   | `MpvOptionList.Remove / RemoveAsync`  | drop list entry          |
+|  [11]   | `MpvOptionList.Toggle / ToggleAsync`  | flip list membership     |
+|  [12]   | `MpvOptionList.Clear / ClearAsync`    | empty the list option    |
+|  [13]   | `MpvCommand.Invoke / InvokeAsync`     | dispatch a built command |
 
 [ENTRYPOINT_SCOPE]: Avalonia view and overlay surface.
 

@@ -169,7 +169,7 @@ public static class StructuralMerge {
         HashMap<NodeId, Seq<NodeId>> childrenByParent = toHashMap(contain.GroupBy(static c => c.Whole).Select(static g => (g.Key, toSeq(g.Select(static c => c.Part)))));
         HashMap<NodeId, int> ordinalByKey = toHashMap(contain.GroupBy(static c => c.Whole).SelectMany(static g => g.Select(static (c, ordinal) => (c.Part, ordinal))));
         HashSet<NodeId> containerWholes = toHashSet(contain.Filter(static c => c.SubKind == ComposeKind.Contain).Map(static c => c.Whole));
-        HashMap<NodeId, GraphNode> nodes = toHashMap(graph.Nodes.Values.Choose(static n => Optional(n as Node.Object)).Map(o => (o.Id, new GraphNode(
+        HashMap<NodeId, GraphNode> nodes = toHashMap(toSeq(graph.Nodes.Values).Choose(static n => Optional(n as Node.Object)).Map(o => (o.Id, new GraphNode(
             o.Id,
             NodeRole.Of(o.Kind, containerWholes.Contains(o.Id), !o.Representations.ByIdentifier.IsEmpty),
             parentByKey.Find(o.Id), ordinalByKey.Find(o.Id).IfNone(0),
@@ -184,13 +184,13 @@ public static class StructuralMerge {
     // edit APPLIES as a Members patch and a both-side content edit is a ParallelEdit — an Object-only forest would
     // silently drop a changed property set / material, the deleted form.
     public static HashMap<NodeId, GraphNode> ContentNodes(ElementGraph graph) =>
-        toHashMap(graph.Nodes.Values.Filter(static n => n is not Node.Object).Map(n => (n.Id, new GraphNode(
+        toHashMap(toSeq(graph.Nodes.Values).Filter(static n => n is not Node.Object).Map(n => (n.Id, new GraphNode(
             n.Id, ContentRole(n), Option<NodeId>.None, 0, UInt128.Zero,
             ContentAddress.Of(n.ToCanonicalBytes(graph.Header.Tolerance).Span).Value, UInt128.Zero, Seq<NodeId>()))));
 
     public static Seq<EditOp> Diff(Seq<GraphNode> from, Seq<GraphNode> to) {
-        HashMap<NodeId, GraphNode> fromByKey = from.ToHashMap(static n => n.Key);
-        HashMap<NodeId, GraphNode> toByKey = to.ToHashMap(static n => n.Key);
+        HashMap<NodeId, GraphNode> fromByKey = toHashMap(from.Map(static n => (n.Key, n)));
+        HashMap<NodeId, GraphNode> toByKey = toHashMap(to.Map(static n => (n.Key, n)));
         Seq<GraphNode> roots = to.Filter(n => n.Parent.Map(p => !toByKey.ContainsKey(p)).IfNone(true));
         return Walk(roots.IsEmpty ? to : roots, fromByKey, toByKey)
              + from.Filter(n => !toByKey.ContainsKey(n.Key)).Map(static n => (EditOp)new EditOp.Delete(n.Key));
@@ -215,8 +215,8 @@ public static class StructuralMerge {
         // member an EntityEdit.Members pointer targets.
         HashMap<NodeId, HashMap<string, EditOp>> ourEdits = ByKeyAxis(Diff(baseForest, ourForest) + DiffContent(baseContent, ourContent));
         HashMap<NodeId, HashMap<string, EditOp>> theirEdits = ByKeyAxis(Diff(baseForest, theirForest) + DiffContent(baseContent, theirContent));
-        HashMap<NodeId, GraphNode> oursByKey = ourForest.ToHashMap(static n => n.Key);
-        HashMap<NodeId, GraphNode> theirsByKey = theirForest.ToHashMap(static n => n.Key);
+        HashMap<NodeId, GraphNode> oursByKey = toHashMap(ourForest.Map(static n => (n.Key, n)));
+        HashMap<NodeId, GraphNode> theirsByKey = toHashMap(theirForest.Map(static n => (n.Key, n)));
         Seq<MergeConflict> conflicts = toSeq(ourEdits.Keys.Where(theirEdits.ContainsKey)
             .Bind(key => Conflicts(key, ourEdits.Find(key).IfNone(HashMap<string, EditOp>()), theirEdits.Find(key).IfNone(HashMap<string, EditOp>()), stampOurs(key), stampTheirs(key)))
             .Append(Cycles(ourEdits, oursByKey, ByOurs: true, stampOurs))
@@ -245,12 +245,13 @@ public static class StructuralMerge {
         // A group with a Delete — or a key NEITHER graph still holds (a delete-after-insert race) — is the
         // Tombstone: net absence is the truthful egress, never a fabricated payload. Every other group builds
         // a Members document whose Append arms always resolve a REAL seam Node.
-        return toHashMap(script.GroupBy(static op => op.Target).Map(group => {
+        return toHashMap(toSeq(script.GroupBy(static op => op.Target)).Map(group => {
+            Seq<EditOp> ops = toSeq(group);
             Option<Node> payload = target.Find(group.Key) | @base.Find(group.Key);
-            EntityEdit edit = group.Exists(static op => op is EditOp.Delete)
+            EntityEdit edit = ops.Exists(static op => op is EditOp.Delete)
                 ? new EntityEdit.Tombstone(group.Key)
                 : payload.Match<EntityEdit>(
-                    Some: node => new EntityEdit.Members(group.Key, group.Fold(new JsonPatchDocument(), (doc, op) => Append(doc, op, byNode.Find(group.Key).IfNone(Seq<Inequality>()), node))),
+                    Some: node => new EntityEdit.Members(group.Key, ops.Fold(new JsonPatchDocument(), (doc, op) => Append(doc, op, byNode.Find(group.Key).IfNone(Seq<Inequality>()), node))),
                     None: () => new EntityEdit.Tombstone(group.Key));
             return (group.Key, edit);
         }));
@@ -299,7 +300,7 @@ public static class StructuralMerge {
     // forks, and the content signature drives change DETECTION, never cross-ingest identity.
     public static (ElementGraph Aligned, HashMap<NodeId, NodeId> Remap) Reconcile(ElementGraph persisted, ElementGraph ingested) {
         HashMap<string, NodeId> durable = Correlation(persisted);
-        HashMap<NodeId, NodeId> remap = toHashMap(toSeq(Correlation(ingested))
+        HashMap<NodeId, NodeId> remap = toHashMap(toSeq(Correlation(ingested).AsIterable())
             .Choose(pair => durable.Find(pair.Key).Map(id => (Ingest: pair.Value, Durable: id)))
             .Filter(static move => move.Ingest != move.Durable));
         return remap.IsEmpty ? (ingested, remap) : (Reindex(ingested, remap), remap);
@@ -309,8 +310,8 @@ public static class StructuralMerge {
     // natural key two Types share on one side drops from correlation (a 1:1 aligner never guesses; the GlobalId
     // row wins a collision via TryAdd).
     static HashMap<string, NodeId> Correlation(ElementGraph graph) {
-        HashMap<string, NodeId> rooted = toHashMap(graph.Nodes.Values.Choose(ExternalKey));
-        return toSeq(graph.Nodes.Values.Choose(TypeKey).GroupBy(static pair => pair.External).Where(static g => g.Count() == 1))
+        HashMap<string, NodeId> rooted = toHashMap(toSeq(graph.Nodes.Values).Choose(ExternalKey));
+        return toSeq(graph.Nodes.Values.Select(TypeKey).Somes().GroupBy(static pair => pair.External).Where(static g => g.Count() == 1))
             .Fold(rooted, static (acc, g) => acc.TryAdd(g.Key, g.First().Id));
     }
 
@@ -488,9 +489,9 @@ public static class StructuralMerge {
     // carries a raw AEC member name verbatim, and an IFC property key or a classification code embeds `/` routinely,
     // so a raw interpolation lands a pointer addressing a DIFFERENT member that `ApplyTo` then overwrites silently.
     static string Pointer(MemberPath path) =>
-        toSeq(path.Segments)
-            .SkipWhile(static seg => seg.Value is "Nodes" or NodeId)
-            .Filter(static seg => seg.Kind != Added && seg.Kind != Removed)
+        toSeq(path.Segments
+                .SkipWhile(static seg => seg.Value is "Nodes" or NodeId)
+                .Where(static seg => seg.Kind != Added && seg.Kind != Removed))
             .Fold(string.Empty, static (acc, seg) => $"{acc}/{Token(seg.Value)}");
 
     // RFC 6901 §3 escaping in the mandated order — `~` first, then `/`, because escaping `/` first turns every
@@ -504,7 +505,7 @@ public static class StructuralMerge {
     static (Hlc Cell, string Actor) Stamp(Option<OpLogEntry> entry) => entry.Match(Some: e => (new Hlc(e.Physical, e.Logical), e.Actor), None: () => (Hlc.Zero, ""));
 
     static HashMap<NodeId, HashMap<string, EditOp>> ByKeyAxis(Seq<EditOp> script) =>
-        toHashMap(script.Filter(static op => op is not EditOp.Match).GroupBy(static op => op.Target).Map(static group => (group.Key, toHashMap(group.GroupBy(static op => op.Axis).Map(static axis => (axis.Key, axis.Last()))))));
+        toHashMap(toSeq(script.Filter(static op => op is not EditOp.Match).GroupBy(static op => op.Target)).Map(static group => (group.Key, toHashMap(toSeq(group.GroupBy(static op => op.Axis)).Map(static axis => (axis.Key, axis.Last()))))));
 
     static Option<NodeId> ParentOf(NodeId key, HashMap<NodeId, HashMap<string, EditOp>> edits, HashMap<NodeId, GraphNode> byKey) =>
         edits.Find(key).Bind(static axes => axes.Find("parent")).Bind(static op => op is EditOp.Move m ? m.ToParent : Option<NodeId>.None) | byKey.Find(key).Bind(static node => node.Parent);
@@ -513,8 +514,8 @@ public static class StructuralMerge {
         candidate == root || (!seen.Contains(candidate) && byKey.Find(candidate).Bind(static node => node.Parent).Map(parent => IsDescendant(parent, root, byKey, seen.Add(candidate))).IfNone(false));
 
     static Seq<TallyFact> Tally(Seq<EditOp> merged, Seq<MergeConflict> conflicts) =>
-        toSeq(merged.GroupBy(static op => op.KindName).Map(static g => new TallyFact(TallySlot.Edit, g.Key, g.Count())))
-            + toSeq(conflicts.GroupBy(static c => c.KindName).Map(static g => new TallyFact(TallySlot.Conflict, g.Key, g.Count())));
+        toSeq(merged.GroupBy(static op => op.KindName)).Map(static g => new TallyFact(TallySlot.Edit, g.Key, g.Count()))
+            + toSeq(conflicts.GroupBy(static c => c.KindName)).Map(static g => new TallyFact(TallySlot.Conflict, g.Key, g.Count()));
 }
 ```
 

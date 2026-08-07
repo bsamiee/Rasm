@@ -18,6 +18,7 @@
 - Law: lifecycle precedence is closing, opening, initializing, creating, ready, unavailable; the tuple switch covers the complete flag product and names no default arm.
 - Law: `SessionSnapshot` is immutable evidence from one read. Every capability use re-resolves the retained key and obtains a new snapshot inside `DocumentSession.Demand` immediately before invoking its host body.
 - Law: the host `Worksession` is a read-only roster — every transition rides the serial-pinned script rail: per verb one fresh membership precondition, one scripted host run, one membership postcondition, and one declared inverse; reload composes detach then attach inside one demand window, and the verb fold rides `DocumentCommit.Compensated`, the slice's one compensation algebra, so a failed suffix unwinds the completed prefix through the same landed-then-rollback shape every other rail uses. A receipt carries the before and after topology, never a bare success flag.
+- Boundary: the worksession transition rail is STRINGLY by host truth, and the carve is named rather than tolerated. `Rhino.DocObjects.Worksession` exposes reads alone — `Document`, `RuntimeSerialNumber`, `FileName`, `Name`, `ModelCount`, `ModelPaths`, plus the two serial resolvers — and declares no attach, detach, add, or remove member at any access level, so `RhinoApp.RunScript` against the `_-Worksession` command is the only managed route a model transition has. Everything the carve costs is paid back on the same rail: `WorksessionVerb` owns the script token so no call site composes command text, `DocumentPath` refuses anything but a fully qualified path, `Scriptable` refuses a path carrying a quote or a newline so the composed line cannot be broken out of, and each verb proves membership before and after its run so a silently-failed script is a typed refusal rather than an unnoticed no-op. A hand-composed `_-Worksession` string anywhere else in the boundary is the deleted form.
 - Boundary: the worksession rail is the boundary's single non-undoable host mutation and is exempt from `DocumentCommit.Sealed` by host truth — attach and detach reshape which files the session references, which Rhino's undo stack does not record, so a bracket here would seal an empty record and advertise a rollback the host cannot perform. Its inverse is the declared per-verb script, not an undo serial, which is why it carries no `SessionNeed.Undo` and no `RedrawPolicy`.
 - Boundary: `InGetPoint` proves only a point acquisition; the broader acquisition reentrancy token belongs to the command acquisition algebra.
 - Boundary: `Worksession.ModelCount` may exceed `ModelPaths.Length` by one for an unsaved active model; `UnsavedActive` preserves that state. Serial resolution admits unique requests, exact key coverage, distinct resolved paths, and membership in the model-path roster before map construction. Attach/detach observation stays on the events page's `WorksessionFile` family; this owner carries the transactional receipt.
@@ -59,7 +60,7 @@ public readonly partial struct DocKey : IDetachedDocumentResult {
 
     public static Fin<Seq<DocKey>> Census(DocumentSet scope, Op? key = null) {
         Op op = key.OrDefault();
-        return from admitted in Optional(scope).ToFin(Fail: op.InvalidInput())
+        return from admitted in op.Need(scope)
                from documents in op.Catch(() => Fin.Succ(
                    value: toSeq(RhinoDoc.OpenDocuments(includeHeadless: admitted.IncludeHeadless))
                        .Filter(document => admitted.Admits(document: document))
@@ -400,7 +401,7 @@ public sealed record WorksessionOp {
         return from admitted in guard(model != default, op.InvalidInput()).ToFin()
                from safe in guard(model.Value.IndexOfAny(['\r', '\n', '"']) < 0, op.InvalidInput()).ToFin()
                from program in verbs
-                   .Traverse(verb => Optional(verb).ToFin(Fail: op.InvalidInput()).ToValidation())
+                   .Traverse(verb => op.Need(verb).ToValidation())
                    .As()
                    .ToFin()
                from nonempty in guard(!program.IsEmpty, op.InvalidInput()).ToFin()
@@ -418,7 +419,7 @@ public static class SessionWorksession {
         public Fin<WorksessionSnapshot> Worksession(params ReadOnlySpan<uint> modelSerials) {
             Op op = Op.Of();   // an optional before `params` forecloses the positional spread — the key mints at the entry
             Seq<uint> serials = toSeq(modelSerials.ToArray());
-            return Optional(session).ToFin(Fail: op.InvalidInput()).Bind(scope => scope.Demand(
+            return op.Need(session).Bind(scope => scope.Demand(
                 use: document => WorksessionSnapshot.Of(document: document, key: op, modelSerials: serials),
                 key: op,
                 needs: [SessionNeed.Read]));
@@ -426,8 +427,8 @@ public static class SessionWorksession {
 
         public Fin<WorksessionReceipt> Worksession(WorksessionOp change, Op? key = null) {
             Op op = key.OrDefault();
-            return from scope in Optional(session).ToFin(Fail: op.InvalidInput())
-                   from request in Optional(change).ToFin(Fail: op.InvalidInput())
+            return from scope in op.Need(session)
+                   from request in op.Need(change)
                    from receipt in scope.Demand(
                        use: document =>
                            from before in WorksessionSnapshot.Of(document: document, key: op, modelSerials: Seq<uint>())
@@ -622,7 +623,7 @@ public readonly partial struct DocumentPath : IDetachedDocumentResult {
         key.OrDefault().AcceptValidated<DocumentPath>(candidate: value);
 
     internal Fin<string> Resolve(DocumentFile file, Op key) =>
-        from policy in Optional(file).ToFin(Fail: key.InvalidInput())
+        from policy in key.Need(file)
         from pathAdmitted in guard(flag: policy.Admits(path: Value), False: key.InvalidInput()).ToFin()
         select Value;
 }
@@ -682,7 +683,7 @@ public abstract partial record SessionSource {
                 key: op),
             configured: static (op, source) =>
                 from path in source.Path.Resolve(file: DocumentFile.Existing, key: op)
-                from options in Optional(source.Options).ToFin(Fail: op.InvalidInput())
+                from options in op.Need(source.Options)
                 from minted in options.Mint(key: op)
                 from lease in op.Catch(() => Minted(
                     document: RhinoDoc.OpenHeadless(filePath: path, options: minted),
@@ -777,7 +778,7 @@ public sealed class DocumentSession : IDisposable, IDetachedDocumentResult {
         where TResult : IDetachedDocumentResult {
         Op op = key.OrDefault();
         return from admission in (
-                   Optional(use).ToFin(Fail: op.InvalidInput()).ToValidation(),
+                   op.Need(use).ToValidation(),
                    AdmitNeeds(needs: needs, mode: Mode, op: op).ToValidation())
                    .Apply(static (body, requested) => (Body: body, Requested: requested))
                    .As()
@@ -891,7 +892,7 @@ public sealed class DocumentSession : IDisposable, IDetachedDocumentResult {
         SessionMode mode,
         Op op) =>
         from demanded in toSeq(needs.ToArray())
-            .Traverse(need => Optional(need).ToFin(Fail: op.InvalidInput()).ToValidation())
+            .Traverse(need => op.Need(need).ToValidation())
             .As()
             .ToFin()
         from nonempty in guard(flag: !demanded.IsEmpty, False: op.InvalidInput()).ToFin()
@@ -908,8 +909,8 @@ public sealed class DocumentSession : IDisposable, IDetachedDocumentResult {
             .Map(static _ => unit);
 
     private static Fin<TResult> OnHost<TResult>(SessionMode mode, Func<Fin<TResult>> use, Op op) =>
-        from lane in Optional(mode).ToFin(Fail: op.InvalidInput())
-        from body in Optional(use).ToFin(Fail: op.InvalidInput())
+        from lane in op.Need(mode)
+        from body in op.Need(use)
         from result in op.Catch(() => {
             if (!lane.Live || RhinoApp.IsOnMainThread) {
                 return body();
@@ -961,15 +962,15 @@ internal static class Admission {
 
     internal static Fin<Seq<T>> All<T>(ReadOnlySpan<T> values, Op key) =>
         toSeq(values.ToArray())
-            .Traverse(value => Optional(value).ToFin(Fail: key.InvalidInput()).ToValidation())
+            .Traverse(value => key.Need(value).ToValidation())
             .As()
             .ToFin();
 
     internal static Fin<(T1 First, T2 Second)> Pair<T1, T2>(T1 first, T2 second, Op key)
         where T1 : class where T2 : class =>
         (
-            Optional(first).ToFin(Fail: key.InvalidInput()).ToValidation(),
-            Optional(second).ToFin(Fail: key.InvalidInput()).ToValidation())
+            key.Need(first).ToValidation(),
+            key.Need(second).ToValidation())
         .Apply(static (one, two) => (First: one, Second: two))
         .As()
         .ToFin();
@@ -1082,7 +1083,7 @@ public abstract partial record RegimeChange {
         Op? key = null) {
         Op op = key.OrDefault();
         return from admission in (
-                   Optional(scaling).ToFin(Fail: op.InvalidInput()).ToValidation(),
+                   op.Need(scaling).ToValidation(),
                    ModelUnit.Of(value: system, key: op).ToValidation())
                    .Apply(static (policy, unit) => (Policy: policy, Unit: unit))
                    .As()
@@ -1121,7 +1122,7 @@ public abstract partial record RegimeChange {
         Op? key = null) {
         Op op = key.OrDefault();
         return (
-                Optional(scaling).ToFin(Fail: op.InvalidInput()).ToValidation(),
+                op.Need(scaling).ToValidation(),
                 ModelUnit.Of(value: units, key: op).ToValidation())
             .Apply((policy, admitted) => (RegimeChange)new Units(
                 native: units,
@@ -1339,9 +1340,9 @@ public static class SessionRegimes {
             Op? key = null) {
             Op op = key.OrDefault();
             return from admission in (
-                       Optional(session).ToFin(Fail: op.InvalidInput()).ToValidation(),
-                       Optional(space).ToFin(Fail: op.InvalidInput()).ToValidation(),
-                       Optional(change).ToFin(Fail: op.InvalidInput()).ToValidation())
+                       op.Need(session).ToValidation(),
+                       op.Need(space).ToValidation(),
+                       op.Need(change).ToValidation())
                        .Apply(static (scope, axis, request) => (
                            Scope: scope,
                            Axis: axis,
@@ -1607,7 +1608,7 @@ public abstract partial record UnitText : IDetachedDocumentResult {
         Op op = key.OrDefault();
         return (
                 guard(flag: double.IsFinite(value), False: op.InvalidInput()).ToFin().ToValidation(),
-                Optional(suffix).ToFin(Fail: op.InvalidInput()).ToValidation())
+                op.Need(suffix).ToValidation())
             .Apply((_, admittedSuffix) => (UnitText)new DisplayCase(
                 Value: value,
                 Notation: notation.IfNone(UnitNotation.Decimal),
@@ -1718,7 +1719,7 @@ public static class RegimeText {
     extension(DocumentSession session) {
         public Fin<UnitText> Text(DocumentSpace space, UnitText text, Op? key = null) {
             Op op = key.OrDefault();
-            return from request in Optional(text).ToFin(Fail: op.InvalidInput())
+            return from request in op.Need(text)
                    from regime in session.Regime(space: space, key: op)
                    from crossed in request.Cross(regime: regime, key: op)
                    select crossed;

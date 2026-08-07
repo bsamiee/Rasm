@@ -55,12 +55,12 @@ This catalog owns the host-fidelity nonlinear deformation and flattening boundar
 
 [ENTRYPOINT_SCOPE]: space-morph engine
 
-| [INDEX] | [SURFACE]                                     | [SHAPE]  | [CAPABILITY]                         |
-| :-----: | :-------------------------------------------- | :------- | :----------------------------------- |
-|  [01]   | `SpaceMorph.Morph(GeometryBase) : bool`       | instance | deform any geometry in place         |
-|  [02]   | `SpaceMorph.Morph(ref Plane) : bool`          | instance | morph a plane frame by origin/axes   |
-|  [03]   | `SpaceMorph.MorphPoint(Point3d) : Point3d`    | instance | abstract per-point deformation map   |
-|  [04]   | `SpaceMorph.IsMorphable(GeometryBase) : bool` | static   | gate a geometry kind before morphing |
+| [INDEX] | [SURFACE]                                      | [SHAPE]  | [CAPABILITY]                         |
+| :-----: | :--------------------------------------------- | :------- | :----------------------------------- |
+|  [01]   | `SpaceMorph.Morph(GeometryBase) -> bool`       | instance | deform any geometry in place         |
+|  [02]   | `SpaceMorph.Morph(ref Plane) -> bool`          | instance | morph a plane frame by origin/axes   |
+|  [03]   | `SpaceMorph.MorphPoint(Point3d) -> Point3d`    | instance | abstract per-point deformation map   |
+|  [04]   | `SpaceMorph.IsMorphable(GeometryBase) -> bool` | static   | gate a geometry kind before morphing |
 
 - `[SPACE_MORPH_KNOBS]`: `Tolerance` `QuickPreview` `PreserveStructure`
 - `SpaceMorph.Morph`: a `false` return marks a geometry the morph rejected.
@@ -89,22 +89,22 @@ This catalog owns the host-fidelity nonlinear deformation and flattening boundar
 
 [ENTRYPOINT_SCOPE]: interactive morph control
 
-| [INDEX] | [SURFACE]                                 | [SHAPE]  | [CAPABILITY]                  |
-| :-----: | :---------------------------------------- | :------- | :---------------------------- |
-|  [01]   | `MorphControl(NurbsCurve, NurbsCurve)`    | ctor     | origin-to-target curve driver |
-|  [02]   | `MorphControl.Morph(GeometryBase) : bool` | instance | apply the control deformation |
+| [INDEX] | [SURFACE]                                  | [SHAPE]  | [CAPABILITY]                  |
+| :-----: | :----------------------------------------- | :------- | :---------------------------- |
+|  [01]   | `MorphControl(NurbsCurve, NurbsCurve)`     | ctor     | origin-to-target curve driver |
+|  [02]   | `MorphControl.Morph(GeometryBase) -> bool` | instance | apply the control deformation |
 
 - `[MORPH_CONTROL_KNOBS]`: `SpaceMorphTolerance` `QuickPreview` `PreserveStructure` `Curve` `Surface`
 
 [ENTRYPOINT_SCOPE]: unroll flattener
 
-| [INDEX] | [SURFACE]                                                                    | [SHAPE]  | [CAPABILITY]                         |
-| :-----: | :--------------------------------------------------------------------------- | :------- | :----------------------------------- |
-|  [01]   | `Unroller(Brep)`                                                             | ctor     | unroller over a developable brep     |
-|  [02]   | `Unroller(Surface)`                                                          | ctor     | unroller over a developable surface  |
-|  [03]   | `Unroller.AddFollowingGeometry(...)`                                         | instance | carry geometry into the flat frame   |
-|  [04]   | `Unroller.PerformUnroll(out Curve[], out Point3d[], out TextDot[]) : Brep[]` | instance | unroll to flattened breps + geometry |
-|  [05]   | `Unroller.FollowingGeometryIndex(Curve) : int`                               | instance | index of a carried curve or dot      |
+| [INDEX] | [SURFACE]                                                                     | [SHAPE]  | [CAPABILITY]                         |
+| :-----: | :---------------------------------------------------------------------------- | :------- | :----------------------------------- |
+|  [01]   | `Unroller(Brep)`                                                              | ctor     | unroller over a developable brep     |
+|  [02]   | `Unroller(Surface)`                                                           | ctor     | unroller over a developable surface  |
+|  [03]   | `Unroller.AddFollowingGeometry(...)`                                          | instance | carry geometry into the flat frame   |
+|  [04]   | `Unroller.PerformUnroll(out Curve[], out Point3d[], out TextDot[]) -> Brep[]` | instance | unroll to flattened breps + geometry |
+|  [05]   | `Unroller.FollowingGeometryIndex(Curve) -> int`                               | instance | index of a carried curve or dot      |
 
 - `[UNROLL_KNOBS]`: `ExplodeOutput` `ExplodeSpacing` `AbsoluteTolerance` `RelativeTolerance`
 - `Unroller.AddFollowingGeometry`: overloads cover `Curve`, `Point3d`, `Point`, `TextDot`, their `IEnumerable` forms, and `(Point3d, string)` dot pairs, so a dot row needs no minted `TextDot`.
@@ -116,12 +116,12 @@ This catalog owns the host-fidelity nonlinear deformation and flattening boundar
 | [INDEX] | [SURFACE]                                                             | [SHAPE]  | [CAPABILITY]                          |
 | :-----: | :-------------------------------------------------------------------- | :------- | :------------------------------------ |
 |  [01]   | `Squisher()`                                                          | ctor     | disposable squisher                   |
-|  [02]   | `Squisher.SquishSurface(SquishParameters, Surface) : Brep`            | instance | stress-relax a surface to a flat brep |
-|  [03]   | `Squisher.SquishMesh(SquishParameters, Mesh) : Mesh`                  | instance | flatten a mesh with mark tracking     |
-|  [04]   | `Squisher.SquishCurve(Curve) : PolylineCurve`                         | instance | map a curve into the flat frame       |
-|  [05]   | `Squisher.SquishTextDot(TextDot) : TextDot`                           | instance | map a dot into the flat frame         |
-|  [06]   | `Squisher.SquishPoint(Point3d, out Point3d) : bool`                   | instance | map a point into the flat frame       |
-|  [07]   | `Squisher.Is2dPatternSquished(GeometryBase) : bool`                   | static   | probe a squished pattern              |
+|  [02]   | `Squisher.SquishSurface(SquishParameters, Surface) -> Brep`           | instance | stress-relax a surface to a flat brep |
+|  [03]   | `Squisher.SquishMesh(SquishParameters, Mesh) -> Mesh`                 | instance | flatten a mesh with mark tracking     |
+|  [04]   | `Squisher.SquishCurve(Curve) -> PolylineCurve`                        | instance | map a curve into the flat frame       |
+|  [05]   | `Squisher.SquishTextDot(TextDot) -> TextDot`                          | instance | map a dot into the flat frame         |
+|  [06]   | `Squisher.SquishPoint(Point3d, out Point3d) -> bool`                  | instance | map a point into the flat frame       |
+|  [07]   | `Squisher.Is2dPatternSquished(GeometryBase) -> bool`                  | static   | probe a squished pattern              |
 |  [08]   | `Squisher.SquishBack2dMarks(GeometryBase, IEnumerable<GeometryBase>)` | static   | inverse-map flattened marks to 3d     |
 
 - `[SQUISH_READS]`: `Get2dMesh` `Get3dMesh` `GetLengthConstrained2dLines` `GetLengthConstrained3dLines` `GetAreaConstrainedTrianglesIndices`
@@ -132,21 +132,21 @@ This catalog owns the host-fidelity nonlinear deformation and flattening boundar
 
 | [INDEX] | [SURFACE]                                                                                  | [SHAPE]  | [CAPABILITY]                     |
 | :-----: | :----------------------------------------------------------------------------------------- | :------- | :------------------------------- |
-|  [01]   | `SquishParameters.Default : SquishParameters`                                              | factory  | the standing preset              |
+|  [01]   | `SquishParameters.Default -> SquishParameters`                                             | factory  | the standing preset              |
 |  [02]   | `SquishParameters.SetDeformation(SquishDeformation, bool, double, double, double, double)` | instance | set deformation mode + constants |
 |  [03]   | `SquishParameters.SetSpringConstants(double, double)`                                      | instance | set boundary/deformation bias    |
-|  [04]   | `SquishParameters.GetSpringConstants(out double, out double) : bool`                       | instance | read the spring biases           |
+|  [04]   | `SquishParameters.GetSpringConstants(out double, out double) -> bool`                      | instance | read the spring biases           |
 
 - `[SQUISH_KNOBS]`: `PreserveTopology` `SaveMapping` `BoundaryStretchConstant` `BoundaryCompressConstant` `InteriorStretchConstant` `InteriorCompressConstant` `AbsoluteLimit` `Algorithm`
 - `SquishParameters.SetDeformation`: set-only, no read-back property; the carrier is `IDisposable`.
 
 [ENTRYPOINT_SCOPE]: mesh uv unwrap
 
-| [INDEX] | [SURFACE]                                       | [SHAPE]  | [CAPABILITY]                   |
-| :-----: | :---------------------------------------------- | :------- | :----------------------------- |
-|  [01]   | `MeshUnwrapper(Mesh)`                           | ctor     | unwrapper over one mesh        |
-|  [02]   | `MeshUnwrapper(IEnumerable<Mesh>)`              | ctor     | unwrapper over a mesh set      |
-|  [03]   | `MeshUnwrapper.Unwrap(MeshUnwrapMethod) : bool` | instance | compute uv onto texture coords |
+| [INDEX] | [SURFACE]                                        | [SHAPE]  | [CAPABILITY]                   |
+| :-----: | :----------------------------------------------- | :------- | :----------------------------- |
+|  [01]   | `MeshUnwrapper(Mesh)`                            | ctor     | unwrapper over one mesh        |
+|  [02]   | `MeshUnwrapper(IEnumerable<Mesh>)`               | ctor     | unwrapper over a mesh set      |
+|  [03]   | `MeshUnwrapper.Unwrap(MeshUnwrapMethod) -> bool` | instance | compute uv onto texture coords |
 
 - `[UNWRAP_KNOBS]`: `SymmetryPlane` (set-only, pins a symmetry constraint the unwrap consumes)
 - `MeshUnwrapper`: disposable native resource.
@@ -159,8 +159,9 @@ This catalog owns the host-fidelity nonlinear deformation and flattening boundar
 - flattening is a distinct host-fidelity altitude from the kernel DEC UV-flatten: `Unroller` unrolls developable surfaces carrying following geometry, `Squisher` stress-relaxes non-developable surfaces and meshes under a `SquishParameters` spring model with forward and inverse mark mapping, and `MeshUnwrapper` computes uv by an unwrap algorithm; `Squisher` and `MeshUnwrapper` are native `IDisposable` resources.
 
 [STACKING]:
-- `LanguageExt.Core`(`api-languageext`): a `bool` morph or unwrap folds into a `Fin<Unit>` keyed to the mutated geometry, a nullable squish or unroll result lifts to `Option<Brep>`/`Option<Mesh>`, the unroll `Brep[]` and carried-geometry arrays land as `Seq<A>`, and the caller-owned squish mark lists and the `PerformUnroll` parallel `out` arrays fold into one detached flatten receipt.
-- `Thinktecture.Runtime.Extensions`(`api-thinktecture-runtime-extensions`): the closed flattening vocabularies — `MeshUnwrapMethod`, `SquishFlatteningAlgorithm`, and `SquishDeformation` — wrap as `[SmartEnum<TKey>]` owners; the morph kind models as a `[Union]` over the morph-kind arms, each binding its defining-parameter carrier.
+- `RhinoCommon` value substrate(`libs/csharp/.api/api-rhinocommon.md`): the `Point3d`/`Plane` carriers this boundary threads cross the wire from the substrate; it composes them and re-derives none.
+- `LanguageExt.Core`(`libs/csharp/.api/api-languageext.md`): a `bool` morph or unwrap folds into a `Fin<Unit>` keyed to the mutated geometry, a nullable squish or unroll result lifts to `Option<Brep>`/`Option<Mesh>`, the unroll `Brep[]` and carried-geometry arrays land as `Seq<A>`, and the caller-owned squish mark lists and the `PerformUnroll` parallel `out` arrays fold into one detached flatten receipt.
+- `Thinktecture.Runtime.Extensions`(`libs/csharp/.api/api-thinktecture-runtime-extensions.md`): the closed flattening vocabularies — `MeshUnwrapMethod`, `SquishFlatteningAlgorithm`, and `SquishDeformation` — wrap as `[SmartEnum<TKey>]` owners; the morph kind models as a `[Union]` over the morph-kind arms, each binding its defining-parameter carrier.
 - `Rasm` kernel: host-neutral DEC UV-flattening and linear-motion transforms stand at the kernel altitude and the boundary re-derives none of them; radii, angles, lengths, spring constants, and tolerances compose the kernel numeric and unit owners before the native call.
 
 [LOCAL_ADMISSION]:

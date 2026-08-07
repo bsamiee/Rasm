@@ -244,14 +244,16 @@
 |  [03]   | `JsonDocument.RootElement -> JsonElement`                                       | property | root view; invalid after disposal       |
 |  [04]   | `JsonElement.TryGetProperty(ReadOnlySpan<byte>, out JsonElement) -> bool`       | instance | UTF-8 member probe, no transcode        |
 |  [05]   | `JsonElement.EnumerateArray()` / `EnumerateObject()`                            | instance | allocation-free child walks             |
-|  [06]   | `JsonElement.WriteTo(Utf8JsonWriter)`                                           | instance | copy a subtree onto a writer            |
-|  [07]   | `JsonNode.Parse(ReadOnlySpan<byte>, JsonNodeOptions?, JsonDocumentOptions)`     | static   | mutable-tree parse                      |
-|  [08]   | `JsonNode.this[string]` / `this[int]`                                           | property | member and index addressing             |
-|  [09]   | `JsonNode.GetPath() -> string`                                                  | instance | JSON-pointer-style path from the root   |
-|  [10]   | `JsonNode.DeepClone() -> JsonNode`                                              | instance | detached copy safe to reparent          |
-|  [11]   | `JsonNode.DeepEquals(JsonNode?, JsonNode?) -> bool`                             | static   | structural value comparison             |
-|  [12]   | `JsonNode.GetValueKind() -> JsonValueKind`                                      | instance | classify without materializing          |
-|  [13]   | `JsonNode.ToJsonString(JsonSerializerOptions?) -> string`                       | instance | render under an options instance        |
+|  [06]   | `JsonElement.ValueEquals(ReadOnlySpan<byte>) -> bool`                           | instance | UTF-8 string compare, no materialize    |
+|  [07]   | `JsonElement.GetString() -> string?`                                            | instance | materialize a string node               |
+|  [08]   | `JsonElement.WriteTo(Utf8JsonWriter)`                                           | instance | copy a subtree onto a writer            |
+|  [09]   | `JsonNode.Parse(ReadOnlySpan<byte>, JsonNodeOptions?, JsonDocumentOptions)`     | static   | mutable-tree parse                      |
+|  [10]   | `JsonNode.this[string]` / `this[int]`                                           | property | member and index addressing             |
+|  [11]   | `JsonNode.GetPath() -> string`                                                  | instance | JSON-pointer-style path from the root   |
+|  [12]   | `JsonNode.DeepClone() -> JsonNode`                                              | instance | detached copy safe to reparent          |
+|  [13]   | `JsonNode.DeepEquals(JsonNode?, JsonNode?) -> bool`                             | static   | structural value comparison             |
+|  [14]   | `JsonNode.GetValueKind() -> JsonValueKind`                                      | instance | classify without materializing          |
+|  [15]   | `JsonNode.ToJsonString(JsonSerializerOptions?) -> string`                       | instance | render under an options instance        |
 
 ## [07]-[LOW_LEVEL_WIRE]
 

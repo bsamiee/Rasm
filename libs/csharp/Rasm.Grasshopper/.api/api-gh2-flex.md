@@ -18,38 +18,40 @@
 [PUBLIC_TYPE_SCOPE]: animation value vocabulary
 - namespace: `Grasshopper2.UI.Animation`
 
-| [INDEX] | [SYMBOL]          | [TYPE_FAMILY] | [CAPABILITY]                      |
-| :-----: | :---------------- | :------------ | :-------------------------------- |
-|  [01]   | `Motion`          | enum          | base and delayed easing kinds     |
-|  [02]   | `Duration`        | enum          | named spans; value equals ms      |
-|  [03]   | `State`           | enum          | pending, busy, finished           |
-|  [04]   | `MotionEquations` | static        | normalized easing evaluation      |
-|  [05]   | `Animated<T>`     | value carrier | endpoint, time, chain, and sample |
-|  [06]   | `Animators`       | static        | typed animation factories         |
-|  [07]   | `AnimatedPath`    | class         | feedback-stroke draw set          |
-|  [08]   | `Interpolate<T>`  | delegate      | per-value interpolation           |
-|  [09]   | `IAnimatedStroke` | interface     | one animated-path stroke          |
+| [INDEX] | [SYMBOL]          | [TYPE_FAMILY] | [CAPABILITY]                                                                      |
+| :-----: | :---------------- | :------------ | :-------------------------------------------------------------------------------- |
+|  [01]   | `Motion`          | enum          | base and delayed easing kinds on decade ordinals (`Linear`=0 … `TwangDelayed`=71) |
+|  [02]   | `Duration`        | enum          | named spans; value equals ms (`Abrupt`=0 … `Torpid`=1500, `Ĝlāçïāľ`=5000)         |
+|  [03]   | `State`           | enum          | pending, busy, finished                                                           |
+|  [04]   | `MotionEquations` | static        | normalized easing evaluation                                                      |
+|  [05]   | `Animated<T>`     | value carrier | endpoint, time, chain, and sample                                                 |
+|  [06]   | `Animators`       | static        | typed animation factories                                                         |
+|  [07]   | `AnimatedPath`    | class         | feedback-stroke draw set                                                          |
+|  [08]   | `Interpolate<T>`  | delegate      | per-value interpolation                                                           |
+|  [09]   | `IAnimatedStroke` | interface     | one animated-path stroke                                                          |
+
+- `Duration.Ĝlāçïāľ`: ships with its diacritics; spell the member exactly.
 
 [PUBLIC_TYPE_SCOPE]: the IFlexControl seam
 - namespace: `Grasshopper2.UI.Flex`, `Grasshopper2.UI`
 
-| [INDEX] | [SYMBOL]           | [TYPE_FAMILY] | [CAPABILITY]                     |
-| :-----: | :----------------- | :------------ | :------------------------------- |
-|  [01]   | `IFlexControl`     | interface     | projection, dispatch, and redraw |
-|  [02]   | `FlexControl`      | class         | concrete response source         |
-|  [03]   | `CoordinateSystem` | enum          | content and control frames       |
-|  [04]   | `ContentPosition`  | enum          | named navigation anchor          |
-|  [05]   | `ZoomThreshold`    | enum          | animated zoom threshold          |
+| [INDEX] | [SYMBOL]           | [TYPE_FAMILY] | [CAPABILITY]                                     |
+| :-----: | :----------------- | :------------ | :----------------------------------------------- |
+|  [01]   | `IFlexControl`     | interface     | projection, dispatch, and redraw                 |
+|  [02]   | `FlexControl`      | class         | concrete response source                         |
+|  [03]   | `CoordinateSystem` | enum          | content and control frames                       |
+|  [04]   | `ContentPosition`  | enum          | named navigation anchor                          |
+|  [05]   | `ZoomThreshold`    | enum          | animated zoom threshold — `Detailed`, `Standard` |
 
 [PUBLIC_TYPE_SCOPE]: response dispatch
 - namespace: `Grasshopper2.UI.Flex`
 
-| [INDEX] | [SYMBOL]               | [TYPE_FAMILY] | [CAPABILITY]                                 |
-| :-----: | :--------------------- | :------------ | :------------------------------------------- |
-|  [01]   | `Response`             | enum          | ignored-to-capture verdict precedence        |
-|  [02]   | `IResponsive`          | interface     | hit-test target with bound responder         |
-|  [03]   | `ResponseMouseArgs`    | args          | both frames, input state, invalidation       |
-|  [04]   | `ResponseRotationArgs` | args          | clockwise-degree rotation gesture delta      |
+| [INDEX] | [SYMBOL]               | [TYPE_FAMILY] | [CAPABILITY]                                   |
+| :-----: | :--------------------- | :------------ | :--------------------------------------------- |
+|  [01]   | `Response`             | enum          | ignored-to-capture verdict precedence          |
+|  [02]   | `IResponsive`          | interface     | hit-test target with bound responder           |
+|  [03]   | `ResponseMouseArgs`    | args          | both frames, input state, invalidation         |
+|  [04]   | `ResponseRotationArgs` | args          | clockwise-degree rotation gesture delta        |
 |  [05]   | `Responses`            | abstract      | virtual handlers beside ignored-fallback hooks |
 
 ## [03]-[ENTRYPOINTS]
@@ -69,12 +71,20 @@
 [ENTRYPOINT_SCOPE]: easing and typed animators
 - namespace: `Grasshopper2.UI.Animation`
 
-| [INDEX] | [SURFACE]                                            | [SHAPE] | [CAPABILITY]                                        |
-| :-----: | :--------------------------------------------------- | :------ | :-------------------------------------------------- |
-|  [01]   | `MotionEquations.Blend(Motion, double) -> double`    | static  | map normalized time through an easing kind          |
-|  [02]   | `Animators.DurationToTimeSpan(Duration) -> TimeSpan` | static  | resolve a named span to a duration                  |
-|  [03]   | `Animators.Finished(value, Duration, Motion)`        | factory | settled typed animation per numeric/geometry type   |
-|  [04]   | `Animators.Unfinished(from, to, Duration, Motion)`   | factory | animating typed animation per numeric/geometry type |
+| [INDEX] | [SURFACE]                                                                     | [SHAPE]  | [CAPABILITY]                               |
+| :-----: | :---------------------------------------------------------------------------- | :------- | :----------------------------------------- |
+|  [01]   | `MotionEquations.Blend(Motion, double) -> double`                             | static   | map normalized time through an easing kind |
+|  [02]   | `Animators.DurationToTimeSpan(Duration) -> TimeSpan`                          | static   | resolve a named span to a duration         |
+|  [2b]   | `AnimatedPath.{AddGap, AddLine, AddLines, AddCircle, AddArc, Count, Gaps}`    | member   | stroke-set build and tallies               |
+|  [2c]   | `AnimatedPath.Create{Error, Warning, Success, Message, Arrow}Path`            | static   | the five semantic glyph factories          |
+|  [2d]   | `FlexControl.FocusObject -> IResponsive`; `IFlexControl.ResponsivesForwards`  | property | focus head and responder walk              |
+|  [2e]   | `Flex.PopulateContextMenuEventArgs.{Control, MouseEvent, Menu, IsMenu}`       | property | context-menu population payload            |
+|  [2f]   | `ResizingFrame.{Original, Resized, MinimumSize, MaximumSize}`                 | property | resize-frame geometry columns              |
+|  [2g]   | `Flex.{ProjectionChanged, WindowSelection, MouseDwell, ControlDraw}EventArgs` | class    | canvas event-args wires                    |
+|  [09]   | `Animators.Finished(value, Duration, Motion)`                                 | factory  | settled typed animation per type           |
+|  [10]   | `Animators.Unfinished(from, to, Duration, Motion)`                            | factory  | animating typed animation per type         |
+
+- `Flex.MouseDwellEventArgs`: carries `Control`, `ControlPoint`, and `ContentPoint`.
 
 [ENTRYPOINT_SCOPE]: AnimatedPath feedback factories
 - namespace: `Grasshopper2.UI.Animation`
@@ -107,36 +117,36 @@
 [ENTRYPOINT_SCOPE]: `Responses` virtual handlers — the primary dispatch path a responder owns by override
 - namespace: `Grasshopper2.UI.Flex`
 
-| [INDEX] | [SURFACE]                                                                                | [SHAPE]  | [CAPABILITY]                             |
-| :-----: | :--------------------------------------------------------------------------------------- | :------- | :---------------------------------------- |
-|  [01]   | `protected Responses(CoordinateSystem system = CoordinateSystem.Content)`                | ctor     | declares the frame the responder reads   |
-|  [02]   | `virtual void MouseOver(ResponseMouseArgs)` / `virtual void MouseLeave()`                | instance | hover entry and exit, no verdict         |
-|  [03]   | `virtual Response MouseDown` / `MouseDrag` / `MouseUp` / `MouseWheel(ResponseMouseArgs)` | instance | pointer verdicts                         |
-|  [04]   | `virtual Response MouseSingleClick` / `MouseDoubleClick(ResponseMouseArgs)`              | instance | click verdicts                           |
-|  [05]   | `virtual Response KeyDown(KeyEventArgs)` / `KeyUp(KeyEventArgs)`                         | instance | key verdicts                             |
-|  [06]   | `virtual Response TextInput(TextInputEventArgs)`                                         | instance | text-entry verdict                       |
-|  [07]   | `virtual Response Rotation(ResponseRotationArgs)`                                        | instance | rotation-gesture verdict                 |
-|  [08]   | `virtual bool HadEffect`                                                                 | property | `false` downgrades `Release` to `Ignored` |
-|  [09]   | `bool HasFocus` / `CoordinateSystem CoordinatesContext`                                  | property | host-set focus flag, declared frame      |
-|  [10]   | `RectangleF RegionBoundary` / `Func<PointF, bool> RegionFilter`                          | property | coarse region and exact in-region filter |
-|  [11]   | `bool IsCoincident(PointF controlPoint, PointF contentPoint)`                            | instance | frame-selecting hit test over both       |
-|  [12]   | `new ResponseMouseArgs`                                                                  | ctor     | dual-frame capture                       |
+| [INDEX] | [SURFACE]                                                                   | [SHAPE]  | [CAPABILITY]                              |
+| :-----: | :-------------------------------------------------------------------------- | :------- | :---------------------------------------- |
+|  [01]   | `protected Responses(CoordinateSystem system = CoordinateSystem.Content)`   | ctor     | declares the frame the responder reads    |
+|  [02]   | `virtual void MouseOver(ResponseMouseArgs)` / `virtual void MouseLeave()`   | instance | hover entry and exit, no verdict          |
+|  [03]   | `virtual Response Mouse{Down, Drag, Up, Wheel}(ResponseMouseArgs)`          | instance | pointer verdicts                          |
+|  [04]   | `virtual Response MouseSingleClick` / `MouseDoubleClick(ResponseMouseArgs)` | instance | click verdicts                            |
+|  [05]   | `virtual Response KeyDown(KeyEventArgs)` / `KeyUp(KeyEventArgs)`            | instance | key verdicts                              |
+|  [06]   | `virtual Response TextInput(TextInputEventArgs)`                            | instance | text-entry verdict                        |
+|  [07]   | `virtual Response Rotation(ResponseRotationArgs)`                           | instance | rotation-gesture verdict                  |
+|  [08]   | `virtual bool HadEffect`                                                    | property | `false` downgrades `Release` to `Ignored` |
+|  [09]   | `bool HasFocus` / `CoordinateSystem CoordinatesContext`                     | property | host-set focus flag, declared frame       |
+|  [10]   | `RectangleF RegionBoundary` / `Func<PointF, bool> RegionFilter`             | property | coarse region and exact in-region filter  |
+|  [11]   | `bool IsCoincident(PointF controlPoint, PointF contentPoint)`               | instance | frame-selecting hit test over both        |
+|  [12]   | `new ResponseMouseArgs`                                                     | ctor     | dual-frame capture                        |
 
 [ENTRYPOINT_SCOPE]: `Responses` hook events — the plug-in path an attribute subclass takes without subclassing the responder
 - namespace: `Grasshopper2.UI.Flex`
 
-| [INDEX] | [SURFACE]                                                                                                 | [SHAPE] | [CAPABILITY]                                |
-| :-----: | :--------------------------------------------------------------------------------------------------------- | :------ | :------------------------------------------- |
-|  [01]   | `event Action<ResponseMouseArgs> MouseOverHook` / `event Action MouseLeaveHook`                            | event   | unconditional post-handler hover taps       |
-|  [02]   | `event Func<ResponseMouseArgs, Response> MouseDownHook` / `MouseDragHook` / `MouseUpHook` / `MouseWheelHook` | event   | pointer taps on the ignored fallback        |
-|  [03]   | `event Func<ResponseMouseArgs, Response> MouseSingleClickHook` / `MouseDoubleClickHook`                    | event   | click taps on the ignored fallback          |
-|  [04]   | `event Func<KeyEventArgs, Response> KeyDownHook` / `KeyUpHook`                                             | event   | key taps on the ignored fallback            |
-|  [05]   | `event Func<TextInputEventArgs, Response> TextInputHook`                                                   | event   | text tap on the ignored fallback            |
-|  [06]   | `event Func<ResponseRotationArgs, Response> RotationHook`                                                  | event   | rotation tap on the ignored fallback        |
-|  [07]   | `event EventHandler GotFocus` / `LostFocus`                                                                | event   | `HasFocus` transition edges                 |
-|  [08]   | `event EventHandler RedrawRequired` / `void OnRedrawRequired()`                                            | event   | handler-raised repaint request              |
-|  [09]   | `protected static Response InvokeMouseRelay(Func<ResponseMouseArgs, Response>, ResponseMouseArgs)`         | static  | first-non-`Ignored` invocation-list walk    |
-|  [10]   | `protected static Response InvokeKeyRelay` / `InvokeTextInputRelay` / `InvokeRotationRelay`                | static  | the same walk over the other three arg kinds |
+| [INDEX] | [SURFACE]                                                                       | [SHAPE] | [CAPABILITY]                                 |
+| :-----: | :------------------------------------------------------------------------------ | :------ | :------------------------------------------- |
+|  [01]   | `event Action<ResponseMouseArgs> MouseOverHook` / `event Action MouseLeaveHook` | event   | unconditional post-handler hover taps        |
+|  [02]   | `event Func<ResponseMouseArgs, Response> Mouse{Down, Drag, Up, Wheel}Hook`      | event   | pointer taps on the ignored fallback         |
+|  [03]   | `event Func<ResponseMouseArgs, Response> Mouse{Single, Double}ClickHook`        | event   | click taps on the ignored fallback           |
+|  [04]   | `event Func<KeyEventArgs, Response> KeyDownHook` / `KeyUpHook`                  | event   | key taps on the ignored fallback             |
+|  [05]   | `event Func<TextInputEventArgs, Response> TextInputHook`                        | event   | text tap on the ignored fallback             |
+|  [06]   | `event Func<ResponseRotationArgs, Response> RotationHook`                       | event   | rotation tap on the ignored fallback         |
+|  [07]   | `event EventHandler GotFocus` / `LostFocus`                                     | event   | `HasFocus` transition edges                  |
+|  [08]   | `event EventHandler RedrawRequired` / `void OnRedrawRequired()`                 | event   | handler-raised repaint request               |
+|  [09]   | `protected static Response InvokeMouseRelay(Func<…>, ResponseMouseArgs)`        | static  | first-non-`Ignored` invocation-list walk     |
+|  [10]   | `protected static Response Invoke{Key, TextInput, Rotation}Relay`               | static  | the same walk over the other three arg kinds |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

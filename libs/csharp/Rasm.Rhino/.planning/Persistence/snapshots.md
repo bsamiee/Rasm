@@ -83,7 +83,7 @@ public static class Snapshots {
         Op? key = null) {
         Op op = key.OrDefault();
         return from owner in Optional(session).ToFin(Fail: op.MissingContext())
-               from request in Optional(operation).ToFin(Fail: op.InvalidInput())
+               from request in op.Need(operation)
                from routed in Admit(request, op)
                from answer in owner.Demand(
                    use: document => routed.Command.Match(
@@ -104,7 +104,7 @@ public static class Snapshots {
         Func<Fin<T>> use,
         Op? key = null) {
         Op op = key.OrDefault();
-        return from body in Optional(use).ToFin(Fail: op.InvalidInput())
+        return from body in op.Need(use)
                from sentinel in op.AcceptValidated<SnapshotName>($"rasm-{Guid.NewGuid():N}")
                from _capture in Commit(session, new SnapshotOperation.CaptureCase(sentinel), op)
                from outcome in Sealed(
@@ -144,6 +144,7 @@ public static class Snapshots {
         op.Catch(() => document.Snapshots.Names
             .Map(name => op.AcceptValidated<SnapshotName>(name))
             .Traverse(static value => value)
+            .As()
             .Map(values => new SnapshotRoster(toSeq(values.OrderBy(static value => value.Value, StringComparer.Ordinal)))));
 
     private static Fin<(SnapshotOperation Operation, Option<(SnapshotName Name, SnapshotVerb Verb)> Command)> Admit(
@@ -164,7 +165,7 @@ public static class Snapshots {
         deleteCase: static (op, delete) => op.AcceptValidated<SnapshotName>(delete.Name.Value)
             .Map(static name => (
                 (SnapshotOperation)new SnapshotOperation.DeleteCase(name),
-                Some((name, SnapshotVerb.Delete))));
+                Some((name, SnapshotVerb.Delete)))));
 
 }
 ```
@@ -285,15 +286,15 @@ public sealed class ParticipantSpec {
         string name,
         SnapshotCodec codec,
         Action<Error> report,
-        params ReadOnlySpan<ISnapshotLane> lanes) {
-        Op op = Op.Of();
-        ISnapshotLane[] roster = lanes.ToArray();
+        Seq<ISnapshotLane> lanes,
+        Op? key = null) {
+        Op op = key.OrDefault();
         return from _ids in guard(plugInId != Guid.Empty && clientId != Guid.Empty, op.InvalidInput()).ToFin()
                from label in op.AcceptText(value: name)
-               from group in Optional(category).ToFin(Fail: op.InvalidInput())
-               from format in Optional(codec).ToFin(Fail: op.InvalidInput())
-               from reject in Optional(report).ToFin(Fail: op.InvalidInput())
-               from admitted in roster
+               from group in op.Need(category)
+               from format in op.Need(codec)
+               from reject in op.Need(report)
+               from admitted in lanes
                    .Map(lane => ValidateLane(lane, op))
                    .Traverse(static value => value)
                from _nonempty in guard(!admitted.IsEmpty, op.InvalidInput()).ToFin()
@@ -321,8 +322,8 @@ public sealed class ParticipantSpec {
             .IsSome;
 
     private static Fin<ISnapshotLane> ValidateLane(ISnapshotLane lane, Op op) =>
-        Optional(lane).ToFin(Fail: op.InvalidInput())
-            .Bind(value => Optional(value.Capability).ToFin(Fail: op.InvalidInput())
+        op.Need(lane)
+            .Bind(value => op.Need(value.Capability)
                 .Bind(capability => capability.Contract.IsInstanceOfType(value)
                     ? Fin.Succ(value)
                     : Fin.Fail<ISnapshotLane>(op.InvalidResult(detail: "Snapshot lane interface and capability disagree."))));
@@ -354,25 +355,28 @@ public sealed class SnapshotParticipant : SnapShotsClient {
 
     public static Fin<Unit> Enlist(ParticipantSpec spec, Op? key = null) {
         Op op = key.OrDefault();
-        return Optional(spec).ToFin(Fail: op.InvalidInput()).Bind(admitted => {
-            Guid token = Guid.NewGuid();
-            Registered.Swap(state => state.Find(admitted.ClientId).IsSome
-                ? state
-                : state.Add(admitted.ClientId, token));
-            return Registered.Value.Find(admitted.ClientId).Exists(value => value == token)
-                // Host truth: the base constructor adds the instance to the MANAGED `ShapShotsClientsList` callback roster,
-                // while `RegisterSnapShotClient` registers the NATIVE pointer with the RDK — two distinct lists, so the
-                // explicit call is required, not a double-add. Neither list offers removal, hence the process-lifetime hold.
-                ? op.Catch(() => op.Confirm(success: RegisterSnapShotClient(new SnapshotParticipant(admitted))))
-                    .BindFail(error => {
-                        Registered.Swap(state => state.Find(admitted.ClientId).Exists(value => value == token)
-                            ? state.Remove(admitted.ClientId)
-                            : state);
-                        return Fin.Fail<Unit>(error: error);
-                    })
-                : Fin.Fail<Unit>(error: op.InvalidResult(
-                    detail: $"Snapshot participant '{admitted.ClientId}' is already resident."));
-        });
+        return from admitted in op.Need(spec)
+               let token = Guid.NewGuid()
+               // ONE CAS decides, and its swapped value IS the verdict: a token minted for this call can only be seated
+               // by the swap that minted it. Re-reading the cell afterwards could not separate an accepted seat from a
+               // rejected one, because an already-resident client id leaves the SAME map either way.
+               from _seated in Registered
+                   .Swap(state => state.Find(admitted.ClientId).IsSome ? state : state.Add(admitted.ClientId, token))
+                   .Find(admitted.ClientId)
+                   .Filter(held => held == token)
+                   .ToFin(Fail: op.InvalidResult(
+                       detail: $"Snapshot participant '{admitted.ClientId}' is already resident."))
+               // Host truth: the base constructor adds the instance to the MANAGED `ShapShotsClientsList` callback roster,
+               // while `RegisterSnapShotClient` registers the NATIVE pointer with the RDK — two distinct lists, so the
+               // explicit call is required, not a double-add. Neither list offers removal, hence the process-lifetime hold.
+               from _resident in op.Catch(() => op.Confirm(success: RegisterSnapShotClient(new SnapshotParticipant(admitted))))
+                   .BindFail(error => {
+                       Registered.Swap(state => state.Find(admitted.ClientId).Exists(value => value == token)
+                           ? state.Remove(admitted.ClientId)
+                           : state);
+                       return Fin.Fail<Unit>(error: error);
+                   })
+               select unit;
     }
 
     public override Guid PlugInId() => spec.PlugInId;

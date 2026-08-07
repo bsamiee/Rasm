@@ -60,7 +60,7 @@
 |  [19]   | `Change<A>`             | abstract class  | `TrackingHashMap` change-log entry, cases below         |
 |  [20]   | `IOptional`             | interface       | presence surface every `Option<A>` implements           |
 
-- `Change<A>` cases: `NoChange<A>` (`NoChange<A>.Default`, also `Change<A>.None`), `EntryAdded<A>.Value`, `EntryRemoved<A>.OldValue`, and `EntryMapped<A, B>` carrying `.From`/`.To` through the `EntryMappedFrom<A>`/`EntryMappedTo<B>` interfaces — the pair a mapped entry is matched on when the from-type is open. `Change<A> : Monoid<Change<A>>`, so consecutive entries for one key `Combine` into the net change.
+- `Change<A>` cases: `NoChange<A>` (`NoChange<A>.Default`, also `Change<A>.None`), `EntryAdded<A>`, `EntryRemoved<A>`, and `EntryMapped<FROM, A>` — the value type sits SECOND, so a mapped entry is matched through the open `EntryMappedFrom<FROM>` and closed `EntryMappedTo<A>` views rather than by naming both arguments. Mints are `Change<A>.Added(value)`/`Removed(oldValue)`/`Mapped<FROM>(oldValue, value)`; the predicate columns `HasChanged`/`HasNoChange`/`HasAdded`/`HasRemoved`/`HasMapped`/`HasMappedFrom<FROM>()` read a case without a type test, and `ToOption()` projects the added-or-mapped-to value. `Change<A> : Monoid<Change<A>>`, so consecutive entries for one key `Combine` into the net change — a removal then an add folds to `Mapped`.
 
 [PUBLIC_TYPE_SCOPE]: traits and monad transformers (`LanguageExt.Traits`)
 
@@ -243,21 +243,22 @@
 |  [39]   | `Prelude.tail(IO<A>)`                                         | static   | tail-recursion marker for deep binds |
 
 - `IO.lift` overload selection for a `Fin`-returning thunk is silent, not ambiguous: `Func<Fin<A>>` is the more specific candidate, so `IO.lift(() => <Fin<T>>)` resolves to the railed row [20] and lands `IO<T>` with the `Fail` folded onto the error channel — NEVER `IO<Fin<T>>`. A body that means to carry the `Fin` as its value spells the type argument (`IO.lift<Fin<T>>(…)`); a downstream `Bind` treating the payload as a `Fin` after the bare spelling is the defect this row forecloses.
+- `IO.Fork` spins one DEDICATED `TaskCreationOptions.LongRunning` thread per fork — forked IOs overlap fully before the await (measured: 16×200ms forks complete in ~206ms wall) and the pool imposes NO concurrency bound, so an unbounded fan-out is an unbounded thread count. A fan-out fold chunks its forked width to its own worker budget; one fork per element over an unbounded population is the defect this row forecloses.
 
 [ENTRYPOINT_SCOPE]: `FinT<M, A>` — the `Fin`-over-`M` transformer
 
-| [INDEX] | [SURFACE]                                | [SHAPE]     | [CAPABILITY]                                             |
-| :-----: | :--------------------------------------- | :---------- | :------------------------------------------------------- |
-|  [01]   | `new FinT<M, A>(K<M, Fin<A>> runFin)`    | constructor | the carrier's own `IO<Fin<A>>`-shaped ingress            |
-|  [02]   | `FinT.Succ(A)` / `FinT.Fail(Error)`      | static      | settled construction                                     |
-|  [03]   | `FinT.lift(Fin<A>)`                      | static      | settled-rail ingress                                     |
-|  [04]   | `FinT.lift(K<M, A>)`                     | static      | bare-monad ingress                                       |
-|  [05]   | `FinT.lift(K<M, Fin<A>>)`                | static      | named twin of the constructor                            |
-|  [06]   | `FinT.liftIO(IO<A>)`                     | static      | bare-`IO` ingress under `MonadIO<M>`                     |
-|  [07]   | `FinT.liftIO(IO<Fin<A>>)`                | static      | railed-`IO` ingress — the carrier shape, lifted directly |
-|  [08]   | `FinT.runFin`                            | property    | `K<M, Fin<A>>` egress the queries end on                 |
-|  [09]   | `FinT.Bind` / `SelectMany` overload set  | instance    | binds `FinT`, `K<FinT<M>,B>`, `K<M,B>`, bare `Fin<B>`    |
-|  [10]   | `FinT.Match(Succ, Fail)` / `MapFail`     | instance    | `K<M, B>` fold / failure map                             |
+| [INDEX] | [SURFACE]                               | [SHAPE]     | [CAPABILITY]                                             |
+| :-----: | :-------------------------------------- | :---------- | :------------------------------------------------------- |
+|  [01]   | `new FinT<M, A>(K<M, Fin<A>> runFin)`   | constructor | the carrier's own `IO<Fin<A>>`-shaped ingress            |
+|  [02]   | `FinT.Succ(A)` / `FinT.Fail(Error)`     | static      | settled construction                                     |
+|  [03]   | `FinT.lift(Fin<A>)`                     | static      | settled-rail ingress                                     |
+|  [04]   | `FinT.lift(K<M, A>)`                    | static      | bare-monad ingress                                       |
+|  [05]   | `FinT.lift(K<M, Fin<A>>)`               | static      | named twin of the constructor                            |
+|  [06]   | `FinT.liftIO(IO<A>)`                    | static      | bare-`IO` ingress under `MonadIO<M>`                     |
+|  [07]   | `FinT.liftIO(IO<Fin<A>>)`               | static      | railed-`IO` ingress — the carrier shape, lifted directly |
+|  [08]   | `FinT.runFin`                           | property    | `K<M, Fin<A>>` egress the queries end on                 |
+|  [09]   | `FinT.Bind` / `SelectMany` overload set | instance    | binds `FinT`, `K<FinT<M>,B>`, `K<M,B>`, bare `Fin<B>`    |
+|  [10]   | `FinT.Match(Succ, Fail)` / `MapFail`    | instance    | `K<M, B>` fold / failure map                             |
 
 - `FinT.Bind`/`SelectMany` also bind `Pure<B>` and `Fail<Error>`, so a bare `Fin` step inside a `FinT` query needs no lift.
 
@@ -333,7 +334,7 @@
 - `Seq<A>` publishes NO `Option`-returning positional read: its one index member is the throwing `this[Index]`, and neither the type nor `SeqExtensions` carries an `At`, so a bounded positional lookup composes `Skip(n).Head`, which answers `None` past the tail.
 - `LanguageExt.List.unfold` runs the state seed until the unfolder answers `None`, returning `IEnumerable<A>`; five overloads cover `Func<S,Option<S>>` (state-only) and one-to-four state slots as a tuple seed. A host walk over a linked native cursor (`node.Next`) is the generation this replaces, so no `while` loop accumulates into a mutable list before `toSeq`.
 
-[ENTRYPOINT_SCOPE]: `TrackingHashMap<K, V>` — the change-logged map (`HashMap.ToTrackingHashMap()` lifts into it)
+[ENTRYPOINT_SCOPE]: `TrackingHashMap<K, V>` — the change-logged map (`HashMap.ToTrackingHashMap()` lifts into it). `TrackingHashMap<EqK, K, V>` is the same surface under an explicit `EqK` witness, and the static `TrackingHashMap` module mints one (`empty`/`create`/`createRange`/`singleton` over `(K, V)` tuples, `KeyValuePair`s, or a `ReadOnlySpan`) where no source map exists to lift.
 
 | [INDEX] | [SURFACE]                                                         | [SHAPE]  | [CAPABILITY]                                        |
 | :-----: | :---------------------------------------------------------------- | :------- | :-------------------------------------------------- |
@@ -385,7 +386,7 @@
 [TOPOLOGY]:
 - Domain operations return `Fin<A>`; `Fin.Succ` and `Fin.Fail` are the construction spellings, and an `Error`-derived domain fault record is the failure payload.
 - Accumulation is a mode, not a second rail: independent gates lift into `Validation<Error, A>`, fan in through the tuple `Apply`, and exit `ToFin` — `Validation` lives exactly between those two conversions.
-- Tuple `Apply` binds on `(K<F, A>, …)` receivers across arities 2–10, so each gate slot declares a `K<Validation<Error>, A>` return and the join re-anchors through `As()` or the unary `+`.
+- Tuple `Apply` binds on `(K<F, A>, …)` receivers across arities 2–10 and the join re-anchors through `As()` or the unary `+`, yet a gate slot declares the CONCRETE `Validation<Error, Unit>` return — the lift IS a user-defined implicit conversion and C# excludes interface targets, so a `K<Validation<Error>, A>` return rejects both ternary arms (`CS0029`); the concrete carrier converts to `K<Validation<Error>, Unit>` by implicit reference conversion, so `Apply` and `Traverse` bind on it as written, and the `K`-typed `Accumulate(Seq<K<Validation<Error>, Unit>>)` arity exists for the INPUT side alone, where `Seq<A>` invariance blocks a caller's already-K-typed slot run.
 - `Fin.Match(Succ, Fail)` against `Validation.Match(Fail, Succ)`: named lambda arguments (`Succ:`, `Fail:`) bind by name, so the argument order stops deciding the fold.
 - Tier choice is when the effect runs, never which failure type it carries — `Try` traps a throwing boundary synchronously through `Run`, `Eff` defers the same shape for composed and async execution, and `IO` is terminal, carrying bracket, schedule, fork, and timeout. All three land on `Fin<A>`.
 - `guard(condition, error)` is the admission form: it composes inside a `Fin` or `Validation` LINQ body through the `SelectMany` overload over `Guard<E, Unit>`, and stands alone through `ToFin`.

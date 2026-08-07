@@ -164,7 +164,7 @@ public static class EditorShell {
                 toggleCase: static (s, c) => c.Row.Swing(scope: s.Scope, target: Some(c.Target), key: s.Key)
                     .Map(_ => nameof(ShellOp.ToggleCase)),
                 getterCase: static (s, c) => s.Key.Catch(body: () =>
-                        Editor.BeginRhinoGetter(doc: c.Target.MatchUnsafe(Some: static live => live, None: static () => null))
+                        Editor.BeginRhinoGetter(doc: c.Target.Match<RhinoDoc?>(Some: static live => live, None: static () => null))
                             ? Fin.Succ(unit)
                             : Fin.Fail<Unit>(s.Key.InvalidResult(detail: nameof(Editor.BeginRhinoGetter))))
                     .Map(_ => nameof(ShellOp.GetterCase)))
@@ -216,14 +216,14 @@ flowchart LR
 
 `Resolve` and `Swing` are internal columns behind the three public gates `Apply`, `Snapshot`, and `Grab`.
 
-| [INDEX] | [CONCERN]         | [OWNER]                         | [KIND]                                    | [RAIL]                       | [CASES] |
-| :-----: | :---------------- | :------------------------------ | :---------------------------------------- | :--------------------------- | :-----: |
-|  [01]   | pane family       | `ShellPane`                     | `[Union]`, one case per pane shape        | `Resolve → Fin<ShellPane>`   |    7    |
-|  [02]   | pane slots        | `ShellSlot`                     | `[SmartEnum<int>]`, resolve column        | `Resolve → Fin<ShellPane>`   |    7    |
-|  [03]   | shell toggles     | `ShellToggle`                   | `[SmartEnum<int>]`, dual-direction column | `Swing → Fin<bool>`          |    3    |
-|  [04]   | shell commands    | `ShellOp` + `ShellReceipt`      | `[Union]` `[GenerateUnionOps]` + receipt  | `Apply → Fin<ShellReceipt>`  |    2    |
-|  [05]   | shell evidence    | `ShellState`                    | evidence receipt over verified scalars    | `Snapshot → Fin<ShellState>` |    1    |
-|  [06]   | typed pane egress | `EditorShell.Grab<TOut>`        | total-`Switch` gate, one marshal window   | `Grab → Fin<TOut>`           |    1    |
+| [INDEX] | [CONCERN]         | [OWNER]                    | [KIND]                                    | [RAIL]                       | [CASES] |
+| :-----: | :---------------- | :------------------------- | :---------------------------------------- | :--------------------------- | :-----: |
+|  [01]   | pane family       | `ShellPane`                | `[Union]`, one case per pane shape        | `Resolve → Fin<ShellPane>`   |    7    |
+|  [02]   | pane slots        | `ShellSlot`                | `[SmartEnum<int>]`, resolve column        | `Resolve → Fin<ShellPane>`   |    7    |
+|  [03]   | shell toggles     | `ShellToggle`              | `[SmartEnum<int>]`, dual-direction column | `Swing → Fin<bool>`          |    3    |
+|  [04]   | shell commands    | `ShellOp` + `ShellReceipt` | `[Union]` `[GenerateUnionOps]` + receipt  | `Apply → Fin<ShellReceipt>`  |    2    |
+|  [05]   | shell evidence    | `ShellState`               | evidence receipt over verified scalars    | `Snapshot → Fin<ShellState>` |    1    |
+|  [06]   | typed pane egress | `EditorShell.Grab<TOut>`   | total-`Switch` gate, one marshal window   | `Grab → Fin<TOut>`           |    1    |
 
 `ScopeTarget`, `GhScope`, `EtoDispatch`, `Op`, `Fault`, and `ValidityClaim` are composed upstream owners; every shell capability lands as the rows, cases, and gates above. `Editor.BreadCrumbs` (private) is a phantom row no fence composes, and the host ships no file-comparison member.
 

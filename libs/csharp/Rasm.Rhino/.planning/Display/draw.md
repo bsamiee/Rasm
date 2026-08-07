@@ -14,7 +14,7 @@
 
 - Owner: style values carry backend-neutral width, color, cap, join, miter, dash, fill, and text policy.
 - Entry: each native style mints inside the paint call and releases before egress.
-- Law: color quantizes once through `Quant`; perceptual ramps resolve before the backend receives channel values.
+- Law: color quantizes once through `Quant` — `Sys`, `Vec`, and `Eto` are its three backend projections and `Pigment` stays the perceptual-to-sRGB correspondence `Quant.Eto` composes, so a paint call reaching `Pigment` directly forks the one quantization; perceptual ramps resolve before the backend receives channel values.
 - Law: shaded appearance is `ShadedMaterial`, never a host `DisplayMaterial` — the native is disposable and carries eight raw screen colours that bypass both the one colour source and the one quantization, so it mints inside `ShadedMaterial.Use`, serves exactly the draw call inside that bracket, and releases on every exit; the second face is `Option`, so a one-sided material spells no back band rather than mirroring the front.
 - Law: typography composes the Eto owners — `TextStyle` carries the Eto `TypeRole` plus an optional point size, measurement and Eto text paint ride `GlyphBlock`, and the pipeline arm reads size and family facts off the role-resolved cached font; a font-role table or `FormattedText` shaping minted here is the deleted form.
 - Law: one `Dash` family serves both backends — standard cases mint the host dash style and the interval table from one owner, `Patterned` carries caller intervals with offset bounded by the host's own eight-entry pen cap; `StrokePattern` stays the Rhino-pen pattern policy axis beside it.
@@ -193,7 +193,7 @@ public sealed record Stroke {
                select new Stroke(admitted, color, cap, join, dash, halo, taper, worldWidth, pattern, miter);
     }
 
-    internal Pen Eto() => new(Pigment.ToColor(Color), (float)Width) {
+    internal Pen Eto() => new(Quant.Eto(Color), (float)Width) {
         LineCap = Cap.Eto,
         LineJoin = Join.Eto,
         MiterLimit = Miter,
@@ -228,8 +228,8 @@ public sealed record Stroke {
 }
 
 // `DisplayMaterial` is a disposable host native carrying eight raw `System.Drawing.Color` channels, so it is the one shaded
-// appearance vocabulary the slice cannot publish: `ShadedFace` states one side in `PerceptualColor` and the host's own
-// 0..1 shine and transparency axes, `ShadedMaterial` pairs the two sides, and the native mints and dies inside `Use`.
+// appearance vocabulary the slice cannot publish: `ShadedFace` states one side in `PerceptualColor` under `ShineAxis.Unit`,
+// `ShadedMaterial` pairs the two sides, and the native mints and dies inside `Use`.
 [ComplexValueObject]
 public sealed partial class ShadedFace {
     public PerceptualColor Diffuse { get; }
@@ -248,12 +248,11 @@ public sealed partial class ShadedFace {
         ref PerceptualColor emission,
         ref double shine,
         ref double transparency) =>
-        // Host truth: `DisplayMaterial.Shine` and `.Transparency` are BOTH unit-interval axes, unlike the attribute
-        // editor's `FrontMaterialShine`, which runs to `Material.MaxShine`.
-        validationError = double.IsFinite(shine) && shine is >= 0.0 and <= 1.0
-            && double.IsFinite(transparency) && transparency is >= 0.0 and <= 1.0
-                ? null
-                : new ValidationError(message: "Shaded face shine or transparency leaves the unit interval.");
+        // `ShineAxis` on the modes page owns both host regimes; `Unit` is the `DisplayMaterial` one, where shine and
+        // transparency are BOTH unit-interval, unlike the attribute editor's `Editor` regime this face never enters.
+        validationError = ShineAxis.Unit.Shine(shine) && ShineAxis.Unit.Transparency(transparency)
+            ? null
+            : new ValidationError(message: "Shaded face shine or transparency leaves the unit interval.");
 }
 
 public sealed record ShadedMaterial(ShadedFace Front, Option<ShadedFace> Back) {
@@ -298,10 +297,11 @@ public sealed record TextStyle {
     internal TResult Use<TResult>(Func<global::Eto.Drawing.Font, TResult> project) =>
         project(Role.Resolve(size: Size.ToNullable()));
 
-    internal Size2f Measure(string text) =>
-        new GlyphBlock(text, Role, size: Size).Measure() switch {
-            var measured => new Size2f(measured.Width, measured.Height),
-        };
+    // Metrics are the Eto owner's and so is their affinity: shaping reaches the platform text stack, so a measurement
+    // answers on the rail here exactly as it does there rather than being flattened into a bare extent.
+    internal Fin<Size2f> Measure(string text, Op? key = null) =>
+        new GlyphBlock(text, Role, size: Size).Measure(key)
+            .Map(static measured => new Size2f(measured.Width, measured.Height));
 }
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
@@ -324,6 +324,10 @@ internal static class Quant {
         color.ToRgb(RgbProfile.Srgb) switch {
             var (red, green, blue, alpha) => new Color4f((float)red, (float)green, (float)blue, (float)alpha),
         };
+
+    // The Eto projection sits beside `Sys` and `Vec` so all three backends reach ONE quantizer; `Pigment` stays the
+    // perceptual-to-sRGB correspondence owner this member composes rather than a second entry paint calls reach past it.
+    internal static global::Eto.Drawing.Color Eto(PerceptualColor color) => Pigment.ToColor(color);
 
     internal static PointF Eto(Point2d point) => new((float)point.X, (float)point.Y);
     internal static Point2f Pt2(Point2d point) => new((float)point.X, (float)point.Y);
@@ -400,23 +404,26 @@ public abstract partial record PathSegment {
         rectangle: static (_, _) => unit,
         roundRectangle: static (_, _) => unit);
 
-    internal Curve Rhino() => Switch(
-        line: static row => (Curve)new LineCurve(new Point3d(row.From.X, row.From.Y, 0.0), new Point3d(row.To.X, row.To.Y, 0.0)),
-        arc: static row => new ArcCurve(new global::Rhino.Geometry.Arc(
+    // Composite arms answer NONE, the same shape the `Add` arms take: `ScreenPath.Of` stores the lowered run and both
+    // backends draw from it, so a composite segment reaches no backend and has no curve to answer. Absence spells that
+    // directly and contributes nothing to the curve run, where a throw would spell an unreachable state as a crash.
+    internal Option<Curve> Rhino() => Switch(
+        line: static row => Some((Curve)new LineCurve(new Point3d(row.From.X, row.From.Y, 0.0), new Point3d(row.To.X, row.To.Y, 0.0))),
+        arc: static row => Some<Curve>(new ArcCurve(new global::Rhino.Geometry.Arc(
             new Plane(
                 new Point3d(row.Center.X, row.Center.Y, 0.0),
                 new Vector3d(Math.Cos(RhinoMath.ToRadians(row.Start)), Math.Sin(RhinoMath.ToRadians(row.Start)), 0.0),
                 new Vector3d(-Math.Sin(RhinoMath.ToRadians(row.Start)), Math.Cos(RhinoMath.ToRadians(row.Start)), 0.0)),
             row.Radius,
-            RhinoMath.ToRadians(row.Sweep))),
-        bezier: static row => new BezierCurve([new(row.Start.X, row.Start.Y, 0.0), new(row.Control1.X, row.Control1.Y, 0.0), new(row.Control2.X, row.Control2.Y, 0.0), new(row.End.X, row.End.Y, 0.0)]).ToNurbsCurve(),
-        ellipse: static row => new global::Rhino.Geometry.Ellipse(
+            RhinoMath.ToRadians(row.Sweep)))),
+        bezier: static row => Some<Curve>(new BezierCurve([new(row.Start.X, row.Start.Y, 0.0), new(row.Control1.X, row.Control1.Y, 0.0), new(row.Control2.X, row.Control2.Y, 0.0), new(row.End.X, row.End.Y, 0.0)]).ToNurbsCurve()),
+        ellipse: static row => Some<Curve>(new global::Rhino.Geometry.Ellipse(
             new Plane(new Point3d(row.Origin.X + (row.Extent.Width / 2.0), row.Origin.Y + (row.Extent.Height / 2.0), 0.0), Vector3d.ZAxis),
             row.Extent.Width / 2.0,
-            row.Extent.Height / 2.0).ToNurbsCurve(),
-        spline: static row => throw new System.Diagnostics.UnreachableException(nameof(Spline)),
-        rectangle: static row => throw new System.Diagnostics.UnreachableException(nameof(Rectangle)),
-        roundRectangle: static row => throw new System.Diagnostics.UnreachableException(nameof(RoundRectangle)));
+            row.Extent.Height / 2.0).ToNurbsCurve()),
+        spline: static _ => Option<Curve>.None,
+        rectangle: static _ => Option<Curve>.None,
+        roundRectangle: static _ => Option<Curve>.None);
 
     private static Fin<Seq<PathSegment>> Cornered(
         Point2d origin, Size2f extent, float nw, float ne, float se, float sw, Op key) =>
@@ -593,10 +600,12 @@ public sealed record ScreenPath {
         return path;
     }
 
+    // The run materializes INSIDE the try, so every curve the fold minted reaches the disposal even when a later
+    // segment throws; a composite arm contributes nothing, exactly as it contributes nothing to the Eto path.
     internal Fin<TResult> UseCurves<TResult>(Func<Seq<Curve>, Fin<TResult>> use, Op key) => key.Catch(() => {
         Seq<Curve> curves = Seq<Curve>();
         try {
-            _ = Run.Iter(segment => curves = curves.Add(segment.Rhino()));
+            curves = Run.Choose(static segment => segment.Rhino()).Strict();
             return use(curves);
         }
         finally { _ = curves.Iter(static curve => curve.Dispose()); }
@@ -734,12 +743,13 @@ public sealed class SpriteSheet : IDisposable {
 - Entry: `Marks.Render` draws one mark batch onto a `Canvas` backend and returns the drawn count; `Marks.Hit` answers hit ordinals with no backend receiver; `Marks.Program` mints the Eto `PaintProgram`, so surface mounting and print flow reuse this vocabulary without naming it.
 - Law: render order is the input order; the first failed draw aborts and preserves its typed fault.
 - Law: the pipeline screen arm is stroke-shaped — a `Path` fill, a `Written` block, a windowed `Sprite`, and a posed or clipped `Group` are Eto-surface capabilities and fail the pipeline with typed backend evidence before any partial draw.
-- Law: hit-testing returns source ordinals, so overlapping marks retain z-order evidence; topmost is the last ordinal.
+- Law: hit-testing returns source ordinals, so overlapping marks retain z-order evidence; topmost is the last ordinal. Geometry answers from the mark alone, but a text mark's extent is HOST metrics, so the predicate rides the Eto owner's measurement rail and a refused measure is a typed fault rather than a silent miss.
 - Law: an arrowhead is a HOST primitive, never a re-derived triangle — `WorldMark.Arrowhead` folds `DisplayPipeline.DrawAnnotationArrowhead(Arrowhead, Transform, Color)` so head shape rides the `DimensionStyle.ArrowType` row or the user-block `BlockId` the `Arrowhead` carries, and scale, orientation, and position ride the one `Transform`; a dimension overlay, a direction grip, and a section-cut leader all draw through this case rather than each hand-rolling a path in `ScreenMark.Path`.
 - Law: `ScreenPath` is the sole retained screen geometry carrier; `ScreenMark.Path` applies stroke and fill once across paint, clip culling, and hit-testing.
 - Law: mark admission folds every nested path, pose, clip, style presence, coordinate, and extent before render or hit-test dispatch; no invalid child or non-finite screen scalar reaches a backend.
 - Law: `Group` poses, clips, and sequences children on the Eto backend; a posed or clipped group routed to the pipeline fails with typed backend evidence, while a bare group sequences on both backends.
 - Law: `Label` is the dual-backend plain-text mark; `Written` carries a full `GlyphBlock` (wrap, alignment, trimming, max extent) and is Eto-only, failing the pipeline with the same typed evidence.
+- Law: a `Label` shapes ONCE, at admission, and holds the measurement on the rail — hit-testing walks every mark per pointer pixel and paint would shape again, so both read the one held verdict and centring can never disagree with the hit rectangle; the shaping therefore happens where the mark is built, which is the seam that draws it.
 - Boundary: world marks routed to Eto or to hit-testing fail before any partial draw.
 - Growth: a drawable is one inner-union case and one backend arm; callers and the public entry remain unchanged.
 
@@ -760,7 +770,16 @@ public abstract partial record Canvas {
 public abstract partial record ScreenMark {
     private ScreenMark() { }
     public sealed record Path(ScreenPath Value, Option<Stroke> Stroke, Option<FillStyle> Fill) : ScreenMark;
-    public sealed record Label(string Text, Point2d At, TextStyle Style, PerceptualColor Color, bool Centered) : ScreenMark;
+    public sealed record Label(string Text, Point2d At, TextStyle Style, PerceptualColor Color, bool Centered) : ScreenMark {
+        // Shaped ONCE, at admission, and HELD on the rail: a pointer move hit-tests every mark in a frame, so a per-probe
+        // measure re-shapes the whole label set on every mouse pixel and paint re-shapes it again. The verdict stays a
+        // `Fin` because host metrics refuse, so one shaping answers both the hit rectangle and the centring offset — a
+        // malformed label carries the refusal its `Valid` row already spells rather than a fabricated zero extent.
+        internal Fin<Size2f> Extent { get; } = Style is null || string.IsNullOrEmpty(Text)
+            ? Fin.Fail<Size2f>(Op.Of(name: nameof(Label)).InvalidInput())
+            : Style.Measure(Text);
+    }
+
     public sealed record Written(GlyphBlock Block, Point2d At) : ScreenMark;
     public sealed record Sprite(SpriteRef Value, Point2d At, Size2i Extent, Option<(Point2d Origin, Size2f Extent)> Window, BlendUse Source, BlendUse Destination) : ScreenMark;
     public sealed record Group(Option<Pose> Pose, Option<ScreenPath> Clip, Seq<ScreenMark> Children) : ScreenMark;
@@ -784,20 +803,26 @@ public abstract partial record ScreenMark {
             && row.Clip.Match(Some: static clip => clip is not null && clip.Valid && clip.Closed, None: static () => true)
             && row.Pose.Match(Some: static pose => pose is not null && pose.Valid, None: static () => true));
 
-    internal bool HitTest(Point2d at) => Switch(
-        at,
-        path: static (point, row) => row.Value.Hit(point, row.Stroke, row.Fill.IsSome),
-        label: static (point, row) => row.Style.Measure(row.Text) is var size
-            && new RectangleF(
+    // Geometry answers from the mark alone; TEXT cannot — a label's extent is host metrics, so the two text arms carry
+    // the measurement rail and the whole predicate rides it rather than flattening a refused measure into a miss.
+    internal Fin<bool> HitTest(Point2d at, Op key) => Switch(
+        (At: at, Key: key),
+        path: static (ctx, row) => Fin.Succ(row.Value.Hit(ctx.At, row.Stroke, row.Fill.IsSome)),
+        label: static (ctx, row) => row.Extent.Map(size => new RectangleF(
                 row.Centered ? (float)row.At.X - (size.Width / 2f) : (float)row.At.X,
                 row.Centered ? (float)row.At.Y - (size.Height / 2f) : (float)row.At.Y,
                 size.Width,
-                size.Height).Contains(Quant.Eto(point)),
-        written: static (point, row) => new RectangleF(Quant.Eto(row.At), row.Block.Measure()).Contains(Quant.Eto(point)),
-        sprite: static (point, row) => new RectangleF((float)row.At.X, (float)row.At.Y, row.Extent.Width, row.Extent.Height).Contains(Quant.Eto(point)),
-        group: static (point, row) => row.Pose.Map(pose => pose.Unproject(point)).IfNone(point) is var local
+                size.Height).Contains(Quant.Eto(ctx.At))),
+        written: static (ctx, row) => row.Block.Measure(ctx.Key)
+            .Map(size => new RectangleF(Quant.Eto(row.At), size).Contains(Quant.Eto(ctx.At))),
+        sprite: static (ctx, row) => Fin.Succ(
+            new RectangleF((float)row.At.X, (float)row.At.Y, row.Extent.Width, row.Extent.Height).Contains(Quant.Eto(ctx.At))),
+        group: static (ctx, row) => row.Pose.Map(pose => pose.Unproject(ctx.At)).IfNone(ctx.At) is var local
             && row.Clip.Map(clip => clip.Hit(local, None, filled: true)).IfNone(true)
-            && row.Children.Exists(child => child.HitTest(local)));
+                ? row.Children.Map(child => (Child: child, Local: local, ctx.Key))
+                    .TraverseM(static item => item.Child.HitTest(item.Local, item.Key)).As()
+                    .Map(static hits => hits.Exists(static hit => hit))
+                : Fin.Succ(false));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -885,7 +910,7 @@ public static class Marks {
         return guard(Quant.Finite(point), op.InvalidInput()).ToFin()
             .Bind(_ => guard(marks.ForAll(static mark => mark is Mark.Screen screen && screen.Valid), op.Unsupported(typeof(WorldMark), typeof(Marks))).ToFin())
             .Bind(_ => marks.Map(static (mark, index) => (Mark: ((Mark.Screen)mark).Value, Index: index))
-                .TraverseM(item => op.Catch(() => Fin.Succ((Hit: item.Mark.HitTest(point), item.Index)))).As())
+                .TraverseM(item => item.Mark.HitTest(point, op).Map(hit => (Hit: hit, item.Index))).As())
             .Map(static hits => hits.Choose(static item => item.Hit ? Some(item.Index) : None));
     }
 
@@ -929,15 +954,12 @@ public static class Marks {
     private static Fin<Unit> ScreenSurface(Graphics graphics, SpriteSheet sprites, ScreenMark mark, Op key) => mark.Switch(
         (Graphics: graphics, Sprites: sprites, Op: key),
         path: static (ctx, row) => DrawPath(ctx.Graphics, ctx.Sprites, row, ctx.Op),
-        label: static (ctx, row) => ctx.Op.Catch(() => {
-            GlyphBlock block = new(row.Text, row.Style.Role, foreground: Some(row.Color), size: row.Style.Size);
-            SizeF measured = block.Measure();
-            PointF origin = row.Centered
-                ? new PointF((float)row.At.X - (measured.Width / 2f), (float)row.At.Y - (measured.Height / 2f))
-                : Quant.Eto(row.At);
-            _ = block.Draw(ctx.Graphics, origin);
-            return Fin.Succ(unit);
-        }),
+        // Paint reads the mark's OWN held extent, so the drawn origin and the hit rectangle derive from one shaping.
+        label: static (ctx, row) => ctx.Op.Catch(() => row.Extent.Map(measured =>
+            new GlyphBlock(row.Text, row.Style.Role, foreground: Some(row.Color), size: row.Style.Size)
+                .Draw(ctx.Graphics, row.Centered
+                    ? new PointF((float)row.At.X - (measured.Width / 2f), (float)row.At.Y - (measured.Height / 2f))
+                    : Quant.Eto(row.At)))),
         written: static (ctx, row) => ctx.Op.Catch(() => Fin.Succ(row.Block.Draw(ctx.Graphics, Quant.Eto(row.At)))),
         sprite: static (ctx, row) => ctx.Sprites.Surface(row.Value, bitmap => ctx.Op.Catch(() => Fin.Succ(Op.Side(() =>
             ctx.Graphics.DrawImage(
@@ -945,7 +967,7 @@ public static class Marks {
                 row.Window.Match(
                     Some: static held => new RectangleF(Quant.Eto(held.Origin), new SizeF(held.Extent.Width, held.Extent.Height)),
                     None: () => new RectangleF(0f, 0f, bitmap.Width, bitmap.Height)),
-                new RectangleF((float)row.At.X, (float)row.At.Y, row.Extent.Width, row.Extent.Height)))))), ctx.Op),
+                new RectangleF((float)row.At.X, (float)row.At.Y, row.Extent.Width, row.Extent.Height))))), ctx.Op),
         group: static (ctx, row) => ctx.Op.Catch(() => {
             using IDisposable window = ctx.Graphics.SaveTransformState();
             _ = row.Pose.Iter(pose => pose.Use(matrix => Op.Side(() => ctx.Graphics.MultiplyTransform(matrix))));
@@ -977,16 +999,16 @@ public static class Marks {
         Op key) => fill.Switch(
         (Sprites: sprites, Use: use, Op: key),
         solid: static (ctx, row) => ctx.Op.Catch(() => {
-            using Brush brush = new SolidBrush(Pigment.ToColor(row.Color));
+            using Brush brush = new SolidBrush(Quant.Eto(row.Color));
             return ctx.Use(brush);
         }),
         linear: static (ctx, row) => ctx.Op.Catch(() => {
-            using Brush brush = new LinearGradientBrush(Pigment.ToColor(row.Start), Pigment.ToColor(row.End), Quant.Eto(row.From), Quant.Eto(row.To));
+            using Brush brush = new LinearGradientBrush(Quant.Eto(row.Start), Quant.Eto(row.End), Quant.Eto(row.From), Quant.Eto(row.To));
             return ctx.Use(brush);
         }),
         radial: static (ctx, row) => ctx.Op.Catch(() => {
             using Brush brush = new RadialGradientBrush(
-                Pigment.ToColor(row.Start), Pigment.ToColor(row.End), Quant.Eto(row.Center), Quant.Eto(row.Origin), new SizeF(row.Radius.Width, row.Radius.Height));
+                Quant.Eto(row.Start), Quant.Eto(row.End), Quant.Eto(row.Center), Quant.Eto(row.Origin), new SizeF(row.Radius.Width, row.Radius.Height));
             return ctx.Use(brush);
         }),
         texture: static (ctx, row) => ctx.Sprites.Surface(row.Sprite, image => ctx.Op.Catch(() => {

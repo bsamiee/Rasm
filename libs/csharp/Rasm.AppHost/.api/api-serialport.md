@@ -32,17 +32,17 @@
 
 [ENTRYPOINT_SCOPE]: lifecycle and configuration
 
-| [INDEX] | [SURFACE]                                                        | [SHAPE]  | [CAPABILITY]                       |
-| :-----: | :--------------------------------------------------------------- | :------- | :--------------------------------- |
-|  [01]   | `SerialPort(string, int, Parity, int, StopBits)`                 | ctor     | construct a port under line policy |
-|  [02]   | `SerialPort.Open()`                                              | instance | open the configured port           |
-|  [03]   | `SerialPort.Close()`                                             | instance | close the port                     |
-|  [04]   | `SerialPort.GetPortNames() -> string[]`                          | static   | enumerate host port names          |
-|  [05]   | `SerialPort.IsOpen -> bool`                                      | property | open-state check                   |
-|  [06]   | `SerialPort.BaudRate`/`Parity`/`DataBits`/`StopBits`/`Handshake` | property | line policy                        |
-|  [07]   | `SerialPort.ReadTimeout`/`WriteTimeout`                          | property | timeout, ms                        |
-|  [08]   | `SerialPort.NewLine`/`Encoding`                                  | property | line framing                       |
-|  [09]   | `SerialPort.DtrEnable`/`RtsEnable`                               | property | flow control                       |
+| [INDEX] | [SURFACE]                                                        | [SHAPE]  | [CAPABILITY]                                           |
+| :-----: | :--------------------------------------------------------------- | :------- | :----------------------------------------------------- |
+|  [01]   | `SerialPort(string, int, Parity, int, StopBits)`                 | ctor     | construct a port under line policy                     |
+|  [02]   | `SerialPort.Open()`                                              | instance | open the configured port                               |
+|  [03]   | `SerialPort.Close()`                                             | instance | close the port                                         |
+|  [04]   | `SerialPort.GetPortNames() -> string[]`                          | static   | enumerate host port names                              |
+|  [05]   | `SerialPort.IsOpen -> bool`                                      | property | open-state check                                       |
+|  [06]   | `SerialPort.BaudRate`/`Parity`/`DataBits`/`StopBits`/`Handshake` | property | line policy                                            |
+|  [07]   | `SerialPort.ReadTimeout`/`WriteTimeout`                          | property | timeout, ms                                            |
+|  [08]   | `SerialPort.NewLine`/`Encoding`                                  | property | line framing                                           |
+|  [09]   | `SerialPort.DtrEnable`/`RtsEnable`                               | property | modem lines; RTS is the RS-485 DE/RE half-duplex drive |
 
 [ENTRYPOINT_SCOPE]: read, write, and events
 
@@ -68,9 +68,11 @@
 - `NewLine`/`Encoding` frame a line protocol read through `ReadLine`, while a binary protocol reads `BaseStream` directly; the choice is a binding-spec column.
 - `ErrorReceived` projects a frame, overrun, or parity fault to `WireFault.ReadFailed` at the boundary, never propagating into the interior.
 - The port is an untyped byte stream and publishes no per-write echo token; the read instant is the host clock, so a serial binding's echo axis takes `EchoClass.Absent` and write proof is a value read-back.
+- `SerialPort` itself carries NO async read/write — `BaseStream.ReadAsync`/`WriteAsync` is the only async path — and `Read` on an armed `ReadTimeout` signals expiry by THROWING `TimeoutException`, never a zero return; setting `RtsEnable` by hand while `Handshake` is `RequestToSend`/`RequestToSendXOnXOff` throws, so a half-duplex RS-485 line drives RTS manually under a `Handshake` that leaves the pin free.
 
 [STACKING]:
 - `FluentModbus`(`.api/api-modbus.md`): `ModbusRtuClient` rides this serial line for Modbus-RTU, so the serial owner carries both the raw-line and RTU-carrier roles with no second serial surface.
+- `BACnet`(`api-bacnet.md`): the MS/TP `MstpLine` adapter implements the package's `IBacnetSerialTransport` over this same held port under that catalog's `[SERIAL_LINE_CONTRACT]` sentinel law, so one line owner serves the raw `serial` row, the RTU carrier, and the MS/TP bus.
 - `TransportRow` adapter: the live-wire `serial` row binds `SerialPort` through one `Read`/`Write` seam, the leg taking `OutboundHop.CompanionSpawn` where the device sits behind a companion process or the port directly where the host owns the line.
 
 [LOCAL_ADMISSION]:

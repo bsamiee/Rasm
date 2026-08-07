@@ -103,14 +103,14 @@ Registration rows return a `RegistrationResult` (or `PoseGraph`); ICP rows take 
 
 Surfaces elide the `t.pipelines.registration.` prefix and operate on `t.geometry.PointCloud`, returning a tensor `RegistrationResult`; estimators take a `robust_kernel.RobustKernel` for outlier downweighting. Both ICP entries carry an `init_source_to_target` `core.Tensor` seeding the solve — `icp(source, target, max_correspondence_distance, init_source_to_target, estimation, criteria, voxel_size, callback_after_iteration)` and `multi_scale_icp(source, target, voxel_sizes, criteria_list, max_correspondence_distances, init_source_to_target, estimation, callback_after_iteration)` — defaulting to the 4x4 Float64 identity, so a coarse global pose seeds the correspondence search directly and `RegistrationResult.transformation` returns the FULL source-to-target pose rather than a residual a caller must compose.
 
-| [INDEX] | [SURFACE]                                                         | [ENTRY_FAMILY] | [CAPABILITY]                     |
-| :-----: | :---------------------------------------------------------------- | :------------- | :------------------------------- |
+| [INDEX] | [SURFACE]                                                         | [ENTRY_FAMILY] | [CAPABILITY]                      |
+| :-----: | :---------------------------------------------------------------- | :------------- | :-------------------------------- |
 |  [01]   | `icp`                                                             | icp            | single-scale tensor ICP, seedable |
-|  [02]   | `multi_scale_icp`                                                 | icp            | multi-scale tensor ICP, seedable |
-|  [03]   | `TransformationEstimationPointToPlane(kernel)`                    | estimator      | point-to-plane estimator         |
-|  [04]   | `TransformationEstimationForColoredICP(lambda_geometric, kernel)` | estimator      | colored point-to-plane estimator |
-|  [05]   | `robust_kernel.RobustKernel(method, scaling)`                     | kernel         | Tukey/Huber/Cauchy/GM/L1/L2 loss |
-|  [06]   | `robust_kernel.RobustKernelMethod.TukeyLoss`                      | kernel         | Tukey biweight loss kernel       |
+|  [02]   | `multi_scale_icp`                                                 | icp            | multi-scale tensor ICP, seedable  |
+|  [03]   | `TransformationEstimationPointToPlane(kernel)`                    | estimator      | point-to-plane estimator          |
+|  [04]   | `TransformationEstimationForColoredICP(lambda_geometric, kernel)` | estimator      | colored point-to-plane estimator  |
+|  [05]   | `robust_kernel.RobustKernel(method, scaling)`                     | kernel         | Tukey/Huber/Cauchy/GM/L1/L2 loss  |
+|  [06]   | `robust_kernel.RobustKernelMethod.TukeyLoss`                      | kernel         | Tukey biweight loss kernel        |
 
 [ENTRYPOINT_SCOPE]: array-bridge accessors
 

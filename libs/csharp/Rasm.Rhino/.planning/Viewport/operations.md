@@ -7,7 +7,7 @@ Camera mutation has one `CameraOp` vocabulary and one `Cameras.Apply` entry. Ges
 - [02]-[GESTURE_ROWS]: `KeyGesture` and `DragGesture` — the keyboard and mouse gesture vocabularies as delegate-column rows over the host verb families.
 - [03]-[PROJECTION_AND_STACK]: `ProjectionChange` the projection request union including the axonometric and lens rows; `StackVerb` the view/cplane stack rows.
 - [04]-[NAMED_AND_CLIP]: `NamedViewOp` the table family with `RestorePace` rows; `ClipLink` clipping-plane participation; `RestoreScope` the defined-view settings scope.
-- [05]-[OPERATION_RAIL]: the `CameraOp` union, `ApplyPolicy`, `CameraReceipt`, and the one `Cameras.Apply` execution fold with UI-thread, detail-commit, and redraw absorption.
+- [05]-[OPERATION_RAIL]: the `CameraOp` union, `ApplyPolicy` with its `ActiveBinding` row, `CameraStage` the prepared drive, `CameraReceipt`, and the one `Cameras.Apply` execution fold with UI-thread, detail-commit, and redraw absorption.
 
 ## [02]-[GESTURE_ROWS]
 
@@ -153,8 +153,10 @@ public abstract partial record ProjectionChange {
                 up: ctx.Viewport.CameraUp.IsValid && !ctx.Viewport.CameraUp.IsTiny() ? ctx.Viewport.CameraUp : Vector3d.Zero,
                 targetDistance: change.TargetDistance.IfNone(RhinoMath.UnsetValue))),
             reflectedCase: static (ctx, _) => ctx.Op.Confirm(success: ctx.Viewport.ChangeToParallelReflectedProjection()),
+            // `LensAngle` is the full vertical view angle and the host slot holds its half, the one convention
+            // `camera.md` states and the pose seat writes; a 1:1 assignment here doubles the field of view.
             lensCase: static (ctx, change) => ctx.Op.Catch(() => {
-                ctx.Viewport.CameraAngle = (double)change.Angle;
+                ctx.Viewport.CameraAngle = (double)change.Angle / 2.0;
                 return Fin.Succ(value: unit);
             }),
             lockCase: static (ctx, change) => ctx.Op.Catch(() => ctx.Viewport.LockedProjection = change.State.IsLocked),
@@ -435,9 +437,11 @@ public sealed partial class RestoreScope {
 
 ## [05]-[OPERATION_RAIL]
 
-- Owner: factory-only `CameraOp` `[Union]` owns every static mutation plus `MotionCase(CameraTrack, MotionScript, TimeProvider, Option<FrameClock>, Option<FieldIntegrator>)`. `CameraTrack` parameterizes source pose, destination pose, context, and interpolation policy while refusing projection changes, which remain explicit `ProjectionChange` operations. `ApplyPolicy` owns redraw and detail commit. `CameraReceipt` separates immediate evidence from the running-motion handle by payload timing.
+- Owner: factory-only `CameraOp` `[Union]` owns every static mutation plus `MotionCase(CameraTrack, MotionScript, TimeProvider, Option<FrameClock>, Option<FieldIntegrator>)`. `CameraTrack` parameterizes source pose, destination pose, context, and interpolation policy while refusing projection changes, which remain explicit `ProjectionChange` operations. `ApplyPolicy` owns redraw, detail commit, and the `ActiveBinding` row deciding what an address resolved once means later. `CameraStage` owns the prepared drive — pinned row addresses, per-row leases, the per-frame policy, and the one guarded seat both the static arm and the tick body compose. `CameraReceipt` separates immediate evidence from the running-motion handle by payload timing.
 - Entry: `Cameras.Apply(DocumentSession, ViewportTarget, CameraOp, Option<ApplyPolicy>, Op?) : Fin<CameraReceipt>` resolves and mutates inside one `ViewportLease.UseAll` host-thread borrow, commits detail viewport changes, and performs the terminal redraw before native handles leave scope. Broadcast mutations suppress redraw through `ViewTable.EnableRedraw` and restore the prior state before the terminal policy edge.
-- Law: `Cameras.Compile(CameraPose, CameraPose, Context, Option<MotionInterpolation>, Op?)` admits both stored poses through the camera owner's outer storage seam and mints one `CameraTrack`; absent interpolation selects `MotionInterpolation.Slerp`. `CameraTrack.Sample(UnitInterval)` composes `VectorIntent.Pose`, interpolates target and lens, and retains the single admitted projection. `MotionPump.Drive` samples the track and calls `Cameras.Apply` for every emitted frame, so a motion operation never collapses to its terminal pose.
+- Law: `Cameras.Compile(CameraPose, CameraPose, Context, Option<MotionInterpolation>, Op?)` admits both stored poses through the camera owner's outer storage seam and mints one `CameraTrack`; absent interpolation selects `MotionInterpolation.Slerp`. `CameraTrack.Sample(UnitInterval)` composes `VectorIntent.Pose`, interpolates target and lens, and retains the single admitted projection. `MotionPump.Drive` samples the track and seats every emitted frame through the prepared stage, so a motion operation never collapses to its terminal pose.
+- Law: a paced drive is PREPARED once — `CameraStage.Of` runs the address census, mints one lease per resolved row, and derives the per-frame policy before the first tick, so the tick body carries the pose alone and pays one borrow per row. Replaying the whole entry rail per frame — session admission, `CameraOp` admission, the scope walk behind `EveryCase`, one policy mint — spends admission work on inputs the drive proved at preparation.
+- Law: an address resolved BEFORE the write it serves binds explicitly. `ActiveBinding.Pinned` keeps the viewport that was active at preparation and refuses with `InvalidContext` once it stops being active; `ActiveBinding.Following` re-resolves the live active view per frame. A stage that silently migrated would seat poses on a viewport the caller never addressed, and its receipt reads identically either way.
 - Law: `ConventionCase` carries the kernel `ViewPose` — the `Rasm.Drawing` `ViewConvention.Pose` derivation over a subject bounds and a convention row — and this arm only lowers it: seat the pose, apply the row's projection intent, `ZoomBoundingBox` the subject; the six census recipes with their inline multipliers are dead.
 - Growth: a new camera capability is one `CameraOp` case plus one arm — the generated `Switch` breaks every dispatch site; a new gesture, pace, projection, or clip modality is one row on its section owner with zero rail change.
 - Boundary: every host mutation rides the lease's command-thread landing, so a background caller pays one marshal per static `Apply` while a paced frame pays none — every `FrameClock` row ticks on the command thread already, and both `HostThread.Run` and the session demand take their inline branch there — which is also why the pump gate is never held across a blocking host wait. No native handle leaves the rail.
@@ -470,6 +474,16 @@ public sealed partial class RedrawWhat {
 
     [UseDelegateFromConstructor]
     internal partial RedrawTarget Landing(ViewportTarget target);
+}
+
+[SmartEnum<int>]
+public sealed partial class ActiveBinding {
+    // An address resolved once and written many times opens a window in which the active view moves under it: `Pinned`
+    // keeps the viewport that was active and refuses the migration, `Following` re-resolves it as declared intent.
+    public static readonly ActiveBinding Pinned = new(key: 0, follows: false);
+    public static readonly ActiveBinding Following = new(key: 1, follows: true);
+
+    internal bool Follows { get; }
 }
 
 public sealed record CameraTrack {
@@ -654,23 +668,25 @@ public sealed partial class DetailCommit {
 
 [ComplexValueObject]
 public sealed partial class ApplyPolicy {
-    public static ApplyPolicy Default { get; } = Create(redraw: RedrawWhat.Views, details: DetailCommit.Commit);
-    public static ApplyPolicy Silent { get; } = Create(redraw: RedrawWhat.None, details: DetailCommit.Commit);
+    public static ApplyPolicy Default { get; } = Create(redraw: RedrawWhat.Views, details: DetailCommit.Commit, active: ActiveBinding.Pinned);
+    public static ApplyPolicy Silent { get; } = Create(redraw: RedrawWhat.None, details: DetailCommit.Commit, active: ActiveBinding.Pinned);
 
     public RedrawWhat Redraw { get; }
     public DetailCommit Details { get; }
+    public ActiveBinding Active { get; }
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref RedrawWhat redraw,
-        ref DetailCommit details) {
-        validationError = redraw is not null && details is not null
+        ref DetailCommit details,
+        ref ActiveBinding active) {
+        validationError = redraw is not null && details is not null && active is not null
             ? validationError
             : new ValidationError(message: "camera apply policy is invalid");
     }
 
-    internal ApplyPolicy PerFrame() => Create(redraw: RedrawWhat.None, details: Details);
+    internal ApplyPolicy PerFrame() => Create(redraw: RedrawWhat.None, details: Details, active: Active);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -682,6 +698,78 @@ public abstract partial record CameraReceipt : IDetachedDocumentResult {
         Seq<Guid> ClipCensus,
         RedrawWhat Redrew) : CameraReceipt;
     public sealed record MotionCase(MotionDrive Drive, RedrawWhat Redrew) : CameraReceipt;
+}
+
+// --- [SERVICES] -----------------------------------------------------------------------------
+// A drive prepares once and ticks thousands of times, so the address census, the lease admission, and the per-frame
+// policy resolve HERE and a frame writes the sampled pose alone. Re-entering `Cameras.Apply` per frame replayed the
+// whole entry — session admission, operation admission, the scope walk behind `EveryCase`, one policy mint — for a body
+// whose only per-frame input is that pose. Native rows still never outlive their borrow: a stage pins the durable id
+// address of each resolved row and re-resolves it inside the frame's own borrow.
+internal sealed class CameraStage {
+    private readonly Seq<StagedRow> rows;
+    private readonly ApplyPolicy frame;
+
+    private CameraStage(Seq<StagedRow> rows, ApplyPolicy frame) {
+        this.rows = rows;
+        this.frame = frame;
+    }
+
+    internal static Fin<CameraStage> Of(DocumentSession session, ViewportTarget target, ApplyPolicy plan, Op key) =>
+        from owner in ViewportLease.Of(session: session, target: target, key: key)
+        from census in owner.UseAll(
+            borrow: (_, row) => key.Catch(() => Fin.Succ(value: row.Viewport.Id)),
+            terminal: static (_, _) => Fin.Succ(value: unit),
+            mode: ViewportBorrowMode.Observe,
+            key: key)
+        from staged in census
+            .Traverse(id => StagedRow.Of(session: session, address: target, viewportId: id, binding: plan.Active, key: key).ToValidation())
+            .As()
+            .ToFin()
+        select new CameraStage(rows: staged.Strict(), frame: plan.PerFrame());
+
+    // Every row seats and the refusals combine: one migrated view never hides another row's host fault.
+    internal Fin<Unit> Frame(CameraPose pose, Op key) =>
+        rows.Traverse(row => row.Seat(pose: pose, plan: frame, key: key).ToValidation()).As().ToFin().Map(static _ => unit);
+
+    // The guarded seat is ONE member — projection probe then pose write — composed by both the one-shot rail arm and
+    // the tick body, so the two paths cannot drift on what a pose seat means.
+    internal static Fin<Unit> Seat(CameraPose pose, RhinoViewport viewport, Op key) =>
+        from _projection in guard(CameraSeat.Accepts(projection: pose.Projection, viewport: viewport), key.InvalidInput()).ToFin()
+        from _seated in key.Catch(() => Fin.Succ(value: CameraSeat.Seat(viewport: viewport, pose: pose)))
+        select unit;
+}
+
+internal readonly record struct StagedRow(ViewportLease Lease, Option<Guid> PinnedActive) {
+    internal static Fin<StagedRow> Of(DocumentSession session, ViewportTarget address, Guid viewportId, ActiveBinding binding, Op key) {
+        bool follows = binding.Follows && address is ViewportTarget.ActiveCase;
+        return from pinned in follows ? Fin.Succ(value: address) : ViewportTarget.Id(viewportId: viewportId, key: key)
+               from lease in ViewportLease.Of(session: session, target: pinned, key: key)
+               select new StagedRow(
+                   Lease: lease,
+                   PinnedActive: address is ViewportTarget.ActiveCase && !follows ? Some(viewportId) : None);
+    }
+
+    internal Fin<Unit> Seat(CameraPose pose, ApplyPolicy plan, Op key) =>
+        Lease.Use(
+            borrow: (document, row) =>
+                from _addressed in Addressed(document: document, key: key)
+                from _seated in CameraStage.Seat(pose: pose, viewport: row.Viewport, key: key)
+                from _committed in row.Detail.Match(
+                    Some: detail => plan.Details.Enabled
+                        ? key.Catch(() => key.Confirm(success: detail.CommitViewportChanges()))
+                        : Fin.Succ(value: unit),
+                    None: () => Fin.Succ(value: unit))
+                select unit,
+            key: key);
+
+    // A pinned active row proves the viewport it named is STILL active; the migration is a typed context refusal, never
+    // a silent hand-off to whatever the user focused mid-drive.
+    private Fin<Unit> Addressed(RhinoDoc document, Op key) => PinnedActive.Match(
+        Some: id => guard(
+            Optional(document.Views.ActiveView).Map(view => view.ActiveViewport.Id == id).IfNone(noneValue: false),
+            key.InvalidContext()).ToFin(),
+        None: static () => Fin.Succ(value: unit));
 }
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
@@ -714,7 +802,7 @@ public static class Cameras {
                 (Document: document, Row: row, Op: key),
                 gestureCase: static (ctx, op) => op.Request.Apply(viewport: ctx.Row.Viewport, key: ctx.Op).Map(static _ => Seq<Guid>()),
                 projectCase: static (ctx, op) => op.Change.Apply(viewport: ctx.Row.Viewport, key: ctx.Op).Map(static _ => Seq<Guid>()),
-                poseCase: static (ctx, op) => Seated(pose: op.Pose, viewport: ctx.Row.Viewport, key: ctx.Op),
+                poseCase: static (ctx, op) => CameraStage.Seat(pose: op.Pose, viewport: ctx.Row.Viewport, key: ctx.Op).Map(static _ => Seq<Guid>()),
                 stackCase: static (ctx, op) => op.Verb.Apply(viewport: ctx.Row.Viewport, key: ctx.Op).Map(static _ => Seq<Guid>()),
                 frameCase: static (ctx, op) => {
                     BoundingBox padded = op.Subject;
@@ -728,7 +816,7 @@ public static class Cameras {
                 conventionCase: static (ctx, op) =>
                     from _ in Lowered(intent: op.Pose.Projection, lens: op.Pose.Lens).Apply(viewport: ctx.Row.Viewport, key: ctx.Op)
                     from seated in ctx.Op.Catch(() => {
-                        _ = CameraPose.Seat(viewport: ctx.Row.Viewport, target: op.Pose.Target, location: op.Pose.Frame.Value.Origin, direction: op.Pose.Frame.Value.ZAxis);
+                        _ = CameraSeat.Seat(viewport: ctx.Row.Viewport, target: op.Pose.Target, location: op.Pose.Frame.Value.Origin, direction: op.Pose.Frame.Value.ZAxis);
                         return ctx.Op.Confirm(success: ctx.Row.Viewport.ZoomBoundingBox(box: op.Pose.Subject));
                     })
                     select Seq<Guid>(),
@@ -752,6 +840,7 @@ public static class Cameras {
             Redrew: plan.Redraw);
 
     private static Fin<CameraReceipt> Drive(DocumentSession session, ViewportTarget target, CameraOp.MotionCase motion, ApplyPolicy plan, Op key) =>
+        from stage in CameraStage.Of(session: session, target: target, plan: plan, key: key)
         from drive in MotionPump.Drive(
             session: session,
             script: motion.Script,
@@ -759,14 +848,7 @@ public static class Cameras {
             provider: motion.Provider,
             apply: sample => Progressed(sample: sample, key: key)
                 .Bind(progress => motion.Track.Sample(progress: progress, key: key))
-                .Bind(pose => CameraOp.Pose(pose: pose, key: key)
-                    .Bind(operation => Apply(
-                        session: session,
-                        target: target,
-                        operation: operation,
-                        policy: Some(plan.PerFrame()),
-                        key: key)))
-                .Map(static _ => unit),
+                .Bind(pose => stage.Frame(pose: pose, key: key)),
             clock: motion.Clock,
             integrator: motion.Integrator,
             key: key)
@@ -783,14 +865,6 @@ public static class Cameras {
                 sprungCase: static frame => frame.State.Position),
             0.0,
             1.0));
-
-    private static Fin<Seq<Guid>> Seated(CameraPose pose, RhinoViewport viewport, Op key) =>
-        from _ in guard(pose.Projection.Accepts(viewport: viewport), key.InvalidInput()).ToFin()
-        from seated in key.Catch(() => {
-            _ = pose.SeatOn(viewport: viewport);
-            return Fin.Succ(Seq<Guid>());
-        })
-        select seated;
 
     private static ProjectionChange Lowered(ViewProjectionIntent intent, double lens) =>
         intent.Switch(

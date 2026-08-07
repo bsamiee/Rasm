@@ -226,15 +226,16 @@ public abstract partial record TypefaceOp {
                                 from index in ctx.Op.Catch(() => ResourceIndex.Admit(
                                     ctx.Document.DimStyles.Add(dimstyle: owned, reference: false), ctx.Op))
                                 select index)
-                            select added))
-                from receipt in DraftReceipt.Component(slot: DraftSlot.Bound, componentKind: DraftComponentKind.Style, index: index)
+                            select added)
+                from receipt in DraftReceipt.Component(
+                    slot: DraftSlot.Bound, componentKind: DraftComponentKind.Style, index: index, key: ctx.Op)
                 select receipt);
 }
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
 public static class Typefaces {
     public static Fin<FaceResolution> Resolve(FaceQuery query) {
-        Op op = Op.Of();
+        Op op = Op.Of(name: nameof(Typefaces));
         return from admitted in op.AcceptInput(value: query)
                from font in admitted.Resolve(key: op)
                from face in FaceInfo.Of(font: font, key: op)
@@ -246,7 +247,7 @@ public static class Typefaces {
     }
 
     public static Fin<FaceCensusAnswer> Census(FaceCensus request) {
-        Op op = Op.Of();
+        Op op = Op.Of(name: nameof(Typefaces));
         return op.AcceptInput(value: request).Bind(admitted => admitted.Switch(
             installed: query =>
                 from fonts in op.Catch(() => Fin.Succ(value: toSeq(query.Family.Match(
@@ -269,7 +270,8 @@ public static class Typefaces {
 
     public static Fin<DraftReceipt> Commit(DocumentSession session, DraftPlan<TypefaceOp> plan) =>
         DraftSpine.Commit(session: session, plan: plan,
-            apply: static (document, operation, key) => operation.Apply(document: document, op: key), op: Op.Of());
+            apply: static (document, operation, key) => operation.Apply(document: document, op: key),
+            op: Op.Of(name: nameof(Typefaces)));
 }
 ```
 
@@ -277,9 +279,9 @@ public static class Typefaces {
 
 - Owner: `SectionFill`, `SectionBoundary`, and `SectionHatch` encode only realizable host states; `SectionSpec` composes them with the fill rule and admitted name.
 - Law: every inactive fill, boundary, and hatch branch restores its host-default subordinate fields before landing, reading them off ONE process-static `SectionDefaults.Row` snapshot rather than minting a native per write.
-- Law: `SectionStroke` closes the host's two boundary-linetype channels — `Tabled` addresses the document row through `BoundaryLinetypeIndex`, `Embedded` names the copy the style owns outright — so a style carrying an embedded linetype round-trips through its own case instead of a table address it has no row for, and the embedded read leases the freshly minted native `GetBoundaryLinetype` hands back.
+- Law: `SectionStroke` closes the host's two boundary-linetype channels — `Tabled` addresses the document row through `BoundaryLinetypeIndex`, `Embedded` carries the whole `StrokeDef` the style owns outright — so the embedded case MINTS its native from that definition instead of resolving through the table it has no row in, and `Resolve` answers a lease whose `Owned`/`Borrowed` case states which side releases.
 - Law: absent fill, hidden boundary, and absent hatch carry no dead colors, scales, rotations, weights, or resource addresses.
-- Law: resource addresses resolve inside the document grant before any table index is written; every numeric host input is a generated value object.
+- Law: resource addresses resolve inside the document grant before any table index is written; every numeric host input composes the namespace's `DraftScale`/`DraftAngle`/`DraftWeight` owners, the same owners the hatch and linetype pages write these host properties through.
 
 ```csharp signature
 // --- [TYPES] --------------------------------------------------------------------------------
@@ -288,39 +290,6 @@ public sealed partial class SectionRule {
     public static readonly SectionRule ClosedCurves = new(key: (int)ObjectSectionFillRule.ClosedCurves);
     public static readonly SectionRule SolidObjects = new(key: (int)ObjectSectionFillRule.SolidObjects);
     internal ObjectSectionFillRule Host => (ObjectSectionFillRule)Key;
-}
-
-[ValueObject<double>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
-public sealed partial class SectionScale {
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) {
-        if (!double.IsFinite(value) || value <= 0.0) validationError = new ValidationError("Section scale must be finite and positive.");
-    }
-}
-
-[ValueObject<double>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
-public sealed partial class SectionAngle {
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) {
-        if (!double.IsFinite(value)) validationError = new ValidationError("Section angle must be finite.");
-    }
-}
-
-[ValueObject<double>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
-public sealed partial class SectionPlotWeight {
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) {
-        if (!double.IsFinite(value) || value < 0.0) validationError = new ValidationError("Section plot weight must be finite and non-negative.");
-    }
-}
-
-// `SectionStyleTable.Delete` reads its third argument as an in-use-warning verdict: 0 refuses every warned row, 1
-// admits every warned row, 2 asks the operator; the host's own two-argument overload derives the value from `quiet`,
-// so the row carries that derivation instead of a bare literal at the call site.
-[SmartEnum<int>]
-public sealed partial class DeleteWarning {
-    public static readonly DeleteWarning DenyAll = new(key: 0);
-    public static readonly DeleteWarning AllowAll = new(key: 1);
-    public static readonly DeleteWarning AskUser = new(key: 2);
-
-    internal static DeleteWarning For(WriteMode mode) => mode.QuietWrite ? DenyAll : AskUser;
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -337,24 +306,31 @@ public abstract partial record SectionBoundary {
     public sealed record Hidden : SectionBoundary;
     public sealed record Stroke(
         PerceptualColor Display, PerceptualColor Print,
-        SectionScale Width, SectionPlotWeight PlotWeight,
+        DraftScale Width, DraftWeight PlotWeight,
         Option<SectionStroke> Linetype) : SectionBoundary;
 }
 
 // `SectionStyle` carries TWO independent boundary-linetype channels: `BoundaryLinetypeIndex` anchors a document-table
 // row, and `GetBoundaryLinetype`/`SetBoundaryLinetype` own an EMBEDDED copy the style holds outright. One
-// `ResourceRef` addresses only the first, so a style carrying an embedded copy round-trips through its own case.
+// `ResourceRef` addresses only the first, so `Embedded` carries the WHOLE `StrokeDef` and mints its own native:
+// resolving that case through the linetype table would look up the row the case exists precisely because it lacks.
+// The two cases therefore answer different custody — a table row is borrowed, a minted copy is owned — so `Resolve`
+// returns a lease and the caller's `Use` decides the release.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record SectionStroke {
     private SectionStroke() { }
     public sealed record Tabled(ResourceRef Source) : SectionStroke;
-    public sealed record Embedded(ResourceName Name) : SectionStroke;
+    public sealed record Embedded(StrokeDef Definition) : SectionStroke;
 
-    internal Fin<Linetype> Resolve(RhinoDoc document, Op key) => Switch(
+    internal Fin<Lease<Linetype>> Resolve(RhinoDoc document, Op key) => Switch(
         (Document: document, Key: key),
-        tabled: static (ctx, row) => row.Source.Resolve(document: ctx.Document, lens: LinetypeOp.Lens, key: ctx.Key),
-        embedded: static (ctx, row) => Optional(ctx.Document.Linetypes.FindName(name: row.Name.Value))
-            .ToFin(Fail: ctx.Key.MissingContext(detail: row.Name.Value)));
+        tabled: static (ctx, row) => row.Source.Resolve(document: ctx.Document, lens: LinetypeOp.Lens, key: ctx.Key)
+            .Map(static live => (Lease<Linetype>)new Lease<Linetype>.Borrowed(Value: live)),
+        embedded: static (ctx, row) => ctx.Key.Catch(() => Optional(new Linetype()).ToFin(Fail: ctx.Key.InvalidResult()))
+            .Bind(seed => row.Definition.Apply(document: ctx.Document, linetype: seed, key: ctx.Key)
+                .Map(_ => (Lease<Linetype>)new Lease<Linetype>.Owned(Value: seed))
+                .BindFail(primary => DraftCustody.Failed<Lease<Linetype>, Linetype>(
+                    primary: primary, values: Seq(seed), op: ctx.Key))));
 }
 
 // One host-default snapshot read once per process: minting a `SectionStyle` per `Apply` solely to read its
@@ -368,7 +344,7 @@ public abstract partial record SectionHatch {
     private SectionHatch() { }
     public sealed record None : SectionHatch;
     public sealed record Pattern(
-        ResourceRef Resource, SectionScale Scale, SectionAngle Rotation,
+        ResourceRef Resource, DraftScale Scale, DraftAngle Rotation,
         PerceptualColor Display, PerceptualColor Print) : SectionHatch;
 }
 
@@ -392,7 +368,7 @@ public sealed partial class SectionSpec {
         from clear in Fin.Succ(value: SectionDefaults.Row)
         from linetype in (Boundary is SectionBoundary.Stroke { Linetype: var stroke }
                 ? stroke.Traverse(row => row.Resolve(document: document, key: key)).As()
-                : Fin.Succ(Option<Linetype>.None))
+                : Fin.Succ(Option<Lease<Linetype>>.None))
         from pattern in (Hatch is SectionHatch.Pattern { Resource: var address }
                 ? address.Resolve(document: document, lens: HatchSpec.Lens, key: key).Map(Some)
                 : Fin.Succ(Option<HatchPattern>.None))
@@ -427,13 +403,17 @@ public sealed partial class SectionSpec {
                 ctx.Style.BoundaryPlotWeightMillimeters = ctx.Clear.BoundaryPlotWeightMillimeters;
                 ctx.Style.RemoveBoundaryLinetype();
             }),
+            // `SetBoundaryLinetype` COPIES into the style, so a minted embedded native releases the moment the
+            // copy lands — the lease's `Use` is what closes that window, not a caller-side disposal.
             stroke: static (ctx, boundary) => ctx.Key.Catch(() => {
                 ctx.Style.BoundaryVisible = true;
                 ctx.Style.BoundaryColor = boundary.Display.Sys();
                 ctx.Style.BoundaryPrintColor = boundary.Print.Sys();
                 ctx.Style.BoundaryWidthScale = boundary.Width.Value;
                 ctx.Style.BoundaryPlotWeightMillimeters = boundary.PlotWeight.Value;
-                ctx.Linetype.Match(Some: ctx.Style.SetBoundaryLinetype, None: ctx.Style.RemoveBoundaryLinetype);
+                return ctx.Linetype.Match(
+                    Some: lease => lease.Use(native => Op.Side(() => ctx.Style.SetBoundaryLinetype(native))),
+                    None: () => Op.Side(ctx.Style.RemoveBoundaryLinetype));
             }))
         from ____ in Hatch.Switch(
             state: (Style: style, Clear: clear, Pattern: pattern, Key: key),
@@ -460,7 +440,7 @@ public sealed partial class SectionSpec {
 - Owner: `SectionSource` carries local versus reference admission behavior; `SectionOp` owns author, amend, guarded plural delete, and `.secstyles` import; `SectionSnapshot` returns the same `SectionSpec` composition with usage and table state.
 - Law: amendment rides `SectionOp.Grip` — the shared `TableGrip` duplicate-then-`Modify` law — with the copy constructor as the duplicate row and id-resolved index as the index row.
 - Law: import canonicalizes hatch references through `PatternDef`, preflights names, compensates added patterns and added or replaced styles in reverse landing order, and records every outcome in the shared receipt algebra.
-- Law: delete resolves and usage-gates every target before one `SectionStyleTable.Delete(IEnumerable<int>, bool, int)` call; any retained row makes the whole request fail before mutation, and the warning verdict is the `DeleteWarning` row derived from the write mode, never a bare literal.
+- Law: delete resolves and usage-gates every target before one `SectionStyleTable.Delete(IEnumerable<int>, bool)` call; any retained row makes the whole request fail before mutation, and the in-use-warning verdict stays the host's own `quiet`-derived value — the three-argument overload exists to OVERRIDE that derivation, so re-deriving it here would fork one rule across two owners.
 - Law: import owns every native it reads or retains — both `ReadFromFile` out-arrays and each copy-retained pre-existing style — and drains all three sets on success and on every refusal leg.
 - Boundary: section projection captures host reads and every generated admission constructor inside one `Op.Catch` rail.
 
@@ -481,9 +461,9 @@ public sealed partial class SectionSource {
 public abstract partial record SectionOp {
     private SectionOp() { }
     public sealed record Author(SectionSpec Spec, SectionSource Source) : SectionOp;
-    public sealed record Amend(ResourceRef Target, SectionSpec Spec, WriteMode Mode) : SectionOp;
-    public sealed record Delete(Seq<ResourceRef> Targets, WriteMode Mode) : SectionOp;
-    public sealed record Import(DraftPath Path, WriteMode Mode) : SectionOp;
+    public sealed record Amend(ResourceRef Target, SectionSpec Spec, HostInteraction Interaction) : SectionOp;
+    public sealed record Delete(Seq<ResourceRef> Targets, HostInteraction Interaction) : SectionOp;
+    public sealed record Import(DraftPath Path, HostInteraction Interaction) : SectionOp;
 
     internal static readonly ResourceLens<SectionStyle> Lens = new(
         ById: static (document, id) => document.SectionStyles.Find(id: id, ignoreDeletedSectionStyles: true) is var index && index >= 0
@@ -523,10 +503,10 @@ public abstract partial record SectionOp {
             from seed in ctx.Op.Catch(() => Fin.Succ(value: new SectionStyle()))
             from __ in edit.Spec.Apply(style: seed, document: ctx.Document, key: ctx.Op)
             from index in ctx.Op.Catch(() => ResourceIndex.Admit(edit.Source.Add(document: ctx.Document, style: seed), ctx.Op))
-            from receipt in DraftReceipt.Component(DraftSlot.Authored, DraftComponentKind.Section, index)
+            from receipt in DraftReceipt.Component(DraftSlot.Authored, DraftComponentKind.Section, index, ctx.Op)
             select receipt,
         amend: static (ctx, edit) =>
-            Grip.Revised(target: edit.Target, document: ctx.Document, slot: DraftSlot.Amended, mode: edit.Mode, op: ctx.Op,
+            Grip.Revised(target: edit.Target, document: ctx.Document, slot: DraftSlot.Amended, interaction: edit.Interaction, op: ctx.Op,
                 revise: (copy, key) => edit.Spec.Apply(style: copy, document: ctx.Document, key: key)),
         delete: static (ctx, edit) =>
             from _ in guard(!edit.Targets.IsEmpty, ctx.Op.InvalidInput()).ToFin()
@@ -538,17 +518,15 @@ public abstract partial record SectionOp {
                 select index.Value).As()
             from __ in guard(indices.Distinct().Count == indices.Count, ctx.Op.InvalidInput()).ToFin()
             from deleted in ctx.Op.Catch(() => Fin.Succ(value: ctx.Document.SectionStyles.Delete(
-                sectionStyleIndices: indices,
-                quiet: edit.Mode.QuietWrite,
-                deleteWarning: DeleteWarning.For(mode: edit.Mode).Key)))
+                sectionStyleIndices: indices, quiet: edit.Interaction.IsQuiet)))
             from ___ in guard(deleted == indices.Count, ctx.Op.InvalidResult()).ToFin()
             from receipts in indices.TraverseM(index => DraftReceipt.Component(
-                DraftSlot.Deleted, DraftComponentKind.Section, ResourceIndex.Create(index))).As()
-            select receipts.Fold(DraftReceipt.Empty, static (receipt, next) => receipt.Contribute(next)),
+                DraftSlot.Deleted, DraftComponentKind.Section, ResourceIndex.Create(index), ctx.Op)).As()
+            select receipts.Fold(DraftReceipt.Empty, static (receipt, next) => receipt + next),
         import: static (ctx, edit) => ImportFile(
-            document: ctx.Document, path: edit.Path, mode: edit.Mode, op: ctx.Op));
+            document: ctx.Document, path: edit.Path, interaction: edit.Interaction, op: ctx.Op));
 
-    private static Fin<DraftReceipt> ImportFile(RhinoDoc document, DraftPath path, WriteMode mode, Op op) =>
+    private static Fin<DraftReceipt> ImportFile(RhinoDoc document, DraftPath path, HostInteraction interaction, Op op) =>
         from read in op.Catch(() => SectionStyle.ReadFromFile(
                 filename: path.Value, sectionStyles: out SectionStyle[] styles, hatchPatterns: out HatchPattern[] patterns)
             ? Fin.Succ(value: (Styles: toSeq(styles ?? []), Patterns: toSeq(patterns ?? [])))
@@ -561,7 +539,7 @@ public abstract partial record SectionOp {
                 rollback: landed => RollbackPatterns(document: document, landed: landed, op: op))
             .BindFail(primary => Drained(primary: primary, read: read, retained: Retained(plan.Styles), op: op))
         from receipt in ImportSections(
-                document: document, path: path, mode: mode, plan: plan.Styles, patterns: patternFacts, op: op)
+                document: document, path: path, interaction: interaction, plan: plan.Styles, patterns: patternFacts, op: op)
             .BindFail(primary => Drained(primary: primary, read: read, retained: Retained(plan.Styles), op: op))
         from _ in DraftCustody.Release(values: read.Styles + Retained(plan.Styles), op: op)
         from __ in DraftCustody.Release(values: read.Patterns, op: op)
@@ -617,15 +595,15 @@ public abstract partial record SectionOp {
                 .Map(target => new PatternLanding(Source: intent.Source, Target: target, Added: true))));
 
     private static Fin<DraftReceipt> ImportSections(
-        RhinoDoc document, DraftPath path, WriteMode mode,
+        RhinoDoc document, DraftPath path, HostInteraction interaction,
         Seq<SectionIntent> plan, Seq<PatternLanding> patterns, Op op) {
         Fin<Seq<SectionLanding>> landed = DocumentCommit.Compensated(
             source: plan,
-            land: intent => LandSection(document: document, intent: intent, patterns: patterns, mode: mode, op: op),
+            land: intent => LandSection(document: document, intent: intent, patterns: patterns, interaction: interaction, op: op),
             rollback: changes => RollbackSections(document: document, landed: changes, op: op));
         return landed.Match(
             Succ: changes => FinishImport(
-                path: path, changes: changes, patternCount: patterns.Count).Match(
+                path: path, changes: changes, patternCount: patterns.Count, op: op).Match(
                 Succ: static receipt => Fin.Succ(value: receipt),
                 Fail: primary => RollbackImport(
                     document: document, sections: changes, patterns: patterns, op: op).Match(
@@ -637,16 +615,16 @@ public abstract partial record SectionOp {
     }
 
     private static Fin<DraftReceipt> FinishImport(
-        DraftPath path, Seq<SectionLanding> changes, int patternCount) =>
+        DraftPath path, Seq<SectionLanding> changes, int patternCount, Op op) =>
         from sectionReceipts in changes.TraverseM(change => DraftReceipt.Component(
-                    slot: change.Slot, componentKind: DraftComponentKind.Section, index: change.Index)).As()
-        from patternReceipt in DraftReceipt.Tally(slot: DraftSlot.Imported, count: DraftCount.Create(patternCount))
-        from pathReceipt in DraftReceipt.Path(slot: DraftSlot.Imported, path: path)
+                    slot: change.Slot, componentKind: DraftComponentKind.Section, index: change.Index, key: op)).As()
+        from patternReceipt in DraftReceipt.Tally(slot: DraftSlot.Imported, count: DraftCount.Create(patternCount), key: op)
+        from pathReceipt in DraftReceipt.Path(slot: DraftSlot.Imported, path: path, key: op)
         select sectionReceipts.Fold(
-            pathReceipt.Contribute(patternReceipt), static (state, next) => state.Contribute(next));
+            pathReceipt + patternReceipt, static (state, next) => state + next);
 
     private static Fin<SectionLanding> LandSection(
-        RhinoDoc document, SectionIntent intent, Seq<PatternLanding> patterns, WriteMode mode, Op op) =>
+        RhinoDoc document, SectionIntent intent, Seq<PatternLanding> patterns, HostInteraction interaction, Op op) =>
         from hatch in intent.Style.HatchIndex < 0
             ? Fin.Succ(value: intent.Style.HatchIndex)
             : patterns.Find(pattern => pattern.Source == intent.Style.HatchIndex)
@@ -655,7 +633,7 @@ public abstract partial record SectionOp {
         from landed in intent.Existing.Match(
             Some: existing =>
                 from __ in op.Confirm(success: document.SectionStyles.Modify(
-                    sectionstyle: intent.Style, index: existing.Index.Value, quiet: mode.QuietWrite))
+                    sectionstyle: intent.Style, index: existing.Index.Value, quiet: interaction.IsQuiet))
                 select new SectionLanding(
                     Slot: DraftSlot.Amended, Index: existing.Index, Original: Some(existing.Original)),
             None: () => op.Catch(() => ResourceIndex.Admit(document.SectionStyles.Add(sectionstyle: intent.Style), op)
@@ -761,9 +739,8 @@ public abstract partial record SectionAsk {
         from hatchDisplay in style.HatchPatternColor.Admitted(key)
         from hatchPrint in style.HatchPatternPrintColor.Admitted(key)
         from linetype in Optional(style.GetBoundaryLinetype()) is { IsSome: true, Case: Linetype embedded }
-            ? new Lease<Linetype>.Owned(Value: embedded).Use(owned =>
-                key.AcceptText(value: owned.Name).Map(name => Some<SectionStroke>(
-                    new SectionStroke.Embedded(Name: ResourceName.Create(name)))))
+            ? new Lease<Linetype>.Owned(Value: embedded).Use(owned => StrokeDef.Read(linetype: owned, key: key)
+                .Map(static definition => Some<SectionStroke>(new SectionStroke.Embedded(Definition: definition))))
             : style.BoundaryLinetypeIndex >= 0
                 ? ResourceRef.Of(index: style.BoundaryLinetypeIndex)
                     .Map(static address => Some<SectionStroke>(new SectionStroke.Tabled(Source: address)))
@@ -784,15 +761,15 @@ public abstract partial record SectionAsk {
             boundary: style.BoundaryVisible
                 ? new SectionBoundary.Stroke(
                     boundaryDisplay, boundaryPrint,
-                    SectionScale.Create(style.BoundaryWidthScale),
-                    SectionPlotWeight.Create(style.BoundaryPlotWeightMillimeters),
+                    DraftScale.Create(style.BoundaryWidthScale),
+                    DraftWeight.Create(style.BoundaryPlotWeightMillimeters),
                     linetype)
                 : new SectionBoundary.Hidden(),
             hatch: hatch.Match<SectionHatch>(
                 Some: address => new SectionHatch.Pattern(
                     address,
-                    SectionScale.Create(style.HatchScale),
-                    SectionAngle.Create(style.HatchRotationRadians),
+                    DraftScale.Create(style.HatchScale),
+                    DraftAngle.Create(style.HatchRotationRadians),
                     hatchDisplay,
                     hatchPrint),
                 None: static () => new SectionHatch.None()),
@@ -811,10 +788,11 @@ public abstract partial record SectionAnswer : IDetachedDocumentResult {
 public static class Sections {
     public static Fin<DraftReceipt> Commit(DocumentSession session, DraftPlan<SectionOp> plan) =>
         DraftSpine.Commit(session: session, plan: plan,
-            apply: static (document, operation, key) => operation.Apply(document: document, op: key), op: Op.Of());
+            apply: static (document, operation, key) => operation.Apply(document: document, op: key),
+            op: Op.Of(name: nameof(Sections)));
 
     public static Fin<SectionAnswer> Ask(DocumentSession session, SectionAsk request) {
-        Op op = Op.Of();
+        Op op = Op.Of(name: nameof(Sections));
         return from admitted in op.AcceptInput(value: request)
                from answer in session.Demand(
                    use: document => admitted.Answer(document: document, op: op), key: op, needs: [SessionNeed.Read])
@@ -831,8 +809,9 @@ public static class Sections {
 |  [02]   | machine census      | `FaceCensus`      | installed faces, quartet grid, or face names         | `Typefaces.Census`  |
 |  [03]   | document face bind  | `TypefaceOp`      | resolved face probe plus style-table add             | `Typefaces.Commit`  |
 |  [04]   | section composition | `SectionSpec`     | closed fill, boundary, hatch, and rule state         | `Create` / `Apply`  |
-|  [05]   | section mutations   | `SectionOp`       | local/reference author, amend, plural delete, import | `Sections.Commit`   |
-|  [06]   | section evidence    | `SectionSnapshot` | composed spec plus usage and table state             | `Sections.Ask`      |
+|  [05]   | boundary linetype   | `SectionStroke`   | table address or whole embedded definition           | `Resolve`           |
+|  [06]   | section mutations   | `SectionOp`       | local/reference author, amend, plural delete, import | `Sections.Commit`   |
+|  [07]   | section evidence    | `SectionSnapshot` | composed spec plus usage and table state             | `Sections.Ask`      |
 
 ## [07]-[RESEARCH]
 

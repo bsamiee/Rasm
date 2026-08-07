@@ -56,7 +56,7 @@ public abstract partial record Measure {
     public static Measure InertiaProducts(MassKind mass) => new MassPropertyCase(Mass: mass, Property: MassProperty.InertiaProducts);
     internal Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull => Switch(
         lengthCase: static _ => Analyze.Length<TGeometry, TOut>(),
-        spatialMidpointCase: static _ => typeof(TOut) == typeof(Point3d) ? Analyze.SpatialMidpoint<TGeometry, TOut>() : Op.Of(name: "SpatialMidpoint").Unsupported<TGeometry, TOut>(),
+        spatialMidpointCase: static _ => typeof(TOut) == typeof(Point3d) ? Analyze.SpatialMidpoint<TGeometry, TOut>() : Op.Of(name: nameof(SpatialMidpoint)).Unsupported<TGeometry, TOut>(),
         massPropertyCase: static p => Analyze.MassPropertyMeasure<TGeometry, TOut>(mass: p.Mass, property: p.Property));
 }
 
@@ -206,6 +206,9 @@ public readonly record struct GeometryMeasures(
         ValidityClaim.Of(holds: Area.Map(static v => ValidityClaim.Nonnegative(v).Holds).IfNone(noneValue: true)),
         ValidityClaim.Of(holds: Volume.Map(static v => ValidityClaim.Nonnegative(v).Holds).IfNone(noneValue: true)),
         ValidityClaim.Of(holds: Centroid.Map(static p => ValidityClaim.Finite(p).Holds).IfNone(noneValue: true)),
+        ValidityClaim.Of(holds: Radii.Map(static v => ValidityClaim.Finite(v).Holds).IfNone(noneValue: true)),
+        ValidityClaim.Of(holds: Inertia.Map(static v => ValidityClaim.Finite(v).Holds).IfNone(noneValue: true)),
+        ValidityClaim.Of(holds: InertiaProducts.Map(static v => ValidityClaim.Finite(v).Holds).IfNone(noneValue: true)),
         ValidityClaim.Of(holds: PrincipalFrame.Map(static f => f.IsValid).IfNone(noneValue: true)));
 
     // ONE leased handle answers every property: KindOf resolves the solid-aware domain, the aggregate fold computes

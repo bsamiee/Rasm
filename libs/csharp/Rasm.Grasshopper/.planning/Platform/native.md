@@ -207,7 +207,7 @@ public sealed record WorkspaceFact(AccessibilityPosture Posture, PaceBounds Pace
 // --- [SERVICES] -----------------------------------------------------------------------------
 internal static partial class NativeLog {
     [LoggerMessage(EventId = 4705, Level = LogLevel.Error, Message = "Native lease faulted: {Detail}")]
-    internal static partial void LeaseFault(ILogger logger, string detail);
+    internal static partial void LeaseFault(ILogger logger, [UserContent] string detail);
 }
 
 public abstract class UiNativeLease : IDisposable {
@@ -301,7 +301,7 @@ public sealed class PressureBinding : UiNativeLease {
 
     protected override Fin<Unit> ReleaseOnUi(Op key) => ReleaseAll(
         key: key,
-        () => view.PressureConfiguration = prior.MatchUnsafe(Some: static active => active, None: static () => null!),
+        () => view.PressureConfiguration = prior.Match<NSPressureConfiguration>(Some: static active => active, None: static () => null!),
         configuration.Dispose);
 }
 
@@ -436,7 +436,7 @@ public static class NativeSeam {
                from view in op.Need(anchor).Map(static active => active.View)
                from projected in EtoDispatch.Run(body: () => op.Catch(body: () => Fin.Succ(view.ConvertPointFromView(
                    point: point,
-                   view: source.MatchUnsafe(Some: static origin => origin, None: static () => null!)))), key: op)
+                   view: source.Match<NSView>(Some: static origin => origin, None: static () => null!)))), key: op)
                select projected;
     }
 

@@ -124,7 +124,7 @@ public static class CommitGraph {
         sink.Advance(4);
         foreach (UInt128 key in sortedOpKeys) { BinaryPrimitives.WriteUInt128LittleEndian(sink.GetSpan(16), key); sink.Advance(16); }
         Framed(sink, branch);
-        Seq<(Guid Key, long Value)> slots = toSeq(vector.Slots.OrderBy(static slot => slot.Key.ToString("N"), StringComparer.Ordinal).Select(static slot => (slot.Key, slot.Value)));
+        Seq<(Guid Key, long Value)> slots = toSeq(vector.Slots.AsIterable().OrderBy(static slot => slot.Key.ToString("N"), StringComparer.Ordinal).Select(static slot => (slot.Key, slot.Value)));
         BinaryPrimitives.WriteInt32LittleEndian(sink.GetSpan(4), slots.Count);
         sink.Advance(4);
         foreach ((Guid key, long value) in slots) {
@@ -367,7 +367,7 @@ public static class Crdt {
 
     public static long Value(CrdtField.PnCounter counter) => counter.Origins.Values.Sum(static origin => origin.Positive - origin.Negative);
     public static Seq<ReadOnlyMemory<byte>> Materialize(CrdtField.RgaSequence seq) => seq.Cells.Filter(static c => !c.Tombstone).Map(static c => c.Value);
-    public static Seq<(Guid Origin, ReadOnlyMemory<byte> State)> Live(CrdtField.EphemeralMap map) => toSeq(map.Live.Map(static (o, s) => (o, s.State)));
+    public static Seq<(Guid Origin, ReadOnlyMemory<byte> State)> Live(CrdtField.EphemeralMap map) => toSeq(map.Live.Map(static (o, s) => (o, s.State)).Values);
 
     static Seq<(ReadOnlyMemory<byte> Value, VersionVector Context, Hlc Cell)> AntiChain(Seq<(ReadOnlyMemory<byte> Value, VersionVector Context, Hlc Cell)> values) =>
         toSeq(values.Distinct()).Filter(c => !values.Exists(o => !o.Context.Equals(c.Context) && o.Context.Dominates(c.Context)));
@@ -607,7 +607,7 @@ public static class ContentParityCorpus {
             static (corpus, vector) => corpus.AddOrUpdate(vector.Slot, vector));
 
     public static Validation<Error, Unit> Reconcile(HashMap<ParitySlot, ParityVector> local, HashMap<ParitySlot, ParityVector> golden) =>
-        toSeq(golden).Traverse(slot => local.Find(slot.Key) is { IsSome: true, Case: ParityVector held } && held.Holds(slot.Value)
+        toSeq(golden.AsIterable()).Traverse(slot => local.Find(slot.Key) is { IsSome: true, Case: ParityVector held } && held.Holds(slot.Value)
             ? Validation<Error, Unit>.Success(unit)
             : Validation<Error, Unit>.Fail(new CommitFault.ParityDrift(slot.Key.Key, slot.Value.Slot.Producer))).As().Map(static _ => unit);
 }

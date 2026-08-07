@@ -19,6 +19,7 @@
 - Law: both whole-object grade writes answer the RESULTING state, not a change flag — the host returns "the object is now highlighted", so a highlight guard compares the return against the requested signal directly, while `SelectSubObject` returns a count the selection path discards before re-reading `IsSubObjectSelected`. The asymmetry is the host's and each path reads its own member's contract.
 - Law: `CommitChanges` never appears — the host member answers `true` only when a staged working copy actually flushed, and this package stages nothing on the live object: attribute writes travel `TableOp.Amend`, mode and visibility travel `TableOp.State`, geometry travels `TableOp.Replace`; the snapshot is the read face of that one-write-path law.
 - Law: history linkage is one snapshot bool — `HistoryBound` carries `HasHistoryRecord()` as presence evidence, and every linkage read or mutation lives on the history page's `Chronicle`.
+- Law: the snapshot carries no open discriminant. `ObjectType` decomposes through `ObjectKinds.OfMask` because a host row's type word is a MASK, `ActiveSpace` and `ObjectMaterialSource` read their spine and attribute owners, the layer index takes `ResourceIndex.Admit` and the material index takes `ResourceIndex.Maybe` — a live object always holds a layer, while the host's `-1` material spells the ordinary by-layer absence — and the closed-status integer takes the `ClosedStatus` rows — so no consumer re-derives a host contract from a bare number and an unmapped value refuses at the read.
 - Growth: a new host object fact is one snapshot field read in the same pass; a named native grade enters only after its values verify.
 
 ```csharp signature
@@ -41,11 +42,6 @@ public sealed partial class HighlightGrade {
     public static readonly HighlightGrade None = new(key: 0);
     public static readonly HighlightGrade Whole = new(key: 1);
     public static readonly HighlightGrade Parts = new(key: 3);
-
-    internal static Fin<HighlightGrade> Of(int native, Op key) =>
-        TryGet(native, out HighlightGrade? grade) && grade is not null
-            ? Fin.Succ(grade)
-            : Fin.Fail<HighlightGrade>(key.InvalidResult(detail: native.ToString()));
 }
 
 public sealed record HighlightState {
@@ -56,7 +52,7 @@ public sealed record HighlightState {
     public Seq<ComponentIndex> Components { get; }
 
     internal static Fin<HighlightState> Of(RhinoObject native, Op key) =>
-        HighlightGrade.Of(native.IsHighlighted(checkSubObjects: true), key)
+        key.Row<int, HighlightGrade>(native.IsHighlighted(checkSubObjects: true))
             .Map(grade => new HighlightState(
                 grade: grade,
                 components: Optional(native.GetHighlightedSubObjects())
@@ -68,22 +64,27 @@ public sealed partial class SelectionGrade {
     public static readonly SelectionGrade None = new(key: 0);
     public static readonly SelectionGrade Selected = new(key: 1);
     public static readonly SelectionGrade Persistent = new(key: 2);
+}
 
-    internal static Fin<SelectionGrade> Of(int native, Op key) =>
-        TryGet(native, out SelectionGrade? grade) && grade is not null
-            ? Fin.Succ(grade)
-            : Fin.Fail<SelectionGrade>(key.InvalidResult(detail: native.ToString()));
+// The host's own three-valued closed-status contract behind `ShortDescriptionWithClosedStatus`. A bare int
+// published a number whose meaning lived in the host's documentation and nowhere in the type, so a consumer
+// comparing it re-derived the contract at every read; an unmapped value now refuses instead of propagating.
+[SmartEnum<int>]
+public sealed partial class ClosedStatus {
+    public static readonly ClosedStatus NotApplicable = new(key: 0);
+    public static readonly ClosedStatus Open = new(key: 1);
+    public static readonly ClosedStatus Closed = new(key: 2);
 }
 
 public sealed record ObjectSnapshot(
     Guid Id,
     uint Serial,
     Option<string> Name,
-    ObjectType Kind,
-    ActiveSpace Space,
-    int Layer,
-    int Material,
-    ObjectMaterialSource MaterialSource,
+    ObjectKinds Kind,
+    ActiveSpaceUse Space,
+    ResourceIndex Layer,
+    Option<ResourceIndex> Material,
+    MaterialOrigin MaterialSource,
     bool Normal,
     bool Locked,
     bool Hidden,
@@ -108,22 +109,28 @@ public sealed record ObjectSnapshot(
     uint MemoryBytes,
     string Description,
     string ClosedDescription,
-    int ClosedStatus) : IDetachedDocumentResult {
+    ClosedStatus ClosedStatus) : IDetachedDocumentResult {
     internal static Fin<ObjectSnapshot> Of(RhinoObject native, Op key) =>
-        from grade in key.Catch(() => SelectionGrade.Of(native.IsSelected(checkSubObjects: true), key))
+        from grade in key.Catch(() => key.Row<int, SelectionGrade>(native.IsSelected(checkSubObjects: true)))
         from closed in key.Catch(() => Fin.Succ(value: (
             Text: native.ShortDescriptionWithClosedStatus(prepend: false, plural: false, status: out int status),
             Status: status)))
+        from closure in key.Row<int, ClosedStatus>(closed.Status)
+        // The type flag is a MASK — a host row can carry more than one bit — so it decomposes through the spine's
+        // `ObjectKinds.OfMask` rather than a single-row lookup that would pick one bit and drop every other.
+        from kind in ObjectKinds.OfMask(mask: native.ObjectType, key: key)
+        from layer in ResourceIndex.Admit(value: native.Attributes.LayerIndex, key: key)
+        let material = ResourceIndex.Maybe(value: native.Attributes.MaterialIndex)
         from highlight in key.Catch(() => HighlightState.Of(native: native, key: key))
         from snapshot in key.Catch(() => Fin.Succ(value: new ObjectSnapshot(
             Id: native.Id,
             Serial: native.RuntimeSerialNumber,
-            Name: Optional(native.Name).Filter(static text => text.Length > 0),
-            Kind: native.ObjectType,
-            Space: native.Attributes.Space,
-            Layer: native.Attributes.LayerIndex,
-            Material: native.Attributes.MaterialIndex,
-            MaterialSource: native.Attributes.MaterialSource,
+            Name: Op.Text(native.Name),
+            Kind: kind,
+            Space: ActiveSpaceUse.Get(key: native.Attributes.Space),
+            Layer: layer,
+            Material: material,
+            MaterialSource: MaterialOrigin.Get(key: native.Attributes.MaterialSource),
             Normal: native.IsNormal,
             Locked: native.IsLocked,
             Hidden: native.IsHidden,
@@ -148,7 +155,7 @@ public sealed record ObjectSnapshot(
             MemoryBytes: native.MemoryEstimate(),
             Description: native.ShortDescription(plural: false),
             ClosedDescription: closed.Text,
-            ClosedStatus: closed.Status)))
+            ClosedStatus: closure)))
         select snapshot;
 }
 ```
@@ -288,7 +295,7 @@ public abstract partial record Touch {
     private Fin<TouchState> Capture(RhinoObject native, Op key) {
         Touch self = this;
         return key.Catch(() =>
-            from selection in SelectionGrade.Of(native.IsSelected(checkSubObjects: true), key)
+            from selection in key.Row<int, SelectionGrade>(native.IsSelected(checkSubObjects: true))
             from _ in self.Switch(
                 (Native: native, Op: key),
                 selectCase: static (context, touch) => touch.Scope.Roster
@@ -308,11 +315,12 @@ public abstract partial record Touch {
                 Highlight: highlight));
     }
 
+    // `TraverseM` IS the fold-then-bind this hand-rolled: it short-circuits on the first refusal and accumulates
+    // in order, and spelling it out invites the accumulator and the rail to drift apart on the next edit.
     private Fin<Seq<TouchResult>> ApplyCaptured(Seq<TouchState> states, Op key) {
-        Fin<Seq<TouchResult>> primary = states.Fold(
-            Fin.Succ(value: Seq<TouchResult>()),
-            (flow, state) => flow.Bind(results => Apply(native: state.Native, key: key)
-                .Map(result => results.Add(value: result))));
+        Fin<Seq<TouchResult>> primary = states
+            .TraverseM(state => Apply(native: state.Native, key: key))
+            .As();
         return primary.BindFail(failure => Restore(states: states, key: key).Match(
             Succ: _ => Fin.Fail<Seq<TouchResult>>(error: failure),
             Fail: cleanup => Fin.Fail<Seq<TouchResult>>(error: failure + cleanup)));
@@ -324,7 +332,7 @@ public abstract partial record Touch {
             selectCase: static (context, touch) => touch.Scope switch {
                 Reach.EveryPart => context.Op.Catch(() => {
                     _ = context.Native.UnselectAllSubObjects();
-                    return SelectionGrade.Of(context.Native.IsSelected(checkSubObjects: true), context.Op)
+                    return context.Op.Row<int, SelectionGrade>(context.Native.IsSelected(checkSubObjects: true))
                         .Map(grade => (TouchResult)new TouchResult.Selected(Id: context.Native.Id, Grade: grade));
                 }),
                 var scoped => scoped.Roster.TraverseM(component => context.Op.Catch(() => {
@@ -337,7 +345,7 @@ public abstract partial record Touch {
                             context.Native.IsSubObjectSelected(componentIndex: component) == touch.Signal.On,
                             context.Op.InvalidResult()).ToFin();
                     })).As()
-                    .Bind(_ => SelectionGrade.Of(context.Native.IsSelected(checkSubObjects: true), context.Op))
+                    .Bind(_ => context.Op.Row<int, SelectionGrade>(context.Native.IsSelected(checkSubObjects: true)))
                     .Map(grade => (TouchResult)new TouchResult.Selected(Id: context.Native.Id, Grade: grade)),
             },
             highlightCase: static (context, touch) => touch.Scope switch {
@@ -407,6 +415,8 @@ public sealed partial class ObjectSignal {
     public static readonly ObjectSignal Enabled = new(on: true);
 
     internal bool On { get; }
+
+    internal static ObjectSignal Of(bool on) => on ? Enabled : Disabled;
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -479,16 +489,19 @@ public abstract partial record SectionCut {
             fillCase: static (context, cut) =>
                 from planes in cut.ClippingPlanes.TraverseM(id =>
                     Optional(context.Document.Objects.FindId(id)).ToFin(Fail: context.Op.MissingContext())
-                        .Bind(found => Optional(found as ClippingPlaneObject).ToFin(Fail: context.Op.InvalidInput()))).As()
+                        .Bind(found => context.Op.Need(found as ClippingPlaneObject))).As()
                 from pieces in context.Op.Catch(() => Paired(
                     geometry: RhinoObject.GetFillSurfaces(
                         rhinoObject: context.Native, clippingPlaneObjects: planes.AsIterable(), unclippedFills: cut.Unclipped.On),
                     attributes: null, key: context.Op))
                 select pieces);
 
+    // `.Strict()` is LOAD-BEARING, not tidiness: `toSeq` over a host array is lazy, the fold below duplicates
+    // each shape into a piece, and `Release` disposes the source arrays on the way out — so a lazy sequence still
+    // holding the array would enumerate disposed natives. Forcing the run before the release closes that window.
     private static Fin<Seq<ObjectPiece>> Paired(GeometryBase[]? geometry, ObjectAttributes[]? attributes, Op key) {
         Fin<Seq<ObjectPiece>> result =
-            from shapes in Optional(geometry).ToFin(Fail: key.InvalidResult()).Map(static values => toSeq(values))
+            from shapes in Optional(geometry).ToFin(Fail: key.InvalidResult()).Map(static values => toSeq(values).Strict())
             from _ in guard(attributes is null || attributes.Length == shapes.Count, key.InvalidResult()).ToFin()
             from pieces in ObjectPiece.DetachAll(
                 rows: shapes.Map((shape, index) => (shape, Optional(attributes).Bind(paired => Optional(paired[index])))),
@@ -586,6 +599,7 @@ public sealed class ObjectPiece : IDisposable {
 - Boundary: visual-analysis attachment — `EnableVisualAnalysisMode`, its active-mode queries, and the `AnalysisModeChanged` static event — is the display page's analysis-mode extension; this window carries no analysis case and composes that seam's receipts where an ask needs the fact.
 - Owner: `DocumentCensus` is the one analytics-ready document receipt — object counts by kind and space, lifecycle and annotation tallies, memory total, layer-tree shape from `Layers.Ask`, per-layer and per-material usage histograms with material-source distribution from the attribute anchors, block-closure metrics from `BlockGraph.Ask` (definition count, placement count with completeness evidence, cycle groups), and on-disk archive size from the document path — every dimension detached, so the analytics egress lands one stable shape into the data plane and no consumer walks live tables.
 - Law: the census composes owners, never re-measures — one outer `DocumentSession.Demand` retains the session gate and host stack from the first `Objects.Ask` through `Layers.Ask` and every `BlockGraph.Ask`. Re-entrancy is the session owner's declared contract, not this page's assumption: `Demand` is re-entrant on the demanding thread through its reentrant lock plus demand-depth counter, each nesting proving its own grants against its own fresh snapshot, so every nested owner read re-enters the same pinned document grant and no sibling session operation can interleave. Object rows come from the canonical snapshot window, the layer dimension is the `LayerTree` the layers page already mints, the block dimension is three `BlockGraphAsk` questions over `GraphSource.Live`, and usage histograms fold through the one-pass `CountBy` keyed reduction. Archive extent opens the candidate once and reads length from that handle; an unsaved or concurrently removed path projects absence, while directory and access refusals stay failures. `Objects/authoring.md` projects the receipt through the `rhino.census` instrument rows at the app root.
+- Law: the census builds the block topology ONCE. Three separate `GraphSource.Live` values made the graph owner rebuild the same definition graph three times over one pinned grant, and the three answers could disagree if a definition moved between builds — a census reporting a placement count from one topology beside a cycle count from another. One source value, three questions.
 - Growth: a new read is one ask case with its answer case; a new census dimension is one `DocumentCensus` field folded from an existing owner; the dispatch, the entries, and every consumer read it with zero new surface.
 
 ```csharp signature
@@ -628,7 +642,11 @@ public abstract partial record StateAnswer : IDetachedDocumentResult, IDisposabl
     public sealed record PartRoster(Seq<(Guid Id, Seq<ComponentIndex> Components)> Rows) : StateAnswer;
     public sealed record ComponentStates(Seq<ComponentState> Rows) : StateAnswer;
     public sealed record Extent(BoundingBox Bounds) : StateAnswer;
-    public sealed record Pieces(Seq<(Guid Id, Seq<ObjectPiece> Products)> Rows) : StateAnswer;
+    // Members and cuts BOTH answer detached pieces and had one case, so a consumer holding the answer could not
+    // tell an object exploded into its members from an object sectioned against a plane — two questions whose
+    // products carry different meaning and whose callers do different things with them.
+    public sealed record Members(Seq<(Guid Id, Seq<ObjectPiece> Products)> Rows) : StateAnswer;
+    public sealed record Sections(Seq<(Guid Id, Seq<ObjectPiece> Products)> Rows) : StateAnswer;
 
     public void Dispose() =>
         Switch(
@@ -637,39 +655,90 @@ public abstract partial record StateAnswer : IDetachedDocumentResult, IDisposabl
             partRoster: static _ => unit,
             componentStates: static _ => unit,
             extent: static _ => unit,
-            pieces: static answer => ObjectPiece.Release(answer.Rows));
+            members: static answer => ObjectPiece.Release(answer.Rows),
+            sections: static answer => ObjectPiece.Release(answer.Rows));
 }
 
-public readonly record struct ComponentState(
-    Guid Id,
-    ComponentIndex Component,
-    bool Selected,
-    bool Selectable,
-    bool SelectableIgnoringSelection,
-    bool Highlighted);
+// Both carriers were bare positional records: nothing refused an empty id, a `-1` component on a named type, a
+// blank path, or a negative byte count, so a malformed row could enter a census and no reader could tell.
+[ComplexValueObject]
+public sealed partial class ComponentState {
+    public Guid Id { get; }
+    public ComponentIndex Component { get; }
+    public bool Selected { get; }
+    public bool Selectable { get; }
+    public bool SelectableIgnoringSelection { get; }
+    public bool Highlighted { get; }
 
-public sealed record ArchiveExtent(string Path, long Bytes);
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref Guid id,
+        ref ComponentIndex component,
+        ref bool selected,
+        ref bool selectable,
+        ref bool selectableIgnoringSelection,
+        ref bool highlighted) =>
+        validationError = id != Guid.Empty
+            && component is { ComponentIndexType: ComponentIndexType.InvalidType, Index: -1 }
+                or { ComponentIndexType: not ComponentIndexType.InvalidType, Index: >= 0 }
+            ? validationError
+            : new ValidationError(message: "component state identity is incomplete");
+
+    internal static Fin<ComponentState> Of(
+        Guid id,
+        ComponentIndex component,
+        bool selected,
+        bool selectable,
+        bool selectableIgnoringSelection,
+        bool highlighted,
+        Op key) =>
+        Admission.Admitted(
+            fault: Validate(
+                id, component, selected, selectable, selectableIgnoringSelection, highlighted,
+                out ComponentState? admitted),
+            value: admitted,
+            refusal: key.InvalidResult());
+}
+
+[ComplexValueObject]
+public sealed partial class ArchiveExtent {
+    public DocumentPath Path { get; }
+    public long Bytes { get; }
+
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref DocumentPath path,
+        ref long bytes) =>
+        validationError = path != default && bytes >= 0L
+            ? validationError
+            : new ValidationError(message: "archive extent is invalid");
+}
 
 public sealed record DocumentCensus(
-    Seq<(ObjectType Kind, int Count)> Kinds,
-    Seq<(ActiveSpace Space, int Count)> Spaces,
+    Seq<(ObjectKinds Kind, int Count)> Kinds,
+    Seq<(ActiveSpaceUse Space, int Count)> Spaces,
     int Hidden,
     int Locked,
     int Annotations,
     ulong MemoryBytes,
     int LayerCount,
     int LayerDepth,
-    Seq<(int Layer, int Count)> LayerUsage,
-    Seq<(int Material, int Count)> MaterialUsage,
-    Seq<(ObjectMaterialSource Source, int Count)> MaterialSources,
+    Seq<(ResourceIndex Layer, int Count)> LayerUsage,
+    Seq<(ResourceIndex Material, int Count)> MaterialUsage,
+    Seq<(MaterialOrigin Source, int Count)> MaterialSources,
     int BlockDefinitions,
     int BlockPlacements,
     bool BlockEvidenceComplete,
     int BlockCycleGroups,
     Option<ArchiveExtent> Archive) : IDetachedDocumentResult;
 
-public readonly record struct ObjectReceipt<TFact>(Seq<TFact> Facts, Seq<uint> UndoSerials) : IDetachedDocumentResult {
-    public static readonly ObjectReceipt<TFact> Empty = new(Facts: Seq<TFact>(), UndoSerials: Seq<uint>());
+// The undo column takes the spine's own scalar: a raw `uint` admits `0`, which is exactly what `UndoBracket`
+// answers for a program that opened no record, so an unrecorded commit could publish a receipt claiming record
+// zero and no reader could tell it from a real serial.
+public readonly record struct ObjectReceipt<TFact>(Seq<TFact> Facts, Seq<UndoSerial> UndoSerials) : IDetachedDocumentResult {
+    public static readonly ObjectReceipt<TFact> Empty = new(Facts: Seq<TFact>(), UndoSerials: Seq<UndoSerial>());
 
     public ObjectReceipt<TFact> Contribute(ObjectReceipt<TFact> contribution) =>
         new(Facts: Facts + contribution.Facts, UndoSerials: UndoSerials + contribution.UndoSerials);
@@ -696,25 +765,35 @@ public static class Objects {
                                .TraverseM(native => ctx.Op.Catch(() =>
                                    Fin.Succ(value: (native.Id, ask.Frame.Read(native: native))))).As()
                                .Map(static rows => (StateAnswer)new StateAnswer.Posed(Rows: rows)),
+                           // Both roster reads answer `null` for an object carrying no components, so both fold
+                           // absence to the empty roster the way `HighlightState` already does; bare `toSeq` over
+                           // the selected reader was the one site that would have thrown on that answer.
                            selectedParts: static (ctx, _) => ctx.Natives
-                               .TraverseM(native => ctx.Op.Catch(() =>
-                                   Fin.Succ(value: (native.Id, toSeq(native.GetSelectedSubObjects()))))).As()
+                               .TraverseM(native => ctx.Op.Catch(() => Fin.Succ(value: (
+                                   native.Id,
+                                   Optional(native.GetSelectedSubObjects())
+                                       .Map(static rows => toSeq(rows))
+                                       .IfNone(Seq<ComponentIndex>()))))).As()
                                .Map(static rows => (StateAnswer)new StateAnswer.PartRoster(Rows: rows)),
                            highlightedParts: static (ctx, _) => ctx.Natives
-                               .TraverseM(native => ctx.Op.Catch(() =>
-                                   Fin.Succ(value: (native.Id, toSeq(native.GetHighlightedSubObjects()))))).As()
+                               .TraverseM(native => ctx.Op.Catch(() => Fin.Succ(value: (
+                                   native.Id,
+                                   Optional(native.GetHighlightedSubObjects())
+                                       .Map(static rows => toSeq(rows))
+                                       .IfNone(Seq<ComponentIndex>()))))).As()
                                .Map(static rows => (StateAnswer)new StateAnswer.PartRoster(Rows: rows)),
                            components: static (ctx, ask) => ctx.Natives
                                .Bind(native => ask.Scope.Roster.Map(component => (Native: native, Component: component)))
-                               .TraverseM(row => ctx.Op.Catch(() => Fin.Succ(value: new ComponentState(
-                                   Id: row.Native.Id,
-                                   Component: row.Component,
-                                   Selected: row.Native.IsSubObjectSelected(componentIndex: row.Component),
-                                   Selectable: row.Native.IsSubObjectSelectable(
+                               .TraverseM(row => ctx.Op.Catch(() => ComponentState.Of(
+                                   id: row.Native.Id,
+                                   component: row.Component,
+                                   selected: row.Native.IsSubObjectSelected(componentIndex: row.Component),
+                                   selectable: row.Native.IsSubObjectSelectable(
                                        componentIndex: row.Component, ignoreSelectionState: false),
-                                   SelectableIgnoringSelection: row.Native.IsSubObjectSelectable(
+                                   selectableIgnoringSelection: row.Native.IsSubObjectSelectable(
                                        componentIndex: row.Component, ignoreSelectionState: true),
-                                   Highlighted: row.Native.IsSubObjectHighlighted(componentIndex: row.Component))))).As()
+                                   highlighted: row.Native.IsSubObjectHighlighted(componentIndex: row.Component),
+                                   key: ctx.Op))).As()
                                .Map(static rows => (StateAnswer)new StateAnswer.ComponentStates(Rows: rows)),
                            extent: static (ctx, ask) => ctx.Op.Catch(() => {
                                BoundingBox bounds = BoundingBox.Unset;
@@ -733,12 +812,12 @@ public static class Objects {
                                detach: native => ctx.Op.Catch(() =>
                                    Optional(native.GetSubObjects()).ToFin(Fail: ctx.Op.InvalidResult())
                                        .Bind(parts => DetachMembers(members: parts, key: ctx.Op))))
-                               .Map(static rows => (StateAnswer)new StateAnswer.Pieces(Rows: rows)),
+                               .Map(static rows => (StateAnswer)new StateAnswer.Members(Rows: rows)),
                            cut: static (ctx, ask) => ObjectPiece.Acquire(
                                natives: ctx.Natives,
                                detach: native => ask.Section.Extract(
                                    document: ctx.Document, native: native, key: ctx.Op))
-                               .Map(static rows => (StateAnswer)new StateAnswer.Pieces(Rows: rows)))
+                               .Map(static rows => (StateAnswer)new StateAnswer.Sections(Rows: rows)))
                        select folded,
                    key: op,
                    needs: [SessionNeed.Read])
@@ -752,7 +831,7 @@ public static class Objects {
                    use: document =>
                        from natives in Resolve(document: document, target: target, key: op)
                        from results in active.Transact(natives: natives, key: op)
-                       select new ObjectReceipt<TouchResult>(Facts: results, UndoSerials: Seq<uint>()),
+                       select new ObjectReceipt<TouchResult>(Facts: results, UndoSerials: Seq<UndoSerial>()),
                    key: op,
                    needs: [SessionNeed.Mutate])
                select receipt;
@@ -775,23 +854,22 @@ public static class Objects {
                from usage in answer is StateAnswer.States states
                    ? Fin.Succ(value: states.Rows.Strict())
                    : Fin.Fail<Seq<ObjectSnapshot>>(error: op.InvalidResult())
-               from path in op.Catch(() => Fin.Succ(value: Optional(document.Path).Filter(static value => value.Length > 0)))
+               from path in op.Catch(() => Fin.Succ(value: Op.Text(document.Path)))
                from tree in Layers.Ask(session: session, key: op)
-               from definitions in BlockGraph.Ask(
-                       source: new GraphSource.Live(Session: session),
-                       question: new BlockGraphAsk.Definitions())
+               // ONE graph source, three questions against it. Three separate `GraphSource.Live` values made the
+               // graph page build the definition topology three times over the same pinned grant, and — worse —
+               // the three answers could disagree if a definition changed between builds, so the census could
+               // report a placement count from one topology and a cycle count from another.
+               let topology = new GraphSource.Live(Session: session)
+               from definitions in BlockGraph.Ask(source: topology, question: new BlockGraphAsk.Definitions())
                    .Bind(answer => answer is BlockGraphAnswer.Nodes nodes
                        ? Fin.Succ(value: nodes.Values.Count)
                        : Fin.Fail<int>(error: op.InvalidResult()))
-               from placed in BlockGraph.Ask(
-                       source: new GraphSource.Live(Session: session),
-                       question: new BlockGraphAsk.Placed())
+               from placed in BlockGraph.Ask(source: topology, question: new BlockGraphAsk.Placed())
                    .Bind(answer => answer is BlockGraphAnswer.Placements placements
                        ? Fin.Succ(value: (Count: placements.Values.Count, Complete: placements.Evidence.IsComplete))
                        : Fin.Fail<(int, bool)>(error: op.InvalidResult()))
-               from cycles in BlockGraph.Ask(
-                       source: new GraphSource.Live(Session: session),
-                       question: new BlockGraphAsk.Condensation())
+               from cycles in BlockGraph.Ask(source: topology, question: new BlockGraphAsk.Condensation())
                    .Bind(answer => answer is BlockGraphAnswer.Condensed condensed
                        ? Fin.Succ(value: condensed.Components.Filter(static component => component.Count > 1).Count)
                        : Fin.Fail<int>(error: op.InvalidResult()))
@@ -805,7 +883,7 @@ public static class Objects {
                        .Select(static pair => (pair.Key, pair.Value))),
                    Hidden: usage.Filter(static row => row.Hidden).Count,
                    Locked: usage.Filter(static row => row.Locked).Count,
-                   Annotations: usage.Filter(static row => row.Kind == ObjectType.Annotation).Count,
+                   Annotations: usage.Filter(static row => row.Kind.Values.Contains(ObjectKind.Annotation)).Count,
                    MemoryBytes: usage.Fold(0UL, static (sum, row) => sum + row.MemoryBytes),
                    LayerCount: tree.Count,
                    LayerDepth: Depth(nodes: tree.Roots),
@@ -822,15 +900,19 @@ public static class Objects {
                    Archive: archive);
 
     private static Fin<Option<ArchiveExtent>> OpenArchive(string path, Op op) =>
-        op.Catch(() => {
-            using Microsoft.Win32.SafeHandles.SafeFileHandle handle = System.IO.File.OpenHandle(path: path);
-            return Fin.Succ(value: Some(new ArchiveExtent(
-                Path: path,
-                Bytes: System.IO.RandomAccess.GetLength(handle: handle))));
-        }).BindFail(static error =>
+        op.Catch(() => from admitted in DocumentPath.Of(value: path, key: op)
+                       from extent in Fin.Succ(value: OpenLength(path: path))
+                       select Some(ArchiveExtent.Create(path: admitted, bytes: extent)))
+            .BindFail(static error =>
             error.Exception.Case is System.IO.FileNotFoundException or System.IO.DirectoryNotFoundException
                 ? Fin.Succ(Option<ArchiveExtent>.None)
                 : Fin.Fail<Option<ArchiveExtent>>(error));
+
+    // Exemption: the handle bracket is the platform-forced disposal seam the length read needs.
+    private static long OpenLength(string path) {
+        using Microsoft.Win32.SafeHandles.SafeFileHandle handle = System.IO.File.OpenHandle(path: path);
+        return System.IO.RandomAccess.GetLength(handle: handle);
+    }
 
     private static int Depth(Seq<LayerNode> nodes) =>
         nodes.IsEmpty ? 0 : 1 + nodes.Map(static node => Depth(nodes: node.Children)).Fold(0, Math.Max);
@@ -863,9 +945,9 @@ internal static class ObjectSpine {
                 recordsUndo: recordsUndo,
                 redraw: redraw,
                 run: () => fold(document, op)
-                    .Map(static facts => new ObjectReceipt<TFact>(Facts: facts, UndoSerials: Seq<uint>())),
+                    .Map(static facts => new ObjectReceipt<TFact>(Facts: facts, UndoSerials: Seq<UndoSerial>())),
                 stamp: static (receipt, serial) => receipt with {
-                    UndoSerials = serial > 0u ? Seq(serial) : Seq<uint>(),
+                    UndoSerials = UndoSerial.Maybe(value: serial).Map(Seq).IfNone(Seq<UndoSerial>()),
                 },
                 op: op),
             key: op,

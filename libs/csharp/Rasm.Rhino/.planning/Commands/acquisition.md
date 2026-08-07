@@ -2,12 +2,57 @@
 
 `Acquisition.Get` interprets one admitted `Acquire` value inside a document acquire grant. Custom getters, options, point callbacks, modal routes, and native references remain scoped to that window; egress is one detached `AcquiredReceipt`.
 
-## [01]-[PAYLOAD]
+## [01]-[INDEX]
+
+- [02]-[PAYLOAD]: `Acquired`, `AcquireTerminal`, `AcquiredReceipt`, and the `ISlotted`/`Slots` one-per-slot contract every rule family on the page composes.
+- [03]-[ACCEPTANCE]: `AcceptGate`, `AcceptRule`, and `AcceptPlan` — the parameterless accept calls, the gated modalities, and the terminal-derived widening.
+- [04]-[POINT_ALGEBRA]: `PointConstraint`, `PointGate`, `PointerShape`, `SnapBarAxis`, `PointRule`, `PointerKey`, `PointFeedback`, `PointerFact`, and `PointPlan`.
+- [05]-[REQUEST]: `TextMeaning`, `PromptCase`, `ObjectRule`/`ObjectPlan`, `DragPlan`, `ShapeAsk`, `FileAsk`, `ModalInput`, `AcquireIntent`, `InputDefault`, `ViewportFact`, and `Acquire`.
+- [06]-[DRIVE]: `Acquisition.Probe`/`Get` and the `GetterDrive` option-cycle fold.
+- [07]-[CALLBACK_BOUNDARY]: `DragBuffer`, `PointFeedbackLease`, and `TransformGetter`.
+- [08]-[BOUNDARY]: the modality, custody, and unit-identity carves.
+- [09]-[RESEARCH]: open verification rows.
+
+## [02]-[PAYLOAD]
 
 `Acquired` closes interactive, screen-space, scalar, object, geometry, view, transform, and file payloads. `AcquireTerminal` preserves every non-fault control terminal, including native timeout. `DragEvidence` detaches the drag buffer's object, grip, and owner census with its measured extent and applied-pose count, so the host buffer itself dies inside the drive.
 
+`Acquired.Distance` pairs its magnitude with the kernel `ModelUnit` read off the document at parse time — the pairing `Document/session.md`'s `UnitText.LengthValueCase` already detaches on. Receipts outlive their acquire window, so a `UnitRegime` change between acquisition and use re-reads a bare magnitude in a regime that no longer produced it; consumers re-entering the value rescale through `ModelUnit.ScaleTo`, the branch's one scale owner.
+
+`Acquired.Angle` carries no regime: radians ARE the canonical measure its name spells, `AngleGrammar` owns the degree/radian dialect on the TEXT side alone, and a regime column there names a fact no document holds.
+
+`Acquired.Paint` carries the kernel `PerceptualColor`, admitted through `Slots.Shade` at the getter seam and quantized back through `Slots.Rgb` at the two write seams. `Acquired.ScreenPoint` keeps `System.Drawing.Point` — a screen struct IS the host's pixel frame and has no kernel counterpart — and that carve is confined to the detached fact: no operation on this page reads it back into a host call, so the struct never re-enters the boundary it came from.
+
 ```csharp signature
+// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// No `using System.Drawing` and no `using Rhino.UI`: `System.Drawing.Point`/`Color`, `Rhino.UI.CursorStyle`, and
+// `Rhino.UI.LocalizeStringPair` spell in full at their few seams, so `Point`, `Color`, and the kernel colour owner
+// each resolve to exactly one type on this page.
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.Linq;
+using System.Threading;
+using Rasm.Domain;
+using Rasm.Numerics;
+using Rasm.Rhino.Document;
+using Rhino;
+using Rhino.Commands;
+using Rhino.Display;
+using Rhino.DocObjects;
+using Rhino.Geometry;
+using Rhino.Input;
+using Rhino.Input.Custom;
+
+namespace Rasm.Rhino.Commands;
+
 // --- [TYPES] ------------------------------------------------------------------------------
+// The one-per-slot contract every rule family on this page composes — accept rules, point rules, object rules, and
+// the selection page's pick rules — so it seats at the page's type tier rather than inside one family's section.
+public interface ISlotted {
+    object SlotKey { get; }
+}
+
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record Acquired {
     private Acquired() { }
@@ -18,8 +63,8 @@ public abstract partial record Acquired {
     public sealed record Count(int Value) : Acquired;
     public sealed record Text(string Value) : Acquired;
     public sealed record Toggle(bool Value) : Acquired;
-    public sealed record Paint(System.Drawing.Color Value) : Acquired;
-    public sealed record Distance(double Value) : Acquired;
+    public sealed record Paint(PerceptualColor Value) : Acquired;
+    public sealed record Distance(double Value, ModelUnit Unit) : Acquired;
     public sealed record Angle(double Radians) : Acquired;
     public sealed record Segment(Line Value) : Acquired;
     public sealed record Chain(Polyline Value) : Acquired;
@@ -68,18 +113,31 @@ public sealed record AcquiredReceipt(
     Option<DragEvidence> Dragged) : IDetachedDocumentResult {
     public Option<Acquired> Payload => Terminal is AcquireTerminal.Value value ? Some(value.Payload) : None;
 }
+
+// --- [OPERATIONS] -------------------------------------------------------------------------
+public static class Slots {
+    public static bool OnePer<T>(this Seq<T> rules) where T : ISlotted =>
+        rules.Map(static rule => rule.SlotKey).Distinct().Count == rules.Count;
+
+    // The kernel colour rail is the page's colour identity; `System.Drawing.Color` survives only as the byte
+    // quadruple the host getter reads and writes, and it crosses through this one pair — a raw host colour on a
+    // receipt column would re-open the sRGB component arithmetic the kernel owner already closed.
+    internal static Fin<PerceptualColor> Shade(System.Drawing.Color color, Op key) =>
+        PerceptualColor.OfRgb(color.R, color.G, color.B, alpha: color.A, key: key);
+
+    internal static System.Drawing.Color Rgb(PerceptualColor shade) =>
+        shade.ToRgb() switch {
+            var (red, green, blue, alpha) => System.Drawing.Color.FromArgb(alpha: alpha, red: red, green: green, blue: blue),
+        };
+}
 ```
 
-## [02]-[ACCEPTANCE]
+## [03]-[ACCEPTANCE]
 
 `AcceptGate` rows carry every parameterless native accept call beside its result terminal, so acceptance grows by one row, never a new case. `AcceptRule` closes the gated, numeric, transparency, and wait modalities; each rule family derives its one-row-per-slot admission from `SlotKey`, the case identity a parameterized case overrides with its row value. Wait duration and option-cycle bounds are admitted once; no getter receives a raw flag bag. `Requiring` is the derivation seam: a prompt terminal's required row lands only into an unoccupied slot, so a caller's `AcceptRule.Number(Zero: false)` survives admission and the derived `Zero: true` is a default, never an override.
 
 ```csharp signature
 // --- [TYPES] ------------------------------------------------------------------------------
-public interface ISlotted {
-    object SlotKey { get; }
-}
-
 [SmartEnum<int>]
 public sealed partial class AcceptGate {
     public static readonly AcceptGate Nothing = new(key: 0, terminal: None, enable: static target => target.AcceptNothing(enable: true));
@@ -105,11 +163,11 @@ public abstract partial record AcceptRule : ISlotted {
 
     public virtual object SlotKey => GetType();
 
-    internal Option<GetResult> Terminal => this switch {
-        Allowed row => row.Gate.Terminal,
-        Number => Some(GetResult.Number),
-        _ => None,
-    };
+    internal Option<GetResult> Terminal => Switch(
+        allowed: static rule => rule.Gate.Terminal,
+        number: static _ => Some(GetResult.Number),
+        transparent: static _ => Option<GetResult>.None,
+        waitFor: static _ => Option<GetResult>.None);
 
     internal Fin<Unit> Apply(GetBaseClass getter, Op key) => key.Catch(() => {
         Switch(
@@ -170,15 +228,9 @@ public sealed partial class AcceptPlan {
         _ => Option<AcceptRule>.None,
     };
 }
-
-// --- [OPERATIONS] -------------------------------------------------------------------------
-public static class Slots {
-    public static bool OnePer<T>(this Seq<T> rules) where T : ISlotted =>
-        rules.Map(static rule => rule.SlotKey).Distinct().Count == rules.Count;
-}
 ```
 
-## [03]-[POINT_ALGEBRA]
+## [04]-[POINT_ALGEBRA]
 
 `PointConstraint` closes the native constraint family. `PointRule` parameterizes every independent point-getter setting as data — `PointGate` rows carry the boolean getter toggles and `SnapBarAxis` rows the curve-snap bars, so a new toggle is one row, never a new case — while `PointFeedback` carries rail-returning callbacks whose failures interrupt the native loop and surface after `Get` returns. `Pose` alone returns a value: its `Transform` re-poses the drag buffer through the host's own display-feedback call, moving the whole selection in one crossing.
 
@@ -204,24 +256,26 @@ public abstract partial record PointConstraint {
     public sealed record OnTargetPlane : PointConstraint;
     public sealed record OnCPlaneIntersection(Plane Value) : PointConstraint;
 
-    internal Fin<Unit> Admit(Op key) => key.Catch(() => AdmitGeometry(key, this switch {
-            OnSegment row => row.From.IsValid && row.To.IsValid,
-            OnLine row => row.Value.IsValid,
-            OnArc row => row.Value.IsValid,
-            OnCircle row => row.Value.IsValid,
-            OnPlane row => row.Value.IsValid,
-            OnSphere row => row.Value.IsValid,
-            OnCylinder row => row.Value.IsValid,
-            OnCurve row => row.Value is { } value && value.IsValidWithLog(out _),
-            OnSurface row => row.Value is { } value && value.IsValidWithLog(out _),
-            OnMesh row => row.Value is { } value && value.IsValidWithLog(out _),
-            OnBrep row => row.Value is { } value
-                && value.IsValidWithLog(out _)
-                && row.WireDensity >= 0
-                && row.FaceIndex >= -1,
-            OnCPlaneIntersection row => row.Value.IsValid,
-            _ => true,
-        }));
+    internal Fin<Unit> Admit(Op key) => key.Catch(() => AdmitGeometry(key, Switch(
+        onSegment: static row => row.From.IsValid && row.To.IsValid,
+        onLine: static row => row.Value.IsValid,
+        onArc: static row => row.Value.IsValid,
+        onCircle: static row => row.Value.IsValid,
+        onPlane: static row => row.Value.IsValid,
+        onSphere: static row => row.Value.IsValid,
+        onCylinder: static row => row.Value.IsValid,
+        onCurve: static row => row.Value is { } value && value.IsValidWithLog(out _),
+        onSurface: static row => row.Value is { } value && value.IsValidWithLog(out _),
+        onBrep: static row => row.Value is { } value
+            && value.IsValidWithLog(out _)
+            && row.WireDensity >= 0
+            && row.FaceIndex >= -1,
+        onMesh: static row => row.Value is { } value && value.IsValidWithLog(out _),
+        // The two cplane cases carry no geometry to admit — the host resolves the plane at `Apply` — so each
+        // states its own admission instead of riding a catch-all a new payload-bearing case would join silently.
+        onConstructionPlane: static _ => true,
+        onTargetPlane: static _ => true,
+        onCPlaneIntersection: static row => row.Value.IsValid)));
 
     internal static Fin<Unit> AdmitGeometry(Op key, params ReadOnlySpan<bool> validity) =>
         guard(flag: validity.IndexOf(false) < 0, False: key.InvalidInput()).ToFin();
@@ -306,19 +360,26 @@ public abstract partial record PointRule : ISlotted {
 
     public virtual object SlotKey => GetType();
 
-    internal Fin<Unit> Admit(Op key) => this switch {
-        Constrained row => Optional(row.Value).ToFin(Fail: key.InvalidInput()).Bind(value => value.Admit(key)),
-        Snaps row => guard(!row.Values.IsEmpty, key.InvalidInput()).ToFin()
-            .Bind(_ => PointConstraint.AdmitGeometry(key, [.. row.Values.Map(static point => point.IsValid)])),
-        ConstructionPoints row => guard(!row.Values.IsEmpty, key.InvalidInput()).ToFin()
-            .Bind(_ => PointConstraint.AdmitGeometry(key, [.. row.Values.Map(static point => point.IsValid)])),
-        BasedAt row => PointConstraint.AdmitGeometry(key, row.Value.IsValid),
-        Radial row => guard(double.IsFinite(row.Distance) && row.Distance >= 0.0, key.InvalidInput()).ToFin(),
-        Cursor row => guard(Enum.IsDefined(row.Value), key.InvalidInput()).ToFin(),
-        Gated row => guard(row.Gate is not null, key.InvalidInput()).ToFin(),
-        SnapBar row => guard(row.Axis is not null, key.InvalidInput()).ToFin(),
-        _ => Fin.Succ(unit),
-    };
+    internal Fin<Unit> Admit(Op key) => Switch(
+        state: key,
+        constrained: static (op, rule) => op.Need(rule.Value).Bind(value => value.Admit(op)),
+        snaps: static (op, rule) => guard(!rule.Values.IsEmpty, op.InvalidInput()).ToFin()
+            .Bind(_ => PointConstraint.AdmitGeometry(op, [.. rule.Values.Map(static point => point.IsValid)])),
+        constructionPoints: static (op, rule) => guard(!rule.Values.IsEmpty, op.InvalidInput()).ToFin()
+            .Bind(_ => PointConstraint.AdmitGeometry(op, [.. rule.Values.Map(static point => point.IsValid)])),
+        basedAt: static (op, rule) => PointConstraint.AdmitGeometry(op, rule.Value.IsValid),
+        radial: static (op, rule) => guard(double.IsFinite(rule.Distance) && rule.Distance >= 0.0, op.InvalidInput()).ToFin(),
+        // `PointerShape` is a sealed generated CLASS keyed on the host ordinal, not an enum — `Enum.IsDefined` has
+        // no overload it binds — so membership is the vocabulary's OWN roster probe. A row is admitted when it is
+        // one of the declared rows; nothing else can construct one, and a null is the only value to refuse.
+        cursor: static (op, rule) => guard(
+            rule.Value is not null && PointerShape.Items.Contains(rule.Value),
+            op.InvalidInput()).ToFin(),
+        elevatorMode: static (op, rule) => guard(rule.Mode >= 0, op.InvalidInput()).ToFin(),
+        gated: static (op, rule) => guard(rule.Gate is not null, op.InvalidInput()).ToFin(),
+        snapBar: static (op, rule) => guard(rule.Axis is not null, op.InvalidInput()).ToFin(),
+        directionArrow: static (_, _) => Fin.Succ(unit),
+        onMouseUp: static (_, _) => Fin.Succ(unit));
 
     internal Fin<Unit> Apply(GetPoint getter, Op key) => Switch(
         state: (Getter: getter, Op: key),
@@ -424,7 +485,7 @@ public sealed record PointPlan {
 }
 ```
 
-## [04]-[REQUEST]
+## [05]-[REQUEST]
 
 `PromptCase` generates the interactive value space over one `GetPoint`; multiple distinct terminal cases compose number, text, color, 3D point, and 2D point acquisition without getter-specific helper classes. `Acquire.Of` admits each option, prompt default, typed default, drag plan, and accept terminal against the selected `AcquireIntent`, so no configured terminal outruns its projector, and it closes the loop the other way through `AcceptPlan.Requiring`: each prompt case's `Terminal` derives the accept row it needs and that row folds into the plan ONLY where the caller left the slot empty. Acceptance therefore reaches the native getter exactly once, through `AcceptPlan.Apply`. A second configuration pass re-issuing `AcceptNumber`/`AcceptString`/`AcceptColor` after the plan has run is the deleted form — it lands after the plan by construction, so its literals silently overwrite the caller's admitted policy and nothing raises.
 
@@ -446,23 +507,26 @@ public sealed partial class TextMeaning {
             ? Fin.Succ<Acquired>(new Acquired.Number(Value: value))
             : Fin.Fail<Acquired>(key.InvalidInput());
     }));
-    public static readonly TextMeaning Length = new(key: 2, parse: static (text, document, key) => key.Catch(() => {
-        using LengthValue parsed = LengthValue.Create(
-            s: text, ps: StringParserSettings.DefaultParseSettings, parsedAll: out bool parsedAll);
-        return parsedAll && !parsed.IsUnset()
-            ? Fin.Succ<Acquired>(new Acquired.Distance(Value: parsed.Length(document.ModelUnitSystem)))
-            : Fin.Fail<Acquired>(key.InvalidInput());
-    }));
-    public static readonly TextMeaning AngleDegrees = new(key: 3, parse: static (text, _, key) => key.Catch(() =>
-        StringParser.ParseAngleExpressionDegrees(text, out double value)
-            && value * Math.PI / 180.0 is var radians
-            && double.IsFinite(radians)
-            ? Fin.Succ<Acquired>(new Acquired.Angle(Radians: radians))
-            : Fin.Fail<Acquired>(key.InvalidInput())));
-    public static readonly TextMeaning AngleRadians = new(key: 4, parse: static (text, _, key) => key.Catch(() =>
-        StringParser.ParseAngleExpressionRadians(text, out double value) && double.IsFinite(value)
-            ? Fin.Succ<Acquired>(new Acquired.Angle(Radians: value))
-            : Fin.Fail<Acquired>(key.InvalidInput())));
+    // Length text crosses through `UnitText` (session.md), the branch's ONE length-correspondence owner: it holds
+    // the dialect roster, the whole-string `parsedAll`/`IsUnset` gate, the `LengthValue` disposal bracket, and the
+    // regime pairing this receipt detaches. Re-spelling that parse here forked the gate and re-derived the regime
+    // from `document.ModelUnits` beside the owner that already reads it.
+    public static readonly TextMeaning Length = new(key: 2, parse: static (text, document, key) =>
+        from regime in DocumentSpace.Model.Read(document: document, op: key)
+        from encoded in UnitText.Length(text: text, key: key)
+        from crossed in encoded.Cross(regime: regime, key: key)
+        from measured in crossed is UnitText.LengthValueCase value
+            ? Fin.Succ<Acquired>(value: new Acquired.Distance(Value: value.Value, Unit: value.Unit))
+            : Fin.Fail<Acquired>(error: key.InvalidResult())
+        select measured);
+    // `AngleGrammar` (session.md) owns the degree/radian dialect and lands canonical radians at its own seam, so
+    // both rows are one composition each and the degrees row cannot drift from the owner's `RhinoMath.ToRadians`.
+    public static readonly TextMeaning AngleDegrees = new(key: 3, parse: static (text, _, key) =>
+        AngleGrammar.Degrees.Parse(text: text, op: key)
+            .Map(static radians => (Acquired)new Acquired.Angle(Radians: radians)));
+    public static readonly TextMeaning AngleRadians = new(key: 4, parse: static (text, _, key) =>
+        AngleGrammar.Radians.Parse(text: text, op: key)
+            .Map(static radians => (Acquired)new Acquired.Angle(Radians: radians)));
 
     [UseDelegateFromConstructor]
     public partial Fin<Acquired> Parse(string text, RhinoDoc document, Op key);
@@ -520,7 +584,8 @@ public abstract partial record PromptCase {
             : Fin.Fail<Acquired>(held.Op.InvalidInput()),
         textValue: static (held, rule) => rule.Meaning.Parse(
             text: held.Getter.StringResult(), document: held.Document, key: held.Op),
-        paintValue: static (held, _) => Fin.Succ<Acquired>(new Acquired.Paint(Value: held.Getter.Color())));
+        paintValue: static (held, _) => Slots.Shade(color: held.Getter.Color(), key: held.Op)
+            .Map(static shade => (Acquired)new Acquired.Paint(Value: shade)));
 }
 
 [SmartEnum<int>]
@@ -659,7 +724,7 @@ public abstract partial record ModalInput {
     public sealed record Toggle(string Off, string On, bool Seed) : ModalInput;
     public sealed record Number(double Seed, double Lower, double Upper) : ModalInput;
     public sealed record Count(int Seed, int Lower, int Upper) : ModalInput;
-    public sealed record Paint(System.Drawing.Color Seed) : ModalInput;
+    public sealed record Paint(PerceptualColor Seed) : ModalInput;
     public sealed record Distance(double Seed) : ModalInput;
     public sealed record Shape(ShapeAsk Ask) : ModalInput;
     public sealed record View(Func<ViewportFact, Fin<Acquired>> Project) : ModalInput;
@@ -681,7 +746,7 @@ public abstract partial record ModalInput {
             && row.Lower <= row.Seed
             && row.Seed <= row.Upper, key.InvalidInput()).ToFin(),
         count: row => guard(row.Lower <= row.Seed && row.Seed <= row.Upper, key.InvalidInput()).ToFin(),
-        paint: static _ => Fin.Succ(unit),
+        paint: row => key.Need(row.Seed).Map(static _ => unit),
         distance: row => guard(double.IsFinite(row.Seed) && row.Seed >= 0.0, key.InvalidInput()).ToFin(),
         shape: row => guard(row.Ask is not null, key.InvalidInput()).ToFin(),
         view: row => guard(row.Project is not null, key.InvalidInput()).ToFin(),
@@ -740,7 +805,7 @@ public abstract partial record AcquireIntent {
                             select unit,
         objects: row => guard(row.Plan is not null, key.InvalidInput()).ToFin(),
         transform: row => guard(row.Calculate is not null, key.InvalidInput()).ToFin(),
-        modal: row => Optional(row.Input).ToFin(Fail: key.InvalidInput()).Bind(value => value.Admit(key)));
+        modal: row => key.Need(row.Input).Bind(value => value.Admit(key)));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -750,14 +815,14 @@ public abstract partial record InputDefault {
     public sealed record NumberValue(double Value) : InputDefault;
     public sealed record CountValue(int Value) : InputDefault;
     public sealed record TextValue(string Value) : InputDefault;
-    public sealed record PaintValue(System.Drawing.Color Value) : InputDefault;
+    public sealed record PaintValue(PerceptualColor Value) : InputDefault;
 
     internal Fin<Unit> Admit(Op key) => Switch(
         pointValue: static _ => Fin.Succ(unit),
         numberValue: row => guard(double.IsFinite(row.Value), key.InvalidInput()).ToFin(),
         countValue: static _ => Fin.Succ(unit),
         textValue: row => key.AcceptText(row.Value).Map(static _ => unit),
-        paintValue: static _ => Fin.Succ(unit));
+        paintValue: row => key.Need(row.Value).Map(static _ => unit));
 
     internal Unit Apply(GetBaseClass getter) => Switch(
         state: getter,
@@ -765,7 +830,7 @@ public abstract partial record InputDefault {
         numberValue: static (target, value) => Op.Side(() => target.SetDefaultNumber(value.Value)),
         countValue: static (target, value) => Op.Side(() => target.SetDefaultInteger(value.Value)),
         textValue: static (target, value) => Op.Side(() => target.SetDefaultString(value.Value)),
-        paintValue: static (target, value) => Op.Side(() => target.SetDefaultColor(value.Value)));
+        paintValue: static (target, value) => Op.Side(() => target.SetDefaultColor(Slots.Rgb(shade: value.Value))));
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
@@ -816,8 +881,8 @@ public sealed record Acquire {
         Option<OptionSet> options = default,
         Option<DragPlan> drag = default) {
         Op op = Op.Of(name: nameof(Acquire));
-        return from admittedIntent in Optional(intent).ToFin(Fail: op.InvalidInput())
-               from admittedAccept in Optional(accept).ToFin(Fail: op.InvalidInput())
+        return from admittedIntent in op.Need(intent)
+               from admittedAccept in op.Need(accept)
                from admittedPrompt in op.AcceptText(prompt)
                from _ in admittedIntent.Admit(op)
                from __ in guard(options.IsNone || admittedIntent.SupportsOptions, op.InvalidInput()).ToFin()
@@ -839,7 +904,7 @@ public sealed record Acquire {
 }
 ```
 
-## [05]-[DRIVE]
+## [06]-[DRIVE]
 
 `Acquisition.Probe` projects the four host getter-state probes inside one read grant. `GetterDrive.Run` owns one getter and option lease. One bounded `FoldM` consumes option terminals, then projects exactly one final discriminant. Modal payloads remain deferred until `Result.Success`, so failed one-shot calls never read uninitialized `out` values.
 
@@ -865,7 +930,7 @@ public static class Acquisition {
     public static Fin<AcquireState> Probe(DocumentSession session) {
         Op op = Op.Of();
         return from _ in guard(RhinoApp.IsOnMainThread, op.InvalidContext())
-               from target in Optional(session).ToFin(Fail: op.InvalidInput())
+               from target in op.Need(session)
                from state in target.Demand(
                    use: document => op.Catch(() => Fin.Succ(new AcquireState(
                        Any: RhinoGet.InGet(document),
@@ -880,15 +945,15 @@ public static class Acquisition {
     public static Fin<AcquiredReceipt> Get(DocumentSession session, Acquire request) {
         Op op = Op.Of();
         return from _ in guard(RhinoApp.IsOnMainThread, op.InvalidContext())
-               from target in Optional(session).ToFin(Fail: op.InvalidInput())
-               from active in Optional(request).ToFin(Fail: op.InvalidInput())
+               from target in op.Need(session)
+               from active in op.Need(request)
                from receipt in target.Demand(
                    use: document => active.Intent.Switch(
                        state: (Request: active, Document: document, Op: op),
                        interactive: static (held, intent) => Interactive(held.Request, intent, held.Document, held.Op),
                        objects: static (held, intent) => Objects(held.Request, intent.Plan, held.Op),
                        transform: static (held, intent) => Transform(held.Request, intent.Calculate, held.Op),
-                       modal: static (held, intent) => Modal(held.Request, intent.Input, held.Op)),
+                       modal: static (held, intent) => Modal(held.Request, intent.Input, held.Document, held.Op)),
                    key: op,
                    needs: [SessionNeed.Acquire])
                select receipt;
@@ -949,8 +1014,9 @@ public static class Acquisition {
     private static Fin<AcquiredReceipt> Modal(
         Acquire request,
         ModalInput input,
+        RhinoDoc document,
         Op op) => input.Switch(
-        state: (Request: request, Op: op),
+        state: (Request: request, Document: document, Op: op),
         point: static (held, _) => ModalResult(held.Op, () => {
             Result native = RhinoGet.GetPoint(held.Request.Prompt, held.Request.Accept.AcceptsNothing, out Point3d value);
             return (native, () => Fin.Succ<Acquired>(new Acquired.Point(
@@ -994,14 +1060,18 @@ public static class Acquisition {
             return (native, () => Fin.Succ<Acquired>(new Acquired.Count(Value: value)));
         }),
         paint: static (held, modal) => ModalResult(held.Op, () => {
-            System.Drawing.Color value = modal.Seed;
+            System.Drawing.Color value = Slots.Rgb(shade: modal.Seed);
             Result native = RhinoGet.GetColor(
                 held.Request.Prompt, held.Request.Accept.AcceptsNothing, ref value);
-            return (native, () => Fin.Succ<Acquired>(new Acquired.Paint(Value: value)));
+            return (native, () => Slots.Shade(color: value, key: held.Op)
+                .Map(static shade => (Acquired)new Acquired.Paint(Value: shade)));
         }),
+        // GetDistance resolves in the document's own regime, so the projection reads that regime through the same
+        // `DocumentSpace.Model` owner the text route reads — the modal route detaches the identical pairing.
         distance: static (held, modal) => ModalResult(held.Op, () => {
             Result native = RhinoGet.GetDistance(held.Request.Prompt, modal.Seed, out double value);
-            return (native, () => Fin.Succ<Acquired>(new Acquired.Distance(Value: value)));
+            return (native, () => DocumentSpace.Model.Read(document: held.Document, op: held.Op)
+                .Map(regime => (Acquired)new Acquired.Distance(Value: value, Unit: regime.Unit)));
         }),
         shape: static (held, modal) => ModalResult(held.Op, modal.Ask.Run),
         view: static (held, modal) => ModalResult(held.Op, () => {
@@ -1126,7 +1196,7 @@ internal static class GetterDrive {
 }
 ```
 
-## [06]-[CALLBACK_BOUNDARY]
+## [07]-[CALLBACK_BOUNDARY]
 
 `PointFeedbackLease` converts every callback into a non-throwing native handler. `Subscription` owns attachment rollback and complete detachment. Callback, interrupt, and cleanup failures combine before acquisition resumes. `DragBuffer` owns the host transform list end to end: it runs the drag selection, binds a `GetTransform` or arms display feedback for a point drag, applies each `Pose` sample, and projects its measured census before disposal.
 
@@ -1288,13 +1358,21 @@ internal sealed class TransformGetter(Func<RhinoViewport, Point3d, Transform> ca
 }
 ```
 
-## [07]-[BOUNDARY]
+## [08]-[BOUNDARY]
 
 `AcquireIntent` is the sole modality entry, `AcquireTerminal` is the sole control egress, and `Acquired` is the sole value egress. `OptionLease`, `PointFeedbackLease`, `DragBuffer` with its `TransformObjectList`, `GetBaseClass`, `ObjRef`, and every one-shot `out` value terminate before the receipt crosses the session boundary; `DragEvidence` is the dragged set's detached census.
 
-A caller-supplied delegate takes a detached fact, never a host handle: `PointerFact` for the pointer arms, `ViewportFact` for both view asks, `ObjectKinds` for the object filters. The one carve is the pair of draw arms, whose `GetPointDrawEventArgs`/`DrawEventArgs` carry the live `DisplayPipeline` the sink exists to draw into — a callback-scoped borrow, never retained past the crossing, and the only host type this page's public delegates admit.
+A caller-supplied delegate takes a detached fact, never a host handle: `PointerFact` for the pointer arms, `ViewportFact` for both view asks, `ObjectKinds` for the object filters. Three carves stand and each is named rather than tolerated:
 
-## [08]-[RESEARCH]
+- Carve: the pair of DRAW arms take `GetPointDrawEventArgs`/`DrawEventArgs`, whose live `DisplayPipeline` is the whole point of a draw sink — a callback-scoped borrow, never retained past the crossing, and the only host event type this page's public delegates admit.
+- Carve: `AcquireIntent.Transform` takes `Func<RhinoViewport, Point3d, Transform>`, a live host viewport into caller code. The host's own `GetTransform.CalculateTransform` override has that shape and nothing detached can replace it — the transform is computed FROM the viewport's camera each mouse sample, so a `ViewportFact` would answer a stale frame. The borrow is bounded by `TransformGetter`'s override body; retaining the viewport past the callback is the deleted form.
+- Carve: `ObjectRule.Filter` takes the host `GetObjectGeometryFilter`, whose delegate receives a live `RhinoObject`, its `GeometryBase`, and a `ComponentIndex` per candidate. The host calls it inside its own pick loop for every object under the cursor, so the filter cannot be lifted onto detached evidence without materializing a snapshot per candidate per sample. The borrow is bounded by `SetCustomGeometryFilter`'s call window, which ends when the getter disposes.
+
+`System.Drawing.Point` on `Acquired.ScreenPoint` is the fourth and last host struct on the surface. It is a SCREEN frame the kernel does not model, and it terminates on the detached fact: nothing on this page reads it back into a host call, so it never re-crosses the boundary that produced it. Colour does not get that carve — `PerceptualColor` is the kernel owner and `Slots.Shade`/`Slots.Rgb` are the only two seams a host colour crosses.
+
+Unit identity crosses as the kernel `ModelUnit` and nothing else: `UnitSystem`, `LengthUnit`, and a raw meters-per-unit factor each re-open on egress an admission the kernel already gated, and a bare magnitude beside a stated regime elsewhere on the receipt is the split the one paired case forecloses. This page RESOLVES a regime and never converts between two — `ModelUnit.ScaleTo` owns a cross-regime rescale, at the consumer that owns the target.
+
+## [09]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.

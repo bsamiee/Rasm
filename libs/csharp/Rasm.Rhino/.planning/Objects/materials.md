@@ -11,7 +11,7 @@ Object render support belongs to `Rasm.Rhino.Objects`. `MaterialScope` discrimin
 
 ## [02]-[SCOPE_AND_STAMP]
 
-- Owner: `MaterialScope` `[Union]` closes front, back, component, plug-in-keyed component, and hypothetical-attribute resolution; `MaterialRealm` carries the legacy/render host-member family as four delegate columns — `Face`, `Part`, `Keyed`, `Under` — one row per material family; `PartUnder` carries an `AttributeProgram` that builds a scoped duplicate; `MaterialStamp` carries detached resolved identity and name.
+- Owner: `MaterialScope` `[Union]` closes front, back, component, plug-in-keyed component, and hypothetical-attribute resolution; `MaterialRealm` carries the legacy/render host-member family as four `[UseDelegateFromConstructor]` columns — `Face`, `Part`, `Keyed`, `Under` — one row per material family; `PartUnder` carries an `AttributeProgram` that builds a scoped duplicate; `MaterialStamp` carries detached resolved identity and name.
 - Law: scope and realm are independent discriminants — `MaterialAsk.Resolve(MaterialRealm, MaterialScope)` is the sole material question, one `MaterialScope.Resolve` dispatch selects the realm column per scope, and the realm row selects `Material` versus `RenderMaterial` without a second per-realm dispatch, sibling ask cases, or a boolean knob.
 - Law: resolution detaches — the resolved material projects to `MaterialStamp` inside the grant window, because a `Material` is table state addressed through the document rail and a `RenderMaterial` is render-content state owned by the render tables; a live material handle crossing this seam is the deleted form.
 - Law: the per-component census is queried, never scanned — `HasSubobjectMaterials` gates `SubobjectMaterialComponents`, and stored per-plug-in rows install and retract through `AttributeEdit.FaceMaterials`.
@@ -44,20 +44,28 @@ public sealed partial class MaterialRealm {
         keyed: static (native, component, plugIn, key) => Stamp(native.GetRenderMaterial(componentIndex: component, plugInId: plugIn), key),
         under: static (native, component, plugIn, attributes, key) => Stamp(native.GetRenderMaterial(componentIndex: component, plugInId: plugIn, attributes: attributes), key));
 
-    internal Func<RhinoObject, bool, Op, Fin<MaterialStamp>> Face { get; }
-    internal Func<RhinoObject, ComponentIndex, Op, Fin<MaterialStamp>> Part { get; }
-    internal Func<RhinoObject, ComponentIndex, Guid, Op, Fin<MaterialStamp>> Keyed { get; }
-    internal Func<RhinoObject, ComponentIndex, Guid, ObjectAttributes, Op, Fin<MaterialStamp>> Under { get; }
+    [UseDelegateFromConstructor]
+    internal partial Fin<MaterialStamp> Face(RhinoObject native, bool front, Op key);
+
+    [UseDelegateFromConstructor]
+    internal partial Fin<MaterialStamp> Part(RhinoObject native, ComponentIndex component, Op key);
+
+    [UseDelegateFromConstructor]
+    internal partial Fin<MaterialStamp> Keyed(RhinoObject native, ComponentIndex component, Guid plugIn, Op key);
+
+    [UseDelegateFromConstructor]
+    internal partial Fin<MaterialStamp> Under(
+        RhinoObject native, ComponentIndex component, Guid plugIn, ObjectAttributes attributes, Op key);
 
     private static Fin<MaterialStamp> Stamp(Material? material, Op key) =>
         Optional(material).ToFin(Fail: key.InvalidResult()).Map(value => new MaterialStamp(
             Id: value.Id,
-            Name: Optional(value.Name).Filter(static text => text.Length > 0)));
+            Name: Op.Text(value.Name)));
 
     private static Fin<MaterialStamp> Stamp(RenderMaterial? material, Op key) =>
         Optional(material).ToFin(Fail: key.InvalidResult()).Map(value => new MaterialStamp(
             Id: value.Id,
-            Name: Optional(value.Name).Filter(static text => text.Length > 0)));
+            Name: Op.Text(value.Name)));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -113,8 +121,12 @@ public sealed partial class MeshPolicy {
         }
     }
 
+    // The validator's own message names WHICH encoding the host answered with; folding it to a bare refusal
+    // deleted the one datum separating "the host handed back an unparseable policy" from every other failure.
     internal static Fin<MeshPolicy> Capture(MeshingParameters native, Op key) =>
-        key.Catch(() => Create(native.ToEncodedString()).ToFin().MapFail(_ => key.InvalidResult()));
+        key.Catch(() => key.AcceptValidated<MeshPolicy>(
+            fault: Validate(native.ToEncodedString(), out MeshPolicy? admitted),
+            admitted: admitted));
 
     internal Fin<T> Use<T>(Func<MeshingParameters, Fin<T>> body, Op key) =>
         key.Catch(() => {
@@ -164,16 +176,8 @@ public abstract partial record ProviderValue : IDetachedDocumentResult {
     }).Bind(value => value.Admit(key));
 }
 
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record MeshBatchFact : IDetachedDocumentResult {
-    private MeshBatchFact() { }
-    public sealed record Worker(ObjectSignal Enabled) : MeshBatchFact;
-    public sealed record Dialog(ObjectSignal Simple) : MeshBatchFact;
-    public sealed record Styled(int Style, Transform Motion) : MeshBatchFact;
-}
-
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record MeshBatch {
+public abstract partial record MeshBatch : IDetachedDocumentResult {
     private MeshBatch() { }
     public sealed record Worker(MeshPolicy Policy, ObjectSignal Enabled) : MeshBatch;
     public sealed record Dialog(MeshPolicy Policy, ObjectSignal Simple) : MeshBatch;
@@ -195,12 +199,7 @@ public abstract partial record MeshBatch {
                 from motion in key.AcceptInput(value: batch.Motion)
                 select (MeshBatch)new Styled(Policy: policy, Style: batch.Style, Motion: motion));
 
-    internal Fin<(
-        Result Verdict,
-        Mesh[] Meshes,
-        ObjectAttributes[] Attributes,
-        MeshPolicy Policy,
-        MeshBatchFact Mode)> Run(Seq<RhinoObject> natives, Op op) =>
+    internal Fin<MeshRun> Run(Seq<RhinoObject> natives, Op op) =>
         Switch(
             (Natives: natives, Op: op),
             worker: static (context, batch) => batch.Policy.Use(
@@ -216,7 +215,7 @@ public abstract partial record MeshBatch {
                         meshes: meshes,
                         attributes: attributes,
                         parameters: parameters,
-                        mode: new MeshBatchFact.Worker(Enabled: batch.Enabled),
+                        settle: policy => new Worker(Policy: policy, Enabled: batch.Enabled),
                         op: context.Op);
                 }),
                 context.Op),
@@ -234,8 +233,9 @@ public abstract partial record MeshBatch {
                         meshes: meshes,
                         attributes: attributes,
                         parameters: parameters,
-                        mode: new MeshBatchFact.Dialog(
-                            Simple: simple ? ObjectSignal.Enabled : ObjectSignal.Disabled),
+                        settle: policy => new Dialog(
+                            Policy: policy,
+                            Simple: ObjectSignal.Of(on: simple)),
                         op: context.Op);
                 }),
                 context.Op),
@@ -254,29 +254,39 @@ public abstract partial record MeshBatch {
                         meshes: meshes,
                         attributes: attributes,
                         parameters: parameters,
-                        mode: new MeshBatchFact.Styled(Style: style, Motion: batch.Motion),
+                        settle: policy => new Styled(Policy: policy, Style: style, Motion: batch.Motion),
                         op: context.Op);
                 }),
                 context.Op));
 
-    private static Fin<(
-        Result Verdict,
-        Mesh[] Meshes,
-        ObjectAttributes[] Attributes,
-        MeshPolicy Policy,
-        MeshBatchFact Mode)> Capture(
+    private static Fin<MeshRun> Capture(
         Result verdict,
         Mesh[] meshes,
         ObjectAttributes[] attributes,
         MeshingParameters parameters,
-        MeshBatchFact mode,
+        Func<MeshPolicy, MeshBatch> settle,
         Op op) =>
-        MeshPolicy.Capture(parameters, op)
-            .Map(policy => (verdict, meshes, attributes, policy, mode))
-            .MapFail(error => {
-                _ = ObjectPiece.Release(geometry: meshes, attributes: attributes);
-                return error;
-            });
+        (from policy in MeshPolicy.Capture(parameters, op)
+         from terminal in CommandVerdict.OfNative(result: verdict, key: op)
+         select new MeshRun(Verdict: terminal, Meshes: meshes, Attributes: attributes, Settled: settle(policy)))
+        .MapFail(error => {
+            _ = ObjectPiece.Release(geometry: meshes, attributes: attributes);
+            return error;
+        });
+}
+
+// --- [MODELS] -----------------------------------------------------------------------------
+// The batch mesher answers TWO parallel host arrays plus the modality it actually ran, and a bare tuple made
+// that pairing the caller's problem: every consumer re-derived which array indexes which and every failure arm
+// had to remember both. The run OWNS the pair until `Detach` crosses it or `Release` frees it, and its
+// `Settled` column is the same `MeshBatch` family the request used, carrying the ref-updated dialog and style
+// values back — so a new batch modality is one case and cannot land in the request without landing in the fact.
+internal sealed record MeshRun(
+    CommandVerdict Verdict,
+    Mesh[] Meshes,
+    ObjectAttributes[] Attributes,
+    MeshBatch Settled) {
+    internal Unit Release() => ObjectPiece.Release(geometry: Meshes, attributes: Attributes);
 }
 ```
 
@@ -287,7 +297,7 @@ public abstract partial record MeshBatch {
 - Law: cached meshes cross under custody — `GetMeshes` returns non-owning const wrappers parented to the live object, so each result detaches through `GeometryCrossing.Cross` onto its own handle before the grant closes; a consumer holding a parented cache mesh across a regen dereferences freed memory, and mutating one silently fails to persist.
 - Law: meshing policy crosses encoded — `MeshPolicy` captures `ToEncodedString()` while each `MeshingParameters` carrier is still scoped and reconstructs it with `FromEncodedString()` only for one host call; `ObjectSignal` selects document fallback without exporting a boolean policy, and both `GetRenderMeshParameters` arguments are spelled because the parameterless call IS the document-fallback arm — a knob whose two arms reach one host behaviour selects nothing.
 - Law: meshing-carrier ownership splits by the host ARGUMENT, never by the member — `GetRenderMeshParameters(true)` fills a freshly minted carrier this rail leases and disposes, `GetRenderMeshParameters(false)` and `ObjectAttributes.CustomMeshingParameters` hand back a wrapper over stored host memory whose unconditional `Dispose` would free state the owner still holds, so those two reads encode inside the borrow and never bracket it.
-- Law: `Harvest` is the batch lane — `MeshBatch` closes worker-thread, mutable simple-dialog, and mutable UI-style-plus-transform modalities over one resolved roster; ref-updated policy and interaction state return beside identity-bearing products, the host verdict folds through `CommandVerdict.OfNative`, and every failure before detachment releases both host arrays.
+- Law: `Harvest` is the batch lane and `MeshBatch` is its ONE family — worker-thread, mutable simple-dialog, and mutable UI-style-plus-transform modalities over one resolved roster, and the run answers a `Settled` value of that same family carrying the captured policy and every ref-updated column back, so a new modality cannot land on the request without landing on the fact. `MeshRun` owns both host arrays from the mesher's return until detachment crosses them or `Release` frees them, the host verdict folds through `CommandVerdict.OfNative` inside the run, and a non-`Completed` terminal names its own key in the refusal.
 - Law: provider evidence is `ProviderValue` — bool, signed, unsigned, real, decimal, and text values remain distinct generated cases in both directions, and every constructed case re-enters the one `Admit` fold so a non-finite provider readback refuses exactly as a non-finite write does; arbitrary `IConvertible` values fail instead of type-erasing into text.
 - Boundary: `MappingRoster` returns channel identity, mapping identity, and the object transform from `GetTextureMapping(channel, out Transform)`; construction, profile, inverse recovery, and evaluation remain `MappingSpec`/`Mappings.Run` responsibilities on the render mapping owner.
 - Growth: a new render-support read is one ask case with its answer case.
@@ -343,8 +353,7 @@ public abstract partial record MaterialAnswer : IDetachedDocumentResult, IDispos
     public sealed record Policy(Seq<(Guid Id, Option<MeshPolicy> Value)> Rows) : MaterialAnswer;
     public sealed record Harvested(
         Seq<(Guid Id, ObjectPiece Product)> Rows,
-        MeshPolicy Policy,
-        MeshBatchFact Mode) : MaterialAnswer;
+        MeshBatch Settled) : MaterialAnswer;
     public sealed record KnobValue(Seq<(Guid Id, Option<ProviderValue> Value)> Rows) : MaterialAnswer;
 
     public void Dispose() =>
@@ -364,8 +373,7 @@ public abstract partial record MaterialAnswer : IDetachedDocumentResult, IDispos
 ## [04]-[EDIT_AND_COMMIT]
 
 - Owner: `MaterialEdit` `[Union]` closes mapping, cache, policy, and provider mutations; `SetMapping` composes render-owned `MappingSpec`/`MappingProfile` and mints `TextureMapping` only inside the call; `MaterialFact` `[Union]` owns one typed consequence per edit without sentinel integers; `ObjectReceipt<MaterialFact>` collects facts and every undo serial without a domain operator overload.
-- Law: undo recording is a trait row. Recorded programs contain only `SetMapping` and `SetCachePolicy`; regenerable cache and provider effects run one at a time without an undo record. Admission rejects mixed programs, so rollback never promises to reverse an untracked side effect.
-- Law: the commit rides `ObjectSpine.Commit` — admission and the trait guard precede the grant, the spine derives needs from the recording trait and redraw policy, and this page supplies only the resolve-then-apply fact fold, so no second window opens between the mutation and its repaint.
+- Law: undo recording is the `RecordsUndo` trait row and this page is its one statement — recorded programs contain only `SetMapping` and `SetCachePolicy`, regenerable cache and provider effects run one at a time under `ObjectSpine.Commit(recordsUndo: false)`, admission rejects mixed programs, and the spine derives both the grant needs and the redraw policy from that same row, so rollback never promises to reverse an untracked side effect and no second window opens between the mutation and its repaint.
 - Law: integer-returning writes preserve the host return — `SetTextureMapping` and `CreateMeshes` expose no catalogued verdict semantics, so receipts carry their values unchanged and invent no zero-or-sign success rule.
 - Boundary: `HasCustomRenderMeshes`, `CustomRenderMeshesBoundingBox`, and the live `RenderMeshes` accessor demand a viewport, plug-in, and display-pipeline context this package does not own — they ride the Display and Render owners; this page's provider reach ends at the parameter knob.
 - Growth: a new render-support mutation is one edit case with its trait and slot; the spine and the receipt read it with zero new surface.
@@ -530,17 +538,13 @@ public static class Materials {
                                    Fin.Succ(value: (native.Id, native.IsMeshable(meshType: ask.Kind))))).As()
                                .Map(static rows => (MaterialAnswer)new MaterialAnswer.Able(Rows: rows)),
                            harvest: static (ctx, ask) => ask.Batch.Run(natives: ctx.Natives, op: ctx.Op)
-                               .Bind(run => {
-                                   if (CommandVerdict.OfNative(result: run.Verdict) != CommandVerdict.Completed) {
-                                       _ = ObjectPiece.Release(geometry: run.Meshes, attributes: run.Attributes);
-                                       return Fin.Fail<MaterialAnswer>(error: ctx.Op.InvalidResult());
-                                   }
-                                   return Detach(meshes: run.Meshes, attributes: run.Attributes, key: ctx.Op)
+                               .Bind(run => run.Verdict == CommandVerdict.Completed
+                                   ? Detach(meshes: run.Meshes, attributes: run.Attributes, key: ctx.Op)
                                        .Map(rows => (MaterialAnswer)new MaterialAnswer.Harvested(
-                                           Rows: rows,
-                                           Policy: run.Policy,
-                                           Mode: run.Mode));
-                               }),
+                                           Rows: rows, Settled: run.Settled))
+                                   : (ignore(run.Release()), Fin.Fail<MaterialAnswer>(
+                                       error: ctx.Op.InvalidResult(detail: run.Verdict.Key.ToString(
+                                           System.Globalization.CultureInfo.InvariantCulture)))).Item2),
                            knob: static (ctx, ask) => ctx.Natives
                                .TraverseM(native => ctx.Op.Catch(() =>
                                    Optional(native.GetCustomRenderMeshParameter(providerId: ask.Provider, parameterName: ask.Name))
@@ -620,15 +624,15 @@ public static class Materials {
 
 ## [05]-[SURFACE_LEDGER]
 
-| [INDEX] | [CONCERN]             | [OWNER]          | [FORM]                                                | [ENTRY]                  |
-| :-----: | :-------------------- | :--------------- | :---------------------------------------------------- | :----------------------- |
-|  [01]   | material resolution   | scope plus realm | overload union plus row-owned material family         | `MaterialAsk.Resolve`    |
-|  [02]   | detached identity     | `MaterialStamp`  | resolved id and name                                  | `MaterialAnswer.Stamped` |
-|  [03]   | render-support reads  | `MaterialAsk`    | one union over materials, channels, caches, and knobs | `Materials.Ask`          |
-|  [04]   | meshing policy        | `MeshPolicy`     | normalized encoding with call-scoped native custody   | cache asks and edits     |
-|  [05]   | batch meshing         | `MeshBatch`      | host modalities onto identified rows                  | `MaterialAsk.Harvest`    |
-|  [06]   | render-support writes | `MaterialEdit`   | trait-row undo recording on the shared spine          | `Materials.Commit`       |
-|  [07]   | consequence evidence  | `MaterialFact`   | generated cases collected by `ObjectReceipt`          | `Materials.Commit`       |
+| [INDEX] | [CONCERN]             | [OWNER]          | [FORM]                                                    | [ENTRY]                  |
+| :-----: | :-------------------- | :--------------- | :-------------------------------------------------------- | :----------------------- |
+|  [01]   | material resolution   | scope plus realm | overload union plus row-owned material family             | `MaterialAsk.Resolve`    |
+|  [02]   | detached identity     | `MaterialStamp`  | resolved id and name                                      | `MaterialAnswer.Stamped` |
+|  [03]   | render-support reads  | `MaterialAsk`    | one union over materials, channels, caches, and knobs     | `Materials.Ask`          |
+|  [04]   | meshing policy        | `MeshPolicy`     | normalized encoding with call-scoped native custody       | cache asks and edits     |
+|  [05]   | batch meshing         | `MeshBatch`      | request and settled fact as one family, `MeshRun` custody | `MaterialAsk.Harvest`    |
+|  [06]   | render-support writes | `MaterialEdit`   | trait-row undo recording on the shared spine              | `Materials.Commit`       |
+|  [07]   | consequence evidence  | `MaterialFact`   | generated cases collected by `ObjectReceipt`              | `Materials.Commit`       |
 
 ## [06]-[RESEARCH]
 

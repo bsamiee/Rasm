@@ -100,12 +100,14 @@ Model-object construction reads the `Rasm.Element` `ElementGraph`; each object i
 
 EnergyPlus runs as the `EnergyToolchain`-resolved subprocess (`energyplus -w <epw> -d <out> -r <idf>`), not through this binding; the runner opens `eplusout.sql` after it exits and derives EUI as annual total energy ÷ conditioned floor area. Every `sql.*` accessor returns `OptionalDouble`.
 
-| [INDEX] | [SURFACE]                                                                       | [SHAPE]  | [CAPABILITY]                          |
-| :-----: | :------------------------------------------------------------------------------ | :------- | :------------------------------------ |
-|  [01]   | `new SqlFile(Path) -> SqlFile`                                                  | ctor     | open `eplusout.sql` after the run     |
-|  [02]   | `sql.totalSiteEnergy()`                                                         | instance | annual site/source energy             |
-|  [03]   | `sql.electricityHeating() / electricityCooling()`                               | instance | per-end-use annual demand             |
-|  [04]   | `sql.energyConsumptionByMonth(EndUseFuelType, EndUseCategoryType, MonthOfYear)` | instance | per-month consumption and peak demand |
+| [INDEX] | [SURFACE]                                                                       | [SHAPE]  | [CAPABILITY]                         |
+| :-----: | :------------------------------------------------------------------------------ | :------- | :----------------------------------- |
+|  [01]   | `new SqlFile(Path) -> SqlFile`                                                  | ctor     | open `eplusout.sql` after the run    |
+|  [02]   | `sql.totalSiteEnergy()`                                                         | instance | annual site/source energy            |
+|  [03]   | `sql.electricityHeating() / electricityCooling()`                               | instance | per-end-use annual demand            |
+|  [04]   | `sql.energyConsumptionByMonth(EndUseFuelType, EndUseCategoryType, MonthOfYear)` | instance | per-month consumption                |
+|  [05]   | `sql.peakEnergyDemandByMonth(EndUseFuelType, EndUseCategoryType, MonthOfYear)`  | instance | per-month peak demand (W)            |
+|  [06]   | `new MonthOfYear(int) / new MonthOfYear(string)`                                | ctor     | ordinal and named month construction |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

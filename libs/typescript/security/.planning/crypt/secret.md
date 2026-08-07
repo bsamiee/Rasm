@@ -1,12 +1,12 @@
 # [SECURITY_SECRET]
 
-Leased-secret custody: one `DopplerSDK` client built behind a `Layer.scoped` admits a closed surface set — `secrets.download` (the leased env-set fetch), `secrets.get`/`secrets.list`/`secrets.names` (the targeted single-secret read, the full-object census a partial refresh diffs against custody, and the name-only enumeration), `dynamicSecrets.issueLease`/`revokeLease` (the explicit dynamic-lease lifecycle), and `auth.me`/`auth.revoke` (the boot liveness probe and the credential-rotation retirement). Projects/configs/integrations administration stays out of scope: a runtime folder that reached for it re-implements Doppler administration, which belongs to the deploy plane. TTL leasing is Doppler-side (`dynamicSecretsTtlSec`): the custodian refetches on a spaced cadence under the lease window, with the branch `Budget.schedule("lease")` compile re-driving a transient fault inside the tick under its own class gate and a per-call deadline bounding every SDK promise; an `effect` `Cache` collapses concurrent refetches of the one `(project, config)` coordinate to a single in-flight download. Rotation republishes through a serialized `SubscriptionRef` transition — custody state lands before its metric, fact, and log taps — and `changes` is the feed the composition root's `Reloadable.auto` row consumes to rebuild `Jwt.Default(keyset)` without a graph teardown. Every fetched value is `Redacted` from the first decode, the `DOPPLER_TOKEN` is a `Config.redacted`, and fetched key material leaves this page only as the core `Credential` landing — `credential` folds a named PEM/JWK value into the sealed carrier `crypt/sign`'s `Material.admit` terminates, so the folder has one admission path for wire-carried and fetched keys alike. `SecretFault` instantiates the folder fault shape over the core `FaultClass.family` seam: every `BaseHTTPError` status subclass folds to one reason family whose rows carry the core `FaultClass` kind.
+Leased-secret custody: one `DopplerSDK` client built behind a `Layer.scoped` admits a closed surface set — `secrets.download` (the leased env-set fetch), `secrets.get`/`secrets.list`/`secrets.names` (the targeted single-secret read, the full-object census a partial refresh diffs against custody, and the name-only enumeration), `dynamicSecrets.issueLease`/`revokeLease` (the explicit dynamic-lease lifecycle), and `auth.me`/`auth.revoke` (the boot liveness probe and the credential-rotation retirement). Projects/configs/integrations administration stays out of scope: a runtime folder that reached for it re-implements Doppler administration, which belongs to the deploy plane. TTL leasing is Doppler-side (`dynamicSecretsTtlSec`): the custodian refetches on a spaced cadence under the lease window, with the branch `Budget.schedule("lease")` compile re-driving a transient fault inside the tick under its own class gate and a per-call deadline bounding every SDK promise; an `effect` `Cache` collapses concurrent refetches of the one `(project, config)` coordinate to a single in-flight download. Rotation republishes through a serialized `SubscriptionRef` transition — custody state lands before its metric, fact, and log taps — and `changes` is the feed the composition root's `Reloadable.auto` row consumes to rebuild `Jwt.Default(keyset)` without a graph teardown. Every fetched value is `Redacted` from the first decode, the `DOPPLER_TOKEN` is a `Config.redacted`, and fetched key material leaves this page only as a `Material.Source.Held` mint — the host-side trust boundary `crypt/sign`'s `Material.admit` terminates beside the peer-attested `Credential` source, so the folder has one admission path for wire-carried and fetched keys alike. `SecretFault` instantiates the folder fault shape over the core `FaultClass.family` seam: every `BaseHTTPError` status subclass folds to one reason family whose rows carry the core `FaultClass` kind.
 
 ## [01]-[INDEX]
 
 - [02]-[SECRET_FAULT]: the `statusCode`-folded reason family over the problem-detail carrier; `SecretFault`.
 - [03]-[LEASED_CUSTODY]: the encoded spec, scoped client, rotation feed, and lease lifecycle; `LeaseSpec`, `Secret`.
-- [04]-[KEY_HANDOFF]: the fetched-material fold into the core `Credential` landing; `Secret`.
+- [04]-[KEY_HANDOFF]: the fetched-material mint of `Material.Source.Held`; `Secret`.
 
 ## [02]-[SECRET_FAULT]
 
@@ -18,10 +18,10 @@ Leased-secret custody: one `DopplerSDK` client built behind a `Layer.scoped` adm
 
 ```typescript
 import DopplerSDK from "@dopplerhq/node-sdk"
-import { Budget, Convention, Credential, FaultClass } from "@rasm/ts/core"
+import { Budget, Convention, FaultClass } from "@rasm/ts/core"
 import { Cache, Cause, Config, DateTime, Duration, Effect, Equal, HashMap, Metric, Option, Predicate, Record, Redacted, Ref, Schedule, Schema, Stream, SubscriptionRef } from "effect"
 import { SecurityFact, Witness } from "../access/audit.ts"
-import { Crypto } from "./sign.ts"
+import { Crypto, Material } from "./sign.ts"
 
 type SecretSet = HashMap.HashMap<string, Redacted.Redacted<string>>
 type LeaseGrant = Awaited<ReturnType<DopplerSDK["dynamicSecrets"]["issueLease"]>>
@@ -259,29 +259,27 @@ class Secret extends Effect.Service<Secret>()("security/crypt/Secret", {
 ## [04]-[KEY_HANDOFF]
 
 [KEY_HANDOFF]:
-- Owner: `credential` — the fold from a named fetched value into the core `Credential` landing: the PEM/JWK string stays `Redacted`, the `fingerprint` is `Crypto.fingerprint` over the sealed material, and the validity window spans the current instant to the configured rotation horizon. Its result is the exact carrier `crypt/sign`'s `Material.admit` terminates, so fetched and wire-carried keys share one admission path and `Credential.rotated` compares sealed across refreshes.
-- Law: this page never imports jose and never inspects key structure — format sniffing, importer selection, and thumbprint identity are `crypt/sign`'s admission concerns; the custodian only seals, fingerprints, and windows.
+- Owner: `credential` — the mint of this folder's own host-side source: the fetched PEM/JWK string stays `Redacted` inside a `Material.Source.Held`, the `fingerprint` is `Crypto.fingerprint` over the sealed material, and the validity window spans the current instant to the configured rotation horizon. The core `Credential` landing is the peer-attested public carrier and holds no material column, so fetched keys enter admission through the `Held` trust boundary while wire-carried public identity enters through `Attested` — one `Material.admit`, two sources.
+- Law: this page never imports jose and never inspects key structure — importer selection off the label vocabulary, handle derivation, and thumbprint identity are `crypt/sign`'s admission concerns; the custodian only seals, fingerprints, and windows.
 - Law: signing keys, webhook HMAC secrets, and the argon2 pepper are sourced here and injected into the `crypt` layers at construction — no sibling talks to Doppler directly.
 - Law: the rotation loop is sealed end to end — `Secret.changes` drives the composition root's `Reloadable.auto` row, which re-runs `credential` → `Material.ring` → `Jwt.Default(keyset)` on each observed rotation, so a Doppler key roll lands as a live ring swap with no graph teardown and no restart.
-- Growth: a new credential kind row (`tls`, `api`) is the same fold with a different `kind` literal; a per-name rotation horizon is one config row.
-- Boundary: this page produces carriers and never holds a `CryptoKey`; the composition root owns the `Reloadable` wiring.
-- Packages: `@rasm/ts/core` (`Credential`); `crypt/sign` (`Crypto.fingerprint`).
+- Growth: a per-name rotation horizon is one config row; a new trust boundary is a `Material.Source` case at its `crypt/sign` owner, never a column here.
+- Boundary: this page produces sources and never holds a `CryptoKey`; the composition root owns the `Reloadable` wiring.
+- Packages: `crypt/sign` (`Material`, `Crypto.fingerprint`).
 
 ```typescript
 const credential = (
   name: string,
-  kind: Credential["kind"],
   horizon: Duration.DurationInput,
-): Effect.Effect<Credential, SecretFault, Crypto | Secret> =>
+): Effect.Effect<Material.Source, SecretFault, Crypto | Secret> =>
   Effect.gen(function* () {
     const cipher = yield* Crypto
     const custody = yield* Secret
-    const material = yield* custody.get(name)
+    const bundle = yield* custody.get(name)
     const now = yield* DateTime.now
-    return new Credential({
-      kind,
-      material,
-      fingerprint: cipher.fingerprint(material),
+    return Material.Source.Held({
+      bundle,
+      fingerprint: cipher.fingerprint(bundle),
       notBefore: now,
       notAfter: DateTime.addDuration(now, Duration.decode(horizon)),
     })

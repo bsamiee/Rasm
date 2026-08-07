@@ -176,7 +176,9 @@ Beyond the `ColourSpace` roster above, scalar and metadata accessors project der
 [LOCAL_ADMISSION]:
 - `GamutMap` is accepted only by `MapToRgbGamut`; `MapToPointerGamut` and `MapToMacAdamLimits` take no argument, and the four gamut predicates gate mapping — the kernel `GamutPolicy` row is the estate's admitted spelling for the pair.
 - `Mix` and `Palette` premultiply alpha by default and carry the interpolated coverage on the result's `Alpha.A`, so alpha never interpolates in a second pass.
-- Reflectance mixing enters through `Unicolour(Pigment[], double[])` under a `Spd` illuminant, distinct from the raw `Unicolour(Spd)` spectral ctor.
+- Reflectance mixing enters through `Unicolour(Configuration, Pigment[], double[])` — NO illuminant slot exists; the working space is the `Configuration`'s own `XyzConfiguration` — distinct from the raw `Unicolour(Spd)` spectral ctor.
+- `XyzConfiguration` ships four public ctors; `(Illuminant, Observer, string name = "(unnamed)")` derives the white point FROM the observer, so an observer-axis mint never reuses a sibling observer's white point.
+- `Configuration.DynamicRange`/`.Rgb`/`.Ybr`/`.Cam`/`.Icc` are public reads — an observer-axis `Configuration` mint derives every non-observer slot off its source row rather than re-spelling literals.
 - Colour values carry an explicit `Configuration` wherever the working space affects meaning.
 
 [RAIL_LAW]:

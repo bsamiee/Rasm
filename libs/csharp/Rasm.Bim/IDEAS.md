@@ -1,8 +1,8 @@
 # [RASM_BIM_IDEAS]
 
-Forward pool of higher-order concepts for the host-neutral BIM-and-exchange engine. `[1]-[OPEN]` holds active ideas as cards; `[2]-[CLOSED]` records a finished or dropped idea with a one-line disposition.
+Forward pool of higher-order concepts for the host-neutral BIM-and-exchange engine.
 
-OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOCKED` keeps open but non-actionable work; `CLOSED` separates finished `COMPLETE` items from unimplemented `DROPPED` items. `Ripple` names the origin or counterpart card a cross-folder entry pairs with.
+OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOCKED` keeps open but non-actionable work; `CLOSED` separates finished `COMPLETE` items from unimplemented `DROPPED` items.
 
 ## [01]-[OPEN]
 
@@ -19,80 +19,7 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 Capability, Shape, Unlocks, and Anchors are required on every open card; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Ideas state higher-order concepts, never landing-grain tasks.
 -->
 
-[STAGE_ROSTER_COLLAPSE]-[QUEUED]: The folder's native-lane stage ladders share one declared owner or a stated plurality ruling.
-- Capability: `Energy/derive#TRANSLATE_MATRIX` `TranslateStage` and any next native lane's stage roster resolve one seat decision — a `Model/observability`-seated owner beside `BimFact.Progress`, or a recorded plural-per-lane posture under the branch benchmark-roster precedent — before a third lane mints a third ladder.
-- Shape: one adjudication over the `(Done, Witness)` column shape `TranslateStage` and the kernel `ArrangeStage` both carry; lands as a ruling row plus the elected seat.
-- Unlocks: the tessellation and any future companion lane land their stage evidence on a settled shape.
-- Anchors: `TranslateStage` at `Energy/derive.md`; the kernel `ArrangeStage` band; the branch per-folder benchmark-roster plurality ruling as the counter-precedent.
-
-[PER_ENTITY_UNITSCALE]-[QUEUED]: The structural fold reads one project unit regime instead of rebuilding it per entity.
-- Capability: `Model/structural.md`'s fold threads a single `UnitScale.Of(database)` read the way the cost lane now does, so a per-entity regime rebuild — and the drift window it opens against a mixed-database read — deletes.
-- Shape: one threaded regime at `Model/structural.md:222`'s fold head; the eleven-site `Coerce` collapse precedent applies.
-- Unlocks: the last per-entity regime rebuild in the folder closes.
-- Anchors: the cost lane's landed one-regime thread at `Planning/cost.md`; `UnitScale.Of(DatabaseIfc)`.
-
-[QUERY_PREDICATE_SEAM]-[QUEUED]: Set-algebraic model query reaches the web tier as a decoded predicate, not a re-implemented filter language.
-- Capability: a browser client composes the same closed predicate algebra the model owner evaluates, so selection semantics carry one definition across runtimes instead of forking into a per-tier filter dialect.
-- Shape: `libs/csharp/Rasm.Bim/.planning/Model/query.md` `[02]-[PREDICATE_WIRE]` gains its cross-runtime consumer, and the seam edge re-enters `ARCHITECTURE.md` `[03]-[SEAMS]` only once the counterpart lands.
-- Unlocks: `PredicateWire` becomes a bound contract rather than a producer-local DTO family, and the `ElementSet` result rides the same wire the web tier already decodes.
-- Anchors: `Model/query#PREDICATE_WIRE` `PredicateCodec.Seal`/`Admit`; `typescript:core/interchange/codec` `[06]-[LANDING_WIRE]` wire-suite registry as the admission surface.
-- Tension: the seam was declared unilaterally before any counterpart existed, so the settled registry carried a claim the peer never made; a seam row earns its seat only after both endpoints spell it.
-- Ripple: precedes `typescript:core` `[LANDING_WIRE]` admission of the predicate family.
-
-[CONNECTION_INTERFACE_GEOMETRY_DECODE]-[QUEUED]: Land the Bim lowering and re-materialization for the seam-landed `Connect.Interface` content key.
-- Capability: `IfcConnectionGeometry` and `IfcRelSpaceBoundary2ndLevel` interface surfaces ride the graph as content-keyed typed geometry instead of stranding in `Generic` attributes.
-- Shape: the `Projection/relations` projector hashes the interface surface into the blob store and stamps the key on the `Connect` edge (`IfcRelConnectsElements.ConnectionGeometry` and the 2nd-level space-boundary route off `Generic`); the `Projection/egress` re-materializes it; the landed seam decodes the interface key through the one `GeometrySource.ResolveFootprint` leg — never a third port.
-- Unlocks: Compute reads connection-interface geometry one-hop by content key; re-exported analysis models keep their boundary surfaces.
-- Anchors: `Connect.Interface` landed seam-side (presence-delimited canonical bytes, additive `ConnectWire` field); the egress eccentricity path already reconstitutes `IfcConnectionGeometry` STEP fragments from the ctor-held profiles store — the same lane.
-- Ripple: `Rasm.Element` `[CONNECTION_INTERFACE_GEOMETRY_DECODE]`.
-
-[QUANTITY_BAG_GROUP_AXIS]-[QUEUED]: Round-trip the `IfcPhysicalComplexQuantity` `Discrimination`/`Quality`/`Usage` grouping identity once the seam `QuantityBag` carries a group axis.
-- Capability: complex-quantity grouping identity survives the dot-path flatten — a formwork quantity grouped by `Discrimination` re-emits with its grouping strings instead of prefix-only reconstruction.
-- Shape: the `Projection/semantic` flatten stamps the group-axis rows the seam carrier adds; the `Projection/egress` `RaiseQuantity` rebuilds nested `IfcPhysicalComplexQuantity` children from them.
-- Unlocks: value-lossless AND identity-lossless complex-quantity round-trip; QTO consumers select by grouping axis.
-- Anchors: `Projection/semantic` `FlattenQuantities` already recurses dot-path keys value-lossless and names the residual; the decompile-verified `Discrimination`/`Quality`/`Usage` public strings.
-- Tension: the seam column ripples the counted-bag canonical-bytes injectivity law, the frozen wire, and the `Bake` merge — the seam owner lands first.
-- Ripple: `Rasm.Element` `[QUANTITY_BAG_GROUP_AXIS]`.
-
-[BCF_API_RESPONSE_ADMISSION]-[QUEUED]: Close the BCF-API round-trip with the response half of the REST projection.
-- Capability: a BCF-API response admits back into the archive-domain family — status/header fold, pagination cursor, and the response-body lowering onto `BcfTopic`/`BcfComment`/`BcfViewpoint` — so a CDE round-trip reads one owner.
-- Shape: `Review/issues` gains the response peer of `BcfResource` → `BcfApiRequest`: one response carrier discriminated by resource, the snake-case body admission reusing `BcfApiContext`, the paged-collection fold; execution stays on the Compute transport.
-- Unlocks: live CDE topic sync onto `IssueBoard`, server-authored viewpoints landing beside `.bcfzip` imports, conflict-aware `ReviseTopic` round-trips.
-- Anchors: `BcfResource`/`BcfApiRequest`/`BcfApiContext` landed; `BcfWireMapper` owns the archive↔wire correspondence the response admission reuses.
-- Tension: the transport port and retry/auth policy are Compute's — the response admission consumes returned bytes and never mints a second transport owner.
-
-[BRICK_SYSTEMS_OPERATIONS_OVERLAY]-[BLOCKED]: Compose the admitted `BrickSchema.Net` ontology as the building-systems-operations overlay on `Model/systems`, once the app-platform live-binding leg lands.
-- Capability: a Brick `Point`/`Equipment`/`Location` graph overlays the static `SystemTrace` connectivity, mapping IFC `MonitoringSystem` occurrences onto Brick `Fedby`/`PointOf`/`PartOf`/`LocationOf` relations so operations consumers read one semantic systems model.
-- Shape: `Model/systems` gains a Brick projector lowering the `DistributionSystem` reach set onto Brick classes; the live-point binding (`BACnetReference`/`BACnetDevice`/`ModbusDevice`) stays a reference the app-platform resolves, never a transport minted here.
-- Unlocks: BMS-aware clash and coordination, live-versus-design systems reconciliation, operations-phase handover beyond COBie.
-- Anchors: `BrickSchema.Net` admitted (README `[DOMAIN_VOCABULARY]`, `.api/api-brickschema-net.md` — `Aggregation.AggregateByInterval` the interval-rollup read the operations overlay exposes); `Model/systems` owns the static `SystemTrace` connectivity the overlay reads.
-- Tension: which app-platform owner lands the live-point binding resolver (`BACnetReference`/`BACnetDevice`/`ModbusDevice` rows) the overlay references? Route: `libs/csharp/Rasm.AppHost/.planning/` capability pages and the AppHost growth register — Bim owns only the static ontology projection, the overlay reads `SystemTrace`, never re-minting a second connectivity store beside it.
-
-[CHAINAGE_SELECTION_AXIS]-[QUEUED]: Linear infrastructure selects by station the way a building selects by storey.
-- Capability: a corridor station becomes a first-class selection axis — "every element between station 2+400 and 3+100", "everything within 8 m of centreline" — so a road, rail, bridge, or waterway project queries its model in the addressing system its facility uses instead of by Euclidean distance from a coordinate.
-- Shape: the `Model/query` predicate algebra gains a station-interval and offset-band predicate over the chainage evidence a projected occurrence carries, and the geospatial projection stamps that evidence as typed `Pset_SiteContext` rows off the corridor operation's own answer.
-- Unlocks: alignment-scoped exports, station-banded clash scopes, and a `Planning/schedule` task whose work front is a chainage range rather than a hand-drawn selection.
-- Anchors: `Semantics/geospatial#GEOSPATIAL_SEAM` `GeoModel.Along` answers station, offset, and the durable `LinearLocation`; `GeoClassifier` already mints `IfcRoad`/`IfcRailway`/`IfcBridge`/`IfcMarineFacility`, the four facility classes whose native addressing is chainage.
-- Tension: a stored station is only stable as the durable component-and-fraction location, so the persisted form is that location and the length index re-reads on demand — a stored double silently re-points every element the day the alignment is re-noded.
-
-[PROGRESS_VERIFICATION]-[QUEUED]: Close the 4D loop — scan-derived physical progress verifies the schedule and feeds earned value with observed actuals.
-- Capability: a reconstructed point-cloud epoch compares against the `ConstructionState` expectation at the capture instant — observed installed elements against planned — minting a typed progress-evidence receipt per task with observed completion, variance band, and the unmatched-occurrence residue.
-- Shape: `libs/csharp/Rasm.Bim/.planning/Planning/progress.md` (new page) owns the comparison fold joining `Exchange/reconstruct#RECONSTRUCTION` occurrences to `Planning/schedule#SCHEDULE` `TaskAssignment` element sets through the `Model/query#ELEMENT_SET` predicate algebra; observed completion feeds the `Planning/cost#EARNED_VALUE` fold as the actuals source beside authored `IfcTaskTime.Completion`.
-- Unlocks: reality-capture progress dashboards, evidence-backed earned value, dispute-grade progress records keyed by the capture content key.
-- Anchors: `ConstructionState.At` phase reads (`Completed` the finished-by read); `ConstructionTask.PercentComplete` fallback law; scan-to-BIM occurrences carrying per-occurrence fit receipts.
-
-[COLOUR_EGRESS_THROUGH_KERNEL_BYTE_LEG]-[QUEUED]: Display-byte egress rides the kernel federation quantizer, so a Bim palette byte and a kernel content-key byte agree by construction.
-- Capability: one byte-quantization owner serves every display egress — `IndexedColour.Author` and the export material finish stop encoding then quantizing by hand, and the bytes they emit match the estate's content-key quantizer bit for bit.
-- Shape: the byte leg lives on an ADMITTING owner, so composing it rails, and the rail cascades through the `Binders` delegate table, `Bind`, `Exchange/tessellation` `Decode`, and the dotbim writer's packed `Rgba` read; lands across `libs/csharp/Rasm.Bim/.planning/Semantics/appearance.md` and `libs/csharp/Rasm.Bim/.planning/Exchange/export.md`.
-- Unlocks: cross-runtime colour identity — a palette byte, an export byte, and a coverage content-key byte are one value, so no consumer reconciles two quantizers.
-- Anchors: `libs/csharp/Rasm.Bim/.planning/Semantics/appearance.md` palette author and memo; `libs/csharp/Rasm.Bim/.planning/Exchange/export.md` `MaterialFinish.Rgba`; `libs/csharp/Rasm/.planning/Numerics/atoms.md` byte leg and its content-key pin.
-- Tension: the scalar transfer pair is TOTAL today while the byte leg admits, so the collapse trades a hand-rolled quantizer for a `Fin` rail across four files — the cost is the decision, not the mechanics.
-
-[ENERGY_RESULTS_ANNOTATION]-[QUEUED]: Land simulation results back on the model — Compute-read EnergyPlus outputs annotate zones and spaces as typed result quantities.
-- Capability: Compute's typed energy-results receipt (keyed by the `EnergyArtifact` content key) admits onto `Model/zones` and spatial nodes as result quantities — annual and peak loads, comfort hours, EUI — re-emittable as Psets through the standing properties authority, so results survive re-export instead of dying in a run directory.
-- Shape: `libs/csharp/Rasm.Bim/.planning/Energy/results.md` (new page) owns the admission fold from the Compute receipt onto zone/space quantity rows and the reverse read the AppUi report consumes; `SqlFile` decode stays Compute's per the standing simulation ruling — Bim consumes the receipt, never the SQLite.
-- Unlocks: results-aware model QA (IDS facets over result thresholds), energy dashboards read from the model, results round-trip into IFC Psets.
-- Anchors: `Energy/exchange#ENERGY_EXCHANGE` content-keyed artifacts; `Semantics/properties#PROPERTY_TEMPLATES` Pset authority; `Model/zones#ZONE_GRAPH` overlay; `.api/api-openstudio.md` results-seam row naming `SqlFile` as Compute's reader.
+(none)
 
 ## [02]-[CLOSED]
 
@@ -100,7 +27,18 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 [ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
-[SEALED_PAYLOAD_ACCESS]-[COMPLETE]: settled as the `RULINGS.md` `[02]-[SHAPE]` `[SEALED_PAYLOAD_RULING]` — an upstream payload present on the parsed graph yet sealed against public read or mint binds through ONE `UnsafeAccessor` capsule at the owning boundary page under the manifest version pin, which closed the IFC per-vertex colour ingest and the texture-map UV egress together; the retained routing fact is that the capsule projects detached values and a version bump re-probes every binding in that one class.
+[CONNECTION_INTERFACE_GEOMETRY_DECODE]-[COMPLETE]: landed as the `[CONNECTION_KEY_LOWERING]` task — connection-interface geometry content-keys through the existing `IIfcProfileStore.Preserve` fragment lane (no third port), the seam `ConnectKind` vocabulary staying closed at element/path/port.
+[QUANTITY_BAG_GROUP_AXIS]-[COMPLETE]: the seam column landed first (`Rasm.Element` `[QUANTITY_GROUP_COLUMN]` — `ValueBag<V>.Groups`, canonical arm, wire field 5) and both Bim ends closed with it under the `[QUANTITY_GROUP_AXIS_ENDS]` task; the `FidelityDrop.QuantityGrouping` residual row is deleted — the round-trip is identity-lossless, not merely value-lossless.
+[TYPED_STRUCTURAL_MEASURE_IDENTITY]-[COMPLETE]: the blocker premise was REFUTED twice on its own rails — the anonymity law binds only inside a declared pin window and no pin is committed (re-ruled at `Rasm.Element` `RULINGS.md` to typed-when-every-producer-names-truthfully, the two-peer carve retained), and the three "typeless" rows name real GG types (`IfcLinearMomentMeasure` and both subgrade-reaction measures exist; the `MeasureDimensions` table lacked their rows, a roster defect three new rows fixed at its owner) — so `Model/structural` stamps EVERY structural measure row through the compile-checked `Named<TMeasure>` typed mint with identity, dimension, coercion, and the egress raise all resolving from one symbol, only the genuinely name-less values (EN 1990 factors, the normalized station fraction, bare-real local axes) staying anonymous as the exact `MeasureFlattened` tail, and four page-local exponent statics plus one fault-spelling fork deleting with the collapse.
+[CHAINAGE_SELECTION_AXIS]-[COMPLETE]: landed as ROWS and composition with ZERO new predicate arms — `Semantics/geospatial` gained the `[CORRIDOR_ROWS]` `Pset_SiteContext` statics stamped from `GeoModel.Along`'s own `Locate` answer per corridor occurrence, and `Model/query` selects them through the existing `ByProperty` set/name/`Range` grammar under the spatial ruling forbidding a positioning-specific selection surface; the `AlongAlignment`-shaped arm is the named deleted form, and the unsigned-offset limit is stated at the stamp with the side axis routed as `Along`-owner growth.
+[QUERY_PREDICATE_SEAM]-[COMPLETE]: the counterpart landed at `typescript:core/interchange/codec` — census row, `[06]-[LANDING_WIRE]` landing block on the `ControlIntent` recursion idiom, registry, schema, and export rows — the `Model -> Core [WIRE]: PredicateWire` seam edge spelled at BOTH `ARCHITECTURE.md` ends, and the crossing registered as `tests/contracts/MANIFEST.md` `[02.23]-[BIM_WIRE]`, the umbrella entry retro-registering the BCF/geo/diff crossings.
+[PROGRESS_VERIFICATION]-[COMPLETE]: `Planning/progress#PROGRESS_EVIDENCE` landed — `ProgressVerification.Compare` joins capture-epoch reconstructed occurrences to `TaskAssignment` element sets through the `Model/query#ELEMENT_SET` algebra, minting per-task `ProgressEvidence` and the `Unmatched` residue; the evidence feeds the cost page's three-tier actuals election as its top rank.
+[STAGE_ROSTER_COLLAPSE]-[COMPLETE]: adjudicated as the `RULINGS.md` `[STAGE_ROSTER_RULING]` row — shape once at `Model/observability`, rosters per-lane; the kernel `ArrangeStage` stays uncomposable (`internal` to `Rasm.Meshing`), only its column shape mirrored.
+[PER_ENTITY_UNITSCALE]-[COMPLETE]: `Model/structural` `Attrs` threads the projector's ONE `UnitScale` regime as an argument on the cost-lane precedent — the per-entity `UnitScale.Of(database)` rebuild and its silent `Si` null-database fallback are deleted, a missing regime faulting typed at the fold head; the eurocode policy reachability landed with it (`IDesignSituation`-backed `EurocodePolicy` as a required entry argument, the `internal`-table dead composition deleted).
+[BCF_API_RESPONSE_ADMISSION]-[COMPLETE]: landed as the `[BCF_RESPONSE_CARRIER]` task — `BcfApi.Open` + `BcfOutcome` + `BcfQuery` close the CDE round-trip on one owner, the request and response halves total over the same closed `BcfResource` union, the paging cursor request-side per the spec's bare-array responses, and the transport staying Compute's.
+[COLOUR_EGRESS_THROUGH_KERNEL_BYTE_LEG]-[COMPLETE]: `AppearanceProjection.Bytes` landed as the package's ONE display-byte egress — the railed kernel `PerceptualColor.OfRgb` ingress quantizing through `ToRgb`, with `Decode` its typed inverse; the two divergent local `Quantized` bodies are deleted, `IndexedColour.Author` and `MaterialFinish.Rgba` rail onto it, and the memo's collision-bucket key stays a declared local bucket, never a byte egress.
+[BRICK_SYSTEMS_OPERATIONS_OVERLAY]-[COMPLETE]: landed as `Model/systems#CONNECTIVITY` `DistributionNetwork.BrickProjection` under the `[BRICK_SYSTEMS_PROJECTOR]` task — the tension resolved on its own rail: `Rasm.AppHost` `Wire/livewire` is the live-binding owner, the `[WIRE]: BrickGraph` seam mirrors at both `ARCHITECTURE.md` maps, and class election and BACnet/Modbus point binding stay composition values through the injected `BrickBinding`.
+[SEALED_PAYLOAD_ACCESS]-[COMPLETE]: settled as the `RULINGS.md` `[02]-[SHAPE]` `[SEALED_PAYLOAD_RULING]` row, closing the IFC per-vertex colour ingest and the texture-map UV egress together.
 [BIM_HOOK_RAIL]-[COMPLETE]: `Model/observability#HOOK_RAIL` landed — `BimHooks` per-composition registry record and the `BimFact` payload family over the kernel point capsule, with modality rows, id grammar, and subscriber-fault isolation arriving settled from the kernel signal capsule; progress points wired at `Exchange/import#IMPORT_RAIL` (ACadSharp `OnProgress`) and `Energy/derive#TRANSLATE_MATRIX` (OpenStudio `ProgressBar`).
 [BIM_TELEMETRY_TAP]-[COMPLETE]: `Model/observability#TELEMETRY_TAP` landed — `BimTelemetry` roster-and-projection owner over kernel `InstrumentSpec`/`InstrumentSet`/`Buckets`, the contributor port an app fan materializes, the kernel `SpanBand` bracket over `BimPoint`-derived trace planes, and the kernel `TenantContext` metric partition beside the span-only model slot, zero OTel reference and zero folder-local source.
 [BIM_EVENT_FABRIC]-[COMPLETE]: `Exchange/events#EVENTS` landed — `BimEvent` closed union over the five model-mutating facts, `BimEnvelope` CloudEvents projection (`Seal`/`Encode`/`Open`, traceparent/tracestate extension rows), mint rows pinned on versioning, issues, validation, export, and energy exchange.

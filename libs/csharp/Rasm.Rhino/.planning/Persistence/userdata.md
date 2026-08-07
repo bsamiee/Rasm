@@ -95,7 +95,7 @@ public abstract partial record ArchiveExchangeResult {
 public static class ArchiveIo {
     public static Fin<ArchiveExchangeResult> Cross(ArchiveExchange exchange, Op? key = null) {
         Op op = key.OrDefault();
-        return Optional(exchange).ToFin(Fail: op.InvalidInput())
+        return op.Need(exchange)
             .Bind(active => Admit(active, op))
             .Bind(active => op.Catch(() => active.Switch<Op, Fin<ArchiveExchangeResult>>(
                 state: op,
@@ -106,13 +106,13 @@ public static class ArchiveIo {
     private static Fin<ArchiveExchange> Admit(ArchiveExchange exchange, Op op) => exchange.Switch<Op, Fin<ArchiveExchange>>(
         state: op,
         writeCase: static (op, request) =>
-            from writer in Optional(request.Writer).ToFin(Fail: op.InvalidInput())
-            from schema in Optional(request.Schema).ToFin(Fail: op.InvalidInput())
-            from payload in Optional(request.Payload).ToFin(Fail: op.InvalidInput())
+            from writer in op.Need(request.Writer)
+            from schema in op.Need(request.Schema)
+            from payload in op.Need(request.Payload)
             select (ArchiveExchange)new ArchiveExchange.WriteCase(writer, schema, payload),
         readCase: static (op, request) =>
-            from reader in Optional(request.Reader).ToFin(Fail: op.InvalidInput())
-            from schema in Optional(request.Schema).ToFin(Fail: op.InvalidInput())
+            from reader in op.Need(request.Reader)
+            from schema in op.Need(request.Schema)
             select (ArchiveExchange)new ArchiveExchange.ReadCase(reader, schema));
 
     private static Fin<ArchiveExchangeResult> Write(ArchiveExchange.WriteCase request, Op op) =>
@@ -213,7 +213,7 @@ public static class ArchiveIo {
 
 `TypedUserData<TSelf>` keeps live archive handles inside sealed overrides. Derived participants provide schema upgrades, initial payloads, payload-transform policy, and a mandatory failure sink; duplicate custody accepts only the identical closed participant type.
 
-Rhino's `bool` and `void` override contracts form the platform-forced statement seam. Every override mints its own `Op.Of()`, collapses its rail only after archive, duplicate, or transform work finishes, and lands every failure through one sink. A failed payload transform poisons the detached rail after Rhino's required base call, so no stale payload can write or re-enter transformation.
+Rhino's `bool` and `void` override contracts form the platform-forced statement seam. Every override mints its own `Op.Of()`, collapses its rail only after archive, duplicate, or transform work finishes, and lands every failure through one sink. Both archive crossings gate on the `[ClassId]` pin, so a read-only participant proves its resolution key too. A failed payload transform poisons the detached rail after Rhino's required base call, so no stale payload can write or re-enter transformation, and the payload cell is an `Atom` because the five writing callbacks share no host lock.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -226,7 +226,10 @@ namespace Rasm.Rhino.Persistence;
 
 public abstract class TypedUserData<TSelf> : UserData
     where TSelf : TypedUserData<TSelf> {
-    private Fin<Option<ArchiveMap>> held = Fin.Succ<Option<ArchiveMap>>(None);
+    // Five host callbacks write this cell — `Write`, `Read`, `OnDuplicate`, `OnTransform`, and the caller-facing
+    // `Replace` — and Rhino serializes none of them against each other. The Atom is the cell's own linearization
+    // point, so a stored payload and a poisoned rail can never interleave into a torn read.
+    private readonly Atom<Fin<Option<ArchiveMap>>> held = Atom(Fin.Succ<Option<ArchiveMap>>(None));
 
     protected abstract ArchiveSchema Schema { get; }
     protected abstract Fin<ArchiveMap> Initial { get; }
@@ -238,11 +241,11 @@ public abstract class TypedUserData<TSelf> : UserData
     // unoverridden participant publishes the framework's own string as its census identity.
     public sealed override string Description => typeof(TSelf).Name;
 
-    public sealed override bool ShouldWrite => held.Match(
+    public sealed override bool ShouldWrite => held.Value.Match(
         Succ: state => state.Exists(static payload => payload.Entries.Count > 0),
         Fail: static _ => false);
 
-    public Fin<ArchiveMap> Snapshot() => held.Bind(state => state.Match(
+    public Fin<ArchiveMap> Snapshot() => held.Value.Bind(state => state.Match(
         Succ,
         () => Initial.Map(Store)));
 
@@ -251,7 +254,8 @@ public abstract class TypedUserData<TSelf> : UserData
 
     // Host truth: `ClassIdAttribute(string) : { Id : Guid }` pins a stable resolution key onto a `UserData` subclass so an
     // archive written under a prior class name keeps resolving it. The schema's whole thesis is archive-version tolerance,
-    // which a class RENAME defeats outright, so the pin proves at the first write instead of orphaning every stored payload.
+    // which a class RENAME defeats outright, so the pin proves on BOTH crossings: a read-only participant gates on the same
+    // key it will be resolved by, where a write-only proof would leave it unproven for the whole of its life.
     private static Fin<Guid> Pinned(Op op) =>
         typeof(TSelf).GetCustomAttributes(typeof(ClassIdAttribute), inherit: false) is [ClassIdAttribute pin]
         && pin.Id != Guid.Empty
@@ -271,7 +275,8 @@ public abstract class TypedUserData<TSelf> : UserData
 
     protected sealed override bool Read(BinaryArchiveReader archive) {
         Op op = Op.Of();
-        return op.Catch(() => ArchiveIo.Cross(new ArchiveExchange.ReadCase(archive, Schema), op)
+        return op.Catch(() => Pinned(op)
+            .Bind(_ => ArchiveIo.Cross(new ArchiveExchange.ReadCase(archive, Schema), op))
             .Bind(result => result.Switch<Fin<ArchiveMap>>(
                 writtenCase: _ => Fin.Fail<ArchiveMap>(error: op.InvalidResult(detail: "Archive read returned a write receipt.")),
                 readCase: read => Upgrade(read.Envelope)))
@@ -302,12 +307,14 @@ public abstract class TypedUserData<TSelf> : UserData
     }
 
     private ArchiveMap Store(ArchiveMap payload) {
-        held = Fin.Succ(Some(payload));
+        held.Swap(_ => Fin.Succ(Some(payload)));
         return payload;
     }
 
-    private Unit Poison(Error error, Op op) =>
-        (held = Fin.Fail<Option<ArchiveMap>>(error), Reported(error, op)).Item2;
+    private Unit Poison(Error error, Op op) {
+        held.Swap(_ => Fin.Fail<Option<ArchiveMap>>(error));
+        return Reported(error, op);
+    }
 
     private Unit Reported(Error error, Op op) => op.Catch(() => Report(error))
         .Match(Succ: static _ => unit, Fail: static _ => unit);
@@ -353,7 +360,7 @@ public abstract partial record CustodyOperation {
     public sealed record DescribeCase(CommonObject Target, Type UserDataType) : CustodyOperation;
     public sealed record AttachCase(CommonObject Target, UserData Value) : CustodyOperation;
     public sealed record RemoveCase(CommonObject Target, UserData Value, DisposalPolicy Disposal) : CustodyOperation;
-    public sealed record PurgeCase(CommonObject Target, DisposalPolicy Disposal) : CustodyOperation;
+    public sealed record PurgeCase(CommonObject Target) : CustodyOperation;
     public sealed record CopyCase(CommonObject Source, CommonObject Destination) : CustodyOperation;
     public sealed record MoveCase(
         CommonObject Source,
@@ -438,7 +445,18 @@ public static class Custody {
                             remove.Disposal.Releases ? op.Catch(remove.Value.Dispose) : Fin.Succ(value: unit),
                             None)),
                     op),
-                purgeCase: static (op, purge) => Purge(purge, op),
+                purgeCase: static (op, purge) => Mutated(
+                    CustodyKind.Purge,
+                    () => purge.Target.UserData.Count,
+                    // Decompile-proven: `UserDataList.Purge` is `ON_UserData_PurgeUserData` on the parent, and the native
+                    // delete fires the `UserData.OnDelete` callback — it zeroes `m_native_pointer`, suppresses the
+                    // finalizer, and drops the runtime-list entry. `UserData.Dispose(true)` then early-returns on the zero
+                    // pointer, so a capture-then-dispose leg is dead work and a `DisposalPolicy` here would name a choice
+                    // the host does not offer. Purge releases every managed participant itself; `Remove` does not, because
+                    // `ON_Object_DetachUserData` hands custody back to the caller.
+                    () => op.Catch(() => purge.Target.UserData.Purge())
+                        .Map(static _ => (Option<Guid>.None, (CustodySettlement)new CustodySettlement.CommittedCase())),
+                    op),
                 copyCase: static (op, copy) => Mutated(
                     CustodyKind.Copy,
                     () => copy.Destination.UserData.Count,
@@ -489,10 +507,7 @@ public static class Custody {
                 from _value in op.Need(remove.Value)
                 from _disposal in op.Need(remove.Disposal)
                 select (CustodyOperation)remove,
-            purgeCase: static (op, purge) =>
-                from _target in op.Need(purge.Target)
-                from _disposal in op.Need(purge.Disposal)
-                select (CustodyOperation)purge,
+            purgeCase: static (op, purge) => op.Need(purge.Target).Map(_ => (CustodyOperation)purge),
             copyCase: static (op, copy) =>
                 from _source in op.Need(copy.Source)
                 from _destination in op.Need(copy.Destination)
@@ -543,18 +558,6 @@ public static class Custody {
                 false,
                 committed.TransferId,
                 Partial(committed.Settlement, fault))));
-
-    private static Fin<CustodyAnswer> Purge(CustodyOperation.PurgeCase request, Op op) {
-        return op.Catch(() => Fin.Succ(value: request.Target.UserData.ToSeq())).Bind(captured => Mutated(
-            CustodyKind.Purge,
-            () => request.Target.UserData.Count,
-            () => op.Catch(() => request.Target.UserData.Purge())
-                .Bind(_ => Settle(request.Disposal.Releases
-                    ? captured.Map(item => op.Catch(item.Dispose)).Traverse(static result => result).Map(static _ => unit)
-                    : Fin.Succ(value: unit),
-                    None)),
-            op));
-    }
 
     private static Fin<(Option<Guid> TransferId, CustodySettlement Settlement)> Settle(
         Fin<Unit> tail,
@@ -634,7 +637,7 @@ public static class Custody {
 
 Archive admission follows `ArchiveExchange` → schema check → checksum check → `ArchiveMap.Detach` → participant upgrade. Archive egress follows participant snapshot → `ArchiveMap.Mint` → schema frame → checksum marker → writer-state receipt. Each sealed override captures derived hooks and Rhino's base transform seam before collapsing to the host scalar, and one guarded report sink preserves the original fault after reporter failure. Success advances both states, while failure poisons the detached rail before reporting.
 
-Roster mutations capture both censuses on the exception rail. Removal, purge, and move convert failed post-mutation disposal, transfer, or census work into `CustodySettlement.PartialCase`; `Fin.Fail` remains reserved for a refusal before committed mutation. Shared reads report whether Rhino created its internal carrier. Replacement and merge return schema-compatible prior/current maps plus their structural diff. Rollback detaches and releases a newly created carrier or restores a pre-existing carrier's prior typed map before returning the original failure with any rollback fault appended.
+Roster mutations capture both censuses on the exception rail. Removal and move convert failed post-mutation disposal or transfer into `CustodySettlement.PartialCase`, and every roster mutation converts a failed closing census the same way; `Fin.Fail` remains reserved for a refusal before committed mutation. `DisposalPolicy` belongs to removal alone, because detach hands custody back while purge releases it at the host. Shared reads report whether Rhino created its internal carrier. Replacement and merge return schema-compatible prior/current maps plus their structural diff. Rollback detaches and releases a newly created carrier or restores a pre-existing carrier's prior typed map before returning the original failure with any rollback fault appended.
 
 `SnapshotCodec` uses `ArchiveIo.Cross` and receives the same `ArchiveEnvelope` as `TypedUserData<TSelf>`. `ArchiveMap` remains the only payload currency; live `BinaryArchiveReader`, `BinaryArchiveWriter`, `UserDataList`, and `ArchivableDictionary` values never cross the boundary.
 

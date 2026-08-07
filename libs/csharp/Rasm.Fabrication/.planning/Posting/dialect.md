@@ -1,58 +1,32 @@
 # [RASM_FABRICATION_DIALECT]
 
-`Dialect` owns one admitted `CutProgram`-to-byte projection: grammar-family lowering, motion-directive lowering, command admission, modal rendering, physical-record census, block framing, sequence framing, and content-key minting resolve through one correspondence. `PostDialect`, `GNode`, and `GWord` remain the frozen input vocabulary; `PostImage` is the sole egress value, and `Nc1Canonical` projects `SteelPart` without a mirror model.
+`Dialect` owns one admitted `CutProgram`-to-byte projection: grammar-family lowering, motion-directive lowering, command admission, modal rendering, physical-record census, block framing, sequence framing, and content-key minting resolve through one correspondence. `PostDialect`, `GNode`, and `GWord` remain the frozen input vocabulary; `PostImage` is the sole egress value, and `Nc1Map` projects `SteelHeader` through the inverse of the steel reader's own transcription rather than a second positional roster.
 
-`EmitPolicy` parameterizes text encoding, line termination, final termination, record framing, and block-limit enforcement. `RecordFrame` carries plain and sequence-numbered egress as cases, `SequenceCounter` admits the numbering law once, and `ChecksumRule` carries the digest, separator, and width as row data. `BlockLimit.Observe` exposes an over-cap measurement to optimization while `BlockLimit.Enforce` gates final egress.
-
-Controller syntax is posting-owned: `MacroGrammar` is the control-language discriminant every vendor-specific record generator dispatches on, so a dialect identity test never appears in emission.
+Controller syntax is posting-owned and lives in ROWS: `FamilyGrammar` carries one row per `PostFamily`, `MacroSyntax` and `SubprogramSyntax` carry the control-language prefixes and call templates their `family` rows only name, and every vendor spelling a body once carried — extended and dynamic work offsets, subprogram call and return, layer marks, hotend and bed temperature, the extrude move — resolves through `PostDialect.CodeOverride`, keyed on a `CommandKeys` static where posting owns the concept and on the command row's own key where `GCommand` already names it. A dialect identity test never appears in emission, and a hardcoded vendor word in a method body is the deleted form. `Number` renders through `PostDialect.Decimals` at ONE declaration, so a controller's declared precision is what reaches its records.
 
 ## [01]-[INDEX]
 
-- [02]-[EMISSION]: `Dialect.Emit` lowers, renders, frames, seals, and keys one program.
-- [03]-[PROJECTION]: `GWord.Render` derives emitted records, modal state, nested bodies, faults, and record count together.
-- [04]-[FRAMING]: `BlockFrame` structure, `SequenceCounter` numbering, and `ChecksumRule` digests survive to the byte stream.
-- [05]-[COORDINATES]: `GNode.CoordinateFrame` lowers the assigned `WcsSlot` into an offset write and its selection word.
-- [06]-[NC1]: `Nc1Canonical` projects the admitted steel owner into canonical DSTV records.
-- [07]-[DELIVERY]: `ProgramDelivery` binds an emitted image to its acknowledged controller hand-off with a verified digest.
+- [02]-[EMISSION_POLICY]: `ChecksumRule`, `SequenceCounter`, `RecordFrame`, `BlockLimit`, `EmitPolicy`, and `PostImage`.
+- [03]-[GRAMMAR_ROWS]: `FamilyGrammar`, `MacroSyntax`, `SubprogramSyntax`, and the vendor spellings every row resolves through `CommandKeys`.
+- [04]-[EMISSION]: `Dialect.Emit` lowers, renders, frames, seals, and keys one program through one generated dispatch.
+- [05]-[DIRECTIVES]: `MotionDirective` lowering to executable words where the dialect's features admit them and to a declared annotation where they do not.
+- [06]-[COORDINATES]: `GNode.CoordinateFrame` lowering the assigned `WcsSlot` into an offset write and its selection word.
+- [07]-[NC1]: `Nc1Map` projecting `SteelHeader` and `SteelFeature` into canonical DSTV records as the steel reader's inverse.
+- [08]-[DELIVERY]: `ProgramDelivery` binding an emitted image to its acknowledged controller hand-off with a verified digest.
 
-## [02]-[EMISSION]
+## [02]-[EMISSION_POLICY]
 
-- Owner: `Dialect` owns the byte projection, while `PostImage` carries the exact records, bytes, kind, key, and physical-record count.
-- Cases: `PostFamily` selects word-address, conversational, additive, or forming grammar; `MacroGrammar` selects the control language rendering dialect cycles and conversational motion; `RecordFrame` selects plain or numbered egress; `BlockLimit` selects measurement or final enforcement.
-- Entry: `Dialect.Emit` is the one public operation and consumes a complete `CutProgram` with `EmitPolicy`.
-- Auto: `GCommand.Admits` discharges the command row's own declared `Requires` and `Modalities` against the dialect, so emission gates only what the parameters decide — rotary addresses, compensation kind, revolution dwell, and arc representation.
-- Receipt: `PostImage.Records` is the same population counted by `PhysicalRecords`, encoded into `Bytes`, and passed to `ContentKey.Of`; an empty population fails rather than keying a null artifact.
-- Packages: `LanguageExt.Core` supplies `Fin<T>`, `Traverse`, `Bind`, `Fold`, `Map`, `Choose`, `Range`, and generated `Switch`; `Thinktecture.Runtime.Extensions` generates `RecordFrame`, `BlockLimit`, `ChecksumRule`, `SequenceCounter`, and `EmitPolicy`; `GCommand.Admit`, `GCommand.Admits`, and `GWord.Render` compose `Posting/program`; `Encoding.GetBytes` and `ContentKey.Of` seal egress; `DSTV.Net` constrains `SteelPart` vocabulary parity.
-- Growth: one grammar family adds one `PostFamily` arm; one control language adds one `MacroGrammar` row and its two rendering arms; one checksum convention adds one `ChecksumRule` row; one steel feature adds one exhaustive `SteelFeature` arm.
-- Boundary: `Dialect` never reparses, reconditions motion, invents absent command parameters, or maintains a second block-count projection.
-
-## [03]-[PROJECTION]
-
-`GWord.Render` is the render correspondence composed from `Posting/program`. `Dialect.Emit` frames and counts only its returned `RenderReceipt.Lines`, so macro assignments, dialect-cycle parameters, subprogram definitions, additive records, and NC1 records cannot escape `BlockCap`. Subprogram definitions hoist into one label-keyed stream; identical definitions share one row, and conflicting bodies fail before rendering.
-
-## [04]-[FRAMING]
-
-`BlockFrame` evidence survives lowering: `Delimiter` emits the tape mark, `Program` emits the program-number record, `Comments` emit verbatim, and an `Optional` block renders through `GWord.Render` and prefixes every produced record with the block-delete character. Parsed `Sequence` and `Checksum` values never survive, because `RecordFrame` owns numbering and digest on re-emission.
-
-`SequenceCounter` admits first value, step, and wrap modulus once; conversational controls number records bare and word-address controls prefix `N`. `ChecksumRule` carries the digest fold, separator, and rendered width, so no framing case holds a caller-supplied function.
-
-## [05]-[COORDINATES]
-
-`GNode.CoordinateFrame` carries the setup's `WcsSlot` and mounting `Plane`, so emission writes the offset before selecting it; selection-only posting silently assumes the control already holds the frame. `WcsRoster` bounds every ordinal, `Local` lowers to the local-shift word against its parent, and `Rotary` carries its axis into the offset write.
-
-## [06]-[NC1]
-
-`Nc1Canonical` consumes `SteelHeader` and `SteelFeature` directly. Canonical records are both the file payload and the `EgressKind.Nc1` content-key input; the read-only `DSTV.Net` model constrains header and feature parity without becoming an emission dependency.
-
-## [07]-[DELIVERY]
-
-`ProgramDelivery` binds a posted `PostImage` to one `CellDriveReceipt`: image key, transferred key, controller, upload state, drive log, operator, and instant. `Of` derives controller identity from the receipt and rejects any non-upload, absent payload, or absent controller. `Verified` requires uploaded state, controller identity, and kind-plus-digest equality.
-
-`Of` fires `FabricationFact.Delivery.Of` onto `rasm.fabrication.delivery.programs` through `Process/telemetry` as kind `delivery`; operator classification redacts shop identity. `Documentation/traveler` reads `Verified` as hold evidence. Robot delivery rides the `CellDrive` upload channel, and a dialect gains no second delivery surface per transport.
+- Owner: `EmitPolicy` parameterizes text encoding, line termination, final termination, record framing, and block-limit enforcement; `RecordFrame` carries plain and sequence-numbered egress as cases; `SequenceCounter` admits the numbering law once; `ChecksumRule` carries the digest, separator, and rendered width as row data.
+- Law: `BlockLimit.Observe` exposes an over-cap measurement to optimization while `BlockLimit.Enforce` gates final egress; a measurement policy reaching final egress would post past the controller's own storage cap.
+- Auto: `PostImage.Records` is the same population counted by `PhysicalRecords`, encoded into `Bytes`, and passed to `ContentKey.Of`; an empty population fails rather than keying a null artifact.
+- Exemption: `ChecksumRule.Fold` is a measured byte kernel over the record span — the prior form copied the record to an array and re-wrapped it as a sequence for every digest, so a numbered program paid two allocations per line.
+- Receipt: `ProgramDelivery` reads `PhysicalRecords` as the transferred count, so the acknowledgement and the image agree on one census.
+- Packages: `Thinktecture.Runtime.Extensions` generates `ChecksumRule`, `SequenceCounter`, `RecordFrame`, `BlockLimit`, and `EmitPolicy`; `Encoding.GetBytes` and `ContentKey.Of` seal egress.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
 using System;
+using System.Collections.Frozen;
 using System.Globalization;
 using System.Text;
 using LanguageExt;
@@ -63,6 +37,7 @@ using Rasm.Fabrication.Ingress;
 using Rasm.Fabrication.Kinematics;
 using Rasm.Fabrication.Process;
 using Rhino.Geometry;
+using Riok.Mapperly.Abstractions;
 using Thinktecture;
 using UnitsNet.Units;
 using static LanguageExt.Prelude;
@@ -85,8 +60,15 @@ public sealed partial class ChecksumRule {
     public string Render(string record, Encoding codec) =>
         $"{record}{Separator}{Digest(codec.GetBytes(record)).ToString(Width > 0 ? $"X{Width.ToString(CultureInfo.InvariantCulture)}" : "D", CultureInfo.InvariantCulture)}";
 
-    private static uint Fold(ReadOnlyMemory<byte> record, uint seed, Func<uint, byte, uint> step) =>
-        toSeq(record.ToArray()).Fold(seed, step);
+    // Exemption: the digest walks the record's own span. Copying to an array and re-wrapping it as a sequence cost
+    // two allocations per numbered line for a fold that reads each byte exactly once.
+    private static uint Fold(ReadOnlyMemory<byte> record, uint seed, Func<uint, byte, uint> step) {
+        uint state = seed;
+        ReadOnlySpan<byte> span = record.Span;
+        for (int index = 0; index < span.Length; index++)
+            state = step(state, span[index]);
+        return state;
+    }
 
     private static uint Ccitt(uint state, byte value) => Range(0, 8).Fold(
         (state ^ ((uint)value << 8)) & 0xFFFFu,
@@ -94,6 +76,7 @@ public sealed partial class ChecksumRule {
 }
 
 [ComplexValueObject]
+[ValidationError<FabricationFault>]
 public sealed partial class SequenceCounter {
     public int First { get; }
     public int Step { get; }
@@ -103,9 +86,15 @@ public sealed partial class SequenceCounter {
         ? (First + ((long)Step * index)) % Modulus
         : First + ((long)Step * index);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int first, ref int step, ref int modulus) =>
-        validationError = first < 0 || step <= 0 || modulus < 0 || (modulus > 0 && first >= modulus)
-            ? new ValidationError("dialect:sequence-counter") : null;
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(
+        ref FabricationFault? validationError, ref int first, ref int step, ref int modulus) {
+        if (first < 0 || step <= 0 || modulus < 0 || (modulus > 0 && first >= modulus))
+            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Posting, "dialect:sequence-counter");
+    }
+
+    public static Fin<SequenceCounter> Admit(int first, int step, int modulus) =>
+        Validate(first, step, modulus, out SequenceCounter counter).Admitted(counter);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -125,6 +114,7 @@ public abstract partial record BlockLimit {
 }
 
 [ComplexValueObject]
+[ValidationError<FabricationFault>]
 public sealed partial class EmitPolicy {
     public Encoding Codec { get; }
     public string NewLine { get; }
@@ -132,15 +122,23 @@ public sealed partial class EmitPolicy {
     public RecordFrame Frame { get; }
     public BlockLimit Limit { get; }
 
+    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref ValidationError? validationError,
+        ref FabricationFault? validationError,
         ref Encoding codec,
         ref string newLine,
         ref bool finalTerminator,
         ref RecordFrame frame,
-        ref BlockLimit limit) =>
-        validationError = codec is null || string.IsNullOrEmpty(newLine) || frame is null || limit is null
-            ? new ValidationError("dialect:emit-policy") : null;
+        ref BlockLimit limit) {
+        // A record separator is what makes a physical record countable, so an empty one collapses the whole program
+        // onto one line the block cap then measures as a single record.
+        if (newLine.Length == 0)
+            validationError = new FabricationFault.PolicyInadmissible(FabConcern.Posting, "dialect:emit-policy:newline");
+    }
+
+    public static Fin<EmitPolicy> Admit(
+        Encoding codec, string newLine, bool finalTerminator, RecordFrame frame, BlockLimit limit) =>
+        Validate(codec, newLine, finalTerminator, frame, limit, out EmitPolicy policy).Admitted(policy);
 }
 
 // --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
@@ -150,56 +148,130 @@ public sealed record PostImage(
     ReadOnlyMemory<byte> Bytes,
     ContentKey Key,
     int PhysicalRecords);
+```
 
-public sealed record ProgramDelivery(
-    ContentKey Image,
-    Option<ContentKey> Transferred,
-    string Controller,
-    CellDriveKind Acknowledged,
-    Seq<string> Log,
-    [property: PersonalData] Option<string> Operator,
-    int Records,
-    Instant At) {
-    public bool Verified => Acknowledged == CellDriveKind.Uploaded
-        && !string.IsNullOrWhiteSpace(Controller)
-        && Transferred.Exists(key => key.Kind == Image.Kind && key.Digest == Image.Digest);
+## [03]-[GRAMMAR_ROWS]
 
-    public static Fin<ProgramDelivery> Of(
-        PostImage image,
-        CellDriveReceipt drive,
-        Instant at,
-        FabricationTap? tap = null,
-        Option<string> operatorId = default) =>
-        image is null || drive is null || drive.Kind != CellDriveKind.Uploaded
-            ? Fin.Fail<ProgramDelivery>(Error.New("dialect:delivery:aggregate"))
-            : from transferred in drive.Uploaded.ToFin(Error.New("dialect:delivery:uploaded"))
-              from _ in transferred.Kind == image.Key.Kind && transferred.Digest == image.Key.Digest
-                  ? Fin.Succ(unit)
-                  : Fin.Fail<Unit>(Error.New("dialect:delivery:digest"))
-              from controller in drive.Controller.Filter(static value => !string.IsNullOrWhiteSpace(value))
-                  .ToFin(Error.New("dialect:delivery:controller"))
-              let delivery = new ProgramDelivery(
-                  image.Key, Some(transferred), controller, drive.Kind, drive.Log, operatorId, image.PhysicalRecords, at)
-              let _fact = (tap ?? FabricationTap.Silent).Fire(FabricationFact.Delivery.Of(delivery))
-              select delivery;
+- Owner: `FamilyGrammar` owns one row per `PostFamily` — the word renderer, the cycle renderer, and whether the family admits structured bodies; `MacroSyntax` and `SubprogramSyntax` own the control-language spellings their `family.md` grammar rows only NAME.
+- Law: a vendor word never appears in a method body. Extended and dynamic work offsets, subprogram call and return, layer marks, temperature words, and the extrude move all resolve through `PostDialect.CodeOverride` — keyed on a `CommandKeys` static, or on the command row's own key where `GCommand` names it — so a controller that spells one differently is one map entry on its own `PostDialect` row and a body that hardcoded it is the deleted form.
+- Law: `PostFamily.Forming` carries a real row. A press-brake control reads a numbered bend record, so a forming dialect renders its words as bend records rather than falling to the unsupported arm — a family the vocabulary declares and emission cannot answer is a controller the package claims to post for and refuses.
+- Cases: `MacroSyntax` carries the assignment prefix each control language spells its parameters with; `SubprogramSyntax` carries the call, definition-open, and definition-close templates; both key on the `family.md` grammar row so a new control language is one row on each table.
+- Auto: `Number` renders through `PostDialect.Decimals` at ONE declaration, so a controller's declared precision reaches every value it emits and the four-decimal literal the prior body carried cannot contradict a three-decimal dialect.
+- Growth: one grammar family adds one `FamilyGrammar` row; one control language adds one `MacroSyntax` and one `SubprogramSyntax` row; one vendor spelling adds one `CommandKeys` static and one `CodeOverrides` entry on the owning dialect row, or one `Codes` bundle member where a family of controllers spells it identically.
+- Boundary: these rows decide SPELLING alone — admissibility stays with `GCommand.Admits` and `PostDialect.Features`.
+
+```csharp signature
+// --- [GRAMMAR_ROWS] -------------------------------------------------------------------------------------------------------------------------------
+// One row per grammar family: the renderer pair and whether the family admits a structured body. The prior form
+// was a `when`-ladder over the (node, family) product with a `_` discard, so a new family compiled clean and every
+// node it should have rendered fell silently to the unsupported arm.
+public sealed record FamilyGrammar(
+    Func<PostDialect, GNode.Word, Fin<GWord>> Word,
+    Func<PostDialect, GNode.CannedCycle, Fin<GWord>> Cycle,
+    bool Structured);
+
+// The control language's own parameter prefix. Four arms differing by ONE character are one column.
+public sealed record MacroSyntax(char Prefix);
+
+// The control language's own subprogram spelling: the call template, the definition head, and the definition tail.
+// `M98`/`M99`/`O`/`CALL LBL`/`LBL 0` were literals in four bodies; here each is one row column.
+public sealed record SubprogramSyntax(
+    Func<PostDialect, int, int, Seq<string>> Call,
+    Func<PostDialect, int, Seq<string>> Open,
+    Func<PostDialect, Seq<string>> Close);
+
+public static partial class Dialect {
+    private static readonly FrozenDictionary<PostFamily, FamilyGrammar> Families =
+        new Dictionary<PostFamily, FamilyGrammar> {
+            [PostFamily.WordAddress] = new(Address, Cycle, Structured: true),
+            [PostFamily.Conversational] = new(Verb, Cycle, Structured: true),
+            [PostFamily.AdditiveGcode] = new(Address, ExpandedCycle, Structured: false),
+            [PostFamily.Forming] = new(BendRecord, BendCycle, Structured: false),
+        }.ToFrozenDictionary();
+
+    private static readonly FrozenDictionary<MacroGrammar, MacroSyntax> Macros =
+        new Dictionary<MacroGrammar, MacroSyntax> {
+            [MacroGrammar.MacroB] = new('#'),
+            [MacroGrammar.RParam] = new('R'),
+            [MacroGrammar.QParam] = new('Q'),
+            [MacroGrammar.UserTask] = new('V'),
+        }.ToFrozenDictionary();
+
+    private static readonly FrozenDictionary<SubprogramGrammar, SubprogramSyntax> Subprograms =
+        new Dictionary<SubprogramGrammar, SubprogramSyntax> {
+            [SubprogramGrammar.M98] = new(
+                static (post, label, repeats) => Seq((Word(post, CommandKeys.SubprogramCall)
+                    + Ordinal(post, CommandKeys.SubprogramLabel, label)
+                    + (repeats > 1 ? Ordinal(post, CommandKeys.SubprogramRepeat, repeats) : string.Empty)).Trim()),
+                static (post, label) => Seq(Word(post, CommandKeys.SubprogramDefine) + Integer(label)),
+                static post => Seq(Word(post, CommandKeys.SubprogramReturn))),
+            [SubprogramGrammar.Label] = new(
+                static (post, label, repeats) => Seq((Word(post, CommandKeys.SubprogramCall) + " " + Integer(label)
+                    + " " + Word(post, CommandKeys.SubprogramRepeat) + " " + Integer(repeats)).Trim()),
+                static (post, label) => Seq(Word(post, CommandKeys.SubprogramDefine) + " " + Integer(label)),
+                static post => Seq(Word(post, CommandKeys.SubprogramReturn))),
+        }.ToFrozenDictionary();
+
+    // The ONE vendor-word read. A key with no override on the dialect row is a capability the controller never
+    // declared, so the caller rails rather than emitting a word invented at the call site.
+    private static Fin<string> Spelling(PostDialect dialect, string commandKey, FaultSubject.ProgramNode subject) =>
+        dialect.CodeOverride(commandKey).ToFin(new FabricationFault.DialectUnsupported(dialect, subject));
+
+    // The unconditional read for rows the seeded dialect estate always carries; a missing entry renders as the bare
+    // key, which is visibly wrong in the emitted record rather than silently absent from it.
+    private static string Word(PostDialect dialect, string commandKey) =>
+        dialect.CodeOverride(commandKey).IfNone(commandKey);
+
+    private static string Ordinal(PostDialect dialect, string commandKey, int value) =>
+        $" {Word(dialect, commandKey)}{Integer(value)}";
+
+    private static string Integer(int value) => value.ToString(CultureInfo.InvariantCulture);
+
+    // The ONE numeric rendering, and it reads the DIALECT's declared precision. A fixed three-decimal format was
+    // spelled twice and contradicted every four-decimal controller row.
+    private static string Number(PostDialect dialect, double value) =>
+        Math.Round(value, dialect.Decimals).ToString($"F{Integer(dialect.Decimals)}", CultureInfo.InvariantCulture)
+            .TrimEnd('0').TrimEnd('.');
+
+    private static string Value(PostDialect dialect, GValue value) => value.Switch(
+        state: dialect,
+        number: static (post, item) => Number(post, item.SourceUnits.Native(item.Canonical)),
+        integer: static (_, item) => Integer(item.Value),
+        variable: static (_, item) => item.Lexeme,
+        expression: static (_, item) => item.Lexeme,
+        text: static (_, item) => item.Value);
+
+    private static Option<double> Native(GValue value) => value.Switch(
+        number: static item => Some(item.SourceUnits.Native(item.Canonical)),
+        integer: static item => Some((double)item.Value),
+        variable: static _ => None,
+        expression: static _ => None,
+        text: static _ => None);
 }
+```
 
+## [04]-[EMISSION]
+
+- Owner: `Dialect` owns the byte projection, while `PostImage` carries the exact records, bytes, kind, key, and physical-record count.
+- Law: lowering dispatches through the GENERATED `Switch` over `GNode` and reads the family row inside each arm, so a new node case cannot compile without an arm and a new family cannot fall silently to an unsupported discard.
+- Entry: `Dialect.Emit` is the one public operation and consumes a complete `CutProgram` with `EmitPolicy`.
+- Auto: `GCommand.Admits` discharges the command row's own declared `Requires` and `Modalities` against the dialect, so emission gates only what the parameters decide — rotary addresses, compensation kind, revolution dwell, and arc representation. `GWord.Render` frames and counts only its returned `RenderReceipt.Lines`, so macro assignments, dialect-cycle parameters, subprogram definitions, additive records, and NC1 records cannot escape `BlockCap`.
+- Receipt: subprogram definitions hoist into one label-keyed stream; identical definitions share one row, and conflicting bodies fail before rendering.
+- Boundary: `Dialect` never reparses, reconditions motion, invents absent command parameters, or maintains a second block-count projection. Parsed `Sequence` and `Checksum` values never survive, because `RecordFrame` owns numbering and digest on re-emission.
+
+```csharp signature
 // --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
-public static class Dialect {
-    public static Fin<PostImage> Emit(CutProgram program, EmitPolicy policy) {
-        ArgumentNullException.ThrowIfNull(program);
-        ArgumentNullException.ThrowIfNull(policy);
-
-        return from kind in OutputKind(program)
-               from lowered in Lower(program.Dialect, program.Nodes)
-               from executable in GWord.Render(lowered.Executable)
-               from unique in Distinct(lowered.Definitions)
-               from definitions in GWord.Render(unique)
-               from records in Frame(program.Dialect, kind, policy, executable.Lines.Concat(definitions.Lines))
-               from _ in Cap(program.Dialect, policy.Limit, records)
-               from image in Image(program.Dialect, kind, policy, records)
-               select image;
-    }
+public static partial class Dialect {
+    public static Fin<PostImage> Emit(CutProgram program, EmitPolicy policy) =>
+        from kind in OutputKind(program)
+        from lowered in Lower(program.Dialect, program.Nodes)
+        from executable in GWord.Render(lowered.Executable)
+        from unique in Distinct(program.Dialect, lowered.Definitions)
+        from definitions in GWord.Render(unique)
+        from records in Frame(program.Dialect, kind, policy, executable.Lines.Concat(definitions.Lines))
+        from _ in Cap(program.Dialect, policy.Limit, records)
+        from image in Image(program.Dialect, kind, policy, records)
+        select image;
 
     private static Fin<EgressKind> OutputKind(CutProgram program) {
         Seq<GNode> leaves = program.Nodes.Bind(Leaves);
@@ -207,7 +279,8 @@ public static class Dialect {
         bool onlyNc1 = !leaves.IsEmpty && leaves.ForAll(static node => node is GNode.Nc1);
         return !anyNc1 || onlyNc1
             ? Fin.Succ(onlyNc1 ? EgressKind.Nc1 : EgressKind.CutProgram)
-            : Fin.Fail<EgressKind>(Error.New($"dialect:mixed-grammar:{program.Dialect.Key}"));
+            : Fin.Fail<EgressKind>(new FabricationFault.DialectUnsupported(
+                program.Dialect, new FaultSubject.ProgramNode("mixed-grammar")));
     }
 
     private static Seq<GNode> Leaves(GNode node) => node.Switch(
@@ -222,24 +295,26 @@ public static class Dialect {
         directive: static directive => Seq<GNode>(directive));
 
     // One complete definition owns each subprogram head; repeated calls share it, while conflicting bodies rail.
-    private static Fin<Seq<GWord>> Distinct(Seq<GWord> definitions) => definitions
+    private static Fin<Seq<GWord>> Distinct(PostDialect dialect, Seq<GWord> definitions) => definitions
         .FoldM<Fin, (Seq<GWord> Words, Map<string, GWord.Subprogram> Definitions)>(
             (Seq<GWord>(), Map<string, GWord.Subprogram>()),
-            static (state, word) => word is not GWord.Subprogram definition
+            (state, word) => word is not GWord.Subprogram definition
                 ? Fin.Succ((state.Words.Add(word), state.Definitions))
-                : definition.Open.Head.ToFin(Error.New("dialect:subprogram-label")).Bind(label =>
-                    state.Definitions.Find(label).Match(
+                : definition.Open.Head
+                    .ToFin(new FabricationFault.DialectUnsupported(dialect, new FaultSubject.ProgramNode("subprogram")))
+                    .Bind(label => state.Definitions.Find(label).Match(
                         Some: held => held == definition
                             ? Fin.Succ(state)
                             : Fin.Fail<(Seq<GWord>, Map<string, GWord.Subprogram>)>(
-                                Error.New($"dialect:subprogram-conflict:{label}")),
+                                new FabricationFault.DialectUnsupported(dialect, new FaultSubject.ProgramNode($"subprogram:{label}"))),
                         None: () => Fin.Succ((state.Words.Add(word),
                             state.Definitions.AddOrUpdate(label, definition)))))).As()
         .Map(static state => state.Words);
 
     private static Fin<PostImage> Image(PostDialect dialect, EgressKind kind, EmitPolicy policy, Seq<string> records) {
         if (records.IsEmpty)
-            return Fin.Fail<PostImage>(Error.New($"dialect:empty-image:{dialect.Key}"));
+            return Fin.Fail<PostImage>(new FabricationFault.DialectUnsupported(
+                dialect, new FaultSubject.ProgramNode("empty-image")));
         string text = string.Join(policy.NewLine, records.ToArray()) + (policy.FinalTerminator ? policy.NewLine : string.Empty);
         ReadOnlyMemory<byte> bytes = policy.Codec.GetBytes(text);
         return Fin.Succ(new PostImage(kind, records, bytes, ContentKey.Of(kind, bytes.Span), records.Count));
@@ -250,7 +325,7 @@ public static class Dialect {
         observe: static state => Fin.Succ(state.Records),
         enforce: static state => state.Dialect.BlockCap.Match(
             Some: cap => state.Records.Count > cap
-                ? Fin.Fail<Seq<string>>(new FabricationFault.BlockCapExceeded(state.Dialect, state.Records.Count, cap).ToError())
+                ? Fin.Fail<Seq<string>>(new FabricationFault.BlockCapExceeded(state.Dialect, state.Records.Count, cap))
                 : Fin.Succ(state.Records),
             None: () => Fin.Succ(state.Records)));
 
@@ -268,7 +343,8 @@ public static class Dialect {
             && state.Dialect.Features.Contains(DialectFeature.LineNumbers)
             && numbered.Checksum.ForAll(_ => state.Dialect.Features.Contains(DialectFeature.Checksum))
                 ? Fin.Succ(state.Frame)
-                : Fin.Fail<RecordFrame>(Error.New($"dialect:frame:numbered:{state.Dialect.Key}")));
+                : Fin.Fail<RecordFrame>(new FabricationFault.DialectUnsupported(
+                    state.Dialect, new FaultSubject.ProgramNode("record-frame"))));
 
     private static string Numbered(PostDialect dialect, RecordFrame.Numbered frame, Encoding codec, string line, int index) {
         string numbered = $"{Sequence(dialect)}{frame.Counter.At(index).ToString(CultureInfo.InvariantCulture)} {line}";
@@ -278,100 +354,28 @@ public static class Dialect {
     private static string Sequence(PostDialect dialect) =>
         dialect.Family == PostFamily.Conversational ? string.Empty : "N";
 
-    private static Fin<(Seq<GWord> Executable, Seq<GWord> Definitions)> Lower(PostDialect dialect, GNode node) => node switch {
-        GNode.Block block => Lower(dialect, block.Body.ToSeq()).Bind(body => Framed(block.Frame, body)),
-        GNode.Nc1 nc1 => Fin.Succ(Executable(Nc1Canonical.Word(nc1.Receipt))),
-        GNode.CoordinateFrame frame => WcsFrame(dialect, frame).Map(static words => (words, Seq<GWord>())),
-        GNode.Word word when dialect.Family == PostFamily.WordAddress || dialect.Family == PostFamily.AdditiveGcode =>
-            Address(dialect, word).Map(Executable),
-        GNode.Word word when dialect.Family == PostFamily.Conversational => Verb(dialect, word).Map(Executable),
-        GNode.CannedCycle cycle when dialect.Family == PostFamily.WordAddress || dialect.Family == PostFamily.Conversational =>
-            Cycle(dialect, cycle).Map(Executable),
-        GNode.CannedCycle cycle when dialect.Family == PostFamily.AdditiveGcode => ExpandedCycle(dialect, cycle).Map(Executable),
-        GNode.Macro macro when dialect.Family != PostFamily.AdditiveGcode && dialect.Family != PostFamily.Forming => Macro(dialect, macro),
-        GNode.Subprogram subprogram when dialect.Family != PostFamily.AdditiveGcode && dialect.Family != PostFamily.Forming =>
-            Subprogram(dialect, subprogram),
-        GNode.AdditiveLayer layer when dialect.Family == PostFamily.AdditiveGcode => Fin.Succ(Executable(AdditiveRecord(layer, dialect.Decimals))),
-        GNode.Directive directive => Directive(dialect, directive.Value),
-        _ => Unsupported(dialect, node).Map(Executable),
-    };
+    // The GENERATED dispatch. Every node case has an arm and every arm reads its family's row, so a family with no
+    // renderer for a node fails on that row rather than through a discard that silently swallowed the node.
+    private static Fin<(Seq<GWord> Executable, Seq<GWord> Definitions)> Lower(PostDialect dialect, GNode node) =>
+        node.Switch(
+            state: dialect,
+            block: static (post, value) => Lower(post, value.Body.ToSeq()).Bind(body => Framed(value.Frame, body)),
+            word: static (post, value) => Grammar(post).Word(post, value).Map(Executable),
+            cannedCycle: static (post, value) => Grammar(post).Cycle(post, value).Map(Executable),
+            coordinateFrame: static (post, value) => WcsFrame(post, value).Map(static words => (words, Seq<GWord>())),
+            macro: static (post, value) => Grammar(post).Structured
+                ? Macro(post, value)
+                : Unsupported(post, value).Map(Executable),
+            subprogram: static (post, value) => Grammar(post).Structured
+                ? Subprogram(post, value)
+                : Unsupported(post, value).Map(Executable),
+            additiveLayer: static (post, value) => post.Family == PostFamily.AdditiveGcode
+                ? AdditiveRecord(post, value).Map(Executable)
+                : Unsupported(post, value).Map(Executable),
+            nc1: static (_, value) => Fin.Succ(Executable(Nc1Canonical.Word(value.Receipt))),
+            directive: static (post, value) => Directive(post, value.Value));
 
-    private static Fin<(Seq<GWord> Executable, Seq<GWord> Definitions)> Directive(
-        PostDialect dialect,
-        MotionDirective directive) => directive.Switch(
-        state: dialect,
-        spindle: static (post, row) => Lower(post, new GNode.Word(
-            row.Control == SpindleControl.ConstantSurface ? GCommand.Css : GCommand.Spindle,
-            row.Control == SpindleControl.ConstantSurface
-                ? Arr(GParam.Number('S', row.SurfaceMetersPerMinute, ProgramUnits.Metric), GParam.Number('D', row.ResolvedRpm, ProgramUnits.Metric))
-                : Arr(GParam.Number('S', row.ResolvedRpm, ProgramUnits.Metric)),
-            None)),
-        dwell: static (post, row) => Lower(post, new GNode.Word(
-            GCommand.Dwell,
-            Arr(GParam.Number('U', row.Revolutions, ProgramUnits.Metric)),
-            None)),
-        orientedStop: static (post, row) => Lower(post, new GNode.Word(
-            GCommand.SpindleOrient,
-            Arr(
-                GParam.Number('R', Math.Atan2(row.Retract.Y, row.Retract.X) * 180.0 / Math.PI, ProgramUnits.Metric),
-                GParam.Number('P', row.Retract.Length, ProgramUnits.Metric)),
-            None)),
-        synchronize: static (post, row) => post.CodeOverride("motion-synchronize")
-            .ToFin(Error.New("dialect:motion-synchronize"))
-            .Map(code => Executable(new GWord.Address(code, ModalGroup.NonModal,
-                Arr(
-                    GParam.Number('P', row.FromMove, ProgramUnits.Metric),
-                    GParam.Number('Q', row.ToMove, ProgramUnits.Metric),
-                    GParam.Number('S', row.Rpm, ProgramUnits.Metric),
-                    GParam.Number('F', row.Lead, ProgramUnits.Metric),
-                    GParam.Number('H', row.Hand == RotationSense.Clockwise ? 1.0 : -1.0, ProgramUnits.Metric)),
-                None,
-                WordRetention.Explicit))),
-        channelBarrier: static (post, row) => post.CodeOverride("channel-barrier")
-            .ToFin(Error.New("dialect:channel-barrier"))
-            .Map(code => Executable(new GWord.Text(Seq(
-                $"{code} {row.Channel} WAIT[{string.Join(',', row.WaitFor.ToArray())}] SIGNAL[{row.Signal.IfNone(string.Empty)}]")))),
-        specialized: static (post, row) => Specialized(post, row.Payload));
-
-    private static Fin<(Seq<GWord> Executable, Seq<GWord> Definitions)> Specialized(
-        PostDialect dialect,
-        SpecializedToolpathEnvelope payload) => payload.IsValid
-            ? Fin.Succ(Executable(new GWord.Text(payload.Rows.Map(row =>
-                SpecializedRecord("RASM", row, dialect.Decimals)).Map(record => Annotation(dialect, record)))))
-            : Fin.Fail<(Seq<GWord>, Seq<GWord>)>(Error.New($"dialect:specialized:{payload.Kind.Key}:invalid"));
-
-    private static string Annotation(PostDialect dialect, string record) =>
-        dialect.Family == PostFamily.WordAddress ? $"({record})" : $";{record}";
-
-    private static string SpecializedRecord(string code, SpecializedToolpathRow row, int decimals) => row.Switch(
-        state: (Code: code, Decimals: decimals),
-        wire: static (state, value) => $"{state.Code} WIRE P{value.Pass} S{Value(value.Station, state.Decimals)} "
-            + $"L{Point(value.Lower, state.Decimals)} U{Point(value.Upper, state.Decimals)} A{value.Action} "
-            + $"G{Value(value.LagMm, state.Decimals)} R{value.RotaryDeg.Map(angle => Value(angle, state.Decimals)).IfNone(string.Empty)}",
-        bevel: static (state, value) => $"{state.Code} BEVEL P{value.Pass} N{value.Move} X{Point(value.Point, state.Decimals)} "
-            + $"A{Vector(value.ToolAxis, state.Decimals)} V{Point(value.Pivot, state.Decimals)} "
-            + $"B{Value(value.AngleDeg, state.Decimals)} C{Value(value.CrossTiltDeg, state.Decimals)} F{Value(value.FeedMmPerMin, state.Decimals)}",
-        link: static (state, value) => $"{state.Code} LINK {value.From}>{value.To} K{value.Transition} "
-            + $"D{Value(value.DistanceMm, state.Decimals)} T{Value(value.DurationSeconds, state.Decimals)} "
-            + $"L{Value(value.LiftMm, state.Decimals)} R{Value(value.RotationPenalty, state.Decimals)}",
-        inspection: static (state, value) => $"{state.Code} INSPECT P{value.Pass} B{value.FromBlock}:{value.ToBlockExclusive} "
-            + $"A{Value(value.AngleDeviationDeg, state.Decimals)} O{Value(value.OffsetDeviationMm, state.Decimals)} C{(value.Conforming ? 1 : 0)}",
-        turningThread: static (state, value) => $"{state.Code} TURN THREAD {value.Form} {value.Side} "
-            + $"L{Value(value.LoadFlankDeg, state.Decimals)} C{Value(value.ClearanceFlankDeg, state.Decimals)}",
-        turningAxial: static (state, value) => $"{state.Code} TURN AXIAL {value.Kind} N{value.FromMove}:{value.ToMove} "
-            + $"D{Value(value.Diameter, state.Decimals)} Z{Value(value.Depth, state.Decimals)} A{Value(value.TipAngleDeg, state.Decimals)}",
-        turningTap: static (state, value) => $"{state.Code} TURN TAP {value.Form} {value.Hand} N{value.FromMove}:{value.ToMove} "
-            + $"D{Value(value.Diameter, state.Decimals)} Z{Value(value.Depth, state.Decimals)} P{Value(value.Pitch, state.Decimals)}",
-        turningKnurl: static (state, value) => $"{state.Code} TURN KNURL {value.Pattern} N{value.FromMove}:{value.ToMove} "
-            + $"P{Value(value.Pressure, state.Decimals)}",
-        turningHandoff: static (state, value) => $"{state.Code} TURN {value.Kind} {value.From}>{value.To} "
-            + $"G{Value(value.GripPlane, state.Decimals)} L{Value(value.GripLength, state.Decimals)} P{Value(value.PullDistance, state.Decimals)}");
-
-    private static string Point(Point3d point, int decimals) =>
-        $"{Value(point.X, decimals)},{Value(point.Y, decimals)},{Value(point.Z, decimals)}";
-
-    private static string Vector(Vector3d vector, int decimals) =>
-        $"{Value(vector.X, decimals)},{Value(vector.Y, decimals)},{Value(vector.Z, decimals)}";
+    private static FamilyGrammar Grammar(PostDialect dialect) => Families[dialect.Family];
 
     private static Fin<(Seq<GWord> Executable, Seq<GWord> Definitions)> Lower(PostDialect dialect, Seq<GNode> body) =>
         body.Traverse(node => Lower(dialect, node)).As().Map(static rows => rows.Fold(
@@ -383,61 +387,16 @@ public static class Dialect {
         BlockFrame frame, (Seq<GWord> Executable, Seq<GWord> Definitions) body) =>
         (frame.Optional
             ? GWord.Render(body.Executable).Map(static rendered =>
-                Seq<GWord>(GWord.Text(rendered.Lines.Map(static line => $"/{line}"))))
+                Seq<GWord>(new GWord.Text(rendered.Lines.Map(static line => $"/{line}"))))
             : Fin.Succ(body.Executable))
-        .Map(executable => (Seq<GWord>(GWord.Text(Structure(frame))).Concat(executable), body.Definitions));
+        .Map(executable => (Seq<GWord>(new GWord.Text(Structure(frame))).Concat(executable), body.Definitions));
 
     private static Seq<string> Structure(BlockFrame frame) => (frame.Delimiter ? Seq("%") : Seq<string>())
-        .Concat(frame.Program.Map(static value => $"O{value.ToString(CultureInfo.InvariantCulture)}").ToSeq())
+        .Concat(frame.Program.Map(static value => $"O{Integer(value)}").ToSeq())
         .Concat(frame.Comments);
 
     private static (Seq<GWord> Executable, Seq<GWord> Definitions) Executable(GWord word) =>
         (Seq(word), Seq<GWord>());
-
-    private static Fin<Seq<GWord>> WcsFrame(PostDialect dialect, GNode.CoordinateFrame node) => node.Assignment.Slot.Switch(
-        state: (Dialect: dialect, Frame: node.Frame),
-        @base: static (state, slot) => Base(state.Dialect, slot.Ordinal)
-            .Map(select => Seq(Offset(state.Dialect, state.Frame, 2, slot.Ordinal, Arr<GParam>()), select)),
-        extended: static (state, slot) => Extended(state.Dialect, "G54.1", slot.Ordinal)
-            .Map(select => Seq(Offset(state.Dialect, state.Frame, 20, slot.Ordinal, Arr<GParam>()), select)),
-        dynamic: static (state, slot) => state.Dialect.Features.Contains(DialectFeature.Tcp)
-            ? Extended(state.Dialect, "G54.2", slot.Ordinal)
-                .Map(select => Seq(Offset(state.Dialect, state.Frame, 2, slot.Ordinal, Arr<GParam>()), select))
-            : Fin.Fail<Seq<GWord>>(Error.New($"dialect:wcs:dynamic:{state.Dialect.Key}")),
-        rotary: static (state, slot) => state.Dialect.Features.Contains(DialectFeature.Rotary)
-            ? Extended(state.Dialect, "G54.1", slot.Ordinal).Map(select => Seq(
-                Offset(state.Dialect, state.Frame, 20, slot.Ordinal, Arr(GParam.Number(
-                    slot.Axis <= 0 ? 'A' : slot.Axis == 1 ? 'B' : 'C',
-                    Math.Atan2(state.Frame.XAxis.Y, state.Frame.XAxis.X) * 180.0 / Math.PI,
-                    ProgramUnits.Metric))),
-                select))
-            : Fin.Fail<Seq<GWord>>(Error.New($"dialect:wcs:rotary:{state.Dialect.Key}")),
-        local: static (state, slot) => slot.Parent > 0
-            ? Fin.Succ(Seq<GWord>(GWord.Address(
-                state.Dialect.CodeOverride(GCommand.LocalShift.Key).IfNone(GCommand.LocalShift.Code),
-                ModalGroup.Transform, Origin(state.Frame, state.Dialect.Decimals), None, state.Dialect.Retention)))
-            : Fin.Fail<Seq<GWord>>(Error.New($"dialect:wcs:local:{state.Dialect.Key}")));
-
-    private static Fin<GWord> Base(PostDialect dialect, int ordinal) => ordinal > 0 && ordinal <= Math.Min(dialect.Wcs.Slots, 6)
-        ? Fin.Succ<GWord>(GWord.Address($"G{53 + ordinal}", ModalGroup.Wcs, Arr<GParam>(), None, dialect.Retention))
-        : Fin.Fail<GWord>(Error.New($"dialect:wcs:{dialect.Key}"));
-
-    private static Fin<GWord> Extended(PostDialect dialect, string code, int ordinal) => ordinal > 0 && ordinal <= dialect.Wcs.Extended
-        ? Fin.Succ<GWord>(GWord.Address(code, ModalGroup.Wcs, Arr(GParam.Number('P', ordinal, ProgramUnits.Metric)), None, dialect.Retention))
-        : Fin.Fail<GWord>(Error.New($"dialect:wcs:{dialect.Key}"));
-
-    private static GWord Offset(PostDialect dialect, Plane frame, int level, int ordinal, Arr<GParam> extra) => GWord.Address(
-        dialect.CodeOverride(GCommand.SetWcs.Key).IfNone(GCommand.SetWcs.Code),
-        ModalGroup.NonModal,
-        Arr(GParam.Number('L', level, ProgramUnits.Metric), GParam.Number('P', ordinal, ProgramUnits.Metric))
-            .Concat(Origin(frame, dialect.Decimals)).Concat(extra).ToArr(),
-        None,
-        dialect.Retention);
-
-    private static Arr<GParam> Origin(Plane frame, int decimals) => Arr(
-        GParam.Number('X', Math.Round(frame.Origin.X, decimals), ProgramUnits.Metric),
-        GParam.Number('Y', Math.Round(frame.Origin.Y, decimals), ProgramUnits.Metric),
-        GParam.Number('Z', Math.Round(frame.Origin.Z, decimals), ProgramUnits.Metric));
 
     private static Fin<GWord> Address(PostDialect dialect, GNode.Word word) =>
         Admit(dialect, word).Bind(admitted => Address(dialect, word, admitted));
@@ -445,8 +404,8 @@ public static class Dialect {
     private static Fin<GWord> Address(PostDialect dialect, GNode.Word word, Arr<GParam> admitted) =>
         word.Command == GCommand.Wcs || word.Command == GCommand.WcsExtended
         ? WcsWord(dialect, admitted, word.Command == GCommand.WcsExtended)
-        : Fin.Succ<GWord>(GWord.Address(
-            dialect.CodeOverride(word.Command.Key).IfNone(word.Command.Code),
+        : Fin.Succ<GWord>(new GWord.Address(
+            Word(dialect, word.Command.Key),
             word.Command.Group,
             admitted.Map(parameter => parameter.Round(dialect.Decimals)).ToArr(),
             word.Mode,
@@ -455,13 +414,9 @@ public static class Dialect {
     // A conversational control without its own record grammar fails typed; emitting word-address records under a
     // conversational family would post a program the control cannot read.
     private static Fin<GWord> Verb(PostDialect dialect, GNode.Word word) =>
-        Admit(dialect, word).Bind(admitted => dialect.Macro.Switch(
-            state: (Dialect: dialect, Word: word, Words: admitted),
-            qParam: static state => Klartext(state.Dialect, state.Word, state.Words),
-            macroB: static state => Unsupported(state.Dialect, state.Word),
-            rParam: static state => Unsupported(state.Dialect, state.Word),
-            userTask: static state => Unsupported(state.Dialect, state.Word),
-            none: static state => Unsupported(state.Dialect, state.Word)));
+        Admit(dialect, word).Bind(admitted => dialect.Macro == MacroGrammar.QParam
+            ? Klartext(dialect, word, admitted)
+            : Unsupported(dialect, word));
 
     private static Fin<GWord> Klartext(PostDialect dialect, GNode.Word word, Arr<GParam> admitted) => word.Command switch {
         var command when command == GCommand.Rapid || command == GCommand.Feed =>
@@ -469,69 +424,71 @@ public static class Dialect {
                 || (command == GCommand.Feed && parameter.Address == 'F')).ToArr())
             from _ in motion.ForAll(static parameter => parameter.Value.Scalar.IsSome)
                 ? Fin.Succ(unit)
-                : Fin.Fail<Unit>(new FabricationFault.DialectUnsupported(dialect, word.Subject).ToError())
-            select (GWord)GWord.Conversational(Seq(($"L {Coordinates(motion, dialect.Decimals)}"
+                : Fin.Fail<Unit>(new FabricationFault.DialectUnsupported(dialect, word.Subject))
+            select (GWord)new GWord.Conversational(Seq(($"L {Coordinates(dialect, motion)}"
                 + (command == GCommand.Rapid ? " FMAX" : string.Empty)).Trim())),
         var command when command == GCommand.ArcCw || command == GCommand.ArcCcw =>
-            from i in Center(admitted, 'I')
-            from j in Center(admitted, 'J')
-            select (GWord)GWord.Conversational(Seq(
-                $"CC IX{Signed(i, dialect.Decimals)} IY{Signed(j, dialect.Decimals)}",
-                $"C {Coordinates(admitted, dialect.Decimals)} DR{(command == GCommand.ArcCw ? "-" : "+")}")),
+            from i in Center(dialect, word, admitted, 'I')
+            from j in Center(dialect, word, admitted, 'J')
+            select (GWord)new GWord.Conversational(Seq(
+                $"CC IX{Signed(dialect, i)} IY{Signed(dialect, j)}",
+                $"C {Coordinates(dialect, admitted)} DR{(command == GCommand.ArcCw ? "-" : "+")}")),
         _ => Address(dialect, word, admitted),
     };
 
+    // A press brake reads a numbered bend record, not a word-address block: each admitted address becomes one
+    // addressed field on one record, so the forming family posts real bend programs rather than refusing.
+    private static Fin<GWord> BendRecord(PostDialect dialect, GNode.Word word) =>
+        Admit(dialect, word).Map(admitted => (GWord)new GWord.Conversational(Seq(
+            ($"{Word(dialect, word.Command.Key)} "
+                + string.Join(" ", admitted.Map(parameter =>
+                    $"{parameter.Address}{Value(dialect, parameter.Value)}").ToArray())).Trim())));
+
+    private static Fin<GWord> BendCycle(PostDialect dialect, GNode.CannedCycle cycle) =>
+        BendRecord(dialect, new GNode.Word(cycle.Command, cycle.SingleBlockWords, cycle.Mode));
+
     // An omitted center offset is zero by RS274 definition, so absence is the value; a present symbolic offset fails.
-    private static Fin<double> Center(Arr<GParam> words, char address) =>
+    private static Fin<double> Center(PostDialect dialect, GNode.Word word, Arr<GParam> words, char address) =>
         words.Find(parameter => parameter.Address == address).Match(
-            Some: parameter => Native(parameter.Value).ToFin(Error.New($"dialect:arc:{address}")),
+            Some: parameter => Native(parameter.Value)
+                .ToFin(new FabricationFault.DialectUnsupported(dialect, word.Subject)),
             None: static () => Fin.Succ(0.0));
 
-    private static string Coordinates(Arr<GParam> words, int decimals) => string.Join(
+    private static string Coordinates(PostDialect dialect, Arr<GParam> words) => string.Join(
         " ",
         words.Filter(static parameter => parameter.Address is 'X' or 'Y' or 'Z' or 'A' or 'B' or 'C' or 'F')
             .Choose(parameter => Native(parameter.Value).Map(value => parameter.Address == 'F'
-                ? $"F{Number(Math.Round(value, decimals))}"
-                : $"{parameter.Address}{Signed(value, decimals)}"))
+                ? $"F{Number(dialect, value)}"
+                : $"{parameter.Address}{Signed(dialect, value)}"))
             .ToArray());
 
-    private static string Signed(double value, int decimals) =>
-        $"{(value >= 0.0 ? "+" : string.Empty)}{Number(Math.Round(value, decimals))}";
-
-    private static Fin<GWord> WcsWord(PostDialect dialect, Arr<GParam> words, bool extended) {
-        Option<int> ordinal = words.Find(static parameter => parameter.Address == 'P')
-            .Bind(static parameter => parameter.Value.Scalar)
-            .Filter(static value => value is > 0.0 and <= int.MaxValue && value == Math.Truncate(value))
-            .Map(static value => checked((int)value));
-        return ordinal.Match(
-            Some: value => extended ? Extended(dialect, "G54.1", value) : Base(dialect, value),
-            None: () => Fin.Fail<GWord>(Error.New($"dialect:wcs:{dialect.Key}")));
-    }
+    private static string Signed(PostDialect dialect, double value) =>
+        $"{(value >= 0.0 ? "+" : string.Empty)}{Number(dialect, value)}";
 
     private static Fin<GWord> Cycle(PostDialect dialect, GNode.CannedCycle cycle) =>
         Admit(dialect, new GNode.Word(cycle.Command, cycle.SingleBlockWords, cycle.Mode)).Bind(admitted => dialect.Cycles.Switch(
             state: (Dialect: dialect, Cycle: cycle, Words: admitted),
             singleBlock: static state => Address(state.Dialect, new GNode.Word(state.Cycle.Command, state.Words, state.Cycle.Mode), state.Words),
             expanded: static state => ExpandedCycle(state.Dialect, state.Cycle),
-            dialectCycle: static state => Fin.Succ<GWord>(GWord.CycleCall(CycleRecords(state.Dialect, state.Cycle, state.Words)))));
+            dialectCycle: static state => Fin.Succ<GWord>(new GWord.CycleCall(CycleRecords(state.Dialect, state.Cycle, state.Words)))));
 
     private static Fin<GWord> ExpandedCycle(PostDialect dialect, GNode.CannedCycle cycle) =>
         GNode.Moves(cycle.ExpandedMoves, Point3d.Origin).Traverse(node => node is GNode.Word word
                 ? Address(dialect, word)
                 : Unsupported(dialect, node)).As()
-            .Map<GWord>(static words => GWord.Expanded(words));
+            .Map<GWord>(static words => new GWord.Expanded(words));
 
-    // Control language, never controller identity: one MacroGrammar row is one vendor record grammar.
+    // Control language, never controller identity: one `MacroGrammar` row is one vendor record grammar.
     private static Seq<string> CycleRecords(PostDialect dialect, GNode.CannedCycle cycle, Arr<GParam> words) {
-        string code = dialect.CodeOverride(cycle.Command.Key).IfNone(cycle.Command.Code);
-        Seq<string> values = words.Map(parameter => Value(parameter.Value, dialect.Decimals)).ToSeq();
-        Seq<string> addressed = words.Map(parameter => $"{parameter.Address}{Value(parameter.Value, dialect.Decimals)}").ToSeq();
+        string code = Word(dialect, cycle.Command.Key);
+        Seq<string> values = words.Map(parameter => Value(dialect, parameter.Value)).ToSeq();
+        Seq<string> addressed = words.Map(parameter => $"{parameter.Address}{Value(dialect, parameter.Value)}").ToSeq();
         return dialect.Macro.Switch(
-            state: (Cycle: cycle, Code: code, Values: values, Addressed: addressed),
+            state: (Dialect: dialect, Cycle: cycle, Code: code, Values: values, Addressed: addressed),
             rParam: static state => Seq((state.Cycle.Repeats > 1 ? "MCALL " : string.Empty)
                 + $"{state.Code}({string.Join(", ", state.Values.ToArray())})"),
             qParam: static state => Seq($"CYCL DEF {state.Code}").Concat(state.Addressed)
-                .Add(state.Cycle.Repeats > 1 ? $"CYCL CALL REP{state.Cycle.Repeats.ToString(CultureInfo.InvariantCulture)}" : "CYCL CALL"),
+                .Add(state.Cycle.Repeats > 1 ? $"CYCL CALL REP{Integer(state.Cycle.Repeats)}" : "CYCL CALL"),
             macroB: static state => Iso(state.Code, state.Addressed, state.Cycle.Repeats),
             userTask: static state => Iso(state.Code, state.Addressed, state.Cycle.Repeats),
             none: static state => Iso(state.Code, state.Addressed, state.Cycle.Repeats));
@@ -539,57 +496,41 @@ public static class Dialect {
 
     private static Seq<string> Iso(string code, Seq<string> addressed, int repeats) => Seq(
         ($"{code} {string.Join(" ", addressed.ToArray())}"
-            + (repeats > 1 ? $" L{repeats.ToString(CultureInfo.InvariantCulture)}" : string.Empty)).Trim());
+            + (repeats > 1 ? $" L{Integer(repeats)}" : string.Empty)).Trim());
 
     private static Fin<(Seq<GWord> Executable, Seq<GWord> Definitions)> Macro(PostDialect dialect, GNode.Macro macro) =>
-        Lower(dialect, macro.Body.ToSeq()).Bind(body => dialect.Macro.Switch(
-            state: (Dialect: dialect, Macro: macro, Body: body),
-            macroB: static state => Macro(state.Macro, state.Body, '#', state.Dialect.Decimals),
-            rParam: static state => Macro(state.Macro, state.Body, 'R', state.Dialect.Decimals),
-            qParam: static state => Macro(state.Macro, state.Body, 'Q', state.Dialect.Decimals),
-            userTask: static state => Macro(state.Macro, state.Body, 'V', state.Dialect.Decimals),
-            none: static state => Unsupported(state.Dialect, state.Macro).Map(Executable)));
+        Macros.TryGetValue(dialect.Macro, out MacroSyntax? syntax)
+            ? Lower(dialect, macro.Body.ToSeq()).Map(body => (
+                Seq<GWord>(new GWord.Macro(
+                    macro.Slots.Map(slot => $"{syntax.Prefix}{Integer(slot.Index)}={Value(dialect, slot.Value)}").ToSeq(),
+                    body.Executable,
+                    Seq<string>())),
+                body.Definitions))
+            : Unsupported(dialect, macro).Map(Executable);
 
-    private static Fin<(Seq<GWord> Executable, Seq<GWord> Definitions)> Macro(
-        GNode.Macro macro,
-        (Seq<GWord> Executable, Seq<GWord> Definitions) body,
-        char prefix,
-        int decimals) => Fin.Succ((
-            Seq<GWord>(GWord.Macro(Assignments(Slots(macro.Slots, prefix), decimals), body.Executable, Seq<string>())),
-            body.Definitions));
+    private static Fin<(Seq<GWord> Executable, Seq<GWord> Definitions)> Subprogram(
+        PostDialect dialect, GNode.Subprogram subprogram) =>
+        Subprograms.TryGetValue(dialect.Subprogram, out SubprogramSyntax? syntax)
+            ? Lower(dialect, subprogram.Body.ToSeq()).Map(body => (
+                Seq<GWord>(new GWord.Text(syntax.Call(dialect, subprogram.Label, subprogram.Repeats))),
+                Seq<GWord>(new GWord.Subprogram(
+                    syntax.Open(dialect, subprogram.Label), body.Executable, syntax.Close(dialect)))
+                    .Concat(body.Definitions)))
+            : Unsupported(dialect, subprogram).Map(Executable);
 
-    private static Fin<(Seq<GWord> Executable, Seq<GWord> Definitions)> Subprogram(PostDialect dialect, GNode.Subprogram subprogram) =>
-        Lower(dialect, subprogram.Body.ToSeq()).Bind(body => dialect.Subprogram.Switch(
-            state: (Dialect: dialect, Subprogram: subprogram, Body: body),
-            m98: static state => Fin.Succ((
-                Seq<GWord>(GWord.Text(Seq(($"M98 P{state.Subprogram.Label.ToString(CultureInfo.InvariantCulture)}"
-                    + (state.Subprogram.Repeats > 1 ? $" L{state.Subprogram.Repeats.ToString(CultureInfo.InvariantCulture)}" : string.Empty))))),
-                Seq<GWord>(GWord.Subprogram(
-                    Seq($"O{state.Subprogram.Label.ToString(CultureInfo.InvariantCulture)}"),
-                    state.Body.Executable,
-                    Seq("M99"))).Concat(state.Body.Definitions))),
-            label: static state => Fin.Succ((
-                Seq<GWord>(GWord.Text(Seq($"CALL LBL {state.Subprogram.Label.ToString(CultureInfo.InvariantCulture)} REP {state.Subprogram.Repeats.ToString(CultureInfo.InvariantCulture)}"))),
-                Seq<GWord>(GWord.Subprogram(
-                    Seq($"LBL {state.Subprogram.Label.ToString(CultureInfo.InvariantCulture)}"),
-                    state.Body.Executable,
-                    Seq("LBL 0"))).Concat(state.Body.Definitions))),
-            none: static state => Unsupported(state.Dialect, state.Subprogram).Map(Executable)));
-
-    private static Arr<MacroSlot> Slots(Arr<MacroSlot> slots, char prefix) =>
-        slots.Map(slot => slot with { Key = $"{prefix}{slot.Index.ToString(CultureInfo.InvariantCulture)}" }).ToArr();
-
-    private static Seq<string> Assignments(Arr<MacroSlot> slots, int decimals) =>
-        slots.Map(slot => $"{slot.Key}={Value(slot.Value, decimals)}").ToSeq();
-
-    private static GWord AdditiveRecord(GNode.AdditiveLayer layer, int decimals) => GWord.Additive(Seq(
-        $";LAYER:{layer.Layer.ToString(CultureInfo.InvariantCulture)}",
-        $"M104 S{Number(Math.Round(layer.Temperatures.Hotend, decimals))}",
-        $"M140 S{Number(Math.Round(layer.Temperatures.Bed, decimals))}",
-        $"G1 E{Number(Math.Round(layer.Extrusion.Amount, decimals))} F{Number(Math.Round(layer.Extrusion.Feed, decimals))}"));
+    // Every additive record resolves through the dialect's own override map, so a streaming controller spelling its
+    // layer mark or temperature word differently is one map entry rather than four literals in this body.
+    private static Fin<GWord> AdditiveRecord(PostDialect dialect, GNode.AdditiveLayer layer) =>
+        from mark in Spelling(dialect, CommandKeys.LayerMark, new FaultSubject.ProgramNode("additive-layer"))
+        from extrude in Spelling(dialect, CommandKeys.ExtrudeMove, new FaultSubject.ProgramNode("additive-layer"))
+        select (GWord)new GWord.Additive(Seq(
+            $"{mark}{Integer(layer.Layer)}",
+            $"{Word(dialect, GCommand.HotendTemp.Key)} S{Number(dialect, layer.Temperatures.Hotend)}",
+            $"{Word(dialect, GCommand.BedTemp.Key)} S{Number(dialect, layer.Temperatures.Bed)}",
+            $"{extrude}{Number(dialect, layer.Extrusion.Amount)} F{Number(dialect, layer.Extrusion.Feed)}"));
 
     private static Fin<GWord> Unsupported(PostDialect dialect, GNode node) =>
-        Fin.Fail<GWord>(new FabricationFault.DialectUnsupported(dialect, node.Subject).ToError());
+        Fin.Fail<GWord>(new FabricationFault.DialectUnsupported(dialect, node.Subject));
 
     private static Fin<Arr<GParam>> Admit(PostDialect dialect, GNode.Word word) =>
         word.Command.Admit(0, word.Words).Bind(parameters =>
@@ -597,9 +538,9 @@ public static class Dialect {
                 && word.Command.Admits(dialect)
                 && Capability(dialect, word.Command, parameters)
                 ? Fin.Succ(parameters)
-                : Fin.Fail<Arr<GParam>>(new FabricationFault.DialectUnsupported(dialect, word.Subject).ToError()));
+                : Fin.Fail<Arr<GParam>>(new FabricationFault.DialectUnsupported(dialect, word.Subject)));
 
-    // GCommand.Admits already discharges the row's declared feature and modality demand; only parameter-decided
+    // `GCommand.Admits` already discharges the row's declared feature and modality demand; only parameter-decided
     // capability survives here.
     private static bool Capability(PostDialect dialect, GCommand command, Arr<GParam> parameters) {
         bool rotary = !parameters.Exists(static parameter => parameter.Address is 'A' or 'B' or 'C')
@@ -621,70 +562,379 @@ public static class Dialect {
         });
         return rotary && radius && length && dwell && arc;
     }
+}
+```
 
-    private static string Value(GValue value, int decimals) => value.Switch(
-        state: decimals,
-        number: static (places, item) => Number(Math.Round(item.SourceUnits.Native(item.Canonical), places)),
-        integer: static (_, item) => item.Value.ToString(CultureInfo.InvariantCulture),
-        variable: static (_, item) => item.Lexeme,
-        expression: static (_, item) => item.Lexeme,
-        text: static (_, item) => item.Value);
+## [05]-[DIRECTIVES]
 
-    private static Option<double> Native(GValue value) => value.Switch(
-        number: static item => Some(item.SourceUnits.Native(item.Canonical)),
-        integer: static item => Some((double)item.Value),
-        variable: static _ => None,
-        expression: static _ => None,
-        text: static _ => None);
+- Owner: `Dialect.Directive` owns the lowering of every `MotionDirective` case the S0 atoms floor declares.
+- Law: a directive lowers to an EXECUTABLE word where the dialect's declared features admit it, and to a declared ANNOTATION where they do not — never silently. A controller with no revolution-dwell feature receives the dwell as a comment carrying its own basis and amount, so the operator reads the intent the control cannot execute rather than running a program the intent vanished from.
+- Law: `OrientedStop` emits the DECLARED orient angle. Re-deriving an angle from the retract vector discards the angle the atom carries and publishes a different stop position wherever the two disagree.
+- Cases: spindle law with its control mode and hand; a dwell carrying `DwellBasis`, which decides the time or revolution address; a synchronized channel pair; an oriented stop with its orient angle and retract; a channel barrier; and an admitted specialized envelope.
+- Auto: `DialectFeature.TimeDwell` and `DialectFeature.RevolutionDwell` decide the dwell address from the basis, so no arm tests a controller identity; `CommandKeys.MotionSynchronize` and `CommandKeys.ChannelBarrier` resolve their vendor words through the dialect's own override map.
+- Receipt: the specialized envelope arrives ADMITTED, so each row renders its evidence directly and no local revalidation runs.
+- Boundary: an annotation rides the family's own comment channel — parenthesised for word-address, semicolon for every other family — so a controller that ignores comments loses nothing.
 
-    private static string Number(double value) => value.ToString("0.###", CultureInfo.InvariantCulture);
+```csharp signature
+// --- [DIRECTIVES] ---------------------------------------------------------------------------------------------------------------------------------
+public static partial class Dialect {
+    private static Fin<(Seq<GWord> Executable, Seq<GWord> Definitions)> Directive(
+        PostDialect dialect, MotionDirective directive) => directive.Switch(
+        state: dialect,
+        spindle: static (post, row) => Lower(post, new GNode.Word(
+            row.Control == SpindleControl.ConstantSurface ? GCommand.Css : GCommand.Spindle,
+            row.Control == SpindleControl.ConstantSurface
+                ? Arr(GParam.Number('S', row.SurfaceMetersPerMinute, ProgramUnits.Metric),
+                    GParam.Number('D', row.ResolvedRpm, ProgramUnits.Metric))
+                : Arr(GParam.Number('S', row.ResolvedRpm, ProgramUnits.Metric)),
+            None)),
+        // The BASIS names the address and the dialect's own feature admits it; a controller carrying neither dwell
+        // feature receives the pause as an annotation rather than a word it would reject at the block.
+        dwell: static (post, row) => DwellAddress(post, row.Basis).Match(
+            Some: address => Lower(post, new GNode.Word(
+                GCommand.Dwell, Arr(GParam.Number(address, row.Amount, ProgramUnits.Metric)), None)),
+            None: () => Fin.Succ(Executable(Annotated(post, Seq(
+                $"DWELL {row.Basis.Key.ToUpperInvariant()} {Number(post, row.Amount)}"))))),
+        synchronize: static (post, row) => post.CodeOverride(CommandKeys.MotionSynchronize).Match(
+            Some: code => Fin.Succ(Executable(new GWord.Address(code, ModalGroup.NonModal,
+                Arr(
+                    GParam.Number('P', row.FromMove, ProgramUnits.Metric),
+                    GParam.Number('Q', row.ToMove, ProgramUnits.Metric),
+                    GParam.Number('S', row.Rpm, ProgramUnits.Metric),
+                    GParam.Number('F', row.Lead, ProgramUnits.Metric),
+                    GParam.Number('H', row.Hand == RotationSense.Clockwise ? 1.0 : -1.0, ProgramUnits.Metric)),
+                None,
+                WordRetention.Explicit))),
+            None: () => Fin.Succ(Executable(Annotated(post, Seq(
+                $"SYNC {Integer(row.FromMove)}:{Integer(row.ToMove)} S{Number(post, row.Rpm)} "
+                + $"F{Number(post, row.Lead)} {row.Hand.Key}"))))),
+        // The orient angle the atom DECLARES is what the stop position means; the retract vector is the withdrawal
+        // that follows it, so both ride their own addresses rather than one being recovered from the other.
+        orientedStop: static (post, row) => Lower(post, new GNode.Word(
+            GCommand.SpindleOrient,
+            Arr(
+                GParam.Number('R', row.OrientDeg, ProgramUnits.Metric),
+                GParam.Number('P', row.Retract.Length, ProgramUnits.Metric)),
+            None)),
+        channelBarrier: static (post, row) => post.CodeOverride(CommandKeys.ChannelBarrier).Match(
+            Some: code => Fin.Succ(Executable(new GWord.Text(Seq(
+                $"{code} {row.Channel} WAIT[{string.Join(',', row.WaitFor.ToArray())}] "
+                + $"SIGNAL[{row.Signal.IfNone(string.Empty)}]")))),
+            None: () => Fin.Succ(Executable(Annotated(post, Seq(
+                $"BARRIER {Integer(row.Step)} {row.Channel} "
+                + $"WAIT[{string.Join(',', row.WaitFor.ToArray())}] SIGNAL[{row.Signal.IfNone(string.Empty)}]"))))),
+        specialized: static (post, row) => Fin.Succ(Executable(Annotated(post,
+            row.Payload.Rows.Map(item => SpecializedRecord(post, item))))));
+
+    private static Option<char> DwellAddress(PostDialect dialect, DwellBasis basis) => basis.Switch(
+        state: dialect,
+        seconds: static (post, _) => post.Features.Contains(DialectFeature.TimeDwell) ? Some('P') : None,
+        revolutions: static (post, _) => post.Features.Contains(DialectFeature.RevolutionDwell) ? Some('U') : None);
+
+    // The family's own comment channel. A word-address control parenthesises; every other family prefixes.
+    private static GWord Annotated(PostDialect dialect, Seq<string> records) => new GWord.Text(records.Map(record =>
+        dialect.Family == PostFamily.WordAddress ? $"({RasmRecord} {record})" : $";{RasmRecord} {record}"));
+
+    // The package's own annotation tag, so a controller log or a re-reading tool separates posted evidence from a
+    // draftsman's comment without parsing the record body.
+    private const string RasmRecord = "RASM";
+
+    private static string SpecializedRecord(PostDialect dialect, SpecializedToolpathRow row) => row.Switch(
+        state: dialect,
+        wire: static (post, value) => $"WIRE P{Integer(value.Pass)} S{Number(post, value.Station)} "
+            + $"L{Point(post, value.Lower)} U{Point(post, value.Upper)} A{value.Action.Key} "
+            + $"G{Number(post, value.LagMm)} R{value.RotaryDeg.Map(angle => Number(post, angle)).IfNone(string.Empty)}",
+        bevel: static (post, value) => $"BEVEL P{Integer(value.Pass)} N{Integer(value.Move)} X{Point(post, value.Point)} "
+            + $"A{Vector(post, value.ToolAxis)} V{Point(post, value.Pivot)} "
+            + $"B{Number(post, value.AngleDeg)} C{Number(post, value.CrossTiltDeg)} F{Number(post, value.FeedMmPerMin)}",
+        link: static (post, value) => $"LINK {value.From}>{value.To} K{value.Transition.Key} "
+            + $"D{Number(post, value.DistanceMm)} T{Number(post, value.DurationSeconds)} "
+            + $"L{Number(post, value.LiftMm)} R{Number(post, value.RotationPenalty)}",
+        inspection: static (post, value) => $"INSPECT P{Integer(value.Pass)} "
+            + $"B{Integer(value.FromBlock)}:{Integer(value.ToBlockExclusive)} "
+            + $"A{Number(post, value.AngleDeviationDeg)} O{Number(post, value.OffsetDeviationMm)} "
+            + $"C{(value.Conforming ? "1" : "0")}",
+        turningThread: static (post, value) => $"TURN THREAD {value.Form.Key} {value.Side.Key} "
+            + $"L{Number(post, value.LoadFlankDeg)} C{Number(post, value.ClearanceFlankDeg)}",
+        turningAxial: static (post, value) => $"TURN AXIAL {value.Kind.Key} "
+            + $"N{Integer(value.FromMove)}:{Integer(value.ToMove)} "
+            + $"D{Number(post, value.Diameter)} Z{Number(post, value.Depth)} A{Number(post, value.TipAngleDeg)}",
+        turningTap: static (post, value) => $"TURN TAP {value.Form.Key} {value.Hand.Key} "
+            + $"N{Integer(value.FromMove)}:{Integer(value.ToMove)} "
+            + $"D{Number(post, value.Diameter)} Z{Number(post, value.Depth)} P{Number(post, value.Pitch)}",
+        turningKnurl: static (post, value) => $"TURN KNURL {value.Pattern.Key} "
+            + $"N{Integer(value.FromMove)}:{Integer(value.ToMove)} P{Number(post, value.Pressure)}",
+        turningHandoff: static (post, value) => $"TURN {value.Kind.Key} {value.From}>{value.To} "
+            + $"G{Number(post, value.GripPlane)} L{Number(post, value.GripLength)} P{Number(post, value.PullDistance)}");
+
+    private static string Point(PostDialect dialect, Point3d point) =>
+        $"{Number(dialect, point.X)},{Number(dialect, point.Y)},{Number(dialect, point.Z)}";
+
+    private static string Vector(PostDialect dialect, Vector3d vector) =>
+        $"{Number(dialect, vector.X)},{Number(dialect, vector.Y)},{Number(dialect, vector.Z)}";
+}
+```
+
+## [06]-[COORDINATES]
+
+- Owner: `Dialect.WcsFrame` owns the lowering of one `WcsSlot` into an offset write and its selection word.
+- Law: emission writes the OFFSET before selecting it; selection-only posting silently assumes the control already holds the frame. `WcsRoster` bounds every ordinal, `Local` lowers to the local-shift word against its parent, and `Rotary` carries its axis into the offset write.
+- Auto: the extended and dynamic selection codes resolve through `CommandKeys.WcsExtended` and `CommandKeys.WcsDynamic` on the dialect's own override map, so a controller spelling either differently is one map entry.
+- Boundary: a dialect declaring no dynamic-frame or rotary feature refuses the slot rather than degrading it to a base offset that means a different frame.
+
+```csharp signature
+// --- [COORDINATES] --------------------------------------------------------------------------------------------------------------------------------
+public static partial class Dialect {
+    private static Fin<Seq<GWord>> WcsFrame(PostDialect dialect, GNode.CoordinateFrame node) => node.Assignment.Slot.Switch(
+        state: (Dialect: dialect, Frame: node.Frame),
+        @base: static (state, slot) => Base(state.Dialect, slot.Ordinal)
+            .Map(select => Seq(Offset(state.Dialect, state.Frame, BaseLevel, slot.Ordinal, Arr<GParam>()), select)),
+        extended: static (state, slot) => Spelling(state.Dialect, CommandKeys.WcsExtended, WcsSubject)
+            .Bind(code => Extended(state.Dialect, code, slot.Ordinal))
+            .Map(select => Seq(Offset(state.Dialect, state.Frame, ExtendedLevel, slot.Ordinal, Arr<GParam>()), select)),
+        dynamic: static (state, slot) => state.Dialect.Features.Contains(DialectFeature.Tcp)
+            ? Spelling(state.Dialect, CommandKeys.WcsDynamic, WcsSubject)
+                .Bind(code => Extended(state.Dialect, code, slot.Ordinal))
+                .Map(select => Seq(Offset(state.Dialect, state.Frame, BaseLevel, slot.Ordinal, Arr<GParam>()), select))
+            : Fin.Fail<Seq<GWord>>(new FabricationFault.DialectUnsupported(state.Dialect, WcsSubject)),
+        rotary: static (state, slot) => state.Dialect.Features.Contains(DialectFeature.Rotary)
+            ? Spelling(state.Dialect, CommandKeys.WcsExtended, WcsSubject)
+                .Bind(code => Extended(state.Dialect, code, slot.Ordinal))
+                .Map(select => Seq(
+                    Offset(state.Dialect, state.Frame, ExtendedLevel, slot.Ordinal, Arr(GParam.Number(
+                        RotaryAddress(slot.Axis),
+                        Math.Atan2(state.Frame.XAxis.Y, state.Frame.XAxis.X) * 180.0 / Math.PI,
+                        ProgramUnits.Metric))),
+                    select))
+            : Fin.Fail<Seq<GWord>>(new FabricationFault.DialectUnsupported(state.Dialect, WcsSubject)),
+        local: static (state, slot) => slot.Parent > 0
+            ? Fin.Succ(Seq<GWord>(new GWord.Address(
+                Word(state.Dialect, GCommand.LocalShift.Key),
+                ModalGroup.Transform, Origin(state.Dialect, state.Frame), None, state.Dialect.Retention)))
+            : Fin.Fail<Seq<GWord>>(new FabricationFault.DialectUnsupported(state.Dialect, WcsSubject)));
+
+    // The RS274 `G10` write levels: work offsets write at level two and extended offsets at level twenty, so the
+    // two ordinals are the protocol's own and never a tuning knob.
+    private const int BaseLevel = 2;
+    private const int ExtendedLevel = 20;
+
+    private static readonly FaultSubject.ProgramNode WcsSubject = new("coordinate-frame");
+
+    // The rotary work-offset axis rides the slot's own ordinal against the roster's rotary block, so the address is
+    // the axis the frame names rather than a positional guess.
+    private static char RotaryAddress(double axis) => axis <= 0.0 ? 'A' : axis == 1.0 ? 'B' : 'C';
+
+    private static Fin<GWord> Base(PostDialect dialect, int ordinal) =>
+        ordinal > 0 && ordinal <= Math.Min(dialect.Wcs.Slots, 6)
+            ? Fin.Succ<GWord>(new GWord.Address($"G{Integer(53 + ordinal)}", ModalGroup.Wcs, Arr<GParam>(), None, dialect.Retention))
+            : Fin.Fail<GWord>(new FabricationFault.DialectUnsupported(dialect, WcsSubject));
+
+    private static Fin<GWord> Extended(PostDialect dialect, string code, int ordinal) =>
+        ordinal > 0 && ordinal <= dialect.Wcs.Extended
+            ? Fin.Succ<GWord>(new GWord.Address(code, ModalGroup.Wcs,
+                Arr(GParam.Number('P', ordinal, ProgramUnits.Metric)), None, dialect.Retention))
+            : Fin.Fail<GWord>(new FabricationFault.DialectUnsupported(dialect, WcsSubject));
+
+    private static GWord Offset(PostDialect dialect, Plane frame, int level, int ordinal, Arr<GParam> extra) => new GWord.Address(
+        Word(dialect, GCommand.SetWcs.Key),
+        ModalGroup.NonModal,
+        toSeq(Arr(GParam.Number('L', level, ProgramUnits.Metric), GParam.Number('P', ordinal, ProgramUnits.Metric))
+            .Concat(Origin(dialect, frame)).Concat(extra)).ToArr(),
+        None,
+        dialect.Retention);
+
+    private static Arr<GParam> Origin(PostDialect dialect, Plane frame) => Arr(
+        GParam.Number('X', Math.Round(frame.Origin.X, dialect.Decimals), ProgramUnits.Metric),
+        GParam.Number('Y', Math.Round(frame.Origin.Y, dialect.Decimals), ProgramUnits.Metric),
+        GParam.Number('Z', Math.Round(frame.Origin.Z, dialect.Decimals), ProgramUnits.Metric));
+
+    private static Fin<GWord> WcsWord(PostDialect dialect, Arr<GParam> words, bool extended) =>
+        words.Find(static parameter => parameter.Address == 'P')
+            .Bind(static parameter => parameter.Value.Scalar)
+            .Filter(static value => value is > 0.0 and <= int.MaxValue && value == Math.Truncate(value))
+            .Map(static value => checked((int)value))
+            .Match(
+                Some: value => extended
+                    ? Spelling(dialect, CommandKeys.WcsExtended, WcsSubject).Bind(code => Extended(dialect, code, value))
+                    : Base(dialect, value),
+                None: () => Fin.Fail<GWord>(new FabricationFault.DialectUnsupported(dialect, WcsSubject)));
+}
+```
+
+## [07]-[NC1]
+
+- Owner: `Nc1Header` is the NC1 `ST` descriptor as a POSITIONAL record of rendered fields; `Nc1Map` projects `SteelHeader` onto it; `Nc1Canonical` renders the whole part.
+- Law: `Nc1Map` is the declared INVERSE of the steel reader's `DstvMap` and shares its unit codec family through `[UseStaticMapper]`, so the read and the write cannot drift on a unit. `RequiredMappingStrategy.Target` makes every descriptor column a build obligation — the prior form built the block by hand, so a column added to `SteelHeader` compiled clean and posted a short header.
+- Law: `EnabledConversions = MappingConversionType.None` forces every `Length` and `Angle` through a declared `[UserMapping]`. The silent `ToString` fallback renders `1234 mm` where the descriptor demands `1234`, so a conversion Mapperly would have supplied automatically must be loud.
+- Cases: hole, slot, cut, numeration, boundary contour, and marking contour each render their own DSTV block; a contour renders its block key then one record per vertex with its notch, radius, and bevel evidence.
+- Auto: canonical records are both the file payload and the `EgressKind.Nc1` content-key input, so the read-only `DSTV.Net` model constrains header and feature parity without becoming an emission dependency.
+- Packages: `Riok.Mapperly` owns the descriptor projection; `Rasm.Fabrication.Ingress` owns `SteelHeader`, `SteelFeature`, `SteelContour`, and the `DstvMap` codec family this mapper composes.
+- Boundary: NC1 records carry their own fixed numeric spelling — a DSTV descriptor is read by field position and a controller-declared decimal count has no meaning in it — so this cluster renders through its own declared format rather than `PostDialect.Decimals`.
+
+```csharp signature
+// --- [BOUNDARIES] ---------------------------------------------------------------------------------------------------------------------------------
+// The `ST` descriptor as a positional record of RENDERED fields, in DSTV emission order. Declaring the shape is
+// what lets one `[Mapper]` prove the projection complete.
+public sealed record Nc1Header(
+    string OrderIdentification,
+    string DrawingIdentification,
+    string PhaseIdentification,
+    string PieceIdentification,
+    string SteelQuality,
+    string QuantityOfPieces,
+    string Profile,
+    string ProfileCode,
+    string Length,
+    string SawLength,
+    string ProfileHeight,
+    string FlangeWidth,
+    string FlangeThickness,
+    string WebThickness,
+    string Radius,
+    string WebStartCut,
+    string WebEndCut,
+    string FlangeStartCut,
+    string FlangeEndCut,
+    string WeightByMeter,
+    string PaintingSurfaceByMeter,
+    string Text1InfoOnPiece,
+    string Text2InfoOnPiece,
+    string Text3InfoOnPiece,
+    string Text4InfoOnPiece) {
+    public Seq<string> Records => Seq(
+        OrderIdentification, DrawingIdentification, PhaseIdentification, PieceIdentification, SteelQuality,
+        QuantityOfPieces, Profile, ProfileCode, Length, SawLength, ProfileHeight, FlangeWidth, FlangeThickness,
+        WebThickness, Radius, WebStartCut, WebEndCut, FlangeStartCut, FlangeEndCut, WeightByMeter,
+        PaintingSurfaceByMeter, Text1InfoOnPiece, Text2InfoOnPiece, Text3InfoOnPiece, Text4InfoOnPiece);
 }
 
-// --- [BOUNDARIES] ---------------------------------------------------------------------------------------------------------------------------------
+// The steel reader's INVERSE. `RequiredMappingStrategy.Target` makes every descriptor column a build obligation and
+// `EnabledConversions = None` refuses the silent `ToString` that would render a unit suffix into a positional field.
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target, EnabledConversions = MappingConversionType.None)]
+[UseStaticMapper(typeof(DstvMap))]
+internal static partial class Nc1Map {
+    [MapProperty(nameof(SteelHeader.QuantityOfPieces), nameof(Nc1Header.QuantityOfPieces), Use = nameof(Count))]
+    [MapProperty(nameof(SteelHeader.ProfileCode), nameof(Nc1Header.ProfileCode), Use = nameof(Code))]
+    [MapProperty(nameof(SteelHeader.Length), nameof(Nc1Header.Length), Use = nameof(Mm))]
+    [MapProperty(nameof(SteelHeader.SawLength), nameof(Nc1Header.SawLength), Use = nameof(Mm))]
+    [MapProperty(nameof(SteelHeader.ProfileHeight), nameof(Nc1Header.ProfileHeight), Use = nameof(Mm))]
+    [MapProperty(nameof(SteelHeader.FlangeWidth), nameof(Nc1Header.FlangeWidth), Use = nameof(Mm))]
+    [MapProperty(nameof(SteelHeader.FlangeThickness), nameof(Nc1Header.FlangeThickness), Use = nameof(Mm))]
+    [MapProperty(nameof(SteelHeader.WebThickness), nameof(Nc1Header.WebThickness), Use = nameof(Mm))]
+    [MapProperty(nameof(SteelHeader.Radius), nameof(Nc1Header.Radius), Use = nameof(Mm))]
+    [MapProperty(nameof(SteelHeader.WebStartCut), nameof(Nc1Header.WebStartCut), Use = nameof(Deg))]
+    [MapProperty(nameof(SteelHeader.WebEndCut), nameof(Nc1Header.WebEndCut), Use = nameof(Deg))]
+    [MapProperty(nameof(SteelHeader.FlangeStartCut), nameof(Nc1Header.FlangeStartCut), Use = nameof(Deg))]
+    [MapProperty(nameof(SteelHeader.FlangeEndCut), nameof(Nc1Header.FlangeEndCut), Use = nameof(Deg))]
+    [MapProperty(nameof(SteelHeader.WeightByMeter), nameof(Nc1Header.WeightByMeter), Use = nameof(Scalar))]
+    [MapProperty(nameof(SteelHeader.PaintingSurfaceByMeter), nameof(Nc1Header.PaintingSurfaceByMeter), Use = nameof(Scalar))]
+    public static partial Nc1Header Header(SteelHeader source);
+
+    // The outbound half of the codec pair whose inbound half `DstvMap` owns: both directions carry the descriptor's
+    // own three-decimal spelling, so a read followed by a write reproduces the source field.
+    [UserMapping]
+    internal static string Mm(UnitsNet.Length value) => Scalar(value.As(LengthUnit.Millimeter));
+
+    [UserMapping]
+    internal static string Deg(UnitsNet.Angle value) => Scalar(value.As(AngleUnit.Degree));
+
+    [UserMapping]
+    internal static string Code(SteelProfileCode value) => value.Key;
+
+    [UserMapping]
+    internal static string Count(int value) => value.ToString(CultureInfo.InvariantCulture);
+
+    // A DSTV field is read by POSITION, so its numeric spelling is the format's own and never a controller-declared
+    // decimal count.
+    [UserMapping]
+    internal static string Scalar(double value) => value.ToString("0.###", CultureInfo.InvariantCulture);
+}
+
 public static class Nc1Canonical {
-    public static GWord Word(SteelImportReceipt receipt) => GWord.Nc1(Render(receipt.Part), receipt.Key);
+    private const string Indent = "  ";
 
-    public static Seq<string> Render(SteelPart part) => Header(part.Header)
-        .Concat(part.Features.Bind(Feature))
-        .Add("EN");
+    public static GWord Word(SteelImportReceipt receipt) => new GWord.Nc1(Render(receipt.Part), receipt.Key);
 
-    private static Seq<string> Header(SteelHeader header) => Seq(
-        "ST",
-        $"  {header.OrderIdentification}", $"  {header.DrawingIdentification}", $"  {header.PhaseIdentification}", $"  {header.PieceIdentification}",
-        $"  {header.SteelQuality}", $"  {header.QuantityOfPieces}", $"  {header.Profile}", $"  {header.ProfileCode}",
-        $"  {Mm(header.Length)}", $"  {Mm(header.SawLength)}", $"  {Mm(header.ProfileHeight)}", $"  {Mm(header.FlangeWidth)}",
-        $"  {Mm(header.FlangeThickness)}", $"  {Mm(header.WebThickness)}", $"  {Mm(header.Radius)}", $"  {Deg(header.WebStartCut)}",
-        $"  {Deg(header.WebEndCut)}", $"  {Deg(header.FlangeStartCut)}", $"  {Deg(header.FlangeEndCut)}", $"  {Number(header.WeightByMeter)}",
-        $"  {Number(header.PaintingSurfaceByMeter)}", $"  {header.Text1InfoOnPiece}", $"  {header.Text2InfoOnPiece}",
-        $"  {header.Text3InfoOnPiece}", $"  {header.Text4InfoOnPiece}");
+    public static Seq<string> Render(SteelPart part) =>
+        Seq(SteelBlockKind.St.Key)
+            .Concat(Nc1Map.Header(part.Header).Records.Map(static field => $"{Indent}{field}"))
+            .Concat(part.Features.Bind(Feature))
+            .Add("EN");
 
     private static Seq<string> Feature(SteelFeature feature) => feature.Switch(
-        hole: static feature => Seq("BO", $"  {feature.Face.ToValue()}  {Coord(feature.Center)}  {Mm(feature.Diameter)}  {Mm(feature.Depth)}"),
-        slot: static feature => Seq("BO", $"  {feature.Face.ToValue()}  {Coord(feature.Center)}  {Mm(feature.Diameter)}  {Mm(feature.Depth)}  l{Mm(feature.Span)}  w{Mm(feature.Width)}  a{Deg(feature.Rotation)}"),
-        cut: static feature => Seq("SC", $"  {feature.Face.ToValue()}  {Coord(feature.At)}"),
-        numeration: static feature => Seq("SI", $"  {feature.Face.ToValue()}  {Coord(feature.At)}"),
-        boundary: static feature => Contour(feature.Contour),
-        marking: static feature => Contour(feature.Contour));
+        hole: static row => Seq(SteelBlockKind.Bo.Key,
+            $"{Indent}{row.Face.Key}{Indent}{Coord(row.Center)}{Indent}{Nc1Map.Mm(row.Diameter)}{Indent}{Nc1Map.Mm(row.Depth)}"),
+        slot: static row => Seq(SteelBlockKind.Bo.Key,
+            $"{Indent}{row.Face.Key}{Indent}{Coord(row.Center)}{Indent}{Nc1Map.Mm(row.Diameter)}{Indent}{Nc1Map.Mm(row.Depth)}"
+            + $"{Indent}l{Nc1Map.Mm(row.Span)}{Indent}w{Nc1Map.Mm(row.Width)}{Indent}a{Nc1Map.Deg(row.Rotation)}"),
+        cut: static row => Seq(SteelBlockKind.Sc.Key, $"{Indent}{row.Face.Key}{Indent}{Coord(row.At)}"),
+        numeration: static row => Seq(SteelBlockKind.Si.Key, $"{Indent}{row.Face.Key}{Indent}{Coord(row.At)}"),
+        boundary: static row => Contour(row.Contour),
+        marking: static row => Contour(row.Contour));
 
     private static Seq<string> Contour(SteelContour contour) =>
         Seq(contour.Block.Key).Concat(toSeq(contour.Vertices).Map(Vertex));
 
     private static string Vertex(SteelVertex vertex) =>
-        $"  {Coord(vertex.At)}{(vertex.IsNotch ? "  n" : string.Empty)}{(vertex.Radius.As(LengthUnit.Millimeter) > 0.0 ? $"  r{Mm(vertex.Radius)}" : string.Empty)}"
-        + vertex.Bevel.Map(static bevel => $"  v{Deg(bevel.FirstAngle)},{Mm(bevel.FirstBlunting)},{Deg(bevel.SecondAngle)},{Mm(bevel.SecondBlunting)}")
-            .IfNone(string.Empty);
+        $"{Indent}{Coord(vertex.At)}{(vertex.IsNotch ? $"{Indent}n" : string.Empty)}"
+        + (vertex.Radius.As(LengthUnit.Millimeter) > 0.0 ? $"{Indent}r{Nc1Map.Mm(vertex.Radius)}" : string.Empty)
+        + vertex.Bevel.Map(static bevel =>
+            $"{Indent}v{Nc1Map.Deg(bevel.FirstAngle)},{Nc1Map.Mm(bevel.FirstBlunting)},"
+            + $"{Nc1Map.Deg(bevel.SecondAngle)},{Nc1Map.Mm(bevel.SecondBlunting)}").IfNone(string.Empty);
 
-    private static string Coord(Point3d point) => $"u{Number(point.X)}  v{Number(point.Y)}  w{Number(point.Z)}";
-
-    private static string Mm(UnitsNet.Length value) => Number(value.As(LengthUnit.Millimeter));
-
-    private static string Deg(UnitsNet.Angle value) => Number(value.As(AngleUnit.Degree));
-
-    private static string Number(double value) => value.ToString("0.###", CultureInfo.InvariantCulture);
+    private static string Coord(Point3d point) =>
+        $"u{Nc1Map.Scalar(point.X)}{Indent}v{Nc1Map.Scalar(point.Y)}{Indent}w{Nc1Map.Scalar(point.Z)}";
 }
 ```
 
-## [08]-[RESEARCH]
+## [08]-[DELIVERY]
+
+- Owner: `ProgramDelivery` binds a posted `PostImage` to one `CellDriveReceipt`: image key, transferred key, controller, upload state, drive log, operator, record count, and instant.
+- Law: `Of` derives controller identity from the RECEIPT and rejects any non-upload, absent payload, or absent controller; `Verified` requires uploaded state, controller identity, and kind-plus-digest equality, so an acknowledgement that transferred a different artifact reads as unverified rather than as a hand-off.
+- Auto: `Of` fires `FabricationFact.Delivery.Of` onto `rasm.fabrication.delivery.programs` through `Process/telemetry` as kind `delivery`; operator classification redacts shop identity.
+- Receipt: `Documentation/traveler` reads `Verified` as hold evidence.
+- Boundary: robot delivery rides the `CellDrive` upload channel, and a dialect gains no second delivery surface per transport.
+
+```csharp signature
+// --- [DELIVERY] -----------------------------------------------------------------------------------------------------------------------------------
+public sealed record ProgramDelivery(
+    ContentKey Image,
+    Option<ContentKey> Transferred,
+    string Controller,
+    CellDriveKind Acknowledged,
+    Seq<string> Log,
+    [property: PersonalData] Option<string> Operator,
+    int Records,
+    Instant At) {
+    public bool Verified => Acknowledged == CellDriveKind.Uploaded
+        && Witness.Keyed(Controller)
+        && Transferred.Exists(key => key.Kind == Image.Kind && key.Digest == Image.Digest);
+
+    public static Fin<ProgramDelivery> Of(
+        PostImage image,
+        CellDriveReceipt drive,
+        Instant at,
+        FabricationTap? tap = null,
+        Option<string> operatorId = default) =>
+        from _state in drive.Kind == CellDriveKind.Uploaded
+            ? Fin.Succ(unit)
+            : Fin.Fail<Unit>(Refusal("state"))
+        from transferred in drive.Uploaded.ToFin(Refusal("uploaded"))
+        from _digest in transferred.Kind == image.Key.Kind && transferred.Digest == image.Key.Digest
+            ? Fin.Succ(unit)
+            : Fin.Fail<Unit>(Refusal("digest"))
+        from controller in drive.Controller.Filter(Witness.Keyed).ToFin(Refusal("controller"))
+        let delivery = new ProgramDelivery(
+            image.Key, Some(transferred), controller, drive.Kind, drive.Log, operatorId, image.PhysicalRecords, at)
+        let _fact = (tap ?? FabricationTap.Silent).Fire(FabricationFact.Delivery.Of(delivery))
+        select delivery;
+
+    private static FabricationFault Refusal(string slot) =>
+        new FabricationFault.PolicyInadmissible(FabConcern.Posting, $"dialect:delivery:{slot}");
+}
+```
+
+## [09]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.

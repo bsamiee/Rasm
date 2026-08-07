@@ -5,7 +5,7 @@
 ## [01]-[INDEX]
 
 - [02]-[MATERIAL_BRIDGE]: `MaterialMint`, `MaterialBridge`, `SlotUsage`, and the `MaterialScent` classification fold.
-- [03]-[TEXTURE]: `TextureConfig` total-state configuration, `TextureTraits`, `TextureFacsimile`, and the bitmap mint/export pair.
+- [03]-[TEXTURE]: `TextureConfig` total-state configuration over the `TextureAxis` write roster, `TextureTraits`, `TextureFacsimile` over `FacsimileAxis`, and the bitmap mint/export pair.
 - [04]-[ENVIRONMENT]: `EnvironmentState` and the bake/mint pair over `SimulatedEnvironment`.
 - [05]-[PHOTOMETRIC]: `PhotometricDialect`, the `PhotometricWeb` payload, serializer discovery, and the material-graph attach.
 - [06]-[SURFACE_LEDGER]: page owner table.
@@ -19,6 +19,7 @@
 - Law: `TextureType` is `Rhino.DocObjects`', never a `RenderMaterial` nested type — `TextureTypeFromSlot`/`SlotFromTextureType` are statics on `RenderMaterial` returning and taking that document enum, so the qualified spelling resolves nothing.
 - Law: slot vocabulary is the native `StandardChildSlots` — the PBR slot roster including its aliasing rows is host truth the seam consumes; a wrapper row per slot is the deleted form, and `SlotFromTextureType`/`TextureTypeFromSlot` answer the type-to-slot correspondence where a consumer needs it.
 - Law: assignment is operation-rail work — `AssignTo` over resolved object references with its sub-face and block choices rides the registry page's `ContentOp.Assign` case, so this page carries no table mutation.
+- Law: `MaterialScent.CensusOf` narrows by row, never by column — the two host predicates are independent native calls, so a mark costs both reads and a caller wanting one classification names that row rather than paying the whole roster.
 - Growth: a new scent is one `MaterialScent` row with its two predicate columns; a new mint form is one `MaterialMint` case.
 
 ```csharp signature
@@ -83,10 +84,15 @@ public sealed partial class MaterialScent {
     [UseDelegateFromConstructor]
     internal partial bool Textured(RenderMaterial material);
 
-    internal static ScentCensus CensusOf(RenderMaterial material) =>
-        new(Rows: toSeq(Items)
+    // Host truth: `SmellsLikeX` and `SmellsLikeTexturedX` are INDEPENDENT native entry points (`Rdk_RenderMaterial_SmellsLike`
+    // against `Rdk_RenderMaterial_SmellsLikeTextured`), so neither implies the other and no column short-circuits — a mark
+    // needs both reads. The census therefore narrows by ROW: an empty ask runs the whole roster, a named ask runs two native
+    // calls per named row and nothing else.
+    internal static ScentCensus CensusOf(RenderMaterial material, Seq<MaterialScent> wanted = default) =>
+        new(Rows: (wanted.IsEmpty ? toSeq(Items) : wanted.Distinct())
             .Map(row => new ScentMark(Scent: row, Plain: row.Plain(material: material), Textured: row.Textured(material: material)))
-            .Filter(static row => row.Plain || row.Textured));
+            .Filter(static row => row.Plain || row.Textured)
+            .Strict());
 }
 
 // --- [MODELS] -------------------------------------------------------------------------------
@@ -134,13 +140,82 @@ public static class MaterialBridge {
 
 ## [03]-[TEXTURE]
 
-- Owner: `TextureConfig` is the replayable live-content state, including `TextureGraphInfo`. `TextureTraits` detaches classification. `SimulatedMapping` owns direct and environment-aware mapping writes, `TextureFacsimile` carries reconstructible simulation state plus read-only transform provenance, `TextureMint` admits each native source, and `TextureExport` confirms image egress.
+- Owner: `TextureConfig` is the replayable live-content state, including `TextureGraphInfo`, and `TextureAxis` rows own its per-axis host writes. `TextureTraits` detaches classification. `SimulatedMapping` owns direct and environment-aware mapping writes, `TextureFacsimile` carries reconstructible simulation state plus read-only transform provenance over the `FacsimileAxis` rows, `TextureMint` admits each native source, and `TextureExport` confirms image egress.
 - Law: configuration writes are total state, never a patch — `Apply` re-asserts every field under one `ChangeReason`, so an absent field cannot silently clear and the write is replayable from the record alone.
+- Law: `TextureAxis` and `FacsimileAxis` are the write rosters — `Apply` folds every row, a refusing row names itself on the fault, and a straight-line setter run beside the roster is the deleted form; a conditional host pair is one row whose option is its own predicate, never a branch outside the fold.
 - Law: read-only `LocalMappingTransform` and `OriginalFilename` never enter writable state; local mapping reconstructs from the admitted UVW fields, while original filename remains observation-only host provenance.
 - Law: `TextureFacsimile` records `OriginalFilename` and `LocalMappingTransform` as evidence while replaying the host-writable axes through a fresh document-aware carrier.
 - Boundary: live evaluation (`CreateEvaluator`) and the bake gate (`SimulateTexture`) are the Display render page's `TextureBake` owner; this page configures the content, that one evaluates it, and the two never merge.
 
 ```csharp signature
+// --- [TYPES] --------------------------------------------------------------------------------
+// Each writable texture axis is one row over the whole state, so a mid-apply host refusal names the axis that refused
+// instead of vanishing into a straight-line setter run. `SetGraphInfo` takes no change context, so its row ignores the
+// reason column the rest of the roster consumes.
+[SmartEnum<string>]
+public sealed partial class TextureAxis {
+    public static readonly TextureAxis Projection = new("projection",
+        static (texture, state, reason) => texture.SetProjectionMode(state.Projection, reason));
+    public static readonly TextureAxis Wrap = new("wrap",
+        static (texture, state, reason) => texture.SetWrapType(state.Wrap, reason));
+    public static readonly TextureAxis Repeat = new("repeat",
+        static (texture, state, reason) => texture.SetRepeat(state.Repeat, reason));
+    public static readonly TextureAxis RepeatLocked = new("repeat-locked",
+        static (texture, state, reason) => texture.SetRepeatLocked(state.RepeatLocked, reason));
+    public static readonly TextureAxis Offset = new("offset",
+        static (texture, state, reason) => texture.SetOffset(state.Offset, reason));
+    public static readonly TextureAxis OffsetLocked = new("offset-locked",
+        static (texture, state, reason) => texture.SetOffsetLocked(state.OffsetLocked, reason));
+    public static readonly TextureAxis Rotation = new("rotation",
+        static (texture, state, reason) => texture.SetRotation(state.Rotation, reason));
+    public static readonly TextureAxis MappingChannel = new("mapping-channel",
+        static (texture, state, reason) => texture.SetMappingChannel(state.MappingChannel, reason));
+    public static readonly TextureAxis EnvironmentMode = new("environment-mode",
+        static (texture, state, reason) => texture.SetEnvironmentMappingMode(state.EnvironmentMode, reason));
+    public static readonly TextureAxis Graph = new("graph",
+        static (texture, state, _) => texture.SetGraphInfo(state.Graph));
+    public static readonly TextureAxis PreviewIn3D = new("preview-3d",
+        static (texture, state, reason) => texture.SetPreviewIn3D(state.PreviewIn3D, reason));
+    public static readonly TextureAxis PreviewLocalMapping = new("preview-local-mapping",
+        static (texture, state, reason) => texture.SetPreviewLocalMapping(state.PreviewLocalMapping, reason));
+    public static readonly TextureAxis DisplayInViewport = new("display-in-viewport",
+        static (texture, state, reason) => texture.SetDisplayInViewport(state.DisplayInViewport, reason));
+
+    [UseDelegateFromConstructor]
+    internal partial void Write(RenderTexture texture, TextureConfig state, RenderContent.ChangeContexts reason);
+}
+
+// The one conditional axis: the host pairs `HasTransparentColor` with the colour and its sensitivity, so the option IS
+// the row predicate and both writes ride inside it rather than an `if`/`else` outside the roster.
+[SmartEnum<string>]
+public sealed partial class FacsimileAxis {
+    public static readonly FacsimileAxis Filename = new("filename",
+        static (simulated, state) => Op.Side(() => simulated.Filename = state.Filename.IfNone(string.Empty)));
+    public static readonly FacsimileAxis Repeat = new("repeat",
+        static (simulated, state) => Op.Side(() => simulated.Repeat = state.Repeat));
+    public static readonly FacsimileAxis Offset = new("offset",
+        static (simulated, state) => Op.Side(() => simulated.Offset = state.Offset));
+    public static readonly FacsimileAxis Rotation = new("rotation",
+        static (simulated, state) => Op.Side(() => simulated.Rotation = state.Rotation));
+    public static readonly FacsimileAxis Repeating = new("repeating",
+        static (simulated, state) => Op.Side(() => simulated.Repeating = state.Repeating));
+    public static readonly FacsimileAxis Mapping = new("mapping",
+        static (simulated, state) => state.Mapping.Apply(texture: simulated));
+    public static readonly FacsimileAxis Filtered = new("filtered",
+        static (simulated, state) => Op.Side(() => simulated.Filtered = state.Filtered));
+    public static readonly FacsimileAxis Transparency = new("transparency",
+        static (simulated, state) => Op.Side(() => {
+            simulated.HasTransparentColor = state.Transparency.IsSome;
+            _ = state.Transparency.Iter(row => {
+                simulated.TransparentColor = row.Color;
+                simulated.TransparentColorSensitivity = row.Sensitivity;
+            });
+        }));
+
+    [UseDelegateFromConstructor]
+    internal partial Unit Write(SimulatedTexture simulated, TextureFacsimile state);
+}
+
 // --- [MODELS] -------------------------------------------------------------------------------
 public sealed record TextureConfig(
     TextureProjectionMode Projection,
@@ -177,22 +252,15 @@ public sealed record TextureConfig(
 
     internal Fin<Unit> Apply(RenderTexture texture, ChangeReason reason, Op key) {
         TextureConfig self = this;
-        return ChangeScope.Write(content: texture, reason: reason, key: key, body: _ => key.Catch(() => {
-            texture.SetProjectionMode(self.Projection, reason.Native);
-            texture.SetWrapType(self.Wrap, reason.Native);
-            texture.SetRepeat(self.Repeat, reason.Native);
-            texture.SetRepeatLocked(self.RepeatLocked, reason.Native);
-            texture.SetOffset(self.Offset, reason.Native);
-            texture.SetOffsetLocked(self.OffsetLocked, reason.Native);
-            texture.SetRotation(self.Rotation, reason.Native);
-            texture.SetMappingChannel(self.MappingChannel, reason.Native);
-            texture.SetEnvironmentMappingMode(self.EnvironmentMode, reason.Native);
-            texture.SetGraphInfo(self.Graph);
-            texture.SetPreviewIn3D(self.PreviewIn3D, reason.Native);
-            texture.SetPreviewLocalMapping(self.PreviewLocalMapping, reason.Native);
-            texture.SetDisplayInViewport(self.DisplayInViewport, reason.Native);
-            return Fin.Succ(value: unit);
-        }));
+        return ChangeScope.Write(content: texture, reason: reason, key: key, body: _ =>
+            toSeq(TextureAxis.Items)
+                .TraverseM(axis => key.Catch(() => {
+                        axis.Write(texture: texture, state: self, reason: reason.Native);
+                        return Fin.Succ(value: unit);
+                    })
+                    .MapFail(fault => key.InvalidResult(detail: axis.Key) + fault))
+                .As()
+                .Map(static _ => unit));
     }
 }
 
@@ -288,8 +356,8 @@ public sealed record TextureFacsimile(
     bool Filtered) : IDetachedDocumentResult {
     internal static Fin<TextureFacsimile> Of(SimulatedTexture simulated) =>
         SimulatedMapping.Capture(texture: simulated).Map(mapping => new TextureFacsimile(
-            Filename: Optional(simulated.Filename).Filter(static path => path.Length > 0),
-            OriginalFilename: Optional(simulated.OriginalFilename).Filter(static path => path.Length > 0),
+            Filename: Op.Text(simulated.Filename),
+            OriginalFilename: Op.Text(simulated.OriginalFilename),
             LocalTransform: simulated.LocalMappingTransform,
             Repeat: simulated.Repeat,
             Offset: simulated.Offset,
@@ -303,23 +371,11 @@ public sealed record TextureFacsimile(
 
     internal Fin<Unit> Apply(SimulatedTexture simulated, Op key) {
         TextureFacsimile self = this;
-        return key.Catch(() => {
-            simulated.Filename = self.Filename.IfNone(string.Empty);
-            simulated.Repeat = self.Repeat;
-            simulated.Offset = self.Offset;
-            simulated.Rotation = self.Rotation;
-            simulated.Repeating = self.Repeating;
-            _ = self.Mapping.Apply(texture: simulated);
-            simulated.Filtered = self.Filtered;
-            if (self.Transparency.Case is System.ValueTuple<Color4f, double> row) {
-                simulated.HasTransparentColor = true;
-                simulated.TransparentColor = row.Item1;
-                simulated.TransparentColorSensitivity = row.Item2;
-            } else {
-                simulated.HasTransparentColor = false;
-            }
-            return Fin.Succ(value: unit);
-        });
+        return toSeq(FacsimileAxis.Items)
+            .TraverseM(axis => key.Catch(() => Fin.Succ(value: axis.Write(simulated: simulated, state: self)))
+                .MapFail(fault => key.InvalidResult(detail: axis.Key) + fault))
+            .As()
+            .Map(static _ => unit);
     }
 }
 
@@ -535,8 +591,8 @@ public sealed record PhotometricPress(Func<PhotometricWeb, RhinoDoc?, Fin<Lease<
         Op? key = null) {
         Op op = key.OrDefault();
         PhotometricPress self = this;
-        return from activeRetention in Optional(retention).ToFin(Fail: op.InvalidInput())
-               from activeRecord in Optional(record).ToFin(Fail: op.InvalidInput())
+        return from activeRetention in op.Need(retention)
+               from activeRecord in op.Need(record)
                from rows in toSeq(PhotometricDialect.Items).TraverseM(dialect =>
                    from extension in ContentExtension.Of(value: dialect.Key, key: op)
                    from serializer in ContentSerializer.Of(program: new SerializerProgram(
@@ -565,12 +621,11 @@ public sealed record PhotometricPress(Func<PhotometricWeb, RhinoDoc?, Fin<Lease<
     internal static Fin<(Lease<RenderContent>.Owned Owned, ContentTransfer Transfer)> Transfer(
         Lease<RenderContent> lease,
         Op key) =>
-        key.Catch(() => {
-            if (lease is Lease<RenderContent>.Owned owned) {
-                return Fin.Succ(value: (Owned: owned, Transfer: new ContentTransfer(owned: owned)));
-            }
-            lease.Dispose();
-            return Fin.Fail<(Lease<RenderContent>.Owned, ContentTransfer)>(error: key.InvalidResult());
+        key.Catch(() => lease switch {
+            Lease<RenderContent>.Owned owned =>
+                Fin.Succ(value: (Owned: owned, Transfer: new ContentTransfer(owned: owned))),
+            var borrowed => Fin.Fail<(Lease<RenderContent>.Owned, ContentTransfer)>(
+                error: (Op.Side(borrowed.Dispose), key.InvalidResult()).Item2),
         });
 }
 ```
@@ -581,14 +636,16 @@ public sealed record PhotometricPress(Func<PhotometricWeb, RhinoDoc?, Fin<Lease<
 | :-----: | :--------------------- | :----------------- | :---------------------------------------------- | :------------------------------- |
 |  [01]   | material minting       | `MaterialMint`     | document-aware leased mint                      | `Direct` / `Basic` / `Imported`  |
 |  [02]   | material bake and PBR  | `MaterialBridge`   | callback-bounded material projection            | `Bake` / `Pbr` / `Usage`         |
-|  [03]   | material class         | `MaterialScent`    | predicate-column rows folded into `ScentCensus` | `CensusOf(material)`             |
+|  [03]   | material class         | `MaterialScent`    | predicate-column rows folded into `ScentCensus` | `CensusOf(material, wanted)`     |
 |  [04]   | texture configuration  | `TextureConfig`    | total replayable state                          | `Of` / `Apply(texture, reason)`  |
-|  [05]   | texture classification | `TextureTraits`    | detached local mapping and capability census    | `Of(texture, key)`               |
-|  [06]   | baked-texture crossing | `TextureFacsimile` | replayable facsimile state                      | `Of` / `Apply`                   |
-|  [07]   | texture mint/export    | `TextureMint`      | admitted leased texture lifecycle               | `From` / `Mint`                  |
-|  [08]   | environment bake/mint  | `EnvironmentState` | detached state and document-aware leased mint   | `Bake` / `Mint(document, key)`   |
-|  [09]   | photometric payload    | `PhotometricWeb`   | dialect-admitted content attachment             | `Of` / `AttachTo`                |
-|  [10]   | photometric readers    | `PhotometricPress` | declarative registry serializer roster          | `Serializers(retention, record)` |
+|  [05]   | texture write roster   | `TextureAxis`      | one row per writable host axis                  | `Write` / `Items`                |
+|  [06]   | texture classification | `TextureTraits`    | detached local mapping and capability census    | `Of(texture, key)`               |
+|  [07]   | baked-texture crossing | `TextureFacsimile` | replayable facsimile state                      | `Of` / `Apply`                   |
+|  [08]   | facsimile write roster | `FacsimileAxis`    | one row per simulated axis, option as predicate | `Write` / `Items`                |
+|  [09]   | texture mint/export    | `TextureMint`      | admitted leased texture lifecycle               | `From` / `Mint`                  |
+|  [10]   | environment bake/mint  | `EnvironmentState` | detached state and document-aware leased mint   | `Bake` / `Mint(document, key)`   |
+|  [11]   | photometric payload    | `PhotometricWeb`   | dialect-admitted content attachment             | `Of` / `AttachTo`                |
+|  [12]   | photometric readers    | `PhotometricPress` | declarative registry serializer roster          | `Serializers(retention, record)` |
 
 ## [07]-[RESEARCH]
 

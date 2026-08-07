@@ -49,7 +49,7 @@ Rasm.Rhino/             # Rhino host boundary over the Rasm kernel
 ├── Annotation/         # Drafting annotation domain over the resource tables
 │   ├── Style.cs        # StyleField schema, patch fold, override mint, and the DimStyle rail
 │   ├── Text.cs         # Text and leader construction, run edits, field formulas, outlining
-│   ├── Dimension.cs    # Six-kind dimension family over one override algebra
+│   ├── Dimension.cs    # DimFamily row-table dimension family over one override algebra
 │   ├── Hatch.cs        # Hatch construction and the pattern line-definition model
 │   ├── Linetype.cs     # Stroke segment/shape/taper model and .lin interchange
 │   └── Typeface.cs     # Face resolution and section-cut presentation resources
@@ -85,11 +85,16 @@ Rasm.Rhino/             # Rhino host boundary over the Rasm kernel
 │   ├── Binding.cs      # State-cell binding attachments and their receipt ledger
 │   ├── Canvas.cs       # Drawable mount, paint-program seam, glyph shaping, and pixel leases
 │   └── Chrome.cs       # Verb table projected into menus, windows, and dialogs
-└── HostUi/             # Rhino.UI shell composed over the Eto sub-domain
-    ├── Shell.cs        # Host-thread session marshal, status, prompt, progress, runtime hosting, and notices
-    ├── Panels.cs       # Panel fact stream, placement, RUI state fold, and Rhino control rows
-    ├── Pages.cs        # Page realization, the signal spine, and kind-safe mounting
-    └── Dialogs.cs      # Capability-gated inquiry rail and preview projection
+├── HostUi/             # Rhino.UI shell composed over the Eto sub-domain
+│   ├── Shell.cs        # Host-thread session marshal, status, prompt, progress, runtime hosting, and notices
+│   ├── Panels.cs       # Panel fact stream, placement, RUI state fold, and Rhino control rows
+│   ├── Pages.cs        # Page realization, the signal spine, and kind-safe mounting
+│   └── Dialogs.cs      # Capability-gated inquiry rail and preview projection
+└── Plugin/             # Host plug-in binding, registry census, entitlement, and document participation
+    ├── Lifecycle.cs    # Staged phase custody behind the one PlugIn derivation and its fault ledger
+    ├── Census.cs       # Installed-plugin registry reads and the load and load-protection rail
+    ├── Licensing.cs    # Zoo and CloudZoo entitlement rail and the plug-in acquisition arm
+    └── Document.cs     # Per-plugin archive participation and the plug-in settings bridge
 ```
 
 ## [02]-[STRATA]
@@ -100,17 +105,21 @@ Five strata order the sub-domain folders; a folder composes its own owners and l
 - S0 reach — every sibling composes the spine.
 - S1 single-seam — spine-alone composers: `Persistence` (`ArchiveMap`, `Settings`, `AppSettings`), `Commands` (`CommandVerdict`, `PickCapture`).
 - S1 single-seam — `Blocks` (`BlockGraph`, `GraphFold`), `Modeling` (`ModelGate`, `Built<TSlot>`), `Annotation` (`StyleField`, `Styles`).
+- S1 single-seam — `Render` (`ContentRef`, `Registry`, the `Settings` duality) composes the spine's commit and table rails alone.
 - S1 single-seam — `Eto`: the `Element` realize fold and the `UiThread` floor.
 - S1 law — Modeling reaches only the geometry-custody capsule and the ruled `CameraSnapshot`/`CameraPose` frame values.
-- S1 law — Eto reaches only the event-detach capsule.
-- S2 composite — `Objects` (`Objects`, `Attributes`, `Chronicle`) adds Commands' `PickCapture` and Blocks' `GraphFold`/`GraphProjection` evidence.
+- S1 law — Eto reaches the event-detach capsule and the `PluginKey` identity its process-global claims key on.
+- S2 composite — `Objects` (`Objects`, `Attributes`, `Chronicle`) adds Commands, Blocks' `GraphProjection`, and Annotation's `LinetypeSource`.
 - S2 composite — `HostUi` (`HostThread`, `PanelHost`, `HostPage`) adds the whole Eto sub-domain.
+- S2 composite — Plugin (`RasmPlugIn`, `PluginCensus`, `LicenseRail`, `Participation`) composes Persistence's settings rail and `PluginKey` identity.
+- S2 law — Plugin routes page-collection callbacks onto HostUi's `PageBasket`/`PageMount.Land`, a same-stratum peer edge, and mints no page owner.
 - S3 `Viewport` — `ViewportLease`, `CameraPose`, `Cameras`, and `MotionPump`.
 - S3 law — every borrow crosses the `HostThread` session rail, `HostThread.Run(HostWork<T>.Session(...))`, under a `SessionNeed`.
 - S3 law — the capture run rail takes Modeling's `BenchEvidence`/`BenchBand` value shapes — value-only, no lease or borrow crossing.
 - S4 terminal — `Display` (`Modes`, `Marks`) and `Exchange` (`Exchanges`, `Publishing`) compose Viewport's camera and capture rails.
 - S4 law — Display draws through the Eto canvas and publishes conduit callback faults through Objects' `ObjectsTelemetry` egress.
-- S4 `Render` — (`Registry`, `ContentStream`) borrows only the `Size2i` pixel struct; no folder composes the S4 composers.
+- S4 law — Display composes Render's `EnvironmentRole`, dither owner, and `FailureLedger`/`RetentionPolicy` downward; nothing composes S4.
+- S4 ruled edge — Display's render-window egress lands files through Exchange's `OutputPolicy`, a value-only seam with no lease or borrow crossing.
 
 ```mermaid
 ---
@@ -122,11 +131,10 @@ config:
 ---
 flowchart TB
     accTitle: Rasm.Rhino interior strata
-    accDescr: Five stacked strata from the terminal display, exchange, and render composers through the viewport rail and the composite object and host-UI domains onto the single-seam domains and the document spine, every consumption edge downward and solid naming one sourced type, two dashed ruled counter-edges carrying the ArchiveMap open-options payload upward from the document spine to Persistence and the CameraSnapshot and CameraPose frame values upward from the Modeling gate to the viewport rail, and one forbidden upward edge.
+    accDescr: Five stacked strata from the terminal display and exchange composers through the viewport rail and the composite object and host-UI domains onto the single-seam domains and the document spine, every consumption edge downward and solid naming one sourced type, two dashed ruled counter-edges carrying the ArchiveMap open-options payload upward from the document spine to Persistence and the CameraSnapshot and CameraPose frame values upward from the Modeling gate to the viewport rail, and one forbidden upward edge.
     subgraph S4["S4 TERMINAL COMPOSERS"]
         Modes[Modes]
         Exchanges[Exchanges]
-        Registry[Registry]
     end
     subgraph S3["S3 VIEWPORT"]
         Lease[ViewportLease]
@@ -135,6 +143,7 @@ flowchart TB
     subgraph S2["S2 COMPOSITE"]
         Objects[Objects]
         HostThread[HostThread]
+        Plugin[RasmPlugIn]
     end
     subgraph S1["S1 SINGLE-SEAM"]
         Picks[PickCapture]
@@ -142,18 +151,23 @@ flowchart TB
         Eto[UiThread]
         Archive[ArchiveMap]
         Model[ModelGate]
+        Registry[ContentRef]
     end
     subgraph S0["S0 DOCUMENT"]
         Session[DocumentSession]
     end
     Modes e1@-->|"[IMPORT]: ViewportLease"| Lease
+    Modes e13@-->|"[IMPORT]: ContentRef"| Registry
     Exchanges e2@-->|"[IMPORT]: CaptureSink"| Capture
-    Registry e3@-->|"[IMPORT]: Size2i"| S3
+    Registry e3@-->|"[IMPORT]: DocumentCommit"| Session
     Lease e4@-->|"[IMPORT]: HostThread"| HostThread
     Capture e5@-->|"[IMPORT]: SessionNeed"| S0
+    Capture e14@-->|"[IMPORT]: BenchEvidence"| Model
     Objects e6@-->|"[IMPORT]: PickCapture"| Picks
     Objects e7@-->|"[IMPORT]: GraphFold"| Blocks
     HostThread e8@-->|"[IMPORT]: UiThread"| Eto
+    Plugin e15@-->|"[IMPORT]: DocumentSession"| Session
+    Plugin e16@-->|"[IMPORT]: ArchiveMap"| Archive
     Picks e9@-->|"[IMPORT]: DocumentSession"| Session
     Modes e12@-->|"[IMPORT]: ObjectsTelemetry"| Objects
     Session e10@-.->|"[COUNTER]: ArchiveMap"| Archive
@@ -183,10 +197,12 @@ flowchart LR
         Viewport[Viewport rail]
         Display[Display composers]
         Render[Render content]
+        Exchange[Exchange surface]
         Eto[Eto UI]
+        Plugin[Plugin binding]
     end
     Rasm([Rasm])
-    Rasm e1@-->|"[BOUNDARY]: ModelUnit + Context + AnalysisQuery + Placement + Requirement + Lease + HookPoint + InstrumentSpec + Dimension"| Document
+    Rasm e1@-->|"[BOUNDARY]: ModelUnit + Context + AnalysisQuery + Placement + Requirement + Lease + HookPoint + InstrumentSpec + Dimension + PerceptualColor"| Document
     Rasm e2@-->|"[BOUNDARY]: VectorFrame"| Viewport
     Rasm e3@-->|"[BOUNDARY]: AnalysisQuery"| Commands
     Rasm e4@-->|"[BOUNDARY]: PerceptualColor"| Eto
@@ -197,12 +213,14 @@ flowchart LR
     Rasm e9@-->|"[BOUNDARY]: PerceptualColor"| Display
     Rasm e14@-->|"[BOUNDARY]: AnalysisQuery"| Display
     Rasm e10@-->|"[BOUNDARY]: PerceptualColor"| Render
-    Rasm e11@-->|"[BOUNDARY]: PerceptualColor"| Viewport
-    Rasm e12@-->|"[BOUNDARY]: Context"| Annotation
+    Rasm e11@-->|"[BOUNDARY]: PerceptualColor + Context + SpringShape + DecayShape + ViewPose"| Viewport
+    Rasm e12@-->|"[BOUNDARY]: PerceptualColor + ModelUnit + Lease + ValidationError"| Annotation
     Rasm e13@-->|"[BOUNDARY]: Context"| Blocks
+    Rasm e15@-->|"[BOUNDARY]: ModelUnit + ContentHash + Dimension + UnitInterval + PerceptualColor + EpsilonPolicy"| Exchange
+    Rasm e16@-->|"[BOUNDARY]: Lease"| Plugin
 ```
 
-Every kernel contract is a frozen-name value type the host binds and never re-mints — one `[BOUNDARY]` rail per consuming sub-domain, each carrying the exact member set its owner consumes. The Document rail's set in full: `ModelUnit`, `Context`, `AnalysisQuery`/`Analyze`, `TransformSpec`/`Placement.Build`, `Requirement.ForKind`/`KindOf`, `Lease<T>`/`GeometryForm`, `HookModality`/`HookId`/`HookPoint`, `InstrumentSpec`/`TelemetryContributorPort`/`MeasureForm`, and `Dimension` with `AbsoluteTolerance`/`RelativeTolerance`/`AngleTolerance` — `AnalysisQuery` rides the Document, Commands, and Display rails, each end consuming it live — Display's `AnalysisOverlay` drives the registered false-colour mode off `Analyze.In(...).Run` at `Display/conduit#OVERLAYS`. Kernel source is host-neutral and consumes nothing back, so the strata-locked dependency is source-only by construction; the kernel seam registry mirrors each edge from its producing side.
+Every kernel contract is a frozen-name value type the host binds and never re-mints — one `[BOUNDARY]` rail per consuming sub-domain, each carrying the exact member set its owner consumes. Document's rail carries the full set: `ModelUnit`, `Context`, `AnalysisQuery`/`Analyze`, `TransformSpec`/`Placement.Build`, `Requirement.ForKind`/`KindOf`, `Lease<T>`/`GeometryForm`, `HookModality`/`HookId`/`HookPoint`, `InstrumentSpec`/`TelemetryContributorPort`/`MeasureForm`, `PerceptualColor`, and `Dimension` with `AbsoluteTolerance`/`RelativeTolerance`/`AngleTolerance` — `AnalysisQuery` rides the Document, Commands, and Display rails, each end consuming it live — Display's `AnalysisOverlay` drives the registered false-colour mode off `Analyze.In(...).Run` at `Display/conduit#OVERLAYS`. `PerceptualColor` is the one colour crossing on every rail that carries it: a `System.Drawing.Color` admits at the boundary through `OfRgb` and leaves through `ToRgb`, never riding a public detached payload. Kernel source is host-neutral and consumes nothing back, so the strata-locked dependency is source-only by construction; the kernel seam registry mirrors each edge from its producing side.
 
 ## [04]-[INTERNAL]
 
@@ -240,4 +258,4 @@ Namespace mirrors folder path — `.editorconfig` sets `dotnet_style_namespace_m
 
 Boundary compiles as ONE assembly — the single `Rasm.Rhino.csproj` — so internal members cross namespaces with no build edge, and the project references only `Rasm.csproj`. Kernel-neutral value types compose freely from the kernel, while a live host handle, a native carrier, or a `System.Drawing` screen struct never crosses out of the sub-domain that leases it.
 
-Host-name resolution is one law: inside `Rasm.Rhino.*` a partial qualification re-resolves against the boundary's namespaces (`Rhino.UI.X` binds `Rasm.Rhino`), so fences name host members BARE — each `[RUNTIME_PRELUDE]` imports its host namespaces ahead of the file-scoped namespace declaration, resolving at global scope, and `Rasm.Rhino.csproj` carries the same rows as project-level usings. Host types the prelude cannot reach unshadowed spell `global::` in full, and a host simple-name collision resolves through one csproj `<Using Alias="..." />` row the branch rulings own.
+Host-name resolution is one law: inside `Rasm.Rhino.*` a partial qualification re-resolves against the boundary's namespaces (`Rhino.UI.X` binds `Rasm.Rhino`), so fences name host members BARE — each `[RUNTIME_PRELUDE]` imports its host namespaces ahead of the file-scoped namespace declaration, resolving at global scope, and `Rasm.Rhino.csproj` carries the same rows as project-level usings. Host types the prelude cannot reach unshadowed spell `global::` in full, and a host simple-name collision resolves through one csproj `<Using Alias="..." />` row the branch rulings own ONLY when one winner serves the whole assembly; a homonym whose winner differs per sub-domain — `Dimension` (kernel measure vs host annotation base), `Color` (Eto paint vs GDI carrier) — spells fully qualified at every colliding site, because a project alias silently rebinds the other folder's bare reads.

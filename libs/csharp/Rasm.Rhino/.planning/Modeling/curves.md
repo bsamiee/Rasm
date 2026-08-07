@@ -36,6 +36,13 @@ public abstract partial record OffsetFrame {
     public sealed record ByLooseNormal(
         Point3d DirectionPoint, Vector3d Normal, CurveOffsetCornerStyle Corner = CurveOffsetCornerStyle.Sharp,
         CurveOffsetEndStyle End = CurveOffsetEndStyle.None) : OffsetFrame;
+
+    internal bool Admissible => Switch(
+        inPlane: static frame => frame.Value.IsValid && Enum.IsDefined(frame.Corner),
+        byNormal: static frame => frame.DirectionPoint.IsValid && Curves.Direction(frame.Normal)
+            && Enum.IsDefined(frame.Corner) && Enum.IsDefined(frame.End),
+        byLooseNormal: static frame => frame.DirectionPoint.IsValid && Curves.Direction(frame.Normal)
+            && Enum.IsDefined(frame.Corner) && Enum.IsDefined(frame.End));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -46,6 +53,13 @@ public abstract partial record SurfaceOffsetTarget {
     public sealed record FaceVarying(GeometryHandle Host, int Face, Seq<(CurveScalar Parameter, CurveScalar Distance)> Rows) : SurfaceOffsetTarget;
     public sealed record SurfaceDistance(GeometryHandle Host, CurveScalar Distance) : SurfaceOffsetTarget;
     public sealed record SurfacePoint(GeometryHandle Host, Point2d Point) : SurfaceOffsetTarget;
+
+    internal bool Admissible => Switch(
+        faceDistance: static target => Curves.Handle(target.Host) && Curves.Index(target.Face),
+        facePoint: static target => Curves.Handle(target.Host) && Curves.Index(target.Face) && target.Point.IsValid,
+        faceVarying: static target => Curves.Handle(target.Host) && Curves.Index(target.Face) && !target.Rows.IsEmpty,
+        surfaceDistance: static target => Curves.Handle(target.Host),
+        surfacePoint: static target => Curves.Handle(target.Host) && target.Point.IsValid);
 
     internal Fin<Built<CurveSlot>> Apply(Curve curve, Context model, Op op) => Switch(
         state: (Curve: curve, Model: model, Op: op),
@@ -101,6 +115,10 @@ public sealed record RibbonLaw(
     int RebuildPointCount = 0,
     bool AlignCrossSections = false,
     RibbonOffsetSurfaceMethod SurfaceMethod = RibbonOffsetSurfaceMethod.Sweep2) {
+    internal bool Admissible => Location.IsValid && Refit is not null && Curves.Count(RebuildPointCount)
+        && PlaneVector.ForAll(static vector => Curves.Direction(vector))
+        && Enum.IsDefined(SurfaceMethod);
+
     internal Fin<RibbonOffsetParameters> Rig(Context domain, Op key) =>
         key.Catch(() => Fin.Succ(value: new RibbonOffsetParameters {
             OffsetDistance = Distance.Value,
@@ -133,6 +151,11 @@ public abstract partial record CurveEdit {
     public sealed record RemoveShort : CurveEdit;
     public sealed record CloseGap : CurveEdit;
     public sealed record TrimDomain(Interval Value) : CurveEdit;
+
+    internal bool Admissible => Switch(
+        removeShort: static () => true,
+        closeGap: static () => true,
+        trimDomain: static edit => edit.Value.IsValid);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -144,6 +167,15 @@ public abstract partial record ExtendLaw {
     public sealed record ByLine(CurveEnd Side, Seq<GeometryHandle> Bounds) : ExtendLaw;
     public sealed record ByArc(CurveEnd Side, Seq<GeometryHandle> Bounds) : ExtendLaw;
     public sealed record OnSurface(CurveEnd Side, GeometryHandle Target, Option<int> Face = default) : ExtendLaw;
+
+    internal bool Admissible => Switch(
+        byLength: static law => Enum.IsDefined(law.Side) && Curves.Positive(law.Length) && Enum.IsDefined(law.Style),
+        toGeometry: static law => Enum.IsDefined(law.Side) && Enum.IsDefined(law.Style) && Curves.Handles(law.Bounds),
+        toPoint: static law => Enum.IsDefined(law.Side) && Enum.IsDefined(law.Style) && law.Terminal.IsValid,
+        byLine: static law => Enum.IsDefined(law.Side) && Curves.Handles(law.Bounds),
+        byArc: static law => Enum.IsDefined(law.Side) && Curves.Handles(law.Bounds),
+        onSurface: static law => Enum.IsDefined(law.Side) && Curves.Handle(law.Target)
+            && law.Face.ForAll(static face => Curves.Index(face)));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -151,6 +183,10 @@ public abstract partial record ShortenLaw {
     private ShortenLaw() { }
     public sealed record ToDomain(Interval Value) : ShortenLaw;
     public sealed record AtEnd(CurveEnd Side, double Length) : ShortenLaw;
+
+    internal bool Admissible => Switch(
+        toDomain: static law => law.Value.IsValid,
+        atEnd: static law => Enum.IsDefined(law.Side) && Curves.Positive(law.Length));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -160,6 +196,12 @@ public abstract partial record SplitCutter {
     public sealed record ByBrep(GeometryHandle Value) : SplitCutter;
     public sealed record BySurface(GeometryHandle Value) : SplitCutter;
     public sealed record ByPlane(Plane Value) : SplitCutter;
+
+    internal bool Admissible => Switch(
+        atParameters: static cutter => !cutter.Values.IsEmpty && cutter.Values.ForAll(static value => Curves.Finite(value)),
+        byBrep: static cutter => Curves.Handle(cutter.Value),
+        bySurface: static cutter => Curves.Handle(cutter.Value),
+        byPlane: static cutter => cutter.Value.IsValid);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -169,6 +211,12 @@ public abstract partial record PullTarget {
     public sealed record ToFaceLoose(GeometryHandle Brep, int Face) : PullTarget;
     public sealed record ToMesh(GeometryHandle Mesh) : PullTarget;
     public sealed record ToMeshLoose(GeometryHandle Mesh) : PullTarget;
+
+    internal bool Admissible => Switch(
+        toFace: static target => Curves.Handle(target.Brep) && Curves.Index(target.Face),
+        toFaceLoose: static target => Curves.Handle(target.Brep) && Curves.Index(target.Face),
+        toMesh: static target => Curves.Handle(target.Mesh),
+        toMeshLoose: static target => Curves.Handle(target.Mesh));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -177,6 +225,13 @@ public abstract partial record ProjectTarget {
     public sealed record ToBreps(Seq<GeometryHandle> Curves, Seq<GeometryHandle> Breps, Vector3d Direction) : ProjectTarget;
     public sealed record ToMeshes(Seq<GeometryHandle> Curves, Seq<GeometryHandle> Meshes, Vector3d Direction) : ProjectTarget;
     public sealed record ToPlane(GeometryHandle Curve, Plane Plane) : ProjectTarget;
+
+    internal bool Admissible => Switch(
+        toBreps: static target => Curves.Handles(target.Curves) && Curves.Handles(target.Breps)
+            && Curves.Direction(target.Direction),
+        toMeshes: static target => Curves.Handles(target.Curves) && Curves.Handles(target.Meshes)
+            && Curves.Direction(target.Direction),
+        toPlane: static target => Curves.Handle(target.Curve) && target.Plane.IsValid);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -185,6 +240,11 @@ public abstract partial record CurveBooleanLaw {
     public sealed record Union(Seq<GeometryHandle> Curves) : CurveBooleanLaw;
     public sealed record Intersection(GeometryHandle First, GeometryHandle Second) : CurveBooleanLaw;
     public sealed record Difference(GeometryHandle First, Seq<GeometryHandle> Subtractors) : CurveBooleanLaw;
+
+    internal bool Admissible => Switch(
+        union: static law => Curves.Handles(law.Curves),
+        intersection: static law => Curves.Handle(law.First) && Curves.Handle(law.Second),
+        difference: static law => Curves.Handle(law.First) && Curves.Handles(law.Subtractors));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -192,6 +252,12 @@ public abstract partial record BlendLaw {
     private BlendLaw() { }
     public sealed record EndToEnd(BlendContinuity Continuity, Option<(double BulgeA, double BulgeB)> Bulge = default) : BlendLaw;
     public sealed record AtParameters(double T0, bool Reverse0, BlendContinuity Continuity0, double T1, bool Reverse1, BlendContinuity Continuity1) : BlendLaw;
+
+    internal bool Admissible => Switch(
+        endToEnd: static law => Enum.IsDefined(law.Continuity)
+            && law.Bulge.ForAll(static bulge => Curves.Finite(bulge.BulgeA) && Curves.Finite(bulge.BulgeB)),
+        atParameters: static law => Curves.Finite(law.T0) && Enum.IsDefined(law.Continuity0)
+            && Curves.Finite(law.T1) && Enum.IsDefined(law.Continuity1));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -199,6 +265,10 @@ public abstract partial record ArcBlendLaw {
     private ArcBlendLaw() { }
     public sealed record ControlPointRatio(CurveScalar Ratio) : ArcBlendLaw;
     public sealed record LineArcRadius(CurveScalar Radius) : ArcBlendLaw;
+
+    internal bool Admissible => Switch(
+        controlPointRatio: static law => law.Ratio.Value > 0.0,
+        lineArcRadius: static law => law.Radius.Value > 0.0);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -207,6 +277,11 @@ public abstract partial record TweenLaw {
     public sealed record Plain : TweenLaw;
     public sealed record Matched : TweenLaw;
     public sealed record Sampled(int Samples) : TweenLaw;
+
+    internal bool Admissible => Switch(
+        plain: static () => true,
+        matched: static () => true,
+        sampled: static law => law.Samples > 0);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -214,6 +289,11 @@ public abstract partial record SpiralLaw {
     private SpiralLaw() { }
     public sealed record AboutAxis(Point3d AxisStart, Vector3d AxisDirection) : SpiralLaw;
     public sealed record AlongRail(GeometryHandle Rail, double T0, double T1, int PointsPerTurn) : SpiralLaw;
+
+    internal bool Admissible => Switch(
+        aboutAxis: static law => law.AxisStart.IsValid && Curves.Direction(law.AxisDirection),
+        alongRail: static law => Curves.Handle(law.Rail)
+            && Curves.Finite(law.T0) && Curves.Finite(law.T1) && law.PointsPerTurn > 0);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -222,6 +302,11 @@ public abstract partial record ParabolaSeed {
     public sealed record FromVertex(Point3d Vertex, Point3d Start, Point3d End) : ParabolaSeed;
     public sealed record FromFocus(Point3d Focus, Point3d Start, Point3d End) : ParabolaSeed;
     public sealed record FromPoints(Point3d Start, Point3d Inner, Point3d End) : ParabolaSeed;
+
+    internal bool Admissible => Switch(
+        fromVertex: static seed => seed.Vertex.IsValid && seed.Start.IsValid && seed.End.IsValid,
+        fromFocus: static seed => seed.Focus.IsValid && seed.Start.IsValid && seed.End.IsValid,
+        fromPoints: static seed => seed.Start.IsValid && seed.Inner.IsValid && seed.End.IsValid);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -231,6 +316,12 @@ public abstract partial record AnalyticCurve {
     public sealed record OfArc(Arc Value, Option<(int Degree, int CvCount)> Structure = default) : AnalyticCurve;
     public sealed record OfCircle(Circle Value, Option<(int Degree, int CvCount)> Structure = default) : AnalyticCurve;
     public sealed record OfEllipse(Ellipse Value) : AnalyticCurve;
+
+    internal bool Admissible => Switch(
+        ofLine: static seed => seed.Value.IsValid,
+        ofArc: static seed => seed.Value.IsValid && Curves.Structure(seed.Structure),
+        ofCircle: static seed => seed.Value.IsValid && Curves.Structure(seed.Structure),
+        ofEllipse: static seed => seed.Value.IsValid);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -240,6 +331,12 @@ public abstract partial record CatenaryLaw {
     public sealed record FromLength(double Value) : CatenaryLaw;
     public sealed record FromParameter(double Value) : CatenaryLaw;
     public sealed record FromApex(Point3d Value) : CatenaryLaw;
+
+    internal bool Admissible => Switch(
+        throughPoint: static law => law.Value.IsValid,
+        fromLength: static law => Curves.Positive(law.Value),
+        fromParameter: static law => Curves.Finite(law.Value),
+        fromApex: static law => law.Value.IsValid);
 }
 
 [SmartEnum<int>]
@@ -391,7 +488,11 @@ public sealed record RailFilletLaw(
     (ArcSlider Tangent, ArcSlider Inner) Sliders,
     int BezierSurfaceCount,
     bool Extend,
-    FilletSurfaceSplitType Split);
+    FilletSurfaceSplitType Split) {
+    // `numBezierSrfs` is documented "if > 0, …", so zero is the legal do-not-subdivide value, never a floor breach.
+    internal bool Admissible => Rail is not null && Arc is not null
+        && Curves.Count(BezierSurfaceCount) && Enum.IsDefined(Split);
+}
 ```
 
 ## [04]-[OPERATION_RAIL]
@@ -401,7 +502,10 @@ public sealed record RailFilletLaw(
 - Law: correspondence maps survive — projection folds its curve and brep source indices, join folds its key map, curve-boolean union folds its index map, and the planar-region product folds its per-region partition as `SourceGroups`, so a consumer never re-derives which input produced which output. Mesh-target projection is the declared exception: `Curve.ProjectToMesh` exposes no index channel on any overload, so the `ToMeshes` arm records the product tally alone and carries no correspondence guarantee.
 - Law: the boolean-regions carrier dies at the seam — `CurveBooleanRegions` is read inside the arm, its per-region curves cross as products partitioned by a `SourceGroups` fact, and point assignments carry the `SourceAxis.Region` discriminant.
 - Law: `CurveOp.Admitted` closes the whole roster before dispatch — every handle, index, finite scalar, degree-versus-count relation, host enum, direction vector, and nested policy payload admits at the spine, so no arm reaches a native with an ungated numeric and the `Entry` fold reports the complete rejection set.
+- Law: admission is owner-local — every policy union answers its own `Admissible` off its generated `Switch` and every policy record answers its own field guard, so a new case breaks its owning union's predicate at compile; `Admitted` composes those answers over case-local shape read through the `Curves` predicate vocabulary, and one `object?`-typed predicate switching over every policy type is the deleted form that let a new case pass unchecked.
 - Law: end reconciliation answers pairs — `MakeEndsMeet` duplicates both curves, reconciles the duplicates, and crosses both as products, so the mutating native never touches an input handle; the staged harvest rolls both duplicates back on the failure path, because a throwing or refusing native orphans two live copies otherwise.
+- Law: a two-state modality is a named `bool` on its owning case and nothing more — a class whose only column is the bit renames `true` and buys no admission, so the roster spells its grants (`PreserveTangents`, `Simple`, `TrimInputs`, `Average`, `FixEnds`, `Interpolate`) as fields and reserves a row vocabulary for a modality carrying a writer, a native factory, or a correlated tuple; `Modeling/meshing.md` holds the same discipline, so the two pages read as one.
+- Law: smoothing seats once — `Curve.Smooth` and `Mesh.Smooth` take the IDENTICAL five knobs (factor, three axis bits, boundary bit, coordinate system, frame), so `Smooth` consumes the meshing rail's `SmoothLaw` rather than respelling them as five payload fields; the mesh-only pass count and vertex selection stay on that page's cases, and the law's valid-frame admission means this arm composes the long host overload alone.
 - Law: compatibility seats once — `CurveCompatibility` is the lofting rail's `[ComplexValueObject]` over the simplify method and rebuild count, and the curve rail's `Compatible` case consumes that owner rather than re-spelling the same two `NurbsCurve.MakeCompatible` arguments as bare ints; the host documents `Point3d.Unset` as the omit spelling for either terminal, so admission accepts an unset endpoint and refuses only a NaN-bearing one.
 - Law: direction agreement is evidence — `DirectionsMatch` borrows both curves and lands the host `Curve.DoDirectionsMatch` verdict as a `Flag` fact with no product, so join, sweep, and loft preparation reads the verdict off the receipt rail; the kernel's typed direction-relation vocabulary stays the analysis-altitude owner, and this host boolean serves construction preparation only.
 - Growth: a new curve host verb is one case with its arm; a new modality is one case on the owning policy union.
@@ -449,7 +553,7 @@ public abstract partial record CurveOp {
     public sealed record Fair(GeometryHandle Curve, int ClampStart, int ClampEnd, int Iterations) : CurveOp;
     public sealed record Fit(GeometryHandle Curve, int Degree) : CurveOp;
     public sealed record Rebuild(GeometryHandle Curve, int PointCount, int Degree, bool PreserveTangents) : CurveOp;
-    public sealed record Smooth(GeometryHandle Curve, double Factor, bool X, bool Y, bool Z, bool FixBoundaries, SmoothingCoordinateSystem System, Option<Plane> Frame = default) : CurveOp;
+    public sealed record Smooth(GeometryHandle Curve, SmoothLaw Law) : CurveOp;
     public sealed record Simplify(GeometryHandle Curve, CurveSimplifyOptions Options, Option<CurveEnd> EndOnly = default) : CurveOp;
     public sealed record Edit(GeometryHandle Curve, CurveEdit Verb) : CurveOp;
     public sealed record NurbsFit(GeometryHandle Curve, Interval Domain, FitLaw Law) : CurveOp;
@@ -490,160 +594,79 @@ public abstract partial record CurveOp {
     public sealed record TextOutlines(string Text, string Font, double Height, FrozenSet<TextFace> Faces, bool CloseLoops, Plane Frame, double SmallCapsScale = 1.0) : CurveOp;
     public sealed record DirectionsMatch(GeometryHandle First, GeometryHandle Second) : CurveOp;
 
+    // Every nested policy answers its OWN `Admissible` off its generated `Switch`, so a new case breaks its owning
+    // union's predicate at compile; this arm reads case-local shape (handles, indices, scalars, host enums) alone.
     internal Fin<CurveOp> Admitted(Op key) =>
         guard(this switch {
-            Offset row => Handle(row.Curve) && IsAdmitted(row.Frame),
-            OffsetOnSurface row => Handle(row.Curve) && IsAdmitted(row.Target),
-            OffsetLift row => Handle(row.Curve) && Handle(row.Surface) && row.Lift is not null,
-            Ribbon row => Handle(row.Curve) && IsAdmitted(row.Law),
-            Fair row => Handle(row.Curve) && Count(row.ClampStart) && Count(row.ClampEnd) && row.Iterations > 0,
-            Fit row => Handle(row.Curve) && Degree(row.Degree),
-            Rebuild row => Handle(row.Curve) && Degree(row.Degree) && row.PointCount > row.Degree,
-            Smooth row => Handle(row.Curve) && Finite(row.Factor) && Enum.IsDefined(row.System)
-                && row.Frame.ForAll(static frame => frame.IsValid),
+            Offset row => Curves.Handle(row.Curve) && row.Frame is { Admissible: true },
+            OffsetOnSurface row => Curves.Handle(row.Curve) && row.Target is { Admissible: true },
+            OffsetLift row => Curves.Handle(row.Curve) && Curves.Handle(row.Surface) && row.Lift is not null,
+            Ribbon row => Curves.Handle(row.Curve) && row.Law is { Admissible: true },
+            Fair row => Curves.Handle(row.Curve) && Curves.Count(row.ClampStart) && Curves.Count(row.ClampEnd)
+                && row.Iterations > 0,
+            Fit row => Curves.Handle(row.Curve) && Curves.Degree(row.Degree),
+            Rebuild row => Curves.Handle(row.Curve) && Curves.Degree(row.Degree) && row.PointCount > row.Degree,
+            Smooth row => Curves.Handle(row.Curve) && row.Law.Admissible,
             // `CurveSimplifyOptions` is a host flag mask, so every bit combination is legal material and only the
             // optional end selector carries a roster to gate.
-            Simplify row => Handle(row.Curve) && row.EndOnly.ForAll(static side => Enum.IsDefined(side)),
-            Edit row => Handle(row.Curve) && IsAdmitted(row.Verb),
-            NurbsFit row => Handle(row.Curve) && row.Domain.IsValid && row.Law.Admissible,
-            Extend row => Handle(row.Curve) && IsAdmitted(row.Law),
-            Shorten row => Handle(row.Curve) && IsAdmitted(row.Law),
-            Split row => Handle(row.Curve) && IsAdmitted(row.Cutter),
-            Pull row => Handle(row.Curve) && IsAdmitted(row.Target),
-            Project row => IsAdmitted(row.Target),
-            Join row => Handles(row.Curves),
-            Boolean row => IsAdmitted(row.Law),
-            Regions row => Handles(row.Curves) && row.Frame.IsValid && Points(row.Points, allowEmpty: true),
-            Blend row => Handle(row.First) && Handle(row.Second) && IsAdmitted(row.Law),
-            ArcBlend row => row.Start.IsValid && Direction(row.StartDirection)
-                && row.End.IsValid && Direction(row.EndDirection) && IsAdmitted(row.Law),
-            FilletCurves row => Handle(row.First) && row.NearFirst.IsValid
-                && Handle(row.Second) && row.NearSecond.IsValid && Positive(row.Radius),
-            FilletCorners row => Handle(row.Curve) && Positive(row.Radius),
-            Tween row => Handle(row.First) && Handle(row.Second) && row.Count > 0 && IsAdmitted(row.Law),
-            MatchCurve row => Handle(row.First) && Handle(row.Second)
+            Simplify row => Curves.Handle(row.Curve) && row.EndOnly.ForAll(static side => Enum.IsDefined(side)),
+            Edit row => Curves.Handle(row.Curve) && row.Verb is { Admissible: true },
+            NurbsFit row => Curves.Handle(row.Curve) && row.Domain.IsValid && row.Law.Admissible,
+            Extend row => Curves.Handle(row.Curve) && row.Law is { Admissible: true },
+            Shorten row => Curves.Handle(row.Curve) && row.Law is { Admissible: true },
+            Split row => Curves.Handle(row.Curve) && row.Cutter is { Admissible: true },
+            Pull row => Curves.Handle(row.Curve) && row.Target is { Admissible: true },
+            Project row => row.Target is { Admissible: true },
+            Join row => Curves.Handles(row.Curves),
+            Boolean row => row.Law is { Admissible: true },
+            Regions row => Curves.Handles(row.Curves) && row.Frame.IsValid && Curves.Points(row.Points, allowEmpty: true),
+            Blend row => Curves.Handle(row.First) && Curves.Handle(row.Second) && row.Law is { Admissible: true },
+            ArcBlend row => row.Start.IsValid && Curves.Direction(row.StartDirection)
+                && row.End.IsValid && Curves.Direction(row.EndDirection) && row.Law is { Admissible: true },
+            FilletCurves row => Curves.Handle(row.First) && row.NearFirst.IsValid
+                && Curves.Handle(row.Second) && row.NearSecond.IsValid && Curves.Positive(row.Radius),
+            FilletCorners row => Curves.Handle(row.Curve) && Curves.Positive(row.Radius),
+            Tween row => Curves.Handle(row.First) && Curves.Handle(row.Second) && row.Count > 0
+                && row.Law is { Admissible: true },
+            MatchCurve row => Curves.Handle(row.First) && Curves.Handle(row.Second)
                 && Enum.IsDefined(row.Continuity) && Enum.IsDefined(row.Preserve),
-            Mean row => Handle(row.First) && Handle(row.Second),
-            TwoView row => Handle(row.First) && Handle(row.Second)
-                && Direction(row.FirstDirection) && Direction(row.SecondDirection),
-            Interpolated row => Points(row.Points) && Degree(row.Degree) && row.Points.Count > row.Degree
+            Mean row => Curves.Handle(row.First) && Curves.Handle(row.Second),
+            TwoView row => Curves.Handle(row.First) && Curves.Handle(row.Second)
+                && Curves.Direction(row.FirstDirection) && Curves.Direction(row.SecondDirection),
+            Interpolated row => Curves.Points(row.Points) && Curves.Degree(row.Degree) && row.Points.Count > row.Degree
                 && row.Knots.ForAll(static knots => Enum.IsDefined(knots))
-                && row.Tangents.ForAll(static ends => Direction(ends.Start) && Direction(ends.End)),
-            ControlPoints row => Points(row.Points) && Degree(row.Degree) && row.Points.Count > row.Degree,
-            FitPoints row => Points(row.Points)
-                && row.Constrained.ForAll(static ends => Degree(ends.Degree)
-                    && Direction(ends.Start) && Direction(ends.End)),
-            HSpline row => Points(row.Points)
-                && row.Tangents.ForAll(static ends => Direction(ends.Start) && Direction(ends.End)),
-            SoftEdit row => Handle(row.Curve) && Finite(row.T) && row.Delta.IsValid && Positive(row.Length),
-            PeriodicClose row => Handle(row.Curve),
-            SubDFriendly row => Handle(row.Curve)
+                && row.Tangents.ForAll(static ends => Curves.Direction(ends.Start) && Curves.Direction(ends.End)),
+            ControlPoints row => Curves.Points(row.Points) && Curves.Degree(row.Degree) && row.Points.Count > row.Degree,
+            FitPoints row => Curves.Points(row.Points)
+                && row.Constrained.ForAll(static ends => Curves.Degree(ends.Degree)
+                    && Curves.Direction(ends.Start) && Curves.Direction(ends.End)),
+            HSpline row => Curves.Points(row.Points)
+                && row.Tangents.ForAll(static ends => Curves.Direction(ends.Start) && Curves.Direction(ends.End)),
+            SoftEdit row => Curves.Handle(row.Curve) && Curves.Finite(row.T) && row.Delta.IsValid
+                && Curves.Positive(row.Length),
+            PeriodicClose row => Curves.Handle(row.Curve),
+            SubDFriendly row => Curves.Handle(row.Curve)
                 && row.Structure.ForAll(static shape => shape.PointCount > 0),
-            SubDFriendlyPoints row => Points(row.Points),
-            Compatible row => Handles(row.Curves) && row.Law.Admissible
-                && Terminal(row.Start) && Terminal(row.End),
-            Spiral row => IsAdmitted(row.Law) && row.RadiusPoint.IsValid && Finite(row.Pitch)
-                && Nonzero(row.TurnCount) && Nonnegative(row.Radius0) && Nonnegative(row.Radius1),
-            Parabola row => IsAdmitted(row.Seed),
+            SubDFriendlyPoints row => Curves.Points(row.Points),
+            Compatible row => Curves.Handles(row.Curves) && row.Law.Admissible
+                && Curves.Terminal(row.Start) && Curves.Terminal(row.End),
+            Spiral row => row.Law is { Admissible: true } && row.RadiusPoint.IsValid && Curves.Finite(row.Pitch)
+                && Curves.Nonzero(row.TurnCount) && Curves.Nonnegative(row.Radius0) && Curves.Nonnegative(row.Radius1),
+            Parabola row => row.Seed is { Admissible: true },
             ArcBezier row => row.Degree is not null && row.Center.IsValid
-                && row.Start.IsValid && row.End.IsValid && Positive(row.Radius),
-            Analytic row => IsAdmitted(row.Seed),
-            Catenary row => row.Start.IsValid && row.End.IsValid && Direction(row.AxisDirection)
-                && IsAdmitted(row.Law) && row.PointCount > 1,
-            MakeEndsMeet row => Handle(row.First) && Handle(row.Second),
-            RailFillet row => Handle(row.Rail) && Handle(row.First) && Index(row.FirstFace)
-                && Handle(row.Second) && Index(row.SecondFace)
-                && Finite(row.U) && Finite(row.V) && IsAdmitted(row.Law),
-            TextOutlines row => row.Faces is not null && Positive(row.Height)
-                && row.Frame.IsValid && Positive(row.SmallCapsScale),
-            DirectionsMatch row => Handle(row.First) && Handle(row.Second),
+                && row.Start.IsValid && row.End.IsValid && Curves.Positive(row.Radius),
+            Analytic row => row.Seed is { Admissible: true },
+            Catenary row => row.Start.IsValid && row.End.IsValid && Curves.Direction(row.AxisDirection)
+                && row.Law is { Admissible: true } && row.PointCount > 1,
+            MakeEndsMeet row => Curves.Handle(row.First) && Curves.Handle(row.Second),
+            RailFillet row => Curves.Handle(row.Rail) && Curves.Handle(row.First) && Curves.Index(row.FirstFace)
+                && Curves.Handle(row.Second) && Curves.Index(row.SecondFace)
+                && Curves.Finite(row.U) && Curves.Finite(row.V) && row.Law is { Admissible: true },
+            TextOutlines row => row.Faces is not null && Curves.Positive(row.Height)
+                && row.Frame.IsValid && Curves.Positive(row.SmallCapsScale),
+            DirectionsMatch row => Curves.Handle(row.First) && Curves.Handle(row.Second),
             _ => false,
         }, key.InvalidInput()).ToFin().Map(_ => this);
-
-    private static bool IsAdmitted(object? value) => value switch {
-        OffsetFrame.InPlane row => row.Value.IsValid && Enum.IsDefined(row.Corner),
-        OffsetFrame.ByNormal row => row.DirectionPoint.IsValid && Direction(row.Normal)
-            && Enum.IsDefined(row.Corner) && Enum.IsDefined(row.End),
-        OffsetFrame.ByLooseNormal row => row.DirectionPoint.IsValid && Direction(row.Normal)
-            && Enum.IsDefined(row.Corner) && Enum.IsDefined(row.End),
-        SurfaceOffsetTarget.FaceDistance row => Handle(row.Host) && Index(row.Face),
-        SurfaceOffsetTarget.FacePoint row => Handle(row.Host) && Index(row.Face) && row.Point.IsValid,
-        SurfaceOffsetTarget.FaceVarying row => Handle(row.Host) && Index(row.Face) && !row.Rows.IsEmpty,
-        SurfaceOffsetTarget.SurfaceDistance row => Handle(row.Host),
-        SurfaceOffsetTarget.SurfacePoint row => Handle(row.Host) && row.Point.IsValid,
-        RibbonLaw row => row.Location.IsValid && row.Refit is not null && Count(row.RebuildPointCount)
-            && row.PlaneVector.ForAll(static vector => Direction(vector))
-            && Enum.IsDefined(row.SurfaceMethod),
-        CurveEdit.RemoveShort or CurveEdit.CloseGap => true,
-        CurveEdit.TrimDomain row => row.Value.IsValid,
-        ExtendLaw.ByLength row => Enum.IsDefined(row.Side) && Positive(row.Length) && Enum.IsDefined(row.Style),
-        ExtendLaw.ToGeometry row => Enum.IsDefined(row.Side) && Enum.IsDefined(row.Style) && Handles(row.Bounds),
-        ExtendLaw.ToPoint row => Enum.IsDefined(row.Side) && Enum.IsDefined(row.Style) && row.Terminal.IsValid,
-        ExtendLaw.ByLine row => Enum.IsDefined(row.Side) && Handles(row.Bounds),
-        ExtendLaw.ByArc row => Enum.IsDefined(row.Side) && Handles(row.Bounds),
-        ExtendLaw.OnSurface row => Enum.IsDefined(row.Side) && Handle(row.Target)
-            && row.Face.ForAll(static face => Index(face)),
-        ShortenLaw.ToDomain row => row.Value.IsValid,
-        ShortenLaw.AtEnd row => Enum.IsDefined(row.Side) && Positive(row.Length),
-        SplitCutter.AtParameters row => !row.Values.IsEmpty && row.Values.ForAll(static t => Finite(t)),
-        SplitCutter.ByBrep row => Handle(row.Value),
-        SplitCutter.BySurface row => Handle(row.Value),
-        SplitCutter.ByPlane row => row.Value.IsValid,
-        PullTarget.ToFace row => Handle(row.Brep) && Index(row.Face),
-        PullTarget.ToFaceLoose row => Handle(row.Brep) && Index(row.Face),
-        PullTarget.ToMesh row => Handle(row.Mesh),
-        PullTarget.ToMeshLoose row => Handle(row.Mesh),
-        ProjectTarget.ToBreps row => Handles(row.Curves) && Handles(row.Breps) && Direction(row.Direction),
-        ProjectTarget.ToMeshes row => Handles(row.Curves) && Handles(row.Meshes) && Direction(row.Direction),
-        ProjectTarget.ToPlane row => Handle(row.Curve) && row.Plane.IsValid,
-        CurveBooleanLaw.Union row => Handles(row.Curves),
-        CurveBooleanLaw.Intersection row => Handle(row.First) && Handle(row.Second),
-        CurveBooleanLaw.Difference row => Handle(row.First) && Handles(row.Subtractors),
-        BlendLaw.EndToEnd row => Enum.IsDefined(row.Continuity)
-            && row.Bulge.ForAll(static bulge => Finite(bulge.BulgeA) && Finite(bulge.BulgeB)),
-        BlendLaw.AtParameters row => Finite(row.T0) && Enum.IsDefined(row.Continuity0)
-            && Finite(row.T1) && Enum.IsDefined(row.Continuity1),
-        ArcBlendLaw.ControlPointRatio row => row.Ratio.Value > 0.0,
-        ArcBlendLaw.LineArcRadius row => row.Radius.Value > 0.0,
-        TweenLaw.Plain or TweenLaw.Matched => true,
-        TweenLaw.Sampled row => row.Samples > 0,
-        SpiralLaw.AboutAxis row => row.AxisStart.IsValid && Direction(row.AxisDirection),
-        SpiralLaw.AlongRail row => Handle(row.Rail) && Finite(row.T0) && Finite(row.T1) && row.PointsPerTurn > 0,
-        ParabolaSeed.FromVertex row => row.Vertex.IsValid && row.Start.IsValid && row.End.IsValid,
-        ParabolaSeed.FromFocus row => row.Focus.IsValid && row.Start.IsValid && row.End.IsValid,
-        ParabolaSeed.FromPoints row => row.Start.IsValid && row.Inner.IsValid && row.End.IsValid,
-        AnalyticCurve.OfLine row => row.Value.IsValid,
-        AnalyticCurve.OfArc row => row.Value.IsValid && Structure(row.Structure),
-        AnalyticCurve.OfCircle row => row.Value.IsValid && Structure(row.Structure),
-        AnalyticCurve.OfEllipse row => row.Value.IsValid,
-        CatenaryLaw.ThroughPoint row => row.Value.IsValid,
-        CatenaryLaw.FromLength row => Positive(row.Value),
-        CatenaryLaw.FromParameter row => Finite(row.Value),
-        CatenaryLaw.FromApex row => row.Value.IsValid,
-        // `numBezierSrfs` is documented "if > 0, …", so zero is the legal do-not-subdivide value, never a floor breach.
-        RailFilletLaw row => row.Rail is not null && row.Arc is not null
-            && Count(row.BezierSurfaceCount) && Enum.IsDefined(row.Split),
-        _ => false,
-    };
-
-    private static bool Handle(GeometryHandle? handle) => handle is not null;
-    private static bool Handles(Seq<GeometryHandle> handles, bool allowEmpty = false) =>
-        (allowEmpty || !handles.IsEmpty) && handles.ForAll(static handle => handle is not null);
-    private static bool Points(Seq<Point3d> points, bool allowEmpty = false) =>
-        (allowEmpty || !points.IsEmpty) && points.ForAll(static point => point.IsValid);
-    private static bool Index(int value) => value >= 0;
-    private static bool Count(int value) => value >= 0;
-    private static bool Degree(int value) => value >= 1;
-    private static bool Finite(double value) => double.IsFinite(value);
-    private static bool Nonzero(double value) => Finite(value) && value != 0.0;
-    private static bool Positive(double value) => Finite(value) && value > 0.0;
-    private static bool Nonnegative(double value) => Finite(value) && value >= 0.0;
-    private static bool Direction(Vector3d value) => value.IsValid && !value.IsZero;
-    // `MakeCompatible` documents `Point3d.Unset` as the omit spelling for either terminal, so an unset point is
-    // admitted material here and only a NaN-bearing point refuses.
-    private static bool Terminal(Point3d value) => value.IsValid || value == Point3d.Unset;
-    private static bool Structure(Option<(int Degree, int CvCount)> structure) =>
-        structure.ForAll(static shape => Degree(shape.Degree) && shape.CvCount > shape.Degree);
 
     internal Fin<Built<CurveSlot>> Apply(Context domain) =>
         Switch(
@@ -691,14 +714,7 @@ public abstract partial record CurveOp {
             rebuild: static (_, edit) => Borrowed(edit.Curve, Op.Of(name: nameof(Rebuild)), (curve, op) =>
                 ModelGate.Single(op, CurveSlot.Refined, () => curve.Rebuild(pointCount: edit.PointCount, degree: edit.Degree, preserveTangents: edit.PreserveTangents))),
             smooth: static (_, edit) => Borrowed(edit.Curve, Op.Of(name: nameof(Smooth)), (curve, op) =>
-                ModelGate.Single(op, CurveSlot.Refined, () => edit.Frame.Case switch {
-                    Plane frame => curve.Smooth(
-                        smoothFactor: edit.Factor, bXSmooth: edit.X, bYSmooth: edit.Y, bZSmooth: edit.Z,
-                        bFixBoundaries: edit.FixBoundaries, coordinateSystem: edit.System, plane: frame),
-                    _ => curve.Smooth(
-                        smoothFactor: edit.Factor, bXSmooth: edit.X, bYSmooth: edit.Y, bZSmooth: edit.Z,
-                        bFixBoundaries: edit.FixBoundaries, coordinateSystem: edit.System),
-                })),
+                ModelGate.Single(op, CurveSlot.Refined, () => edit.Law.Apply(target: curve))),
             simplify: static (model, edit) => Borrowed(edit.Curve, Op.Of(name: nameof(Simplify)), (curve, op) =>
                 ModelGate.Single(op, CurveSlot.Refined, () => edit.EndOnly.Case switch {
                     CurveEnd end => curve.SimplifyEnd(end: end, options: edit.Options,
@@ -1178,6 +1194,39 @@ public abstract partial record CurveOp {
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static class Curves {
+    // The page's shape predicates seat once here and every `Admissible` reads them, so handle, point, index, and
+    // scalar admission is one vocabulary across the policy vocabularies and the verb roster.
+    internal static bool Handle(GeometryHandle? handle) => handle is not null;
+
+    internal static bool Handles(Seq<GeometryHandle> handles, bool allowEmpty = false) =>
+        (allowEmpty || !handles.IsEmpty) && handles.ForAll(static handle => handle is not null);
+
+    internal static bool Points(Seq<Point3d> points, bool allowEmpty = false) =>
+        (allowEmpty || !points.IsEmpty) && points.ForAll(static point => point.IsValid);
+
+    internal static bool Index(int value) => value >= 0;
+
+    internal static bool Count(int value) => value >= 0;
+
+    internal static bool Degree(int value) => value >= 1;
+
+    internal static bool Finite(double value) => double.IsFinite(value);
+
+    internal static bool Nonzero(double value) => Finite(value: value) && value != 0.0;
+
+    internal static bool Positive(double value) => Finite(value: value) && value > 0.0;
+
+    internal static bool Nonnegative(double value) => Finite(value: value) && value >= 0.0;
+
+    internal static bool Direction(Vector3d value) => value.IsValid && !value.IsZero;
+
+    // `MakeCompatible` documents `Point3d.Unset` as the omit spelling for either terminal, so an unset point is
+    // admitted material here and only a NaN-bearing point refuses.
+    internal static bool Terminal(Point3d value) => value.IsValid || value == Point3d.Unset;
+
+    internal static bool Structure(Option<(int Degree, int CvCount)> structure) =>
+        structure.ForAll(static shape => Degree(value: shape.Degree) && shape.CvCount > shape.Degree);
+
     public static Fin<Built<CurveSlot>> Build(Context context, params ReadOnlySpan<CurveOp> operations) =>
         ModelGate.Entry(
             context: context,
@@ -1205,8 +1254,9 @@ public static class Curves {
 |  [12]   | value-semantic edit     | `CurveEdit`                         | duplicate then cleanup/close/interval trim  | `CurveOp.Edit`           |
 |  [13]   | rail surface fillet     | `RailFilletLaw`                     | rail and arc structure plus fit evidence    | `CurveOp.RailFillet`     |
 |  [14]   | font style              | `TextFace`                          | additive style bits folded from a set       | `CurveOp.TextOutlines`   |
-|  [15]   | admission               | `CurveOp.Admitted`                  | whole-roster payload gate before dispatch   | `Curves.Build`           |
-|  [16]   | curve verbs             | `CurveOp`                           | one flat `[Union]` with total dispatch      | `Curves.Build`           |
+|  [15]   | smoothing               | `SmoothLaw` (`meshing.md`)          | five knobs shared with the mesh carrier     | `CurveOp.Smooth`         |
+|  [16]   | admission               | per-union `Admissible` / `Curves`   | owner-local shape predicates                | `CurveOp.Admitted`       |
+|  [17]   | curve verbs             | `CurveOp`                           | one flat `[Union]` with total dispatch      | `Curves.Build`           |
 
 ## [06]-[RESEARCH]
 
@@ -1215,4 +1265,4 @@ public static class Curves {
 [SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
-- [ARC_BEZIER_SLIDER]-[OPEN]: does `NurbsCurve.CreateNonRationalArcBezier` refuse a negative `tanSlider`/`midSlider`; the host documents both as "a number between zero and one" while the folder's `ArcSlider` admits -1..1 off the `SurfaceFilletBase` band the same concept carries there — settle with a `tools.assay bridge` scenario at -0.5 and compare the curve against the +0.5 run.
+(none)

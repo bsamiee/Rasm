@@ -114,20 +114,20 @@
 
 [REGISTRY_ENTRY_SCOPE]: `RegistryOptions` corpus query, theme load, and custom-grammar loading
 
-| [INDEX] | [SURFACE]                                                            | [SHAPE]  | [CAPABILITY]        |
-| :-----: | :------------------------------------------------------------------- | :------- | :------------------ |
-|  [01]   | `RegistryOptions(ThemeName)`                                         | ctor     | corpus locator      |
-|  [02]   | `GetScopeByExtension(string) -> string`                              | instance | ext → scope         |
-|  [03]   | `GetScopeByLanguageId(string) -> string`                             | instance | id → scope          |
-|  [04]   | `GetLanguageByExtension(string) -> Language`                         | instance | ext → language      |
-|  [05]   | `GetAvailableLanguages() -> List<Language>`                          | instance | corpus roster       |
-|  [06]   | `GetAvailableGrammarDefinitions() -> IEnumerable<GrammarDefinition>` | instance | corpus roster       |
-|  [07]   | `LoadTheme(ThemeName) -> IRawTheme`                                  | instance | theme load          |
-|  [08]   | `GetGrammar(string) -> IRawGrammar`                                  | instance | locator contract    |
-|  [09]   | `GetTheme(string) -> IRawTheme`                                      | instance | locator contract    |
-|  [10]   | `GetDefaultTheme() -> IRawTheme`                                     | instance | locator contract    |
-|  [11]   | `GetInjections(string) -> ICollection<string>`                       | instance | locator contract    |
-|  [12]   | `LoadFromLocalDir(string dirPath, bool overwrite = false)`           | instance | custom grammar dir  |
+| [INDEX] | [SURFACE]                                                               | [SHAPE]  | [CAPABILITY]        |
+| :-----: | :---------------------------------------------------------------------- | :------- | :------------------ |
+|  [01]   | `RegistryOptions(ThemeName)`                                            | ctor     | corpus locator      |
+|  [02]   | `GetScopeByExtension(string) -> string`                                 | instance | ext → scope         |
+|  [03]   | `GetScopeByLanguageId(string) -> string`                                | instance | id → scope          |
+|  [04]   | `GetLanguageByExtension(string) -> Language`                            | instance | ext → language      |
+|  [05]   | `GetAvailableLanguages() -> List<Language>`                             | instance | corpus roster       |
+|  [06]   | `GetAvailableGrammarDefinitions() -> IEnumerable<GrammarDefinition>`    | instance | corpus roster       |
+|  [07]   | `LoadTheme(ThemeName) -> IRawTheme`                                     | instance | theme load          |
+|  [08]   | `GetGrammar(string) -> IRawGrammar`                                     | instance | locator contract    |
+|  [09]   | `GetTheme(string) -> IRawTheme`                                         | instance | locator contract    |
+|  [10]   | `GetDefaultTheme() -> IRawTheme`                                        | instance | locator contract    |
+|  [11]   | `GetInjections(string) -> ICollection<string>`                          | instance | locator contract    |
+|  [12]   | `LoadFromLocalDir(string dirPath, bool overwrite = false)`              | instance | custom grammar dir  |
 |  [13]   | `LoadFromLocalFile(string, string \| FileInfo, bool overwrite = false)` | instance | custom grammar file |
 
 `new RegistryOptions(ThemeName.DarkPlus)` is the construction the editor stack passes to `InstallTextMate`; `GetScopeByExtension(".cs")` yields the scope `SetGrammar` selects, and `GetScopeByLanguageId("csharp")` answers the same question from a fence's declared language.

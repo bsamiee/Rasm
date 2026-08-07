@@ -17,7 +17,7 @@
 
 | [INDEX] | [SYMBOL]                                                    | [TYPE_FAMILY] | [CAPABILITY]                                               |
 | :-----: | :---------------------------------------------------------- | :------------ | :--------------------------------------------------------- |
-|  [01]   | `getSignedUrl(client, command, options?)`                   | presign entry | one mint over any `S3Client` + command → `object/store` `[06]-[GRANT_MINT]`  |
+|  [01]   | `getSignedUrl(client, command, options?)`                   | presign entry | one mint over `S3Client` + command → `object/store` `[06]` |
 |  [02]   | `RequestPresigningArguments.expiresIn` (`number`, seconds)  | TTL           | token lifetime, a `Config`-bounded fact                    |
 |  [03]   | `.signableHeaders` / `.unsignableHeaders` (`Set<string>`)   | signed set    | pin SSE-C / content-type into the signature; drop volatile |
 |  [04]   | `.hoistableHeaders` / `.unhoistableHeaders` (`Set<string>`) | query hoist   | hoist `Response*` overrides into the URL query             |
@@ -38,11 +38,11 @@
 
 | [INDEX] | [SURFACE]                                                         | [ENTRY_FAMILY] | [CAPABILITY]                                    |
 | :-----: | :---------------------------------------------------------------- | :------------- | :---------------------------------------------- |
-|  [01]   | `getSignedUrl(client, command, { expiresIn })`                    | mint           | `object/store` `[06]-[GRANT_MINT]` → `{ url, expiresAt }`         |
+|  [01]   | `getSignedUrl(client, command, { expiresIn })`                    | mint           | `object/store` `[06]` → `{ url, expiresAt }`    |
 |  [02]   | `new PutObjectCommand({ Key, IfNoneMatch: "*", ChecksumSHA256 })` | upload URL     | browser-direct conditional-put upload token     |
 |  [03]   | `new GetObjectCommand({ Key, ResponseContentDisposition })`       | download URL   | browser-direct download with response overrides |
 |  [04]   | `new UploadPartCommand({ UploadId, PartNumber })`                 | part URL       | multipart browser-direct part upload token      |
-|  [05]   | `Config.integer("PRESIGN_TTL_SECONDS")` → `expiresIn`             | TTL config     | the composition root's `Config` — token lifetime, never a literal |
+|  [05]   | `Config.integer("PRESIGN_TTL_SECONDS")` → `expiresIn`             | TTL config     | composition-root `Config`; never a literal      |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

@@ -106,20 +106,20 @@
 
 [ENTRYPOINT_SCOPE]: device intake, send, and hot-plug
 
-| [INDEX] | [SURFACE]                                                          | [SHAPE]  | [CAPABILITY]          |
-| :-----: | :----------------------------------------------------------------- | :------- | :-------------------- |
-|  [01]   | `InputDevice.GetAll()` / `.GetByName(string)` / `.GetByIndex(int)` | static   | resolve input         |
-|  [02]   | `InputDevice.StartEventsListening()` / `.StopEventsListening()`    | instance | intake lifecycle      |
-|  [03]   | `InputDevice.EventReceived` (`MidiEventReceivedEventArgs`)         | event    | received event signal |
+| [INDEX] | [SURFACE]                                                           | [SHAPE]  | [CAPABILITY]          |
+| :-----: | :------------------------------------------------------------------ | :------- | :-------------------- |
+|  [01]   | `InputDevice.GetAll()` / `.GetByName(string)` / `.GetByIndex(int)`  | static   | resolve input         |
+|  [02]   | `InputDevice.StartEventsListening()` / `.StopEventsListening()`     | instance | intake lifecycle      |
+|  [03]   | `InputDevice.EventReceived` (`MidiEventReceivedEventArgs`)          | event    | received event signal |
 |  [04]   | `OutputDevice.GetAll()` / `.GetByName(string)` / `.GetByIndex(int)` | static   | resolve output        |
-|  [05]   | `OutputDevice.SendEvent(MidiEvent)` / `.PrepareForEventsSending()` | instance | emit/warm send        |
-|  [06]   | `OutputDevice.TurnAllNotesOff()`                                   | instance | panic note release    |
-|  [07]   | `OutputDevice.EventSent` (`MidiEventSentEventArgs`)                | event    | sent event signal     |
-|  [08]   | `DevicesWatcher.Instance`                                          | static   | process-wide watcher  |
-|  [09]   | `DevicesWatcher.DeviceAdded` / `.DeviceRemoved`                    | event    | hot-plug signals      |
-|  [10]   | `DeviceAddedRemovedEventArgs.Device` (`MidiDevice`)                | property | hot-plug device read  |
-|  [11]   | `MidiDevice.Name`                                                  | property | device name           |
-|  [12]   | `DevicesConnector.Connect()`                                       | instance | hardware MIDI-thru    |
+|  [05]   | `OutputDevice.SendEvent(MidiEvent)` / `.PrepareForEventsSending()`  | instance | emit/warm send        |
+|  [06]   | `OutputDevice.TurnAllNotesOff()`                                    | instance | panic note release    |
+|  [07]   | `OutputDevice.EventSent` (`MidiEventSentEventArgs`)                 | event    | sent event signal     |
+|  [08]   | `DevicesWatcher.Instance`                                           | static   | process-wide watcher  |
+|  [09]   | `DevicesWatcher.DeviceAdded` / `.DeviceRemoved`                     | event    | hot-plug signals      |
+|  [10]   | `DeviceAddedRemovedEventArgs.Device` (`MidiDevice`)                 | property | hot-plug device read  |
+|  [11]   | `MidiDevice.Name`                                                   | property | device name           |
+|  [12]   | `DevicesConnector.Connect()`                                        | instance | hardware MIDI-thru    |
 
 - `DevicesWatcher` is a lazy process-wide SINGLETON reached only through `Instance`; its constructor is private and touching `Instance` creates the devices session, so a per-capsule watcher is unspellable and the first read is what arms the native hooks.
 - One `DeviceAdded`/`DeviceRemoved` pair covers BOTH directions — the args carry a `MidiDevice` that is an `InputDevice` or an `OutputDevice` — so a listener narrows by type rather than by subscribing to a direction-specific event that does not exist.

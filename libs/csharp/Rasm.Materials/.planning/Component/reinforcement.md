@@ -1,6 +1,10 @@
 # [MATERIALS_REINFORCEMENT]
 
-THE REINFORCING-BAR SEED FAMILY and THE HOST-NEUTRAL REINFORCED-CONCRETE-SECTION ASSEMBLER. A #5 rebar is one `ComponentRow` minted by the ONE generator `ReinforcementSeed.Rows -> Component.Of` over the `ComponentFamily.Reinforcement` policy row (`ComponentClass.Minor`, `DetailLane.Realization`, admits `SectionProfile.Circle`, cross-nominal the circle diameter, `Sectioned: false` — a bar contributes no `ComputedSection`, its RC participation riding `[03]-[RC_SECTION]`), never a `Rebar` type and never a bespoke `RebarSection` payload: the geometry is `SectionProfile.Circle(DiameterMm)`, the IFC stamp is `IfcBinding.Of("IfcReinforcingBar", usage.IfcPredefinedType)` computed at seed time from the eleven-token `RebarUsage` vocabulary, and the realization detail is the seed-built `RebarDetail.Of` bag whose rows are byte-identical to the retired projector switch. Under `SEED_ROW_LAW` the pure standards-data vocabularies convert 1:1 to frozen row tables with per-column provenance — `Bars` (31 `BarRow`: imperial #3..#18 and CSA 10M..55M PUBLISHED verbatim with `CatalogueKey: None`, EN H6..H50 VENDOR-keyed to the `VividOrange.ISections` `BarDiameter` D6..D50 catalogue, the EN 10080 `πd²/4` area and `A·ρ` weight DEFINED fallbacks guarding any unprinted column), `Grades` (11 `RebarGradeRow`: ASTM A615 Gr40..Gr80, A706 Gr60W/Gr80W, CSA G30.18 400W/500W, EN 10080 B500A/B/C bound to their `EnRebarGrade`), `ShapeCodes` (the 37-code BS 8666:2020 schedule set), and `Strands` (the ACTIVE modality — ASTM A416 / EN 10138-3 seven-wire prestressing rows with their `RelaxationClass` certification data, the `TendonBasis` ultimate/yield/jacking policy rows, and the `TendonForce` relaxation projection, seeded as `IfcTendon` `STRAND` component rows through the same generator) — while the policy vocabularies with delegate or IFC-token behavior STAY `[SmartEnum<string>]`: `RebarStandard` (spec body carrying weldability, the size system it rolls, and the `ComponentStandard` projection), `RebarUsage` (`IfcReinforcingBarTypeEnum`), `RebarSurface` (`IfcReinforcingBarSurfaceEnum`), `RibPattern` (ISO 6935-2 §4.15 β), `HookKind` (the ACI 318-19 §25.3 bend-table delegate), and `RebarHook` (the standard-hook angle rows anchored to their `ShapeCodeRow`). `RebarSchedule` keeps the deleted payload's algebra as operations over the row currencies — the ISO 6935-2 `RebarRibGeometry` projection and the ACI/EN/BS `StandardHook` bend receipt — while the `ForceBasis` policy rows own the ONE bar×grade schedule-force projection (spec-nominal, `EnRebarFactory` registered characteristic yield, ductility-class ultimate — a new basis is one row) and the `TendonBasis` rows the ONE strand projection (ultimate, proof-ratio yield, and the authority-keyed jacking ceiling). `[03]-[RC_SECTION]` is the family-agnostic assembler: `RcSectionBuilder.Of` lowers EN grades through the `EnGrade` boundary, builds the `VividOrange.Sections` `ConcreteSection` over the PROFILE-FAITHFUL `SectionSolver.ProfileOf(concrete.Profile, key)` `IProfile` of ANY `Component` (an RC beam its true outline — a circular column its `ICircle` — a grouted `cmu` unit its gross rectangle), folds the `RebarLayout` `[Union]` through the four collapsed placement engines, and mints the `RcSection` receipt whose transformed-section columns read the `ConcreteSectionProperties` carrier — `TotalReinforcementArea`, `GeometricReinforcementRatio`, `EffectiveDepth(SectionFace)`, `CrossSectionalShearReinforcementArea`, `ReinforcementSecondMomentOfAreaYy/Zz` — never a hand-summed bar loop; the `IConcreteSection` egress feeds the `capacity#SECTION_CAPACITY` `ConcreteSectionProperties` elastic and `InteractionDiagram` N-M-M solvers. Growth is one row: a new bar one `BarRow`, a new grade one `RebarGradeRow`, a new role one `RebarUsage` row, a new schedule shape one `ShapeCodeRow`, a new placed bar one `Placements` row through the same generator — zero type edits, zero central edits.
+THE REINFORCING-BAR SEED FAMILY and THE HOST-NEUTRAL REINFORCED-CONCRETE-SECTION ASSEMBLER. A rebar is one `ComponentRow` minted by the ONE generator `ReinforcementSeed.Rows -> Component.Of` over the `ComponentFamily.Reinforcement` policy row (`ComponentClass.Minor`, `DetailLane.Realization`, admits `SectionProfile.Circle`, cross-nominal the circle diameter — the bar's own disc solves like any other section while its RC participation rides `[03]-[RC_SECTION]`, which reads the assembled layer geometry rather than a single bar's receipt), never a `Rebar` type and never a bespoke `RebarSection` payload: the geometry is `SectionProfile.Circle(DiameterMm)`, the IFC stamp is `IfcBinding.Of("IfcReinforcingBar", usage.IfcPredefinedType)` computed at seed time from the `RebarUsage` vocabulary, and the realization detail is the seed-built `RebarDetail.Of` bag.
+
+Under `SEED_ROW_LAW` the pure standards-data vocabularies are frozen row tables with per-column provenance — `Bars` (imperial, CSA, and EN nominal sizes, the EN H-series VENDOR-keyed to the `VividOrange.ISections` `BarDiameter` catalogue), `Grades` (ASTM A615 and A706, CSA G30.18, and the EN 10080 ductility classes bound to their `EnRebarGrade`), `ShapeCodes` (the BS 8666:2020 schedule set), and `Strands` (the ACTIVE modality — ASTM A416 and EN 10138-3 seven-wire prestressing rows with their `RelaxationClass` certification data, seeded as `IfcTendon` `STRAND` component rows through the same generator) — while the policy vocabularies carrying delegate or IFC-token behavior stay `[SmartEnum<string>]`. `RebarSchedule` owns the bend algebra over those currencies, and its receipt is what a BAR-BENDING SCHEDULE is made of: every placed bar publishes its BS 8666 shape code and, where it is bent, its ACI inside-bend diameter, hook extension, and EN mandrel diameter into the realization bag under the names the shop deliverable reads, so a detailed bar reaches a fabricator's cut-and-bend sheet instead of resolving to typed geometry no document consumes. The `ForceBasis` and `TendonBasis` policy rows own the passive and active force projections over one shape, and every fault across both modalities accumulates in one applicative pass rather than one modality masking the other's.
+
+`[03]-[RC_SECTION]` is the family-agnostic assembler: `RcSectionBuilder.Of` lowers EN grades through the `EnGrade` boundary, builds the `VividOrange.Sections` `ConcreteSection` over the PROFILE-FAITHFUL `SectionSolver.ProfileOf(concrete.Profile, key)` `IProfile` of ANY `Component`, folds the `RebarLayout` `[Union]` through the collapsed placement engines, and mints the `RcSection` receipt whose transformed-section columns read the `ConcreteSectionProperties` carrier — never a hand-summed bar loop. `RcSectionBuilder.Capacity` is the reinforcement-side ENTRY into the capacity rail: the built section reaches `SectionCapacity.Resolve` from here, so the RC hull and the elastic transformed-section surfaces `capacity#SECTION_CAPACITY` declares have the producer this family owes them. Growth is one row: a new bar one `BarRow`, a new grade one `RebarGradeRow`, a new role one `RebarUsage` row, a new schedule shape one `ShapeCodeRow`, a new placed bar one `Placements` row through the same generator.
 
 ## [01]-[INDEX]
 
@@ -36,23 +40,24 @@ using static LanguageExt.Prelude;                  // guard, Seq, Some/None
 namespace Rasm.Materials.Component;
 
 // --- [TYPES] -------------------------------------------------------------------------------
-// The spec body — the FORM-law survivor carrying behavior columns: weldability, the ComponentStandard projection (the
-// retired StandardOf 3-arm switch, now a row read), and Rolls the SIZE SYSTEM the body's mills roll (A706 bars roll at the
-// A615 imperial sizes — the RebarGradeRow.Admits standard-consistency predicate reads it, evaluated at call time so no static
-// self-reference exists).
+// The spec body — the FORM-law survivor carrying behavior columns: weldability, the ComponentStandard projection, the
+// RIB RULE its mills roll deformations to, and Rolls the SIZE SYSTEM whose BarRow rows this body rolls. Rolls is a
+// DELEGATE COLUMN rather than an equality branch: A706 bars roll at the A615 imperial sizes, and stating that as a
+// row value keeps the size correspondence with the vocabulary that owns it while the deferred evaluation dissolves
+// the static self-reference an eagerly-read column would have needed.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class RebarStandard {
-    public static readonly RebarStandard A615    = new("astm-a615",  weldable: false, authority: "ASTM A615/A615M",              body: ComponentAuthority.Astm, region: "us");
-    public static readonly RebarStandard A706    = new("astm-a706",  weldable: true,  authority: "ASTM A706/A706M",              body: ComponentAuthority.Astm, region: "us");
-    public static readonly RebarStandard G30     = new("csa-g30.18", weldable: true,  authority: "CSA G30.18",                   body: ComponentAuthority.Csa,  region: "ca");
-    public static readonly RebarStandard En10080 = new("en-10080",   weldable: true,  authority: "EN 1992-1-1 / EN 10080 / ISO 6935-2", body: ComponentAuthority.En, region: "eu");
+    public static readonly RebarStandard A615    = new("astm-a615",  weldable: false, authority: "ASTM A615/A615M", body: ComponentAuthority.Astm, region: "us", rolls: static () => A615);
+    public static readonly RebarStandard A706    = new("astm-a706",  weldable: true,  authority: "ASTM A706/A706M", body: ComponentAuthority.Astm, region: "us", rolls: static () => A615);
+    public static readonly RebarStandard G30     = new("csa-g30.18", weldable: true,  authority: "CSA G30.18",      body: ComponentAuthority.Csa,  region: "ca", rolls: static () => G30);
+    public static readonly RebarStandard En10080 = new("en-10080",   weldable: true,  authority: "EN 1992-1-1 / EN 10080 / ISO 6935-2", body: ComponentAuthority.En, region: "eu", rolls: static () => En10080);
     public bool Weldable { get; }
     public string Authority { get; }
     public ComponentAuthority Body { get; }
     public string Region { get; }
-    public RebarStandard Rolls => this == A706 ? A615 : this;                                       // the size-defining spec whose BarRow rows this body rolls
+    [UseDelegateFromConstructor] public partial RebarStandard Rolls();
     public ComponentStandard Component => new(Region, StandardJointThicknessMm: 0.0, Authority: Body);   // a bar has no mortar joint — the coursing column is 0
 }
 
@@ -118,37 +123,46 @@ public sealed partial class HookKind {
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class RelaxationClass {
     public static readonly RelaxationClass LowRelaxation = new("low-relaxation", rho1000Percent: 2.5);   // A416 low-relaxation / EN 10138 Class 2
-    public static readonly RelaxationClass Normal        = new("normal",         rho1000Percent: 8.0);   // EN 10138 Class 1 — the stress-relieved legacy class
+    public static readonly RelaxationClass Normal        = new("normal",         rho1000Percent: 8.0);   // EN 10138 Class 1 — the stress-relieved wire class
     public double Rho1000Percent { get; }
 }
 
 // --- [MODELS] ------------------------------------------------------------------------------
-// SEED_ROW_LAW tier-3 currencies: pure standards data as frozen readonly-record-struct rows with per-column provenance.
-// BarRow — CatalogueKey VENDOR (Some only for the EN H-series, the BarDiameter the Rebar(IMaterial, BarDiameter) ctor
-// consumes; imperial/CSA None so the exact non-EN nominal feeds a raw Length); the printed diameter/area/weight PUBLISHED
-// and never re-derived; NominalAreaMm2/NominalWeightKgM the DEFINED EN 10080 πd²/4 and A·ρ fallbacks guarding only an
-// unprinted column. Standard is the size-defining spec body (imperial -> A615, CSA -> G30, EN -> En10080).
-public readonly record struct BarRow(string Key, RebarStandard Standard, Option<BarDiameter> CatalogueKey,
-    double NominalDiameterMm, double PublishedAreaMm2, double PublishedWeightKgM) {
-    const double SteelDensityKgM3 = 7850.0;                        // DEFINED: EN 10080 nominal mass density
-    public double NominalAreaMm2 => PublishedAreaMm2 > 0.0 ? PublishedAreaMm2
-        : Math.PI * NominalDiameterMm * NominalDiameterMm / 4.0;   // DEFINED: EN 10080 πd²/4
-    public double NominalWeightKgM => PublishedWeightKgM > 0.0 ? PublishedWeightKgM
-        : NominalAreaMm2 * 1e-6 * SteelDensityKgM3;                // DEFINED fallback: A·ρ — the safety net, never the primary for printed values
+// The ONE nominal mass density every reinforcement weight derivation reads — declared once at page grain because it
+// is one published material fact, not a per-row column two carriers would each get to spell differently.
+public static class ReinforcementSteel {
+    public const double DensityKgM3 = 7850.0;   // PUBLISHED: EN 10080 nominal mass density
 }
 
-// The grade row: spec-nominal yield (PUBLISHED), the spec body, the two INDEPENDENT MaterialId slots (SubstanceId the
-// per-grade steel.<designation> Mechanical row carrying f_yk + the ACI 318 §20.2.2.2 E_s 200 GPa — NEVER the generic
-// metal.steel 235 MPa / 210 GPa section baseline; AppearanceId the render finish), and the Option<EnRebarGrade> binding
-// (Some only for the EN-bodied B500A/B/C the RC σ(ε) law and the ForceBasis EN rows read). Admits is the
-// standard-consistency law: a grade admits only the bar rows its body rolls — the explicit exclusion predicate the seed
-// guards BEFORE construction.
-public readonly record struct RebarGradeRow(string Key, double MinimumYieldMpa, RebarStandard Standard,
+// SEED_ROW_LAW tier-3 currencies: pure standards data as frozen readonly-record-struct rows with per-column provenance.
+// BarRow — CatalogueKey VENDOR (Some only for the EN H-series, the BarDiameter the Rebar(IMaterial, BarDiameter) ctor
+// consumes; imperial/CSA None so the exact non-EN nominal feeds a raw Length); diameter, area, and weight all PUBLISHED,
+// because every size in every rostered body PRINTS all three. The area and weight columns were previously guarded by a
+// positivity test selecting a πd²/4 or A·ρ derivation no row could reach — a fallback with no reachable input is a
+// second definition of a printed value, and the printed value is the one the standard means. Standard is the
+// size-defining spec body (imperial -> A615, CSA -> G30, EN -> En10080).
+public readonly record struct BarRow(string Key, RebarStandard Standard, Option<BarDiameter> CatalogueKey,
+    double NominalDiameterMm, double NominalAreaMm2, double NominalWeightKgM);
+
+// The grade row: the spec body, the two INDEPENDENT MaterialId slots (SubstanceId the per-grade steel.<designation>
+// Mechanical row carrying f_yk + the ACI 318 §20.2.2.2 E_s 200 GPa — NEVER the generic metal.steel 235 MPa / 210 GPa
+// section baseline; AppearanceId the render finish), and the Option<EnRebarGrade> binding. The CHARACTERISTIC YIELD
+// has exactly ONE owner per row: an EN-bodied grade reads the registered f_yk off EnRebarFactory, and the others read
+// the column their own spec prints — the previous shape carried a hand-asserted 500 MPa literal beside the registered
+// grade that owns that number, so two sources answered one question and only one of them could be corrected. Admits
+// is the standard-consistency law: a grade admits only the bar rows its body rolls.
+public readonly record struct RebarGradeRow(string Key, Option<double> PublishedYieldMpa, RebarStandard Standard,
     string SubstanceId, string AppearanceId, Option<EnRebarGrade> EnGrade) {
     public MaterialId Substance => MaterialId.Of(SubstanceId);
     public MaterialId Appearance => MaterialId.Of(AppearanceId);
     public bool Weldable => Standard.Weldable;
-    public bool Admits(BarRow bar) => Standard.Rolls == bar.Standard;
+    public bool Admits(BarRow bar) => Standard.Rolls() == bar.Standard;
+
+    // The one yield read: registered where a registered grade exists, printed where the spec prints it. Exactly one
+    // arm answers on every rostered row, so the projection is total without either source shadowing the other.
+    public Option<double> CharacteristicYieldMpa =>
+        EnGrade.Map(static grade => EnRebarFactory.CreateLinearElastic(grade).Strength.Megapascals)
+            .IfNone(() => PublishedYieldMpa);
 }
 
 // The seven-wire prestressing strand row — the ACTIVE reinforcement modality beside the passive bars: the printed
@@ -158,9 +172,8 @@ public readonly record struct RebarGradeRow(string Key, double MinimumYieldMpa, 
 // per-strand Mechanical substance slot. Weight is the DEFINED A·ρ derivation (no printed twin kept).
 public readonly record struct StrandRow(string Key, ComponentAuthority Authority, string Region,
     double NominalDiameterMm, double AreaMm2, double UltimateMpa, double ProofRatio, RelaxationClass Relaxation, string SubstanceId) {
-    const double SteelDensityKgM3 = 7850.0;
     public MaterialId Substance => MaterialId.Of(SubstanceId);
-    public double NominalWeightKgM => AreaMm2 * 1e-6 * SteelDensityKgM3;
+    public double NominalWeightKgM => AreaMm2 * 1e-6 * ReinforcementSteel.DensityKgM3;   // DEFINED: A·ρ, no printed twin kept
 }
 
 // The BS 8666:2020 schedule shape row: Legs the straight-leg count (the A..F dimension letters the host shape-table lofts
@@ -229,20 +242,21 @@ public static class Bars {
         H6, H8, H10, H12, H14, H16, H20, H25, H28, H32, H40, H50];
 }
 
-// The 11-row grade table. Yields are the spec-nominal PUBLISHED bands; the EN B500 bands bind their EnRebarGrade so the
-// RC path reads the registered f_yk/k rather than a hand key. Named statics for the same symbolic-selection law.
+// The 11-row grade table. The ASTM and CSA yields are the spec-nominal PUBLISHED bands their own standards print; the
+// EN B500 rows print NONE and bind their EnRebarGrade instead, because EnRebarFactory owns the registered f_yk and k
+// for exactly those grades and a column beside it would be a second answer to a question already owned.
 public static class Grades {
-    public static readonly RebarGradeRow Gr40   = new("gr40",  280.0, RebarStandard.A615,    "steel.gr40",  "metal.iron",  None);
-    public static readonly RebarGradeRow Gr60   = new("gr60",  420.0, RebarStandard.A615,    "steel.gr60",  "metal.iron",  None);
-    public static readonly RebarGradeRow Gr75   = new("gr75",  520.0, RebarStandard.A615,    "steel.gr75",  "metal.iron",  None);
-    public static readonly RebarGradeRow Gr80   = new("gr80",  550.0, RebarStandard.A615,    "steel.gr80",  "metal.iron",  None);
-    public static readonly RebarGradeRow Gr60W  = new("gr60w", 420.0, RebarStandard.A706,    "steel.gr60w", "metal.steel", None);
-    public static readonly RebarGradeRow Gr80W  = new("gr80w", 550.0, RebarStandard.A706,    "steel.gr80w", "metal.steel", None);
-    public static readonly RebarGradeRow Gr400W = new("400w",  400.0, RebarStandard.G30,     "steel.400w",  "metal.steel", None);
-    public static readonly RebarGradeRow Gr500W = new("500w",  500.0, RebarStandard.G30,     "steel.500w",  "metal.steel", None);
-    public static readonly RebarGradeRow B500A  = new("b500a", 500.0, RebarStandard.En10080, "steel.b500a", "metal.steel", Some(EnRebarGrade.B500A));
-    public static readonly RebarGradeRow B500B  = new("b500b", 500.0, RebarStandard.En10080, "steel.b500b", "metal.steel", Some(EnRebarGrade.B500B));
-    public static readonly RebarGradeRow B500C  = new("b500c", 500.0, RebarStandard.En10080, "steel.b500c", "metal.steel", Some(EnRebarGrade.B500C));
+    public static readonly RebarGradeRow Gr40   = new("gr40",  Some(280.0), RebarStandard.A615,    "steel.gr40",  "metal.iron",  None);
+    public static readonly RebarGradeRow Gr60   = new("gr60",  Some(420.0), RebarStandard.A615,    "steel.gr60",  "metal.iron",  None);
+    public static readonly RebarGradeRow Gr75   = new("gr75",  Some(520.0), RebarStandard.A615,    "steel.gr75",  "metal.iron",  None);
+    public static readonly RebarGradeRow Gr80   = new("gr80",  Some(550.0), RebarStandard.A615,    "steel.gr80",  "metal.iron",  None);
+    public static readonly RebarGradeRow Gr60W  = new("gr60w", Some(420.0), RebarStandard.A706,    "steel.gr60w", "metal.steel", None);
+    public static readonly RebarGradeRow Gr80W  = new("gr80w", Some(550.0), RebarStandard.A706,    "steel.gr80w", "metal.steel", None);
+    public static readonly RebarGradeRow Gr400W = new("400w",  Some(400.0), RebarStandard.G30,     "steel.400w",  "metal.steel", None);
+    public static readonly RebarGradeRow Gr500W = new("500w",  Some(500.0), RebarStandard.G30,     "steel.500w",  "metal.steel", None);
+    public static readonly RebarGradeRow B500A  = new("b500a", None,        RebarStandard.En10080, "steel.b500a", "metal.steel", Some(EnRebarGrade.B500A));
+    public static readonly RebarGradeRow B500B  = new("b500b", None,        RebarStandard.En10080, "steel.b500b", "metal.steel", Some(EnRebarGrade.B500B));
+    public static readonly RebarGradeRow B500C  = new("b500c", None,        RebarStandard.En10080, "steel.b500c", "metal.steel", Some(EnRebarGrade.B500C));
     public static readonly ImmutableArray<RebarGradeRow> Rows = [Gr40, Gr60, Gr75, Gr80, Gr60W, Gr80W, Gr400W, Gr500W, B500A, B500B, B500C];
 }
 
@@ -250,11 +264,11 @@ public static class Grades {
 // diameter/area rows) — named statics so a tendon placement references its row symbolically. The realized selection;
 // a new diameter or grade is one row.
 public static class Strands {
-    public static readonly StrandRow S13Gr1725   = new("strand-1/2-gr250",  ComponentAuthority.Astm, "us", 12.70, 92.9,  1725.0, 0.90, RelaxationClass.LowRelaxation, "steel.strand-1725");
-    public static readonly StrandRow S13Gr1860   = new("strand-1/2-gr270",  ComponentAuthority.Astm, "us", 12.70, 98.7,  1860.0, 0.90, RelaxationClass.LowRelaxation, "steel.strand-1860");
-    public static readonly StrandRow S15Gr1860   = new("strand-0.6-gr270",  ComponentAuthority.Astm, "us", 15.24, 140.0, 1860.0, 0.90, RelaxationClass.LowRelaxation, "steel.strand-1860");
-    public static readonly StrandRow Y1860S7D125 = new("y1860s7-12.5",      ComponentAuthority.En,   "eu", 12.50, 93.0,  1860.0, 0.88, RelaxationClass.LowRelaxation, "steel.y1860s7");
-    public static readonly StrandRow Y1860S7D157 = new("y1860s7-15.7",      ComponentAuthority.En,   "eu", 15.70, 150.0, 1860.0, 0.88, RelaxationClass.LowRelaxation, "steel.y1860s7");
+    public static readonly StrandRow S13Gr1725   = new("strand-13-gr250",  ComponentAuthority.Astm, "us", 12.70, 92.9,  1725.0, 0.90, RelaxationClass.LowRelaxation, "steel.strand-1725");
+    public static readonly StrandRow S13Gr1860   = new("strand-13-gr270",  ComponentAuthority.Astm, "us", 12.70, 98.7,  1860.0, 0.90, RelaxationClass.LowRelaxation, "steel.strand-1860");
+    public static readonly StrandRow S15Gr1860   = new("strand-15-gr270",  ComponentAuthority.Astm, "us", 15.24, 140.0, 1860.0, 0.90, RelaxationClass.LowRelaxation, "steel.strand-1860");
+    public static readonly StrandRow Y1860S7D125 = new("strand-y1860s7-125", ComponentAuthority.En, "eu", 12.50, 93.0,  1860.0, 0.88, RelaxationClass.LowRelaxation, "steel.y1860s7");
+    public static readonly StrandRow Y1860S7D157 = new("strand-y1860s7-157", ComponentAuthority.En, "eu", 15.70, 150.0, 1860.0, 0.88, RelaxationClass.LowRelaxation, "steel.y1860s7");
     public static readonly ImmutableArray<StrandRow> Rows = [S13Gr1725, S13Gr1860, S15Gr1860, Y1860S7D125, Y1860S7D157];
 }
 
@@ -272,7 +286,10 @@ public static class ShapeCodes {
         new("63", 5, true),  new("64", 6, false), new("67", 1, false), new("75", 2, true),  new("77", 1, true),
         new("98", 5, false), new("99", 0, false)];
     public static readonly FrozenDictionary<string, ShapeCodeRow> ByKey = Rows.ToFrozenDictionary(static r => r.Key, StringComparer.Ordinal);
-    // The load-bearing anchors the hook rows and the stirrup override read (declared after ByKey — textual init order).
+    // The load-bearing anchors the hook rows, the stirrup override, and the bend-schedule publication read (declared
+    // after ByKey — textual init order). Straight is the code an unbent bar schedules under, so a bar-bending sheet
+    // lists it rather than dropping it.
+    public static readonly ShapeCodeRow Straight         = ByKey["00"];
     public static readonly ShapeCodeRow LBar             = ByKey["11"];
     public static readonly ShapeCodeRow SemicircularHook = ByKey["12"];
     public static readonly ShapeCodeRow AngledHook       = ByKey["13"];
@@ -298,21 +315,30 @@ public sealed partial class RebarHook {
 // The reinforcement algebra over the row currencies — the deleted RebarSection's projections re-homed as ONE operation
 // owner so no bespoke payload record survives.
 public static class RebarSchedule {
-    // ISO 6935-2 rib geometry — Some for a Textured bar, None for a plain round. fR by diameter band (the bond invariant
-    // the development-length / fib Model Code bond law reads); spacing 0.7·d and gap 0.125 the ASTM A615 §7.4 maxima;
-    // rib height 0.05·d the A615 Table 1 minimum-average ratio; flank 45° the ISO §4.14 minimum; β the RibPattern's §4.15 angle.
+    // The rib-deformation receipt — Some for a Textured bar, None for a plain round. Each coefficient names the clause
+    // it comes from, because they come from DIFFERENT clauses in DIFFERENT bodies and a table-wide banner claiming one
+    // standard for all of them would describe a deformation no single specification defines: the height, spacing, and
+    // ribless-gap ratios are the ASTM A615 §7.4 and Table 1 bounds, the flank inclination the ISO 6935-2 §4.14
+    // minimum, the relative rib area the ISO/fib bond invariant a development-length law reads, and the rib-to-axis
+    // inclination the RibPattern row's own §4.15 angle. The bounds each body sets on the OTHER body's bars are not
+    // transcribed, so this receipt states the geometry a bar is rolled TO rather than a per-body limit set.
+    const double RibHeightRatio = 0.05;          // ASTM A615 Table 1 minimum average rib height / d
+    const double RibSpacingRatio = 0.7;          // ASTM A615 §7.4 maximum average rib spacing / d
+    const double RiblessGapFraction = 0.125;     // ASTM A615 §7.4 maximum ribless perimeter fraction
+    const double FlankInclinationDeg = 45.0;     // ISO 6935-2 §4.14 minimum flank inclination
+
     public static Option<RebarRibGeometry> Ribs(BarRow bar, RebarSurface surface, RibPattern pattern) =>
-        !surface.Ribbed ? None : bar.NominalDiameterMm switch {
-            double d => Some(new RebarRibGeometry(
-                TransverseRibHeightMm:    0.05 * d,
-                TransverseRibSpacingMm:   0.7 * d,
-                LongitudinalRibHeightMm:  0.05 * d,
-                FlankInclinationDeg:      45.0,
+        surface.Ribbed
+            ? Some(new RebarRibGeometry(
+                TransverseRibHeightMm:    RibHeightRatio * bar.NominalDiameterMm,
+                TransverseRibSpacingMm:   RibSpacingRatio * bar.NominalDiameterMm,
+                LongitudinalRibHeightMm:  RibHeightRatio * bar.NominalDiameterMm,
+                FlankInclinationDeg:      FlankInclinationDeg,
                 RibInclinationDeg:        pattern.InclinationDeg,
-                RelativeRibArea:          d <= 6.0 ? 0.035 : d <= 12.0 ? 0.040 : 0.056,
-                RiblessPerimeterFraction: 0.125,
-                Pattern:                  pattern)),
-        };
+                RelativeRibArea:          bar.NominalDiameterMm <= 6.0 ? 0.035 : bar.NominalDiameterMm <= 12.0 ? 0.040 : 0.056,
+                RiblessPerimeterFraction: RiblessGapFraction,
+                Pattern:                  pattern))
+            : None;
 
     public static Fin<RebarBend> StandardHook(BarRow bar, RebarUsage usage, HookKind kind, RebarHook hook, Op key) =>
         guard(usage.Stirrup == (kind != HookKind.Development),
@@ -335,15 +361,18 @@ public static class RebarSchedule {
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ForceBasis {
-    public static readonly ForceBasis Nominal    = new("nominal",     projectKn: static (bar, grade) => Some(grade.MinimumYieldMpa * bar.NominalAreaMm2 * 1e-3));
-    public static readonly ForceBasis EnYield    = new("en-yield",    projectKn: static (bar, grade) => grade.EnGrade.Map(g => EnRebarFactory.CreateLinearElastic(g).Strength.Megapascals * bar.NominalAreaMm2 * 1e-3));
-    public static readonly ForceBasis EnUltimate = new("en-ultimate", projectKn: static (bar, grade) => grade.EnGrade.Map(g => EnRebarFactory.CreateBiLinear(g).UltimateStrength.Megapascals * bar.NominalAreaMm2 * 1e-3));
+    public static readonly ForceBasis Characteristic = new("characteristic", projectKn: static (bar, grade) => grade.CharacteristicYieldMpa.Map(yield => yield * bar.NominalAreaMm2 * 1e-3));
+    public static readonly ForceBasis EnUltimate     = new("en-ultimate",    projectKn: static (bar, grade) => grade.EnGrade.Map(g => EnRebarFactory.CreateBiLinear(g).UltimateStrength.Megapascals * bar.NominalAreaMm2 * 1e-3));
     [UseDelegateFromConstructor] private partial Option<double> ProjectKn(BarRow bar, RebarGradeRow grade);
 
-    public Fin<Option<double>> ForceKn(BarRow bar, RebarGradeRow grade, Op key) =>
-        guard(grade.Admits(bar), ComponentFault.Grade(key, $"<rebar-force-system-mismatch:{bar.Key}:{grade.Key}>"))
-            .ToFin()
-            .Map(_ => ProjectKn(bar, grade));
+    // TWO states, not four: either the pairing is admissible and the basis projects, or the caller learns which of
+    // the two it got wrong. The previous Fin<Option<double>> made "system mismatch", "basis unavailable for this
+    // grade", and "here is your force" three outcomes a consumer had to unwrap in two steps, and the middle one read
+    // as an absent quantity rather than the unanswerable request it is.
+    public Fin<double> ForceKn(BarRow bar, RebarGradeRow grade, Op key) =>
+        from admitted in guard(grade.Admits(bar), ComponentFault.Grade(key, $"<rebar-force-system-mismatch:{bar.Key}:{grade.Key}>"))
+        from force in ProjectKn(bar, grade).ToFin(ComponentFault.Grade(key, $"<basis-unpublished-for-grade:{Key}:{grade.Key}>"))
+        select force;
 }
 
 // The ACTIVE force basis as POLICY ROWS over ONE strand projection (kN) — the exact ForceBasis shape the passive bars
@@ -365,9 +394,7 @@ public sealed partial class TendonBasis {
     // owner's const; only the proof-stress coefficient differs by body.
     const double JackingStressCeiling = 0.80;
 
-    [UseDelegateFromConstructor] private partial Option<double> ProjectKn(StrandRow strand);
-
-    public Option<double> ForceKn(StrandRow strand) => ProjectKn(strand);
+    [UseDelegateFromConstructor] public partial Option<double> ForceKn(StrandRow strand);
 }
 
 // The certification-read relaxation loss stays a two-argument projection on the RelaxationClass row: it reads the
@@ -378,111 +405,177 @@ public static class TendonForce {
         strand.Relaxation.Rho1000Percent / 100.0 * initialForceKn;
 }
 
-// The seed-time realization bag (DetailLane.Realization) composing the component#COMPONENT_DETAIL ComponentDetail
-// constructors — the SAME four rows the retired projector switch built (Joint("Cast") + the BarType usage token + the
-// dimension-only mm->SI NominalDiameter/CrossSectionArea mints), so the PropertyBag content and the projected
-// Node.PropertySet bytes are identical. Weight/rib/bend realization stays typed page algebra (RebarSchedule), never a
-// bag row — a new bag row is a wire-visible content-key change.
+// The seed-time realization bag (DetailLane.Realization). Beyond the bar's own identity it publishes the BEND
+// SCHEDULE: the BS 8666 shape code every placed bar carries, and — where the placement declares a hook — the ACI
+// inside-bend diameter, the floored straight extension, and the EN mandrel diameter, as one complex row. That block
+// is what a bar-bending schedule is bought with, so the RebarSchedule receipt reaches the shop document instead of
+// resolving to typed geometry nothing consumes. A STRAIGHT bar publishes shape code 00 and no bend block at all,
+// which is why the deliverable's bend columns are an optional extension rather than a gate.
 public static class RebarDetail {
-    public static Fin<PropertyBag> Of(BarRow bar, RebarUsage usage) =>
+    public static Fin<PropertyBag> Of(BarRow bar, RebarUsage usage, Option<RebarBend> bend, Provenance source) =>
         from diameter in ComponentDetail.Measured(DetailSchema.NominalDiameter, Dimension.LengthDim, bar.NominalDiameterMm * 1e-3)
         from area in ComponentDetail.Measured(DetailSchema.CrossSectionArea, Dimension.AreaDim, bar.NominalAreaMm2 * 1e-6)
-        select ComponentDetail.RealizationRows(
+        from bendRows in bend.Match(Some: b => BendRow(b).Map(Some), None: static () => Fin.Succ(Option<(PropertyName, PropertyValue)>.None))
+        select ComponentDetail.RealizationRows([
             ComponentDetail.Joint("Cast"),
             ComponentDetail.Token(DetailSchema.BarType, usage.IfcPredefinedType),
+            ComponentDetail.Token(DetailSchema.BendShapeCode, bend.Map(static b => b.Shape.Key).IfNone(ShapeCodes.Straight.Key)),
+            ComponentDetail.Sourced(source),
             diameter,
-            area);
+            area,
+            .. bendRows.ToSeq(),
+        ]);
+
+    static Fin<(PropertyName, PropertyValue)> BendRow(RebarBend bend) =>
+        from inside in Si(bend.InsideBendDiameterMm)
+        from extension in Si(bend.HookExtensionMm)
+        from mandrel in Si(bend.MandrelDiameterMm)
+        select (DetailSchema.BendSchedule, (PropertyValue)new PropertyValue.Complex("bend-schedule", Map(
+            (PropertyName.Create("BendAngle"), (PropertyValue)new PropertyValue.Text($"{bend.BendDegrees:R}")),
+            (PropertyName.Create("InsideBendDiameter"), inside),
+            (PropertyName.Create("HookExtension"), extension),
+            (PropertyName.Create("MandrelDiameter"), mandrel))));
+
+    static Fin<PropertyValue> Si(double mm) =>
+        MeasureValue.OfSi(Dimension.LengthDim, mm * 1e-3).Map(static value => (PropertyValue)new PropertyValue.Measure(value));
 }
 
 // The tendon realization bag: the same dimension-only NominalDiameter/CrossSectionArea mints the bar bag carries plus
 // the Joint("Cast") row — a strand realizes cast-in like a bar; the anchorage/duct hardware is vendor-certified data
 // outside this table's provenance.
 public static class TendonDetail {
-    public static Fin<PropertyBag> Of(StrandRow strand) =>
+    public static Fin<PropertyBag> Of(StrandRow strand, Provenance source) =>
         from diameter in ComponentDetail.Measured(DetailSchema.NominalDiameter, Dimension.LengthDim, strand.NominalDiameterMm * 1e-3)
         from area in ComponentDetail.Measured(DetailSchema.CrossSectionArea, Dimension.AreaDim, strand.AreaMm2 * 1e-6)
-        select ComponentDetail.RealizationRows(ComponentDetail.Joint("Cast"), diameter, area);
+        select ComponentDetail.RealizationRows(ComponentDetail.Joint("Cast"), ComponentDetail.Sourced(source), diameter, area);
 }
 
-// The realized-placement seed: designation verbatim (the wire-stable ComponentId) plus SYMBOLIC BarRow/RebarGradeRow/
-// usage/surface row references — a typo'd bar or grade is a compile miss, never a runtime key fault. The
-// Bars × Grades × RebarUsage space is the generator's domain; this table is the realized SELECTION — a new placed bar
-// is one row, the standard-consistency exclusion the Admits guard, never a swallowed fault.
-public readonly record struct PlacementRow(string Designation, BarRow Bar, RebarGradeRow Grade, RebarUsage Usage, RebarSurface Surface);
+// The realized-placement seed: SYMBOLIC BarRow/RebarGradeRow/usage/surface row references — a typo'd bar or grade is
+// a compile miss, never a runtime key fault — plus the optional hook policy a bent bar declares. The designation is
+// DERIVED from the row's own currencies rather than hand-spelled beside them: twenty-seven authored strings restating
+// the bar, grade, and usage already in the row were twenty-seven chances for a name to disagree with the thing it
+// names, and the derivation makes that disagreement unrepresentable. The Bars × Grades × RebarUsage space is the
+// generator's domain; this table is the realized SELECTION.
+public readonly record struct PlacementRow(BarRow Bar, RebarGradeRow Grade, RebarUsage Usage, RebarSurface Surface, Option<(HookKind Kind, RebarHook Hook)> Bend = default) {
+    public string Designation =>
+        Usage == RebarUsage.Main
+            ? $"reinforcement.rebar-{Bar.Key}-{Grade.Key}"
+            : $"reinforcement.rebar-{Bar.Key}-{Grade.Key}-{Usage.Key}";
+}
 
-public readonly record struct TendonRow(string Designation, StrandRow Strand);
+public readonly record struct TendonRow(StrandRow Strand) {
+    public string Designation => $"reinforcement.{Strand.Key}";
+}
 
 public static class ReinforcementSeed {
+    // Both modalities transcribe a bar/strand table whole — the ASTM A615/A706 and EN 10080 size and area columns, the
+    // ASTM A416 / EN 10138-3 seven-wire line — so one provenance covers the realized selection; the per-COLUMN
+    // vendor/defined splits the Bars and Grades tables carry are facts of those tables, not of the placed row.
+    static readonly Provenance Tabulated = Provenance.Published;
+
+    // The realized selection spans every USAGE the vocabulary declares, so the eleven-token IfcReinforcingBarTypeEnum
+    // roster the page advertises is a roster the catalogue actually reaches rather than nine tokens no row selects.
+    // A longitudinal bar takes the development bend table; a tie, stirrup, or ring takes the stirrup-tie table and
+    // schedules as a closed link — the correspondence StandardHook proves before it emits a receipt.
+    static readonly Option<(HookKind, RebarHook)> DevelopmentHook = Some((HookKind.Development, RebarHook.Ninety));
+    static readonly Option<(HookKind, RebarHook)> SeismicHook = Some((HookKind.Seismic, RebarHook.OneThirtyFive));
+    static readonly Option<(HookKind, RebarHook)> TieHook = Some((HookKind.StirrupTie, RebarHook.OneThirtyFive));
+
     static readonly ImmutableArray<PlacementRow> Placements = [
-        new("reinforcement.rebar-no3-gr60",      Bars.No3,  Grades.Gr60,   RebarUsage.Main,     RebarSurface.Textured),
-        new("reinforcement.rebar-no4-gr60",      Bars.No4,  Grades.Gr60,   RebarUsage.Main,     RebarSurface.Textured),
-        new("reinforcement.rebar-no4-gr60-tie",  Bars.No4,  Grades.Gr60,   RebarUsage.Ligature, RebarSurface.Textured),
-        new("reinforcement.rebar-no5-gr60",      Bars.No5,  Grades.Gr60,   RebarUsage.Main,     RebarSurface.Textured),
-        new("reinforcement.rebar-no6-gr60",      Bars.No6,  Grades.Gr60,   RebarUsage.Main,     RebarSurface.Textured),
-        new("reinforcement.rebar-no7-gr75",      Bars.No7,  Grades.Gr75,   RebarUsage.Main,     RebarSurface.Textured),
-        new("reinforcement.rebar-no8-gr75",      Bars.No8,  Grades.Gr75,   RebarUsage.Main,     RebarSurface.Textured),
-        new("reinforcement.rebar-no9-gr80",      Bars.No9,  Grades.Gr80,   RebarUsage.Main,     RebarSurface.Textured),
-        new("reinforcement.rebar-no11-gr80",     Bars.No11, Grades.Gr80,   RebarUsage.Main,     RebarSurface.Textured),
-        new("reinforcement.rebar-no18-gr80",     Bars.No18, Grades.Gr80,   RebarUsage.Main,     RebarSurface.Textured),
-        new("reinforcement.rebar-no5-gr60w",     Bars.No5,  Grades.Gr60W,  RebarUsage.Main,     RebarSurface.Textured),
-        new("reinforcement.rebar-no8-gr80w",     Bars.No8,  Grades.Gr80W,  RebarUsage.Main,     RebarSurface.Textured),
-        new("reinforcement.rebar-10m-400w",      Bars.M10,  Grades.Gr400W, RebarUsage.Main,     RebarSurface.Textured),
-        new("reinforcement.rebar-10m-400w-tie",  Bars.M10,  Grades.Gr400W, RebarUsage.Ligature, RebarSurface.Textured),
-        new("reinforcement.rebar-15m-400w",      Bars.M15,  Grades.Gr400W, RebarUsage.Main,     RebarSurface.Textured),
-        new("reinforcement.rebar-25m-500w",      Bars.M25,  Grades.Gr500W, RebarUsage.Main,     RebarSurface.Textured),
-        new("reinforcement.rebar-35m-500w",      Bars.M35,  Grades.Gr500W, RebarUsage.Main,     RebarSurface.Textured),
-        new("reinforcement.rebar-h8-b500a-link", Bars.H8,   Grades.B500A,  RebarUsage.Ligature, RebarSurface.Plain),
-        new("reinforcement.rebar-h12-b500b",     Bars.H12,  Grades.B500B,  RebarUsage.Main,     RebarSurface.Textured),
-        new("reinforcement.rebar-h14-b500b",     Bars.H14,  Grades.B500B,  RebarUsage.Main,     RebarSurface.Textured),
-        new("reinforcement.rebar-h16-b500c",     Bars.H16,  Grades.B500C,  RebarUsage.Main,     RebarSurface.Textured),
-        new("reinforcement.rebar-h25-b500c",     Bars.H25,  Grades.B500C,  RebarUsage.Main,     RebarSurface.Textured),
-        new("reinforcement.rebar-h32-b500c",     Bars.H32,  Grades.B500C,  RebarUsage.Main,     RebarSurface.Textured),
-        new("reinforcement.rebar-h40-b500c",     Bars.H40,  Grades.B500C,  RebarUsage.Main,     RebarSurface.Textured)];
+        new(Bars.No3,  Grades.Gr40,   RebarUsage.Main,        RebarSurface.Textured),
+        new(Bars.No3,  Grades.Gr60,   RebarUsage.Main,        RebarSurface.Textured),
+        new(Bars.No4,  Grades.Gr60,   RebarUsage.Main,        RebarSurface.Textured, DevelopmentHook),
+        new(Bars.No4,  Grades.Gr60,   RebarUsage.Ligature,    RebarSurface.Textured, TieHook),
+        new(Bars.No4,  Grades.Gr60,   RebarUsage.Shear,       RebarSurface.Textured, TieHook),
+        new(Bars.No5,  Grades.Gr60,   RebarUsage.Main,        RebarSurface.Textured),
+        new(Bars.No5,  Grades.Gr60,   RebarUsage.Edge,        RebarSurface.Textured, DevelopmentHook),
+        new(Bars.No6,  Grades.Gr60,   RebarUsage.Main,        RebarSurface.Textured),
+        new(Bars.No6,  Grades.Gr60,   RebarUsage.Ring,        RebarSurface.Textured, TieHook),
+        new(Bars.No7,  Grades.Gr75,   RebarUsage.Main,        RebarSurface.Textured),
+        new(Bars.No8,  Grades.Gr75,   RebarUsage.Main,        RebarSurface.Textured),
+        new(Bars.No8,  Grades.Gr75,   RebarUsage.Anchoring,   RebarSurface.Textured, DevelopmentHook),
+        new(Bars.No9,  Grades.Gr80,   RebarUsage.Main,        RebarSurface.Textured, SeismicHook),
+        new(Bars.No11, Grades.Gr80,   RebarUsage.Main,        RebarSurface.Textured),
+        new(Bars.No18, Grades.Gr80,   RebarUsage.Main,        RebarSurface.Textured),
+        new(Bars.No5,  Grades.Gr60W,  RebarUsage.Main,        RebarSurface.Textured),
+        new(Bars.No5,  Grades.Gr60W,  RebarUsage.Punching,    RebarSurface.Textured),
+        new(Bars.No8,  Grades.Gr80W,  RebarUsage.Main,        RebarSurface.Textured),
+        new(Bars.No3,  Grades.Gr60,   RebarUsage.Spacer,      RebarSurface.Plain),
+        new(Bars.No4,  Grades.Gr60,   RebarUsage.Stud,        RebarSurface.Textured),
+        new(Bars.No4,  Grades.Gr60,   RebarUsage.UserDefined, RebarSurface.Textured),
+        new(Bars.No4,  Grades.Gr60,   RebarUsage.NotDefined,  RebarSurface.Plain),
+        new(Bars.M10,  Grades.Gr400W, RebarUsage.Main,        RebarSurface.Textured),
+        new(Bars.M10,  Grades.Gr400W, RebarUsage.Ligature,    RebarSurface.Textured, TieHook),
+        new(Bars.M15,  Grades.Gr400W, RebarUsage.Main,        RebarSurface.Textured),
+        new(Bars.M25,  Grades.Gr500W, RebarUsage.Main,        RebarSurface.Textured),
+        new(Bars.M35,  Grades.Gr500W, RebarUsage.Main,        RebarSurface.Textured),
+        new(Bars.H8,   Grades.B500A,  RebarUsage.Ligature,    RebarSurface.Plain,    TieHook),
+        new(Bars.H12,  Grades.B500B,  RebarUsage.Main,        RebarSurface.Textured),
+        new(Bars.H14,  Grades.B500B,  RebarUsage.Main,        RebarSurface.Textured),
+        new(Bars.H16,  Grades.B500C,  RebarUsage.Main,        RebarSurface.Textured, SeismicHook),
+        new(Bars.H25,  Grades.B500C,  RebarUsage.Main,        RebarSurface.Textured),
+        new(Bars.H32,  Grades.B500C,  RebarUsage.Main,        RebarSurface.Textured),
+        new(Bars.H40,  Grades.B500C,  RebarUsage.Main,        RebarSurface.Textured)];
 
     // The ONE generator arm: the Admits size-system guard rails the typed ComponentFault case (row references are
     // symbolic, so no key can miss); the diameter lifts ONCE through the railed SectionProfile.Circle.Of; the
     // IfcBinding and the RebarDetail bag are seed-computed — every reinforcement row flows Component.Of ->
-    // ComponentRow(Sectioned: false), no second construction path.
+    // ComponentRow under the roster's own provenance, no second construction path.
     static Fin<ComponentRow> RebarOf(PlacementRow r) {
         Op key = Op.Of(name: r.Designation);
         return
             from admitted in guard(r.Grade.Admits(r.Bar), ComponentFault.Grade(key, $"<grade-size-system-mismatch:{r.Grade.Key}:{r.Bar.Key}>"))
+            from bend in r.Bend.Match(
+                Some: policy => RebarSchedule.StandardHook(r.Bar, r.Usage, policy.Kind, policy.Hook, key).Map(Some),
+                None: static () => Fin.Succ(Option<RebarBend>.None))
             from profile in SectionProfile.Circle.Of(r.Bar.NominalDiameterMm, key)
-            from detail in RebarDetail.Of(r.Bar, r.Usage)
+            from detail in RebarDetail.Of(r.Bar, r.Usage, bend, Tabulated)
             from item in Component.Of(
                 ComponentFamily.Reinforcement, r.Designation, profile,
                 IfcBinding.Of("IfcReinforcingBar", r.Usage.IfcPredefinedType),
                 Coring.None, r.Grade.Standard.Component, r.Grade.Substance, r.Grade.Appearance,
                 detail: Some(detail), key)
-            select new ComponentRow(item, Sectioned: false);
+            select new ComponentRow(item, Tabulated);
     }
 
     // The realized tendon selection — strand components in the SAME family (a strand is a Circle-profiled reinforcing
     // part; family stays closed at ten), the IfcTendon STRAND wire the row's own binding.
     static readonly ImmutableArray<TendonRow> Tendons = [
-        new("reinforcement.strand-13-gr1860",    Strands.S13Gr1860),
-        new("reinforcement.strand-15-gr1860",    Strands.S15Gr1860),
-        new("reinforcement.strand-y1860s7-15.7", Strands.Y1860S7D157)];
+        new(Strands.S13Gr1725),
+        new(Strands.S13Gr1860),
+        new(Strands.S15Gr1860),
+        new(Strands.Y1860S7D125),
+        new(Strands.Y1860S7D157)];
 
     static Fin<ComponentRow> TendonOf(TendonRow r) {
         Op key = Op.Of(name: r.Designation);
         return
             from profile in SectionProfile.Circle.Of(r.Strand.NominalDiameterMm, key)
-            from detail in TendonDetail.Of(r.Strand)
+            from detail in TendonDetail.Of(r.Strand, Tabulated)
             from item in Component.Of(
                 ComponentFamily.Reinforcement, r.Designation, profile,
                 IfcBinding.Of("IfcTendon", "STRAND"),
                 Coring.None, new ComponentStandard(r.Strand.Region, StandardJointThicknessMm: 0.0, Authority: r.Strand.Authority),
                 r.Strand.Substance, MaterialId.Of("metal.steel"),
                 detail: Some(detail), key)
-            select new ComponentRow(item, Sectioned: false);
+            select new ComponentRow(item, Tabulated);
     }
 
-    // Fail-loud: one Traverse per selection, a faulted row ABORTS the catalogue build — the .Choose/.ToOption swallow is
-    // the deleted form. The Context parameter is the ComponentFamily.Rows delegate contract; the seed reads no context column.
+    // Fail-loud, and BOTH modalities in ONE applicative pass: the passive and active selections are INDEPENDENT
+    // traversals, so their faults accumulate together and a malformed bar and a malformed tendon both name themselves
+    // in one build abort. Binding the second traversal to the first made the tendon table unreachable the moment any
+    // bar faulted, which reports half a catalogue's defects per run and hides the rest behind a fix. The Context
+    // parameter is the ComponentFamily.Rows delegate contract; the seed reads no context column.
     public static Fin<Seq<ComponentRow>> Rows(Context context) =>
-        Placements.ToSeq().Traverse(RebarOf).As()
-            .Bind(bars => Tendons.ToSeq().Traverse(TendonOf).As().Map(tendons => bars + tendons));
+        (toSeq(Placements).Traverse(RebarOf).As(), toSeq(Tendons).Traverse(TendonOf).As())
+            .Apply(static (bars, tendons) => bars + tendons).As();
+
+    // The ComponentFamily.Reinforcement CAPACITY producer is an EXPLICIT TYPED REFUSAL, not silence: a bar and a
+    // strand carry no section capacity of their own — a bar's structural participation is the member it reinforces,
+    // and `RcSectionBuilder.Capacity` is that route, built and resolved in one entry. Binding the refusal is what
+    // makes that route the ONLY one and keeps the family axis compiler-forced.
+    public static Fin<SectionCapacity> Capacity(Component component, Option<ComputedSection> section, CapacityPlacement placement, Op key) =>
+        ComponentFault.Capacity(key, $"<reinforcement-capacity-rides-rc-section:{component.Designation.Value}>");
 }
 ```
 
@@ -541,7 +634,8 @@ public readonly partial struct RebarPlacement;
 // (RcElastic) and the N-M-M hull stay capacity#SECTION_CAPACITY's over the same Section.
 public sealed record RcSection(
     IConcreteSection Section, ConcreteSectionProperties Properties,
-    EnConcreteMaterial Concrete, EnRebarMaterial Rebar, double CoverMm, Component ConcreteProfile) {
+    EnConcreteMaterial Concrete, EnRebarMaterial Rebar, Option<double> LinkYieldMpa, double CoverMm,
+    Component ConcreteProfile, FrozenSet<SectionFace> BarredFaces) {
 
     public double GrossSteelAreaMm2 => Properties.TotalReinforcementArea.SquareMillimeters;          // As — the .Utility Rebars kernel behind the carrier
     public double ConcreteAreaMm2 => Properties.ConcreteArea.SquareMillimeters;                       // Ac (gross minus steel)
@@ -550,18 +644,26 @@ public sealed record RcSection(
     public double ReinforcementInertiaYyMm4 => Properties.ReinforcementSecondMomentOfAreaYy.MillimetersToTheFourth;
     public double ReinforcementInertiaZzMm4 => Properties.ReinforcementSecondMomentOfAreaZz.MillimetersToTheFourth;
 
-    // The face-keyed reads are OPTIONED: the engine's CalculateEffectiveDepth divides a face-layer centroid by its
-    // area and throws/NaNs for a face with no bars (a perimeter-only layout), so a bar-less face is ABSENCE — never
-    // a NaN/throw escaping an interior receipt read. The boundary eager-force cannot pre-prove every face.
+    // The face-keyed reads are OPTIONED, and the discriminant is STRUCTURAL: the admitted layout names exactly which
+    // faces carry bars, so a face outside that set answers absence without asking the engine — whose own
+    // CalculateEffectiveDepth divides a face-layer centroid by an area that is zero there and answers a throw or a
+    // NaN. Trapping that throw turned a known-empty query into an exception round trip and, worse, made every OTHER
+    // failure inside the same call indistinguishable from a bar-less face. The set is computed once at the boundary
+    // from the layout the builder already proved, so both reads are total over it.
     public Option<double> EffectiveDepthMm(SectionFace face) =>
-        Try.lift(() => Properties.EffectiveDepth(face).Millimeters).Run().ToOption().Filter(double.IsFinite);   // d to the face's tension steel
+        BarredFaces.Contains(face) ? Some(Properties.EffectiveDepth(face).Millimeters) : None;   // d to the face's tension steel
     public Option<double> FaceSteelAreaMm2(SectionFace face) =>
-        Try.lift(() => Properties.ReinforcementArea(face).SquareMillimeters).Run().ToOption().Filter(static a => a > 0.0);
+        BarredFaces.Contains(face) ? Some(Properties.ReinforcementArea(face).SquareMillimeters) : None;
+
+    // The PLACED bars the layout engines materialized — the section collects them by walking every layer through its
+    // own GetPath/GetRebars pair, so the placement OUTPUT this page's layout algebra produces is readable rather than
+    // computed and discarded inside the engine. A rebar detailer and the QTO seam both read this set.
+    public IReadOnlyList<ILongitudinalReinforcement> PlacedBars => Section.Rebars;
 }
 
 // --- [OPERATIONS] --------------------------------------------------------------------------
 // The EN-grade admission boundary: the VividOrange.Materials ctors throw on an unknown grade / untabulated annex (the
-// .api [BOUNDARY_EXCEPTION_LAW]); EnGrade traps the throw ONCE onto the typed ComponentFault.Grade rail — no VividOrange
+// .api/api-vividorange-materials.md [LOCAL_ADMISSION]); EnGrade traps the throw ONCE onto the typed ComponentFault.Grade rail — no VividOrange
 // throw and no non-EN grade reaches the builder interior.
 public static class EnGrade {
     public static Fin<EnConcreteMaterial> Concrete(EnConcreteGrade grade, NationalAnnex annex, Op key) =>
@@ -592,11 +694,26 @@ public static class RcSectionBuilder {
             .MapFail(e => ComponentFault.Section(key, $"<rc-section-build:{concrete.Family.Key}:{e.Message}>"))
         from properties in Try.lift(() => { ConcreteSectionProperties p = new(built); _ = p.TotalReinforcementArea; return p; }).Run()   // boundary kernel: the eager force is the platform-forced seam
             .MapFail(e => ComponentFault.Section(key, $"<rc-transformed-properties:{concrete.Designation.Value}:{e.Message}>"))
-        select new RcSection(built, properties, concreteMaterial, rebarMaterial, coverMm, concrete);
+        // LinkYieldMpa is the link grade's CHARACTERISTIC f_yk off the admitted grade row — Option because a
+        // grade without a published yield declares absence, and the capacity screen's V_Rd,s publication then
+        // stays absent rather than riding a fabricated yield.
+        select new RcSection(built, properties, concreteMaterial, rebarMaterial, barGrade.PublishedYieldMpa, coverMm, concrete, BarredFacesOf(admittedLayout));
+
+    // The faces the ADMITTED layout actually places bars on — the face cases name their own face and the perimeter
+    // and placed cases name none, so the set is a read of the layout rather than a probe of the engine.
+    static FrozenSet<SectionFace> BarredFacesOf(Seq<RebarLayout> layout) =>
+        layout.Choose(static item => item.Switch(
+            faceCount:        static c => Some(c.Face),
+            faceSpacing:      static s => Some(s.Face),
+            perimeterCount:   static _ => Option<SectionFace>.None,
+            perimeterSpacing: static _ => Option<SectionFace>.None,
+            placed:           static _ => Option<SectionFace>.None)).ToFrozenSet();
 
     // Every layout bar proves the SAME RebarGradeRow.Admits standard-consistency law the seed fold runs — the one
     // owner, so an EN grade can never mint an A615/G30 layout bar through the builder — then its shape admits.
-    static Fin<Unit> ValidateLayout(RebarLayout layout, RebarGradeRow grade, Op key) =>
+    // The ADMITTED layout rides back out, so the builder consumes what the gate proved rather than the caller's own
+    // unproven sequence — a Unit-returning gate leaves the two one rename apart and the proof decorative.
+    static Fin<RebarLayout> ValidateLayout(RebarLayout layout, RebarGradeRow grade, Op key) =>
         from admitted in guard(grade.Admits(BarOf(layout)), ComponentFault.Grade(key, $"<grade-size-system-mismatch:{grade.Key}:{BarOf(layout).Key}>"))
         from shape in layout.Switch(
             faceCount: item => item.Count > 0
@@ -611,7 +728,7 @@ public static class RcSectionBuilder {
             // Length silently, and a NaN station would egress as a bar the engine places nowhere.
             placed: item => double.IsFinite(item.YMm) && double.IsFinite(item.ZMm)
                 ? Fin.Succ(unit) : Fin.Fail<Unit>(ComponentFault.Dimension(key, $"<rebar-station-nonfinite:{item.YMm:R}:{item.ZMm:R}>")))
-        select shape;
+        select layout;
 
     static BarRow BarOf(RebarLayout layout) => layout.Switch(
         faceCount:        static c => c.Bar,
@@ -652,6 +769,19 @@ public static class RcSectionBuilder {
     // the (d_g + k2) branch participates — the prior signature accepted maxAggregateMm and never used it (the deleted
     // dead knob). The aggregate scalar is admitted first: UnitsNet accepts a NaN Length silently, so an unguarded NaN
     // egresses as a Succ(NaN) spacing. Never an inline EC2 constant.
+    // The REINFORCEMENT-SIDE ENTRY into the capacity rail. capacity#SECTION_CAPACITY declares the RcInteraction hull
+    // and the RcElastic transformed-section surfaces over an RcSection input and owns their solve; this is where that
+    // input is BUILT and handed over, so the two RC cases have the producer this family owes them and no consumer
+    // assembles a concrete section for itself. The bar family's own Capacity stays a typed refusal because a single
+    // bar has no section capacity at all — its structural participation is the member it reinforces, which is
+    // precisely this entry.
+    public static Fin<SectionCapacity> Capacity(
+        Component concrete, EnConcreteGrade concreteGrade, RebarGradeRow barGrade, BarRow link,
+        Seq<RebarLayout> layout, double coverMm, CapacityBuild build, CapacityPlacement placement, Op key) =>
+        from section in Of(concrete, concreteGrade, barGrade, link, layout, coverMm, placement.Annex, key)
+        from capacity in SectionCapacity.Resolve(section, build, key)
+        select capacity;
+
     public static Fin<double> MinimumBarSpacingMm(NationalAnnex annex, BarRow bar, double maxAggregateMm, Op key) =>
         from aggregate in guard(double.IsFinite(maxAggregateMm) && maxAggregateMm > 0.0, ComponentFault.Dimension(key, $"<aggregate-nonpositive-or-nonfinite:{maxAggregateMm:R}>"))
         from spacing in Try.lift(() => new MinimumReinforcementSpacing(annex) { MaximumAggregateSize = Length.FromMillimeters(maxAggregateMm) }

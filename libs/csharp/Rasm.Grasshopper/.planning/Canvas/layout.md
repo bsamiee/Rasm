@@ -108,13 +108,11 @@ public readonly record struct NudgeVector(
         new(Dx: action.ΔX, Dy: action.ΔY, Magnitude: action.Magnitude,
             Lines: action.Lines, LabelText: action.LabelText, LabelPoint: action.LabelPoint, LabelAnchor: action.LabelAnchor);
 
-    public static Option<SnappingAction> Winner(params ReadOnlySpan<SnappingAction> candidates) {
-        Option<SnappingAction> held = Option<SnappingAction>.None;
-        foreach (SnappingAction next in candidates) {
-            held = held.Match(Some: best => Some(SnappingAction.SmallerMagnitude(best, next)), None: () => Some(next));
-        }
-        return held;
-    }
+    public static Option<SnappingAction> Winner(params ReadOnlySpan<SnappingAction> candidates) =>
+        LanguageExt.Iterable<SnappingAction>.FromSpan(candidates)
+            .Fold(Option<SnappingAction>.None, static (held, next) => held.Match(
+                Some: best => Some(SnappingAction.SmallerMagnitude(best, next)),
+                None: () => Some(next)));
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
@@ -149,7 +147,7 @@ public sealed class SnapField {
             selectionCase: static (s, c) => s.Key.Catch(body: () => Fin.Succ(
                 new SnapField(constraints: SnappingConstraints.CreateFromDocument(
                     s.Graph, c.IncludeSelected, c.IncludeUnselected,
-                    c.Filter.MatchUnsafe(Some: static held => held, None: static () => null))))),
+                    c.Filter.Match<HashSet<Guid>?>(Some: static held => held, None: static () => null))))),
             boxesCase: static (s, c) => s.Key.Catch(body: () => Fin.Succ(
                 new SnapField(constraints: new SnappingConstraints(c.Frames))))));
     }
@@ -247,11 +245,10 @@ public static class StretchPlan {
 - Owner: `ArrangeReceipt` — the settlement evidence: raising `Op`, case name, moved-object count, total displacement magnitude, and ordered entry/settlement stamps with elapsed latency from one `MonotonicTimeline`, implementing `IValidityEvidence`.
 - Entry: `CanvasLayout.Arrange(VerbNoun label, Arrangement plan, Op? key = null)` → `Fin<ArrangeReceipt>` — the ONE gate: acquire the document scope, resolve each id to its `IAttributes` (a missing object is a typed fault, never a silent skip), compute the case's deltas, then per object ADD a `PivotAction(obj)` undo row BEFORE `IAttributes.Move(dx, dy)` — the host action captures the pre-move pivot, and `Extends` dedups consecutive nudges of one object into one record — and seal the filled `ActionList` through `HistoryLedger.Seal(document.Undo, actions, label, op)`. One marshal window covers resolve, move, and seal, so no half-arranged graph is observable.
 - Law: mutation and undo are one act — a zero-delta object contributes no undo row, and an arrangement whose every delta is zero seals nothing and reports a zero-count receipt.
-- Growth: `DocumentMethods.MakeRoom(RectangleF before, RectangleF after, ActionList actions)` is this solver's unclaimed host verb — displacing neighbours to open canvas room is an `Arrangement` case (a `RoomCase(RectangleF Before, RectangleF After)` folding the host's own displacement into the same sealed-mutation gate), never a `Document/document.md` transaction case; that page's boundary line already routes it here.
-- Law: `VerbNoun` arrives minted — the label mint spelling is the standing `Document/history.md` RESEARCH item, and this gate never constructs one.
+- Law: `VerbNoun` arrives minted — `new VerbNoun(verb, noun)` is the settled mint `Document/history.md` owns, and this gate never constructs one.
 - Boundary: snapped interactive movement during a drag is the host's own (`ObjectDragInteraction` composes `SnappingConstraints` internally); whole-graph selection sweeps and structural verbs are `Document/document.md`'s transaction; the live `SnapXAction`/`SnapYAction` nudge state is a `Canvas/canvas.md` lens read surfaced as `NudgeVector` evidence.
 - Packages: Grasshopper2 (`IAttributes.Pivot`/`Bounds`/`AggregateBounds`/`Snappable`/`Move`, `IDocumentObject.Attributes`, `Document.Undo`, `ActionList.Add`, `PivotAction`, `VerbNoun`, `WireEnds`), `Document/history.md` (`HistoryLedger.Seal`), `Shell/session.md` (`GhSession`, `ScopeTarget`), Eto.Drawing, LanguageExt.Core, `Rasm.Domain`, `Rasm.Parametric` (`MonotonicTimeline`, `MonotonicStamp`).
-- Growth: a new arrangement is one case whose delta fold breaks the gate loudly; a new undo posture is `Document/history.md`'s row, never a fork here.
+- Growth: a new arrangement is one case whose delta fold breaks the gate loudly — `DocumentMethods.MakeRoom(RectangleF, RectangleF, ActionList)` is the next such case (`RoomCase`, folding the host's own displacement into the same sealed-mutation gate, never a `Document/document.md` transaction case); a new undo posture is `Document/history.md`'s row, never a fork here.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -290,20 +287,17 @@ public readonly record struct ArrangeReceipt(
 // --- [OPERATIONS] ---------------------------------------------------------------------------
 [BoundaryAdapter]
 public static class CanvasLayout {
-    public static Fin<ArrangeReceipt> Arrange(VerbNoun label, Arrangement plan, Op? key = null) {
+    public static Fin<ArrangeReceipt> Arrange(VerbNoun label, Arrangement plan, MonotonicTimeline? clock = null, Op? key = null) {
         Op op = key.OrDefault();
         return from valid in op.Need(value: plan)
-               from timeline in MonotonicTimeline.Of(provider: TimeProvider.System, key: op)
+               from timeline in clock is { } shared ? Fin.Succ(shared) : MonotonicTimeline.Of(provider: TimeProvider.System, key: op)
                from entered in timeline.Capture(key: op)
                from outcome in GhSession.Run(ScopeTarget.DocumentHost, scope =>
                 scope.Document.ToFin(op.MissingContext()).Bind(graph =>
                     Deltas(graph: graph, plan: valid, key: op).Bind(moves => Commit(graph: graph, label: label, moves: moves, key: op)
-                        .Map(sealedCount => (Verb: valid.Switch(
-                                alignCase: static _ => nameof(Arrangement.AlignCase),
-                                distributeCase: static _ => nameof(Arrangement.DistributeCase),
-                                gridCase: static _ => nameof(Arrangement.GridCase),
-                                nudgeCase: static _ => nameof(Arrangement.NudgeCase),
-                                straightenCase: static _ => nameof(Arrangement.StraightenCase)),
+                        // [GenerateUnionOps] SelfOp is the case identity — the hand-enumerated nameof ladder was
+                        // the derivation the generator already owns.
+                        .Map(sealedCount => (Verb: valid.SelfOp.ToString(),
                             Moved: sealedCount,
                             Displacement: moves.Fold(0d, static (sum, move) => sum + Math.Abs(move.Dx) + Math.Abs(move.Dy)))))), key: op)
                from settled in timeline.Capture(key: op)

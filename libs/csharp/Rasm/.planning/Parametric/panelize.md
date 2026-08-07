@@ -552,7 +552,8 @@ public static class Panelization {
     static int WorstPanel(PanelField field) =>
         field.Planarity.Count == 0 ? 0 : Enumerable.Range(0, field.Planarity.Count).MaxBy(p => field.Planarity[p]);
 
-    static double MeanPlanarity(PanelField field) => field.Planarity.Count == 0 ? 0.0 : field.Planarity.Average();
+    static double MeanPlanarity(PanelField field) =>
+        field.Planarity.Count == 0 ? 0.0 : field.Planarity.Fold(0.0, static (sum, defect) => sum + defect) / field.Planarity.Count;
 
     static Fin<T> Fault<T>(int unit, double witness) =>
         Fin.Fail<T>(new GeometryFault.DevelopmentFault(DevelopmentStage.Panel, unit, witness).ToError());

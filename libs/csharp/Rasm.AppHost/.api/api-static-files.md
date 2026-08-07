@@ -15,16 +15,16 @@
 
 [PUBLIC_TYPE_SCOPE]: middleware options family
 
-| [INDEX] | [SYMBOL]                            | [TYPE_FAMILY]     | [CAPABILITY]                         |
-| :-----: | :---------------------------------- | :---------------- | :----------------------------------- |
-|  [01]   | `StaticFileOptions`                 | options value     | runtime-provider serving policy      |
-|  [02]   | `SharedOptionsBase`                 | options base      | `RequestPath` + `FileProvider` pair  |
-|  [03]   | `FileServerOptions`                 | options value     | composite files/default/browse       |
-|  [04]   | `DefaultFilesOptions`               | options value     | directory index rewrite              |
-|  [05]   | `DirectoryBrowserOptions`           | options value     | directory listing                    |
-|  [06]   | `StaticFileResponseContext`         | callback value    | per-response header seat             |
-|  [07]   | `IContentTypeProvider`              | contract          | extension-to-content-type resolution |
-|  [08]   | `FileExtensionContentTypeProvider`  | provider value    | mutable extension map                |
+| [INDEX] | [SYMBOL]                           | [TYPE_FAMILY]  | [CAPABILITY]                         |
+| :-----: | :--------------------------------- | :------------- | :----------------------------------- |
+|  [01]   | `StaticFileOptions`                | options value  | runtime-provider serving policy      |
+|  [02]   | `SharedOptionsBase`                | options base   | `RequestPath` + `FileProvider` pair  |
+|  [03]   | `FileServerOptions`                | options value  | composite files/default/browse       |
+|  [04]   | `DefaultFilesOptions`              | options value  | directory index rewrite              |
+|  [05]   | `DirectoryBrowserOptions`          | options value  | directory listing                    |
+|  [06]   | `StaticFileResponseContext`        | callback value | per-response header seat             |
+|  [07]   | `IContentTypeProvider`             | contract       | extension-to-content-type resolution |
+|  [08]   | `FileExtensionContentTypeProvider` | provider value | mutable extension map                |
 
 [PUBLIC_TYPE_SCOPE]: build-manifest and file-provider family
 

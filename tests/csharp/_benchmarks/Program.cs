@@ -19,7 +19,8 @@ internal static class BenchRegistry {
 // --- [SERVICES] ------------------------------------------------------------------------
 internal static class Program {
     // `gate <report-full.json> [older-reports...]` reads BDN full-JSON reports (newest last),
-    // gates the newest against the registry, and runs the sustained segmenter across the series.
+    // verifies the corpus manifest against its committed fixtures, gates the newest report
+    // against the registry, and runs the sustained segmenter across the series.
     // Any other argv routes to the BenchmarkSwitcher.
     public static int Main(string[] args) =>
         args is ["gate", .. var reportPaths]
@@ -36,6 +37,11 @@ internal static class Program {
             Console.Error.WriteLine(value: "gate: at least one BDN *-report-full.json path is required");
             return 1;
         }
+        // Corpus admission is report-independent: a declared slug with no committed fixture (or a
+        // fixture no roster declares) breaches the gate, so declarations never float free of fixtures.
+        Seq<Error> corpus = BenchCorpus.Admit()
+            .Match(Succ: static _ => Seq<Error>(), Fail: static error => error switch { ManyErrors many => toSeq(many.Errors), _ => Seq(error) });
+        _ = corpus.AsIterable().Iter(error => Console.WriteLine(value: $"CORPUS   {error.Message}"));
         Seq<Fin<BdnReport>> loaded = toSeq(reportPaths).Map(Regression.ReadReport);
         Seq<Error> unreadable = loaded.Bind(static result => result.Match(Succ: static _ => Seq<Error>(), Fail: static error => Seq(error)));
         Seq<BdnReport> reports = loaded.Bind(static result => result.Match(Succ: static report => Seq(report), Fail: static _ => Seq<BdnReport>()));
@@ -49,9 +55,9 @@ internal static class Program {
             .Match(Succ: static _ => Seq<Error>(), Fail: static error => error switch { ManyErrors many => toSeq(many.Errors), _ => Seq(error) });
         _ = sustained.AsIterable().Iter(error => Console.WriteLine(value: $"SUSTAINED {error.Message}"));
         Console.WriteLine(value: string.Create(provider: CultureInfo.InvariantCulture,
-            $"gate: cases={rows.Count} pass={rows.Count(static row => row is GateVerdict.Pass)} tooNoisy={rows.Count(static row => row is GateVerdict.TooNoisy)} breach={rows.Count(static row => row is GateVerdict.Breach)} sustained={sustained.Count} unreadable={unreadable.Count}"));
+            $"gate: cases={rows.Count} pass={rows.Count(static row => row is GateVerdict.Pass)} tooNoisy={rows.Count(static row => row is GateVerdict.TooNoisy)} breach={rows.Count(static row => row is GateVerdict.Breach)} sustained={sustained.Count} corpusGaps={corpus.Count} unreadable={unreadable.Count}"));
         // TooNoisy is a distinct visible exit, never folded into pass: 1 = breach/regression, 2 = ungateable noise.
-        bool breached = !unreadable.IsEmpty || !sustained.IsEmpty || rows.Exists(static row => row is GateVerdict.Breach);
+        bool breached = !unreadable.IsEmpty || !sustained.IsEmpty || !corpus.IsEmpty || rows.Exists(static row => row is GateVerdict.Breach);
         bool noisy = rows.Exists(static row => row is GateVerdict.TooNoisy);
         return breached ? 1 : noisy ? 2 : 0;
     }

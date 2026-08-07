@@ -21,18 +21,29 @@
 |  [05]   | `ClientHandler`                   | handler   | the `HttpMessageHandler` bridging `HttpClient` into the host       |
 |  [06]   | `HostBuilderTestServerExtensions` | extension | `UseTestServer()` / `GetTestServer()` / `GetTestClient()` on IHost |
 |  [07]   | `WebHostBuilderExtensions`        | extension | `ConfigureTestServices` service substitution at host build         |
-|  [08]   | `HttpResetTestException`          | fault     | typed HTTP/2 RST_STREAM surfaced to the client                     |
+|  [08]   | `WebHostBuilderFactory`           | factory   | host builder off a target assembly entry point                     |
+|  [09]   | `HttpResetTestException`          | fault     | typed HTTP/2 RST_STREAM surfaced to the client                     |
 
 ## [03]-[ENTRYPOINTS]
 
 | [INDEX] | [SURFACE]                                                   | [KIND]  | [CAPABILITY]                                                     |
 | :-----: | :---------------------------------------------------------- | :------ | :--------------------------------------------------------------- |
 |  [01]   | `builder.WebHost.UseTestServer()`                           | wiring  | swap Kestrel for the in-memory server on a real host build       |
-|  [02]   | `host.GetTestClient()`                                      | client  | `HttpClient` into the pipeline; feeds `GrpcChannel.ForAddress`   |
-|  [03]   | `server.CreateHandler()`                                    | handler | raw handler for typed clients and gRPC channel composition       |
-|  [04]   | `builder.ConfigureTestServices(Action<IServiceCollection>)` | seams   | per-spec service substitution without touching production wiring |
-|  [05]   | `server.SendAsync(Action<HttpContext>)`                     | probe   | direct `HttpContext` exercise for middleware-only laws           |
-|  [06]   | `server.CreateWebSocketClient()`                            | client  | websocket lane against the same pipeline                         |
+|  [02]   | `builder.WebHost.UseTestServer(Action<TestServerOptions>)`  | wiring  | swap it in under explicit base-address and sync-IO policy        |
+|  [03]   | `host.GetTestClient()`                                      | client  | `HttpClient` into the pipeline; feeds `GrpcChannel.ForAddress`   |
+|  [04]   | `server.CreateHandler()`                                    | handler | raw handler for typed clients and gRPC channel composition       |
+|  [05]   | `server.CreateHandler(Action<HttpContext>)`                 | handler | same handler, tuning every context before the pipeline runs      |
+|  [06]   | `builder.ConfigureTestServices(Action<IServiceCollection>)` | seams   | per-spec service substitution without touching production wiring |
+|  [07]   | `builder.UseSolutionRelativeContentRoot(string)`            | wiring  | resolve the content root against the solution, not the bin dir   |
+|  [08]   | `server.SendAsync(Action<HttpContext>)`                     | probe   | direct `HttpContext` exercise for middleware-only laws           |
+|  [09]   | `server.CreateRequest(string)`                              | builder | shape one in-memory request through `RequestBuilder`             |
+|  [10]   | `server.CreateWebSocketClient()`                            | client  | websocket lane against the same pipeline                         |
+
+- `TestServer`: the ctor takes an `IServiceProvider` alone, with an `IFeatureCollection` of seed features, or with an `IOptions<TestServerOptions>` policy; `Services` and `Features` expose the running provider and feature collection, `BaseAddress` defaults to `http://localhost/`, `AllowSynchronousIO` stays false to hold the production async posture, and `Dispose()` stops the handler and every client minted off it.
+- `ConfigureTestContainer<TContainer>(Action<TContainer>)`: substitutes at the DI container behind the service collection, where `ConfigureTestServices` cannot reach.
+- `RequestBuilder`: `AddHeader(string, string)` and `And(Action<HttpRequestMessage>)` compose one request; `GetAsync()`, `PostAsync()`, and `SendAsync(string)` send it under a named method.
+- `WebSocketClient`: `ConnectAsync(Uri, CancellationToken)` opens the socket, with `SubProtocols` and `ConfigureRequest` tuning the handshake.
+- `WebHostBuilderFactory`: `CreateFromAssemblyEntryPoint(Assembly, string[])` and `CreateFromTypesAssemblyEntryPoint<T>(string[])` build a host builder off a target assembly when the host is not composed inline.
 
 ```csharp signature
 public class TestServer : IServer, IDisposable {
@@ -55,7 +66,8 @@ public static class HostBuilderTestServerExtensions {
 [BOUNDARY]: the in-memory pipeline proves routing, middleware order, serialization, and gRPC contract shape; it never proves socket behavior, TLS, or backpressure — those are integration-lane facts behind the `network` boundary.
 
 [STACKING]:
-- `Grpc.Net.Client`: `GrpcChannel.ForAddress(server.BaseAddress, new GrpcChannelOptions { HttpHandler = server.CreateHandler() })` runs the full gRPC contract in-process.
+- `Grpc.Net.Client`: `GrpcChannel.ForAddress(server.BaseAddress, new GrpcChannelOptions { HttpHandler = server.CreateHandler() })` runs the full gRPC contract in-process; a `ClientHandler` is not a `SocketsHttpHandler`, so the channel forfeits `GrpcChannel.State`, `ConnectAsync`, and `WaitForStateChangedAsync` and a hand-off proof never reads them.
+- `Rasm.Compute` `RemoteTransport.InProcess`: the handler factory rides that row's endpoint slot from the spec composition root, so no Compute production code references the test server.
 - `Rasm.TestKit` (`Spec.cs`): responses and typed gRPC results fold through the kit rail gates; wire payloads round-trip through `Spec.RoundtripBytes`.
 - `timeprovider-testing.md`: hosted pipeline takes the spec's `TimeProvider` through DI like any SUT.
 

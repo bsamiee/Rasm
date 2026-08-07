@@ -43,31 +43,31 @@
 
 `[OrderedEquality]`, `[UnorderedEquality]`, and `[SetEquality]` share the three ctor forms below; a `Type` argument resolves a static comparer member named `Default` unless the second argument names one.
 
-| [INDEX] | [SURFACE]                                                        | [SHAPE]  | [CAPABILITY]                    |
-| :-----: | :--------------------------------------------------------------- | :------- | :------------------------------ |
-|  [01]   | `[Equatable] partial record T(...)`                              | ctor     | admit every non-static member   |
-|  [02]   | `[Equatable(Explicit = true)] partial class T`                   | ctor     | narrow admission to attributed  |
-|  [03]   | `[Equatable(IgnoreInheritedMembers = true)] partial class T : B` | ctor     | drop ancestor members           |
-|  [04]   | `[property: OrderedEquality] T[] Items`                          | ctor     | positional-record member policy |
-|  [05]   | `[DefaultEquality] private int _field;`                          | ctor     | explicit member opt-in          |
-|  [06]   | `[OrderedEquality(StringComparison)]`                            | ctor     | string-element comparison       |
-|  [07]   | `[OrderedEquality(Type)]`                                        | ctor     | comparer-type element selection |
-|  [08]   | `[OrderedEquality(Type, string)]`                                | ctor     | named comparer member           |
-|  [09]   | `[StringEquality(StringComparison)]`                             | ctor     | member string comparison        |
-|  [10]   | `[PrecisionEquality(double)]`                                    | ctor     | numeric tolerance band          |
-|  [11]   | `[CustomEquality(Type, string)]`                                 | ctor     | custom member comparer          |
-|  [12]   | `T.EqualityComparer.Default`                                     | property | canonical comparer entry        |
-|  [13]   | `T.EqualityComparer.Default.Equals(T, T)`                        | instance | deep structural equality        |
-|  [14]   | `T.EqualityComparer.Default.GetHashCode(T)`                      | instance | member-policy hash              |
-|  [15]   | `T.EqualityComparer.Default.Inequalities(T, T, MemberPath)`      | instance | member diff under a base path   |
-|  [16]   | `a.Equals(b)`                                                    | instance | typed equality                  |
-|  [17]   | `a == b`                                                         | operator | value equality                  |
-|  [18]   | `a != b`                                                         | operator | value inequality                |
-|  [19]   | `T.GetHashCode()`                                                | instance | structural hash override        |
-|  [20]   | `new OrderedEqualityComparer<T>(IEqualityComparer<T>)`           | ctor     | nested sequence comparer        |
-|  [21]   | `new UnorderedEqualityComparer<T>(IEqualityComparer<T>)`         | ctor     | nested multiset comparer        |
-|  [22]   | `new SetEqualityComparer<T>(IEqualityComparer<T>)`               | ctor     | nested set comparer             |
-|  [23]   | `OrderedEqualityComparer<T>.EqualityComparer`                    | property | configured element comparer     |
+| [INDEX] | [SURFACE]                                                             | [SHAPE]  | [CAPABILITY]                    |
+| :-----: | :-------------------------------------------------------------------- | :------- | :------------------------------ |
+|  [01]   | `[Equatable] partial record T(...)`                                   | ctor     | admit every non-static member   |
+|  [02]   | `[Equatable(Explicit = true)] partial class T`                        | ctor     | narrow admission to attributed  |
+|  [03]   | `[Equatable(IgnoreInheritedMembers = true)] partial class T : B`      | ctor     | drop ancestor members           |
+|  [04]   | `[property: OrderedEquality] T[] Items`                               | ctor     | positional-record member policy |
+|  [05]   | `[DefaultEquality] private int _field;`                               | ctor     | explicit member opt-in          |
+|  [06]   | `[OrderedEquality(StringComparison)]`                                 | ctor     | string-element comparison       |
+|  [07]   | `[OrderedEquality(Type)]`                                             | ctor     | comparer-type element selection |
+|  [08]   | `[OrderedEquality(Type, string)]`                                     | ctor     | named comparer member           |
+|  [09]   | `[StringEquality(StringComparison)]`                                  | ctor     | member string comparison        |
+|  [10]   | `[PrecisionEquality(double)]`                                         | ctor     | numeric tolerance band          |
+|  [11]   | `[CustomEquality(Type, string)]`                                      | ctor     | custom member comparer          |
+|  [12]   | `T.EqualityComparer.Default`                                          | property | canonical comparer entry        |
+|  [13]   | `T.EqualityComparer.Default.Equals(T, T)`                             | instance | deep structural equality        |
+|  [14]   | `T.EqualityComparer.Default.GetHashCode(T)`                           | instance | member-policy hash              |
+|  [15]   | `T.EqualityComparer.Default.Inequalities(T, T, MemberPath = default)` | instance | member diff, base path optional |
+|  [16]   | `a.Equals(b)`                                                         | instance | typed equality                  |
+|  [17]   | `a == b`                                                              | operator | value equality                  |
+|  [18]   | `a != b`                                                              | operator | value inequality                |
+|  [19]   | `T.GetHashCode()`                                                     | instance | structural hash override        |
+|  [20]   | `new OrderedEqualityComparer<T>(IEqualityComparer<T>)`                | ctor     | nested sequence comparer        |
+|  [21]   | `new UnorderedEqualityComparer<T>(IEqualityComparer<T>)`              | ctor     | nested multiset comparer        |
+|  [22]   | `new SetEqualityComparer<T>(IEqualityComparer<T>)`                    | ctor     | nested set comparer             |
+|  [23]   | `OrderedEqualityComparer<T>.EqualityComparer`                         | property | configured element comparer     |
 
 [MemberPath]: `MemberPath(MemberPathSegment[])` `Append(MemberPathSegment)` `Append(MemberPath)` `Segments`
 [MemberPathSegment]: `Property(string)` `Field(string)` `Index(int)` `Key(object)` `Added()` `Removed()` `Kind` `Value`

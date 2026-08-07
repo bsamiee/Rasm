@@ -64,6 +64,7 @@ Domain-specific libraries admitted by this folder; versions centralize in the ro
 - `probreg` — Probabilistic CPD/FilterReg/SVR non-rigid registration.
 - `pye57` — E57 I/O.
 - `pdal` — Scan-ingestion filter graph.
+- `pillow` — WebP plane decode for the SOG gaussian-splat container.
 
 [TOPOLOGY_GRAPH]:
 - `topologicpy` — Non-manifold cell-complex topology.

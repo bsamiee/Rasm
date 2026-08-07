@@ -412,9 +412,9 @@ public static class Hatching {
     // Per-instance clip keeps provenance: Family = seat ordinal, Course = instance ordinal — a
     // batched all-instance overlay would merge loops and erase both columns.
     static Fin<Unit> Stamp(HatchStore store, int region, Seq<Chain> loops, HatchPlan plan, HatchMotif motif, InstanceStream.Planar planar, int i, HatchPolicy policy, Op key) {
-        Point2d site = planar.Site[i];
+        (double U, double V) site = planar.Site[i];
         Transform orbitTurn = Transform.Rotation(angleRadians: plan.Angle, rotationAxis: Vector3d.ZAxis, rotationCenter: Point3d.Origin);
-        Point3d world = new Point3d(plan.Origin.X, plan.Origin.Y, 0.0) + (orbitTurn * new Vector3d(site.X, site.Y, 0.0));
+        Point3d world = new Point3d(plan.Origin.X, plan.Origin.Y, 0.0) + (orbitTurn * new Vector3d(site.U, site.V, 0.0));
         // Mirror BEFORE spin: y-handedness flips in the seat frame, so reflected seats place reflected motifs.
         Transform seat = Transform.Translation(world - Point3d.Origin)
             * Transform.Rotation(angleRadians: planar.Spin[i] + plan.Angle, rotationAxis: Vector3d.ZAxis, rotationCenter: Point3d.Origin)

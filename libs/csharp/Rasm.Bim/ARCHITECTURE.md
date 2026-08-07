@@ -25,6 +25,7 @@ Rasm.Bim/
 │   └── Geospatial.cs      # NTS simple-features algebra with GDAL/OGR vector and raster ingest
 ├── Planning/              # 4D/5D/6D delivery network
 │   ├── Schedule.cs        # 4D construction-task schedule over task-time intervals
+│   ├── Progress.cs        # Scan-derived physical-progress verification against the task network
 │   └── Cost.cs            # 5D cost-and-resource estimate and 6D carbon rollup
 ├── Exchange/              # Universal interchange codec
 │   ├── Format.cs          # Format, codec, and extension axis with frame normalization
@@ -37,7 +38,8 @@ Rasm.Bim/
 ├── Energy/                # Building-energy-model exchange
 │   ├── Exchange.cs        # Energy-op union apply over the exchange rail
 │   ├── Projector.cs       # Raises HBJSON/DFJSON/OSM/gbXML/IDF evidence
-│   └── Derive.cs          # BIM-to-BEM lowering across envelope, massing, and translation
+│   ├── Derive.cs          # BIM-to-BEM lowering across envelope, massing, and translation
+│   └── Results.cs         # Simulation-results admission onto producer-authored result bags
 ├── Review/                # Model-checking and coordination
 │   ├── Validation.cs      # Two-tier QA owner — template-audit baseline beneath the IDS facet fold
 │   ├── Issues.cs          # BCF issue exchange with .bcfzip codec and REST projection
@@ -56,7 +58,7 @@ Sub-domain dependency graph is acyclic: every sub-domain projects onto or reads 
 
 Strata order the sub-domains under the acyclic law — every cross-stratum consumption edge points down; `Review` and `Planning` co-seat on the delivery stratum, coordination reading the estimate and the schedule as same-stratum input, never a return edge.
 
-- S0 `Model` — settled vocabulary consuming no sibling: the `BimFault` band-2600 union, the `ElementPredicate`/`ElementSet` query algebra.
+- S0 `Model` — settled vocabulary consuming no sibling: the `BimFault` union, the `ElementPredicate`/`ElementSet` query algebra.
 - S0 `Model` — the generated `IfcClass` roster, the `IfcRepresentation` key, and the `BimPoint`/`BimHooks`/`BimTelemetry`/`BimBenchClaims` rail.
 - S0 law — `BimFact` payloads carry closed-vocabulary KEY strings, so no upper-stratum type leaks down.
 - S1 `Semantics` — element-bound enrichment: `MaterialProjection`, `QuantityDerivation`, the bSDD `ClassificationSystem` axis, `GeoModel`.
@@ -141,25 +143,37 @@ flowchart LR
     Persistence[(Rasm.Persistence)]
     Materials([Rasm.Materials])
     Rasm([Rasm])
+    Element -->|"[SHAPE]: IElementProjection"| Projection
     Projection -->|"[PROJECTION]: GraphDelta"| Element
     Projection -->|"[PORT]: IGraphConstraint"| Element
     Element -->|"[SHAPE]: ImportedGeometry"| Exchange
+    Element -->|"[SHAPE]: ElementGraph"| Review
     Semantics <-->|"[SHAPE]: DetailSchema"| Element
     Semantics <-->|"[SHAPE]: MaterialComposition"| Element
+    Semantics <-->|"[SHAPE]: MaterialPropertySet"| Element
+    Semantics <-->|"[SHAPE]: ProfileRef"| Element
+    Semantics <-->|"[SHAPE]: CoverageGrid"| Element
     Semantics -->|"[CONTENT_KEY]: AppearanceSummary"| Element
     Semantics -->|"[PROJECTION]: GeoReference"| Element
+    Element -->|"[SHAPE]: StructuralRows"| Model
+    Element -->|"[SHAPE]: ModelAudit"| Review
     Materials -->|"[PORT]: IIfcTypeReconciler"| Projection
+    Exchange -->|"[SHAPE]: TypeCandidate"| Materials
+    Semantics -->|"[SHAPE]: TextureRoster"| Materials
     Materials -->|"[SHAPE]: DetailSchema"| Semantics
     Rasm -->|"[SHAPE]: GeometryMeasures"| Semantics
     Model -->|"[CONTENT_KEY]: RepresentationContentHash"| Compute
     Exchange <-->|"[TESSELLATION]: TessellationOutcome"| Compute
     Review <-->|"[TRANSPORT]: IdsVerdict"| Compute
     Planning -->|"[CONTENT_KEY]: CostSchedule"| Compute
+    Energy -->|"[CONTENT_KEY]: EnergyArtifact"| Compute
+    Compute -->|"[WIRE]: EnergyResult"| Energy
     Model -->|"[PROJECTION]: BimOpenSchema"| Persistence
     Model -->|"[CONTENT_KEY]: RepresentationContentHash"| Persistence
     Exchange <-->|"[CONTENT_KEY]: ArtifactKey"| Persistence
     Exchange -->|"[WIRE]: BimEvent"| Persistence
     Review <-->|"[CONTENT_KEY]: CommitKey"| Persistence
+    Review <-->|"[SHAPE]: BcfTopic⇄IssueTopic"| Persistence
     Energy -->|"[CONTENT_KEY]: EnergyArtifact"| Persistence
     Planning <-->|"[WIRE]: TaskRelation"| Persistence
     Semantics -->|"[WIRE]: GeoWire"| Persistence
@@ -195,9 +209,11 @@ flowchart LR
     Model -->|"[CONTENT_KEY]: RepresentationContentHash"| Geometry
     Geometry -->|"[BOUNDARY]: IdsVerdict"| Review
     Energy <-->|"[WIRE]: Hbjson"| Geometry
+    Energy -->|"[RECEIPT]: EnergyResults"| AppUi
     Semantics -->|"[SHAPE]: GeoTiles"| AppUi
     Semantics -->|"[SHAPE]: GeoReference"| AppUi
     Planning -->|"[RECEIPT]: CostSchedule"| AppUi
+    Planning -->|"[RECEIPT]: ScheduleNetwork"| AppUi
     Planning -->|"[RECEIPT]: ConstructionState"| AppUi
     Review -->|"[PORT]: IssueBoard"| AppUi
     Review -->|"[BOUNDARY]: BcfViewpoint"| AppUi
@@ -206,13 +222,14 @@ flowchart LR
     Model -->|"[WIRE]: BrickGraph"| AppHost
     Exchange -->|"[WIRE]: BimEvent"| AppHost
     Host -->|"[BOUNDARY]: GlobalId"| Exchange
-    Semantics -->|"[WIRE]: GeoFeatureWire"| Data
+    Semantics -->|"[WIRE]: GeoWire"| Data
+    Model -->|"[WIRE]: PredicateWire"| Core
     Exchange -->|"[WIRE]: IfcWire"| Core
     Review -->|"[WIRE]: BcfTopicWire"| Core
-    Semantics -->|"[WIRE]: GeoFeatureWire"| Core
+    Semantics -->|"[WIRE]: GeoWire"| Core
     Review -->|"[WIRE]: BcfTopicWire"| Ui
     Review -->|"[WIRE]: BcfViewpointWire"| Ui
-    Semantics -->|"[WIRE]: GeoFeatureWire"| Ui
+    Semantics -->|"[WIRE]: GeoWire"| Ui
     Review -->|"[WIRE]: ModelDiff"| Ui
 ```
 

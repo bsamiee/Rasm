@@ -18,13 +18,13 @@
 
 `ErrorBoundaryProps` discriminates three exported arms — `ErrorBoundaryPropsWithFallback` (static `ReactNode`), `ErrorBoundaryPropsWithComponent` (`ComponentType<FallbackProps>`), `ErrorBoundaryPropsWithRender` (`(FallbackProps) => ReactNode`) — exactly one arm set, the others `never`. Every arm carries `onError` telemetry, `resetKeys` re-arm, and `onReset` (reason `"keys"` with prev/next, or `"imperative-api"` with args), and delivers `FallbackProps` to its recovery.
 
-| [INDEX] | [SYMBOL]                                                         | [TYPE_FAMILY] | [CAPABILITY]                                          |
-| :-----: | :--------------------------------------------------------------- | :------------ | :---------------------------------------------------- |
-|  [01]   | `ErrorBoundaryProps`                                             | props union   | one recovery arm set, the others `never`              |
-|  [02]   | `FallbackProps` (`error`, `resetErrorBoundary`)                  | record        | `Cause.squash`ed tagged `E`; renders `value/fault`    |
-|  [03]   | `OnErrorCallback` (`(error, info: ErrorInfo) => void`)           | callback      | `info.componentStack` locates the throw site          |
-|  [04]   | `ErrorBoundaryContext` / `ErrorBoundaryContextType`              | context       | `didCatch`/`error`/`resetErrorBoundary` for a reader  |
-|  [05]   | `UseErrorBoundaryApi` (`error`, `resetBoundary`, `showBoundary`) | record        | the `useErrorBoundary` return contract                |
+| [INDEX] | [SYMBOL]                                                         | [TYPE_FAMILY] | [CAPABILITY]                                         |
+| :-----: | :--------------------------------------------------------------- | :------------ | :--------------------------------------------------- |
+|  [01]   | `ErrorBoundaryProps`                                             | props union   | one recovery arm set, the others `never`             |
+|  [02]   | `FallbackProps` (`error`, `resetErrorBoundary`)                  | record        | `Cause.squash`ed tagged `E`; renders `value/fault`   |
+|  [03]   | `OnErrorCallback` (`(error, info: ErrorInfo) => void`)           | callback      | `info.componentStack` locates the throw site         |
+|  [04]   | `ErrorBoundaryContext` / `ErrorBoundaryContextType`              | context       | `didCatch`/`error`/`resetErrorBoundary` for a reader |
+|  [05]   | `UseErrorBoundaryApi` (`error`, `resetBoundary`, `showBoundary`) | record        | the `useErrorBoundary` return contract               |
 
 ## [03]-[ENTRYPOINTS]
 

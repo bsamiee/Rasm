@@ -31,11 +31,11 @@
 - Canonical geometry and perceptual colour live inside this boundary; the paint owner projects to `Eto.Drawing` primitives at the render edge alone and `Eto.Drawing.*` types never leak past it.
 
 [STACKING]:
-- `api-eto-drawing`(`../../.api/api-eto-drawing.md`): the registered algebra every paint body composes; this boundary adds no drawing carrier and re-tables none.
-- `Wacton.Unicolour`(`../../.api/api-unicolour.md`): owns the perceptual colour model — perceptual blending, delta-E distance, gamut-mapped fills, and theme ramps route through `Unicolour`, and the registered sRGB colour survives only at the paint edge feeding a `Brush` or `Pen`.
-- `LanguageExt.Core`(`../../.api/api-languageext.md`): a pixel lock rides an `Eff<A>`/`use` resource scope, `Fin<A>` rails an encode or decode, and `Seq<PointF>` is the vertex carrier a polyline or curve folds over.
-- `Thinktecture.Runtime.Extensions`(`../../.api/api-thinktecture-runtime-extensions.md`): a `[ValueObject]` owns a validated stroke-style, dash-preset, or gradient-stop value; a `[SmartEnum]` owns the closed brush-kind and system-font-role vocabularies a generator-shaped paint layer folds to rows.
-- `api-rhinocommon-display`(`api-rhinocommon-display.md`): viewport drawing through the Rhino display pipeline is the separate in-model surface; a `Drawable` paint never substitutes for a conduit and a conduit never substitutes for panel chrome.
+- `libs/csharp/.api/api-eto-drawing.md`: the registered algebra every paint body composes; this boundary adds no drawing carrier and re-tables none.
+- `Wacton.Unicolour`(`libs/csharp/.api/api-unicolour.md`): owns the perceptual colour model — perceptual blending, delta-E distance, gamut-mapped fills, and theme ramps route through `Unicolour`, and the registered sRGB colour survives only at the paint edge feeding a `Brush` or `Pen`.
+- `LanguageExt.Core`(`libs/csharp/.api/api-languageext.md`): a pixel lock rides an `Eff<A>`/`use` resource scope, `Fin<A>` rails an encode or decode, and `Seq<PointF>` is the vertex carrier a polyline or curve folds over.
+- `Thinktecture.Runtime.Extensions`(`libs/csharp/.api/api-thinktecture-runtime-extensions.md`): a `[ValueObject]` owns a validated stroke-style, dash-preset, or gradient-stop value; a `[SmartEnum]` owns the closed brush-kind and system-font-role vocabularies a generator-shaped paint layer folds to rows.
+- `libs/csharp/Rasm.Rhino/.api/api-rhinocommon-display.md`: viewport drawing through the Rhino display pipeline is the separate in-model surface; a `Drawable` paint never substitutes for a conduit and a conduit never substitutes for panel chrome.
 - Kernel unification: easing, spring, and interpolation math positioning or animating a paint composes the `Rasm` kernel, never a second in-boundary derivation.
 
 [LOCAL_ADMISSION]:
@@ -46,4 +46,4 @@
 - Partition: `Eto.Drawing` Rhino host boundary — owner-drawn cell and panel painting over the registered branch algebra
 - Owns: the projection law placing canonical geometry and perceptual colour inside the boundary and `Eto.Drawing` values at the render edge, and the no-retained-scene paint contract
 - Accept: custom 2D painting behind a `Drawable`, path construction and hit-testing, text measurement and layout, image blit and pixel access, transform and clip state
-- Reject: a re-tabling of the branch paint algebra, perceptual colour math (`Unicolour` owns it), widget construction and layout (`api-eto-forms.md`), platform-handler selection (`api-eto-platform.md`), host viewport drawing through the display pipeline (`api-rhinocommon-display.md`), and leaking `Eto.Drawing.*` types past the paint owner
+- Reject: a re-tabling of the branch paint algebra, perceptual colour math (`Unicolour` owns it), widget construction and layout (`libs/csharp/Rasm.Rhino/.api/api-eto-forms.md`), platform-handler selection (`libs/csharp/Rasm.Rhino/.api/api-eto-platform.md`), host viewport drawing through the display pipeline (`libs/csharp/Rasm.Rhino/.api/api-rhinocommon-display.md`), and leaking `Eto.Drawing.*` types past the paint owner

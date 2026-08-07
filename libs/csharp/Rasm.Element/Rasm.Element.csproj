@@ -31,10 +31,4 @@
         <Using Include="System.Collections.Frozen" />
         <Using Include="System.Collections.Immutable" />
     </ItemGroup>
-
-    <!-- The kernel lattice-axis count and the seam's physical 7-vector both spell Dimension, so any fence composing a
-         CellLattice beside a MeasureValue resolves neither; one assembly-wide alias settles it for every such fence. -->
-    <ItemGroup Label="Kernel Aliases">
-        <Using Alias="LatticeAxis" Include="Rasm.Numerics.Dimension" />
-    </ItemGroup>
 </Project>

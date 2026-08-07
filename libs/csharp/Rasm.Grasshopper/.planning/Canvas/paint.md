@@ -9,15 +9,16 @@ Declarative painting for the Grasshopper boundary folds through one owner set �
 - [02]-[PHASES]: `PaintFrame` + `PaintScene` + `PaintPhase` + `PaintAnchor` — snapshot planning, event capability, contained host rows, and lease-owned mounts.
 - [03]-[INTENT]: `PathSpec` + `FillSource` + `StrokeSpec` + `TypeFace` + `TransformSpec` + `Mark` — the declarative paint vocabulary.
 - [04]-[EXECUTOR]: `PaintLifetime` + `PaintStock` + `PaintPlan` + `PaintReceipt` — resource lifetime, graphics-state restoration, culling, and the one execution fold.
-- [05]-[SKIN]: `Pigment` + `ChromeRole` — the one perceptual-colour crossing, the OS chrome-swatch roster, and the host-direct skin projection law.
+- [05]-[OVERLAY]: `OverlayNode` + `CanvasOverlay` — compositor-resident canvas decoration over the layer graph, mounted once and animated with zero paint passes.
+- [06]-[SKIN]: `Pigment` + `ChromeRole` — the one perceptual-colour crossing, the OS chrome-swatch roster, and the host-direct skin projection law.
 
 ## [02]-[PHASES]
 
 - Owner: `PaintPhase` `[SmartEnum<int>]` — the ordered before/after rows for background, groups, wires, and objects. Its delegate column attaches a contained `Func<PaintScene, Fin<Unit>>`, creates and disposes one scene per raise, records every callback failure, and returns the exact inverse subscription. Both background rows mirror the host `event CanvasBackgroundPaintEventArgs` delegate family with the `OverrideDefaultPainting` suppression action; the six layer rows mirror `event CanvasPaintEventArgs` — each fence spells its exact installed delegate family, which is what makes a wrong wire a compile failure.
 - Owner: `PaintFrame` `readonly record struct` — declarative snapshot data: interpolated `Skin`, admitted content-frame `Visible` bounds, the raising graphics' `PointsPerPixel` device-pixel ratio, and the anchor view's dark-appearance verdict. `PaintScene` sealed `IDisposable` — the raw event capability over the raising canvas, `ControlGraphics`, frame, and optional background suppression action. Every getter rejects a closed scene, and disposal clears every live reference and action.
-- Law: device-pixel ratio is frame data read once per raise off `PaintScene.ControlGraphics.PointsPerPixel`, never re-derived per mark — on a Retina surface it is `0.5`, so a `StrokeSpec.Width` of `1.0` covers half a device pixel and `[03]`'s stroke-inflation law over-estimates bounds by `2×`, loosening every cull the "a false cull is forbidden" rule depends on; hairline widths and cull margins both resolve against this one value.
+- Law: device-pixel ratio is frame data read once per raise off `PaintScene.ControlGraphics.PointsPerPixel`, never re-derived per mark — the ratio's unit direction is host-owned, so the inflation margin takes `float.Max(width, pointsPerPixel)` and stays cull-safe under either reading: a margin that over-estimates loosens a cull, never falsifies one; hairline widths and cull margins both resolve against this one value.
 - Law: the appearance flag selects the skin, never a palette — `Canvas.SkinLit` and `Canvas.SkinDim` are the host's own two palettes and `Platform/native.md`'s `WorkspaceFact.DarkAppearance` is the per-view `NSView.EffectiveAppearance` read that chooses between them, so a flip retunes through the workspace lease already republishing on every screen-parameter and display-options notification and no painter caches a swatch across it.
-- Entry: `PaintAnchor.Mount(PaintPhase phase, Func<PaintFrame, Seq<Mark>> plan, MonotonicTimeline timeline, Op? key = null)` → `Fin<Lease<PaintHook>>`; `PaintAnchor.MountRaw(PaintPhase phase, Func<PaintScene, Fin<Unit>> painter, Op? key = null)` → `Fin<Lease<PaintHook>>`. `PaintHook.LastReceipt` and `LastFault` preserve outcomes that event delegates cannot return.
+- Entry: `PaintAnchor.Mount(PaintPhase phase, Func<PaintFrame, Seq<Mark>> plan, MonotonicTimeline timeline, Op? key = null)` → `Fin<Lease<PaintHook>>`; `PaintAnchor.MountRaw(PaintPhase phase, Func<PaintScene, Fin<Unit>> painter, Op? key = null)` → `Fin<Lease<PaintHook>>`. `PaintHook.LastReceipt` and `LastFault` preserve outcomes that event delegates cannot return — for a `MountRaw` painter `LastReceipt` stays `None` by construction, because a raw window takes no timeline and mints no `PaintReceipt`, so raw draws are budget-invisible by declaration and a painter needing the `paint.pass` judgment mounts the planned form.
 - Law: attachment and hook release are UI-affine, so a subscription established before mount construction completes rolls back through the same inverse and aggregates rollback refusal with the construction fault. Plan-scoped stock releases inside each callback before its monotonic settlement stamp; hook release owns only the exact inverse subscription and records a typed detachment failure.
 - Law: a raw painter uses the scene only inside the callback, and a declarative planner never receives the scene or graphics; it receives `PaintFrame`, returns values, and execution remains inside the raise.
 - Boundary: WHEN a repaint happens is `Shell/session.md`'s `RepaintRow` and the flex redraw on `Canvas/canvas.md`; WHAT a tooltip shows is `Shell/chrome.md`'s; this page owns the pixels inside the host paint fences.
@@ -213,10 +214,10 @@ public sealed class PaintHook : IDisposable {
 
 internal static partial class PaintLog {
     [LoggerMessage(EventId = 4701, Level = LogLevel.Error, Message = "Paint callback faulted: {Detail}")]
-    internal static partial void PaintFault(ILogger logger, string detail);
+    internal static partial void PaintFault(ILogger logger, [UserContent] string detail);
 
     [LoggerMessage(EventId = 4711, Level = LogLevel.Error, Message = "Paint hook release faulted: {Detail}")]
-    internal static partial void ReleaseFault(ILogger logger, string detail);
+    internal static partial void ReleaseFault(ILogger logger, [UserContent] string detail);
 }
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
@@ -312,6 +313,7 @@ public static class PaintAnchor {
 - Owner: `TypeFace` sealed record — `Family` (`string`), `Size` (`float`), `Style` (`FontStyle`), `Decoration` (`FontDecoration`) minting `new Font(family, size, style, decoration)`; the record IS the font cache key. `BlockSpec` sealed record carries the measured-layout axes — `Wrap` (`FormattedTextWrapMode`), `Trim` (`FormattedTextTrimming`), `Align` (`FormattedTextAlignment`), `Option<SizeF> Max` — onto one `FormattedText`.
 - Owner: `Mark` `[Union]` — stroke, fill, text, borrowed image, borrowed image pane, owned icon raster, capsule, wire preview, clip scope, and transform scope. Text measurement and measured drawing each dispose their own `FormattedText`; icon drawing admits the host bitmap and consumes one owned lease. Caller-supplied images remain explicitly borrowed retained assets and are never disposed by the paint plan.
 - Law: intent is value-shaped — a `Mark` carries colours, specs, and geometry values; the only live host objects a case admits are the retained-asset classes the host itself owns (`Image`, `IIcon`, `Capsule`, `WireShape`, `IMatrix`), and no case carries a `Brush`, `Pen`, `Font`, or `IGraphicsPath` — those are executor-minted from the specs, which is what makes a plan diffable, cacheable, and replayable.
+- Law: `TransformSpec` here is the CANVAS pose vocabulary — device-space `float` shift, spin, stretch, and host `IMatrix` — and it is a distinct concept from the kernel `Rasm.Numerics` affine-construction union of the same simple name, which builds `Transform` values over `Vector3d`/`Plane`/`Point3d` in model space. The two never meet on one value, and the declaring namespace wins over the imported one on this page, so the spelling stands: an alias row would fork the host-boundary alias law over a collision no call site can hit, and a rename here would spend a whole paint vocabulary on a kernel name this page never composes.
 - Law: extent is a fallible stock-aware projection. Stroke bounds inflate by the effective pen width, text uses admitted block bounds or `FormattedText.Measure`, image points use the borrowed image size, and clip bounds constrain their children. Non-finite arc angles, invalid round-rectangle radii, cardinal curves, and unprojected transforms return `None` because their rendered bounds are not proven; an unknown extent draws, and a false cull is forbidden.
 - Boundary: `AnimatedPath` glyph strokes are `Canvas/motion.md`'s draw family run inside a `MountRaw` window; snap-guide overlays (`SnappingConstraints.DrawSnappingBoxes`, `SnappingAction.Draw`) are `Canvas/layout.md`'s, transported through the same window.
 - Packages: Eto.Drawing (`GraphicsPath`, `FillMode`, `Pen`, `PenLineCap`, `PenLineJoin`, `DashStyle`, `DashStyles`, `SolidBrush`, `LinearGradientBrush`, `RadialGradientBrush`, `TextureBrush`, `GradientWrapMode`, `Font`, `FormattedText`, `Image`, `IMatrix`, `Matrix`, `Color`), Grasshopper2 (`Capsule`, `Parts`, `Shade`, `Skin`, `WireShape`, `IIcon`, `EdgeDescription`), LanguageExt.Core, `Rasm.Domain`.
@@ -492,10 +494,10 @@ public abstract partial record FillSource {
 
     internal Brush Mint() => Switch(
         solidCase: static c => (Brush)new SolidBrush(c.Colour),
-        linearCase: static c => new LinearGradientBrush(c.From, c.To, c.Start, c.End) { Wrap = c.Wrap, Transform = c.Warp.IfNoneUnsafe(Identity) },
-        sheetCase: static c => new LinearGradientBrush(c.Frame, c.From, c.To, c.Angle) { Wrap = c.Wrap, Transform = c.Warp.IfNoneUnsafe(Identity) },
-        radialCase: static c => new RadialGradientBrush(c.From, c.To, c.Centre, c.Origin, c.Radius) { Wrap = c.Wrap, Transform = c.Warp.IfNoneUnsafe(Identity) },
-        textureCase: static c => new TextureBrush(c.Source, c.Opacity) { Transform = c.Warp.IfNoneUnsafe(Identity) });
+        linearCase: static c => new LinearGradientBrush(c.From, c.To, c.Start, c.End) { Wrap = c.Wrap, Transform = c.Warp.IfNone(Identity) },
+        sheetCase: static c => new LinearGradientBrush(c.Frame, c.From, c.To, c.Angle) { Wrap = c.Wrap, Transform = c.Warp.IfNone(Identity) },
+        radialCase: static c => new RadialGradientBrush(c.From, c.To, c.Centre, c.Origin, c.Radius) { Wrap = c.Wrap, Transform = c.Warp.IfNone(Identity) },
+        textureCase: static c => new TextureBrush(c.Source, c.Opacity) { Transform = c.Warp.IfNone(Identity) });
 
     private static IMatrix Identity() => Matrix.Create();
 }
@@ -800,7 +802,8 @@ public sealed class PaintStock : IDisposable {
 [BoundaryAdapter]
 public static class PaintPlan {
     // Reverse order buys topmost-wins: the fold walks the plan back to front, making the last mark
-    // drawn the first candidate; one stock serves the whole probe so pens and fonts mint once.
+    // drawn the first candidate; one stock serves the whole probe so fonts mint once — stroke hit-tests mint
+    // their pen per spec through `PathSpec.Hits`, the geometry-owning leg the stock does not cache.
     public static Fin<Option<Mark>> Probe(Seq<Mark> marks, PointF at, float pointsPerPixel, Op? key = null) {
         Op op = key.OrDefault();
         PaintStock stock = new(operation: op);
@@ -984,16 +987,34 @@ public static class PaintPlan {
                     spinCase: spin => Op.Side(action: () => s.Graphics.RotateTransform(spin.Angle)),
                     stretchCase: stretch => Op.Side(action: () => s.Graphics.ScaleTransform(stretch.Sx, stretch.Sy)),
                     matrixCase: matrix => Op.Side(action: () => s.Graphics.MultiplyTransform(matrix.Matrix)));
-                return Walk(
-                    graphics: s.Graphics,
-                    skin: s.Skin,
-                    visible: s.Visible,
-                    pointsPerPixel: s.Density,
-                    stock: s.Stock,
-                    marks: c.Children,
-                    key: s.Key);
+                // Children draw in the POSED space, so the visible frame maps through the pose's inverse before
+                // any child cull — culling posed children against the unmapped frame is the false cull the
+                // "a false cull is forbidden" law names, wrong exactly when a pose moves content into view.
+                return c.Pose.Inverse(key: s.Key).Bind(inverse => inverse.Use(project: matrix =>
+                    Walk(
+                        graphics: s.Graphics,
+                        skin: s.Skin,
+                        visible: Mapped(matrix: matrix, frame: s.Visible),
+                        pointsPerPixel: s.Density,
+                        stock: s.Stock,
+                        marks: c.Children,
+                        key: s.Key)));
             },
             key: s.Key));
+
+    // Conservative envelope of a frame under an affine map: a rotation turns the rectangle into a quad, so the
+    // cull frame is the four-corner bounding box — over-covering is a slower draw, under-covering a false cull.
+    private static RectangleF Mapped(IMatrix matrix, RectangleF frame) {
+        PointF a = matrix.TransformPoint(frame.TopLeft);
+        PointF b = matrix.TransformPoint(frame.TopRight);
+        PointF c = matrix.TransformPoint(frame.BottomLeft);
+        PointF d = matrix.TransformPoint(frame.BottomRight);
+        float left = float.Min(float.Min(a.X, b.X), float.Min(c.X, d.X));
+        float top = float.Min(float.Min(a.Y, b.Y), float.Min(c.Y, d.Y));
+        float right = float.Max(float.Max(a.X, b.X), float.Max(c.X, d.X));
+        float bottom = float.Max(float.Max(a.Y, b.Y), float.Max(c.Y, d.Y));
+        return RectangleF.FromSides(left: left, top: top, right: right, bottom: bottom);
+    }
 
     private static Fin<PaintTally> Draw(Action action, Op key) =>
         key.Catch(body: () => Fin.Succ(Op.Side(action: action))).Map(static _ => PaintTally.DrawnOne);
@@ -1019,16 +1040,118 @@ public static class PaintPlan {
 }
 ```
 
-## [05]-[SKIN]
+## [05]-[OVERLAY]
+
+- Owner: `OverlayNode` `[Union]` — the canvas decoration vocabulary in the canvas's own terms: `PanelCase` is a framed fill-and-border panel (badge plates, focus rings, progress chrome), `StrokeCase` carries a `[03]` `PathSpec` with perceptual fill and stroke (drag ghosts, connection previews), and both nest children, so one recursive value describes the whole decoration tree. `CanvasOverlay` — the mounted composer: it projects the tree into `Platform/composition.md`'s `LayerNode` through `LayerPaint`, anchors on the live canvas through `MacAnchor.Of(AnchorSource.CanvasCase(...))`, and holds the resulting `Lease<LayerMount>` with per-ordinal glide, halt, and re-frame reach.
+- Entry: `CanvasOverlay.Mount(OverlayNode root, Op? key = null)` → `Fin<Lease<CanvasOverlay>>` — the one composer gate; `Glide(int ordinal, GlidePlan plan, Op? key = null)` / `Halt(int ordinal, string glideKey, Op? key = null)` / `Reframe(int ordinal, RectangleF frame, Op? key = null)` → `Fin<Unit>` — ordinal-addressed motion and layout over the mounted tree.
+- Law: compositor residence is the whole point, and it is live-proven — a mounted decoration survives the host's paint and a compositor-run glide advances its presentation layer with ZERO canvas paint events, so decoration motion costs no mark walk, enters no `PaintReceipt`, and never touches the `paint.pass` budget; the mark vocabulary stays the per-frame surface and this cluster is the retained one.
+- Law: the strata edge points DOWN — this S2 composer consumes S1 `Compose.Mount`/`LayerPaint`/`Glides`/`MacAnchor` and hands them canvas vocabulary (`PathSpec`, `PerceptualColor`); a Platform-side canvas composer would invert the one forbidden direction, which is why the seat is here.
+- Law: the path hand-off is a two-lease bracket — `PathSpec.Build` mints an owned Eto `IGraphicsPath` lease, `LayerPaint.Stroked` converts it into an owned `Lease<CGPath>` of its own, and the composer releases the Eto lease the moment `Stroked` returns; holding both across the mount doubles custody of one geometry. The `FillMode` argument is inert on a stroke projection and passes `Winding` by declaration.
+- Law: wide colour crosses as `PerceptualColor` values — `LayerPaint` carries them through the Display-P3 layer mint, and the overlay layer's own contents carry the gamut because the canvas backing layer's 8-bit format cannot; no Eto `Color` and no host skin swatch enters the projection unadmitted.
+- Boundary: overlay motion is `GlidePlan` — a spring rides its `SprungCase` kernel projection, a curve its `TimedCase`; sampled per-frame drives (`CanvasPacer`) stay `Canvas/motion.md`'s and repaint-scheduled surfaces stay the mark vocabulary above, so the two motion systems never share a frame edge. Anchor bounds snapshot at mount; the canvas resize consumer re-frames through `Reframe`.
+- Packages: `Platform/composition.md` (`Compose.Mount`, `LayerNode`, `LayerMount`, `LayerPaint`, `GlidePlan`, `Glides`), `Platform/native.md` (`MacAnchor`, `AnchorSource`), `Shell/session.md` (`GhSession.Run`, `ScopeTarget.CanvasHost`), Eto.Drawing (`RectangleF`, `FillMode`), Microsoft.macOS (`CGRect`), `Rasm.Numerics` (`PerceptualColor`), `Rasm.Domain` (`Op`, `Lease<T>`).
+- Growth: a new decoration species is one `OverlayNode` case with its projection arm; a new motion modality is a `GlidePlan` case at its Platform owner — this cluster's gates never widen.
+
+```csharp signature
+// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+using Eto.Drawing;
+using Rasm.Csp;
+using Rasm.Grasshopper.Platform;
+using Rasm.Grasshopper.Shell;
+using Rasm.Numerics;
+
+namespace Rasm.Grasshopper.Canvas;
+
+// --- [TYPES] --------------------------------------------------------------------------------
+[Union]
+public abstract partial record OverlayNode {
+    private OverlayNode() { }
+    public sealed record PanelCase(
+        RectangleF Frame, Option<PerceptualColor> Fill, Option<PerceptualColor> Border,
+        float BorderWidth, float CornerRadius, bool Clip, Seq<OverlayNode> Children) : OverlayNode;
+    public sealed record StrokeCase(
+        PathSpec Path, Option<PerceptualColor> Fill, Option<PerceptualColor> Stroke,
+        float Width, bool Rounded, Seq<OverlayNode> Children) : OverlayNode;
+}
+
+// --- [SERVICES] -----------------------------------------------------------------------------
+// Compositor-resident decoration: one mount per decoration tree, ordinals preorder over the projected graph,
+// motion and re-frame addressed through the mount so no borrowed CALayer handle escapes this capsule.
+[BoundaryAdapter]
+public sealed class CanvasOverlay : IDisposable {
+    private readonly Lease<LayerMount> mount;
+
+    private CanvasOverlay(Lease<LayerMount> mount) => this.mount = mount;
+
+    public static Fin<Lease<CanvasOverlay>> Mount(OverlayNode root, Op? key = null) {
+        Op op = key.OrDefault();
+        return from tree in op.Need(root)
+               from mounted in GhSession.Run(target: ScopeTarget.CanvasHost, project: scope =>
+                   from surface in scope.Canvas.ToFin(op.MissingContext())
+                   from anchor in MacAnchor.Of(source: new AnchorSource.CanvasCase(Surface: surface), key: op)
+                   from graph in Project(node: tree, op: op)
+                   from lease in Compose.Mount(anchor: anchor, node: graph, key: op)
+                   select lease, key: op)
+               select (Lease<CanvasOverlay>)new Lease<CanvasOverlay>.Owned(Value: new CanvasOverlay(mount: mounted));
+    }
+
+    public Fin<Unit> Glide(int ordinal, GlidePlan plan, Op? key = null) {
+        Op op = key.OrDefault();
+        return mount.Use(project: live => live.Find(ordinal: ordinal, key: op)
+            .Bind(layer => Glides.Animate(layer: layer, plan: plan, key: op)));
+    }
+
+    public Fin<Unit> Halt(int ordinal, string glideKey, Op? key = null) {
+        Op op = key.OrDefault();
+        return mount.Use(project: live => live.Find(ordinal: ordinal, key: op)
+            .Bind(layer => Glides.Halt(layer: layer, glideKey: glideKey, key: op)));
+    }
+
+    public Fin<Unit> Reframe(int ordinal, RectangleF frame, Op? key = null) {
+        Op op = key.OrDefault();
+        return mount.Use(project: live => live.Reframe(
+            ordinal: ordinal,
+            frame: new CGRect(x: frame.X, y: frame.Y, width: frame.Width, height: frame.Height),
+            key: op));
+    }
+
+    public void Dispose() => ignore(mount.Dispose);
+
+    // Preorder projection into the Platform layer vocabulary: panels mint through LayerPaint.Plain, strokes
+    // bracket the two-lease path hand-off — Build's Eto lease releases the moment Stroked owns its CGPath.
+    private static Fin<LayerNode> Project(OverlayNode node, Op op) => node.Switch(
+        state: op,
+        panelCase: static (key, row) =>
+            from style in LayerPaint.Plain(
+                frame: new CGRect(x: row.Frame.X, y: row.Frame.Y, width: row.Frame.Width, height: row.Frame.Height),
+                fill: row.Fill, border: row.Border, borderWidth: row.BorderWidth,
+                cornerRadius: row.CornerRadius, clip: row.Clip, mask: Option<Lease<CALayer>>.None, key: key)
+            from children in row.Children.TraverseM(child => Project(node: child, op: key)).As()
+            select (LayerNode)new LayerNode.PlainCase(Style: style, Children: children),
+        strokeCase: static (key, row) =>
+            from built in row.Path.Build(rule: FillMode.Winding, key: key)
+            from stroke in built.Use(project: path => LayerPaint.Stroked(
+                path: path, fill: row.Fill, stroke: row.Stroke, width: row.Width, rounded: row.Rounded, key: key))
+            from children in row.Children.TraverseM(child => Project(node: child, op: key)).As()
+            select (LayerNode)new LayerNode.ShapeCase(
+                Style: new LayerStyle(
+                    Frame: default, Fill: Option<Lease<CGColor>>.None, Border: Option<Lease<CGColor>>.None,
+                    BorderWidth: 0, CornerRadius: 0, Clip: false, Mask: Option<Lease<CALayer>>.None),
+                Stroke: stroke, Children: children));
+}
+```
+
+## [06]-[SKIN]
 
 - Law: skin projection is host-direct — `Shape`, `Shades`, `Wires`, `Grips`, `Messaging`, `Canvasses`, and `Fades` read from the scene skin; themed variants derive through the corresponding host `With` folds; blending uses `Skin.Interpolate`; persistence uses the host storable surface. No local palette wrapper, serialization, or partial fold roster exists.
-- Owner: `Pigment` — the ONE colour crossing. `ToHost` consumes the kernel's `PerceptualColor.ToRgb()` result after its `OklchChromaReduction` gamut map and quantizes only alpha for Eto; `OfHost` admits host sRGB bytes through `PerceptualColor.OfRgb`; `OfSystem` admits the OS-resolved chrome swatch a `ChromeRole` row names; `Blend` mixes through `BlendPath` and then reuses the same mapped egress. No boundary clipping, componentwise lerp, or opponent-space conversion exists here.
+- Owner: `Pigment` — the ONE colour crossing. `ToHost` consumes the kernel's `PerceptualColor.ToRgb(gamut:)` result and quantizes only alpha for Eto; `OfHost` admits host sRGB bytes through `PerceptualColor.OfRgb`; `OfSystem` admits the OS-resolved chrome swatch a `ChromeRole` row names; `Blend` mixes through `BlendPath` and then reuses the same bounded egress. No boundary clipping, componentwise lerp, or opponent-space conversion exists here.
+- Law: the reproducibility domain is a kernel `GamutPolicy` ROW the crossing accepts and defaults, matching the `Rasm.Rhino` `Eto/canvas.md` `Pigment` spelling one paired edit at a time — a host naming a `GamutMap` strategy, re-exposing a package predicate, or baking one bounding behaviour into the egress each strand the axis at a boundary the caller cannot reach through.
 - Owner: `ChromeRole` `[SmartEnum<string>]` closes the ten `Eto.Drawing.SystemColors` reads — control, control background, control text, disabled text, highlight, highlight text, selection, selection text, window background, link text — each row carrying its handler read as a `[UseDelegateFromConstructor]` column, so a chrome swatch is a row lookup and a literal colour beside a native Rhino panel is the deleted form.
 - Law: the OS palette is READ, never captured — every `SystemColors` member resolves through the active handler on each access and re-resolves on an accent, contrast, or appearance change, so `OfSystem` runs inside the raise beside the skin read and a value held across frames is the staleness defect `[02]`'s frame law already forecloses for `Skin`.
 - Law: `ColorStyles` is NOT a palette — it is the `[Flags]` hex-render policy (`ExcludeAlpha`, `AlphaLast`, `ShortHex`) over `Color`-to-string egress and supplies no colour, so a chrome source names a `ChromeRole` row and never that enum.
 - Law: skin state is scene-scoped — the interpolated `Skin` arrives on every paint args and `Canvas.SkinLit`/`SkinDim`/`Skin` are canvas reads through `Canvas/canvas.md`'s lens; a painter caches no skin across frames because the host interpolates per frame.
-- Packages: Grasshopper2 (`Skin`, `Shape`, `Shades`, `Shade`, `WiresSkin`, `GripsSkin`, `MessagingSkin`, `CanvassesSkin`, `Fades`, `EdgeDescription`), `Rasm.Numerics` (`PerceptualColor`, `BlendPath`, `UnitInterval`), Eto.Drawing (`Color`, `SystemColors`), Thinktecture.Runtime.Extensions (`[SmartEnum<string>]`, `[UseDelegateFromConstructor]`).
-- Growth: a new palette treatment is a `With` fold composition; a new host chrome swatch is one `ChromeRole` row; a new colour policy is one kernel `BlendPath` row — this page never mints a blend.
+- Packages: Grasshopper2 (`Skin`, `Shape`, `Shades`, `Shade`, `WiresSkin`, `GripsSkin`, `MessagingSkin`, `CanvassesSkin`, `Fades`, `EdgeDescription`), `Rasm.Numerics` (`PerceptualColor`, `BlendPath`, `GamutPolicy`, `UnitInterval`), Eto.Drawing (`Color`, `SystemColors`), Thinktecture.Runtime.Extensions (`[SmartEnum<string>]`, `[UseDelegateFromConstructor]`).
+- Growth: a new palette treatment is a `With` fold composition; a new host chrome swatch is one `ChromeRole` row; a new interpolation space is one kernel `BlendPath` row and a new reproducibility domain one kernel `GamutPolicy` row — this page mints neither.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -1058,10 +1181,13 @@ public sealed partial class ChromeRole {
 // --- [OPERATIONS] ---------------------------------------------------------------------------
 [BoundaryAdapter]
 public static class Pigment {
-    public static Fin<Color> ToHost(PerceptualColor colour, Op? key = null) {
+    // Gamut policy rides through as the kernel ROW, never a re-spelled map name and never a baked default:
+    // bounding is what a caller varies on this crossing and quantization is what it does not, so one parameter
+    // carries that whole reproducibility axis and absence resolves to the kernel's own perceptual row.
+    public static Fin<Color> ToHost(PerceptualColor colour, GamutPolicy? gamut = null, Op? key = null) {
         Op op = key.OrDefault();
         return from admitted in op.Need(value: colour)
-               from host in op.Catch(body: () => admitted.ToRgb() switch {
+               from host in op.Catch(body: () => admitted.ToRgb(gamut: gamut) switch {
                    { } mapped => Fin.Succ(Color.FromArgb(
                        red: mapped.Red,
                        green: mapped.Green,
@@ -1082,10 +1208,10 @@ public static class Pigment {
                select colour;
     }
 
-    public static Fin<Color> Blend(BlendPath path, Color start, Color end, UnitInterval t, Op? key = null) =>
+    public static Fin<Color> Blend(BlendPath path, Color start, Color end, UnitInterval t, GamutPolicy? gamut = null, Op? key = null) =>
         from left in OfHost(colour: start, key: key)
         from right in OfHost(colour: end, key: key)
-        from host in ToHost(colour: left.Mix(other: right, amount: t, path: path), key: key)
+        from host in ToHost(colour: left.Mix(other: right, amount: t, path: path), gamut: gamut, key: key)
         select host;
 }
 ```
@@ -1114,21 +1240,22 @@ flowchart LR
     Plan -->|accepted evidence| Receipt[("Last paint receipt")]
 ```
 
-## [06]-[DENSITY_BAR]
+## [07]-[DENSITY_BAR]
 
-| [INDEX] | [CONCERN]         | [OWNER]                        | [GROWTH]                                       |
-| :-----: | :---------------- | :----------------------------- | :--------------------------------------------- |
-|  [01]   | event window      | `PaintPhase` + `PaintScene`    | one contained host row                         |
-|  [02]   | hook lifecycle    | `PaintAnchor` + `PaintHook`    | one owned attachment modality                  |
-|  [03]   | geometry intent   | `PathSpec`                     | one recursive host-path case                   |
-|  [04]   | paint intent      | `Mark` + specs                 | one exhaustive dispatch case                   |
-|  [05]   | resource lifetime | `PaintLifetime` + `PaintStock` | one acquired lease or spec-to-resource mint    |
-|  [06]   | colour crossing   | `Pigment`                      | one mapped kernel egress or blend-policy value |
-|  [07]   | fault emission    | `PaintLog`                     | one generated `[LoggerMessage]` partial        |
+| [INDEX] | [CONCERN]         | [OWNER]                         | [GROWTH]                                       |
+| :-----: | :---------------- | :------------------------------ | :--------------------------------------------- |
+|  [01]   | event window      | `PaintPhase` + `PaintScene`     | one contained host row                         |
+|  [02]   | hook lifecycle    | `PaintAnchor` + `PaintHook`     | one owned attachment modality                  |
+|  [03]   | geometry intent   | `PathSpec`                      | one recursive host-path case                   |
+|  [04]   | paint intent      | `Mark` + specs                  | one exhaustive dispatch case                   |
+|  [05]   | resource lifetime | `PaintLifetime` + `PaintStock`  | one acquired lease or spec-to-resource mint    |
+|  [06]   | retained overlay  | `OverlayNode` + `CanvasOverlay` | one compositor-resident decoration case        |
+|  [07]   | colour crossing   | `Pigment`                       | one mapped kernel egress or blend-policy value |
+|  [08]   | fault emission    | `PaintLog`                      | one generated `[LoggerMessage]` partial        |
 
 `GhSession`, `EtoDispatch`, `Lease<T>`, `Op`, `ValidityClaim`, `MonotonicTimeline`, the host skin algebra, and the kernel colour owner are composed upstream.
 
-## [07]-[RESEARCH]
+## [08]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.

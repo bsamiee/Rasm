@@ -1,10 +1,10 @@
 # [COMPUTE_SIGNAL]
 
-Rasm.Compute signal/spectral lane: one `SpectralTransform` `[SmartEnum<string>]` frequency-domain axis whose rows carry transform and inverse delegates, folding to deferred `Transform.Apply` and `Transform.Invert` surfaces. `IO<Fin<T>>` preserves the outer lowering effect and inner domain fault without forcing either inside the numeric lane. Forward and inverse share one surface: `stft` preserves frame phase and overlap-add evidence, while evidence-destroying `spectrogram` and averaged periodograms return typed inverse faults. One `FilterDesign` `[SmartEnum<string>]` axis closes each IIR row's analog prototype into the shared `Bilinear` map, while FIR rows fold to windowed-sinc or equiripple `DenseRoute` least squares.
+Rasm.Compute signal/spectral lane: one `SpectralTransform` `[SmartEnum<string>]` frequency-domain axis whose rows carry transform and inverse delegates, folding to deferred `Transform.Apply` and `Transform.Invert` surfaces. `IO<Fin<T>>` preserves the outer lowering effect and inner domain fault without forcing either inside the numeric lane. Forward and inverse share one surface: `stft` preserves frame phase and overlap-add evidence, while evidence-destroying `spectrogram` and averaged periodograms return typed inverse faults. One `FilterDesign` `[SmartEnum<string>]` axis closes each IIR row's analog prototype into the shared `Bilinear` map, while FIR rows fold to windowed-sinc taps or a true Remez exchange over a barycentric levelled interpolant.
 
 Per-bin transforms ride `MathNet.Numerics.IntegralTransforms.Fourier` over split `double[]` planes, windowing rides `MathNet.Numerics.Window`, dependence and density rows ride `MathNet.Numerics.Statistics`, magnitude and phase read `TensorPrimitives.Hypot`/`Atan2`, bin spacing reads `Fourier.FrequencyScale`, FFT overlap-add rides `Tensor/dispatch#KERNEL_DISPATCH` `ComplexZip(TensorOpFamily.Multiply)`, and FIR convolution with wavelet analysis and synthesis rides `Tensor/factor#KERNEL_LOWERING` `Conv1D`.
 
-Equiripple FIR crosses to `Tensor/blas#DENSE_ALGEBRA`; the per-bin complex Hermitian dominant pair stays page-local under a convergence witness because the dense owner is real-typed; `ComputeFault` and `ComparerAccessors.StringOrdinal` arrive settled; NodaTime `IClock` supplies instants — the App-owned `ClockPolicy` stays at composition. Spectral features feed `Stats/estimator#ESTIMATOR_LANE`; `Coherence` and `Modal` own measured-mode identification and `MeasuredMode` crosses to `Solver/clash#CLASH_AND_TWIN` as the FE-updating end; conditioned signals feed those estimators and the twin.
+The Remez seeding pass crosses to `Tensor/blas#DENSE_ALGEBRA`; the per-bin complex Hermitian dominant pair stays page-local under a convergence witness because the dense owner is real-typed; `ComputeFault` and `ComparerAccessors.StringOrdinal` arrive settled; NodaTime `IClock` supplies instants — the App-owned `ClockPolicy` stays at composition. Spectral features feed `Stats/estimator#ESTIMATOR_LANE`; `Coherence` and `Modal` own measured-mode identification and `MeasuredMode` crosses to `Solver/clash#CLASH_AND_TWIN` as the FE-updating end; conditioned signals feed those estimators and the twin.
 
 ## [01]-[INDEX]
 
@@ -12,14 +12,23 @@ Equiripple FIR crosses to `Tensor/blas#DENSE_ALGEBRA`; the per-bin complex Hermi
 
 ## [02]-[SIGNAL_LANE]
 
-- Owner: `SpectralTransform` `[SmartEnum<string>]` rows each carry a `Windowed` admission discriminant, a row-owned `SignalPolicy → Fin<SignalContext>` admission delegate, a `(ReadOnlyMemory<float>, SignalContext, Instant) → IO<Fin<SpectralOutput>>` transform delegate, and a `SpectralOutput → IO<Fin<ReadOnlyMemory<float>>>` inverse delegate. `SignalPolicy` `[Union]` closes `PerBin`, `Framed`, and `Wavelet` evidence; `SignalContext` exists only after row admission. `FilterShape` `[Union]` closes `Windowed`, `Equiripple`, `Butterworth`, `Chebyshev1`, `Chebyshev2`, and `Elliptic` parameter evidence; its `Design` projection selects the corresponding `FilterDesign` row, so no caller supplies a reconstructible design knob. `FilterDesign` rows carry the sole `Recursive` result discriminator and admitted design delegate. `SpectralOutput` owns `Bins`/`Frames`/`Bands`; `Spectrogram` owns inverse-sufficient `Phasor` frames and magnitude-only `Power` frames. `FilterCoefficients` admits invariants before `Apply`, `Response`, or `ZeroPhase`; `FilterResponse` carries magnitude, unwrapped phase, and group delay. `DependenceKind` rows carry both arities of one co-variation measure and `DensityKernel` rows carry one taper each, while `ChannelQuery` closes the description request and `ChannelEvidence` its two result shapes.
-- Cases: `SpectralTransform` fft · rfft · stft · spectrogram · welch-psd · dwt; `SignalPolicy` per-bin · framed · wavelet; `DependenceKind` pearson · spearman; `DensityKernel` gaussian · epanechnikov · uniform · triangular; `ChannelQuery` dependence · distribution; `FilterShape` windowed · equiripple · butterworth · chebyshev1 · chebyshev2 · elliptic; `FilterDesign` fir-window · fir-remez · iir-butterworth · iir-chebyshev1 · iir-chebyshev2 · iir-elliptic; `FilterBand` low-pass · high-pass · band-pass · band-stop; `WindowKind` hann · hamming · blackman · blackman-harris · blackman-nuttall · nuttall · flat-top · bartlett · bartlett-hann · cosine · lanczos · triangular · gauss · tukey · rectangular; `WaveletFamily` haar · db2 · db4 · sym4 · coif1.
-- Entry: `Transform.Apply(SpectralTransform transform, ReadOnlyMemory<float> signal, SignalPolicy policy, IClock clock) → IO<Fin<SpectralOutput>>` composes sample admission with row policy admission, then dispatches over `SignalContext`. `Invert(SpectralOutput output) → IO<Fin<ReadOnlyMemory<float>>>` projects and dispatches the owning row. `Coherence(ReadOnlyMemory<float> x, ReadOnlyMemory<float> y, SignalPolicy policy, IClock clock)` composes synchronous-channel admission and a two-segment floor with the `welch-psd` row's `Framed` admission. `Modal(Seq<ReadOnlyMemory<float>> channels, SignalPolicy policy, IClock clock)` runs the N-channel frequency-domain decomposition over the same Welch admission — per-bin Hermitian cross-PSD matrices, dominant singular pair by power iteration, first-singular-value peak picking with half-power damping — returning the `ModalEstimate` measured-mode set. `Describe(Seq<ReadOnlyMemory<float>> channels, ChannelQuery query, IClock clock)` admits the same synchronous channel set under the query's own arity floor and folds either the all-pairs dependence matrix or the per-channel kernel density with its empirical CDF, entropy, and interquartile range on one shared support grid. `Design(FilterSpec spec)` projects `FilterShape.Design`, admits `FilterContext`, dispatches the row, and admits emitted coefficients. `FilterCoefficients.Apply → IO<Fin<float[]>>`, `Response`, and `ZeroPhase` enter through coefficient admission.
-- Auto: each `SpectralTransform` `Kernel` realizes one split-plane `Fourier` transform: `fft` full-length, `rfft` Hermitian half-spectrum, `stft` centered magnitude/phase frames, `spectrogram` squared STFT magnitudes, `welch-psd` averaged periodograms, and `dwt` a stride-2 `Conv1D` QMF cascade. Each `Invert` realizes the paired inverse: `fft`/`rfft` reciprocal transforms, `stft` weighted overlap-add, and `dwt` zero-stuff synthesis trimmed to recorded extents. `Design` produces windowed-sinc or equiripple FIR taps and shared-`Bilinear` IIR coefficients. `FilterCoefficients.Apply` routes short-FIR `Conv1D`, pooled long-FIR FFT overlap-add, or direct-form-II-transposed IIR recurrence.
+- Owner: `SpectralTransform` `[SmartEnum<string>]` rows each carry a `Windowed` admission discriminant, a row-owned `SignalPolicy → Fin<SignalContext>` admission delegate, a `(ReadOnlyMemory<float>, SignalContext, Instant) → IO<Fin<SpectralOutput>>` transform delegate, and a `(SpectralOutput) → IO<Fin<ReadOnlyMemory<float>>>` inverse delegate — no transport on either column, because the `dwt` bank's convolutions lower against the `Tensor/factor#KERNEL_LOWERING` `ShardDispatch.Local` a local bank spells and the Fourier rows lower nothing at all. `SignalPolicy` `[Union]` closes `PerBin`, `Framed`, and `Wavelet` evidence; `SignalContext` exists only after row admission. `WaveletExtension` rows carry one boundary-extension delegate and the per-family admission that proves the extension reconstructs; `ExtensionClass` types the symmetry point a family's zero-stripped core admits. `FilterShape` `[Union]` closes `Windowed`, `Equiripple`, `Butterworth`, `Chebyshev1`, `Chebyshev2`, and `Elliptic` parameter evidence; its `Design` projection selects the corresponding `FilterDesign` row, so no caller supplies a reconstructible design knob. `FilterDesign` rows carry the sole `Recursive` result discriminator and admitted design delegate. `SpectralOutput` owns `Bins`/`Frames`/`Bands`; `Spectrogram` owns inverse-sufficient `Phasor` frames and magnitude-only `Power` frames. `FilterCoefficients` admits invariants before `Apply`, `Response`, or `ZeroPhase`; `FilterResponse` carries magnitude, unwrapped phase, and group delay. `DependenceKind` rows carry both arities of one co-variation measure and `DensityKernel` rows carry one taper each, while `ChannelQuery` closes the description request and `ChannelEvidence` its two result shapes.
+- Cases: `SpectralTransform` fft · rfft · stft · spectrogram · welch-psd · dwt; `SignalPolicy` per-bin · framed · wavelet; `DependenceKind` pearson · spearman; `DensityKernel` gaussian · epanechnikov · uniform · triangular; `ChannelQuery` dependence · distribution; `FilterShape` windowed · equiripple · butterworth · chebyshev1 · chebyshev2 · elliptic; `FilterDesign` fir-window · fir-remez · iir-butterworth · iir-chebyshev1 · iir-chebyshev2 · iir-elliptic; `FilterBand` low-pass · high-pass · band-pass · band-stop; `WindowKind` hann · hamming · blackman · blackman-harris · blackman-nuttall · nuttall · flat-top · bartlett · bartlett-hann · cosine · lanczos · triangular · gauss · tukey · rectangular; `WaveletFamily` haar · db2 · db4 · sym4 · coif1; `WaveletExtension` zero · periodic · symmetric; `ExtensionClass` none · whole-point · half-point.
+- Entry: `Transform.Apply(SpectralTransform transform, ReadOnlyMemory<float> signal, SignalPolicy policy, IClock clock) → IO<Fin<SpectralOutput>>` composes sample admission with row policy admission, then dispatches over `SignalContext`. `Invert(SpectralOutput output) → IO<Fin<ReadOnlyMemory<float>>>` projects and dispatches the owning row. `Coherence(ReadOnlyMemory<float> x, ReadOnlyMemory<float> y, SignalPolicy policy, IClock clock)` composes synchronous-channel admission and a two-segment floor with the `welch-psd` row's `Framed` admission. `Modal(Seq<ReadOnlyMemory<float>> channels, SignalPolicy policy, IClock clock)` runs the N-channel frequency-domain decomposition over the same Welch admission — per-bin Hermitian cross-PSD matrices, dominant singular pair by power iteration, first-singular-value peak picking with half-power damping — returning the `ModalEstimate` measured-mode set. `Describe(Seq<ReadOnlyMemory<float>> channels, ChannelQuery query, IClock clock)` admits the same synchronous channel set under the query's own arity floor and folds either the all-pairs dependence matrix or the per-channel kernel density with its empirical CDF, entropy, and interquartile range on one shared support grid. `Design(FilterSpec spec, DenseSubstrate substrate)` projects `FilterShape.Design`, admits `FilterContext`, dispatches the row, and admits emitted coefficients, the substrate reaching the equiripple seed's least-squares leg alone. `FilterCoefficients.Apply(ReadOnlyMemory<float> signal) → IO<Fin<float[]>>`, `Response`, and `ZeroPhase` enter through coefficient admission.
+- Auto: each `SpectralTransform` `Kernel` realizes one split-plane `Fourier` transform: `fft` full-length, `rfft` Hermitian half-spectrum, `stft` centered magnitude/phase frames over a recorded coverage extent, `spectrogram` squared STFT magnitudes, `welch-psd` averaged periodograms, and `dwt` a stride-2 `Conv1D` QMF cascade under the policy's own `WaveletExtension`. Each `Invert` realizes the paired inverse: `fft`/`rfft` reciprocal transforms, `stft` weighted overlap-add trimmed to the recorded coverage, and `dwt` zero-stuff synthesis at the mirrored shift, trimmed to recorded extents. `Design` produces windowed-sinc taps, a Remez-exchanged equiripple half-band, or shared-`Bilinear` IIR coefficients. `FilterCoefficients.Apply` routes short-FIR `Conv1D`, pooled long-FIR FFT overlap-add, or direct-form-II-transposed IIR recurrence.
 - Receipt: the spectral fold mints no hot-path receipt. Evidence rides `Spectrum.Length`/`BinHz`/`Samples`/`Scaling`, each `Spectrogram` case's `Frames`/`Bins`, `WaveletDecomposition.Levels`/`Extents`, and `CrossSpectrum.Coherence`. Tensor-lowered legs compose the `Runtime/receipts#RECEIPT_UNION` `ComputeReceipt.TensorRun(Family, Dtype, Elements, SimdWidth, Partitions)` their owning operation stamps. Bare `Fourier` transforms and IIR recurrence mint no fabricated tensor receipt.
 - Packages: MathNet.Numerics, System.Numerics.Tensors, CommunityToolkit.HighPerformance, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
-- Growth: a new spectral transform is one `SpectralTransform` row binding admission, forward kernel, and inverse; a new window is one `WindowKind` row; a new wavelet is one `WaveletFamily` row; a new co-variation measure is one `DependenceKind` row carrying both arities and a new density taper one `DensityKernel` row, while a new description modality is one `ChannelQuery` case with its `ChannelEvidence` twin. Each new filter family adds one parameter-evidence `FilterShape` case and its projected `FilterDesign` row, closing any analog prototype into unchanged `Bilinear`. `FftTransform`/`StftTransform`/`PsdEstimator` collapse onto `Transform.Apply`; inverse siblings collapse onto `Transform.Invert`; FIR/IIR classes collapse onto `FilterCoefficients`; per-family designers collapse onto `FilterShape` and the row-owned design delegate.
-- Boundary: `MathNet.Numerics.IntegralTransforms.Fourier` operates in place. Per-bin and framed kernels apply recorded `FourierOptions`; overlap-add and Welch pin `FourierOptions.NoScaling` and own their normalization. Split real/imaginary arrays let `TensorPrimitives.Hypot`/`Atan2` read contiguous spans; `ForwardReal`/`InverseReal` own packed half-spectra; `Fourier.FrequencyScale` owns bin resolution. Inversion consumes forward evidence: `Spectrum` records `Samples` and `Scaling`; `Spectrogram.Phasor` records `Samples`, `FrameSize`, `Hop`, `Window`, `Scaling`, magnitude, and phase for weighted overlap-add; `Spectrogram.Power` and Welch output typed inverse faults; `WaveletDecomposition` records per-level `Extents`. Window functions ride `MathNet.Numerics.Window`; periodic forms apply only where MathNet exposes them. IIR feedback routes to direct-form-II-transposed after finite, nonempty, nonzero-`a₀` admission. FIR application routes short taps through `KernelLowering`, while long taps accumulate through pooled `MemoryOwner<float>` storage under FFT overlap-add. `FilterResponse` derives group delay from unwrapped phase. One band-aware `Bilinear` consumes closed-over analog prototypes. Equiripple FIR rides `DenseRoute.Solve` across an explicit transition band. `WaveletFamily` owns scaling tables because MathNet exposes no wavelet surface. `Describe` is the amplitude-domain half of the same channel evidence: it re-runs no transform, derives its bandwidth from the channel's own spread when the query names none, and reads the empirical CDF and quartiles off one ascending copy because both members contract on sorted data. Spectral features feed `Stats/estimator#ESTIMATOR_LANE`; `Coherence` conditions channel pairs and `Modal` extracts the measured modes — the FDD first-singular-value spectrum is an operational estimate whose peaks are honest only where excitation is broadband, so `ModalEstimate` carries the full singular spectrum beside its picked modes and a consumer re-judges a peak against its own floor; `MeasuredMode` crosses to `Solver/clash#CLASH_AND_TWIN` as the FE-updating measured end, and conditioned signals feed learning and the twin.
+- Growth: a new spectral transform is one `SpectralTransform` row binding admission, forward kernel, and inverse; a new window is one `WindowKind` row resolving its own published shape default; a new wavelet is one `WaveletFamily` row whose linear-phase and extension class DERIVE from its coefficients, so its admissible extensions follow with no roster edit; a new boundary mode is one `WaveletExtension` row; a new co-variation measure is one `DependenceKind` row carrying both arities and a new density taper one `DensityKernel` row, while a new description modality is one `ChannelQuery` case with its `ChannelEvidence` twin. Each new filter family adds one parameter-evidence `FilterShape` case and its projected `FilterDesign` row, closing any analog prototype into unchanged `Bilinear`. `FftTransform`/`StftTransform`/`PsdEstimator` collapse onto `Transform.Apply`; inverse siblings collapse onto `Transform.Invert`; FIR/IIR classes collapse onto `FilterCoefficients`; per-family designers collapse onto `FilterShape` and the row-owned design delegate.
+- Boundary: `MathNet.Numerics.IntegralTransforms.Fourier` operates in place. Per-bin and framed kernels apply recorded `FourierOptions`; overlap-add and Welch pin `FourierOptions.NoScaling` and own their normalization — the kernel `Numerics/matrix#TRANSFORM_BAND` `SpectralScaling` roster names those same three conventions and its `Unscaled.RoundTrip(cells)` states the factor this lane divides back out, so the convention vocabulary agrees across the strata boundary while the option value stays the RECORDED EVIDENCE here: `FourierOptions` is what `Spectrum.Scaling` and `Spectrogram.Phasor.Scaling` hand the reciprocal leg and what every MathNet entrypoint consumes.
+- Boundary: the kernel's `SpectralArena` cases own their buffers, where this lane transforms split `double[]` planes and pooled per-frame windows in place under its own framing, so composing the arena re-buffers every frame of an overlap-add for a transform this lane already performs. Split real/imaginary arrays let `TensorPrimitives.Hypot`/`Atan2` read contiguous spans; `ForwardReal`/`InverseReal` own packed half-spectra; `Fourier.FrequencyScale` owns bin resolution.
+- Boundary: inversion consumes forward evidence and nothing else. `Spectrum` records `Samples` and `Scaling`; `Spectrogram.Phasor` records `Samples`, `FrameSize`, `Hop`, `Window`, `Scaling`, the half-open COVERAGE EXTENT the frame grid actually spans, magnitude, and phase; `Spectrogram.Power` and Welch output typed inverse faults; `WaveletDecomposition` records per-level `Extents` and the `WaveletExtension` its cascade ran under.
+- Boundary: an overlap-add's first and last half-frame carry partial window mass by construction, so synthesis normalizes and TRIMS to the recorded extent rather than refusing the whole inversion over an edge the forward pass already measured — the same evidence-driven law the wavelet `Extents` trim rides, and a coverage floor that fails a signal whose interior reconstructs exactly is the deleted form.
+- Boundary: window functions ride `MathNet.Numerics.Window`; periodic forms apply only where MathNet exposes them, and a shape-bearing row resolves the caller's `Option<double>` against its own published default rather than freezing one σ or α into the row.
+- Boundary: IIR feedback routes to direct-form-II-transposed after finite, nonempty, nonzero-`a₀` admission. FIR application routes short taps through `KernelLowering`, while long taps accumulate through pooled `MemoryOwner<float>` storage under FFT overlap-add. `FilterResponse` derives group delay from unwrapped phase. One band-aware `Bilinear` consumes closed-over analog prototypes and owns the tangent pre-warp's own domain, so a normalized edge outside `(0, 1)` refuses there rather than reaching `Math.Tan` at a pole.
+- Boundary: the equiripple row is a TRUE second Remez exchange, not a weighted-least-squares reweighting: Lawson's iteration converges at a linear rate whose ratio approaches one on dense grids, absorbs a zero-weight transition band into its own reweighting, and has published counterexamples where it converges to the wrong function — which is why scipy and MATLAB both ship Remez. The `FirRemez` key names the exchange the row runs.
+- Boundary: `WaveletFamily` owns scaling tables because MathNet exposes no wavelet surface; linear phase and extension class are DERIVED from those tables under an exact symmetry compare, never asserted per row, and each `WaveletExtension` admits against the derived descriptor so the admissible set follows a new row automatically.
+- Boundary: `Describe` is the amplitude-domain half of the same channel evidence: it re-runs no transform, derives its bandwidth from the channel's own spread when the query names none, and reads the empirical CDF and quartiles off one ascending copy because both members contract on sorted data.
+- Boundary: spectral features feed `Stats/estimator#ESTIMATOR_LANE`; `Coherence` conditions channel pairs and `Modal` extracts the measured modes — the FDD first-singular-value spectrum is an operational estimate whose peaks are honest only where excitation is broadband, so `ModalEstimate` carries the full singular spectrum beside its picked modes and a consumer re-judges a peak against its own floor; `MeasuredMode` crosses to `Solver/clash#CLASH_AND_TWIN` as the FE-updating measured end, and conditioned signals feed learning and the twin.
 
 ```csharp signature
 // --- [TYPES] ----------------------------------------------------------------------------
@@ -27,26 +36,44 @@ Equiripple FIR crosses to `Tensor/blas#DENSE_ALGEBRA`; the per-bin complex Hermi
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+// The shape slot is the caller's `Option<double>` and each row resolves it against its OWN published default,
+// so a shapeless row discards the slot and a shape-bearing one is tunable without a second entrypoint —
+// where a frozen row constant left the σ and α that define those two windows unreachable from any policy.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class WindowKind {
-    public static readonly WindowKind Hann           = new("hann",            static (w, p) => p ? Window.HannPeriodic(w) : Window.Hann(w));
-    public static readonly WindowKind Hamming        = new("hamming",         static (w, p) => p ? Window.HammingPeriodic(w) : Window.Hamming(w));
-    public static readonly WindowKind Cosine         = new("cosine",          static (w, p) => p ? Window.CosinePeriodic(w) : Window.Cosine(w));
-    public static readonly WindowKind Lanczos        = new("lanczos",         static (w, p) => p ? Window.LanczosPeriodic(w) : Window.Lanczos(w));
-    public static readonly WindowKind Blackman       = new("blackman",        static (w, _) => Window.Blackman(w));
-    public static readonly WindowKind BlackmanHarris = new("blackman-harris", static (w, _) => Window.BlackmanHarris(w));
-    public static readonly WindowKind BlackmanNuttall= new("blackman-nuttall",static (w, _) => Window.BlackmanNuttall(w));
-    public static readonly WindowKind Nuttall        = new("nuttall",         static (w, _) => Window.Nuttall(w));
-    public static readonly WindowKind FlatTop        = new("flat-top",        static (w, _) => Window.FlatTop(w));
-    public static readonly WindowKind Bartlett       = new("bartlett",        static (w, _) => Window.Bartlett(w));
-    public static readonly WindowKind BartlettHann   = new("bartlett-hann",   static (w, _) => Window.BartlettHann(w));
-    public static readonly WindowKind Triangular     = new("triangular",      static (w, _) => Window.Triangular(w));
-    public static readonly WindowKind Gauss          = new("gauss",           static (w, _) => Window.Gauss(w, 0.4));   // sigma is RELATIVE to the half-width ((i−c)/(σ·c)); an absolute sigma flattens the taper to rectangular.
-    public static readonly WindowKind Tukey          = new("tukey",           static (w, _) => Window.Tukey(w, 0.5));
-    public static readonly WindowKind Rectangular    = new("rectangular",     static (w, _) => Window.Dirichlet(w));
+    public static readonly WindowKind Hann           = new("hann",            static (w, p, _) => p ? Window.HannPeriodic(w) : Window.Hann(w));
+    public static readonly WindowKind Hamming        = new("hamming",         static (w, p, _) => p ? Window.HammingPeriodic(w) : Window.Hamming(w));
+    public static readonly WindowKind Cosine         = new("cosine",          static (w, p, _) => p ? Window.CosinePeriodic(w) : Window.Cosine(w));
+    public static readonly WindowKind Lanczos        = new("lanczos",         static (w, p, _) => p ? Window.LanczosPeriodic(w) : Window.Lanczos(w));
+    public static readonly WindowKind Blackman       = new("blackman",        static (w, _, _) => Window.Blackman(w));
+    public static readonly WindowKind BlackmanHarris = new("blackman-harris", static (w, _, _) => Window.BlackmanHarris(w));
+    public static readonly WindowKind BlackmanNuttall= new("blackman-nuttall",static (w, _, _) => Window.BlackmanNuttall(w));
+    public static readonly WindowKind Nuttall        = new("nuttall",         static (w, _, _) => Window.Nuttall(w));
+    public static readonly WindowKind FlatTop        = new("flat-top",        static (w, _, _) => Window.FlatTop(w));
+    public static readonly WindowKind Bartlett       = new("bartlett",        static (w, _, _) => Window.Bartlett(w));
+    public static readonly WindowKind BartlettHann   = new("bartlett-hann",   static (w, _, _) => Window.BartlettHann(w));
+    public static readonly WindowKind Triangular     = new("triangular",      static (w, _, _) => Window.Triangular(w));
+    public static readonly WindowKind Gauss          = new("gauss",           static (w, _, s) => Window.Gauss(w, s.IfNone(0.4)));   // sigma is RELATIVE to the half-width ((i−c)/(σ·c)); an absolute sigma flattens the taper to rectangular.
+    public static readonly WindowKind Tukey          = new("tukey",           static (w, _, s) => Window.Tukey(w, s.IfNone(0.5)));   // alpha is the cosine-tapered FRACTION; 0 is rectangular and 1 is Hann.
+    public static readonly WindowKind Rectangular    = new("rectangular",     static (w, _, _) => Window.Dirichlet(w));
 
-    private readonly Func<int, bool, double[]> taper;
+    private readonly Func<int, bool, Option<double>, double[]> taper;
 
-    public double[] Taper(int width, bool periodic) => taper(width, periodic);
+    public double[] Taper(int width, bool periodic, Option<double> shape = default) => taper(width, periodic, shape);
+}
+
+// Which symmetry point a family's ZERO-STRIPPED core reflects about: a whole-point core repeats its edge sample
+// under reflection, a half-point core mirrors between samples and needs an even signal length, and a family
+// with no exact symmetry admits neither.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class ExtensionClass {
+    public static readonly ExtensionClass None = new("none");
+    public static readonly ExtensionClass WholePoint = new("whole-point");
+    public static readonly ExtensionClass HalfPoint = new("half-point");
 }
 
 [SmartEnum<string>]
@@ -70,6 +97,91 @@ public sealed partial class WaveletFamily {
         for (int k = 0; k < g.Length; k++) { g[k] = ((k & 1) == 0 ? 1.0 : -1.0) * scaling[scaling.Length - 1 - k]; }
         return g;
     }
+
+    // DERIVED from the coefficients, never asserted on the row: a family cannot claim a symmetry its own table
+    // does not have. The compare is EXACT — coif2's core is symmetric to 3.1e-2 and reconstructs through a
+    // symmetric extension with an error of 1.7e0, so any tolerance here admits a bank that does not reconstruct.
+    public bool LinearPhase => Mirrored(Core(scaling)) && Mirrored(Core(HighPass()));
+
+    // Parity reads the ZERO-STRIPPED core, never the declared length: the CDF 9/7 bank ships `dec_len` 10 with
+    // cores of 9 and 7, so a `Length & 1` test on the padded table classifies a whole-point bank as half-point
+    // and reflects it about the wrong sample.
+    public ExtensionClass Extension =>
+        !LinearPhase ? ExtensionClass.None
+        : (Core(scaling).Length & 1) == 1 ? ExtensionClass.WholePoint
+        : ExtensionClass.HalfPoint;
+
+    // Leading and trailing exact zeros are padding, not taps; the core is what carries the symmetry.
+    private static ReadOnlySpan<double> Core(ReadOnlySpan<double> taps) {
+        int lo = 0, hi = taps.Length - 1;
+        while (lo <= hi && taps[lo] == 0.0) { lo++; }
+        while (hi >= lo && taps[hi] == 0.0) { hi--; }
+        return lo > hi ? [] : taps[lo..(hi + 1)];
+    }
+
+    // Symmetric OR antisymmetric — the high-pass of a linear-phase bank is the antisymmetric half of the pair.
+    private static bool Mirrored(ReadOnlySpan<double> core) {
+        bool symmetric = true, antisymmetric = true;
+        for (int k = 0; k < core.Length; k++) {
+            symmetric &= core[k] == core[^(k + 1)];
+            antisymmetric &= core[k] == -core[^(k + 1)];
+        }
+        return symmetric || antisymmetric;
+    }
+}
+
+// One boundary law per row: how the cascade extends its input, and which families that extension reconstructs.
+// Admission is DERIVED from the family's own coefficients, so a new `WaveletFamily` row inherits its admissible
+// extension set with no roster edit here and no row can claim a mode its filters do not satisfy.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class WaveletExtension {
+    // Zero-padding corrupts exactly L−2 samples at each boundary — the taps that reach past the edge — so only
+    // the length-2 bank (Haar, which reaches nothing) reconstructs exactly. The interior is exact for every
+    // family, and that bound is the whole reason a longer bank refuses rather than silently degrading its edges.
+    public static readonly WaveletExtension Zero = new("zero",
+        extend: static (x, left, right) => {
+            double[] z = new double[left + x.Length + right];
+            x.CopyTo(z.AsSpan(left));
+            return z;
+        },
+        admit: static family => family.LowPass.Length == 2);
+    // Circular extension reconstructs for EVERY bank and stays isometric for an orthogonal one, which is why it
+    // is the roster-wide default: the analysis operator is a unitary circulant and its adjoint is its inverse.
+    public static readonly WaveletExtension Periodic = new("periodic",
+        extend: static (x, left, right) => {
+            double[] z = new double[left + x.Length + right];
+            for (int t = 0; t < z.Length; t++) { z[t] = x[((t - left) % x.Length + x.Length) % x.Length]; }
+            return z;
+        },
+        admit: static _ => true);
+    // Whole-point (WS) reflection for an odd core, half-point (HS) for an even one. Perfect reconstruction under
+    // reflection needs a LINEAR-PHASE bank, and the only linear-phase orthogonal bank is Haar — a biorthogonal
+    // family admits it, an orthogonal Daubechies/symlet/coiflet does not.
+    public static readonly WaveletExtension Symmetric = new("symmetric",
+        extend: static (x, left, right) => {
+            double[] z = new double[left + x.Length + right];
+            int period = 2 * x.Length - 2;
+            for (int t = 0; t < z.Length; t++) {
+                int folded = ((t - left) % period + period) % period;
+                z[t] = x[folded < x.Length ? folded : period - folded];
+            }
+            return z;
+        },
+        admit: static family => family.Extension != ExtensionClass.None);
+
+    private readonly Func<double[], int, int, double[]> extend;
+    private readonly Func<WaveletFamily, bool> admit;
+
+    internal double[] Extend(double[] x, int left, int right) => extend(x, left, right);
+
+    internal Fin<Unit> Admit(WaveletFamily family, int samples) =>
+        !admit(family)
+            ? Fin.Fail<Unit>(ComputeFault.Create($"<dwt-extension:{Key}:{family.Key}>"))
+        : this == Symmetric && family.Extension == ExtensionClass.HalfPoint && (samples & 1) == 1
+            ? Fin.Fail<Unit>(ComputeFault.Create($"<dwt-half-point-parity:{samples}>"))
+            : Fin.Succ(unit);
 }
 
 [SmartEnum<string>]
@@ -96,6 +208,9 @@ public sealed partial class SpectralTransform {
             ? Fin.Fail<SignalContext>(ComputeFault.Create($"<signal-window-policy:{this}>"))
             : admit(this, policy, samples);
 
+    // Neither directional column names transport: the `dwt` bank convolves through `KernelLowering` under the
+    // `ShardDispatch.Local` a local bank spells at its own call, and the Fourier rows lower nothing — so a
+    // carrier no row reads never enters the signature.
     internal IO<Fin<SpectralOutput>> Run(ReadOnlyMemory<float> signal, SignalContext context, Instant at) => kernel(signal, context, at);
 
     public IO<Fin<ReadOnlyMemory<float>>> Invert(SpectralOutput output) => invert(output);
@@ -106,18 +221,21 @@ public sealed partial class SpectralTransform {
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class FilterDesign {
     // Each IIR row closes its analog prototype into `Run`; every new row must bind its design without nullable columns or throwing accessors.
-    public static readonly FilterDesign FirWindow      = new("fir-window",      recursive: false, static (_, spec) => Fin.Succ(Transform.WindowedSinc(spec)));
-    public static readonly FilterDesign FirRemez       = new("fir-remez",       recursive: false, static (_, spec) => Transform.Equiripple(spec));
-    public static readonly FilterDesign IirButterworth = new("iir-butterworth", recursive: true,  static (d, spec) => Fin.Succ(Transform.Bilinear(d, Transform.Butterworth, spec)));
-    public static readonly FilterDesign IirChebyshev1  = new("iir-chebyshev1",  recursive: true,  static (d, spec) => Fin.Succ(Transform.Bilinear(d, Transform.Chebyshev1, spec)));
-    public static readonly FilterDesign IirChebyshev2  = new("iir-chebyshev2",  recursive: true,  static (d, spec) => Fin.Succ(Transform.Bilinear(d, Transform.Chebyshev2, spec)));
-    public static readonly FilterDesign IirElliptic    = new("iir-elliptic",    recursive: true,  static (d, spec) => Fin.Succ(Transform.Bilinear(d, Transform.Elliptic, spec)));
+    public static readonly FilterDesign FirWindow      = new("fir-window",      recursive: false, static (_, spec, _) => Fin.Succ(Transform.WindowedSinc(spec)));
+    public static readonly FilterDesign FirRemez       = new("fir-remez",       recursive: false, static (_, spec, substrate) => Transform.Equiripple(spec, substrate));
+    public static readonly FilterDesign IirButterworth = new("iir-butterworth", recursive: true,  static (d, spec, _) => spec.Prewarp().Map(warped => Transform.Bilinear(d, Transform.Butterworth, warped)));
+    public static readonly FilterDesign IirChebyshev1  = new("iir-chebyshev1",  recursive: true,  static (d, spec, _) => spec.Prewarp().Map(warped => Transform.Bilinear(d, Transform.Chebyshev1, warped)));
+    public static readonly FilterDesign IirChebyshev2  = new("iir-chebyshev2",  recursive: true,  static (d, spec, _) => spec.Prewarp().Map(warped => Transform.Bilinear(d, Transform.Chebyshev2, warped)));
+    public static readonly FilterDesign IirElliptic    = new("iir-elliptic",    recursive: true,  static (d, spec, _) => spec.Prewarp().Map(warped => Transform.Bilinear(d, Transform.Elliptic, warped)));
 
-    private readonly Func<FilterDesign, FilterContext, Fin<FilterCoefficients>> design;
+    // The dense substrate arrives as a VALUE from composition on every row because the equiripple seed solves a
+    // real least-squares system through `Tensor/blas#DENSE_ALGEBRA`; the closed-form rows discard it, so the
+    // serving leg is declared in the signature rather than read off ambient state.
+    private readonly Func<FilterDesign, FilterContext, DenseSubstrate, Fin<FilterCoefficients>> design;
 
     public bool Recursive { get; }
 
-    internal Fin<FilterCoefficients> Run(FilterSpec spec) => spec.Admit().Bind(context => design(this, context));
+    internal Fin<FilterCoefficients> Run(FilterSpec spec, DenseSubstrate substrate) => spec.Admit().Bind(context => design(this, context, substrate));
 }
 
 [SmartEnum<string>]
@@ -156,8 +274,8 @@ public sealed partial class FilterBand {
 
     private static double[] Invert(double[] k, int taps) { double[] b = (double[])k.Clone(); for (int i = 0; i < b.Length; i++) { b[i] = -b[i]; } b[taps / 2] += 1.0; return b; }   // spectral inversion.
     private static double[] Subtract(double[] upper, double[] lower) { double[] b = new double[upper.Length]; for (int i = 0; i < b.Length; i++) { b[i] = upper[i] - lower[i]; } return b; }
-    private static System.Collections.Generic.IEnumerable<Complex> Origin(int count) { for (int i = 0; i < count; i++) { yield return Complex.Zero; } }
-    private static System.Collections.Generic.IEnumerable<Complex> Notch(int count, double w0) { for (int i = 0; i < count; i++) { yield return new Complex(0.0, w0); yield return new Complex(0.0, -w0); } }
+    private static IEnumerable<Complex> Origin(int count) { for (int i = 0; i < count; i++) { yield return Complex.Zero; } }
+    private static IEnumerable<Complex> Notch(int count, double w0) { for (int i = 0; i < count; i++) { yield return new Complex(0.0, w0); yield return new Complex(0.0, -w0); } }
     // LP→BP root split: each prototype root scales by BW/2 then splits to r′ ± √(r′²−ω₀²) straddling ±jω₀.
     private static Complex[] Pair(Complex[] roots, double halfBw, double w0Sq) {
         Complex[] split = new Complex[2 * roots.Length];
@@ -218,7 +336,9 @@ public sealed partial class DensityKernel {
 public abstract partial record FilterShape {
     private FilterShape() { }
 
-    public sealed record Windowed(WindowKind Window) : FilterShape;
+    public sealed record Windowed(WindowKind Window, Option<double> Shape) : FilterShape;
+    // `Budget.Tolerance` IS the Remez acceptance ε_t — the de la Vallée Poussin ratio bound, not a coefficient
+    // distance — so a caller tightening the tolerance tightens the levelling the design is accepted on.
     public sealed record Equiripple(double RippleDb, double StopbandDb, FitBudget Budget) : FilterShape;
     public sealed record Butterworth : FilterShape;
     public sealed record Chebyshev1(double RippleDb) : FilterShape;
@@ -235,12 +355,12 @@ public abstract partial record FilterShape {
 
     internal Fin<FilterContext> Project(FilterSpec spec) => Switch(
         state: spec,
-        windowed: static (state, shape) => state.Context(shape.Window, rippleDb: 1.0, stopbandDb: 1.0, FitBudget.Canonical),
-        equiripple: static (state, shape) => state.Context(WindowKind.Rectangular, shape.RippleDb, shape.StopbandDb, shape.Budget),
-        butterworth: static (state, _) => state.Context(WindowKind.Rectangular, rippleDb: 1.0, stopbandDb: 1.0, FitBudget.Canonical),
-        chebyshev1: static (state, shape) => state.Context(WindowKind.Rectangular, shape.RippleDb, stopbandDb: 1.0, FitBudget.Canonical),
-        chebyshev2: static (state, shape) => state.Context(WindowKind.Rectangular, rippleDb: 1.0, shape.StopbandDb, FitBudget.Canonical),
-        elliptic: static (state, shape) => state.Context(WindowKind.Rectangular, shape.RippleDb, shape.StopbandDb, FitBudget.Canonical));
+        windowed: static (state, shape) => state.Context(shape.Window, shape.Shape, rippleDb: 1.0, stopbandDb: 1.0, FitBudget.Canonical),
+        equiripple: static (state, shape) => state.Context(WindowKind.Rectangular, None, shape.RippleDb, shape.StopbandDb, shape.Budget),
+        butterworth: static (state, _) => state.Context(WindowKind.Rectangular, None, rippleDb: 1.0, stopbandDb: 1.0, FitBudget.Canonical),
+        chebyshev1: static (state, shape) => state.Context(WindowKind.Rectangular, None, shape.RippleDb, stopbandDb: 1.0, FitBudget.Canonical),
+        chebyshev2: static (state, shape) => state.Context(WindowKind.Rectangular, None, rippleDb: 1.0, shape.StopbandDb, FitBudget.Canonical),
+        elliptic: static (state, shape) => state.Context(WindowKind.Rectangular, None, shape.RippleDb, shape.StopbandDb, FitBudget.Canonical));
 }
 
 public sealed record FilterSpec(FilterBand Band, int Order, double Cutoff, double UpperCutoff, double SampleRate, FilterShape Shape) {
@@ -252,7 +372,7 @@ public sealed record FilterSpec(FilterBand Band, int Order, double Cutoff, doubl
 
     internal Fin<FilterContext> Admit() => Shape.Project(this);
 
-    internal Fin<FilterContext> Context(WindowKind window, double rippleDb, double stopbandDb, FitBudget budget) =>
+    internal Fin<FilterContext> Context(WindowKind window, Option<double> shape, double rippleDb, double stopbandDb, FitBudget budget) =>
         Order < 1
             ? Fin.Fail<FilterContext>(ComputeFault.Create($"<filter-order:{Order}>"))
         : SampleRate <= 0.0 || !double.IsFinite(SampleRate)
@@ -263,13 +383,24 @@ public sealed record FilterSpec(FilterBand Band, int Order, double Cutoff, doubl
             ? Fin.Fail<FilterContext>(ComputeFault.Create($"<filter-cutoff:{Cutoff}/{Nyquist}>"))
         : Band.Upper && (UpperCutoff <= Cutoff || !double.IsFinite(UpperCutoff) || NormalizedUpper >= 1.0)
             ? Fin.Fail<FilterContext>(ComputeFault.Create($"<filter-band-edges:{Cutoff}..{UpperCutoff}>"))
-            : budget.Admit().Map(admitted => new FilterContext(Band, Order, Cutoff, UpperCutoff, rippleDb, stopbandDb, window, SampleRate, admitted));
+            : budget.Admit().Map(admitted => new FilterContext(Band, Order, Cutoff, UpperCutoff, rippleDb, stopbandDb, window, shape, SampleRate, admitted));
 }
 
-internal sealed record FilterContext(FilterBand Band, int Order, double Cutoff, double UpperCutoff, double RippleDb, double StopbandDb, WindowKind Window, double SampleRate, FitBudget Budget) {
+internal sealed record FilterContext(FilterBand Band, int Order, double Cutoff, double UpperCutoff, double RippleDb, double StopbandDb, WindowKind Window, Option<double> Shape, double SampleRate, FitBudget Budget) {
     internal double Nyquist => SampleRate * 0.5;
     internal double NormalizedCutoff => Cutoff / Nyquist;
     internal double NormalizedUpper => UpperCutoff / Nyquist;
+
+    // The bilinear pre-warp is `2fs·tan(πf/2)`, which is a pole at f = 1 and a sign flip past it, so every IIR
+    // row proves its normalized edges STRICTLY inside (0, 1) — and the upper edge strictly above the lower —
+    // before a prototype is placed. A DC or Nyquist edge otherwise maps to a zero or infinite analog frequency
+    // and the expanded polynomial comes back all-zero or all-NaN with no diagnostic naming the cause.
+    internal Fin<FilterContext> Prewarp() =>
+        NormalizedCutoff <= 0.0 || NormalizedCutoff >= 1.0
+            ? Fin.Fail<FilterContext>(ComputeFault.Create($"<bilinear-prewarp-domain:{NormalizedCutoff}>"))
+        : Band.Upper && (NormalizedUpper <= NormalizedCutoff || NormalizedUpper >= 1.0)
+            ? Fin.Fail<FilterContext>(ComputeFault.Create($"<bilinear-prewarp-band:{NormalizedCutoff}..{NormalizedUpper}>"))
+            : Fin.Succ(this);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -277,13 +408,13 @@ public abstract partial record SignalPolicy {
     private SignalPolicy() { }
 
     public sealed record PerBin(double SampleRate, FourierOptions Scaling) : SignalPolicy;
-    public sealed record Framed(WindowKind Window, int FrameSize, int HopSize, double SampleRate, FourierOptions Scaling) : SignalPolicy;
-    public sealed record Wavelet(int Levels, WaveletFamily Family) : SignalPolicy;
+    public sealed record Framed(WindowKind Window, Option<double> Shape, int FrameSize, int HopSize, double SampleRate, FourierOptions Scaling) : SignalPolicy;
+    public sealed record Wavelet(int Levels, WaveletFamily Family, WaveletExtension Extension) : SignalPolicy;
 
     public static readonly SignalPolicy CanonicalFft   = new PerBin(SampleRate: 48000.0, FourierOptions.Default);
-    public static readonly SignalPolicy CanonicalStft  = new Framed(WindowKind.Hann, FrameSize: 1024, HopSize: 512, SampleRate: 48000.0, FourierOptions.Default);
-    public static readonly SignalPolicy CanonicalWelch = new Framed(WindowKind.Hann, FrameSize: 256, HopSize: 128, SampleRate: 48000.0, FourierOptions.Default);
-    public static readonly SignalPolicy CanonicalDwt   = new Wavelet(Levels: 4, WaveletFamily.Db4);
+    public static readonly SignalPolicy CanonicalStft  = new Framed(WindowKind.Hann, Shape: None, FrameSize: 1024, HopSize: 512, SampleRate: 48000.0, FourierOptions.Default);
+    public static readonly SignalPolicy CanonicalWelch = new Framed(WindowKind.Hann, Shape: None, FrameSize: 256, HopSize: 128, SampleRate: 48000.0, FourierOptions.Default);
+    public static readonly SignalPolicy CanonicalDwt   = new Wavelet(Levels: 4, WaveletFamily.Db4, WaveletExtension.Periodic);
 
     internal bool IsFramed => this is Framed;
 
@@ -292,7 +423,7 @@ public abstract partial record SignalPolicy {
             ? Fin.Fail<SignalContext>(ComputeFault.Create($"<signal-policy:{transform}>"))
         : perBin.SampleRate <= 0.0 || !double.IsFinite(perBin.SampleRate)
             ? Fin.Fail<SignalContext>(ComputeFault.Create($"<signal-sample-rate:{perBin.SampleRate}>"))
-            : Fin.Succ(new SignalContext(transform, WindowKind.Rectangular, 0, 0, 0, perBin.SampleRate, perBin.Scaling, WaveletFamily.Haar));
+            : Fin.Succ(new SignalContext(transform, WindowKind.Rectangular, None, 0, 0, 0, perBin.SampleRate, perBin.Scaling, WaveletFamily.Haar, WaveletExtension.Periodic));
 
     internal static Fin<SignalContext> AdmitFramed(SpectralTransform transform, SignalPolicy policy, int samples) =>
         policy is not Framed framed
@@ -305,20 +436,28 @@ public abstract partial record SignalPolicy {
             ? Fin.Fail<SignalContext>(ComputeFault.Create($"<signal-frame-capacity:{framed.FrameSize}/{framed.HopSize}/{samples}>"))
         : transform == SpectralTransform.Stft && framed.HopSize >= framed.FrameSize
             ? Fin.Fail<SignalContext>(ComputeFault.Create($"<stft-overlap:{framed.FrameSize}/{framed.HopSize}>"))
-            : Fin.Succ(new SignalContext(transform, framed.Window, framed.FrameSize, framed.HopSize, 0, framed.SampleRate, framed.Scaling, WaveletFamily.Haar));
+            : Fin.Succ(new SignalContext(transform, framed.Window, framed.Shape, framed.FrameSize, framed.HopSize, 0, framed.SampleRate, framed.Scaling, WaveletFamily.Haar, WaveletExtension.Periodic));
 
-    internal static Fin<SignalContext> AdmitWavelet(SpectralTransform transform, SignalPolicy policy, int _) =>
+    // Periodization halves the length at every level, so a sample count not divisible by 2^levels leaves a level
+    // with an odd-length parent whose circular extension is no longer its own inverse. The gate REFUSES there —
+    // duplicating a sample to reach the next power fabricates evidence the synthesis would then trim as real.
+    internal static Fin<SignalContext> AdmitWavelet(SpectralTransform transform, SignalPolicy policy, int samples) =>
         policy is not Wavelet wavelet
             ? Fin.Fail<SignalContext>(ComputeFault.Create($"<signal-policy:{transform}>"))
         : wavelet.Levels < 1
             ? Fin.Fail<SignalContext>(ComputeFault.Create($"<signal-levels:{wavelet.Levels}>"))
-            : Fin.Succ(new SignalContext(transform, WindowKind.Rectangular, 0, 0, wavelet.Levels, 0.0, FourierOptions.Default, wavelet.Family));
+        : wavelet.Extension == WaveletExtension.Periodic && samples % (1 << wavelet.Levels) != 0
+            ? Fin.Fail<SignalContext>(ComputeFault.Create($"<dwt-periodization-length:{samples}/{wavelet.Levels}>"))
+            : wavelet.Extension.Admit(wavelet.Family, samples).Map(_ => new SignalContext(
+                transform, WindowKind.Rectangular, None, 0, 0, wavelet.Levels, 0.0, FourierOptions.Default, wavelet.Family, wavelet.Extension));
 
     private static long FrameCells(int samples, int frame, int hop) =>
         (1L + (samples + frame / 2L - 1L) / hop) * (frame / 2L + 1L);
 }
 
-internal sealed record SignalContext(SpectralTransform Transform, WindowKind Window, int FrameSize, int HopSize, int Levels, double SampleRate, FourierOptions Scaling, WaveletFamily Wavelet);
+internal sealed record SignalContext(
+    SpectralTransform Transform, WindowKind Window, Option<double> Shape, int FrameSize, int HopSize, int Levels,
+    double SampleRate, FourierOptions Scaling, WaveletFamily Wavelet, WaveletExtension Extension);
 
 // `Samples` and `Scaling` preserve packed-rfft length and reciprocal-transform normalization.
 public sealed record Spectrum(SpectralTransform Transform, ReadOnlyMemory<double> Magnitude, ReadOnlyMemory<double> Phase, int Length, int Samples, double BinHz, double SampleRate, FourierOptions Scaling, Instant At);
@@ -327,7 +466,11 @@ public sealed record Spectrum(SpectralTransform Transform, ReadOnlyMemory<double
 public abstract partial record Spectrogram {
     private Spectrogram() { }
 
-    public sealed record Phasor(SpectralTransform Transform, int Frames, int Bins, int Samples, int FrameSize, int Hop, double BinHz, WindowKind Window, FourierOptions Scaling, ReadOnlyMemory<double> Magnitude, ReadOnlyMemory<double> Phase, Instant At) : Spectrogram;
+    // `CoverFrom`/`CoverTo` is the half-open sample range the frame grid's accumulated window mass actually
+    // covers, measured by the FORWARD pass off the frame geometry alone — no transform cost. Synthesis
+    // normalizes and trims to it, so an edge whose window mass never reached the floor is excluded by recorded
+    // evidence rather than failing the whole inversion; the wavelet `Extents` trim rides the identical law.
+    public sealed record Phasor(SpectralTransform Transform, int Frames, int Bins, int Samples, int FrameSize, int Hop, int CoverFrom, int CoverTo, double BinHz, WindowKind Window, Option<double> Shape, FourierOptions Scaling, ReadOnlyMemory<double> Magnitude, ReadOnlyMemory<double> Phase, Instant At) : Spectrogram;
     public sealed record Power(SpectralTransform Transform, int Frames, int Bins, int Hop, double BinHz, ReadOnlyMemory<double> Values, Instant At) : Spectrogram;
 
     public SpectralTransform Transform => Switch(
@@ -337,7 +480,9 @@ public abstract partial record Spectrogram {
 
 // Extents records the approximation length consumed at each cascade level (head = original signal), because the
 // stride-2 floors are not recoverable from coefficient lengths alone and the synthesis bank trims against them.
-public sealed record WaveletDecomposition(WaveletFamily Family, int Levels, ReadOnlyMemory<double> Approximation, Seq<ReadOnlyMemory<double>> Details, ImmutableArray<int> Extents, Instant At);
+// `Extension` rides beside them for the same reason: the synthesis shift and the buffer the reconstruction
+// extends are the analysis extension's mirror, and a synthesis guessing the mode reconstructs a different signal.
+public sealed record WaveletDecomposition(WaveletFamily Family, WaveletExtension Extension, int Levels, ReadOnlyMemory<double> Approximation, Seq<ReadOnlyMemory<double>> Details, ImmutableArray<int> Extents, Instant At);
 
 // Two-channel Welch cross-spectral estimate: auto-spectra, the complex cross-spectrum as magnitude/phase, and the
 // magnitude-squared coherence γ² = |Sxy|²/(Sxx·Syy) — the measured-mode identification ingress.
@@ -422,6 +567,9 @@ public sealed record FilterCoefficients(FilterDesign Design, ReadOnlyMemory<doub
             Succ: _ => ApplyAdmitted(signal),
             Fail: static error => IO.pure(Fin.Fail<float[]>(error)));
 
+    // The lowering takes ONE `ShardDispatch`, and a filter convolution is in-process, so it spells `Local` and
+    // names no transport. It reads the SOLUTION off the outcome — a local convolution decomposes nothing, so its
+    // receipt roster is empty and a filter folding it would publish a factorization no route ran.
     private IO<Fin<float[]>> ApplyAdmitted(ReadOnlyMemory<float> signal) =>
         signal.Length == 0
             ? IO.pure(Fin.Fail<float[]>(ComputeFault.Create("<signal-empty>")))
@@ -433,8 +581,8 @@ public sealed record FilterCoefficients(FilterDesign Design, ReadOnlyMemory<doub
                 : KernelLowering.Lower(TensorOpFamily.Conv1D,
                         Matrix<double>.Build.Dense(1, signal.Length, (_, c) => signal.Span[c]),
                         Matrix<double>.Build.Dense(B.Length, 1, (r, _) => B.Span[B.Length - 1 - r]),
-                        new ConvWindow([B.Length], [1], [B.Length / 2], [1], 1, 1, [signal.Length]), new ShardPlan.Single())
-                    .Map(result => result.Map(static y => y.ToColumnMajorArray().Select(static value => (float)value).ToArray()))
+                        new ConvWindow([B.Length], [1], [B.Length / 2], [1], 1, 1, [signal.Length]), new ShardDispatch.Local())
+                    .Map(result => result.Map(static outcome => outcome.Solution.ToColumnMajorArray().Select(static value => (float)value).ToArray()))
             : IO.pure(Finite(DirectFormII(signal.Span)));
 
     // Frequency response over a normalized [0, π] grid: H(e^{jω}) = B(e^{−jω})/A(e^{−jω}) by one complex Horner
@@ -567,8 +715,8 @@ public static class Transform {
             bands: static _ => SpectralTransform.Dwt).Invert(output);
 
     // Admit the spec then dispatch to the row's Run — one delegate call, no design-identity ternary, so a new FilterDesign row breaks at compile time (unbound Run) rather than routing silently.
-    public static Fin<FilterCoefficients> Design(FilterSpec spec) =>
-        spec.Shape.Design.Run(spec).Bind(static coefficients => coefficients.Admit());
+    public static Fin<FilterCoefficients> Design(FilterSpec spec, DenseSubstrate substrate) =>
+        spec.Shape.Design.Run(spec, substrate).Bind(static coefficients => coefficients.Admit());
 
     // One amplitude-domain description entry over the SAME synchronous-channel admission the frequency-domain
     // surfaces use; the query's own case selects the fold, so a dependence measure and a distribution estimate never
@@ -628,7 +776,7 @@ public static class Transform {
     private static Fin<CrossSpectrum> CoherenceAdmitted(ReadOnlyMemory<float> x, ReadOnlyMemory<float> y, SignalContext policy, Instant at) {
         int frame = policy.FrameSize, hop = policy.HopSize, bins = frame / 2 + 1;
         int segments = 1 + (x.Length - frame) / hop;
-        double[] taper = policy.Window.Taper(frame, periodic: false);
+        double[] taper = policy.Window.Taper(frame, periodic: false, policy.Shape);
         (double[] sxx, double[] syy, double[] sxyRe, double[] sxyIm) = (new double[bins], new double[bins], new double[bins], new double[bins]);
         (double[] xr, double[] xi, double[] yr, double[] yi) = (new double[frame], new double[frame], new double[frame], new double[frame]);
         for (int s = 0; s < segments; s++) {
@@ -671,7 +819,7 @@ public static class Transform {
     private static ModalEstimate ModalAdmitted(Seq<ReadOnlyMemory<float>> channels, SignalContext policy, Instant at) {
         int n = channels.Count, frame = policy.FrameSize, hop = policy.HopSize, bins = frame / 2 + 1;
         int segments = 1 + (channels[0].Length - frame) / hop;
-        double[] taper = policy.Window.Taper(frame, periodic: false);
+        double[] taper = policy.Window.Taper(frame, periodic: false, policy.Shape);
         (double[] gre, double[] gim) = (new double[bins * n * n], new double[bins * n * n]);
         (double[][] xr, double[][] xi) = ([.. Enumerable.Range(0, n).Select(_ => new double[frame])], [.. Enumerable.Range(0, n).Select(_ => new double[frame])]);
         for (int s = 0; s < segments; s++) {
@@ -789,7 +937,7 @@ public static class Transform {
     internal static IO<Fin<SpectralOutput>> ShortTime(ReadOnlyMemory<float> signal, SignalContext policy, Instant at) {
         int frame = policy.FrameSize, hop = policy.HopSize, bins = frame / 2 + 1;
         int left = frame / 2, frames = (int)(1L + (signal.Length + (long)left - 1L) / hop);
-        double[] taper = policy.Window.Taper(frame, periodic: true);
+        double[] taper = policy.Window.Taper(frame, periodic: true, policy.Shape);
         double[] magnitude = new double[frames * bins];
         double[] phase = new double[frames * bins];
         double[] real = new double[frame];
@@ -807,8 +955,35 @@ public static class Transform {
             TensorPrimitives.Hypot(real.AsSpan(0, bins), imaginary.AsSpan(0, bins), magnitudeRow);
             TensorPrimitives.Atan2(imaginary.AsSpan(0, bins), real.AsSpan(0, bins), phaseRow);
         }
-        return IO.pure(Fin.Succ<SpectralOutput>(new SpectralOutput.Frames(new Spectrogram.Phasor(policy.Transform, frames, bins, signal.Length, frame, hop, BinHz(frame, policy.SampleRate), policy.Window, policy.Scaling, magnitude, phase, at))));
+        (int coverFrom, int coverTo) = Coverage(taper, signal.Length, frame, hop, frames);
+        return IO.pure(Fin.Succ<SpectralOutput>(new SpectralOutput.Frames(new Spectrogram.Phasor(
+            policy.Transform, frames, bins, signal.Length, frame, hop, coverFrom, coverTo,
+            BinHz(frame, policy.SampleRate), policy.Window, policy.Shape, policy.Scaling, magnitude, phase, at))));
     }
+
+    // The overlap-add normalizer Σ w² over the frame grid is FRAME GEOMETRY, not signal content, so the forward
+    // pass measures its covered span for free and records it. Every sample outside that span carries partial
+    // window mass by construction — a centered grid can never cover its own first and last half-frame — so the
+    // extent is the honest reconstruction range and the coverage floor is a per-sample test, not a whole-signal one.
+    private static (int From, int To) Coverage(double[] taper, int samples, int frame, int hop, int frames) {
+        double[] weight = new double[samples];
+        int left = frame / 2;
+        for (int f = 0; f < frames; f++) {
+            int offset = f * hop - left;
+            for (int i = 0; i < frame; i++) {
+                int sample = offset + i;
+                if (0 <= sample && sample < samples) { weight[sample] += taper[i] * taper[i]; }
+            }
+        }
+        int from = 0, to = samples;
+        while (from < to && weight[from] <= WindowMassFloor) { from++; }
+        while (to > from && weight[to - 1] <= WindowMassFloor) { to--; }
+        return (from, to);
+    }
+
+    // The squared-window mass below which a normalized sample amplifies its own quantization noise rather than
+    // reconstructing — one named policy value the forward measurement and the synthesis trim both read.
+    private const double WindowMassFloor = 1e-24;
 
     internal static IO<Fin<SpectralOutput>> PowerSpectrogram(ReadOnlyMemory<float> signal, SignalContext policy, Instant at) =>
         ShortTime(signal, policy, at).Map(static result => result.Bind(output =>
@@ -833,7 +1008,7 @@ public static class Transform {
     internal static IO<Fin<SpectralOutput>> Welch(ReadOnlyMemory<float> signal, SignalContext policy, Instant at) {
         int frame = policy.FrameSize, hop = policy.HopSize, bins = frame / 2 + 1;
         int segments = 1 + (signal.Length - frame) / hop;
-        double[] taper = policy.Window.Taper(frame, periodic: false);
+        double[] taper = policy.Window.Taper(frame, periodic: false, policy.Shape);
         double u = 0.0;
         foreach (double t in taper) { u += t * t; }
         double norm = 1.0 / (policy.SampleRate * u * segments);
@@ -856,34 +1031,45 @@ public static class Transform {
     // DWT cascade over the stride-2 Conv1D lowering, halving the length per level — the same convolution lowering the FIR application rides, never a bespoke filter bank.
     internal static IO<Fin<SpectralOutput>> Wavelet(ReadOnlyMemory<float> signal, SignalContext policy, Instant at) {
         WaveletFamily family = policy.Wavelet;                  // policy-selected across haar/db2/db4/sym4/coif1.
+        WaveletExtension extension = policy.Extension;
         int levels = policy.Levels;
         double[] seed = new double[signal.Length];
         TensorPrimitives.ConvertChecked<float, double>(signal.Span, seed);
         double[] h = family.LowPass.ToArray(), g = family.HighPass();
         return Cascade((Approx: seed, Details: Seq<ReadOnlyMemory<double>>(), Extents: Seq<int>()), 0)
-            .Map(result => result.Map(state => (SpectralOutput)new SpectralOutput.Bands(new WaveletDecomposition(family, state.Details.Count, state.Approx, state.Details, [.. state.Extents], at))));
+            .Map(result => result.Map(state => (SpectralOutput)new SpectralOutput.Bands(
+                new WaveletDecomposition(family, extension, state.Details.Count, state.Approx, state.Details, [.. state.Extents], at))));
 
         // Mallat cascade as an immutable Fin-threaded fold (coarsest detail at the head, per-level parent extents recorded for the synthesis trim); the cascade stops when the approximation can no longer fill the QMF support, so realized `Levels` is whatever depth the signal admits.
         IO<Fin<(double[] Approx, Seq<ReadOnlyMemory<double>> Details, Seq<int> Extents)>> Cascade((double[] Approx, Seq<ReadOnlyMemory<double>> Details, Seq<int> Extents) state, int level) =>
             level >= levels || state.Approx.Length < h.Length
                 ? IO.pure(Fin.Succ(state))
-                : Convolve2(state.Approx, h, g).Bind(result => result.Match(
+                : Convolve2(state.Approx, h, g, extension).Bind(result => result.Match(
                     Succ: band => Cascade((band.Low, ((ReadOnlyMemory<double>)band.High).Cons(state.Details), state.Extents.Add(state.Approx.Length)), level + 1),
                     Fail: static error => IO.pure(Fin.Fail<(double[] Approx, Seq<ReadOnlyMemory<double>> Details, Seq<int> Extents)>(error))));
     }
 
     // One stride-2 Conv1D per QMF tap set: the approximation lowers through the factor lane against the reversed analysis filters (true convolution from cross-correlation), downsampled by 2.
-    private static IO<Fin<(double[] Low, double[] High)>> Convolve2(double[] x, double[] h, double[] g) =>
-        Downsample(x, h).Bind(low => low.Match(
-            Succ: admitted => Downsample(x, g).Map(high => high.Map(detail => (admitted, detail))),
+    private static IO<Fin<(double[] Low, double[] High)>> Convolve2(double[] x, double[] h, double[] g, WaveletExtension extension) =>
+        Downsample(x, h, extension).Bind(low => low.Match(
+            Succ: admitted => Downsample(x, g, extension).Map(high => high.Map(detail => (admitted, detail))),
             Fail: static error => IO.pure(Fin.Fail<(double[] Low, double[] High)>(error))));
 
-    private static IO<Fin<double[]>> Downsample(double[] x, double[] filter) =>
-        KernelLowering.Lower(TensorOpFamily.Conv1D,
-                Matrix<double>.Build.Dense(1, x.Length, (_, c) => x[c]),
-                Matrix<double>.Build.Dense(filter.Length, 1, (r, _) => filter[filter.Length - 1 - r]),
-                new ConvWindow([filter.Length], [2], [filter.Length / 2], [1], 1, 1, [x.Length]), new ShardPlan.Single())
-            .Map(result => result.Map(static y => y.ToColumnMajorArray()));
+    // The boundary mode is PRE-EXTENSION, never a second convolution kernel: the signal extends by the row's own
+    // law at the analysis shift `s = L/2 − 1`, the lowering convolves at pad 0, and the first ⌈N/2⌉ outputs are
+    // the band. Pushing the mode into the `Conv1D` padding argument would need a padding vocabulary the lowering
+    // owner does not have, and one boundary law would then live in two places.
+    private const int AnalysisShift = 1;
+
+    private static IO<Fin<double[]>> Downsample(double[] x, double[] filter, WaveletExtension extension) {
+        int taps = filter.Length, shift = taps / 2 - AnalysisShift, band = (x.Length + 1) / 2;
+        double[] z = extension.Extend(x, shift, taps - 1 - shift);
+        return KernelLowering.Lower(TensorOpFamily.Conv1D,
+                Matrix<double>.Build.Dense(1, z.Length, (_, c) => z[c]),
+                Matrix<double>.Build.Dense(taps, 1, (r, _) => filter[taps - 1 - r]),
+                new ConvWindow([taps], [2], [0], [1], 1, 1, [z.Length]), new ShardDispatch.Local())
+            .Map(result => result.Map(outcome => outcome.Solution.ToColumnMajorArray()[..band]));
+    }
 
     // --- [INVERSE] -- row-owned inverse kernels; each consumes the forward carrier, never raw samples.
 
@@ -923,7 +1109,7 @@ public static class Transform {
 
     internal static IO<Fin<ReadOnlyMemory<float>>> InvertFrames(SpectralOutput output) {
         if (output is not SpectralOutput.Frames { Spectrogram: Spectrogram.Phasor frames }) { return IO.pure(Fin.Fail<ReadOnlyMemory<float>>(ComputeFault.Create("<invert-carrier-miss>"))); }
-        double[] taper = frames.Window.Taper(frames.FrameSize, periodic: true);
+        double[] taper = frames.Window.Taper(frames.FrameSize, periodic: true, frames.Shape);
         double[] sum = new double[frames.Samples];
         double[] weight = new double[frames.Samples];
         double[] real = new double[frames.FrameSize];
@@ -956,9 +1142,12 @@ public static class Transform {
                 }
             }
         }
-        if (weight.Any(static value => value <= 1e-24)) { return IO.pure(Fin.Fail<ReadOnlyMemory<float>>(ComputeFault.Create("<stft-window-coverage>"))); }
-        float[] samples = new float[frames.Samples];
-        for (int i = 0; i < samples.Length; i++) { samples[i] = (float)(sum[i] / weight[i]); }
+        // Synthesis trims to the extent the FORWARD pass recorded rather than re-deriving one or refusing over
+        // an edge it already measured — only an empty extent is a refusal, and that is a frame grid covering
+        // nothing at all, never a signal whose interior reconstructs exactly.
+        if (frames.CoverTo <= frames.CoverFrom) { return IO.pure(Fin.Fail<ReadOnlyMemory<float>>(ComputeFault.Create($"<stft-window-coverage:{frames.CoverFrom}/{frames.CoverTo}>"))); }
+        float[] samples = new float[frames.CoverTo - frames.CoverFrom];
+        for (int i = 0; i < samples.Length; i++) { samples[i] = (float)(sum[frames.CoverFrom + i] / weight[frames.CoverFrom + i]); }
         return IO.pure(Fin.Succ<ReadOnlyMemory<float>>(samples));
     }
 
@@ -968,7 +1157,7 @@ public static class Transform {
         IO.pure(Fin.Fail<ReadOnlyMemory<float>>(ComputeFault.Create($"<invert-destroyed:{evidence}>")));
 
     // Inverse DWT feeds analysis filters unreversed to cross-correlating `Conv1D`, yielding the time-reversed synthesis convolution.
-    // Each level zero-stuffs approximation/detail, convolves at stride one, sums, and trims to its recorded parent extent.
+    // Each level zero-stuffs approximation/detail, extends under the RECORDED mode, convolves at stride one, sums, and trims to its recorded parent extent.
     internal static IO<Fin<ReadOnlyMemory<float>>> Synthesize(SpectralOutput output) {
         if (output is not SpectralOutput.Bands { Decomposition: WaveletDecomposition w }) { return IO.pure(Fin.Fail<ReadOnlyMemory<float>>(ComputeFault.Create("<invert-carrier-miss>"))); }
         double[] h = w.Family.LowPass.ToArray(), g = w.Family.HighPass();
@@ -976,7 +1165,7 @@ public static class Transform {
         return steps.Fold(
                 IO.pure(Fin.Succ(w.Approximation.ToArray())),
                 (effect, step) => effect.Bind(result => result.Match(
-                    Succ: approximation => Reconstruct(approximation, step.Detail.ToArray(), h, g, step.Extent),
+                    Succ: approximation => Reconstruct(approximation, step.Detail.ToArray(), h, g, w.Extension, step.Extent),
                     Fail: static error => IO.pure(Fin.Fail<double[]>(error)))))
             .Map(result => result.Map(static a => {
                 float[] samples = new float[a.Length];
@@ -985,9 +1174,9 @@ public static class Transform {
             }));
     }
 
-    private static IO<Fin<double[]>> Reconstruct(double[] approx, double[] detail, double[] h, double[] g, int extent) =>
-        Resample(approx, h).Bind(low => low.Match(
-            Succ: admitted => Resample(detail, g).Map(high => high.Map(detailBand => {
+    private static IO<Fin<double[]>> Reconstruct(double[] approx, double[] detail, double[] h, double[] g, WaveletExtension extension, int extent) =>
+        Resample(approx, h, extension, extent).Bind(low => low.Match(
+            Succ: admitted => Resample(detail, g, extension, extent).Map(high => high.Map(detailBand => {
                 double[] merged = new double[extent];
                 int span = Math.Min(extent, Math.Min(admitted.Length, detailBand.Length));
                 TensorPrimitives.Add(admitted.AsSpan(0, span), detailBand.AsSpan(0, span), merged.AsSpan(0, span));
@@ -997,14 +1186,20 @@ public static class Transform {
 
     // Zero-stuff by 2 then one stride-1 Conv1D — the transposed convolution spelled through the one lowering
     // owner; the filter feeds UNREVERSED because cross-correlation with h equals convolution with its reversal.
-    private static IO<Fin<double[]>> Resample(double[] x, double[] filter) {
+    // The synthesis shift is `L − 1 − s` against the analysis shift `s`, the perfect-reconstruction law
+    // `s_analysis + s_synthesis = L − 1` stated explicitly: both shifts are spelled, so neither is a constant
+    // one leg carries and the other silently assumes, which is exactly how an off-by-one PR drift survives a
+    // round-trip on Haar and breaks on every longer bank.
+    private static IO<Fin<double[]>> Resample(double[] x, double[] filter, WaveletExtension extension, int extent) {
+        int taps = filter.Length, shift = taps - 1 - (taps / 2 - AnalysisShift);
         double[] up = new double[2 * x.Length];
         for (int i = 0; i < x.Length; i++) { up[2 * i] = x[i]; }
+        double[] z = extension.Extend(up, shift, taps - 1 - shift);
         return KernelLowering.Lower(TensorOpFamily.Conv1D,
-                Matrix<double>.Build.Dense(1, up.Length, (_, c) => up[c]),
-                Matrix<double>.Build.Dense(filter.Length, 1, (r, _) => filter[r]),
-                new ConvWindow([filter.Length], [1], [filter.Length / 2], [1], 1, 1, [up.Length]), new ShardPlan.Single())
-            .Map(result => result.Map(static y => y.ToColumnMajorArray()));
+                Matrix<double>.Build.Dense(1, z.Length, (_, c) => z[c]),
+                Matrix<double>.Build.Dense(taps, 1, (r, _) => filter[r]),
+                new ConvWindow([taps], [1], [0], [1], 1, 1, [z.Length]), new ShardDispatch.Local())
+            .Map(result => result.Map(outcome => outcome.Solution.ToColumnMajorArray()[..Math.Min(extent, 2 * x.Length)]));
     }
 
     // --- [FILTER_DESIGN] -- FIR windowed-sinc, equiripple-over-QR, and the shared IIR bilinear map.
@@ -1012,7 +1207,7 @@ public static class Transform {
     // Windowed-sinc FIR: the ideal band impulse response tapered by the WindowKind window, the FilterBand row owning the band combine — so the windowed-sinc carries no per-band branch.
     internal static FilterCoefficients WindowedSinc(FilterContext spec) {
         int taps = spec.Order | 1;                              // odd length for a Type-I linear-phase center tap.
-        double[] window = spec.Window.Taper(taps, periodic: false);
+        double[] window = spec.Window.Taper(taps, periodic: false, spec.Shape);
         double[] lower = Kernel(spec.NormalizedCutoff);
         double[] upper = spec.Band.Upper ? Kernel(spec.NormalizedUpper) : [];   // second kernel only where the band reads a second edge.
         return new FilterCoefficients(FilterDesign.FirWindow, spec.Band.Combine(lower, upper, taps), new double[] { 1.0 });
@@ -1031,54 +1226,184 @@ public static class Transform {
         }
     }
 
-    // Equiripple FIR by the Lawson weighted-least-squares over the blas thin-QR across an EXPLICIT transition (don't-care) band, the `FilterBand` row supplying the per-frequency desired/weight (ripple-derived δp/δs) and the error envelope reweighting toward the Chebyshev minimax.
-    // Transition rows stay zero-weight so the solve never rings the brick-wall discontinuity — a single hard 0/1 step with uniform weight is the deleted naive form that Gibbs-rings.
-    internal static Fin<FilterCoefficients> Equiripple(FilterContext spec) {
-        int taps = spec.Order | 1, half = taps / 2 + 1, grid = 8 * taps;
+    // Equiripple FIR by the SECOND REMEZ EXCHANGE over an explicit transition (don't-care) band, the `FilterBand`
+    // row supplying the per-frequency desired/weight (ripple-derived δp/δs). Transition rows stay zero-weight so
+    // the design never chases the brick-wall discontinuity — a single hard 0/1 step with uniform weight is the
+    // deleted naive form that Gibbs-rings. Odd `taps` is FORCED (`spec.Order | 1`), so the design is Type I by
+    // construction and its cosine series P(ω) = Σ aₖ·cos(kω) has degree L = taps/2 — which is what makes L + 2
+    // the alternation count the acceptance test demands, on every band and at every order.
+    internal static Fin<FilterCoefficients> Equiripple(FilterContext spec, DenseSubstrate substrate) {
+        int taps = spec.Order | 1, degree = taps / 2, reference = degree + 2, grid = 16 * taps;
         double c1 = spec.NormalizedCutoff;
         double c2 = spec.NormalizedUpper > c1 && spec.NormalizedUpper < 1.0 ? spec.NormalizedUpper : Math.Min(0.99, c1 + Math.Max(0.05, 0.25 * (1.0 - c1)));
-        double transition = spec.Band.Upper ? Math.Min(0.25 * (c2 - c1), Math.Min(0.5 * c1, 0.5 * (1.0 - c2))) : 0.0;
+        // The transition width derives for EVERY band kind — a quarter of the band, bounded by the distance to
+        // each edge — because a single-edge band has a transition exactly as a two-edge one does; the zero a
+        // `Band.Upper` gate assigned to LP/HP collapsed their don't-care region and put the design back on the
+        // discontinuity the explicit band exists to avoid.
+        double transition = Math.Min(0.25 * (c2 - c1), Math.Min(0.5 * c1, 0.5 * (1.0 - c2)));
         double dp = (Math.Pow(10.0, spec.RippleDb / 20.0) - 1.0) / (Math.Pow(10.0, spec.RippleDb / 20.0) + 1.0);   // passband ripple δp.
         double ds = Math.Pow(10.0, -spec.StopbandDb / 20.0);                                                      // stopband ripple δs.
         double passWeight = 1.0, stopWeight = ds <= 0.0 ? 1.0 : dp / ds;                                          // heavier where the ripple bound is tighter.
-        Matrix<double> design = Matrix<double>.Build.Dense(grid, half, (r, c) => Math.Cos(Math.PI * ((double)r / (grid - 1)) * c));
-        Vector<double> target = Vector<double>.Build.Dense(grid);
-        Vector<double> weight = Vector<double>.Build.Dense(grid);
+        double[] omega = [.. Enumerable.Range(0, grid).Select(r => Math.PI * r / (grid - 1))];
+        double[] desired = new double[grid];
+        double[] weight = new double[grid];
         for (int r = 0; r < grid; r++) {
-            (double desired, double w) = spec.Band.Ideal((double)r / (grid - 1), c1, c2, transition, passWeight, stopWeight);
-            target[r] = desired; weight[r] = w;
+            (double d, double w) = spec.Band.Ideal(omega[r] / Math.PI, c1, c2, transition, passWeight, stopWeight);
+            (desired[r], weight[r]) = (d, w);
         }
-        Fin<(Vector<double> Coefficients, Vector<double> Weight, bool Converged)> fitted =
-            toSeq(Enumerable.Range(0, spec.Budget.MaxIterations)).Fold(
-                Fin.Succ((Vector<double>.Build.Dense(half), weight, false)),
-                (state, iteration) => state.Bind(current => {
-                    if (current.Converged) { return Fin.Succ(current); }
-                    Matrix<double> aw = Matrix<double>.Build.Dense(grid, half, (r, c) => Math.Sqrt(current.Weight[r]) * design[r, c]);
-                    Vector<double> bw = Vector<double>.Build.Dense(grid, r => Math.Sqrt(current.Weight[r]) * target[r]);
-                    return DenseRoute.Solve(new FactorRoute.Orthonormal(QRMethod.Thin, Modified: false), aw, bw, TolerancePolicy.Derive(aw, bw))
-                        .Map(coefficients => {
-                            Vector<double> response = design * coefficients;
-                            // Lawson reweight MULTIPLIES the running weight by the error envelope, renormalized by the peak — a replacing
-                            // update discards the δp/δs band ratio after one pass, an unnormalized product underflows over the iteration.
-                            double[] raw = [.. Enumerable.Range(0, grid).Select(r => current.Weight[r] <= 0.0 ? 0.0 : current.Weight[r] * Math.Abs(response[r] - target[r]))];
-                            double peak = TensorPrimitives.Max<double>(raw);
-                            Vector<double> nextWeight = peak > 0.0 ? Vector<double>.Build.DenseOfArray(raw) / peak : current.Weight;
-                            bool converged = iteration > 0 &&
-                                TensorPrimitives.Distance<double>(coefficients.ToArray(), current.Coefficients.ToArray()) <=
-                                spec.Budget.Tolerance * (1.0 + TensorPrimitives.Norm<double>(coefficients.ToArray()));
-                            return (coefficients, nextWeight, converged);
-                        });
-                }));
-        return fitted.Bind(state => state.Converged
-            ? Fin.Succ(Symmetric(state.Coefficients, taps))
-            : Fin.Fail<FilterCoefficients>(ComputeFault.Create($"<remez-nonconverged:{spec.Budget.MaxIterations}>")));
+        int[] live = [.. Enumerable.Range(0, grid).Where(r => weight[r] > 0.0)];
+        if (live.Length < reference) { return Fin.Fail<FilterCoefficients>(ComputeFault.Create($"<remez-grid:{live.Length}<{reference}>")); }
+        return Seed(spec, omega, desired, weight, live, degree, reference, substrate)
+            .Bind(seed => Exchange(seed, omega, desired, weight, live, degree, reference, spec.Budget))
+            .Map(levelled => Symmetric(Recover(levelled, omega, desired, weight, degree), taps));
+    }
 
-        static FilterCoefficients Symmetric(Vector<double> halfBand, int taps) {
-            int mid = taps / 2;
-            double[] b = new double[taps];
-            for (int i = 0; i < taps; i++) { int k = Math.Abs(i - mid); b[i] = halfBand[k] * (k == 0 ? 1.0 : 0.5); }   // cosine-series center tap a₀, off-center aₖ/2.
-            return new FilterCoefficients(FilterDesign.FirRemez, b, new double[] { 1.0 });
+    // The initial reference set: one weighted-least-squares pass over the live grid places the alternation
+    // pattern far better than a uniform spread on a narrow transition band, and the extrema of THAT error are
+    // the seed. This is Lawson's one surviving role — a seed, never the design — and the same routine takes a
+    // converged lower-degree reference by scaling its abscissae, so a design swept over order re-seeds from its
+    // own predecessor instead of restarting the exchange from scratch at every degree.
+    // The composition-selected `DenseSubstrate` threads in as a value, so the seed's least-squares leg declares
+    // the substrate it runs on and the witnessed carrier reports which one actually SERVED it — a native leg
+    // that declined and degraded to the managed terminal is visible here rather than assumed.
+    private static Fin<int[]> Seed(
+        FilterContext spec, double[] omega, double[] desired, double[] weight, int[] live, int degree, int reference, DenseSubstrate substrate) {
+        Matrix<double> a = Matrix<double>.Build.Dense(live.Length, degree + 1, (r, c) => Math.Sqrt(weight[live[r]]) * Math.Cos(omega[live[r]] * c));
+        Vector<double> b = Vector<double>.Build.Dense(live.Length, r => Math.Sqrt(weight[live[r]]) * desired[live[r]]);
+        return DenseRoute.Solve(new FactorRoute.Orthonormal(QRMethod.Thin, Modified: false), a, b, TolerancePolicy.Derive(a, b), substrate)
+            .Map(solved => {
+                double[] error = [.. live.Select(r => weight[r] * (Cosine(solved.X, omega[r]) - desired[r]))];
+                int[] extrema = Alternating(error, live);
+                return extrema.Length >= reference ? Trimmed(extrema, error, live, reference) : Spread(live, reference);
+            });
+    }
+
+    // One exchange step: level the error on the current reference, locate the alternating extrema of the
+    // levelled error over the whole live grid, and exchange. Termination is the de la Vallée Poussin ratio
+    // C = ‖E‖∞ / min|E(ωᵢ)| over the reference — bounded below by 1 and equal to 1 exactly at the Chebyshev
+    // optimum — accepted at C − 1 ≤ ε_t, which `FitBudget.Tolerance` IS. A coefficient-distance test is the
+    // DELETED form: it measures the iterate's motion, not its levelling, and it accepts a stalled exchange
+    // whose error is nowhere near equioscillating.
+    private static Fin<int[]> Exchange(
+        int[] seed, double[] omega, double[] desired, double[] weight, int[] live, int degree, int reference, FitBudget budget) =>
+        toSeq(Enumerable.Range(0, budget.MaxIterations))
+            .Fold(Fin.Succ((Reference: seed, Levelled: false)), (acc, _) => acc.Bind(state => {
+                if (state.Levelled) { return acc; }
+                double delta = Levelled(state.Reference, omega, desired, weight);
+                double[] error = [.. live.Select(r => weight[r] * (Interpolated(state.Reference, omega, desired, weight, delta, omega[r]) - desired[r]))];
+                int[] extrema = Alternating(error, live);
+                if (extrema.Length < reference) { return Fin.Fail<(int[], bool)>(ComputeFault.Create($"<remez-alternation:{extrema.Length}<{reference}>")); }
+                int[] next = Trimmed(extrema, error, live, reference);
+                Dictionary<int, double> magnitude = live.Select((r, i) => (r, i)).ToDictionary(row => row.r, row => Math.Abs(error[row.i]));
+                double peak = next.Max(r => magnitude[r]);
+                double floor = next.Min(r => magnitude[r]);
+                return Fin.Succ((next, floor > 0.0 && peak / floor - 1.0 <= budget.Tolerance));
+            }))
+            .Bind(state => state.Levelled
+                ? Fin.Succ(state.Reference)
+                : Fin.Fail<int[]>(ComputeFault.Create($"<remez-nonconverged:{budget.MaxIterations}>")));
+
+    // Levelling solves for the equioscillation amplitude δ in CLOSED form off the barycentric weights:
+    // δ = Σ bₖ·D(ωₖ) / Σ (−1)ᵏ·bₖ / W(ωₖ). The barycentric form is mandatory — the cos(kω) Vandermonde it
+    // replaces is exponentially ill-conditioned in the degree, so a moderately long filter's levelled system
+    // returns coefficients whose own residual dwarfs the ripple the exchange is trying to equalize.
+    private static double Levelled(int[] reference, double[] omega, double[] desired, double[] weight) {
+        double[] b = Barycentric(reference, omega);
+        double numerator = 0.0, denominator = 0.0;
+        for (int k = 0; k < reference.Length; k++) {
+            numerator += b[k] * desired[reference[k]];
+            denominator += ((k & 1) == 0 ? 1.0 : -1.0) * b[k] / weight[reference[k]];
         }
+        return numerator / denominator;
+    }
+
+    // The levelled interpolant through (xₖ, D(ωₖ) − (−1)ᵏ·δ/W(ωₖ)) in the barycentric second form; the x-axis
+    // is cos ω, on which the cosine series IS a polynomial of the design's own degree.
+    private static double Interpolated(int[] reference, double[] omega, double[] desired, double[] weight, double delta, double at) {
+        double[] b = Barycentric(reference, omega);
+        double x = Math.Cos(at), numerator = 0.0, denominator = 0.0;
+        for (int k = 0; k < reference.Length; k++) {
+            double dx = x - Math.Cos(omega[reference[k]]);
+            if (dx == 0.0) { return desired[reference[k]] - ((k & 1) == 0 ? 1.0 : -1.0) * delta / weight[reference[k]]; }
+            double share = b[k] / dx;
+            numerator += share * (desired[reference[k]] - ((k & 1) == 0 ? 1.0 : -1.0) * delta / weight[reference[k]]);
+            denominator += share;
+        }
+        return numerator / denominator;
+    }
+
+    private static double[] Barycentric(int[] reference, double[] omega) {
+        double[] b = new double[reference.Length];
+        for (int k = 0; k < reference.Length; k++) {
+            double product = 1.0, xk = Math.Cos(omega[reference[k]]);
+            for (int j = 0; j < reference.Length; j++) {
+                if (j != k) { product *= xk - Math.Cos(omega[reference[j]]); }
+            }
+            b[k] = 1.0 / product;
+        }
+        return b;
+    }
+
+    // Local extrema of the weighted error whose signs ALTERNATE: a run of same-signed peaks contributes only its
+    // largest, because the alternation count — not the extremum count — is what the equioscillation theorem
+    // certifies, and counting a same-signed pair twice accepts a design that never equioscillated.
+    private static int[] Alternating(double[] error, int[] live) {
+        List<int> picked = [];
+        for (int i = 0; i < error.Length; i++) {
+            bool peak = (i == 0 || Math.Abs(error[i]) >= Math.Abs(error[i - 1])) &&
+                        (i == error.Length - 1 || Math.Abs(error[i]) > Math.Abs(error[i + 1]));
+            if (!peak || error[i] == 0.0) { continue; }
+            if (picked.Count > 0 && Math.Sign(error[i]) == Math.Sign(error[picked[^1]])) {
+                if (Math.Abs(error[i]) > Math.Abs(error[picked[^1]])) { picked[^1] = i; }
+                continue;
+            }
+            picked.Add(i);
+        }
+        return [.. picked.Select(i => live[i])];
+    }
+
+    // More alternations than the reference admits: keep the largest-magnitude contiguous run of exactly
+    // `reference` of them, because dropping from an end preserves the alternating sign pattern where dropping
+    // the globally smallest does not.
+    private static int[] Trimmed(int[] extrema, double[] error, int[] live, int reference) {
+        Dictionary<int, double> magnitude = live.Select((r, i) => (r, i)).ToDictionary(row => row.r, row => Math.Abs(error[row.i]));
+        int best = 0;
+        double bestFloor = double.NegativeInfinity;
+        for (int start = 0; start + reference <= extrema.Length; start++) {
+            double floor = Enumerable.Range(start, reference).Min(k => magnitude[extrema[k]]);
+            if (floor > bestFloor) { (best, bestFloor) = (start, floor); }
+        }
+        return extrema[best..(best + reference)];
+    }
+
+    private static int[] Spread(int[] live, int reference) =>
+        [.. Enumerable.Range(0, reference).Select(k => live[(int)((long)k * (live.Length - 1) / (reference - 1))])];
+
+    // The converged reference determines the interpolant, and the cosine coefficients recover from it by the
+    // exact DCT-I over `degree + 1` abscissae: P is a degree-`degree` polynomial in cos ω, so sampling it there
+    // and inverting is exact, never a least-squares refit that would move the design off its own levelling.
+    private static Vector<double> Recover(int[] reference, double[] omega, double[] desired, double[] weight, int degree) {
+        double delta = Levelled(reference, omega, desired, weight);
+        double[] node = [.. Enumerable.Range(0, degree + 1).Select(m => Math.PI * m / degree)];
+        double[] value = [.. node.Select(w => Interpolated(reference, omega, desired, weight, delta, w))];
+        return Vector<double>.Build.Dense(degree + 1, k => {
+            double sum = 0.0;
+            for (int m = 0; m <= degree; m++) {
+                double half = m == 0 || m == degree ? 0.5 : 1.0;
+                sum += half * value[m] * Math.Cos(Math.PI * k * m / degree);
+            }
+            return 2.0 * sum / degree;
+        });
+    }
+
+    private static double Cosine(Vector<double> coefficients, double at) =>
+        Enumerable.Range(0, coefficients.Count).Sum(k => coefficients[k] * Math.Cos(at * k));
+
+    private static FilterCoefficients Symmetric(Vector<double> halfBand, int taps) {
+        int mid = taps / 2;
+        double[] b = new double[taps];
+        for (int i = 0; i < taps; i++) { int k = Math.Abs(i - mid); b[i] = halfBand[k] * (k == 0 ? 1.0 : 0.5); }   // cosine-series center tap a₀, off-center aₖ/2.
+        return new FilterCoefficients(FilterDesign.FirRemez, b, new double[] { 1.0 });
     }
 
     // One bilinear map for every IIR family AND band: pre-warp the band edge(s), the `FilterBand` row frequency-transforming the normalized-lowpass prototype to the LP/HP/BP/BS s-plane
@@ -1095,7 +1420,7 @@ public static class Transform {
         double k = proto.Gain * bandGain * Real(Product(sZeros.Select(s => fs2 - s)) / Product(sPoles.Select(s => fs2 - s)));
         return new FilterCoefficients(design, Expand(zZeros, k), Expand(zPoles, 1.0));
 
-        static Complex Product(System.Collections.Generic.IEnumerable<Complex> xs) { Complex p = Complex.One; foreach (Complex x in xs) { p *= x; } return p; }
+        static Complex Product(IEnumerable<Complex> xs) { Complex p = Complex.One; foreach (Complex x in xs) { p *= x; } return p; }
         static double Real(Complex c) => c.Real;
         // Expand ∏(z − root) to a real coefficient polynomial; conjugate-paired roots cancel the imaginary part.
         static double[] Expand(Complex[] roots, double scale) {
@@ -1225,5 +1550,4 @@ public static class Transform {
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
 -->
 
-- [REMEZ_EXCHANGE]-[OPEN]: exact alternation-set convergence proof for the equiripple Lawson weighted-least-squares iteration; verify against the Chebyshev equioscillation theorem at the filter-design gate.
-- [DWT_BOUNDARY]-[OPEN]: boundary mode for the DWT cascade — the `Conv1D` lowering zero-pads while a symmetric/periodic extension preserves perfect reconstruction at signal edges, so the landed synthesis bank is edge-exact only in the interior; verify the extension mode at the reconstruction gate.
+(none)

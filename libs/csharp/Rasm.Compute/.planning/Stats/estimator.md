@@ -1,24 +1,29 @@
 # [COMPUTE_ESTIMATOR]
 
-Rasm.Compute statistical-learning lane: one `Estimator` `[Union]` carrying a uniform `Fit(Estimator, Design, EstimatorPolicy, IClock) → FittedModel` / `Predict(FittedModel, X) → Prediction` contract across regression, reduction, clustering, classification, forecasting, changepoint, and anomaly families, keyed to one `EstimatorModel` fit-result carrier. Contract stays uniform while every row owns its own mechanism, which `[02]` fixes row by row. `Design.Admit` proves raw evidence once; row admission then proves response, feature, label, history, curve-support, and detector ranges.
+Rasm.Compute statistical-learning lane: one `Estimator` `[Union]` carrying a uniform `Fit(Estimator, Design, EstimatorPolicy, IClock) → FittedModel` / `Predict(FittedModel, PredictQuery) → Prediction` contract across regression, reduction, clustering, classification, forecasting, changepoint, and anomaly families, keyed to one `EstimatorModel` fit-result carrier. Contract stays uniform while every row owns its own mechanism, which `[02]` fixes row by row. `Design.Admit` proves raw evidence once; row admission then proves response support, feature, label, history, curve-support, detector range, kernel parameter, and row-count ceiling.
 
-Dense factorizations ride `Tensor/blas#DENSE_ALGEBRA`; descriptive, regression, and distribution surfaces ride `MathNet.Numerics`; `ComputeReceipt`, `WorkLane`/`Substrate`/`AllocationClass`, `CorrelationId`, and `ComparerAccessors.StringOrdinal` arrive settled; NodaTime `IClock` supplies instants — the App-owned `ClockPolicy` stays at composition. Conditioned multi-channel evidence enters detection from `Stats/signal#SIGNAL_LANE`; a fit lands the dedicated `Runtime/receipts#RECEIPT_UNION` `Fit` case; offline deep-training studies cross `ONE_GRADUATION_EVIDENCE` by content key.
+Dense factorizations ride `Tensor/blas#DENSE_ALGEBRA`; descriptive, regression, and distribution surfaces ride `MathNet.Numerics`; criterion sums accumulate exactly through `PeterO.Numbers`; `ComputeReceipt`, `WorkLane`/`Substrate`/`AllocationClass`, `CorrelationId`, and `ComparerAccessors.StringOrdinal` arrive settled; NodaTime `IClock` supplies instants — the App-owned `ClockPolicy` stays at composition; `Tensor/blas#DENSE_ALGEBRA` `AtenFloor.Configure` pins the torch default dtype once at boot and no fit re-pins it. Conditioned multi-channel evidence enters detection from `Stats/signal#SIGNAL_LANE`; a fit lands the dedicated `Runtime/receipts#RECEIPT_UNION` `Fit` case; offline deep-training studies cross `GraduationEvidence` by content key, and the published model-asset manifest riding that envelope is the sole signature authority — the graduation-decode gate reads feature names off the manifest, never off a companion-published tensor signature.
 
 ## [01]-[INDEX]
 
-- [02]-[ESTIMATOR_LANE]: Fit/Predict/Validate contract over one `EstimatorModel` carrier and one `Prediction` egress; `TemporalSpec` generates forecasting, CUSUM, Bayesian-online, and correlated-residual rows without reconstructible knobs.
-- [01.1]-[HYPOTHESIS_LAW]: `StatisticalTest` axis binding each row's statistic kernel, sample-arity floor, and p-value tail over the matching `Distributions` CDF.
+- [02]-[ESTIMATOR_LANE]: Fit/Predict/Validate/Select contract over one `EstimatorModel` carrier and one `Prediction` egress; `TemporalSpec` generates forecasting, CUSUM, Bayesian-online, and correlated-residual rows without reconstructible knobs.
+- [02.1]-[HYPOTHESIS_LAW]: `StatisticalTest` axis binding each row's statistic kernel, sample-arity floor, and p-value tail over the matching `Distributions` CDF.
 
 ## [02]-[ESTIMATOR_LANE]
 
-- Owner: `EstimatorFamily` is the receipt family axis; `EstimatorKind` rows carry supervised fit behavior; `TimeSeriesModel` rows carry forecast or detector fit behavior; `CurveForm` rows carry the coefficient fit and the evaluator for one curve shape; `TemporalSpec` is the parameterized temporal generator and derives its `TimeSeriesModel`, `CurveSpec` the parameterized curve generator deriving its `CurveForm`; `Estimator` types the problem; `ClusterShape` types grouping ingress; `EstimatorModel` carries fitted parameters; `Prediction` types response, projection, assignment, or anomaly egress; `Design` admits evidence once; `EstimatorPolicy` admits family policy; `FitContext` carries the proven correspondence; `IterativeEngine` owns torch-loss fitting; `EstimatorFold` owns `Fit`, `Predict`, and `Validate`.
-- Cases: `EstimatorFamily` regression · reduction · cluster · classify · temporal; `EstimatorKind` owns the supervised/reduction/grouping/classification rows; `TimeSeriesModel` owns ar · arma · exponential-smoothing · state-space · cusum · bayesian-online · correlated-residual; `CurveForm` owns polynomial · exponential · power · logarithm · combination; `TemporalSpec` and `CurveSpec` each carry one parameter-complete case per row; `Estimator.Curve` reports the regression family so the held-out validator scores it with no second split policy; `EstimatorModel` adds `Curve` and `Detector` beside the fit carriers; `Prediction` adds `Anomaly` beside `Response`/`Projection`/`Assignment`.
-- Entry: `Design.Admit(Matrix<double>, Option<Vector<double>>)` proves non-empty, finite, aligned evidence. `Fit` proves family correspondence, policy ranges, estimator support, and `TemporalSpec` history/ranges before dispatch. `Predict` projects, assigns, forecasts, or scores anomalies through the total `EstimatorModel` switch. `Validate` scores supervised held-out folds and forecasting forward chains; unsupervised detectors do not fabricate validation labels.
-- Auto: `Fit` flattens unions once into `FitContext`, then dispatches the row kernel. Curve rows run one shared kernel that captures the library fit, proves the coefficient census and finiteness, and scores `RSquared` and `StandardError` on the original response scale rather than the linearized one the library fits on, so an exponential row's quality compares with a polynomial's. Temporal forecasting routes AR through thin QR and ARMA/Holt/state-space through `LevenbergMarquardt`; detection fits one admitted multivariate Gaussian baseline through `Admission.Definite`, then CUSUM folds whitened innovation magnitude, Bayesian-online maintains a budget-capped run-length posterior with conjugate known-covariance mean updates, and correlated-residual scoring reads a `ChiSquared.InvCDF` threshold over Mahalanobis evidence. `Validate` derives contiguous, forward-chain, or unsupported behavior from the typed estimator case.
+- Owner: `EstimatorFamily` is the receipt family axis; `EstimatorKind` rows carry supervised fit behavior; `GlmFamily` rows carry one exponential-family law — exact unit deviance, variance function, canonical link, response support, and the θ-dependent torch deviance kernel; `LinkFunction` rows carry the inverse link in both the scalar and tensor arities; `KernelRow` rows carry one positive-definite kernel and its Gram, `KernelParams` its per-occurrence parameters; `TimeSeriesModel` rows carry forecast or detector fit behavior; `CurveForm` rows carry the coefficient fit and the evaluator for one curve shape; `TemporalSpec` is the parameterized temporal generator and derives its `TimeSeriesModel`, `CurveSpec` the parameterized curve generator deriving its `CurveForm`; `Estimator` types the problem; `ClusterShape` types grouping ingress; `PredictQuery` types prediction ingress as evidence or horizon; `EstimatorModel` carries fitted parameters; `Prediction` types response, projection, assignment, or anomaly egress; `Design` admits evidence once; `EstimatorPolicy` admits family policy and `ScaleCeiling` caps the quadratic and cubic kernels; `FitContext` carries the proven correspondence beside the composition-supplied clock and dense substrate; `IterativeEngine` owns torch-loss fitting; `InformationCriterion` rows score a fitted likelihood, `SelectionPolicy` admits the selection request and `SelectionReport` carries its ranked verdict; `EstimatorFold` owns `Fit`, `Predict`, `Validate`, and `Select`.
+- Cases: `EstimatorFamily` regression · reduction · cluster · classify · temporal; `EstimatorKind` owns the supervised/reduction/grouping/classification rows, `glm` being ONE row parameterized by `GlmFamily` and `c-svm` the sparse-dual sibling of the dense `svm`; `GlmFamily` owns gaussian · poisson · binomial · gamma · inverse-gaussian; `LinkFunction` owns identity · logit · log · inverse · inverse-squared; `KernelRow` owns linear · polynomial · rbf · sigmoid; `InformationCriterion` owns aic · bic; `TimeSeriesModel` owns ar · arma · exponential-smoothing · state-space · cusum · bayesian-online · correlated-residual; `CurveForm` owns polynomial · exponential · power · logarithm · combination; `TemporalSpec` and `CurveSpec` each carry one parameter-complete case per row; `Estimator.Curve` reports the regression family so the held-out validator scores it with no second split policy; `EstimatorModel` adds `Curve` and `Detector` beside the fit carriers; `Prediction` adds `Anomaly` beside `Response`/`Projection`/`Assignment`.
+- Entry: `Design.Admit(Matrix<double>, Option<Vector<double>>)` proves non-empty, finite, aligned evidence. `Fit` proves family correspondence, policy ranges, estimator support, kernel parameters, row-count ceilings, and `TemporalSpec` history/ranges before dispatch. `Predict` projects, assigns, forecasts, or scores anomalies through the total `EstimatorModel` switch over one `PredictQuery` ingress. `Validate` scores supervised held-out folds and forecasting forward chains; unsupervised detectors do not fabricate validation labels. `Select(Estimator, Design, Seq<EstimatorPolicy>, SelectionPolicy, IClock, DenseSubstrate)` fits each candidate, scores its information criterion where the fit carries a likelihood, folds its validation spread, and returns one ranked `SelectionReport`. Every fold entry takes the composition-selected `DenseSubstrate` beside the clock and seats it on `FitContext`, so the closed-form thin-QR, the LS-SVM KKT solve, and the AR lag solve each declare the dense leg they run on.
+- Auto: `Fit` flattens the estimator's typed payloads once into `FitContext` — which carries the policy union member itself, never a zero-filled scalar tail — then dispatches the row kernel. Every GLM cell is ONE composition: the family's θ-dependent unit-deviance kernel evaluated at the link's own tensor inverse, so a `Link` override changes fit and prediction together and no per-(family, link) loss row exists. Curve rows run one shared kernel that captures the library fit, proves the coefficient census and finiteness, and scores `RSquared` and `StandardError` on the original response scale rather than the linearized one the library fits on, so an exponential row's quality compares with a polynomial's. `c-svm` runs SMO with second-order working-set selection under a byte-budgeted column-LRU kernel cache. Temporal forecasting routes AR through thin QR and ARMA/Holt/state-space through `LevenbergMarquardt`; detection fits one admitted multivariate Gaussian baseline through `Admission.Definite`, then CUSUM folds whitened innovation magnitude, Bayesian-online maintains a budget-capped run-length posterior with conjugate known-covariance mean updates, and correlated-residual scoring reads a `ChiSquared.InvCDF` threshold over Mahalanobis evidence. `Validate` derives contiguous, forward-chain, or unsupported behavior from the typed estimator case.
 - Receipt: a fit emits the dedicated `Fit` `ComputeReceipt` case `Runtime/receipts#RECEIPT_UNION` declares for this lane (one case row per measured concern, as the FEA `Solver/contract#SOLVE_CONTRACT` `Solve` and the optimizer/sweep/clash/twin/uncertainty cases each own a row rather than overloading a sibling), carrying family, estimator key, carrier parameter count, iteration count, residual, converged flag, the named fit-quality value, the metric label read off the row's `Metric` column (never a per-arm literal), and retained reduction rank; a closed-form fit ALSO emits the blas `Factorization` receipt under the same `CorrelationId`. Fit-quality and rank read back operator-visibly through the receipt stream (a stall through `ReceiptFolds.Nonconverged`) instead of dying write-only on the carrier.
-- Packages: MathNet.Numerics, TorchSharp, libtorch-cpu, HyperJet (temporal-fit exact-Jacobian scalar-AD — recurrences authored once over `DDScalar`, the LM hyperdual arm reading `GetGradient()`), System.Numerics.Tensors, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm (project, kernel signal capsule), Rasm.Persistence (project), BCL inbox
-- Growth: a new temporal modality is one `TemporalSpec` case deriving one `TimeSeriesModel` row and binding one kernel; a new curve shape is one `CurveSpec` case deriving one `CurveForm` row carrying its coefficient fit and evaluator, with the shared kernel untouched; each spec owns every non-reconstructible parameter. New fitted or prediction shapes extend `EstimatorModel` or `Prediction` only when payload timing differs. Per-model estimator classes, detector DTOs, and universal temporal knob records are rejected.
-- Boundary: each row binds its genuine mechanism; forced SVD or torch-loss routing is rejected. Curve rows are univariate by construction — a multi-column design is a typed refusal, not a silent first-column read — and each row proves the support its own linearization needs, so a non-positive response never reaches an exponential log and a non-positive feature never reaches a power or logarithm log. Closed-form estimators reuse `Tensor/blas#DENSE_ALGEBRA`, GLM rows minimize canonical-link deviance, specialized grouping rows retain their mutation-local kernels, and detector covariance factors through `Admission.Definite`. `Prediction` is total across response, projection, assignment, and anomaly evidence; neither `Tensor` nor an untyped score array crosses the boundary. `Stats/signal#SIGNAL_LANE` produces conditioned evidence, Stats owns reusable changepoint/anomaly detection, and the digital twin consumes that detector beside its optimizer-owned surrogate. Hypothesis tests validate `Solver/uncertainty#UNCERTAINTY_LANE` samples; offline deep training remains Python-owned behind `ONE_GRADUATION_EVIDENCE`.
+- Packages: MathNet.Numerics, TorchSharp, libtorch-cpu, HyperJet (temporal-fit exact-Jacobian scalar-AD — recurrences authored once over `DDScalar`, the LM hyperdual arm reading `GetGradient()`), PeterO.Numbers (exact criterion accumulation), System.Numerics.Tensors, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm (project, kernel signal capsule), Rasm.Persistence (project), BCL inbox
+- Growth: a new exponential family is one `GlmFamily` row and the `glm` kind is untouched; a new link is one `LinkFunction` row carrying both arities; a new kernel is one `KernelRow` row every kernel consumer inherits; a new selection criterion is one `InformationCriterion` row. A new temporal modality is one `TemporalSpec` case deriving one `TimeSeriesModel` row and binding one kernel; a new curve shape is one `CurveSpec` case deriving one `CurveForm` row carrying its coefficient fit and evaluator, with the shared kernel untouched; each spec owns every non-reconstructible parameter. New fitted or prediction shapes extend `EstimatorModel` or `Prediction` only when payload timing differs. Per-model estimator classes, detector DTOs, per-family GLM kinds, per-kernel Gram helpers, and universal temporal knob records are rejected.
+- Boundary: each row binds its genuine mechanism; forced SVD or torch-loss routing is rejected. Curve rows are univariate by construction — a multi-column design is a typed refusal, not a silent first-column read — and each row proves the support its own linearization needs, so a non-positive response never reaches an exponential log and a non-positive feature never reaches a power or logarithm log.
+- Boundary: the GLM deviance is elementary — the exponential-family normalizer cancels between the fitted and the saturated model, so NO `MathNet.Numerics.Distributions` member enters the deviance, the deviance-explained metric, or the scaled deviance. `Poisson` and `Binomial` expose no `InvCDF` at all, `InverseGaussian` spells its instance quantile `InvCDF(double)` where every sibling spells `InverseCumulativeDistribution`, its `Median` Brent-solves and can throw, and `Gamma` is rate-parameterized (`WithShapeScale` is the scale form) — so a family that reached for a distribution instance would reach for four different contracts.
+- Boundary: `LinkFunction.Inverse` is `g(μ)=1/μ` with domain `η > 0`, the statsmodels `InversePower` link; LBFGS steps out of that domain on the way to the optimum, so the Gamma inverse-link arm gates `η > 0` and refuses typed rather than returning a NaN loss — statsmodels ships `safe_links = [Log]` for exactly this reason and the log link stays the canonical route.
+- Boundary: the LS-SVM bordered KKT system is symmetric INDEFINITE, so it rides `FactorRoute.SquarePivoting` and `Admission.Definite` never gates it; SMO materializes no factorization at all and gates only its second-order denominator `a_it > τ`. Closed-form estimators reuse `Tensor/blas#DENSE_ALGEBRA`, specialized grouping rows retain their mutation-local kernels, and detector covariance factors through `Admission.Definite`.
+- Boundary: quadratic and cubic kernels refuse above their own `ScaleCeiling` instead of running unbounded — agglomerative linkage is cubic in the merge sweep, and the Gram, the DBSCAN region query, and the kNN leave-one-out score are each quadratic — because a building-scale design silently converts an admitted fit into an unkillable one.
+- Boundary: `Prediction` is total across response, projection, assignment, and anomaly evidence; neither `Tensor` nor an untyped score array crosses the boundary. `Stats/signal#SIGNAL_LANE` produces conditioned evidence, Stats owns reusable changepoint/anomaly detection, and the digital twin consumes that detector beside its optimizer-owned surrogate. Hypothesis tests validate `Solver/uncertainty#UNCERTAINTY_LANE` samples; offline deep training remains Python-owned behind `GraduationEvidence`.
 
 ```csharp signature
 [SmartEnum<string>]
@@ -32,22 +37,189 @@ public sealed partial class EstimatorFamily {
     public static readonly EstimatorFamily Temporal = new("temporal");
 }
 
+// One row carries the inverse link g⁻¹(η) in BOTH arities — the scalar the prediction fold applies and the
+// tensor the fit's loss composes — so a `Link` override moves the fitted objective and the predicted mean
+// together. The variance function V(μ) is the FAMILY's, never the link's: identity paired with a binomial
+// family still weights by μ(1−μ), and a link-owned variance silently reports the Gaussian one.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class LinkFunction {
-    // Mean = the inverse link g⁻¹(η) applied at predict; Variance = the family variance V(μ) the GLM
-    // dispersion/working weight reads. Identity is Gaussian (constant V=1) — NOT the Bernoulli μ(1−μ).
-    public static readonly LinkFunction Identity = new("identity", static eta => eta, static _ => 1.0);
-    public static readonly LinkFunction Logit = new("logit", static eta => 1.0 / (1.0 + Math.Exp(-eta)), static mu => Math.Max(1e-9, mu * (1.0 - mu)));
-    public static readonly LinkFunction Log = new("log", static eta => Math.Exp(eta), static mu => Math.Max(1e-9, mu));
-    public static readonly LinkFunction Inverse = new("inverse", static eta => 1.0 / eta, static mu => mu * mu);
+    public static readonly LinkFunction Identity = new("identity", static eta => eta, static eta => eta, domain: static _ => true);
+    public static readonly LinkFunction Logit = new("logit", static eta => 1.0 / (1.0 + Math.Exp(-eta)), static eta => torch.special.expit(eta), domain: static _ => true);
+    public static readonly LinkFunction Log = new("log", static eta => Math.Exp(eta), static eta => eta.exp(), domain: static _ => true);
+    // g(μ)=1/μ, the statsmodels `InversePower` link: η is the RECIPROCAL mean, so the domain is η > 0 and an
+    // unconstrained LBFGS step reaches η ≤ 0 on the way to the optimum — the gate refuses there rather than
+    // returning a NaN loss the driver reads as progress. statsmodels ships `safe_links = [Log]` for the same reason.
+    public static readonly LinkFunction Inverse = new("inverse", static eta => 1.0 / eta, static eta => eta.pow(-1.0), domain: static eta => eta > 0.0);
+    // Inverse-Gaussian's canonical g(μ)=1/μ², so g⁻¹(η)=η^(−1/2) under the same positive-η domain.
+    public static readonly LinkFunction InverseSquared = new("inverse-squared", static eta => 1.0 / Math.Sqrt(eta), static eta => eta.pow(-0.5), domain: static eta => eta > 0.0);
 
-    private readonly Func<double, double> inverseLink;
-    private readonly Func<double, double> variance;
+    private LinkFunction(string key, Func<double, double> scalar, Func<Tensor, Tensor> tensor, Func<double, bool> domain) : this(key) {
+        this.scalar = scalar;
+        this.tensor = tensor;
+        this.domain = domain;
+    }
 
-    public double Mean(double eta) => inverseLink(eta);
-    public double Variance(double mu) => variance(mu);
+    private readonly Func<double, double> scalar;
+    private readonly Func<Tensor, Tensor> tensor;
+    private readonly Func<double, bool> domain;
+
+    public double Mean(double eta) => scalar(eta);
+
+    internal Tensor Mean(Tensor eta) => tensor(eta);
+
+    // The linear predictor's admissible range, proved over the FITTED η before the carrier lands and over the
+    // predicted η before a mean leaves; an out-of-domain η is a typed refusal naming the link.
+    internal Fin<Unit> Domain(Vector<double> eta) =>
+        eta.All(domain) ? Fin.Succ(unit) : Fin.Fail<Unit>(ComputeFault.Create($"<glm-{Key}-link-domain:{eta.Minimum()}>"));
+}
+
+// One exponential-family law per row. The EXACT unit deviance d(y,μ) is branch-explicit at its own limits —
+// y=0 and y=1 are real points of the support where the y·ln y term has a finite limit, so the branch states
+// the limit and a clamp (`Math.Max(1e-9, …)`) that fabricates a nearby value is the deleted form. The torch
+// column carries only the θ-DEPENDENT part of that same deviance: the exponential-family normalizer and every
+// y-only term are constants in θ that cancel out of the gradient, and ln y is −∞ at the admitted y=0 where a
+// `torch.where` would still evaluate both branches into a NaN gradient. `Weight` is the GLM prior weight —
+// the binomial trial count m per row, 1.0 for every other family — and both d and V read it.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class GlmFamily {
+    public static readonly GlmFamily Gaussian = new("gaussian", LinkFunction.Identity,
+        deviance: static (y, mu, _) => (y - mu) * (y - mu),
+        variance: static (_, _) => 1.0,
+        support: static y => true,
+        kernel: static (mu, y) => mu.sub(y).pow(2));
+    public static readonly GlmFamily Poisson = new("poisson", LinkFunction.Log,
+        deviance: static (y, mu, w) => y == 0.0 ? 2.0 * w * mu : 2.0 * w * (y * Math.Log(y / mu) - (y - mu)),
+        variance: static (mu, _) => mu,
+        support: static y => y >= 0.0 && double.IsInteger(y),
+        kernel: static (mu, y) => mu.sub(y.mul(mu.log())));
+    // y is the observed PROPORTION of m trials, so the endpoints y=0 and y=1 are the ordinary Bernoulli
+    // observations and carry the whole deviance in one term each.
+    public static readonly GlmFamily Binomial = new("binomial", LinkFunction.Logit,
+        deviance: static (y, mu, m) => y == 0.0 ? -2.0 * m * Math.Log(1.0 - mu)
+            : y == 1.0 ? -2.0 * m * Math.Log(mu)
+            : 2.0 * m * (y * Math.Log(y / mu) + (1.0 - y) * Math.Log((1.0 - y) / (1.0 - mu))),
+        variance: static (mu, m) => mu * (1.0 - mu) / m,
+        support: static y => y >= 0.0 && y <= 1.0,
+        kernel: static (mu, y) => y.mul(mu.log()).add(y.neg().add(1.0).mul(mu.neg().add(1.0).log())).neg());
+    public static readonly GlmFamily Gamma = new("gamma", LinkFunction.Log,
+        deviance: static (y, mu, w) => 2.0 * w * ((y - mu) / mu - Math.Log(y / mu)),
+        variance: static (mu, _) => mu * mu,
+        support: static y => y > 0.0,
+        kernel: static (mu, y) => y.div(mu).add(mu.log()));
+    public static readonly GlmFamily InverseGaussian = new("inverse-gaussian", LinkFunction.InverseSquared,
+        deviance: static (y, mu, w) => w * (y - mu) * (y - mu) / (y * mu * mu),
+        variance: static (mu, _) => mu * mu * mu,
+        support: static y => y > 0.0,
+        kernel: static (mu, y) => y.div(mu.pow(2)).sub(mu.pow(-1.0).mul(2.0)));
+
+    private GlmFamily(
+        string key, LinkFunction canonical, Func<double, double, double, double> deviance,
+        Func<double, double, double> variance, Func<double, bool> support, Func<Tensor, Tensor, Tensor> kernel) : this(key) {
+        Canonical = canonical;
+        this.deviance = deviance;
+        this.variance = variance;
+        this.support = support;
+        this.kernel = kernel;
+    }
+
+    private readonly Func<double, double, double, double> deviance;
+    private readonly Func<double, double, double> variance;
+    private readonly Func<double, bool> support;
+    private readonly Func<Tensor, Tensor, Tensor> kernel;
+
+    public LinkFunction Canonical { get; }
+
+    public double Deviance(double y, double mu, double weight) => deviance(y, mu, weight);
+
+    public double Variance(double mu, double weight) => variance(mu, weight);
+
+    // The loss is ONE composition for every (family, link) cell: the θ-dependent unit deviance evaluated at
+    // the link's own tensor inverse. A per-pair loss table re-derives five identities the composition already
+    // yields — gaussian∘identity is the squared error, poisson∘log is `e^η − y·η`, binomial∘logit is
+    // `log1p(e^η) − y·η`, gamma∘log is `η + y·e^{−η}`, and gamma∘inverse is `y·η − ln η`.
+    internal Func<Tensor, Tensor, Tensor> Loss(LinkFunction link) => (eta, y) => kernel(link.Mean(eta), y).mean();
+
+    internal Fin<Unit> Admit(Design design) =>
+        design.Targets.Filter(y => y.All(support)).IsSome
+            ? Fin.Succ(unit)
+            : Fin.Fail<Unit>(ComputeFault.Create($"<glm-response-support:{Key}>"));
+
+    // Deviance explained, 1 − D_resid/D_null, the family's own R² analogue: D_null is the same unit deviance
+    // against the intercept-only mean, so the scale-free ratio compares fits within one family and the
+    // saturated-model normalizer cancels twice over.
+    internal double Explained(Vector<double> y, Vector<double> fitted, double weight) {
+        double mean = y.Average();
+        double nullDeviance = EstimatorFold.ExactSum(toSeq(Enumerable.Range(0, y.Count).Select(i => deviance(y[i], mean, weight))));
+        return nullDeviance > 0.0 ? 1.0 - Total(y, fitted, weight) / nullDeviance : 0.0;
+    }
+
+    internal double Total(Vector<double> y, Vector<double> fitted, double weight) =>
+        EstimatorFold.ExactSum(toSeq(Enumerable.Range(0, y.Count).Select(i => deviance(y[i], fitted[i], weight))));
+}
+
+// One kernel vocabulary every kernel consumer reads — the SMO Gram, the LS-SVM Gram, the decision sum, and
+// the kernel-PCA operand are one row's `At`/`Gram`, never four transcriptions of the same RBF exponent.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class KernelRow {
+    public static readonly KernelRow Linear = new("linear", static (a, b, _) => a.DotProduct(b));
+    public static readonly KernelRow Polynomial = new("polynomial", static (a, b, p) => Math.Pow(a.DotProduct(b) / p.Bandwidth + p.Offset, p.Degree));
+    public static readonly KernelRow Rbf = new("rbf", static (a, b, p) => Math.Exp(-(a - b).PointwisePower(2.0).Sum() / (2.0 * p.Bandwidth * p.Bandwidth)));
+    public static readonly KernelRow Sigmoid = new("sigmoid", static (a, b, p) => Math.Tanh(a.DotProduct(b) / p.Bandwidth + p.Offset));
+
+    private readonly Func<Vector<double>, Vector<double>, KernelParams, double> kernel;
+
+    public double At(Vector<double> left, Vector<double> right, KernelParams parameters) => kernel(left, right, parameters);
+
+    public Matrix<double> Gram(Matrix<double> left, Matrix<double> right, KernelParams parameters) =>
+        Matrix<double>.Build.Dense(left.RowCount, right.RowCount, (i, j) => kernel(left.Row(i), right.Row(j), parameters));
+
+    // The diagonal is the SMO second-order denominator's operand and, for `rbf`/`sigmoid` with zero offset,
+    // a constant — computing it per pair from the full kernel keeps the row the one authority on its value.
+    public Vector<double> Diagonal(Matrix<double> x, KernelParams parameters) =>
+        Vector<double>.Build.Dense(x.RowCount, i => kernel(x.Row(i), x.Row(i), parameters));
+}
+
+// Sigmoid's `tanh` is conditionally positive-definite only for a narrow parameter range, so the row set is
+// admitted on parameter ranges alone and the SMO gate reads the KKT verdict, never a Mercer proof.
+public sealed record KernelParams(double Bandwidth, double Degree, double Offset) {
+    public static readonly KernelParams Canonical = new(Bandwidth: 1.0, Degree: 3.0, Offset: 1.0);
+
+    internal Fin<Unit> Admit() =>
+        Bandwidth > 0.0 && Degree >= 1.0 && double.IsFinite(Bandwidth) && double.IsFinite(Degree) && double.IsFinite(Offset)
+            ? Fin.Succ(unit)
+            : Fin.Fail<Unit>(ComputeFault.Create($"<kernel-params:{Bandwidth}:{Degree}:{Offset}>"));
+}
+
+// Quadratic and cubic kernels refuse ABOVE their own row count instead of running unbounded: a building-scale
+// design turns an admitted fit into an unkillable one, and the ceiling names which complexity class refused.
+public sealed record ScaleCeiling(int Rows, string Gate) {
+    public static readonly ScaleCeiling Cubic = new(Rows: 2_048, Gate: "cubic");
+    public static readonly ScaleCeiling Quadratic = new(Rows: 32_768, Gate: "quadratic");
+
+    internal Fin<Unit> Admit(int rows) =>
+        rows <= Rows ? Fin.Succ(unit) : Fin.Fail<Unit>(ComputeFault.Create($"<estimator-scale-{Gate}:{rows}/{Rows}>"));
+}
+
+// AIC and BIC differ only in the penalty per fitted parameter, so the row IS that penalty; a criterion whose
+// penalty reads the sample size takes it as an argument rather than growing a second column.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class InformationCriterion {
+    public static readonly InformationCriterion Akaike = new("aic", static (k, _) => 2.0 * k);
+    public static readonly InformationCriterion Bayes = new("bic", static (k, n) => k * Math.Log(n));
+
+    private readonly Func<long, int, double> penalty;
+
+    // Lower is better on both rows, so the ranked verdict orders ascending with no per-row direction column.
+    internal double Score(double logLikelihood, long parameters, int samples) =>
+        penalty(parameters, samples) - 2.0 * logLikelihood;
 }
 
 [SmartEnum<string>]
@@ -67,37 +239,41 @@ public sealed partial class OptimDriver {
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+// ONE `glm` row spans every exponential family: the family is per-occurrence payload on `Estimator.Regression`,
+// so poisson, binomial, gamma, and inverse-gaussian fits differ by a row value, never by a kind. A per-family
+// kind re-declares the same driver, the same admission shape, and the same loss composition five times and
+// hard-codes each one's link into its key, which is exactly what made a `glm-poisson` fit under an overridden
+// identity link minimize the log-link deviance and predict through the identity mean.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class EstimatorKind {
-    public static readonly EstimatorKind Ols = new("ols", EstimatorFamily.Regression, supervised: true, metric: "r2", EstimatorFold.Ordinary, EstimatorFold.RealResponse, OptimDriver.Adam, LinkFunction.Identity);
-    public static readonly EstimatorKind Ridge = new("ridge", EstimatorFamily.Regression, supervised: true, metric: "r2", EstimatorFold.Ridged, EstimatorFold.RegularizedResponse, OptimDriver.Adam, LinkFunction.Identity);
-    public static readonly EstimatorKind Lasso = new("lasso", EstimatorFamily.Regression, supervised: true, metric: "r2", EstimatorFold.Penalized, EstimatorFold.IterativeResponse, OptimDriver.Adam, LinkFunction.Identity);
-    public static readonly EstimatorKind GlmLogistic = new("glm-logistic", EstimatorFamily.Regression, supervised: true, metric: "r2",
-        static ctx => EstimatorFold.Deviance(ctx, static (eta, y) => (eta.exp().log1p() - y * eta).mean()), EstimatorFold.UnitResponse, OptimDriver.LBfgs, LinkFunction.Logit);
-    public static readonly EstimatorKind GlmPoisson = new("glm-poisson", EstimatorFamily.Regression, supervised: true, metric: "r2",
-        static ctx => EstimatorFold.Deviance(ctx, static (eta, y) => (eta.exp() - y * eta).mean()), EstimatorFold.CountResponse, OptimDriver.LBfgs, LinkFunction.Log);
-    public static readonly EstimatorKind GlmGamma = new("glm-gamma", EstimatorFamily.Regression, supervised: true, metric: "r2",
-        static ctx => EstimatorFold.Deviance(ctx, static (eta, y) => (eta + y * eta.neg().exp()).mean()), EstimatorFold.PositiveResponse, OptimDriver.LBfgs, LinkFunction.Log);
-    public static readonly EstimatorKind Pca = new("pca", EstimatorFamily.Reduction, supervised: false, metric: "explained-energy", EstimatorFold.Principal, EstimatorFold.ReductionDesign, OptimDriver.Adam, LinkFunction.Identity);
-    public static readonly EstimatorKind KernelPca = new("kernel-pca", EstimatorFamily.Reduction, supervised: false, metric: "explained-energy", EstimatorFold.KernelPrincipal, EstimatorFold.KernelReductionDesign, OptimDriver.Adam, LinkFunction.Identity);
-    public static readonly EstimatorKind Nmf = new("nmf", EstimatorFamily.Reduction, supervised: false, metric: "reconstruction-error", EstimatorFold.NonNegative, EstimatorFold.NonNegativeReductionDesign, OptimDriver.Adam, LinkFunction.Identity);
-    public static readonly EstimatorKind KMeans = new("kmeans", EstimatorFamily.Cluster, supervised: false, metric: "inertia", EstimatorFold.Lloyd, EstimatorFold.GroupingDesign, OptimDriver.Adam, LinkFunction.Identity);
-    public static readonly EstimatorKind Gmm = new("gmm", EstimatorFamily.Cluster, supervised: false, metric: "log-likelihood", EstimatorFold.ExpectationMaximization, EstimatorFold.MixtureDesign, OptimDriver.Adam, LinkFunction.Identity);
-    public static readonly EstimatorKind Dbscan = new("dbscan", EstimatorFamily.Cluster, supervised: false, metric: "cluster-count", EstimatorFold.Reachability, EstimatorFold.DensityDesign, OptimDriver.Adam, LinkFunction.Identity);
-    public static readonly EstimatorKind Hierarchical = new("hierarchical", EstimatorFamily.Cluster, supervised: false, metric: "inertia", EstimatorFold.Agglomerative, EstimatorFold.AnyDesign, OptimDriver.Adam, LinkFunction.Identity);
-    public static readonly EstimatorKind Knn = new("knn", EstimatorFamily.Classify, supervised: true, metric: "accuracy", EstimatorFold.Neighborhood, EstimatorFold.NeighborhoodDesign, OptimDriver.Adam, LinkFunction.Identity);
-    public static readonly EstimatorKind Svm = new("svm", EstimatorFamily.Classify, supervised: true, metric: "accuracy", EstimatorFold.MarginMachines, EstimatorFold.MarginDesign, OptimDriver.Adam, LinkFunction.Identity);
-    public static readonly EstimatorKind NaiveBayes = new("naive-bayes", EstimatorFamily.Classify, supervised: true, metric: "accuracy", EstimatorFold.GaussianBayes, EstimatorFold.ClassLabels, OptimDriver.Adam, LinkFunction.Identity);
+    public static readonly EstimatorKind Ols = new("ols", EstimatorFamily.Regression, supervised: true, metric: "r2", EstimatorFold.Ordinary, EstimatorFold.RealResponse, OptimDriver.Adam);
+    public static readonly EstimatorKind Ridge = new("ridge", EstimatorFamily.Regression, supervised: true, metric: "r2", EstimatorFold.Ridged, EstimatorFold.RegularizedResponse, OptimDriver.Adam);
+    public static readonly EstimatorKind Lasso = new("lasso", EstimatorFamily.Regression, supervised: true, metric: "r2", EstimatorFold.Penalized, EstimatorFold.IterativeResponse, OptimDriver.Adam);
+    public static readonly EstimatorKind Glm = new("glm", EstimatorFamily.Regression, supervised: true, metric: "deviance-explained",
+        static ctx => EstimatorFold.Deviance(ctx, ctx.Family.Loss(ctx.Link)), EstimatorFold.GlmResponse, OptimDriver.LBfgs);
+    public static readonly EstimatorKind Pca = new("pca", EstimatorFamily.Reduction, supervised: false, metric: "explained-energy", EstimatorFold.Principal, EstimatorFold.ReductionDesign, OptimDriver.Adam);
+    public static readonly EstimatorKind KernelPca = new("kernel-pca", EstimatorFamily.Reduction, supervised: false, metric: "explained-energy", EstimatorFold.KernelPrincipal, EstimatorFold.KernelReductionDesign, OptimDriver.Adam);
+    public static readonly EstimatorKind Nmf = new("nmf", EstimatorFamily.Reduction, supervised: false, metric: "reconstruction-error", EstimatorFold.NonNegative, EstimatorFold.NonNegativeReductionDesign, OptimDriver.Adam);
+    public static readonly EstimatorKind KMeans = new("kmeans", EstimatorFamily.Cluster, supervised: false, metric: "inertia", EstimatorFold.Lloyd, EstimatorFold.GroupingDesign, OptimDriver.Adam);
+    public static readonly EstimatorKind Gmm = new("gmm", EstimatorFamily.Cluster, supervised: false, metric: "log-likelihood", EstimatorFold.ExpectationMaximization, EstimatorFold.MixtureDesign, OptimDriver.Adam);
+    public static readonly EstimatorKind Dbscan = new("dbscan", EstimatorFamily.Cluster, supervised: false, metric: "cluster-count", EstimatorFold.Reachability, EstimatorFold.DensityDesign, OptimDriver.Adam);
+    public static readonly EstimatorKind Hierarchical = new("hierarchical", EstimatorFamily.Cluster, supervised: false, metric: "inertia", EstimatorFold.Agglomerative, EstimatorFold.LinkageDesign, OptimDriver.Adam);
+    public static readonly EstimatorKind Knn = new("knn", EstimatorFamily.Classify, supervised: true, metric: "accuracy", EstimatorFold.Neighborhood, EstimatorFold.NeighborhoodDesign, OptimDriver.Adam);
+    public static readonly EstimatorKind Svm = new("svm", EstimatorFamily.Classify, supervised: true, metric: "accuracy", EstimatorFold.MarginMachines, EstimatorFold.MarginDesign, OptimDriver.Adam);
+    public static readonly EstimatorKind CSvm = new("c-svm", EstimatorFamily.Classify, supervised: true, metric: "accuracy", EstimatorFold.SequentialMinimal, EstimatorFold.MarginDesign, OptimDriver.Adam);
+    public static readonly EstimatorKind NaiveBayes = new("naive-bayes", EstimatorFamily.Classify, supervised: true, metric: "accuracy", EstimatorFold.GaussianBayes, EstimatorFold.ClassLabels, OptimDriver.Adam);
 
     private EstimatorKind(
         string key, EstimatorFamily family, bool supervised, string metric, Func<FitContext, Fin<FittedModel>> fit,
-        Func<FitContext, Fin<Unit>> admit, OptimDriver driver, LinkFunction link) : this(key) {
+        Func<FitContext, Fin<Unit>> admit, OptimDriver driver) : this(key) {
         Family = family;
         Supervised = supervised;
         Metric = metric;
         this.fit = fit;
         this.admit = admit;
         Driver = driver;
-        Link = link;
     }
 
     private readonly Func<FitContext, Fin<FittedModel>> fit;
@@ -107,7 +283,6 @@ public sealed partial class EstimatorKind {
     public bool Supervised { get; }
     public string Metric { get; }
     public OptimDriver Driver { get; }
-    public LinkFunction Link { get; }
 
     internal Fin<FittedModel> Fit(FitContext context) => fit(context);
     internal Fin<Unit> Admit(FitContext context) => admit(context);
@@ -164,7 +339,7 @@ public sealed partial class CurveForm {
     public static readonly CurveForm Combination = new(
         "combination",
         static (spec, x, y) => Fit.LinearCombination(x, y, [.. spec.Functions]),
-        static (spec, c, x) => spec.Functions.Map((basis, k) => c[k] * basis(x)).Sum());
+        static (spec, c, x) => spec.Functions.Map((basis, k) => c[k] * basis(x)).Fold(0.0, static (total, term) => total + term));
 
     private CurveForm(
         string key,
@@ -299,7 +474,10 @@ public abstract partial record CurveSpec {
 public abstract partial record Estimator {
     private Estimator() { }
 
-    public sealed record Regression(EstimatorKind Kind, Option<LinkFunction> Link) : Estimator;
+    // The exponential family is per-occurrence payload beside the kind, and `Link` overrides its canonical
+    // link for the whole fit — objective and predicted mean alike. A least-squares row's family is Gaussian
+    // and its response support is the real line, so one shape serves every regression row.
+    public sealed record Regression(EstimatorKind Kind, GlmFamily Family, Option<LinkFunction> Link) : Estimator;
     public sealed record Curve(CurveSpec Spec) : Estimator;
     public sealed record Reduction(EstimatorKind Kind, int Rank) : Estimator;
     public sealed record Cluster(EstimatorKind Kind, ClusterShape Shape) : Estimator;
@@ -313,9 +491,11 @@ public abstract partial record Estimator {
         temporal: static _ => EstimatorFamily.Temporal);
 
     // One uniform estimator key and metric label for the receipt — both read the row columns, so no arm
-    // re-derives per-kind knowledge through nested ternaries or label literals.
+    // re-derives per-kind knowledge through nested ternaries or label literals. The regression key is
+    // family-qualified because one `glm` kind spans five families and a bare kind key would report five
+    // distinct fits identically; a least-squares row qualifies to its own Gaussian family for the same reason.
     public string Key => Switch(
-        regression: static r => r.Kind.Key, curve: static c => c.Spec.Form.Key, reduction: static d => d.Kind.Key,
+        regression: static r => $"{r.Kind.Key}:{r.Family.Key}", curve: static c => c.Spec.Form.Key, reduction: static d => d.Kind.Key,
         cluster: static c => c.Kind.Key, classify: static c => c.Kind.Key, temporal: static t => t.Spec.Model.Key);
 
     public string Metric => Switch(
@@ -327,19 +507,29 @@ public abstract partial record Estimator {
 public abstract partial record EstimatorModel {
     private EstimatorModel() { }
 
-    public sealed record Linear(Vector<double> Coefficients, double Intercept, LinkFunction Link) : EstimatorModel;
+    // The family rides the carrier beside the link because the predicted mean, the deviance-explained
+    // quality, and the scaled deviance `D/φ̂` all read it; scaled deviance is the χ²_{n−p} goodness statistic
+    // the Pearson dispersion on `FittedModel.Residual` cannot answer, so it lands here rather than nowhere.
+    public sealed record Linear(Vector<double> Coefficients, double Intercept, LinkFunction Link, GlmFamily Family, double ScaledDeviance) : EstimatorModel;
     // Specs ride the carrier because a combination row's basis is the only thing that can evaluate its own
     // coefficients, and a polynomial's order is recoverable from the coefficient count for every other row.
     public sealed record Curve(CurveSpec Spec, Vector<double> Coefficients) : EstimatorModel;
     public sealed record Basis(Matrix<double> Components, Vector<double> Singular, Vector<double> Mean, double EnergyFraction) : EstimatorModel;
-    public sealed record KernelBasis(Matrix<double> Training, Matrix<double> Alphas, Vector<double> Eigen, double Bandwidth, Vector<double> RowMean, double GrandMean) : EstimatorModel;
+    public sealed record KernelBasis(Matrix<double> Training, Matrix<double> Alphas, Vector<double> Eigen, KernelRow Kernel, KernelParams Parameters, Vector<double> RowMean, double GrandMean) : EstimatorModel;
     public sealed record Factors(Matrix<double> Encoder, Matrix<double> Components) : EstimatorModel;
     public sealed record Partition(Matrix<double> Centroids, ImmutableArray<int> Labels) : EstimatorModel;
     public sealed record Density(Matrix<double> Training, ImmutableArray<int> Labels, ImmutableArray<bool> Core, double Radius) : EstimatorModel;
     public sealed record Mixture(Matrix<double> Means, Seq<Matrix<double>> Covariances, Vector<double> Weights) : EstimatorModel;
-    // One LS-SVM machine per distinct label (one-vs-rest); binary targets reduce to two symmetric machines
-    // and argmax over decisions recovers the sign rule, so multiclass is the same carrier, never a sibling.
-    public sealed record Margin(Matrix<double> Training, Seq<(int Label, Vector<double> Duals, double Bias)> Machines, double Bandwidth) : EstimatorModel;
+    // One machine per distinct label (one-vs-rest); binary targets reduce to two symmetric machines and argmax
+    // over decisions recovers the sign rule, so multiclass is the same carrier, never a sibling. `Support`
+    // carries the machine's own support indices — SMO fills the sparse KKT-active set and LS-SVM every row,
+    // because the dense closed form has no zero duals — so the decision sum walks the support alone and the
+    // carrier's parameter count is the honest one for both mechanisms.
+    public sealed record Margin(
+        Matrix<double> Training,
+        Seq<(int Label, ImmutableArray<int> Support, Vector<double> Duals, double Bias)> Machines,
+        KernelRow Kernel,
+        KernelParams Parameters) : EstimatorModel;
     public sealed record Neighbors(Matrix<double> Design, ImmutableArray<int> Labels, int K) : EstimatorModel;
     public sealed record Bayes(Matrix<double> Means, Matrix<double> Variances, Vector<double> Priors) : EstimatorModel;
     public sealed record Lag(Vector<double> ArCoefficients, Vector<double> MaCoefficients, double Variance, Vector<double> Tail, TimeSeriesModel Model) : EstimatorModel;
@@ -354,7 +544,7 @@ public abstract partial record EstimatorModel {
         partition: static p => (long)p.Centroids.RowCount,
         density: static d => (long)d.Core.Count(static core => core),
         mixture: static m => (long)m.Weights.Count,
-        margin: static m => m.Machines.Fold(0L, static (acc, machine) => acc + machine.Duals.Count),
+        margin: static m => m.Machines.Fold(0L, static (acc, machine) => acc + machine.Support.Length),
         neighbors: static n => (long)n.Design.RowCount,
         bayes: static b => (long)b.Priors.Count,
         lag: static l => (long)(l.ArCoefficients.Count + l.MaCoefficients.Count),
@@ -380,6 +570,13 @@ public abstract partial record Prediction {
     public sealed record Anomaly(Vector<double> Scores, ImmutableArray<bool> Changes) : Prediction;
 }
 
+// Evidence and horizon are the two ingress shapes a fitted carrier admits, absorbed at ONE parameter by the
+// ad-hoc union's implicit conversions, so `model.Predict(features)` and `model.Predict(steps)` are one entry.
+// A forecast carrier that took a `Matrix<double>` read only its row count and every temporal caller fabricated
+// a zero matrix of that height — a phantom operand the carrier never touched and the reader could not explain.
+[Union<Matrix<double>, int>(T1Name = "Evidence", T2Name = "Horizon")]
+public readonly partial struct PredictQuery;
+
 public sealed record FitBudget(int MaxIterations, double Tolerance) {
     public static readonly FitBudget Canonical = new(MaxIterations: 1000, Tolerance: 1e-8);
     public static readonly FitBudget Grouping = new(MaxIterations: 300, Tolerance: 1e-8);
@@ -396,16 +593,24 @@ public sealed record FitBudget(int MaxIterations, double Tolerance) {
 public abstract partial record EstimatorPolicy {
     private EstimatorPolicy() { }
 
-    public sealed record Regression(double Regularization, double LearningRate, FitBudget Budget) : EstimatorPolicy;
-    public sealed record Reduction(double EnergyFraction, double Bandwidth, FitBudget Budget) : EstimatorPolicy;
-    public sealed record Grouping(double Bandwidth, int Neighbors, double Ridge, FitBudget Budget) : EstimatorPolicy;
-    public sealed record Classification(double Regularization, double Bandwidth, int Neighbors) : EstimatorPolicy;
+    // `Weight` is the GLM prior weight — the binomial trial count m, 1.0 for every other family — so the
+    // deviance and the variance function read one axis rather than a binomial-only trials column.
+    public sealed record Regression(double Regularization, double LearningRate, double Weight, FitBudget Budget) : EstimatorPolicy;
+    public sealed record Reduction(double EnergyFraction, KernelRow Kernel, KernelParams Parameters, FitBudget Budget) : EstimatorPolicy;
+    public sealed record Grouping(double Radius, int Neighbors, double Ridge, FitBudget Budget) : EstimatorPolicy;
+    // `Regularization` is the LS-SVM γ and `Box` the C-SVM box bound C — two mechanisms, two bounds, and the
+    // row that ignores the other reads nothing from it. `KktTolerance` is ε in the SMO stop `m(α) − M(α) ≤ ε`.
+    public sealed record Classification(
+        double Regularization, KernelRow Kernel, KernelParams Parameters, int Neighbors,
+        double Box, double KktTolerance, FitBudget Budget, bool Shrinking) : EstimatorPolicy;
     public sealed record Temporal(FitBudget Budget) : EstimatorPolicy;
 
-    public static readonly EstimatorPolicy CanonicalRegression = new Regression(Regularization: 1e-3, LearningRate: 0.05, FitBudget.Canonical);
-    public static readonly EstimatorPolicy CanonicalReduction = new Reduction(EnergyFraction: 0.95, Bandwidth: 1.0, FitBudget.Canonical);
-    public static readonly EstimatorPolicy CanonicalGrouping = new Grouping(Bandwidth: 0.5, Neighbors: 4, Ridge: 1e-3, FitBudget.Grouping);
-    public static readonly EstimatorPolicy CanonicalClassification = new Classification(Regularization: 1e-3, Bandwidth: 1.0, Neighbors: 5);
+    public static readonly EstimatorPolicy CanonicalRegression = new Regression(Regularization: 1e-3, LearningRate: 0.05, Weight: 1.0, FitBudget.Canonical);
+    public static readonly EstimatorPolicy CanonicalReduction = new Reduction(EnergyFraction: 0.95, KernelRow.Rbf, KernelParams.Canonical, FitBudget.Canonical);
+    public static readonly EstimatorPolicy CanonicalGrouping = new Grouping(Radius: 0.5, Neighbors: 4, Ridge: 1e-3, FitBudget.Grouping);
+    public static readonly EstimatorPolicy CanonicalClassification = new Classification(
+        Regularization: 1e-3, KernelRow.Rbf, KernelParams.Canonical, Neighbors: 5,
+        Box: 1.0, KktTolerance: 1e-3, new FitBudget(MaxIterations: 1_000_000, Tolerance: 1e-3), Shrinking: true);
     public static readonly EstimatorPolicy CanonicalTemporal = new Temporal(FitBudget.Canonical);
 
     public EstimatorFamily Family => Switch(
@@ -414,10 +619,10 @@ public abstract partial record EstimatorPolicy {
         temporal: static _ => EstimatorFamily.Temporal);
 
     internal Fin<Unit> Admit() => Switch(
-        regression: static p => ScalarPolicy(p.Regularization >= 0.0 && p.LearningRate > 0.0, p.Regularization, p.LearningRate).Bind(_ => p.Budget.Admit()),
-        reduction: static p => ScalarPolicy(p.EnergyFraction > 0.0 && p.EnergyFraction <= 1.0 && p.Bandwidth > 0.0, p.EnergyFraction, p.Bandwidth).Bind(_ => p.Budget.Admit()),
-        grouping: static p => ScalarPolicy(p.Bandwidth > 0.0 && p.Ridge > 0.0 && p.Neighbors >= 1, p.Bandwidth, p.Ridge).Bind(_ => p.Budget.Admit()),
-        classification: static p => ScalarPolicy(p.Regularization > 0.0 && p.Bandwidth > 0.0 && p.Neighbors >= 1, p.Regularization, p.Bandwidth),
+        regression: static p => ScalarPolicy(p.Regularization >= 0.0 && p.LearningRate > 0.0 && p.Weight > 0.0, p.Regularization, p.LearningRate).Bind(_ => p.Budget.Admit()),
+        reduction: static p => ScalarPolicy(p.EnergyFraction > 0.0 && p.EnergyFraction <= 1.0, p.EnergyFraction, 1.0).Bind(_ => p.Parameters.Admit()).Bind(_ => p.Budget.Admit()),
+        grouping: static p => ScalarPolicy(p.Radius > 0.0 && p.Ridge > 0.0 && p.Neighbors >= 1, p.Radius, p.Ridge).Bind(_ => p.Budget.Admit()),
+        classification: static p => ScalarPolicy(p.Regularization > 0.0 && p.Box > 0.0 && p.KktTolerance > 0.0 && p.Neighbors >= 1, p.Regularization, p.Box).Bind(_ => p.Parameters.Admit()).Bind(_ => p.Budget.Admit()),
         temporal: static p => p.Budget.Admit());
 
     private static Fin<Unit> ScalarPolicy(bool range, double first, double second) =>
@@ -464,27 +669,70 @@ public sealed record Design {
         Targets.Map(y => Vector<double>.Build.DenseOfArray([.. rows.Select(i => y[i])])));
 }
 
-// Interior mechanism carrier: the estimator and policy union payloads flatten once at the correspondence gate,
-// so a kernel reads proven scalars and never re-probes a case or casts a policy.
+// Interior mechanism carrier: the estimator's typed payloads flatten once at the correspondence gate and the
+// POLICY rides whole as its own union member. Flattening it to a scalar tail zero-filled every axis the
+// family does not own, so a grouping kernel read a `Regularization` of 0.0 that no policy ever set and a
+// classification arm silently inherited a canonical budget the caller's policy had already replaced.
+// `Clock` and `Substrate` are the two composition-supplied ambients a fit reads: the instant its receipt stamps
+// and the dense leg its closed-form solves run on. The substrate is a VALUE here rather than ambient state, so a
+// fit declares the leg it asked for and the witnessed carrier reports the one that actually served.
 internal sealed record FitContext(
-    Estimator Estimator, Design Design, IClock Clock, LinkFunction Link, OptimDriver Driver,
-    int Rank, Option<ClusterShape> Cluster, Option<TemporalSpec> Temporal, Option<CurveSpec> Curve,
-    double Regularization, double LearningRate, double EnergyFraction, double Bandwidth, int Neighbors, double Ridge, FitBudget Budget);
+    Estimator Estimator, Design Design, IClock Clock, DenseSubstrate Substrate, EstimatorPolicy Policy, LinkFunction Link, GlmFamily Family,
+    OptimDriver Driver, int Rank, Option<ClusterShape> Cluster, Option<TemporalSpec> Temporal, Option<CurveSpec> Curve) {
+    // The gate proved `Policy.Family == Estimator.Family` before this record existed, so the narrowing read is
+    // that same proof re-projected once per kernel; the fault arm names the gate rather than re-admitting.
+    internal Fin<TCase> Case<TCase>() where TCase : EstimatorPolicy =>
+        Policy is TCase typed
+            ? Fin.Succ(typed)
+            : Fin.Fail<TCase>(ComputeFault.Create($"<estimator-policy-case:{Policy.Family.Key}:{Estimator.Key}>"));
 
-public sealed record FittedModel(Estimator Estimator, EstimatorModel Carrier, double Quality, double Residual, int Iterations, bool Converged, Instant At) {
-    public Fin<Prediction> Predict(Matrix<double> features) => EstimatorFold.Predict(this, features);
+    internal int Rows => Design.Rows;
 }
 
-public sealed record ValidationReport(Estimator Estimator, Seq<double> FoldQuality, double Mean, double Spread, int Folds, Instant At);
+// `LogLikelihood` is `None` wherever the row's mechanism defines none — k-means inertia, DBSCAN reachability,
+// linkage spread, kNN votes, and margin accuracy are not likelihoods — so an information criterion is
+// unavailable rather than fabricated from a quality score that happens to be a number.
+public sealed record FittedModel(
+    Estimator Estimator, EstimatorModel Carrier, double Quality, double Residual,
+    Option<double> LogLikelihood, int Iterations, bool Converged, Instant At) {
+    public Fin<Prediction> Predict(PredictQuery query) => EstimatorFold.Predict(this, query);
+}
+
+// `Normalizer` declares which convention `Spread` was reduced under; the k folds ARE the population of folds,
+// never a sample drawn from a larger one, so the report carries `Population` and a consumer comparing spreads
+// across reports reads the convention instead of assuming Bessel's correction either way.
+public sealed record ValidationReport(
+    Estimator Estimator, Seq<double> FoldQuality, double Mean, double Spread,
+    MomentNormalizer Normalizer, int Folds, Instant At);
+
+public sealed record SelectionPolicy(InformationCriterion Criterion, int Folds) {
+    public static readonly SelectionPolicy Canonical = new(InformationCriterion.Akaike, Folds: 5);
+
+    internal Fin<Unit> Admit(int candidates) =>
+        candidates < 2 || Folds < 2
+            ? Fin.Fail<Unit>(ComputeFault.Create($"<selection-policy:{candidates}:{Folds}>"))
+            : Fin.Succ(unit);
+}
+
+// Both evidence axes ride every candidate: `Criterion` is `None` where the fit carries no likelihood, and the
+// validation pair is always present because every admitted candidate crossed the same held-out or
+// forward-chain split. Rank is ascending — lower criterion first where one exists, higher validation mean
+// otherwise — so the verdict is one ordering and a consumer re-ranks nothing.
+public sealed record CandidateEvidence(
+    EstimatorPolicy Policy, Option<double> Criterion, double ValidationMean, double ValidationSpread, int Rank);
+
+public sealed record SelectionReport(Seq<CandidateEvidence> Candidates, EstimatorPolicy Chosen, InformationCriterion Criterion, Instant At);
 
 // Torch-loss rows minimize a Tensor loss under torch.autograd + the row's OptimDriver inside one DisposeScope; the LBFGS line-search form re-evaluates the closure per probe.
-// Every intermediate is reclaimed at scope exit and stamped by DisposeScopeManager.Statistics; AnomalyMode traps a NaN/inf fit, set_default_dtype floors at Float64, no Tensor escapes the lane.
+// Every intermediate is reclaimed at scope exit and stamped by DisposeScopeManager.Statistics; AnomalyMode traps a NaN/inf fit and no Tensor escapes the lane.
+// The Float64 default dtype is BOOT state `Tensor/blas#DENSE_ALGEBRA` `AtenFloor.Configure` pins once — a
+// per-fit `set_default_dtype` mutates a process-global from inside a lane that may run concurrently with any
+// other torch consumer, and every tensor here already names its own `ScalarType.Float64` at construction.
 public static class IterativeEngine {
     public static Fin<(Vector<double> Theta, double Loss, int Iterations, bool Converged, ThreadDisposeScopeStatistics Memory)> Minimize(
         Func<Tensor, Tensor, Tensor, Tensor> loss, Matrix<double> design, Vector<double> response, OptimDriver driver, double learningRate, FitBudget budget) {
         using DisposeScope scope = torch.NewDisposeScope();
         using AnomalyMode anomaly = new(enabled: true, check_nan: true);
-        torch.set_default_dtype(ScalarType.Float64);
         Tensor x = torch.from_array(design.ToColumnMajorArray(), ScalarType.Float64).reshape(design.ColumnCount, design.RowCount).t();
         Tensor y = torch.from_array(response.AsArray() ?? response.ToArray(), ScalarType.Float64).reshape(response.Count);
         Parameter theta = new(torch.zeros(design.ColumnCount, ScalarType.Float64), requires_grad: true);
@@ -515,8 +763,8 @@ public static class IterativeEngine {
 public static class EstimatorFold {
     private const double VarianceFloor = 1e-9;
 
-    public static Fin<FittedModel> Fit(Estimator estimator, Design design, EstimatorPolicy policy, IClock clock) =>
-        Admitted(estimator, design, policy, clock).Bind(static ctx => ctx.Estimator.Switch(
+    public static Fin<FittedModel> Fit(Estimator estimator, Design design, EstimatorPolicy policy, IClock clock, DenseSubstrate substrate) =>
+        Admitted(estimator, design, policy, clock, substrate).Bind(static ctx => ctx.Estimator.Switch(
             state: ctx,
             regression: static (c, r) => r.Kind.Fit(c),
             curve: static (c, k) => CurveFit(c, k.Spec),
@@ -525,40 +773,100 @@ public static class EstimatorFold {
             classify: static (c, k) => k.Kind.Fit(c),
             temporal: static (c, t) => t.Spec.Model.Fit(c)));
 
-    public static Fin<Prediction> Predict(FittedModel model, Matrix<double> features) =>
-        model.Carrier.Switch<Matrix<double>, Fin<Prediction>>(
-            state: features,
-            linear: static (x, c) => Fin.Succ<Prediction>(new Prediction.Response(x.Multiply(c.Coefficients).Add(c.Intercept).Map(c.Link.Mean))),
-            curve: static (x, c) => x.ColumnCount == 1
+    // Each carrier names the ONE ingress shape its mechanism consumes and the query's projection refuses the
+    // other by name, so a horizon handed to a projection carrier and evidence handed to a forecast carrier are
+    // each a typed refusal rather than a silently reinterpreted row count.
+    public static Fin<Prediction> Predict(FittedModel model, PredictQuery query) =>
+        model.Carrier.Switch<PredictQuery, Fin<Prediction>>(
+            state: query,
+            linear: static (q, c) => Evidence(q).Bind(x => {
+                Vector<double> eta = x.Multiply(c.Coefficients).Add(c.Intercept);
+                return c.Link.Domain(eta).Map(_ => (Prediction)new Prediction.Response(eta.Map(c.Link.Mean)));
+            }),
+            curve: static (q, c) => Evidence(q).Bind(x => x.ColumnCount == 1
                 ? Fin.Succ<Prediction>(new Prediction.Response(x.Column(0).Map(value => c.Spec.Form.Evaluate(c.Spec, c.Coefficients, value))))
-                : Fin.Fail<Prediction>(ComputeFault.Create($"<curve-univariate:{x.ColumnCount}>")),
-            basis: static (x, b) => Fin.Succ<Prediction>(new Prediction.Projection(Center(x, b.Mean).Multiply(b.Components.Transpose()))),
-            kernelBasis: static (x, k) => Fin.Succ<Prediction>(new Prediction.Projection(KernelProject(x, k))),
-            factors: static (x, f) => Fin.Succ<Prediction>(new Prediction.Projection(NonNegativeEncode(x, f.Components))),
-            partition: static (x, p) => Fin.Succ<Prediction>(new Prediction.Assignment([.. x.EnumerateRows().Select(row => Nearest(row, p.Centroids))])),
-            density: static (x, d) => Fin.Succ<Prediction>(new Prediction.Assignment([.. x.EnumerateRows().Select(row => DensityAssign(row, d))])),
-            mixture: static (x, m) => Responsibilities(x, m).Map(static labels => (Prediction)new Prediction.Assignment(labels)),
-            margin: static (x, m) => Fin.Succ<Prediction>(new Prediction.Assignment([.. x.EnumerateRows().Select(row => Strongest(row, m))])),
-            neighbors: static (x, nbr) => Fin.Succ<Prediction>(new Prediction.Assignment([.. x.EnumerateRows().Select(row => Vote(row, nbr))])),
-            bayes: static (x, b) => Fin.Succ<Prediction>(new Prediction.Assignment([.. x.EnumerateRows().Select(row => Posterior(row, b))])),
-            lag: static (x, l) => Fin.Succ<Prediction>(new Prediction.Response(Forecast(l, x.RowCount))),
-            detector: static (x, d) => Detect(d, x));
+                : Fin.Fail<Prediction>(ComputeFault.Create($"<curve-univariate:{x.ColumnCount}>"))),
+            basis: static (q, b) => Evidence(q).Map(x => (Prediction)new Prediction.Projection(Center(x, b.Mean).Multiply(b.Components.Transpose()))),
+            kernelBasis: static (q, k) => Evidence(q).Map(x => (Prediction)new Prediction.Projection(KernelProject(x, k))),
+            factors: static (q, f) => Evidence(q).Map(x => (Prediction)new Prediction.Projection(NonNegativeEncode(x, f.Components))),
+            partition: static (q, p) => Evidence(q).Map(x => (Prediction)new Prediction.Assignment([.. x.EnumerateRows().Select(row => Nearest(row, p.Centroids))])),
+            density: static (q, d) => Evidence(q).Map(x => (Prediction)new Prediction.Assignment([.. x.EnumerateRows().Select(row => DensityAssign(row, d))])),
+            mixture: static (q, m) => Evidence(q).Bind(x => Responsibilities(x, m).Map(static labels => (Prediction)new Prediction.Assignment(labels))),
+            margin: static (q, m) => Evidence(q).Map(x => (Prediction)new Prediction.Assignment([.. x.EnumerateRows().Select(row => Strongest(row, m))])),
+            neighbors: static (q, nbr) => Evidence(q).Map(x => (Prediction)new Prediction.Assignment([.. x.EnumerateRows().Select(row => Vote(row, nbr))])),
+            bayes: static (q, b) => Evidence(q).Map(x => (Prediction)new Prediction.Assignment([.. x.EnumerateRows().Select(row => Posterior(row, b))])),
+            lag: static (q, l) => Horizon(q).Map(h => (Prediction)new Prediction.Response(Forecast(l, h))),
+            detector: static (q, d) => Evidence(q).Bind(x => Detect(d, x)));
+
+    private static Fin<Matrix<double>> Evidence(PredictQuery query) =>
+        query.IsEvidence
+            ? Fin.Succ(query.AsEvidence)
+            : Fin.Fail<Matrix<double>>(ComputeFault.Create("<predict-needs-evidence>"));
+
+    private static Fin<int> Horizon(PredictQuery query) =>
+        query.IsHorizon && query.AsHorizon >= 1
+            ? Fin.Succ(query.AsHorizon)
+            : Fin.Fail<int>(ComputeFault.Create("<predict-needs-horizon>"));
 
     // Split strategy derives from family: contiguous k-fold scores regression/classification;
-    // expanding-window forward chaining scores temporal rows.
-    public static Fin<ValidationReport> Validate(Estimator estimator, Design design, EstimatorPolicy policy, int folds, IClock clock) =>
+    // expanding-window forward chaining scores temporal rows. The spread reduces through the blas
+    // `Tensor/blas#PROVIDER_CLAIMS` `OnlineStat` fourth-order stream under an explicit `MomentNormalizer`,
+    // never a page-local mean-then-squares pass that leaves its Bessel convention unstated on the report.
+    public static Fin<ValidationReport> Validate(Estimator estimator, Design design, EstimatorPolicy policy, int folds, IClock clock, DenseSubstrate substrate) =>
         folds < 2 || folds > design.Rows
             ? Fin.Fail<ValidationReport>(ComputeFault.Create($"<validate-folds:{folds}/{design.Rows}>"))
             : (estimator is Estimator.Temporal { Spec.Forecasts: true }
-                ? ForwardChain(estimator, design, policy, folds, clock)
+                ? ForwardChain(estimator, design, policy, folds, clock, substrate)
                 : estimator.Family == EstimatorFamily.Regression || estimator.Family == EstimatorFamily.Classify
-                    ? HeldOut(estimator, design, policy, folds, clock)
+                    ? HeldOut(estimator, design, policy, folds, clock, substrate)
                     : Fin.Fail<Seq<double>>(ComputeFault.Create($"<validate-no-heldout-score:{estimator.Key}>")))
             .Map(quality => {
-                double mean = quality.Sum() / quality.Count;
-                double spread = Math.Sqrt(quality.Map(q => (q - mean) * (q - mean)).Sum() / quality.Count);
-                return new ValidationReport(estimator, quality, mean, spread, folds, clock.GetCurrentInstant());
+                OnlineStat stat = quality.Fold(OnlineStat.Empty, static (acc, q) => acc.Push(q));
+                return new ValidationReport(
+                    estimator, quality, stat.Mean, Math.Sqrt(stat.Variance(MomentNormalizer.Population)),
+                    MomentNormalizer.Population, folds, clock.GetCurrentInstant());
             });
+
+    // One selection fold over a candidate policy set: each candidate fits once for its criterion and validates
+    // under the same k-fold or forward-chain axis `Validate` already owns, then both axes fold into ONE
+    // ascending rank. A criterion is present only where the fitted row carries a likelihood; a heldout-only
+    // family ranks on validation mean alone, so the two evidence axes never fabricate each other.
+    public static Fin<SelectionReport> Select(
+        Estimator estimator, Design design, Seq<EstimatorPolicy> candidates, SelectionPolicy selection, IClock clock, DenseSubstrate substrate) =>
+        selection.Admit(candidates.Count).Bind(_ => candidates
+            .TraverseM(policy => Scored(estimator, design, policy, selection, clock, substrate)).As()
+            .Map(rows => Ranked(rows, selection, clock.GetCurrentInstant())));
+
+    private static Fin<(EstimatorPolicy Policy, Option<double> Criterion, double Mean, double Spread)> Scored(
+        Estimator estimator, Design design, EstimatorPolicy policy, SelectionPolicy selection, IClock clock, DenseSubstrate substrate) =>
+        Fit(estimator, design, policy, clock, substrate)
+            .Bind(model => Validate(estimator, design, policy, selection.Folds, clock, substrate)
+                .Map(report => (
+                    policy,
+                    model.LogLikelihood.Map(ll => selection.Criterion.Score(ll, model.Carrier.ParameterCount, design.Rows)),
+                    report.Mean,
+                    report.Spread)));
+
+    // The lane's ONE exact reduction, over every sum whose term count is the row count: a deviance total, a
+    // null deviance, and a Gaussian log-likelihood at building-scale n each accumulate ~10⁶ terms whose partial
+    // sums dwarf the individual addends, and the criterion gap that decides one candidate over another is
+    // smaller than that reduction's own cancellation error. `PeterO.Numbers` `EFloat` sums under the
+    // context-free `Add`, which is EXACT at arbitrary precision, and rounds exactly ONCE at the terminal
+    // `RoundToPrecision(EContext.Binary64)` — a per-term rounding context re-introduces the drift it replaces.
+    internal static double ExactSum(Seq<double> terms) =>
+        terms.Fold(EFloat.Zero, static (sum, term) => sum.Add(EFloat.FromDouble(term)))
+            .RoundToPrecision(EContext.Binary64)
+            .ToDouble();
+
+    // The estimator is FIXED across candidates, so the criterion is present on every row or none and the one
+    // ordering key never mixes a criterion scale with a validation one.
+    private static SelectionReport Ranked(
+        Seq<(EstimatorPolicy Policy, Option<double> Criterion, double Mean, double Spread)> rows, SelectionPolicy selection, Instant at) {
+        Seq<CandidateEvidence> ordered = toSeq(rows
+            .OrderBy(row => row.Criterion.IfNone(() => -row.Mean))
+            .Select(static (row, index) => new CandidateEvidence(row.Policy, row.Criterion, row.Mean, row.Spread, index)));
+        return new SelectionReport(ordered, ordered[0].Policy, selection.Criterion, at);
+    }
 
     public static ComputeReceipt Receipt(FittedModel model, CorrelationId correlation, Duration elapsed) =>
         new ComputeReceipt.Fit(model.Estimator.Family.Key, model.Estimator.Key, model.Carrier.ParameterCount, model.Iterations, model.Residual, model.Converged, model.Quality, model.Estimator.Metric, model.Carrier.RetainedRank) {
@@ -567,20 +875,17 @@ public static class EstimatorFold {
 
     // --- [ADMISSION] ----------------------------------------------------------------------
 
-    private static Fin<FitContext> Admitted(Estimator estimator, Design design, EstimatorPolicy policy, IClock clock) {
-        (Option<EstimatorKind> kind, LinkFunction link, int rank, Option<ClusterShape> cluster, Option<TemporalSpec> temporal, Option<CurveSpec> curve) = estimator.Switch(
-            regression: static r => (Optional(r.Kind), r.Link.IfNone(r.Kind.Link), 0, Option<ClusterShape>.None, Option<TemporalSpec>.None, Option<CurveSpec>.None),
-            curve: static c => (Option<EstimatorKind>.None, LinkFunction.Identity, 0, Option<ClusterShape>.None, Option<TemporalSpec>.None, Optional(c.Spec)),
-            reduction: static d => (Optional(d.Kind), LinkFunction.Identity, d.Rank, Option<ClusterShape>.None, Option<TemporalSpec>.None, Option<CurveSpec>.None),
-            cluster: static c => (Optional(c.Kind), LinkFunction.Identity, 0, Optional(c.Shape), Option<TemporalSpec>.None, Option<CurveSpec>.None),
-            classify: static c => (Optional(c.Kind), LinkFunction.Identity, 0, Option<ClusterShape>.None, Option<TemporalSpec>.None, Option<CurveSpec>.None),
-            temporal: static t => (Option<EstimatorKind>.None, LinkFunction.Identity, 0, Option<ClusterShape>.None, Optional(t.Spec), Option<CurveSpec>.None));
-        (double Regularization, double LearningRate, double EnergyFraction, double Bandwidth, int Neighbors, double Ridge, FitBudget Budget) knobs = policy.Switch(
-            regression: static p => (p.Regularization, p.LearningRate, 0.0, 0.0, 0, 0.0, p.Budget),
-            reduction: static p => (0.0, 0.0, p.EnergyFraction, p.Bandwidth, 0, 0.0, p.Budget),
-            grouping: static p => (0.0, 0.0, 0.0, p.Bandwidth, p.Neighbors, p.Ridge, p.Budget),
-            classification: static p => (p.Regularization, 0.0, 0.0, p.Bandwidth, p.Neighbors, 0.0, FitBudget.Canonical),
-            temporal: static p => (0.0, 0.0, 0.0, 0.0, 0, 0.0, p.Budget));
+    // The regression arm reads the link off the estimator's OWN override first and the family's canonical link
+    // second, so `Link` moves the fitted objective and the predicted mean as one decision; a kind-owned link
+    // column left the override reachable at predict and unreachable at fit.
+    private static Fin<FitContext> Admitted(Estimator estimator, Design design, EstimatorPolicy policy, IClock clock, DenseSubstrate substrate) {
+        (Option<EstimatorKind> kind, LinkFunction link, GlmFamily family, int rank, Option<ClusterShape> cluster, Option<TemporalSpec> temporal, Option<CurveSpec> curve) = estimator.Switch(
+            regression: static r => (Optional(r.Kind), r.Link.IfNone(r.Family.Canonical), r.Family, 0, Option<ClusterShape>.None, Option<TemporalSpec>.None, Option<CurveSpec>.None),
+            curve: static c => (Option<EstimatorKind>.None, LinkFunction.Identity, GlmFamily.Gaussian, 0, Option<ClusterShape>.None, Option<TemporalSpec>.None, Optional(c.Spec)),
+            reduction: static d => (Optional(d.Kind), LinkFunction.Identity, GlmFamily.Gaussian, d.Rank, Option<ClusterShape>.None, Option<TemporalSpec>.None, Option<CurveSpec>.None),
+            cluster: static c => (Optional(c.Kind), LinkFunction.Identity, GlmFamily.Gaussian, 0, Optional(c.Shape), Option<TemporalSpec>.None, Option<CurveSpec>.None),
+            classify: static c => (Optional(c.Kind), LinkFunction.Identity, GlmFamily.Gaussian, 0, Option<ClusterShape>.None, Option<TemporalSpec>.None, Option<CurveSpec>.None),
+            temporal: static t => (Option<EstimatorKind>.None, LinkFunction.Identity, GlmFamily.Gaussian, 0, Option<ClusterShape>.None, Optional(t.Spec), Option<CurveSpec>.None));
         OptimDriver driver = kind.Map(static row => row.Driver).IfNone(OptimDriver.Adam);
         Fin<Unit> correspondence = kind.Filter(row => row.Family != estimator.Family).IsSome
                 ? Fin.Fail<Unit>(ComputeFault.Create($"<estimator-family-miss:{estimator.Key}:{estimator.Family.Key}>"))
@@ -595,54 +900,61 @@ public static class EstimatorFold {
             .Bind(_ => policy.Admit())
             .Bind(_ => temporal.Map(spec => spec.Admit(design.Rows, design.Columns)).IfNone(Fin.Succ(unit)))
             .Bind(_ => curve.Map(spec => spec.Admit(design)).IfNone(Fin.Succ(unit)))
-            .Map(_ => new FitContext(estimator, design, clock, link, driver, rank, cluster, temporal, curve,
-                knobs.Regularization, knobs.LearningRate, knobs.EnergyFraction, knobs.Bandwidth, knobs.Neighbors, knobs.Ridge, knobs.Budget))
+            .Map(_ => new FitContext(estimator, design, clock, substrate, policy, link, family, driver, rank, cluster, temporal, curve))
             .Bind(ctx => kind.Map(row => row.Admit(ctx))
                 .IfNone(() => curve.IsSome ? RealResponse(ctx) : TemporalDesign(ctx))
                 .Map(_ => ctx));
     }
 
-    internal static Fin<Unit> AnyDesign(FitContext _) => Fin.Succ(unit);
-
     internal static Fin<Unit> RealResponse(FitContext context) =>
         context.Design.Targets.IsSome ? Fin.Succ(unit) : Fin.Fail<Unit>(ComputeFault.Create("<estimator-needs-targets>"));
 
     internal static Fin<Unit> RegularizedResponse(FitContext context) =>
-        RealResponse(context).Bind(_ => PositiveOrZero(context.Regularization, "regularization"));
+        RealResponse(context).Bind(_ => context.Case<EstimatorPolicy.Regression>()).Bind(static p => PositiveOrZero(p.Regularization, "regularization"));
 
     internal static Fin<Unit> IterativeResponse(FitContext context) =>
-        RegularizedResponse(context).Bind(_ => Positive(context.LearningRate, "learning-rate")).Bind(_ => context.Budget.Admit());
+        RegularizedResponse(context).Bind(_ => context.Case<EstimatorPolicy.Regression>())
+            .Bind(static p => Positive(p.LearningRate, "learning-rate").Bind(_ => p.Budget.Admit()));
 
-    internal static Fin<Unit> UnitResponse(FitContext context) =>
-        IterativeResponse(context).Bind(_ => ResponseGate(context.Design, static y => y.All(static value => value >= 0.0 && value <= 1.0), "unit-response"));
-
-    internal static Fin<Unit> CountResponse(FitContext context) =>
-        IterativeResponse(context).Bind(_ => ResponseGate(context.Design,
-            static y => TensorPrimitives.IsIntegerAll<double>(y.AsArray() ?? y.ToArray()) && y.All(static value => value >= 0.0), "count-response"));
-
-    internal static Fin<Unit> PositiveResponse(FitContext context) =>
-        IterativeResponse(context).Bind(_ => ResponseGate(context.Design, static y => y.All(static value => value > 0.0), "positive-response"));
+    // The response support is the FAMILY's — count for poisson, unit-interval proportion for binomial, positive
+    // for gamma and inverse-gaussian, the real line for gaussian — so one admission row serves every GLM cell
+    // and a per-family gate is the deleted form. Gamma under the inverse link additionally owes η > 0, which is
+    // an admission on the FITTED linear predictor and therefore lands after the fit, not here.
+    internal static Fin<Unit> GlmResponse(FitContext context) =>
+        IterativeResponse(context).Bind(_ => context.Family.Admit(context.Design));
 
     internal static Fin<Unit> ReductionDesign(FitContext context) =>
-        context.EnergyFraction > 0.0 && context.EnergyFraction <= 1.0 ? Fin.Succ(unit) : Fin.Fail<Unit>(ComputeFault.Create("<reduction-energy>"));
+        context.Case<EstimatorPolicy.Reduction>().Bind(static p =>
+            p.EnergyFraction > 0.0 && p.EnergyFraction <= 1.0 ? Fin.Succ(unit) : Fin.Fail<Unit>(ComputeFault.Create("<reduction-energy>")));
 
     internal static Fin<Unit> KernelReductionDesign(FitContext context) =>
-        ReductionDesign(context).Bind(_ => Positive(context.Bandwidth, "kernel-bandwidth"));
+        ReductionDesign(context)
+            .Bind(_ => ScaleCeiling.Quadratic.Admit(context.Rows))
+            .Bind(_ => context.Case<EstimatorPolicy.Reduction>()).Bind(static p => p.Parameters.Admit());
 
     internal static Fin<Unit> NonNegativeReductionDesign(FitContext context) =>
-        NonNegativeFeatures(context.Design).Bind(_ => context.Budget.Admit());
+        NonNegativeFeatures(context.Design).Bind(_ => context.Case<EstimatorPolicy.Reduction>()).Bind(static p => p.Budget.Admit());
 
     internal static Fin<Unit> GroupingDesign(FitContext context) =>
-        Groups(context).Bind(_ => context.Budget.Admit());
+        Groups(context).Bind(_ => context.Case<EstimatorPolicy.Grouping>()).Bind(static p => p.Budget.Admit());
 
     internal static Fin<Unit> MixtureDesign(FitContext context) =>
-        Groups(context).Bind(_ => Positive(context.Ridge, "mixture-ridge")).Bind(_ => context.Budget.Admit());
+        Groups(context).Bind(_ => context.Case<EstimatorPolicy.Grouping>())
+            .Bind(static p => Positive(p.Ridge, "mixture-ridge").Bind(_ => p.Budget.Admit()));
 
+    // Average linkage rescans every surviving cluster pair per merge, so the sweep is cubic in the row count
+    // and carries no budget of its own — the ceiling IS its budget.
+    internal static Fin<Unit> LinkageDesign(FitContext context) =>
+        Groups(context).Bind(_ => ScaleCeiling.Cubic.Admit(context.Rows));
+
+    // The region query rescans every row per seed, so reachability is quadratic in both time and the frontier.
     internal static Fin<Unit> DensityDesign(FitContext context) =>
-        context.Cluster.ToFin(ComputeFault.Create("<density-shape-missing>")).Bind(shape => shape.Switch(
-            partitioned: static _ => Fin.Fail<Unit>(ComputeFault.Create("<density-shape-partitioned>")),
-            density: _ => Positive(context.Bandwidth, "density-bandwidth")
-                .Bind(_ => context.Neighbors < context.Design.Rows ? Fin.Succ(unit) : Fin.Fail<Unit>(ComputeFault.Create("<density-neighbors>")))));
+        ScaleCeiling.Quadratic.Admit(context.Rows)
+            .Bind(_ => context.Cluster.ToFin(ComputeFault.Create("<density-shape-missing>")))
+            .Bind(shape => shape.Switch(
+                partitioned: static _ => Fin.Fail<Unit>(ComputeFault.Create("<density-shape-partitioned>")),
+                density: _ => context.Case<EstimatorPolicy.Grouping>().Bind(p => Positive(p.Radius, "density-radius")
+                    .Bind(_ => p.Neighbors < context.Rows ? Fin.Succ(unit) : Fin.Fail<Unit>(ComputeFault.Create("<density-neighbors>"))))));
 
     private static Fin<Unit> NonNegativeFeatures(Design design) =>
         TensorPrimitives.IsNegativeAny<double>(design.Features.AsColumnMajorArray() ?? design.Features.ToColumnMajorArray())
@@ -654,20 +966,32 @@ public static class EstimatorFold {
             TensorPrimitives.IsIntegerAll<double>(y.AsArray() ?? y.ToArray()) && y.Distinct().Take(2).Count() == 2,
             "class-labels");
 
+    // The leave-one-out training score walks every row against every other, so the FIT is quadratic even
+    // though the store itself is lazy.
     internal static Fin<Unit> NeighborhoodDesign(FitContext context) =>
-        ClassLabels(context).Bind(_ => context.Neighbors < context.Design.Rows
-            ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(ComputeFault.Create("<knn-neighbors>")));
+        ClassLabels(context)
+            .Bind(_ => ScaleCeiling.Quadratic.Admit(context.Rows))
+            .Bind(_ => context.Case<EstimatorPolicy.Classification>())
+            .Bind(p => p.Neighbors < context.Rows ? Fin.Succ(unit) : Fin.Fail<Unit>(ComputeFault.Create("<knn-neighbors>")));
 
+    // Both margin rows materialize an n×n Gram — LS-SVM factors it whole, SMO caches its columns — so the
+    // quadratic ceiling gates the memory before either mechanism allocates.
     internal static Fin<Unit> MarginDesign(FitContext context) =>
-        ClassLabels(context).Bind(_ => Positive(context.Regularization, "margin-regularization")).Bind(_ => Positive(context.Bandwidth, "margin-bandwidth"));
+        ClassLabels(context)
+            .Bind(_ => ScaleCeiling.Quadratic.Admit(context.Rows))
+            .Bind(_ => context.Case<EstimatorPolicy.Classification>())
+            .Bind(static p => Positive(p.Regularization, "margin-regularization")
+                .Bind(_ => Positive(p.Box, "margin-box"))
+                .Bind(_ => Positive(p.KktTolerance, "margin-kkt"))
+                .Bind(_ => p.Parameters.Admit()));
 
     private static Fin<Unit> TemporalDesign(FitContext context) =>
         context.Temporal.ToFin(ComputeFault.Create("<temporal-spec-missing>"))
             .Bind(spec => spec.Admit(context.Design.Rows, context.Design.Columns))
-            .Bind(_ => context.Temporal.Map(static spec => spec is TemporalSpec.BayesianOnline).IfNone(false) && context.Budget.MaxIterations < 2
-                ? Fin.Fail<Unit>(ComputeFault.Create($"<bayesian-run-length:{context.Budget.MaxIterations}>"))
-                : context.Budget.Admit());
+            .Bind(_ => context.Case<EstimatorPolicy.Temporal>())
+            .Bind(p => context.Temporal.Map(static spec => spec is TemporalSpec.BayesianOnline).IfNone(false) && p.Budget.MaxIterations < 2
+                ? Fin.Fail<Unit>(ComputeFault.Create($"<bayesian-run-length:{p.Budget.MaxIterations}>"))
+                : p.Budget.Admit());
 
     private static Fin<Unit> Positive(double value, string gate) =>
         double.IsFinite(value) && value > 0.0 ? Fin.Succ(unit) : Fin.Fail<Unit>(ComputeFault.Create($"<estimator-{gate}:{value}>"));
@@ -696,18 +1020,19 @@ public static class EstimatorFold {
 
     internal static Fin<FittedModel> Ordinary(FitContext ctx) => ClosedForm(ctx, tikhonov: 0.0);
 
-    internal static Fin<FittedModel> Ridged(FitContext ctx) => ClosedForm(ctx, tikhonov: ctx.Regularization);
+    internal static Fin<FittedModel> Ridged(FitContext ctx) =>
+        ctx.Case<EstimatorPolicy.Regression>().Bind(p => ClosedForm(ctx, tikhonov: p.Regularization));
 
     // OLS/ridge share intercept-augmented thin-QR; ridge stacks the unpenalized-intercept `√λ·I` block.
     // `λ = 0` selects the unstacked identity without a mode flag.
     private static Fin<FittedModel> ClosedForm(FitContext ctx, double tikhonov) =>
-        Supervised(ctx).Bind(y => {
+        ctx.Case<EstimatorPolicy.Regression>().Bind(p => Supervised(ctx).Bind(y => {
             Matrix<double> design = Intercept(ctx.Design.Features);
             Matrix<double> a = tikhonov > 0.0 ? design.Stack(Tikhonov(design.ColumnCount, tikhonov)) : design;
             Vector<double> b = tikhonov > 0.0 ? Vector<double>.Build.Dense(design.RowCount + design.ColumnCount, i => i < design.RowCount ? y[i] : 0.0) : y;
-            return DenseRoute.Solve(new FactorRoute.Orthonormal(QRMethod.Thin, Modified: false), a, b, TolerancePolicy.Derive(a, b))
-                .Map(theta => Build(ctx, y, Split(theta), 0.0, 1, true));
-        });
+            return DenseRoute.Solve(new FactorRoute.Orthonormal(QRMethod.Thin, Modified: false), a, b, TolerancePolicy.Derive(a, b), ctx.Substrate)
+                .Bind(solved => Build(ctx, p, y, Split(solved.X), 0.0, 1, true));
+        }));
 
     // One kernel serves every curve row: the row supplies its coefficient fit and its evaluator, and the shared body
     // owns capture, finiteness, and the uniform quality pair. `RSquared` scores the surrogate on the ORIGINAL scale
@@ -729,6 +1054,7 @@ public static class EstimatorFold {
                         new EstimatorModel.Curve(spec, coefficients),
                         GoodnessOfFit.RSquared(modelled, observed),
                         GoodnessOfFit.StandardError(modelled, observed, spec.Terms),
+                        None,
                         1,
                         true,
                         ctx.Clock.GetCurrentInstant());
@@ -736,27 +1062,49 @@ public static class EstimatorFold {
         });
 
     internal static Fin<FittedModel> Penalized(FitContext ctx) =>
-        Supervised(ctx).Bind(y => IterativeEngine.Minimize(IterativeEngine.Lasso(ctx.Regularization), Intercept(ctx.Design.Features), y, ctx.Driver, ctx.LearningRate, ctx.Budget)
-            .Map(fit => Build(ctx, y, Split(fit.Theta), fit.Loss, fit.Iterations, fit.Converged)));
+        ctx.Case<EstimatorPolicy.Regression>().Bind(p => Supervised(ctx).Bind(y =>
+            IterativeEngine.Minimize(IterativeEngine.Lasso(p.Regularization), Intercept(ctx.Design.Features), y, ctx.Driver, p.LearningRate, p.Budget)
+                .Bind(fit => Build(ctx, p, y, Split(fit.Theta), fit.Loss, fit.Iterations, fit.Converged))));
 
     internal static Fin<FittedModel> Deviance(FitContext ctx, Func<Tensor, Tensor, Tensor> deviance) =>
-        Supervised(ctx).Bind(y => IterativeEngine.Minimize((theta, x, yy) => deviance(x.matmul(theta), yy), Intercept(ctx.Design.Features), y, ctx.Driver, ctx.LearningRate, ctx.Budget)
-            .Map(fit => Build(ctx, y, Split(fit.Theta), fit.Loss, fit.Iterations, fit.Converged)));
+        ctx.Case<EstimatorPolicy.Regression>().Bind(p => Supervised(ctx).Bind(y =>
+            IterativeEngine.Minimize((theta, x, yy) => deviance(x.matmul(theta), yy), Intercept(ctx.Design.Features), y, ctx.Driver, p.LearningRate, p.Budget)
+                .Bind(fit => Build(ctx, p, y, Split(fit.Theta), fit.Loss, fit.Iterations, fit.Converged))));
 
-    private static FittedModel Build(FitContext ctx, Vector<double> y, (double Intercept, Vector<double> Slopes) split, double loss, int iterations, bool converged) {
-        EstimatorModel.Linear carrier = new(split.Slopes, split.Intercept, ctx.Link);
-        Vector<double> predicted = ctx.Design.Features.Multiply(split.Slopes).Add(split.Intercept).Map(ctx.Link.Mean);
-        double r2 = GoodnessOfFit.CoefficientOfDetermination(predicted, y);
-        // Pearson dispersion √(Σ (yᵢ−μᵢ)²/V(μᵢ)/(n−p)): the LinkFunction V(μ) weights each squared residual, so a logistic fit scores on its Bernoulli scale (V=μ(1−μ)) and Identity (V=1) recovers the Gaussian standard error.
-        // Never an unweighted RMSE blind to the link variance — a residual not reading `Link.Variance` is the deleted decorative form.
-        int dispersionDof = Math.Max(1, y.Count - split.Slopes.Count - 1);
-        double dispersion = Math.Sqrt(Enumerable.Range(0, y.Count).Sum(i => Math.Pow(y[i] - predicted[i], 2) / Math.Max(1e-12, ctx.Link.Variance(predicted[i]))) / dispersionDof);
-        return new FittedModel(ctx.Estimator, carrier, r2, double.IsFinite(dispersion) ? dispersion : loss, iterations, converged, ctx.Clock.GetCurrentInstant());
+    // ONE builder for every linear row, closed-form and iterative alike: quality is the family's own
+    // deviance-explained (Gaussian∘identity recovers R² exactly, so no row needs a second metric), and the
+    // residual is the link-and-family-weighted Pearson dispersion. The linear predictor crosses the link's
+    // domain gate BEFORE the carrier lands, so an LBFGS step that walked a Gamma inverse-link fit to η ≤ 0
+    // refuses by name instead of publishing a carrier whose every prediction is a signed infinity.
+    private static Fin<FittedModel> Build(
+        FitContext ctx, EstimatorPolicy.Regression policy, Vector<double> y,
+        (double Intercept, Vector<double> Slopes) split, double loss, int iterations, bool converged) {
+        Vector<double> eta = ctx.Design.Features.Multiply(split.Slopes).Add(split.Intercept);
+        return ctx.Link.Domain(eta).Map(_ => {
+            Vector<double> predicted = eta.Map(ctx.Link.Mean);
+            // Pearson dispersion √(Σ (yᵢ−μᵢ)²/V(μᵢ)/(n−p)): the FAMILY's V(μ) weights each squared residual, so a
+            // binomial fit scores on its μ(1−μ)/m scale and gaussian (V=1) recovers the ordinary standard error.
+            // Never an unweighted RMSE blind to the family variance — that residual is the deleted decorative form.
+            int dispersionDof = Math.Max(1, y.Count - split.Slopes.Count - 1);
+            double dispersion = Math.Sqrt(ExactSum(toSeq(Enumerable.Range(0, y.Count)
+                .Select(i => (y[i] - predicted[i]) * (y[i] - predicted[i]) / ctx.Family.Variance(predicted[i], policy.Weight)))) / dispersionDof);
+            double deviance = ctx.Family.Total(y, predicted, policy.Weight);
+            EstimatorModel.Linear carrier = new(split.Slopes, split.Intercept, ctx.Link, ctx.Family, deviance / Math.Max(1e-12, dispersion * dispersion));
+            // The log-likelihood the criterion reads is −D/(2φ̂) with the family normalizer dropped: it is a
+            // constant in θ that cancels between candidates of one family, and no candidate set spans two.
+            return new FittedModel(
+                ctx.Estimator, carrier, ctx.Family.Explained(y, predicted, policy.Weight),
+                double.IsFinite(dispersion) ? dispersion : loss,
+                Some(-0.5 * carrier.ScaledDeviance), iterations, converged, ctx.Clock.GetCurrentInstant());
+        });
     }
 
     // --- [REDUCTION] ----------------------------------------------------------------------
 
-    internal static Fin<FittedModel> Principal(FitContext ctx) {
+    internal static Fin<FittedModel> Principal(FitContext ctx) =>
+        ctx.Case<EstimatorPolicy.Reduction>().Bind(policy => PrincipalAdmitted(ctx, policy));
+
+    private static Fin<FittedModel> PrincipalAdmitted(FitContext ctx, EstimatorPolicy.Reduction policy) {
         Matrix<double> x = ctx.Design.Features;
         Vector<double> mean = x.ColumnSums() / x.RowCount;
         Matrix<double> centered = Center(x, mean);
@@ -769,20 +1117,24 @@ public static class EstimatorFold {
             svd: f => {
                 Vector<double> singular = f.Decomposition.S;
                 double total = singular.PointwisePower(2.0).Sum();
-                int rank = Retain(singular, total, Math.Min(ctx.Rank <= 0 ? singular.Count : ctx.Rank, singular.Count), ctx.EnergyFraction);
+                int rank = Retain(singular, total, Math.Min(ctx.Rank <= 0 ? singular.Count : ctx.Rank, singular.Count), policy.EnergyFraction);
                 Matrix<double> components = f.Decomposition.VT.SubMatrix(0, rank, 0, x.ColumnCount);
                 double energy = total > 0.0 ? singular.SubVector(0, rank).PointwisePower(2.0).Sum() / total : 0.0;
                 EstimatorModel.Basis carrier = new(components, singular.SubVector(0, rank), mean, energy);
-                return Fin.Succ(new FittedModel(ctx.Estimator, carrier, energy, 1.0 - energy, 1, true, ctx.Clock.GetCurrentInstant()));
+                return Fin.Succ(new FittedModel(ctx.Estimator, carrier, energy, 1.0 - energy, None, 1, true, ctx.Clock.GetCurrentInstant()));
             }));
     }
 
-    // Kernel-PCA: centered RBF Gram is the operand, its top eigenvectors the duals;
+    // Kernel-PCA: the centered Gram of the policy's OWN `KernelRow` is the operand and its top eigenvectors the
+    // duals, so a linear, polynomial, or sigmoid kernel-PCA is a policy value rather than a second kernel row;
     // out-of-sample projection double-centers the test/train kernel against the stored row/grand means.
-    internal static Fin<FittedModel> KernelPrincipal(FitContext ctx) {
+    internal static Fin<FittedModel> KernelPrincipal(FitContext ctx) =>
+        ctx.Case<EstimatorPolicy.Reduction>().Bind(policy => KernelPrincipalAdmitted(ctx, policy));
+
+    private static Fin<FittedModel> KernelPrincipalAdmitted(FitContext ctx, EstimatorPolicy.Reduction policy) {
         Matrix<double> x = ctx.Design.Features;
         int n = x.RowCount;
-        Matrix<double> gram = Gram(x, x, ctx.Bandwidth);
+        Matrix<double> gram = policy.Kernel.Gram(x, x, policy.Parameters);
         Vector<double> rowMean = gram.RowSums() / n;
         double grandMean = rowMean.Sum() / n;
         Matrix<double> centered = Matrix<double>.Build.Dense(n, n, (i, j) => gram[i, j] - rowMean[i] - rowMean[j] + grandMean);
@@ -798,67 +1150,74 @@ public static class EstimatorFold {
                 int[] order = [.. Enumerable.Range(0, n).OrderByDescending(i => values[i]).Take(rank)];
                 Vector<double> eigen = Vector<double>.Build.DenseOfArray([.. order.Select(i => values[i])]);
                 Matrix<double> alphas = Matrix<double>.Build.Dense(n, rank, (i, c) => f.Decomposition.EigenVectors[i, order[c]] / Math.Sqrt(Math.Max(1e-12, eigen[c])));
-                EstimatorModel.KernelBasis carrier = new(x, alphas, eigen, ctx.Bandwidth, rowMean, grandMean);
+                EstimatorModel.KernelBasis carrier = new(x, alphas, eigen, policy.Kernel, policy.Parameters, rowMean, grandMean);
                 double captured = eigen.Sum() / Math.Max(1e-12, values.Map(Math.Abs).Sum());
-                return Fin.Succ(new FittedModel(ctx.Estimator, carrier, captured, 1.0 - captured, 1, true, ctx.Clock.GetCurrentInstant()));
+                return Fin.Succ(new FittedModel(ctx.Estimator, carrier, captured, 1.0 - captured, None, 1, true, ctx.Clock.GetCurrentInstant()));
             }));
     }
 
     // NMF (Lee–Seung multiplicative updates): X ≈ W·H, W,H ≥ 0, minimizing the Frobenius reconstruction.
-    internal static Fin<FittedModel> NonNegative(FitContext ctx) {
-        Matrix<double> x = ctx.Design.Features;
-        int n = x.RowCount, m = x.ColumnCount, k = Math.Max(1, ctx.Rank);
-        Matrix<double> w = Matrix<double>.Build.Random(n, k, 1).PointwiseAbs().Add(1e-3);
-        Matrix<double> h = Matrix<double>.Build.Random(k, m, 2).PointwiseAbs().Add(1e-3);
-        double residual = double.MaxValue;
-        int iter = 0;
-        bool converged = false;
-        for (; iter < ctx.Budget.MaxIterations; iter++) {
-            h = h.PointwiseMultiply((w.TransposeThisAndMultiply(x)).PointwiseDivide(w.TransposeThisAndMultiply(w).Multiply(h).Add(1e-12)));
-            w = w.PointwiseMultiply((x.TransposeAndMultiply(h)).PointwiseDivide(w.Multiply(h.TransposeAndMultiply(h)).Add(1e-12)));
-            double next = (x - w.Multiply(h)).FrobeniusNorm();
-            converged = Math.Abs(residual - next) < ctx.Budget.Tolerance;
-            residual = next;
-            if (converged) { iter++; break; }
-        }
-        return Fin.Succ(new FittedModel(ctx.Estimator, new EstimatorModel.Factors(w, h), -residual, residual, iter, converged, ctx.Clock.GetCurrentInstant()));
-    }
+    internal static Fin<FittedModel> NonNegative(FitContext ctx) =>
+        ctx.Case<EstimatorPolicy.Reduction>().Map(policy => {
+            Matrix<double> x = ctx.Design.Features;
+            int n = x.RowCount, m = x.ColumnCount, k = Math.Max(1, ctx.Rank);
+            Matrix<double> w = Matrix<double>.Build.Random(n, k, 1).PointwiseAbs().Add(1e-3);
+            Matrix<double> h = Matrix<double>.Build.Random(k, m, 2).PointwiseAbs().Add(1e-3);
+            double residual = double.MaxValue;
+            int iter = 0;
+            bool converged = false;
+            for (; iter < policy.Budget.MaxIterations; iter++) {
+                h = h.PointwiseMultiply((w.TransposeThisAndMultiply(x)).PointwiseDivide(w.TransposeThisAndMultiply(w).Multiply(h).Add(1e-12)));
+                w = w.PointwiseMultiply((x.TransposeAndMultiply(h)).PointwiseDivide(w.Multiply(h.TransposeAndMultiply(h)).Add(1e-12)));
+                double next = (x - w.Multiply(h)).FrobeniusNorm();
+                converged = Math.Abs(residual - next) < policy.Budget.Tolerance;
+                residual = next;
+                if (converged) { iter++; break; }
+            }
+            return new FittedModel(ctx.Estimator, new EstimatorModel.Factors(w, h), -residual, residual, None, iter, converged, ctx.Clock.GetCurrentInstant());
+        });
 
     // --- [CLUSTER] ------------------------------------------------------------------------
 
-    internal static Fin<FittedModel> Lloyd(FitContext ctx) => Groups(ctx).Map(k => {
-        Matrix<double> x = ctx.Design.Features;
-        int n = x.RowCount;
-        Matrix<double> centroids = Seed(x, k);
-        int[] labels = new int[n];
-        int iter = 0;
-        bool moved = true;
-        for (; iter < ctx.Budget.MaxIterations && moved; iter++) {
-            moved = false;
-            for (int i = 0; i < n; i++) {
-                int best = Nearest(x.Row(i), centroids);
-                if (best != labels[i]) { labels[i] = best; moved = true; }
+    internal static Fin<FittedModel> Lloyd(FitContext ctx) =>
+        ctx.Case<EstimatorPolicy.Grouping>().Bind(policy => Groups(ctx).Map(k => {
+            Matrix<double> x = ctx.Design.Features;
+            int n = x.RowCount;
+            Matrix<double> centroids = Seed(x, k);
+            int[] labels = new int[n];
+            int iter = 0;
+            bool moved = true;
+            for (; iter < policy.Budget.MaxIterations && moved; iter++) {
+                moved = false;
+                for (int i = 0; i < n; i++) {
+                    int best = Nearest(x.Row(i), centroids);
+                    if (best != labels[i]) { labels[i] = best; moved = true; }
+                }
+                centroids = Recenter(x, labels, k, centroids);
             }
-            centroids = Recenter(x, labels, k, centroids);
-        }
-        double inertia = Inertia(x, labels, centroids);
-        return new FittedModel(ctx.Estimator, new EstimatorModel.Partition(centroids, [.. labels]), -inertia, inertia / Math.Max(1, n), iter, !moved, ctx.Clock.GetCurrentInstant());
-    });
+            double inertia = Inertia(x, labels, centroids);
+            return new FittedModel(ctx.Estimator, new EstimatorModel.Partition(centroids, [.. labels]), -inertia, inertia / Math.Max(1, n), None, iter, !moved, ctx.Clock.GetCurrentInstant());
+        }));
 
     // GMM-EM as a Fin-threaded fold: each EmStep computes responsibilities through the gated Cholesky log-density and re-estimates (weights, means, covariances), short-circuiting once the log-likelihood stalls.
     // Cholesky failure on a degenerate covariance aborts the whole fit through the rail.
-    internal static Fin<FittedModel> ExpectationMaximization(FitContext ctx) => Groups(ctx).Bind(k => {
-        Matrix<double> x = ctx.Design.Features;
-        int n = x.RowCount, dim = x.ColumnCount;
-        Fin<(Matrix<double> Means, Seq<Matrix<double>> Covariances, Vector<double> Weights, double LogLik, int Iterations, bool Converged)> seed = Fin.Succ((
-            Means: Seed(x, k),
-            Covariances: toSeq(Enumerable.Range(0, k).Select(_ => (Matrix<double>)Matrix<double>.Build.DiagonalIdentity(dim))),
-            Weights: Vector<double>.Build.Dense(k, 1.0 / k),
-            LogLik: double.NegativeInfinity, Iterations: 0, Converged: false));
-        return toSeq(Enumerable.Range(0, ctx.Budget.MaxIterations))
-            .Fold(seed, (acc, _) => acc.Bind(s => s.Converged ? acc : EmStep(x, s, dim, ctx.Ridge, ctx.Budget.Tolerance)))
-            .Map(s => new FittedModel(ctx.Estimator, new EstimatorModel.Mixture(s.Means, s.Covariances, s.Weights), s.LogLik, double.IsFinite(s.LogLik) ? -s.LogLik / Math.Max(1, n) : double.MaxValue, s.Iterations, s.Converged, ctx.Clock.GetCurrentInstant()));
-    });
+    internal static Fin<FittedModel> ExpectationMaximization(FitContext ctx) =>
+        ctx.Case<EstimatorPolicy.Grouping>().Bind(policy => Groups(ctx).Bind(k => {
+            Matrix<double> x = ctx.Design.Features;
+            int n = x.RowCount, dim = x.ColumnCount;
+            Fin<(Matrix<double> Means, Seq<Matrix<double>> Covariances, Vector<double> Weights, double LogLik, int Iterations, bool Converged)> seed = Fin.Succ((
+                Means: Seed(x, k),
+                Covariances: toSeq(Enumerable.Range(0, k).Select(_ => (Matrix<double>)Matrix<double>.Build.DiagonalIdentity(dim))),
+                Weights: Vector<double>.Build.Dense(k, 1.0 / k),
+                LogLik: double.NegativeInfinity, Iterations: 0, Converged: false));
+            return toSeq(Enumerable.Range(0, policy.Budget.MaxIterations))
+                .Fold(seed, (acc, _) => acc.Bind(s => s.Converged ? acc : EmStep(x, s, dim, policy.Ridge, policy.Budget.Tolerance)))
+                // The EM evidence IS the observed-data log-likelihood, so the mixture row is the one unsupervised
+                // carrier an information criterion can score without fabricating a likelihood from a quality score.
+                .Map(s => new FittedModel(ctx.Estimator, new EstimatorModel.Mixture(s.Means, s.Covariances, s.Weights), s.LogLik,
+                    double.IsFinite(s.LogLik) ? -s.LogLik / Math.Max(1, n) : double.MaxValue,
+                    double.IsFinite(s.LogLik) ? Some(s.LogLik) : None, s.Iterations, s.Converged, ctx.Clock.GetCurrentInstant()));
+        }));
 
     private static Fin<(Matrix<double> Means, Seq<Matrix<double>> Covariances, Vector<double> Weights, double LogLik, int Iterations, bool Converged)> EmStep(
         Matrix<double> x, (Matrix<double> Means, Seq<Matrix<double>> Covariances, Vector<double> Weights, double LogLik, int Iterations, bool Converged) s, int dim, double ridge, double tolerance) =>
@@ -880,10 +1239,13 @@ public static class EstimatorFold {
             return (means, covariances, nk / n, evidence, s.Iterations + 1, Math.Abs(evidence - s.LogLik) < tolerance);
         });
 
-    internal static Fin<FittedModel> Reachability(FitContext ctx) {
+    internal static Fin<FittedModel> Reachability(FitContext ctx) =>
+        ctx.Case<EstimatorPolicy.Grouping>().Map(policy => ReachabilityAdmitted(ctx, policy));
+
+    private static FittedModel ReachabilityAdmitted(FitContext ctx, EstimatorPolicy.Grouping policy) {
         Matrix<double> x = ctx.Design.Features;
-        int n = x.RowCount, minPts = ctx.Neighbors;
-        double eps = ctx.Bandwidth;
+        int n = x.RowCount, minPts = policy.Neighbors;
+        double eps = policy.Radius;
         int[] labels = Enumerable.Repeat(-2, n).ToArray();
         bool[] core = new bool[n];
         int cluster = -1;
@@ -908,7 +1270,7 @@ public static class EstimatorFold {
             }
         }
         double noise = labels.Count(static label => label < 0) / (double)n;
-        return Fin.Succ(new FittedModel(ctx.Estimator, new EstimatorModel.Density(x, [.. labels], [.. core], eps), cluster + 1, noise, 1, true, ctx.Clock.GetCurrentInstant()));
+        return new FittedModel(ctx.Estimator, new EstimatorModel.Density(x, [.. labels], [.. core], eps), cluster + 1, noise, None, 1, true, ctx.Clock.GetCurrentInstant());
     }
 
     internal static Fin<FittedModel> Agglomerative(FitContext ctx) => Groups(ctx).Map(target => {
@@ -930,28 +1292,34 @@ public static class EstimatorFold {
         for (int g = 0; g < clusters.Count; g++) { foreach (int member in clusters[g]) { labels[member] = g; } }
         Matrix<double> centroids = Recenter(x, labels, clusters.Count, Matrix<double>.Build.Dense(clusters.Count, x.ColumnCount));
         double spread = Inertia(x, labels, centroids);
-        return new FittedModel(ctx.Estimator, new EstimatorModel.Partition(centroids, [.. labels]), -spread, spread / Math.Max(1, n), n - clusters.Count, true, ctx.Clock.GetCurrentInstant());
+        return new FittedModel(ctx.Estimator, new EstimatorModel.Partition(centroids, [.. labels]), -spread, spread / Math.Max(1, n), None, n - clusters.Count, true, ctx.Clock.GetCurrentInstant());
     });
 
     // --- [CLASSIFY] -----------------------------------------------------------------------
 
     // One-vs-rest LS-SVM runs one regularized-Gram KKT solve per label; binary targets reduce to two machines.
+    // The dense closed form yields NO zero duals, so every training row is a support row and the carrier's
+    // support set is the full index range — the honest one for this mechanism, where SMO's is genuinely sparse.
     internal static Fin<FittedModel> MarginMachines(FitContext ctx) =>
-        Supervised(ctx).Bind(y => {
+        ctx.Case<EstimatorPolicy.Classification>().Bind(policy => Supervised(ctx).Bind(y => {
             Matrix<double> x = ctx.Design.Features;
             int n = x.RowCount;
             int[] classes = [.. y.Select(static v => (int)v).Distinct().Order()];
-            Matrix<double> gram = Gram(x, x, ctx.Bandwidth);
-            return toSeq(classes).TraverseM(label => Machine(gram, y, label, ctx.Regularization)).As()
+            Matrix<double> gram = policy.Kernel.Gram(x, x, policy.Parameters);
+            return toSeq(classes).TraverseM(label => Machine(gram, y, label, policy.Regularization, ctx.Substrate)).As()
                 .Map(machines => {
-                    EstimatorModel.Margin carrier = new(x, machines, ctx.Bandwidth);
+                    EstimatorModel.Margin carrier = new(x, machines, policy.Kernel, policy.Parameters);
                     double accuracy = Enumerable.Range(0, n).Count(i => Strongest(x.Row(i), carrier) == (int)y[i]) / (double)n;
-                    return new FittedModel(ctx.Estimator, carrier, accuracy, 1.0 - accuracy, 1, true, ctx.Clock.GetCurrentInstant());
+                    return new FittedModel(ctx.Estimator, carrier, accuracy, 1.0 - accuracy, None, 1, true, ctx.Clock.GetCurrentInstant());
                 });
-        });
+        }));
 
     // LS-SVM KKT system [[0, sᵀ],[s, K+I/γ]]·[b; α] = [0; 1] for one machine's ±1 indicator s.
-    private static Fin<(int Label, Vector<double> Duals, double Bias)> Machine(Matrix<double> gram, Vector<double> y, int label, double regularization) {
+    // The bordered matrix is symmetric INDEFINITE — the zero corner alone guarantees one negative eigenvalue —
+    // so it rides `FactorRoute.SquarePivoting` and `Admission.Definite` never gates it; routing it to the
+    // definite kernel refuses a system that is exactly solvable.
+    private static Fin<(int Label, ImmutableArray<int> Support, Vector<double> Duals, double Bias)> Machine(
+        Matrix<double> gram, Vector<double> y, int label, double regularization, DenseSubstrate substrate) {
         int n = gram.RowCount;
         Vector<double> signed = Vector<double>.Build.Dense(n, i => (int)y[i] == label ? 1.0 : -1.0);
         Matrix<double> kkt = Matrix<double>.Build.Dense(n + 1, n + 1, (i, j) =>
@@ -960,19 +1328,20 @@ public static class EstimatorFold {
             : j == 0 ? signed[i - 1]
             : gram[i - 1, j - 1] + (i == j ? 1.0 / regularization : 0.0));
         Vector<double> rhs = Vector<double>.Build.Dense(n + 1, i => i == 0 ? 0.0 : 1.0);
-        return DenseRoute.Solve(new FactorRoute.SquarePivoting(), kkt, rhs, TolerancePolicy.Derive(kkt, rhs))
-            .Map(solution => (label, Vector<double>.Build.Dense(n, i => solution[i + 1] * signed[i]), solution[0]));
+        return DenseRoute.Solve(new FactorRoute.SquarePivoting(), kkt, rhs, TolerancePolicy.Derive(kkt, rhs), substrate)
+            .Map(solved => (label, ImmutableArray.CreateRange(Enumerable.Range(0, n)),
+                Vector<double>.Build.Dense(n, i => solved.X[i + 1] * signed[i]), solved.X[0]));
     }
 
     // kNN is the lazy store; quality is LEAVE-ONE-OUT accuracy (each row voted with itself excluded), because
     // plain training accuracy of a 1-NN-containing vote is unconditionally perfect — evidence, not decoration.
     internal static Fin<FittedModel> Neighborhood(FitContext ctx) =>
-        Supervised(ctx).Map(y => {
+        ctx.Case<EstimatorPolicy.Classification>().Bind(policy => Supervised(ctx).Map(y => {
             Matrix<double> x = ctx.Design.Features;
-            EstimatorModel.Neighbors carrier = new(x, [.. y.Select(static v => (int)v)], ctx.Neighbors);
+            EstimatorModel.Neighbors carrier = new(x, [.. y.Select(static v => (int)v)], policy.Neighbors);
             double accuracy = Enumerable.Range(0, x.RowCount).Count(i => Vote(x.Row(i), carrier, exclude: i) == (int)y[i]) / (double)x.RowCount;
-            return new FittedModel(ctx.Estimator, carrier, accuracy, 1.0 - accuracy, 0, true, ctx.Clock.GetCurrentInstant());
-        });
+            return new FittedModel(ctx.Estimator, carrier, accuracy, 1.0 - accuracy, None, 0, true, ctx.Clock.GetCurrentInstant());
+        }));
 
     internal static Fin<FittedModel> GaussianBayes(FitContext ctx) =>
         Supervised(ctx).Map(y => {
@@ -993,10 +1362,234 @@ public static class EstimatorFold {
             }
             EstimatorModel.Bayes carrier = new(means, variances, priors);
             double accuracy = Enumerable.Range(0, x.RowCount).Count(i => Posterior(x.Row(i), carrier) == (int)y[i]) / (double)x.RowCount;
-            return new FittedModel(ctx.Estimator, carrier, accuracy, 1.0 - accuracy, 1, true, ctx.Clock.GetCurrentInstant());
+            return new FittedModel(ctx.Estimator, carrier, accuracy, 1.0 - accuracy, None, 1, true, ctx.Clock.GetCurrentInstant());
         });
 
+    // --- [SEQUENTIAL_MINIMAL_OPTIMIZATION] -------------------------------------------------
+
+    // One-vs-rest C-SVM: per label the dual min ½αᵀQα − eᵀα subject to 0 ≤ αᵢ ≤ C and yᵀα = 0, with
+    // Qᵢⱼ = yᵢyⱼK(xᵢ,xⱼ). Where LS-SVM equalizes every constraint into one dense solve and yields a fully dense
+    // dual, the box constraint here leaves α sparse — the hard-margin support set — so the carrier's decision
+    // sum walks the support alone and a large training set predicts in support-set time, not row-count time.
+    internal static Fin<FittedModel> SequentialMinimal(FitContext ctx) =>
+        ctx.Case<EstimatorPolicy.Classification>().Bind(policy => Supervised(ctx).Bind(y => {
+            Matrix<double> x = ctx.Design.Features;
+            int[] classes = [.. y.Select(static v => (int)v).Distinct().Order()];
+            KernelCache cache = new(x, policy.Kernel, policy.Parameters, ctx.Rows);
+            return toSeq(classes).TraverseM(label => Smo(cache, y, label, policy)).As()
+                .Map(machines => {
+                    EstimatorModel.Margin carrier = new(x, machines.Map(static m => m.Machine), policy.Kernel, policy.Parameters);
+                    double accuracy = Enumerable.Range(0, x.RowCount).Count(i => Strongest(x.Row(i), carrier) == (int)y[i]) / (double)x.RowCount;
+                    // The receipt reads SMO's own terminal evidence: `Iterations` is the total step count across
+                    // the one-vs-rest machines, `Residual` the WORST final gap m(α) − M(α), and `Converged` that
+                    // every machine's gap crossed ε. A step count without its gap reports a budget, not a verdict.
+                    return new FittedModel(
+                        ctx.Estimator, carrier, accuracy,
+                        machines.Fold(0.0, static (worst, m) => Math.Max(worst, m.Gap)), None,
+                        machines.Fold(0, static (total, m) => total + m.Steps),
+                        machines.ForAll(m => m.Gap <= policy.KktTolerance),
+                        ctx.Clock.GetCurrentInstant());
+                });
+        }));
+
+    // A byte-budgeted column LRU: SMO touches exactly two kernel COLUMNS per step and revisits the same working
+    // indices for long stretches, so a column cache is the whole memory story and the full n×n Gram is the one
+    // allocation the box-constrained route exists to avoid — an n of 32_768 is 8 GiB of Gram, 256 KiB of column.
+    private sealed class KernelCache(Matrix<double> x, KernelRow row, KernelParams parameters, int rows) {
+        private const long ByteBudget = 512L << 20;
+
+        private readonly int budget = (int)Math.Clamp(ByteBudget / (8L * rows), 2L, rows);
+        private readonly Dictionary<int, double[]> columns = [];
+        private readonly LinkedList<int> recency = new();
+        private readonly Vector<double> diagonal = row.Diagonal(x, parameters);
+
+        internal int Rows => rows;
+
+        internal double Diagonal(int i) => diagonal[i];
+
+        internal double[] Column(int i) {
+            if (columns.TryGetValue(i, out double[]? held)) {
+                recency.Remove(i);
+                recency.AddFirst(i);
+                return held;
+            }
+            while (columns.Count >= budget && recency.Last is { } evicted) {
+                columns.Remove(evicted.Value);
+                recency.RemoveLast();
+            }
+            double[] built = [.. Enumerable.Range(0, rows).Select(t => row.At(x.Row(t), x.Row(i), parameters))];
+            columns[i] = built;
+            recency.AddFirst(i);
+            return built;
+        }
+    }
+
+    // The dual iterate: α, the gradient Gₜ = Σₛ Qₜₛαₛ − 1 maintained incrementally, the ±1 label indicator, and
+    // the shrinking working set. `Gap` is the measured KKT violation m(α) − M(α) the terminal verdict reads.
+    private sealed record SmoState(double[] Alpha, double[] Gradient, double[] Signed, bool[] Active, int Steps, double Gap);
+
+    private static Fin<((int Label, ImmutableArray<int> Support, Vector<double> Duals, double Bias) Machine, int Steps, double Gap)> Smo(
+        KernelCache cache, Vector<double> y, int label, EstimatorPolicy.Classification policy) {
+        int n = cache.Rows;
+        SmoState seed = new(
+            Alpha: new double[n],
+            Gradient: [.. Enumerable.Repeat(-1.0, n)],                     // α = 0 seeds G = Q·0 − e = −e.
+            Signed: [.. Enumerable.Range(0, n).Select(i => (int)y[i] == label ? 1.0 : -1.0)],
+            Active: [.. Enumerable.Repeat(true, n)],
+            Steps: 0,
+            Gap: double.MaxValue);
+        return toSeq(Enumerable.Range(0, policy.Budget.MaxIterations))
+            .Fold(Fin.Succ(seed), (acc, _) => acc.Bind(s => s.Gap <= policy.KktTolerance ? acc : Advance(s, cache, policy)))
+            .Map(s => (Machine(s, policy.Box, label), s.Steps, s.Gap));
+    }
+
+    private static Fin<SmoState> Advance(SmoState state, KernelCache cache, EstimatorPolicy.Classification policy) {
+        SmoState measured = Measured(state, cache, policy);
+        return measured.Gap <= policy.KktTolerance
+            ? Fin.Succ(measured)
+            : Step(measured, cache, policy).Map(next => policy.Shrinking
+                ? Shrunk(next, policy.Box) with { Steps = measured.Steps + 1 }
+                : next with { Steps = measured.Steps + 1 });
+    }
+
+    // The stop is the KKT VIOLATION GAP m(α) − M(α) ≤ ε, NEVER a coefficient or objective delta: the dual is flat
+    // near its optimum, so a step-size stall certifies an α that still violates the KKT conditions and the machine
+    // it publishes misclassifies exactly the rows the stall left violating. Shrinking makes the shrunk gap a
+    // LOWER bound only — parked gradients go stale the moment the working set moves — so once that gap closes to
+    // 10ε the full gradient RECONSTRUCTS, every index unshrinks, and the gap re-measures over all of them. That
+    // reconstruction is mandatory, never an option: without it the verdict is read off stale evidence.
+    private static SmoState Measured(SmoState state, KernelCache cache, EstimatorPolicy.Classification policy) {
+        (double up, double low) = Violation(state, policy.Box, shrunk: policy.Shrinking);
+        if (!policy.Shrinking || up - low > policy.KktTolerance * 10.0) { return state with { Gap = up - low }; }
+        SmoState full = Unshrunk(state, cache);
+        (double fullUp, double fullLow) = Violation(full, policy.Box, shrunk: false);
+        return full with { Gap = fullUp - fullLow };
+    }
+
+    // WSS2 second-order working-set selection: i maximizes the up-violation −yᵢGᵢ, and j minimizes the projected
+    // objective decrease −b²/a among the low indices strictly below it. First-order selection — the maximal
+    // violating PAIR — converges an order of magnitude slower on an RBF kernel for the identical gap.
+    private static Fin<SmoState> Step(SmoState state, KernelCache cache, EstimatorPolicy.Classification policy) {
+        const double Tau = 1e-12;
+        int n = cache.Rows;
+        (int i, double best) = (-1, double.NegativeInfinity);
+        for (int t = 0; t < n; t++) {
+            double score = -state.Signed[t] * state.Gradient[t];
+            if (state.Active[t] && Up(state, t, policy.Box) && score > best) { (i, best) = (t, score); }
+        }
+        if (i < 0) { return Fin.Fail<SmoState>(ComputeFault.Create("<smo-empty-up-set>")); }
+        double[] ki = cache.Column(i);
+        (int j, double gain) = (-1, double.MaxValue);
+        for (int t = 0; t < n; t++) {
+            if (!state.Active[t] || !Low(state, t, policy.Box)) { continue; }
+            double violation = best + state.Signed[t] * state.Gradient[t];
+            if (violation <= 0.0) { continue; }
+            // Curvature a_it = Kᵢᵢ + Kₜₜ − 2Kᵢₜ is exactly zero for duplicate rows, so the τ floor is the ONE
+            // guard keeping a degenerate pair from an infinite step rather than a NaN one — and it is a floor on
+            // the DENOMINATOR alone, never a clamp on the step the box constraint already bounds.
+            double curvature = Math.Max(Tau, cache.Diagonal(i) + cache.Diagonal(t) - 2.0 * ki[t]);
+            double projected = -violation * violation / curvature;
+            if (projected < gain) { (j, gain) = (t, projected); }
+        }
+        if (j < 0) { return Fin.Fail<SmoState>(ComputeFault.Create($"<smo-no-working-pair:{i}>")); }
+        return Fin.Succ(Moved(state, cache, policy, i, j, ki, Math.Max(Tau, cache.Diagonal(i) + cache.Diagonal(j) - 2.0 * ki[j])));
+    }
+
+    // The EXACT two-variable step under the equality constraint yᵀα = 0: with s = yᵢ·yⱼ the pair slides along
+    // αᵢ + αⱼ (equal labels) or αⱼ − αᵢ (opposite labels), so the clip bounds differ by label PARITY and a bare
+    // [0, C] clamp per variable silently leaves the equality violated. αᵢ then recovers from the invariant, which
+    // is why it needs no clamp of its own — the [L, H] bounds already place it inside the box.
+    private static SmoState Moved(
+        SmoState state, KernelCache cache, EstimatorPolicy.Classification policy, int i, int j, double[] ki, double curvature) {
+        double si = state.Signed[i], sj = state.Signed[j], s = si * sj;
+        double oldI = state.Alpha[i], oldJ = state.Alpha[j];
+        double delta = (s * state.Gradient[i] - state.Gradient[j]) / curvature;
+        (double lo, double hi) = s > 0.0
+            ? (Math.Max(0.0, oldI + oldJ - policy.Box), Math.Min(policy.Box, oldI + oldJ))
+            : (Math.Max(0.0, oldJ - oldI), Math.Min(policy.Box, policy.Box + oldJ - oldI));
+        double newJ = Math.Clamp(oldJ + delta, lo, hi);
+        double newI = oldI + s * (oldJ - newJ);
+        double[] alpha = (double[])state.Alpha.Clone();
+        (alpha[i], alpha[j]) = (newI, newJ);
+        // Gradient maintenance costs exactly the two columns the step already fetched:
+        // Gₜ += Qₜᵢ·Δαᵢ + Qₜⱼ·Δαⱼ with Qₜᵤ = yₜyᵤKₜᵤ. Recomputing G from α is O(n²) per step, which turns SMO
+        // back into the dense solve it exists to replace.
+        double[] kj = cache.Column(j);
+        double[] gradient = (double[])state.Gradient.Clone();
+        double di = newI - oldI, dj = newJ - oldJ;
+        for (int t = 0; t < gradient.Length; t++) { gradient[t] += state.Signed[t] * (si * ki[t] * di + sj * kj[t] * dj); }
+        return state with { Alpha = alpha, Gradient = gradient };
+    }
+
+    private static bool Up(SmoState state, int t, double box) =>
+        (state.Signed[t] > 0.0 && state.Alpha[t] < box) || (state.Signed[t] < 0.0 && state.Alpha[t] > 0.0);
+
+    private static bool Low(SmoState state, int t, double box) =>
+        (state.Signed[t] > 0.0 && state.Alpha[t] > 0.0) || (state.Signed[t] < 0.0 && state.Alpha[t] < box);
+
+    // m(α) = max over I_up of −y·G, M(α) = min over I_low of −y·G; the gap between them IS the KKT violation.
+    private static (double Up, double Low) Violation(SmoState state, double box, bool shrunk) {
+        double up = double.NegativeInfinity, low = double.PositiveInfinity;
+        for (int t = 0; t < state.Alpha.Length; t++) {
+            if (shrunk && !state.Active[t]) { continue; }
+            double score = -state.Signed[t] * state.Gradient[t];
+            if (Up(state, t, box)) { up = Math.Max(up, score); }
+            if (Low(state, t, box)) { low = Math.Min(low, score); }
+        }
+        return (up, low);
+    }
+
+    // A BOUND index whose violation score falls outside the current [M(α), m(α)] band can be selected as neither
+    // i nor j, so it parks. A free index never parks — its own gradient defines the bias — and parking is
+    // reversible by construction, because `Unshrunk` restores every index before any verdict is read.
+    private static SmoState Shrunk(SmoState state, double box) {
+        (double up, double low) = Violation(state, box, shrunk: true);
+        bool[] active = (bool[])state.Active.Clone();
+        for (int t = 0; t < state.Alpha.Length; t++) {
+            if (state.Alpha[t] > 0.0 && state.Alpha[t] < box) { continue; }
+            double score = -state.Signed[t] * state.Gradient[t];
+            active[t] = Up(state, t, box) ? score > low : score < up;
+        }
+        return state with { Active = active };
+    }
+
+    // Full gradient reconstruction G = Qα − e over the support alone: a parked index's gradient is stale by every
+    // step taken since it parked, and the reconstruction is what makes the unshrunk gap a verdict rather than a guess.
+    private static SmoState Unshrunk(SmoState state, KernelCache cache) {
+        int n = cache.Rows;
+        double[] gradient = [.. Enumerable.Repeat(-1.0, n)];
+        for (int s = 0; s < n; s++) {
+            if (state.Alpha[s] == 0.0) { continue; }
+            double[] ks = cache.Column(s);
+            for (int t = 0; t < n; t++) { gradient[t] += state.Signed[t] * state.Signed[s] * ks[t] * state.Alpha[s]; }
+        }
+        return state with { Gradient = gradient, Active = [.. Enumerable.Repeat(true, n)] };
+    }
+
+    // The bias reads off the FREE support vectors (0 < α < C), whose KKT conditions hold with equality, as
+    // b = −mean(y·G) over that set. An empty free set means every support vector sits at a bound and the only
+    // information left is the bracketing interval the final violation pair names: b = −(m(α) + M(α))/2.
+    private static (int Label, ImmutableArray<int> Support, Vector<double> Duals, double Bias) Machine(SmoState state, double box, int label) {
+        int n = state.Alpha.Length;
+        int[] support = [.. Enumerable.Range(0, n).Where(t => state.Alpha[t] > 0.0)];
+        int[] free = [.. support.Where(t => state.Alpha[t] < box)];
+        (double up, double low) = Violation(state, box, shrunk: false);
+        double bias = free.Length > 0
+            ? -free.Average(t => state.Signed[t] * state.Gradient[t])
+            : -(up + low) / 2.0;
+        return (label, [.. support], Vector<double>.Build.Dense(n, t => state.Alpha[t] * state.Signed[t]), bias);
+    }
+
     // --- [TEMPORAL] -----------------------------------------------------------------------
+
+    // The Gaussian conditional log-likelihood at the maximizing σ̂², ℓ = −n/2·(ln 2πσ̂² + 1) — the one form every
+    // innovation-variance row shares, so a criterion ranks AR against ARMA against Holt on one scale. `n` is the
+    // CONDITIONAL count each row's own warmup leaves, never the raw series length, because a row that discarded
+    // more warmup would otherwise score as though it had explained those observations.
+    private static Option<double> Gaussian(int conditional, double variance) =>
+        conditional > 0 && variance > 0.0 && double.IsFinite(variance)
+            ? Some(-0.5 * conditional * (Math.Log(2.0 * Math.PI * variance) + 1.0))
+            : None;
 
     // Pure AR(p): the lag design Y[t] = Σ φₖ·Y[t−k] solved through the dense-algebra thin-QR — the same closed-form route OLS rides, the AR coefficients its solution.
     internal static Fin<FittedModel> AutoRegress(FitContext ctx) {
@@ -1004,12 +1597,13 @@ public static class EstimatorFold {
         int p = ctx.Temporal.Map(static spec => spec.History).IfNone(1), n = series.Count;
         Matrix<double> design = Matrix<double>.Build.Dense(n - p, p, (i, k) => series[p + i - 1 - k]);
         Vector<double> response = Vector<double>.Build.Dense(n - p, i => series[p + i]);
-        return DenseRoute.Solve(new FactorRoute.Orthonormal(QRMethod.Thin, Modified: false), design, response, TolerancePolicy.Derive(design, response))
-            .Map(phi => {
+        return DenseRoute.Solve(new FactorRoute.Orthonormal(QRMethod.Thin, Modified: false), design, response, TolerancePolicy.Derive(design, response), ctx.Substrate)
+            .Map(solved => {
+                Vector<double> phi = solved.X;
                 Vector<double> residual = response - design.Multiply(phi);
                 double variance = residual.DotProduct(residual) / Math.Max(1, n - p);
                 Vector<double> tail = Vector<double>.Build.Dense(p, k => series[n - 1 - k]);
-                return new FittedModel(ctx.Estimator, new EstimatorModel.Lag(phi, Vector<double>.Build.Dense(0), variance, tail, TimeSeriesModel.Ar), -variance, Math.Sqrt(variance), 1, true, ctx.Clock.GetCurrentInstant());
+                return new FittedModel(ctx.Estimator, new EstimatorModel.Lag(phi, Vector<double>.Build.Dense(0), variance, tail, TimeSeriesModel.Ar), -variance, Math.Sqrt(variance), Gaussian(n - p, variance), 1, true, ctx.Clock.GetCurrentInstant());
             });
     }
 
@@ -1028,7 +1622,7 @@ public static class EstimatorFold {
                     k < p ? series[n - 1 - k]
                     : resid.Count - 1 - (k - p) >= 0 ? resid[resid.Count - 1 - (k - p)] : 0.0);
                 double variance = lm.Residual * lm.Residual / Math.Max(1, n - p - q);
-                return new FittedModel(ctx.Estimator, new EstimatorModel.Lag(lm.Parameters.SubVector(0, p), lm.Parameters.SubVector(p, q), variance, tail, TimeSeriesModel.Arma), -variance, lm.Residual, lm.Iterations, lm.Converged, ctx.Clock.GetCurrentInstant());
+                return new FittedModel(ctx.Estimator, new EstimatorModel.Lag(lm.Parameters.SubVector(0, p), lm.Parameters.SubVector(p, q), variance, tail, TimeSeriesModel.Arma), -variance, lm.Residual, Gaussian(n - p - q, variance), lm.Iterations, lm.Converged, ctx.Clock.GetCurrentInstant());
             });
     }
 
@@ -1042,7 +1636,7 @@ public static class EstimatorFold {
             .Map(lm => {
                 (double alpha, double beta, double level, double trend) = HoltState(series, lm.Parameters);
                 double variance = lm.Residual * lm.Residual / Math.Max(1, n - 2);
-                return new FittedModel(ctx.Estimator, new EstimatorModel.Lag(Vector<double>.Build.DenseOfArray([alpha, beta]), Vector<double>.Build.Dense(0), variance, Vector<double>.Build.DenseOfArray([level, trend]), TimeSeriesModel.ExponentialSmoothing), -variance, lm.Residual, lm.Iterations, lm.Converged, ctx.Clock.GetCurrentInstant());
+                return new FittedModel(ctx.Estimator, new EstimatorModel.Lag(Vector<double>.Build.DenseOfArray([alpha, beta]), Vector<double>.Build.Dense(0), variance, Vector<double>.Build.DenseOfArray([level, trend]), TimeSeriesModel.ExponentialSmoothing), -variance, lm.Residual, Gaussian(n - 2, variance), lm.Iterations, lm.Converged, ctx.Clock.GetCurrentInstant());
             });
     }
 
@@ -1055,7 +1649,7 @@ public static class EstimatorFold {
         return LevenbergMarquardt.Minimize(theta => StateSpaceFilter(series, theta).Innovations, Vector<double>.Build.DenseOfArray([0.0, -3.0]), LmPolicy.Canonical)
             .Map(lm => {
                 (double level, double slope, double variance) = StateSpaceState(series, lm.Parameters);
-                return new FittedModel(ctx.Estimator, new EstimatorModel.Lag(Vector<double>.Build.DenseOfArray([Math.Exp(lm.Parameters[0]), Math.Exp(lm.Parameters[1])]), Vector<double>.Build.Dense(0), variance, Vector<double>.Build.DenseOfArray([level, slope]), TimeSeriesModel.StateSpace), -variance, Math.Sqrt(variance), lm.Iterations, lm.Converged, ctx.Clock.GetCurrentInstant());
+                return new FittedModel(ctx.Estimator, new EstimatorModel.Lag(Vector<double>.Build.DenseOfArray([Math.Exp(lm.Parameters[0]), Math.Exp(lm.Parameters[1])]), Vector<double>.Build.Dense(0), variance, Vector<double>.Build.DenseOfArray([level, slope]), TimeSeriesModel.StateSpace), -variance, Math.Sqrt(variance), Gaussian(n - 2, variance), lm.Iterations, lm.Converged, ctx.Clock.GetCurrentInstant());
             });
     }
 
@@ -1071,7 +1665,10 @@ public static class EstimatorFold {
                 ? Fin.Fail<FittedModel>(ComputeFault.Create($"<temporal-model-miss:{spec.Model.Key}!={model.Key}>"))
                 : Baseline(ctx, spec));
 
-    private static Fin<FittedModel> Baseline(FitContext ctx, TemporalSpec spec) {
+    private static Fin<FittedModel> Baseline(FitContext ctx, TemporalSpec spec) =>
+        ctx.Case<EstimatorPolicy.Temporal>().Bind(policy => BaselineAdmitted(ctx, spec, policy.Budget));
+
+    private static Fin<FittedModel> BaselineAdmitted(FitContext ctx, TemporalSpec spec, FitBudget budget) {
         Matrix<double> x = ctx.Design.Features.SubMatrix(0, spec.History, 0, ctx.Design.Columns);
         Vector<double> mean = x.ColumnSums() / x.RowCount;
         Matrix<double> centered = Center(x, mean);
@@ -1084,7 +1681,9 @@ public static class EstimatorFold {
             Matrix<double>.Build.DiagonalIdentity(x.ColumnCount) * ridge;
         return Admission.Definite(covariance).Map(scale => {
             double nll = x.EnumerateRows().Average(row => -LogGaussian(row, mean, scale, x.ColumnCount));
-            return new FittedModel(ctx.Estimator, new EstimatorModel.Detector(mean, scale, spec, ctx.Budget.MaxIterations), -nll, nll, 1, true, ctx.Clock.GetCurrentInstant());
+            // A detector fits a BASELINE over the warmup prefix, not a model of the whole stream, so it carries
+            // no series log-likelihood and an information criterion is unavailable rather than misread.
+            return new FittedModel(ctx.Estimator, new EstimatorModel.Detector(mean, scale, spec, budget.MaxIterations), -nll, nll, None, 1, true, ctx.Clock.GetCurrentInstant());
         });
     }
 
@@ -1092,10 +1691,10 @@ public static class EstimatorFold {
 
     // Contiguous k-fold: fit on the complement, score the held-out fold by the family metric — R² for regression,
     // matched fraction for classification — so generalization is measured on rows the fit never saw.
-    private static Fin<Seq<double>> HeldOut(Estimator estimator, Design design, EstimatorPolicy policy, int folds, IClock clock) =>
+    private static Fin<Seq<double>> HeldOut(Estimator estimator, Design design, EstimatorPolicy policy, int folds, IClock clock, DenseSubstrate substrate) =>
         toSeq(Enumerable.Range(0, folds)).TraverseM(fold => {
             (Design train, Design test) = design.Split(fold, folds);
-            return Fit(estimator, train, policy, clock)
+            return Fit(estimator, train, policy, clock, substrate)
                 .Bind(model => Predict(model, test.Features))
                 .Bind(prediction => Scored(prediction, test.Targets, estimator));
         }).As();
@@ -1108,15 +1707,17 @@ public static class EstimatorFold {
             anomaly: _ => Fin.Fail<double>(ComputeFault.Create($"<validate-anomaly-needs-event-labels:{estimator.Key}>"))));
 
     // Expanding-window folds fit each prefix and forecast the next block.
-    // Negative RMSE preserves higher-is-better quality without future leakage.
-    private static Fin<Seq<double>> ForwardChain(Estimator estimator, Design design, EstimatorPolicy policy, int folds, IClock clock) {
+    // Negative RMSE preserves higher-is-better quality without future leakage. The forecast request is the step
+    // count itself — the forecast carrier reads no evidence at all, so the fold hands it a horizon rather than a
+    // zero matrix whose only load-bearing property was its row count.
+    private static Fin<Seq<double>> ForwardChain(Estimator estimator, Design design, EstimatorPolicy policy, int folds, IClock clock, DenseSubstrate substrate) {
         Vector<double> series = design.Features.Column(0);
         int n = series.Count;
         return toSeq(Enumerable.Range(1, folds)).TraverseM(fold => {
             int cut = n * fold / (folds + 1), horizon = Math.Max(1, n * (fold + 1) / (folds + 1) - cut);
             return Design.Admit(Matrix<double>.Build.Dense(cut, 1, (i, _) => series[i]), None)
-                .Bind(prefix => Fit(estimator, prefix, policy, clock))
-                .Bind(model => Predict(model, Matrix<double>.Build.Dense(horizon, 1)))
+                .Bind(prefix => Fit(estimator, prefix, policy, clock, substrate))
+                .Bind(model => Predict(model, horizon))
                 .Bind(prediction => prediction.Switch(
                     response: r => Fin.Succ(-Math.Sqrt(Enumerable.Range(0, Math.Min(r.Values.Count, n - cut)).Sum(h => Math.Pow(r.Values[h] - series[cut + h], 2)) / Math.Max(1, Math.Min(r.Values.Count, n - cut)))),
                     projection: static _ => Fin.Fail<double>(ComputeFault.Create("<validate-temporal-shape>")),
@@ -1197,9 +1798,6 @@ public static class EstimatorFold {
     private static double AverageLinkage(Matrix<double> x, List<int> a, List<int> b) =>
         a.Sum(i => b.Sum(j => Distance(x.Row(i), x.Row(j)))) / (a.Count * b.Count);
 
-    private static Matrix<double> Gram(Matrix<double> left, Matrix<double> right, double bandwidth) =>
-        Matrix<double>.Build.Dense(left.RowCount, right.RowCount, (i, j) => Math.Exp(-(left.Row(i) - right.Row(j)).PointwisePower(2.0).Sum() / (2.0 * bandwidth * bandwidth)));
-
     private static Fin<Cholesky<double>[]> Choleskies(Seq<Matrix<double>> covariances, double ridge) =>
         covariances.TraverseM(covariance =>
             Admission.Definite(covariance + Matrix<double>.Build.DiagonalIdentity(covariance.RowCount) * ridge)).As()
@@ -1236,11 +1834,14 @@ public static class EstimatorFold {
                 Enumerable.Range(0, mixture.Weights.Count)
                     .MaxBy(j => Math.Log(Math.Max(1e-300, mixture.Weights[j])) + LogGaussian(row, mixture.Means.Row(j), chols[j], x.ColumnCount)))]);
 
-    private static double Decision(Vector<double> point, Matrix<double> training, Vector<double> duals, double bias, double bandwidth) =>
-        Enumerable.Range(0, training.RowCount).Sum(i => duals[i] * Math.Exp(-(point - training.Row(i)).PointwisePower(2.0).Sum() / (2.0 * bandwidth * bandwidth))) + bias;
+    // The decision walks the machine's OWN support set through the carrier's `KernelRow`, so an SMO machine
+    // costs its support count and an LS-SVM machine its row count, and the kernel formula lives in exactly one
+    // place — the row — rather than once at the Gram and again here where the two drift apart silently.
+    private static double Decision(Vector<double> point, EstimatorModel.Margin margin, (int Label, ImmutableArray<int> Support, Vector<double> Duals, double Bias) machine) =>
+        machine.Support.Sum(i => machine.Duals[i] * margin.Kernel.At(point, margin.Training.Row(i), margin.Parameters)) + machine.Bias;
 
     private static int Strongest(Vector<double> point, EstimatorModel.Margin margin) =>
-        margin.Machines.Map(machine => (machine.Label, Score: Decision(point, margin.Training, machine.Duals, machine.Bias, margin.Bandwidth)))
+        margin.Machines.Map(machine => (machine.Label, Score: Decision(point, margin, machine)))
             .MaxBy(static row => row.Score).Label;
 
     // Distance-weighted vote (1/d weight, tie-broken by mass); `exclude` carves the row itself out for the
@@ -1261,7 +1862,7 @@ public static class EstimatorFold {
                 Enumerable.Range(0, point.Count).Sum(f => -0.5 * (Math.Log(2.0 * Math.PI * bayes.Variances[k, f]) + (point[f] - bayes.Means[k, f]) * (point[f] - bayes.Means[k, f]) / bayes.Variances[k, f])));
 
     private static Matrix<double> KernelProject(Matrix<double> x, EstimatorModel.KernelBasis basis) {
-        Matrix<double> gram = Gram(x, basis.Training, basis.Bandwidth);
+        Matrix<double> gram = basis.Kernel.Gram(x, basis.Training, basis.Parameters);
         Vector<double> testRowMean = gram.RowSums() / basis.Training.RowCount;
         Matrix<double> centered = Matrix<double>.Build.Dense(x.RowCount, basis.Training.RowCount,
             (i, j) => gram[i, j] - testRowMean[i] - basis.RowMean[j] + basis.GrandMean);
@@ -1478,22 +2079,22 @@ public sealed partial class StatisticalTest {
     public static readonly StatisticalTest MannWhitney = new("mann-whitney", minSamples: 2, RankSum, AnySamples);
 
     private StatisticalTest(
-        string key, int minSamples, Func<Seq<ReadOnlyMemory<double>>, (double Statistic, double PValue, double Dof)> evaluate,
+        string key, int minSamples, Func<Seq<ReadOnlyMemory<double>>, (double Statistic, double PValue, Option<double> Dof)> evaluate,
         Func<Seq<ReadOnlyMemory<double>>, Fin<Unit>> admit) : this(key) {
         MinSamples = minSamples;
         this.evaluate = evaluate;
         this.admit = admit;
     }
 
-    private readonly Func<Seq<ReadOnlyMemory<double>>, (double Statistic, double PValue, double Dof)> evaluate;
+    private readonly Func<Seq<ReadOnlyMemory<double>>, (double Statistic, double PValue, Option<double> Dof)> evaluate;
     private readonly Func<Seq<ReadOnlyMemory<double>>, Fin<Unit>> admit;
 
     public int MinSamples { get; }
 
-    internal (double Statistic, double PValue, double Dof) Evaluate(Seq<ReadOnlyMemory<double>> samples) => evaluate(samples);
+    internal (double Statistic, double PValue, Option<double> Dof) Evaluate(Seq<ReadOnlyMemory<double>> samples) => evaluate(samples);
     internal Fin<Unit> Admit(Seq<ReadOnlyMemory<double>> samples) => admit(samples);
 
-    private static (double, double, double) StudentPooled(Seq<ReadOnlyMemory<double>> samples) {
+    private static (double, double, Option<double>) StudentPooled(Seq<ReadOnlyMemory<double>> samples) {
         (double MeanA, double VarianceA, int CountA, double MeanB, double VarianceB, int CountB) pair = TwoSampleMoments(samples);
         double dof = pair.CountA + pair.CountB - 2;
         double pooled = ((pair.CountA - 1) * pair.VarianceA + (pair.CountB - 1) * pair.VarianceB) / dof;
@@ -1501,7 +2102,7 @@ public sealed partial class StatisticalTest {
         return StudentTail(pair.MeanA - pair.MeanB, standardError, dof);
     }
 
-    private static (double, double, double) Welch(Seq<ReadOnlyMemory<double>> samples) {
+    private static (double, double, Option<double>) Welch(Seq<ReadOnlyMemory<double>> samples) {
         (double MeanA, double VarianceA, int CountA, double MeanB, double VarianceB, int CountB) pair = TwoSampleMoments(samples);
         double scaledA = pair.VarianceA / pair.CountA, scaledB = pair.VarianceB / pair.CountB;
         double dof = Math.Pow(scaledA + scaledB, 2) /
@@ -1517,9 +2118,9 @@ public sealed partial class StatisticalTest {
         return (ma, va, a.Length, mb, vb, b.Length);
     }
 
-    private static (double, double, double) StudentTail(double difference, double standardError, double dof) {
+    private static (double, double, Option<double>) StudentTail(double difference, double standardError, double dof) {
         double t = difference / standardError;
-        return (t, 2.0 * (1.0 - StudentT.CDF(0.0, 1.0, dof, Math.Abs(t))), dof);
+        return (t, 2.0 * (1.0 - StudentT.CDF(0.0, 1.0, dof, Math.Abs(t))), Some(dof));
     }
 
     private static Fin<Unit> AnySamples(Seq<ReadOnlyMemory<double>> _) => Fin.Succ(unit);
@@ -1536,26 +2137,26 @@ public sealed partial class StatisticalTest {
             : Fin.Fail<Unit>(ComputeFault.Create("<chi-square-support>"));
     }
 
-    private static (double, double, double) OneWayAnova(Seq<ReadOnlyMemory<double>> samples) {
+    private static (double, double, Option<double>) OneWayAnova(Seq<ReadOnlyMemory<double>> samples) {
         double[][] groups = [.. samples.Map(static g => g.ToArray())];
         int total = groups.Sum(static g => g.Length), k = groups.Length;
         double grand = groups.SelectMany(static g => g).Mean();
         double between = groups.Sum(g => g.Length * Math.Pow(g.Mean() - grand, 2)) / (k - 1);
         double within = groups.Sum(g => g.Sum(v => Math.Pow(v - g.Mean(), 2))) / (total - k);
         double f = between / within;
-        return (f, 1.0 - FisherSnedecor.CDF(k - 1, total - k, f), k - 1);
+        return (f, 1.0 - FisherSnedecor.CDF(k - 1, total - k, f), Some((double)(k - 1)));
     }
 
-    private static (double, double, double) ChiSquareGoodness(Seq<ReadOnlyMemory<double>> samples) {
+    private static (double, double, Option<double>) ChiSquareGoodness(Seq<ReadOnlyMemory<double>> samples) {
         double[] observed = samples[0].ToArray();
         double[] expected = samples.Count > 1 ? samples[1].ToArray() : [.. observed.Select(_ => observed.Average())];
         double chi = Enumerable.Range(0, observed.Length).Sum(i => Math.Pow(observed[i] - expected[i], 2) / Math.Max(1e-12, expected[i]));
         double dof = observed.Length - 1;
-        return (chi, 1.0 - ChiSquared.CDF(dof, chi), dof);
+        return (chi, 1.0 - ChiSquared.CDF(dof, chi), Some(dof));
     }
 
     // Two-sample Kolmogorov–Smirnov: sup gap of the empirical CDFs against the Kolmogorov asymptotic series — MathNet ships no Kolmogorov distribution, so the alternating exponential series is the kernel.
-    private static (double, double, double) KolmogorovSmirnov(Seq<ReadOnlyMemory<double>> samples) {
+    private static (double, double, Option<double>) KolmogorovSmirnov(Seq<ReadOnlyMemory<double>> samples) {
         double[] a = [.. samples[0].ToArray().Order()], b = [.. samples[1].ToArray().Order()];
         int na = a.Length, nb = b.Length, i = 0, j = 0;
         double d = 0.0;
@@ -1568,11 +2169,11 @@ public sealed partial class StatisticalTest {
         double ne = (double)na * nb / (na + nb);
         double lambda = (Math.Sqrt(ne) + 0.12 + 0.11 / Math.Sqrt(ne)) * d;
         double p = 2.0 * Enumerable.Range(1, 100).Sum(t => Math.Pow(-1.0, t - 1) * Math.Exp(-2.0 * t * t * lambda * lambda));
-        return (d, Math.Clamp(p, 0.0, 1.0), 0.0);
+        return (d, Math.Clamp(p, 0.0, 1.0), None);
     }
 
     // Mann–Whitney U via the tie-corrected, continuity-corrected normal approximation over the rank sum.
-    private static (double, double, double) RankSum(Seq<ReadOnlyMemory<double>> samples) {
+    private static (double, double, Option<double>) RankSum(Seq<ReadOnlyMemory<double>> samples) {
         double[] a = samples[0].ToArray(), b = samples[1].ToArray();
         int na = a.Length, nb = b.Length;
         double[] pooled = [.. a.Concat(b)];
@@ -1584,7 +2185,7 @@ public sealed partial class StatisticalTest {
         int n = na + nb;
         double sigma = Math.Sqrt(na * (double)nb / 12.0 * (n + 1 - tieTerm / (n * (n - 1.0))));
         double z = (u - mean - 0.5 * Math.Sign(u - mean)) / sigma;
-        return (u, 2.0 * (1.0 - Normal.CDF(0.0, 1.0, Math.Abs(z))), 0.0);
+        return (u, 2.0 * (1.0 - Normal.CDF(0.0, 1.0, Math.Abs(z))), None);
     }
 
     private static double[] Ranks(double[] values) {
@@ -1601,7 +2202,9 @@ public sealed partial class StatisticalTest {
     }
 }
 
-public sealed record TestResult(StatisticalTest Test, double Statistic, double PValue, bool RejectNull, double Dof, Instant At);
+// `Dof` is `None` on the distribution-free rows: the Kolmogorov series and the rank-sum normal approximation
+// have no degrees of freedom at all, and a `0.0` in that slot reads as a computed zero rather than an absence.
+public sealed record TestResult(StatisticalTest Test, double Statistic, double PValue, bool RejectNull, Option<double> Dof, Instant At);
 
 public static class Hypothesis {
     public static Fin<TestResult> Test(StatisticalTest test, Seq<ReadOnlyMemory<double>> samples, double alpha, IClock clock) =>
@@ -1614,7 +2217,7 @@ public static class Hypothesis {
         : test.Admit(samples).Bind(_ => Evaluated(test, samples, alpha, clock));
 
     private static Fin<TestResult> Evaluated(StatisticalTest test, Seq<ReadOnlyMemory<double>> samples, double alpha, IClock clock) {
-        (double statistic, double pValue, double dof) = test.Evaluate(samples);
+        (double statistic, double pValue, Option<double> dof) = test.Evaluate(samples);
         return double.IsFinite(statistic) && double.IsFinite(pValue)
             ? Fin.Succ(new TestResult(test, statistic, pValue, pValue < alpha, dof, clock.GetCurrentInstant()))
             : Fin.Fail<TestResult>(new ComputeFault.ModelRejected($"<hypothesis-nonfinite:{test.Key}:stat={statistic}>"));
@@ -1628,6 +2231,4 @@ public static class Hypothesis {
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
 -->
 
-- [GLM_DEVIANCE]-[OPEN]: exact family deviance over the `MathNet.Numerics.Distributions` `Density`/`CumulativeDistribution` normalizing constant beyond the quasi-likelihood Pearson dispersion, and the canonical inverse-link Gamma path (`LinkFunction.Inverse` via the `Estimator.Regression.Link` override) as the `−log(−η)−y·η` form where positivity holds; verify against the `MathNet.Numerics.Distributions` surface.
-- [LS_SVM_VS_DUAL]-[OPEN]: box-constrained C-SVM dual (hinge/quadratic-margin under `0 ≤ α ≤ C`, `Σαᵢyᵢ = 0`) trading the one-vs-rest LS-SVM dense closed-form for a sparse support set where hard-margin sparsity is required; verify an SMO/projected-gradient kernel with the `Admission.Definite` Cholesky conditioning gate.
-- [GRADUATION_MODELS]-[BLOCKED]: offline deep-training model signature (input/output tensor names, feature interleave) the `ONE_GRADUATION_EVIDENCE` graduation-decode gate reads; verify against the Python `compute/graduation` companion-published signature.
+(none)

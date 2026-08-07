@@ -121,7 +121,7 @@
 |  [07]   | `SKMipmapMode`                    | none/nearest/linear mip selection                                                         |
 |  [08]   | `SKClipOperation`                 | intersect/difference clip combine                                                         |
 |  [09]   | `SKPathOp`                        | difference/intersect/union/xor/reverse-difference                                         |
-|  [10]   | `SKCodecResult`                   | decode-step status for `SKCodec`, beside `SKCodecOptions` and `SKCodecFrameInfo`           |
+|  [10]   | `SKCodecResult`                   | decode-step status for `SKCodec`, beside `SKCodecOptions` and `SKCodecFrameInfo`          |
 |  [11]   | `SKPaintStyle`                    | `Fill` / `Stroke` / `StrokeAndFill` (`SKPaint.Style`)                                     |
 |  [12]   | `SKStrokeCap`                     | `Butt` / `Round` / `Square` (`SKPaint.StrokeCap`)                                         |
 |  [13]   | `SKStrokeJoin`                    | `Miter` / `Round` / `Bevel` (`SKPaint.StrokeJoin`)                                        |
@@ -421,22 +421,22 @@
 [RUNTIME_EFFECT_ENTRYPOINTS]: SkSL compilation, uniform and child binding, and effect projection
 - uniform carry: `SKRuntimeEffectUniform` converts implicitly from `float` and `int` with their arrays and spans, `SKPoint`/`SKPointI`, `SKSize`/`SKSizeI`, `SKPoint3`, `SKColor`, `SKColorF`, `SKMatrix`, and `float[][]`; `SKRuntimeEffectChild` converts from `SKShader`, `SKColorFilter`, and `SKBlender`; a projection's `uniforms` argument is an `SKRuntimeEffectUniforms` and its `children` argument an `SKRuntimeEffectChildren`.
 
-| [INDEX] | [SURFACE]                               | [ROOT]                                                | [CALL]                                                      |
-| :-----: | :-------------------------------------- | :---------------------------------------------------- | :---------------------------------------------------------- |
-|  [01]   | `CreateShader` / `CreateColorFilter`    | `SKRuntimeEffect`                                     | `(string sksl, out string errors)` compile                  |
-|  [02]   | `CreateBlender`                         | `SKRuntimeEffect`                                     | `(string sksl, out string errors)` compile                  |
-|  [03]   | `BuildShader` / `BuildColorFilter`      | `SKRuntimeEffect`                                     | `(string sksl)` -> a builder over a fresh effect            |
-|  [04]   | `BuildBlender`                          | `SKRuntimeEffect`                                     | `(string sksl)` -> a builder over a fresh effect            |
-|  [05]   | `ToShader`                              | `SKRuntimeEffect`                                     | `([uniforms][, children][, SKMatrix localMatrix])`          |
-|  [06]   | `ToColorFilter` / `ToBlender`           | `SKRuntimeEffect`                                     | `([uniforms][, children])`; no local-matrix arm             |
-|  [07]   | `Uniforms` / `Children` / `UniformSize` | `SKRuntimeEffect`                                     | declared uniform and child names; uniform-block byte size   |
-|  [08]   | `Build`                                 | `SKRuntimeShaderBuilder`                              | `([SKMatrix localMatrix])` -> `SKShader`                    |
-|  [09]   | `Add` / `Contains` / `Reset`            | `SKRuntimeEffectUniforms`                             | `(string name, SKRuntimeEffectUniform)` named binding       |
-|  [10]   | `Add` / `Contains` / `Reset`            | `SKRuntimeEffectChildren`                             | `(string name, SKRuntimeEffectChild?)` named binding        |
-|  [11]   | `Names` / `Count` / `this[string]`      | both blocks                                           | `IReadOnlyList<string>` / `int` / one cell by name          |
-|  [12]   | `ToData` / `ToArray`                    | `SKRuntimeEffectUniforms` / `SKRuntimeEffectChildren` | `()` -> `SKData` / `SKObject[]`                             |
-|  [13]   | `Effect` / `Uniforms` / `Children`      | `SKRuntimeEffectBuilder`                              | the base's three retained properties every builder inherits |
-|  [14]   | `.ctor`                                 | every builder                                         | `(SKRuntimeEffect effect)` — public, adopting the effect    |
+| [INDEX] | [SURFACE]                               | [ROOT]                    | [CALL]                                                      |
+| :-----: | :-------------------------------------- | :------------------------ | :---------------------------------------------------------- |
+|  [01]   | `CreateShader` / `CreateColorFilter`    | `SKRuntimeEffect`         | `(string sksl, out string errors)` compile                  |
+|  [02]   | `CreateBlender`                         | `SKRuntimeEffect`         | `(string sksl, out string errors)` compile                  |
+|  [03]   | `BuildShader` / `BuildColorFilter`      | `SKRuntimeEffect`         | `(string sksl)` -> a builder over a fresh effect            |
+|  [04]   | `BuildBlender`                          | `SKRuntimeEffect`         | `(string sksl)` -> a builder over a fresh effect            |
+|  [05]   | `ToShader`                              | `SKRuntimeEffect`         | `([uniforms][, children][, SKMatrix localMatrix])`          |
+|  [06]   | `ToColorFilter` / `ToBlender`           | `SKRuntimeEffect`         | `([uniforms][, children])`; no local-matrix arm             |
+|  [07]   | `Uniforms` / `Children` / `UniformSize` | `SKRuntimeEffect`         | declared uniform and child names; uniform-block byte size   |
+|  [08]   | `Build`                                 | `SKRuntimeShaderBuilder`  | `([SKMatrix localMatrix])` -> `SKShader`                    |
+|  [09]   | `Add` / `Contains` / `Reset`            | `SKRuntimeEffectUniforms` | `(string name, SKRuntimeEffectUniform)` named binding       |
+|  [10]   | `Add` / `Contains` / `Reset`            | `SKRuntimeEffectChildren` | `(string name, SKRuntimeEffectChild?)` named binding        |
+|  [11]   | `Names` / `Count` / `this[string]`      | both blocks               | `IReadOnlyList<string>` / `int` / one cell by name          |
+|  [12]   | `ToData` / `ToArray`                    | both blocks               | `()` -> `SKData` / `SKObject[]`                             |
+|  [13]   | `Effect` / `Uniforms` / `Children`      | `SKRuntimeEffectBuilder`  | the base's three retained properties every builder inherits |
+|  [14]   | `.ctor`                                 | every builder             | `(SKRuntimeEffect effect)` — public, adopting the effect    |
 
 - `SKRuntimeColorFilterBuilder.Build`/`SKRuntimeBlenderBuilder.Build`: `()` -> `SKColorFilter` / `SKBlender`; only the shader builder takes a local matrix.
 - `SKRuntimeEffectBuilder.Dispose` disposes the `Effect` it wraps beside both blocks, so a builder constructed per frame over a cached effect frees that effect at the end of that frame — a cache retains the BUILDER and constructs no second one over the same effect.

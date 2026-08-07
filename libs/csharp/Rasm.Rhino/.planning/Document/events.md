@@ -202,7 +202,7 @@ public sealed partial class EventFamily {
             scope: scope,
             payload: new EventPayload.TextureMapping(
                 Transition: transition,
-                Current: transition.CarriesCurrent ? Optional(a.NewMapping).Map(static mapping => mapping.Id) : Option<Guid>.None))));
+                Current: transition.CarriesCurrent ? Optional(a.NewMapping).Map(static mapping => mapping.Id) : Option<Guid>.None)))));
 
     public static readonly EventFamily ViewModified = new(key: nameof(ViewModified), band: EventBand.Screen, cadence: Cadence.Changed, bind: ViewFact(
         subscribe: h => RhinoView.Modified += h, unsubscribe: h => RhinoView.Modified -= h));
@@ -268,9 +268,9 @@ public sealed partial class EventFamily {
         Func<EventEnvelope, Fin<Unit>> deliver,
         Action<Error> reject);
 
-    public static Fin<Seq<EventFamily>> In(EventBand band) =>
+    public static Fin<Seq<EventFamily>> In(EventBand band, Op? key = null) =>
         Optional(band)
-            .ToFin(Fail: Op.Of(name: nameof(EventFamily)).InvalidInput())
+            .ToFin(Fail: key.OrDefault().InvalidInput())
             .Map(active => toSeq(Items).Filter(family => family.Band == active));
 
     private static Func<EventScope, ReceiptJournal, Func<EventEnvelope, Fin<Unit>>, Action<Error>, Fin<Subscription>> On<TArgs>(
@@ -523,12 +523,8 @@ public sealed partial class ComponentTransition {
     internal static Fin<T> Named<T, TEvent>(TEvent value)
         where T : class, ISmartEnum<string, T, ValidationError>
         where TEvent : struct, Enum {
-        Option<string> name = Optional(Enum.GetName(value: value));
-        return name
-            .ToFin(Fail: Op.Of(name: typeof(T).Name).InvalidResult())
-            .Bind(key => T.TryGet(key, out T? row)
-                ? Fin.Succ(value: row)
-                : Fin.Fail<T>(error: Op.Of(name: typeof(T).Name).InvalidResult(detail: key)));
+        Op op = Op.Of(name: typeof(T).Name);
+        return Op.Text(Enum.GetName(value: value)).ToFin(Fail: op.InvalidResult()).Bind(key => op.Row<string, T>(key));
     }
 }
 
@@ -689,7 +685,7 @@ public sealed partial class FileChangeKind {
     public static readonly FileChangeKind Renamed = new(key: (int)WatcherChangeTypes.Renamed);
 
     internal static Fin<FileChangeKind> Of(WatcherChangeTypes native, Op key) =>
-        TryGet((int)native, out var kind) ? Fin.Succ(value: kind) : Fin.Fail<FileChangeKind>(error: key.InvalidInput());
+        key.Row<int, FileChangeKind>((int)native);
 }
 
 public readonly record struct FileEdge(FileChangeKind Kind, string Path, Option<string> PreviousPath);
@@ -898,6 +894,7 @@ internal sealed class ReceiptJournal(WatchKey watch, ReceiptPolicy policy) {
 - Law: deferred delivery owns one idle hook per watch; closing the watch detaches that hook and receipts every queued fact as cancelled.
 - Law: file callbacks fold into one resettable trailing-edge timer and one bounded batch before entering the same delivery spine as host facts.
 - Exemption: native attach/detach, timer ownership, `Lock` scopes, and callback `try/finally` blocks are platform-forced lifetime seams.
+- Law: `LifecycleGate` is the package's ONE claims/close/retry lifecycle capsule — every bounded-settle lease across the boundary (pointer leases, content streams, watch custody) composes it from this namespace, and a sibling hand-rolling a `lock`/`Monitor` lifecycle machine beside it is the collapsed form.
 
 ```csharp signature
 // --- [TYPES] ------------------------------------------------------------------------------
@@ -1027,22 +1024,22 @@ internal sealed class Emission {
     private bool IsActive => Volatile.Read(location: ref active) != 0;
 
     internal static Fin<Emission> Open(Delivery delivery, ReceiptJournal journal, Op key) =>
-        Optional(delivery).ToFin(Fail: key.InvalidInput()).Bind(active => active.Switch(
+        key.Need(delivery).Bind(active => active.Switch(
             (Journal: journal, Op: key),
-            inline: static (state, mode) => Optional(mode.Sink).ToFin(Fail: state.Op.InvalidInput())
+            inline: static (state, mode) => state.Op.Need(mode.Sink)
                 .Map(_ => new Emission(
                     delivery: mode,
                     journal: state.Journal,
                     channel: Option<Channel<DocEvent>>.None,
                     idle: Option<IdlePump>.None)),
-            deferred: static (state, mode) => Optional(mode.Sink).ToFin(Fail: state.Op.InvalidInput())
+            deferred: static (state, mode) => state.Op.Need(mode.Sink)
                 .Bind(_ => IdlePump.Open(journal: state.Journal))
                 .Map(pump => new Emission(
                     delivery: mode,
                     journal: state.Journal,
                     channel: Option<Channel<DocEvent>>.None,
                     idle: Some(pump))),
-            paced: static (state, mode) => Optional(mode.Lane).ToFin(Fail: state.Op.InvalidInput()).Bind(lane =>
+            paced: static (state, mode) => state.Op.Need(mode.Lane).Bind(lane =>
                 state.Op.Catch(() => {
                     Channel<DocEvent> opened = lane.Open(
                         policy: state.Journal.Policy,
@@ -1096,17 +1093,17 @@ public static class DocumentStream {
 
     public static Fin<Watch> Observe(Observation request) {
         Op op = Op.Of();
-        return Optional(request).ToFin(Fail: op.InvalidInput()).Bind(active => active.Switch(
+        return op.Need(request).Bind(active => active.Switch(
             op,
             host: static (key, observation) => ObserveHost(request: observation, key: key),
             file: static (key, observation) => ObserveFile(request: observation, key: key)));
     }
 
     private static Fin<Watch> ObserveHost(Observation.Host request, Op key) =>
-        from scope in Optional(request.Scope).ToFin(Fail: key.InvalidInput())
-        from delivery in Optional(request.Delivery).ToFin(Fail: key.InvalidInput())
+        from scope in key.Need(request.Scope)
+        from delivery in key.Need(request.Delivery)
         from families in request.Families
-            .TraverseM(family => Optional(family).ToFin(Fail: key.InvalidInput()))
+            .TraverseM(family => key.Need(family))
             .As()
             .Map(static named => named.Distinct())
             .Bind(named => named.IsEmpty ? Fin.Fail<Seq<EventFamily>>(error: key.InvalidInput()) : Fin.Succ(value: named))
@@ -1125,7 +1122,7 @@ public static class DocumentStream {
         ReceiptPolicy policy,
         Func<Emission, ReceiptJournal, Fin<Subscription>> attach,
         Op key) =>
-        from bounds in Optional(policy).ToFin(Fail: key.InvalidInput())
+        from bounds in key.Need(policy)
         let journal = new ReceiptJournal(
             watch: WatchKey.Create(value: Interlocked.Increment(location: ref sequence)),
             policy: bounds)
@@ -1154,7 +1151,7 @@ public static class DocumentStream {
 
     private static Fin<Watch> ObserveFile(Observation.File request, Op key) =>
         from path in key.AcceptText(value: request.Path)
-        from clock in Optional(request.Clock).ToFin(Fail: key.InvalidInput())
+        from clock in key.Need(request.Clock)
         from _ in guard(request.Debounce > TimeSpan.Zero, key.InvalidInput())
         from watch in Mount(
             delivery: request.Delivery,
@@ -1271,6 +1268,136 @@ public static class DocumentStream {
         });
 
     private readonly record struct FileBatch(Seq<FileEdge> Edges, long Overflow);
+}
+
+// Package-wide bounded-lifecycle capsule: one claims/close/retry machine every boundary lease composes.
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+internal abstract partial record LeaseState {
+    private LeaseState() { }
+    internal sealed record Open(int Claims) : LeaseState;
+    internal sealed record Closing(int Claims, Guid Token, TaskCompletionSource<Unit> Quiesced, TaskCompletionSource<Fin<Unit>> Completed) : LeaseState;
+    internal sealed record Retryable(int Claims) : LeaseState;
+    internal sealed record Closed : LeaseState;
+}
+
+internal sealed class LifecycleGate {
+    private readonly Atom<LeaseState> state = Atom<LeaseState>(new LeaseState.Open(Claims: 0));
+    // A claim runs to completion on the thread that took it, so a close issued from a thread already inside a claim would
+    // wait on its own release forever. The claiming-thread set is the structural refusal for that re-entrancy, and it is
+    // what keeps a bounded blocking close safe on the host callback thread.
+    private readonly Atom<Set<int>> claiming = Atom(Set<int>());
+    private readonly TimeSpan settleWithin;
+    private LifecycleGate(TimeSpan settleWithin) => this.settleWithin = settleWithin;
+    internal static Fin<LifecycleGate> Of(TimeSpan settleWithin, Op key) =>
+        guard(settleWithin > TimeSpan.Zero, key.InvalidInput()).ToFin().Map(_ => new LifecycleGate(settleWithin));
+
+    internal Fin<T> Within<T>(Func<Fin<T>> body, Func<Fin<T>> refused, Op key) =>
+        TryClaim() ? Settle(Marked(body, key)) : key.Catch(refused);
+
+    // The drain is bounded but still BLOCKING, so it never rides the closing caller's thread: `Begin` arms the close,
+    // runs `stop` on the caller's own rail so a marshalled arm keeps its seam, and hands back the completion — a host
+    // UI-thread owner settles that completion off-thread, because blocking there stalls the very callbacks the drain
+    // waits to see released. `Close` is the blocking convenience a pool caller takes over the same one-owner close.
+    internal Fin<Unit> Close(Func<Fin<Unit>> stop, Func<Fin<Unit>> settle, Op key) =>
+        Begin(stop, settle, key).Bind(completion => Await(completion, key)).Bind(static outcome => outcome);
+
+    internal Fin<Task<Fin<Unit>>> Begin(Func<Fin<Unit>> stop, Func<Fin<Unit>> settle, Op key) {
+        if (claiming.Value.Contains(Environment.CurrentManagedThreadId)) { return Fin.Fail<Task<Fin<Unit>>>(key.InvalidContext()); }
+        Guid token = Guid.NewGuid();
+        TaskCompletionSource<Unit> quiesced = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        TaskCompletionSource<Fin<Unit>> completed = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        LeaseState next = state.Swap(current => current.Switch(
+            (Token: token, Quiesced: quiesced, Completed: completed),
+            open: static (ctx, row) => (LeaseState)new LeaseState.Closing(row.Claims, ctx.Token, ctx.Quiesced, ctx.Completed),
+            closing: static (_, row) => row,
+            retryable: static (ctx, row) => new LeaseState.Closing(row.Claims, ctx.Token, ctx.Quiesced, ctx.Completed),
+            closed: static (_, row) => row));
+        return next.Switch(
+            (Gate: this, Token: token, Stop: stop, Settle: settle, Key: key),
+            open: static (ctx, _) => Fin.Fail<Task<Fin<Unit>>>(ctx.Key.InvalidContext()),
+            closing: static (ctx, row) => Fin.Succ(row.Token == ctx.Token
+                ? ctx.Gate.Drain(row, ctx.Stop, ctx.Settle, ctx.Key)
+                : row.Completed.Task),
+            retryable: static (ctx, _) => Fin.Fail<Task<Fin<Unit>>>(ctx.Key.InvalidContext()),
+            closed: static (_, _) => Fin.Succ(Task.FromResult(Fin.Succ(unit))));
+    }
+
+    private bool TryClaim() => state.Swap(current => current.Switch(
+        open: static row => (LeaseState)new LeaseState.Open(row.Claims + 1),
+        closing: static row => row,
+        retryable: static row => row,
+        closed: static row => row)).Switch(
+            open: static _ => true,
+            closing: static _ => false,
+            retryable: static _ => false,
+            closed: static _ => false);
+
+    private Fin<T> Marked<T>(Func<Fin<T>> body, Op key) {
+        int thread = Environment.CurrentManagedThreadId;
+        _ = claiming.Swap(rows => rows.Add(thread));
+        try { return key.Catch(body); }
+        finally { _ = claiming.Swap(rows => rows.Remove(thread)); }
+    }
+
+    private Fin<T> Settle<T>(Fin<T> outcome) => outcome.BiBind(
+        Succ: value => (Release(), Fin.Succ(value)).Item2,
+        Fail: failure => (Release(), Fin.Fail<T>(failure)).Item2);
+
+    private Unit Release() => state.Swap(current => current.Switch(
+        open: static row => (LeaseState)new LeaseState.Open(row.Claims - 1),
+        closing: static row => new LeaseState.Closing(row.Claims - 1, row.Token, row.Quiesced, row.Completed),
+        retryable: static row => new LeaseState.Retryable(row.Claims - 1),
+        closed: static row => row)).Switch(
+            open: static _ => unit,
+            closing: static row => Op.SideWhen(row.Claims == 0, () => row.Quiesced.TrySetResult(unit)),
+            retryable: static _ => unit,
+            closed: static _ => unit);
+
+    // The owning close alone drives the drain, and it drives it as a SCHEDULER continuation: `stop` runs inline on the
+    // caller's rail, then the bounded wait and the settle ride the pool. A gate whose claims are already zero completes
+    // its own quiesce signal here rather than branching, so both paths reach one conclusion member.
+    private Task<Fin<Unit>> Drain(LeaseState.Closing row, Func<Fin<Unit>> stop, Func<Fin<Unit>> settle, Op key) {
+        Fin<Unit> stopped = key.Catch(stop);
+        _ = Op.SideWhen(row.Claims == 0, () => ignore(row.Quiesced.TrySetResult(unit)));
+        return row.Quiesced.Task.WaitAsync(settleWithin).ContinueWith(
+            drained => Conclude(
+                row,
+                stopped,
+                drained.Status == TaskStatus.RanToCompletion ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidContext()),
+                settle,
+                key),
+            CancellationToken.None,
+            TaskContinuationOptions.RunContinuationsAsynchronously,
+            TaskScheduler.Default);
+    }
+
+    private Fin<Unit> Conclude(LeaseState.Closing row, Fin<Unit> stopped, Fin<Unit> drained, Func<Fin<Unit>> settle, Op key) {
+        Fin<Unit> settled = drained.Match(
+            Succ: _ => key.Catch(settle),
+            Fail: static _ => Fin.Succ(unit));
+        Seq<Error> trouble = Seq(
+                stopped,
+                drained,
+                settled)
+            .Choose(static step => step.Match(
+                Succ: static _ => Option<Error>.None,
+                Fail: static failure => Some(failure)));
+        Fin<Unit> outcome = trouble.IsEmpty
+            ? Fin.Succ(unit)
+            : Fin.Fail<Unit>(trouble.Fold(Errors.None, static (folded, failure) => folded + failure));
+        _ = state.Swap(current => current.Switch(
+            open: static value => (LeaseState)value,
+            closing: value => value.Token == row.Token
+                ? trouble.IsEmpty ? new LeaseState.Closed() : new LeaseState.Retryable(value.Claims)
+                : value,
+            retryable: static value => value,
+            closed: static value => value));
+        _ = row.Completed.TrySetResult(outcome);
+        return outcome;
+    }
+
+    private Fin<T> Await<T>(Task<T> signal, Op key) => key.Catch(() =>
+        signal.Wait(settleWithin) ? Fin.Succ(signal.Result) : Fin.Fail<T>(key.InvalidContext()));
 }
 
 // --- [COMPOSITION] ------------------------------------------------------------------------
@@ -1575,7 +1702,7 @@ internal sealed class IdlePump : IDisposable {
 - Owner: `RhinoPoint` is the closed boundary-wide point vocabulary addressed `rasm.rhino.<domain>.<point>`, its rows ruled by the kernel `HookModality` vocabulary; `HookMount` carries one owner-registered binding as data; `MountRegistry` owns name-addressed discovery, first-mount-wins custody, and typed grant binding — a different concern than the kernel's composition-frozen point mount, so it carries its own name; `PluginKey` is the plugin identity every process-global claim keys on.
 - Law: a point name resolves in one hop — a consumer binds `MountRegistry.Bind` on the point key and receives the owning stream's own grant (a `Watch`, `PointerLease`, `WidgetHost`, `Subscription`, or `ContentStream`), so no consumer learns a per-domain stream API and no second delivery path forms beside the owner's bounded lanes.
 - Law: modality is host truth, never a registry promise — a `Veto` row exists only where the host callback admits refusal, the veto-truth census citing the exact host member; every other point is post-hoc `Observe`, and `Replay` marks only a point whose owner retains a readable latest-value ledger.
-- Law: mount custody is one seat per point — `Mount` claims the point for the registering plugin, a duplicate claim faults typed naming the point, and the mount's detacher returns the seat only while the same mount still holds it; `MountAll` releases an admitted prefix when any later row refuses; observers are unbounded because binding rides the owner's own multi-subscriber machinery.
+- Law: mount custody is one SEATED BINDING per point with keyed riders — the first mount seats the owning page's binding and registers its plugin as the first rider, every later plugin rides the same seat as a keyed subscriber, and the machinery beneath (the `ObjectsTelemetry` keyed-sink fan, the `HostTap` rider handoff, the per-plugin `Watch`) serves each rider its own grant at `Bind`; a DIVERGENT binding — different ask or grant type against a live seat — faults typed because two machineries under one point fork discovery, a same-plugin duplicate rider faults typed, each detacher retires exactly its own rider, and the seat frees when the last rider leaves; `MountAll` releases an admitted prefix when any later row refuses, scoped to the rolling-back plugin's riders alone.
 - Law: telemetry is a tap — the `rasm.rhino.objects.fault` point binds onto the `ObjectsTelemetry` keyed-sink fan, and the `rasm.rhino.host.exception`/`rasm.rhino.host.log` points bind the `HostUtils.OnExceptionReport` and `HostUtils.OnSendLogMessageToCloud` statics onto the same fan through the `HostTap.Mount` seat, so observability subscribes to domain facts and no emit call rides inside domain code.
 - Law: process-global custody is a closed census — every collision surface carries its collision class and arbitration row below, and a new process-global surface is one census row with its arbitration named before any fence composes it.
 - Growth: a new fact stream is one `RhinoPoint` row with its `HookMount` registration on its owning page; a new plugin-visible custody surface is one census row.
@@ -1597,7 +1724,7 @@ Surface point census — display, objects, host, and render streams; each owning
 
 | [INDEX] | [POINT]                         | [PAYLOAD]     | [MODALITY]      | [OWNER_ENTRY]                                            |
 | :-----: | :------------------------------ | :------------ | :-------------- | :------------------------------------------------------- |
-|  [01]   | `rasm.rhino.display.pointer`    | `PointerFact` | observe         | `DisplayHooks.Mount` over `Pointers.Configure`           |
+|  [01]   | `rasm.rhino.display.pointer`    | `PointerFact` | observe, veto   | `DisplayHooks.Mount` over `Pointers.Configure`           |
 |  [02]   | `rasm.rhino.display.widget`     | `WidgetFact`  | observe         | `DisplayHooks.Mount` over `WidgetHost.Of`                |
 |  [03]   | `rasm.rhino.display.cull`       | per-object    | veto            | `ConduitHooks.Mount` over `ConduitStep.Cull`             |
 |  [04]   | `rasm.rhino.display.drawobject` | per-object    | veto            | `ConduitHooks.Mount` over `ConduitStep.Suppress`         |
@@ -1613,33 +1740,33 @@ Surface point census — display, objects, host, and render streams; each owning
 
 Veto and replay truth — the exact host member each non-observe row cites:
 
-| [INDEX] | [POINT]                         | [HOST_TRUTH]                                                   |
-| :-----: | :------------------------------ | :------------------------------------------------------------- |
-|  [01]   | `rasm.rhino.display.cull`       | `ConduitStep.Cull` writes `CullObjectEventArgs.CullObject`     |
-|  [02]   | `rasm.rhino.display.drawobject` | `ConduitStep.Suppress` writes `DrawObjectEventArgs.DrawObject` |
-|  [03]   | `rasm.rhino.objects.viewable`   | `RhinoObject.IsActiveInViewport`                               |
-|  [04]   | `rasm.rhino.objects.pick`       | `RhinoObject.OnPick` sift                                      |
-|  [05]   | `rasm.rhino.objects.regrow`     | `CustomObjectGrips.NewGeometry` refusal                        |
-|  [06]   | `rasm.rhino.hostui.panel`       | `PanelHost.Facts` latest-per-seat replay ledger, one row per (panel, document)               |
+| [INDEX] | [POINT]                         | [HOST_TRUTH]                                                                           |
+| :-----: | :------------------------------ | :------------------------------------------------------------------------------------- |
+|  [01]   | `rasm.rhino.display.cull`       | `ConduitStep.Cull` writes `CullObjectEventArgs.CullObject`                             |
+|  [02]   | `rasm.rhino.display.drawobject` | `ConduitStep.Suppress` writes `DrawObjectEventArgs.DrawObject`                         |
+|  [03]   | `rasm.rhino.objects.viewable`   | `RhinoObject.IsActiveInViewport`                                                       |
+|  [04]   | `rasm.rhino.objects.pick`       | `RhinoObject.OnPick` sift                                                              |
+|  [05]   | `rasm.rhino.objects.regrow`     | `CustomObjectGrips.NewGeometry` refusal                                                |
+|  [06]   | `rasm.rhino.hostui.panel`       | `PanelHost.Facts` latest-per-seat replay ledger, one row per (plugin, panel, document) |
 
 Gumball completion evidence is receipt-pull — `GumballReceipt` returns from `Gumballs.Configure` and no detached stream exists — so gumball earns no point row, and the pointer point already carries gumball occupancy per fact.
 
-Process-global custody census — collision class and arbitration per surface:
+Process-global custody census — collision class, arbitration, and seat cardinality per surface; `fan` seats one row per plugin, `single` seats one process-wide owner later callers ride or fault against, `host` defers cardinality to a host-native mechanism:
 
-| [INDEX] | [SURFACE]                                  | [COLLISION_CLASS]                      | [ARBITRATION]                                  |
-| :-----: | :----------------------------------------- | :------------------------------------- | :--------------------------------------------- |
-|  [01]   | `RhinoDoc`/`RhinoView`/`DisplayPipeline`   | duplicate watches double facts         | per-plugin `Watch` per band; delegate identity |
-|  [02]   | `RhinoApp.Idle` (`IdlePump`)               | multicast-safe                         | one pump per deferred watch, dies with it      |
-|  [03]   | `HostUtils` exception / cloud-log statics  | duplicate mounts double-publish        | `HostTap.Mount` seat — first mount, later ride |
-|  [04]   | `ObjectsTelemetry` sink                    | replacement shadows an earlier plugin  | `PluginKey`-keyed rows; teardown per caller    |
-|  [05]   | `HostUtils.RegisterNamedCallback`          | re-register replaces the prior handler | `PluginKey`-keyed claims; collisions fault     |
-|  [06]   | `Panels.RegisterPanel` / page registration | host keys per plugin and panel type    | host-native isolation; shared ledger read      |
-|  [07]   | `CustomObjectGrips.RegisterGripsEnabler`   | re-register replaces per grips guid    | one enabler per `[Guid]` grips type            |
-|  [08]   | `AssemblyResolver` search mutations        | additive process list, unremovable     | additive rows via `HostAssemblies.Extend`      |
-|  [09]   | `AppSettings.Commit` static families       | last-writer-wins process mutation      | app-root single-writer rule                    |
-|  [10]   | `MarshalLatency` seat                      | a second provider splits the ledger    | first-mount-wins seat; detacher returns it     |
-|  [11]   | `MountRegistry` mounts                     | duplicate point mounts fork discovery  | first-mount-wins per point; collision typed    |
-|  [12]   | `RhinoDoc.AddCustomUndoEvent`              | handler graph retained until cleared   | record-scoped; no host detach exists           |
+| [INDEX] | [SURFACE]                                  | [COLLISION_CLASS]                    | [ARBITRATION]                            | [SEATS] |
+| :-----: | :----------------------------------------- | :----------------------------------- | :--------------------------------------- | :------ |
+|  [01]   | `RhinoDoc`/`RhinoView`/`DisplayPipeline`   | duplicate watches double facts       | per-plugin `Watch`; delegate identity    | fan     |
+|  [02]   | `RhinoApp.Idle` (`IdlePump`)               | multicast-safe                       | one pump per deferred watch              | fan     |
+|  [03]   | `HostUtils` exception / cloud-log statics  | duplicate mounts double-publish      | `HostTap.Mount`; first mount, later ride | single  |
+|  [04]   | `ObjectsTelemetry` sink                    | replacement shadows a prior plugin   | `PluginKey` rows; teardown per caller    | fan     |
+|  [05]   | `HostUtils.RegisterNamedCallback`          | re-register replaces the handler     | `PluginKey` claim tokens, keyed per name | single  |
+|  [06]   | `Panels.RegisterPanel` / page registration | host isolates; a ledger would cross  | host-native seats; `PluginKey` ledger    | host    |
+|  [07]   | `CustomObjectGrips.RegisterGripsEnabler`   | re-register replaces per grips guid  | one enabler per `[Guid]` grips type      | host    |
+|  [08]   | `AssemblyResolver` search mutations        | additive process list, unremovable   | rows via `HostAssemblies.Extend`         | fan     |
+|  [09]   | `AppSettings.Commit` static families       | last-writer-wins process mutation    | `AppSettings.Mount` writer seat          | single  |
+|  [10]   | `MarshalLatency` seat                      | a second provider splits the ledger  | first-mount-wins; detacher returns it    | single  |
+|  [11]   | `MountRegistry` mounts                     | divergent bindings fork discovery    | one seated binding; divergence faults    | fan     |
+|  [12]   | `RhinoDoc.AddCustomUndoEvent`              | handler graph retained until cleared | record-scoped; no host detach exists     | host    |
 
 ```csharp signature
 // --- [TYPES] ------------------------------------------------------------------------------
@@ -1648,6 +1775,9 @@ public readonly partial struct PluginKey {
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Guid value) =>
         validationError = value == Guid.Empty ? new ValidationError(message: "Plugin identity is empty.") : null;
+
+    internal static Option<PluginKey> Maybe(Guid value) =>
+        Optional(value).Filter(static id => id != Guid.Empty).Map(Create);
 
     internal Fin<Unit> Admit(Op op) {
         ValidationError? fault = Validate(value: ToValue(), provider: null, out PluginKey? admitted);
@@ -1666,7 +1796,7 @@ public sealed partial class RhinoPoint {
     public static readonly RhinoPoint DocumentDraw = new(key: "rasm.rhino.document.draw", modalities: Seq(HookModality.Observe));
     public static readonly RhinoPoint DocumentPanels = new(key: "rasm.rhino.document.panels", modalities: Seq(HookModality.Observe));
     public static readonly RhinoPoint DocumentFile = new(key: "rasm.rhino.document.file", modalities: Seq(HookModality.Observe));
-    public static readonly RhinoPoint DisplayPointer = new(key: "rasm.rhino.display.pointer", modalities: Seq(HookModality.Observe));
+    public static readonly RhinoPoint DisplayPointer = new(key: "rasm.rhino.display.pointer", modalities: Seq(HookModality.Observe, HookModality.Veto));
     public static readonly RhinoPoint DisplayWidget = new(key: "rasm.rhino.display.widget", modalities: Seq(HookModality.Observe));
     public static readonly RhinoPoint DisplayCull = new(key: "rasm.rhino.display.cull", modalities: Seq(HookModality.Veto));
     public static readonly RhinoPoint DisplayDrawObject = new(key: "rasm.rhino.display.drawobject", modalities: Seq(HookModality.Veto));
@@ -1694,28 +1824,60 @@ public sealed record HookMount(
     Func<object, Fin<object>> Bind);
 
 // --- [SERVICES] ---------------------------------------------------------------------------
-public static class MountRegistry {
-    private static readonly Atom<HashMap<string, HookMount>> Mounts = Atom(HashMap<string, HookMount>());
+// One seated binding per point, keyed riders per plugin: the decision rides in the swapped value — the swap
+// returns the verdict case, so a losing writer never proceeds on a seat it did not win.
+internal sealed record PointSeat(HookMount Binding, HashMap<Guid, Unit> Riders);
 
-    public static Seq<HookMount> Census => toSeq(Mounts.Value).Map(static row => row.Value);
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+internal abstract partial record SeatVerdict {
+    private SeatVerdict() { }
+    internal sealed record Seated : SeatVerdict;
+    internal sealed record Riding : SeatVerdict;
+    internal sealed record DuplicateRider : SeatVerdict;
+    internal sealed record DivergentBinding : SeatVerdict;
+}
+
+public static class MountRegistry {
+    private static readonly Atom<(HashMap<string, PointSeat> Seats, SeatVerdict? Last)> Mounts =
+        Atom((HashMap<string, PointSeat>(), (SeatVerdict?)null));
+
+    public static Seq<HookMount> Census => toSeq(Mounts.Value.Seats).Map(static row => row.Value.Binding);
+
+    public static Seq<(RhinoPoint Point, Seq<PluginKey> Riders)> RiderCensus => toSeq(Mounts.Value.Seats)
+        .Map(static row => (row.Value.Binding.Point, toSeq(row.Value.Riders.Keys).Map(PluginKey.Create).Strict()));
 
     public static Fin<IDisposable> Mount(HookMount mount, Op? key = null) {
         Op op = key.OrDefault();
-        return from row in Optional(mount).ToFin(Fail: op.InvalidInput())
+        return from row in op.Need(mount)
                from _ in guard(
                    row.Point is not null && row.Ask is not null && row.Grant is not null && row.Bind is not null,
                    op.InvalidInput()).ToFin()
                from __ in row.Plugin.Admit(op)
-               from seat in Mounts.Swap(held => held.ContainsKey(row.Point.Key)
-                       ? held
-                       : held.Add(row.Point.Key, row))
-                   .Find(row.Point.Key)
-                   .Filter(held => ReferenceEquals(held, row))
-                   .ToFin(Fail: op.InvalidContext())
+               let plugin = row.Plugin.ToValue()
+               let swapped = Mounts.Swap(held => held.Seats.Find(row.Point.Key).Match(
+                   None: () => (held.Seats.Add(row.Point.Key, new PointSeat(
+                       Binding: row,
+                       Riders: HashMap<Guid, Unit>().Add(plugin, unit))), (SeatVerdict?)new SeatVerdict.Seated()),
+                   Some: seat => seat.Binding.Ask != row.Ask || seat.Binding.Grant != row.Grant
+                       ? (held.Seats, new SeatVerdict.DivergentBinding())
+                       : seat.Riders.ContainsKey(plugin)
+                           ? (held.Seats, new SeatVerdict.DuplicateRider())
+                           : (held.Seats.SetItem(row.Point.Key, seat with { Riders = seat.Riders.Add(plugin, unit) }),
+                              new SeatVerdict.Riding())))
+               from ___ in swapped.Last switch {
+                   SeatVerdict.Seated or SeatVerdict.Riding => Fin.Succ(value: unit),
+                   SeatVerdict.DuplicateRider => Fin.Fail<Unit>(error: op.InvalidContext()),
+                   _ => Fin.Fail<Unit>(error: op.Unsupported()),
+               }
                select (IDisposable)Subscription.Of(detach: () => ignore(Mounts.Swap(held =>
-                   held.Find(row.Point.Key).Filter(live => ReferenceEquals(live, row)).Match(
-                       Some: _ => held.Remove(row.Point.Key),
-                       None: () => held))));
+                   held.Seats.Find(row.Point.Key).Match(
+                       None: () => held,
+                       Some: seat => {
+                           HashMap<Guid, Unit> remaining = seat.Riders.Remove(plugin);
+                           return (remaining.IsEmpty
+                               ? held.Seats.Remove(row.Point.Key)
+                               : held.Seats.SetItem(row.Point.Key, seat with { Riders = remaining }), held.Last);
+                       }))));
     }
 
     public static Fin<Seq<IDisposable>> MountAll(Seq<Func<Fin<IDisposable>>> mounts, Op? key = null) {
@@ -1733,8 +1895,8 @@ public static class MountRegistry {
         where TAsk : notnull
         where TGrant : class {
         Op op = key.OrDefault();
-        return from active in Optional(point).ToFin(Fail: op.InvalidInput())
-               from mount in Mounts.Value.Find(active.Key).ToFin(Fail: op.MissingContext())
+        return from active in op.Need(point)
+               from mount in Mounts.Value.Seats.Find(active.Key).Map(static seat => seat.Binding).ToFin(Fail: op.MissingContext())
                from _ in guard(
                    mount.Ask.IsAssignableFrom(typeof(TAsk)) && typeof(TGrant).IsAssignableFrom(mount.Grant),
                    op.Unsupported(geometryType: typeof(TAsk), outputType: typeof(TGrant))).ToFin()
@@ -1769,7 +1931,7 @@ public static class DocumentHooks {
                     Plugin: plugin,
                     Ask: typeof(Observation.Host),
                     Grant: typeof(Watch),
-                    Bind: ask => EventFamily.In(band: row.Band)
+                    Bind: ask => EventFamily.In(band: row.Band, key: op)
                         .Bind(families => DocumentStream.Observe(((Observation.Host)ask) with { Families = families })
                             .Map(static watch => (object)watch))),
                 key: op)))
@@ -1816,7 +1978,7 @@ public static class RhinoInstruments {
         InstrumentSpec.Count(HostLogs, "{message}", "host cloud-log messages observed through the host tap", MeasureForm.Whole));
 
     public static TelemetryContributorPort Telemetry(string version, string schemaUrl = TelemetryIdentity.SchemaUrl) =>
-        new(Scope: Scope, Version: version, Instruments: Rows, SchemaUrl: schemaUrl);
+        new(Scope: Scope, Version: version, Instruments: Rows, Classifications: HostSensitivity.Values, SchemaUrl: schemaUrl);
 }
 ```
 

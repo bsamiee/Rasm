@@ -20,99 +20,27 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic included; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Tasks state landing-grain work decomposing an idea.
 -->
 
-[FACT_STREAM_GENERIC_OWNER]-[QUEUED]: One generic receipt/slot/body/fact stream owner serves every host-mutation folder.
-- Capability: the receipt-slot-body-fact quartet becomes one parameterized S0 owner, so a mutation folder contributes vocabularies instead of re-minting the stream machinery and the cross-product gate is written once.
-- Shape: new owner at libs/csharp/Rasm.Rhino/.planning/Document/tables.md (the lowest stratum both consumers reach), collapsing `DraftReceipt`/`DraftSlot`/`DraftBody`/`DraftFact` (Annotation) and `BlockReceipt`/`BlockSlot`/`BlockBody`/`BlockFact` (Blocks/operations.md) onto it, the `Admits` predicate column carried as the one cross-product gate.
-- Unlocks: a third mutation folder joins by declaring its slot and body vocabularies alone.
-- Anchors: `[STRATA_TWIN]` seating law; the `Admits` column already landed on `BlockSlot`; both ends move in ONE pass — landing one half leaves two generics.
-- Tension: the two S1 vocabularies must prove they genuinely share payload timing before the collapse; a forced merge of distinct evidence shapes is the rejected form.
-
-[QUIET_WRITE_VOCABULARY]-[QUEUED]: One quiet-write posture vocabulary and one commit entry shape across the host-mutation folders.
-- Capability: quiet-versus-loud host writes and transaction commit entries read as one posture vocabulary, so a consumer learns one grammar and a new folder cannot fork a third spelling.
-- Shape: settle `WriteMode` (Annotation/style.md), `HostInteraction` (Blocks/operations.md), and `ObjectSignal Quiet` (Objects/lights.md) onto one owner; unify `DraftPlan<TOp>`, `BlockTransaction`, and the bare varargs commit entries onto one entry shape.
-- Unlocks: `[FACT_STREAM_GENERIC_OWNER]` — the generic stream assumes one commit shape.
-- Anchors: the three vocabularies verified live at their pages; the Annotation folder roster is `{dimension,hatch,linetype,style,text,typeface}.md` (no operations.md).
-- Ripple: follows `[FACT_STREAM_GENERIC_OWNER]`.
-
-[ATTRIBUTE_SOURCE_VOCABULARIES]-[QUEUED]: Objects/attributes.md admits its host enums and colors through keyed owners.
-- Capability: every attribute-source axis dispatches on a keyed vocabulary and every color crosses as `PerceptualColor`, so raw host enum members and `System.Drawing.Color` stop leaking past the admission seam.
-- Shape: libs/csharp/Rasm.Rhino/.planning/Objects/attributes.md — keyed `[SmartEnum]` owners over `ObjectColorSource`/`ObjectPlotColorSource`/`ObjectPlotWeightSource`/`ObjectMaterialSource`/`ObjectSectionAttributesSource`/`ObjectDecoration`/`SectionLabelStyle`/`ItemColorSource`/`DecalMapping`/`DecalProjection`; compose Annotation/linetype.md's landed `LinetypeSource` for `ObjectLinetypeSource`; the eight `System.Drawing.Color` fields to `PerceptualColor.OfRgb`/`ToRgb`; touch points `AttributeEdit.{Paint,Plot,PlotWeight,LinePattern,MaterialBind,Decorate,SectionSource,SectionLabel,HatchFill,HatchBoundary}`, the `Admit` and `Apply` arms, `AttributeSnapshot`, `DecalSnapshot`, `MaterialBinding`, `ObjectPiece`'s two colour columns.
-- Unlocks: the attributes page joins the vocabulary discipline every sibling Objects page already holds beside the landed `ActiveSpaceUse` re-seat.
-- Anchors: ~40 coupled touch points in one 900-line page — the half-landed-vocabulary-is-worse-than-none rule is why this is one focused pass; `Objects/lights.md` is the color precedent.
-
-[COMMAND_ESCAPE_SEAT]-[QUEUED]: Command-scope abort arms the escape edge outside a metered fold.
-- Capability: a long-running command aborts on escape through the host vocabulary it already declares — `CommandVerdict.Cancelled` and `SessionNeed.Interrupt` gain their arming site, so escape-driven abort stops being exclusive to a progress lease.
-- Shape: one arming seat on `libs/csharp/Rasm.Rhino/.planning/Commands/command.md`, composing the `RhinoApp.EscapeKeyPressed` subscription through `Subscription.Attach` under the per-lease-closure dedup law the progress lease landed.
-- Unlocks: escape answers on every cancellable command, not only metered ones.
-- Anchors: `ProgressFeature.Escape` and `ProgressLease.Cancel` at `HostUi/shell#PROGRESS` (the landed precedent); the `HostUtils.ContainsDelegate` dedup trap at `api-rhinocommon-commands#APP_DISPATCH`.
-- Atomic: one arming seat on one page.
-
-[COMMANDS_RUNTIME_PRELUDE]-[QUEUED]: The four Commands pages carry their runtime preludes.
-- Capability: every Commands fence resolves its composed names through a declared prelude, so the folder meets the architecture's prelude law and a cold reader compiles the imports instead of inferring them.
-- Shape: libs/csharp/Rasm.Rhino/.planning/Commands/{acquisition,command,options,selection}.md — one `[RUNTIME_PRELUDE]` block + `namespace` declaration per page, derived from the members each names (`RhinoGet`, `Rhino.Input.Custom`, `Rhino.Display`, `Rhino.DocObjects`, `Rasm.Domain`, `Rasm.Rhino.Document`).
-- Unlocks: the Commands folder passes the same prelude conformance every other Rasm.Rhino folder holds.
-- Anchors: Rasm.Rhino/ARCHITECTURE.md:238 prelude law; folder-wide gap verified on all four pages.
-- Atomic: one prelude block per page, four pages.
-
-[CUSTODY_CENSUS]-[ACTIVE]: Process-global custody census classifies every collision surface for multi-plugin arbitration.
-- Capability: Complete roster of process-global state — static host event subscriptions, `ObjectsTelemetry` sink, `HostTap` mounts, named shell callbacks, panel/page/command registrations, application settings writers — each with collision class and seat-arbitration shape.
-- Shape: Roster and arbitration rows land on `libs/csharp/Rasm.Rhino/.planning/Objects/authoring.md`, `libs/csharp/Rasm.Rhino/.planning/Document/events.md`, and `libs/csharp/Rasm.Rhino/.planning/HostUi/shell.md` per owner.
-- Unlocks: `[MULTI_PLUGIN_COEXISTENCE]` lands as verified rows, never a partial sweep.
-- Anchors: single-subscription-per-process event law; `HostTap.Mount` detacher identity; `AppSettings.Commit` static families on `libs/csharp/Rasm.Rhino/.planning/Persistence/appsettings.md`.
-
-[PLUGIN_LIFECYCLE_SPINES]-[ACTIVE]: Plugin lifecycle and census page spines transcribe the verified `Rhino.PlugIns` rosters.
-- Capability: Staged lifecycle custody (`OnLoad`/`CreateCommands`/`OnShutdown`, ALC `Unloading` flush obligations, diagnostics capture window) and the installed-plugin census (id/path resolution, load protection) as page spines with exact member rosters.
-- Shape: `libs/csharp/Rasm.Rhino/.planning/Plugin/lifecycle.md` and `libs/csharp/Rasm.Rhino/.planning/Plugin/census.md` minted per `[PLUGIN_DOMAIN]`.
-- Unlocks: Boundary's missing domain folder opens with its two spine pages grounded in catalog truth.
-- Anchors: `libs/csharp/Rasm.Rhino/.api/api-rhinocommon-plugins.md` lifecycle and census entrypoints; `SkinPhase` plugin-load phases on `libs/csharp/Rasm.Rhino/.planning/HostUi/shell.md`.
-
-[LICENSE_RAIL_PAGE]-[QUEUED]: License rail page pins the complete entitlement surface.
-- Capability: Acquisition, checkout/checkin, CloudZoo login and lease facts, state-change events, and capability flags as one typed rail with detached evidence records.
-- Shape: `libs/csharp/Rasm.Rhino/.planning/Plugin/licensing.md` minted per `[PLUGIN_DOMAIN]`.
-- Unlocks: Entitlement-gated capability rows for any Rasm plugin feature.
-- Anchors: `LicenseUtils`/`LicenseData`/`LicenseStatus`/`LicenseLease` rosters on `libs/csharp/Rasm.Rhino/.api/api-rhinocommon-plugins.md`; `ZooClientParameters` and `LicenseStateChangedEventArgs` rows on `libs/csharp/Rasm.Rhino/.api/api-rhinocommon-runtime.md`.
-
-[DOCUMENT_PARTICIPATION_BRIDGE]-[QUEUED]: Per-plugin document participation bridges onto the archive and settings rails.
-- Capability: `ReadDocument`/`WriteDocument`/`ShouldCallWriteDocument` custody expressed over `ArchiveIo` framing, and `GetPluginSettings`/`SavePluginSettings`/`SettingsSaved` expressed as settings-rail facts.
-- Shape: `libs/csharp/Rasm.Rhino/.planning/Plugin/document.md` minted per `[PLUGIN_DOMAIN]`.
-- Unlocks: Plugin document data rides the same schema/integrity framing as every other archive crossing.
-- Anchors: `ArchiveIo` spine on `libs/csharp/Rasm.Rhino/.planning/Persistence/userdata.md`; `Settings.Commit` rail on `libs/csharp/Rasm.Rhino/.planning/Persistence/settings.md`.
-
-[PULSE_BEAT_RECOMPOSE]-[QUEUED]: Pulse beat evidence composes the kernel monotonic beat.
-- Capability: cadence receipts project the kernel's temporal identity — ordinal and elapsed read off the composed evidence while cadence columns stay host-local, so drift semantics never fork from the timeline owner.
-- Shape: `libs/csharp/Rasm.Rhino/.planning/Eto/runtime.md` `[03]` — `PulseBeat` re-shapes to compose `MonotonicBeat` with `Interval`/`Drift`/`Missed` as extension columns.
-- Unlocks: the branch host-beat composition row holds at both host boundaries.
-- Anchors: kernel `Parametric/projections.md` `MonotonicBeat`; the Grasshopper `ClockBeat` composed form as the sibling discipline.
-- Atomic: one receipt re-shape.
-
-[HOST_PATH_VALUE_ADJUDICATION]-[QUEUED]: Adjudicate the `HostPath` app-root value — a distinct redaction class or a collapse into `UserContent`.
-- Capability: the sensitivity taxonomy's classification classes and its app-root value set agree — either path payloads earn their own redactor-map value or the distinct `HostPathAttribute` classification retires into `UserContent`.
-- Shape: one verdict on `libs/csharp/Rasm.Rhino/.planning/Objects/authoring.md` `[02]` — a fourth app-root value widening the three-value roster, or the `HostPath` class and attribute deleted with its members reclassified.
-- Unlocks: the app-root redactor map keyed on value strings distinguishes exactly the classes the sweep law distinguishes.
-- Anchors: the classification sweep law and `HostSensitivity` roster on `Objects/authoring.md`; the app-root `DataClassification` value custody.
-- Tension: path redaction granularity is a redactor-map intent question — the taxonomy currently separates what the value space cannot express.
-
-[MARSHAL_STALL_GAUGE]-[QUEUED]: Rhino's marshal seam watches its own stalls, raising hang evidence at parity with the GH dispatch pulse.
-- Capability: UI-thread marshal stalls surface as typed pulse evidence with budgets and breach verdicts, beside the landed checkpoint-latency ledger, so a hung host thread is observable evidence rather than a silent freeze.
-- Shape: a pulse/stall band on `libs/csharp/Rasm.Rhino/.planning/HostUi/shell.md` beside `MarshalLatency` — budgets, stall policy, and last-stall evidence at the `UiThread` seat.
-- Unlocks: both host boundaries carry hang evidence; the app root reads one stall vocabulary across hosts.
-- Anchors: `libs/csharp/.planning/RULINGS.md` host-twins plural row (a twin capability, never a shared owner); the GH `DispatchPulse` discipline as the sibling shape; the `MarshalLatency` one-seat law.
-- Ripple: mirrors `Rasm.Grasshopper` `[DISPATCH_PULSE_WATCH]`.
-
-[HEADLESS_BOOT_PROBE]-[BLOCKED]: Headless boot arming question — does macOS WIP permit `RhinoCore` boot outside the bridge launch custody?
-- Capability: Verdict on in-process boot viability under macOS launch constraints, the fact `[INPROCESS_HEADLESS_BOOT]` needs before an app-stratum shell is worth designing.
-- Shape: Verdict folds into the blocked idea's Tension on `libs/csharp/Rasm.Rhino/IDEAS.md`.
-- Unlocks: Headless boot card re-arms with a real boot-environment contract.
-- Anchors: `Rhino.Runtime.InProcess` rows on `libs/csharp/Rasm.Rhino/.api/api-rhinocommon-runtime.md`; bridge launch-custody facts in the estate memory route; live bridge probe.
-- Arms: the boot-viability verdict — a live bridge probe or `Rhino.Runtime.InProcess` evidence answering whether macOS WIP permits `RhinoCore` boot outside the bridge launch custody.
-- Atomic: single blocker verdict.
+(none)
 
 ## [02]-[CLOSED]
 
 <!-- source-only: closed task card template:
 [ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
+[FACT_STREAM_GENERIC_OWNER]-[COMPLETE]: `IFactSlot<TBody>`/`Fact<TSlot, TBody>`/`FactStream<TSlot, TBody>` landed at `Document/tables.md` `[05]` as the one parameterized stream — accumulation, the `Admits` cross-product gate, undo-stamp projection, and slot-keyed reader owned once; Annotation and Blocks each contribute only their `[SmartEnum]` slot vocabulary implementing `IFactSlot` and their `[Union]` body family, with project global-alias rows (`DraftFact`/`DraftReceipt`, `BlockFact`/`BlockReceipt`) giving zero call-site churn; a third mutation folder joins by declaring two vocabularies alone, and Modeling's `Built<TSlot>` spine is stated a different timing class so the collapse never reopens.
+[QUIET_WRITE_VOCABULARY]-[COMPLETE]: `HostInteraction` at `Document/tables.md` is the ONE quiet-vs-interactive posture owner — Annotation's `WriteMode` deleted for composition, `ObjectSignal Quiet` inversion fixed on lights, `DeletionPolicy` and every `Notice`/bare-literal site converted across Document/Objects/Blocks/Annotation, always-quiet host arguments stated as comments rather than vocabulary reads; the commit-entry unification arm closed REFUTED with the verdict on the owner's card — the three admission shapes are genuinely incompatible and the shared truth already rides `DocumentCommit.Sealed`.
+[CUSTODY_CENSUS]-[COMPLETE]: the process-global census on `Document/events.md` `[06]` now carries collision class, arbitration, AND seat cardinality (`fan`/`single`/`host`) for all twelve surfaces, each arbitration realized on its owner — `MountRegistry` rider seats with divergence refusal, `ObjectsTelemetry` keyed sinks, `HostTap` first-mount/later-ride, claim-token `NamedCallbacks`, `PluginKey`-keyed panel ledger, `AppSettings.Mount` writer seat, plugin-attributed `MarshalLatency` seat and `HostAssemblies.Extend`, `Style.Add` keyed claims, `CodecPort.Retire` plugin-slice unregister.
+[ATTRIBUTE_SOURCE_VOCABULARIES]-[COMPLETE]: `Objects/attributes.md` admitted whole in one pass — ten keyed owners over the raw host source/decoration/decal enums (rosters decompile-verified), Annotation's `LinetypeSource` composed at both touch points, every colour crossing retyped `PerceptualColor` through `AttributeShade`, the `Admit`/`Apply` arms, snapshots, `MaterialBinding`, and `ObjectPiece` swept; zero raw host enums remain on any signature.
+[COMMAND_ESCAPE_SEAT]-[COMPLETE]: `CommandPulse.Escape` landed on `Commands/command.md` `[04]` — `RhinoApp.EscapeKeyPressed` armed as a per-lease closure (host delegate-identity dedup law stated), projecting `CommandFact.Escaped` onto `CommandVerdict.Cancelled`/`SessionNeed.Interrupt`; escape now answers on every cancellable command, not only metered ones.
+[COMMANDS_RUNTIME_PRELUDE]-[COMPLETE]: all four Commands pages carry `[RUNTIME_PRELUDE]` + `namespace Rasm.Rhino.Commands;` + the missing `[01]-[INDEX]` sections; `Blocks/lifecycle.md` gained its prelude; homonym sites spell `Rasm.Numerics.Dimension` and `System.Drawing.Color` in full per the folder ruling.
 
+[PLUGIN_LIFECYCLE_SPINES]-[COMPLETE]: `Plugin/lifecycle.md` and `Plugin/census.md` minted on decompile-verified rosters — `RasmPlugIn` routes every override through `PluginPhase` with base-first chaining and a faults ledger; the census answers through one `PluginQuery` polymorphic resolve; decompile corrected the catalog en route (`Icon(Size)` public non-virtual, so no icon phase case exists — it re-seated as a leased registry read).
+[LICENSE_RAIL_PAGE]-[COMPLETE]: `Plugin/licensing.md` pins the whole entitlement surface — `LicenseGrant`/`LicenseGrants.OfMask` (keeping the throws-above-0x1FF host projection off the rail), detached `LicenseEvidence`/`LicenseState`/`LeaseEvidence`, the `RasmPlugIn` acquisition arm with the Eto `Control` prompt parent decompile-proven through the shipped Zoo client, `Licenses.Ask` over the checkout/CloudZoo family, and `LicensePulse` state-change facts.
+[DOCUMENT_PARTICIPATION_BRIDGE]-[COMPLETE]: `Plugin/document.md` bridges `ShouldCallWriteDocument`/`WriteDocument`/`ReadDocument` onto `ArchiveIo` framing (schema versioning and integrity evidence ride the same crossing every archive uses) and folds `GetPluginSettings`/`SavePluginSettings`/`SettingsSaved` onto the Persistence settings rail as `SettingsBridge` facts.
+[HOST_PATH_VALUE_ADJUDICATION]-[COMPLETE]: verdict — `HostPath` stays a DISTINCT class; the app-root roster already carries `DataClassification.HostPath ("host-path", Hmac)` beside `UserContent ("user-content", Erase)` with `Rasm.Rhino` named its producer, and the two redactor treatments differ materially: Hmac pseudonymizes so cross-event path correlation survives within a key epoch, Erase destroys it — a collapse would silently upgrade every path-bearing line to erase and kill document-path correlation; rows partition by disclosure consequence, never sensitivity order, and the boundary federates the value as `ClassifiedValue("DataClassification", "host-path")` text on the contributor port so `Federated` proves it at boot.
+[PULSE_BEAT_RECOMPOSE]-[COMPLETE]: already composed on `Eto/runtime.md` `[03]` — `PulseBeat(MonotonicBeat Evidence, Interval, Drift, Missed)` reads ordinal/elapsed/delta off the kernel beat with cadence-only extension columns; the pass hardened it to the sibling discipline (`[BoundaryAdapter, StructLayout(Auto)]`, `IValidityEvidence` with `ValidityClaim.Evidence`), keeping `Ordinal` as the kernel spelling against GH `ClockBeat.Index` — plural twins by ruling.
+[MARSHAL_STALL_GAUGE]-[COMPLETE]: stall band landed inside `MarshalLatency` on `HostUi/shell.md` `[02]` — `MarshalLane` frame-multiple budgets (Execute/Guarded 1.0, Session 4.0, Posted 6.0), `StallPolicy` with injected `TimeProvider` and 1/30 s untuned floor, `MarshalPulse(Work, Lane, Elapsed, Breached)` minted in `finally` on every gauged exit, `LastPulse`/`LastStall` retention, keyed `Watch`/`Tune`; `Session` joined the gauged set and `Required` is stated ungauged (its off-thread arm refuses, never queues); GH `DispatchPulse` stays the plural twin.
+[HEADLESS_BOOT_PROBE]-[COMPLETE]: live-probe verdict — macOS WIP refuses `RhinoCore` boot outside the bridge launch custody structurally: the ctor's `Interop.LaunchInProcess(0,0)` path (WindowStyle ignored on macOS) executes native boot into `CRhinoLicenseManager::Initialize`, which raises a modal `NSAlert` via `RhinoMessageBox` and blocks the main thread forever in `_DPSBlockUntilNextEventMatchingListInMode`; a headless process can never answer it, so the ctor never returns. Thread-sample proof from a scratchpad probe app against WIP 9.0.26209.
 [HOST_TAP_EGRESS]-[COMPLETE]: host exception and cloud-log taps land as `HostTap` on `Objects/authoring.md` — severity projected onto `LogLevel`, classified payload, one detacher, one egress.
 [HOOK_POINT_CENSUS]-[COMPLETE]: hook-point census table with owner entries and failure-symmetric `MountRegistry.MountAll` custody landed on `Document/events.md` `[06]-[HOOK_REGISTRY]`; every row names its payload, kernel-ruled modality, and owning mount.
 [MODALITY_VERDICT_FOLD]-[COMPLETE]: per-point modality verdicts folded into the census — veto rows cite `CullObjectEventArgs.CullObject`, `DrawObjectEventArgs.DrawObject`, `RhinoObject.IsActiveInViewport`, `RhinoObject.OnPick`, and `CustomObjectGrips.NewGeometry`; all other points observe, panel adds replay.

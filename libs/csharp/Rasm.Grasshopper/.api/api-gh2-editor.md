@@ -135,45 +135,51 @@
 
 [ENTRYPOINT_SCOPE]: toolbar, input panel, and tooltip
 
-| [INDEX] | [SURFACE]                                                                                 | [SHAPE]  | [CAPABILITY]                    |
-| :-----: | :---------------------------------------------------------------------------------------- | :------- | :------------------------------ |
-|  [01]   | `Bar.AddPushButton(IIcon, Nomen, Action, BarShortcut) -> PushButton`                      | instance | appends push button             |
-|  [02]   | `Bar.AddRadioToggle(IIcon, Nomen, bool, Action<bool>, BarShortcut) -> RadioToggle`        | instance | appends radio toggle            |
-|  [03]   | `Bar.AddTextField(IIcon, Nomen, string, string) -> TextField`                             | instance | appends text field              |
-|  [04]   | `Bar.AddToggle(Nomen, bool, params string[]) -> RadioToggle`                              | instance | appends section toggle          |
-|  [05]   | `Bar.AddSpacer(Nomen, int, int) -> Spacer`                                                | instance | appends spacer                  |
-|  [06]   | `Bar.Add(BarItem)`                                                                        | instance | appends raw item                |
-|  [07]   | `Bar.AddLifeColours(Nomen, Family, Action<Family>)`                                       | instance | appends life colours            |
-|  [08]   | `Bar.AddCoolColours(Nomen, Family, Action<Family>)`                                       | instance | appends cool colours            |
-|  [09]   | `Bar.AddWarmColours(Nomen, Family, Action<Family>)`                                       | instance | appends warm colours            |
-|  [10]   | `Bar.AddColours(Nomen, Family[], Family, Action<Family>)`                                 | instance | appends custom colours          |
-|  [11]   | `Bar.CreateStandardColourBars(Nomen, Family, Action<Family>, out Bar, out Bar, out Bar)`  | static   | emits life/cool/warm bars       |
-|  [12]   | `Bar.Layout()`                                                                            | instance | lays out items                  |
-|  [13]   | `Bar.Render(Context)`                                                                     | instance | draws items                     |
-|  [14]   | `Bar.ShowTooltipAt(PointF) -> bool`                                                       | instance | shows item tooltip              |
-|  [15]   | `Bar.Invalidate()`                                                                        | instance | repaints bar                    |
-|  [16]   | `Bar.Find<T>(string) -> T`                                                                | instance | resolves named item             |
-|  [17]   | `InputPanel.BeginCategory(string) -> IDisposable`                                         | instance | opens category scope            |
-|  [18]   | `InputPanel.AddLabel(string, bool, string) -> Label`                                      | instance | appends label                   |
-|  [19]   | `InputPanel.AddCheck(string, bool, Action<bool>, string) -> CheckBox`                     | instance | appends check                   |
-|  [20]   | `InputPanel.AddText(string, Action<string>, string) -> TextBox`                           | instance | appends text box                |
-|  [21]   | `InputPanel.AddBar(bool, params BarItem[]) -> Bar`                                        | instance | appends embedded bar            |
-|  [22]   | `InputPanel.Add(Control)`                                                                 | instance | appends raw control             |
-|  [23]   | `InputPanel.MoveCategoryBelow(string, string) -> bool`                                    | instance | moves category                  |
-|  [24]   | `InputPanel.RenameCategory(string, string) -> bool`                                       | instance | renames category                |
-|  [25]   | `InputPanel.RemoveCategory(string) -> bool`                                               | instance | removes category                |
-|  [26]   | `InputPanel.ShowAsForm(Control, PointF, RectangleF) -> Form`                              | instance | floats owned form               |
-|  [27]   | `InputPanel.ToEtoControl() -> Control`                                                    | instance | embeds panel                    |
-|  [28]   | `Frame.Show(IIcon, string, string, ...) -> void`                                          | static   | shows text/item/painter tooltip |
-|  [29]   | `Frame.CreateShortcutPainter(string, Keys, string) -> (Action<Context, Rectangle>, Size)` | static   | mints shortcut painter          |
-|  [30]   | `Frame.CreateTextAndIconPainter(object[]) -> (Action<Context, Rectangle>, Size)`          | static   | mints content painter           |
-|  [31]   | `Frame.Hide()`                                                                            | static   | hides tooltip                   |
-|  [32]   | `Frame.Invalidate()`                                                                      | static   | repaints tooltip                |
-|  [33]   | `Frame.Visible`                                                                           | property | probes tooltip                  |
-|  [34]   | `Frame.ScreencapFolder`                                                                   | property | aims screen capture             |
+| [INDEX] | [SURFACE]                                                                                       | [SHAPE]  | [CAPABILITY]              |
+| :-----: | :---------------------------------------------------------------------------------------------- | :------- | :------------------------ |
+|  [01]   | `Bar.AddPushButton(IIcon, Nomen, Action, BarShortcut) -> PushButton`                            | instance | appends push button       |
+|  [02]   | `Bar.AddRadioToggle(IIcon, Nomen, bool, Action<bool>, BarShortcut) -> RadioToggle`              | instance | appends radio toggle      |
+|  [03]   | `Bar.AddTextField(IIcon, Nomen, string, string) -> TextField`                                   | instance | appends text field        |
+|  [04]   | `Bar.AddToggle(Nomen, bool, params string[]) -> RadioToggle`                                    | instance | appends section toggle    |
+|  [05]   | `Bar.AddSpacer(Nomen, int, int) -> Spacer`                                                      | instance | appends spacer            |
+|  [06]   | `Bar.Add(BarItem)`                                                                              | instance | appends raw item          |
+|  [07]   | `Bar.AddLifeColours(Nomen, Family, Action<Family>)`                                             | instance | appends life colours      |
+|  [08]   | `Bar.AddCoolColours(Nomen, Family, Action<Family>)`                                             | instance | appends cool colours      |
+|  [09]   | `Bar.AddWarmColours(Nomen, Family, Action<Family>)`                                             | instance | appends warm colours      |
+|  [10]   | `Bar.AddColours(Nomen, Family[], Family, Action<Family>)`                                       | instance | appends custom colours    |
+|  [11]   | `Bar.CreateStandardColourBars(Nomen, Family, Action<Family>, out Bar, out Bar, out Bar)`        | static   | emits life/cool/warm bars |
+|  [12]   | `Bar.Layout()`                                                                                  | instance | lays out items            |
+|  [13]   | `Bar.Render(Context)`                                                                           | instance | draws items               |
+|  [14]   | `Bar.ShowTooltipAt(PointF) -> bool`                                                             | instance | shows item tooltip        |
+|  [15]   | `Bar.Invalidate()`                                                                              | instance | repaints bar              |
+|  [16]   | `Bar.Find<T>(string) -> T`; `Bar[string] -> BarItem`                                            | instance | resolves named item       |
+|  [17]   | `InputPanel.BeginCategory(string) -> IDisposable`                                               | instance | opens category scope      |
+|  [18]   | `InputPanel.AddLabel(string, bool, string) -> Label`                                            | instance | appends label             |
+|  [19]   | `InputPanel.AddCheck(string, bool, Action<bool>, string) -> CheckBox`                           | instance | appends check             |
+|  [20]   | `InputPanel.AddText(string, Action<string>, string) -> TextBox`                                 | instance | appends text box          |
+|  [21]   | `InputPanel.AddBar(bool[, int], params BarItem[]) -> Bar`                                       | instance | appends embedded bar      |
+|  [22]   | `InputPanel.Add(Control)`                                                                       | instance | appends raw control       |
+|  [23]   | `InputPanel.MoveCategoryBelow(string, string) -> bool`                                          | instance | moves category            |
+|  [24]   | `InputPanel.RenameCategory(string, string) -> bool`                                             | instance | renames category          |
+|  [25]   | `InputPanel.RemoveCategory(string) -> bool`                                                     | instance | removes category          |
+|  [26]   | `InputPanel.ShowAsForm(Control, PointF, RectangleF) -> Form`                                    | instance | floats owned form         |
+|  [27]   | `InputPanel.ToEtoControl() -> Control`                                                          | instance | embeds panel              |
+|  [28]   | `Frame.Show(IIcon, caption, message[, payload], bool warnings, bool errors)`                    | static   | shows tooltip variants    |
+|  [29]   | `Frame.CreateShortcutPainter(string, Keys\|char, string) -> (Action<Context, Rectangle>, Size)` | static   | mints shortcut painter    |
+|  [30]   | `Frame.CreateTextAndIconPainter(object[]) -> (Action<Context, Rectangle>, Size)`                | static   | mints content painter     |
+|  [31]   | `Frame.Hide()`                                                                                  | static   | hides tooltip             |
+|  [32]   | `Frame.Invalidate()`                                                                            | static   | repaints tooltip          |
+|  [33]   | `Frame.Visible`                                                                                 | property | probes tooltip            |
+|  [34]   | `Frame.ScreencapFolder`                                                                         | property | aims screen capture       |
 
-- `RadioToggle`: `(IIcon, Nomen, bool, Action<bool>)` ctor; `SetState`/`Toggle`, `StateChanged`, `OnText`/`OffText`/`Optional`.
-- `TextField`: `(IIcon, Nomen, string)` ctor; `SetText`, `Placeholder`, `EnterPressed`/`EscapePressed`, `TextChanged`/`ActiveChanged`.
+- `Frame.Show`: its optional payload is `LazyStrings`, `LazyStrings[]`, or `(Action<Context, Rectangle>, Size)`.
+- `RadioToggle`: `(IIcon, Nomen, bool, Action<bool>)` ctor; `SetState`/`Toggle`, `StateChanged`, settable `OnText`/`OffText`/`Optional`.
+- `TextField`: `(IIcon, Nomen, string)` ctor; `SetText`, settable `Placeholder`, `EnterPressed`/`EscapePressed`, `TextChanged`/`ActiveChanged`.
+- `Bar` carries settable `Enabled`/`ElementHeight`/`Style`; `BarStyle`'s roster is `Default` and `DefaultWithoutCategories`.
+- `Nomen(string name, string info, string chapter, string section, int slot, Rank rank, string sortKey)` beside `Compose`/`Categorise` statics; `BarShortcut(Keys, string)` / `BarShortcut(char, string)`.
+- `AbstractIcon.FromResource(Type)` / `(string, Type)` / `(string, Assembly)`; `AbstractIcon.FromCode(string[, out CodeDiagnostic[] warnings, out CodeDiagnostic[] errors \| out CodeCompiler])` — `CodeCompiler` lives in `Grasshopper2.Expressions`.
+- `IIcon` declares `Type`, `States`, `FindState`, `SetState`, `MoveState`, `Draw`, `DrawToBitmap` and nothing else; `CodeDiagnostic` carries `Description`/`Location`/`Length`/`Line`/`Column`/`IsWarning`/`IsError`.
+- `FloatingButtonCollection.Names` enumerates beside `Buttons`/`VisibleButtons`.
 
 ## [04]-[IMPLEMENTATION_LAW]
 

@@ -8,7 +8,7 @@ Telemetry identity, the correlation spine, log projection, signal governance, an
 - [03]-[CORRELATION_SPINE]: One boot-minted root id, the OTel tenancy mirror, and the adopted W3C trace-context every hop continues.
 - [04]-[LOG_PROJECTION]: Generated lib-level delegates and provider-keyed pipeline-owner arbitration.
 - [05]-[SIGNAL_GOVERNANCE]: Branch domain roster, per-signal sampling, per-signal exporter policy, durable OTLP buffering, enrichment, and drain flush.
-- [06]-[REDACTION_TAXONOMY]: Nine classification rows binding redactor policy at every exporter seam.
+- [06]-[REDACTION_TAXONOMY]: Classification rows binding redactor policy at every exporter seam, each branch-contributed federation value proved against the roster at boot.
 
 ## [02]-[TELEMETRY_IDENTITY]
 
@@ -41,12 +41,12 @@ public sealed partial class ForeignSource {
 ## [03]-[CORRELATION_SPINE]
 
 - Owner: `Correlation` the ONE ambient causal-frame surface — the boot-minted `CorrelationId` stamp, the composition-supplied `OtelBaggage` `TenantMirror` row completing the kernel's ambient-store set, and the capture/restore pair over both halves; `TenantAdoption` the ingress trust axis every continuation names; `RootEnricher` `IStaticLogEnricher` stamps the resource-identity projection once per provider; `CausalEnricher` `ILogEnricher` stamps the request-scoped correlation per record; `TraceContext` the W3C distributed-trace propagation fold injecting and extracting `traceparent`/`tracestate` over every registered transport carrier so a remote span continues the parent trace.
-- Cases: three ambient stores partition by owner and this platform supplies the third — the kernel `AsyncLocal` tenancy slot and the BCL `Activity` chain are the kernel's own rows, and `OtelBaggage` seats the SDK `Baggage.Current` store an OTel-free S0 assembly cannot name; two enrichment seats split by cost class — `RootEnricher` for the per-provider resource identity, `CausalEnricher` for the per-record ambient correlation key; two `TenantAdoption` rows close the ingress trust axis — a trusted intra-estate carrier adopts its wire tenancy and a foreign one refuses it; two propagation directions and the inbound continued-span start on `TraceContext` — the generic `Inject`/`Extract`/`Continue` members take any carrier with a getter/setter delegate pair, and `Continue` extracts, resolves tenancy through its carrier's adoption row, seeds `Baggage.Current`, and starts the inbound `Activity` from the extracted context; the gRPC `Metadata` pair and MQTT v5 publish builder are verified adapters, while MQTT receive, NATS headers, and CloudEvents attributes bind their getter/setter delegates at the transport owner until both catalog tiers carry their concrete member rows.
-- Law: W3C trace-context is the identity wire — `ActivityContext` carries the 16-byte `ActivityTraceId` crossing every hop of one trace beside the 8-byte `ActivitySpanId` naming one hop's parent — and `Continue` seats the extracted context as the started `Activity`'s parent, so an inbound stamp is adopted whole and a fresh root mints only where extraction yields none. `CorrelationId` rides `Baggage` and the `Rasm/Domain/telemetry#CAUSAL_FRAME` two-half stamp rides `HlcStampWire` on the receipt envelope, each independent evidence beside the context; neither occupies a trace or span id slot, and the Serilog trace-id and span-id fields bind the live `Activity` ids alone.
+- Cases: three ambient stores partition by owner and this platform supplies the third — the kernel `AsyncLocal` tenancy slot and the BCL `Activity` chain are the kernel's own rows, and `OtelBaggage` seats the SDK `Baggage.Current` store an OTel-free S0 assembly cannot name; two enrichment seats split by cost class — `RootEnricher` for the per-provider resource identity, `CausalEnricher` for the per-record ambient correlation key; two `TenantAdoption` rows close the ingress trust axis — a trusted intra-estate carrier adopts its wire tenancy and a foreign one refuses it; two propagation directions and the inbound continued-span start on `TraceContext` — the generic `Inject`/`Extract`/`Continue` members take any carrier with a getter/setter delegate pair, and `Continue` extracts, resolves tenancy through its carrier's adoption row, seeds `Baggage.Current`, and starts the inbound `Activity` from the extracted context; the gRPC `Metadata` triple and both MQTT v5 legs are landed adapters, while NATS headers and CloudEvents attributes bind their getter/setter delegates at the Persistence egress owner this section's Boundary routes them to; four causal slots close the stamp's carriage under `[CAUSAL_CARRIAGE]`, each naming the C# member that carries it rather than a header key this branch mints.
+- Law: W3C trace-context is the identity wire — `ActivityContext` carries the 16-byte `ActivityTraceId` crossing every hop of one trace beside the 8-byte `ActivitySpanId` naming one hop's parent — and `Continue` seats the extracted context as the started `Activity`'s parent, so an inbound stamp is adopted whole and a fresh root mints only where extraction yields none. `CorrelationId` rides `Baggage` and the `Rasm/Domain/telemetry#CAUSAL_FRAME` two-half stamp rides `HlcStampWire` on the receipt envelope, each independent evidence beside the context; neither occupies a trace or span id slot, and the Serilog trace-id and span-id fields bind the live `Activity` ids alone. `python:runtime/observability/receipts#RECEIPTS` is the consuming counterpart — its `ONE_DISTRIBUTED_TRACE` leg continues traces this spine produces.
 - Entry: `Correlation.Stamp` is one entry discriminating on the value it scopes — a `CorrelationId` seats the boot root, a `TenantContext` seats tenancy across every registered store — each returning the restoring ambient scope; `Correlation.Capture()` snapshots the log, baggage, and tenancy triple for deferred work and `Correlation.Restore(value)` rehydrates all three at work entry; `TraceContext.Inject<TCarrier>(carrier, set)` writes the active context, `TraceContext.Extract<TCarrier>(carrier, get)` reads the parent context, and `TraceContext.Continue<TCarrier>(source, carrier, get, name, adoption, kind)` extracts the parent, resolves the carrier's tenancy under its `TenantAdoption` row, scopes `Baggage.Current`, and starts the continued `Activity` through the composition-owned source from `TelemetryIdentity.Mint`; the `Metadata` overloads are the gRPC adapter the Wire/companion#CONTROL_SERVICE handler reads, the `MqttApplicationMessageBuilder` overload the publish-edge adapter `MqttLane.Write` threads before `Build()`, and the `MqttApplicationMessage` overload the receive pump continues under a consumer kind.
 - Auto: one boot mint stamps `LogContext` properties, `Baggage`, meter tags, receipts, and support manifests — deletes per-call-site correlation parameters across the suite; the two enrichers feed `IEnrichmentTagCollector` under one bounded prefix — the causal seat reads the scoped baggage value through `AddLogEnricher<CausalEnricher>`, the identity seat is the pre-constructed projection through `AddStaticLogEnricher(RootEnricher)` because the resolved record fixes it at composition, never from DI activation; pooled-callback, native-callback, and manual-thread ambient breaks share one repair — `CorrelationFrame` captures the log, baggage, and tenancy triple, and `Restore` scopes all three at deferred-work entry, so a receipt minted on a pooled thread carries the tenant its originating request admitted rather than reading single-tenant off an empty slot; `TraceContext` rides the same `Correlation.Spine` composite, so the W3C `traceparent`/`tracestate` carrier and the `Baggage` carrier inject and extract in one pass and a continued remote span shares the in-process correlation id automatically.
 - Packages: Rasm, OpenTelemetry, Serilog, Microsoft.Extensions.Telemetry.Abstractions, Thinktecture.Runtime.Extensions, LanguageExt.Core, Grpc.Core.Api, MQTTnet, BCL inbox.
-- Growth: a new stamped carrier is one stamp row inside `Stamp` with one policy value; a new ambient store is one `TenantMirror` row beside `OtelBaggage` that every existing call site inherits with no edit; a new identity dimension is one `ProfileIdentity.ResourceAttributes` row both the resource and the log seat inherit, a new request dimension one `CausalEnricher` line; a new propagation carrier is one getter/setter adapter pair over the generic `Inject`/`Extract` on the same `Spine` composite beside the `TenantAdoption` row its trust class already carries, never a second tracer; zero new surface.
+- Growth: a new stamped carrier is one stamp row inside `Stamp` with one policy value; a new ambient store is one `TenantMirror` row beside `OtelBaggage` that every existing call site inherits with no edit; a new identity dimension is one `ProfileIdentity.ResourceAttributes` row both the resource and the log seat inherit, a new request dimension one `CausalEnricher` line; a new propagation carrier is one getter/setter adapter pair over the generic `Inject`/`Extract` on the same `Spine` composite beside the `TenantAdoption` row its trust class already carries, never a second tracer; a new causal slot is one `[CAUSAL_CARRIAGE]` row naming the member that carries it, which a peer runtime proves its own carriage against; zero new surface.
 - Boundary: the composite registers as `Propagators.DefaultTextMapPropagator` and crosses every hop through `TextMapPropagator.Inject` and `TextMapPropagator.Extract`, riding gRPC metadata on the local-ipc leg; `TraceContext` is the seam owner of every crossing — the propagation mechanics live here while each transport boundary consumes its adapter pair, so a per-transport hand-rolled `traceparent` header write is the deleted form; MQTT publish writes v5 user properties through the catalogued non-obsolete `WithUserProperty(string name, ReadOnlyMemory<byte> value)` builder overload and receive reads them through the `MqttApplicationMessage` `Continue` overload whose ordinal-matched getter decodes `MqttUserProperty.ValueBuffer` — both legs on the buffer pair the package's own obsolescence notes point at, so the carrier adapter family closes in both directions on one transport and no leg hand-formats a header; NATS and CloudEvents adapters compose Persistence-side because NATS carries no OTel instrumentation by design — manual inject and extract are the contract — and their concrete setter/getter bodies land beside the egress legs, never a second spine; immutable `Baggage.Current` is the one ambient correlation owner and `OtelBaggage` is its ONE tenancy writer — a page reading tenancy off a raw store rather than the kernel `TenantContext.Current` accessor reads whichever of the three stores that page happens to know, which is the split-brain this row closes, and a second `TenantMirror` registration over the same store double-writes and double-restores one entry; ingress tenancy is ADMITTED, never inherited — `TenantAdoption` carries no default because trust is a property of the carrier a transport owner alone knows, an adopting leg seats the wire entry into the kernel slot so span promotion and the metric fold answer one tenant, and a refusing leg CLEARS that entry from the seated baggage so a foreign claim tags no span with a tenant every RLS predicate and receipt answers root for; a request value placed in `RootEnricher` is a bug and an identity constant placed in `CausalEnricher` is waste — the cost-class split is structural, and the captured `CorrelationFrame`, never ambient state read at execution time, seeds deferred children; every stamp, restore, and continuation scope restores prior baggage on dispose; every continuation receives its minted source, and a process-static source bypassing the factory scope is forbidden.
 
 ```csharp signature
@@ -96,14 +96,15 @@ public static class Correlation {
 
     // Wire tenancy carries the kernel's invariant ID TEXT and no slug, so an adopted frame spells its slug from
     // that text and a slug-keyed configuration overlay resolves at the authorization boundary holding the
-    // roster. Admission reads the Root row's own render for width and alphabet rather than re-spelling the
-    // format, so a garbled carrier reads single-tenant instead of faulting the propagation seam on parse, and a
-    // zero entry lands on Root rather than on a partitioning zero row — the sentinel the absent-tenant law
-    // forecloses, which a reconstructed row would otherwise pass by carrying a slug Root does not.
+    // roster. Admission is the kernel's OWN non-throwing peer, so width and alphabet are read from the one
+    // predicate `Of` enforces rather than re-spelled here — a local `char.IsAsciiHexDigit` gate beside the
+    // kernel's `SearchValues` alphabet agrees today and forks silently on any kernel narrowing, admitting a text
+    // the callee then refuses by throw on the one seam whose whole design goal is reading a garbled carrier as
+    // single-tenant. A zero entry lands on Root rather than on a partitioning zero row — the sentinel the
+    // absent-tenant law forecloses, which a reconstructed row would otherwise pass by carrying a slug Root does not.
     internal static Option<TenantContext> Tenanted(Baggage extracted) =>
         Optional(extracted.GetBaggage(TenantContext.TenantSlot))
-            .Filter(static text => text.Length == TenantContext.Root.Entry.Length && text.All(char.IsAsciiHexDigit))
-            .Map(static text => new TenantContext(TenantId.Of(text), text))
+            .Bind(static text => TenantId.TryOf(text).Map(id => new TenantContext(id, text)))
             .Filter(static held => held.TenantId != TenantContext.Root.TenantId);
 
     public static CorrelationFrame Capture() => new(LogContext.Clone(), Baggage.Current, TenantContext.Current);
@@ -214,15 +215,28 @@ public sealed class CausalEnricher : ILogEnricher {
 }
 ```
 
+[CAUSAL_CARRIAGE]: the causal stamp's four slots and the C# member carrying each. Carriage is PER-BRANCH and only the layout is shared — `tests/contracts/MANIFEST.md` `[02.7]-[HLC_TWO_HALF]` rosters three co-equal minters, so a peer proves its own dialect against this column rather than against a header vocabulary this branch mints; a text carrier key minted here freezes one peer's transport dialect as estate law while a second peer's typed metadata lane already carries the same frame:
+
+| [INDEX] | [SLOT]   | [CSHARP_CARRIAGE]                                    | [SHARED_LAW]                                                    |
+| :-----: | :------- | :--------------------------------------------------- | :-------------------------------------------------------------- |
+|  [01]   | physical | `ReceiptEnvelope.Physical` on `HlcStampWire`         | physical half first, `Instant` Unix-tick `long`-LE              |
+|  [02]   | logical  | `ReceiptEnvelope.Logical` on `HlcStampWire`          | monotone `ulong`-LE, zeroed on a physical advance               |
+|  [03]   | tenant   | `TenantContext.TenantSlot` composed, never re-minted | one GUC, baggage, meter-tag, and partition spelling             |
+|  [04]   | packed   | `Runtime/ports#TS_PROJECTION` layout owner           | `physical_ticks<<64 \| logical` as one `UInt128`, bit-identical |
+
+- The stamp rides the envelope per this section's Law, so no slot occupies a trace or span id and no slot widens `PromotedBaggage` — the allowlist stays the tenancy and correlation pair, and a stamp promoted onto spans puts a per-event value on a dimension every series groups by.
+- `[03]` COMPOSES the kernel constant rather than declaring a spelling: a second `"rasm.tenant"` literal here forks the one text the RLS predicate, the cache key, the object prefix, and the meter tag all read.
+- `[04]` states the KEY and references the layout, which `Runtime/ports.md` `[04]` owns; restating the shift and mask arithmetic mints a second layout authority the seal already fixed.
+
 ## [04]-[LOG_PROJECTION]
 
-- Owner: `LogPipeline` `[SmartEnum<string>]` arbitration column; `SpineLog` generated delegates; `SpineSampler` the branch's per-entry volume verdict; `IncidentBuffers` the two-scope hold-and-replay seat; `SerilogProjectionPolicy` shaping surface; `SpineLossFold` failure listener.
-- Cases: one pipeline row per delivery mandate — a bound OTLP-export provider takes otel-export, an unbound one projects through Serilog; the `Owner` arbitration is the total assignment; two buffer scopes — the process-wide `GlobalLogBuffer` and the operation-scoped `PerRequestLogBuffer` — each a hold whose flush is an OUTCOME rather than a timer.
-- Entry: `LogPipeline.Owner(ConsumptionProfile profile)` — the total arbitration projection; `SpineSampler.ShouldSample<TState>(in LogEntry<TState> entry)` — the per-entry verdict; `IncidentBuffers.Flush(IncidentBuffers held)` — the outcome-driven replay; `SerilogProjectionPolicy.Shape(LoggerConfiguration)` composes the six rails and freezes them on `CreateLogger`.
-- Auto: volume governance is THREE planes with disjoint jurisdictions and this owner seats all three, because a plane seated per emitter is a policy every new emitter re-decides. Rule selection stays `[05]`'s — category, level, and event-identity selectors a `RandomProbabilisticSamplerFilterRule` and a `LogBufferingFilterRule` express. `SpineSampler` owns the VERDICT plane as the one `LoggingSampler` subclass: a rule row cannot read the entry's own state, so the branch's real discriminants — the 1000-1099 EVENT stride that must never thin, and the live `DegradationLevel` under which the chatty floor must thin harder — land here as one `ShouldSample` fold over `LogEntry<TState>`, registered through `AddSampler(LoggingSampler)`; a probability literal spread across rule rows re-derives that verdict per category and drifts on the first rank the fold learns. Two scopes carry the HOLD plane: `AddGlobalBuffer` seats the process ring whose `GlobalLogBuffer.Flush` the fault transition drives, while `PerRequestLogBuffer` is RESOLVED rather than registered — its activation verb ships with the ASP.NET middleware this package does not admit, so the seat is an `Option<PerRequestLogBuffer>` a hosting root may fill and the interior flushes on a failed command or hop outcome, holding the verbose tiers of a succeeding operation and replaying exactly the one that failed; with no seat bound the global ring alone carries and nothing degrades. `LogBuffer.TryEnqueue<TState>(IBufferedLogger, in LogEntry<TState>)` is the admission both scopes share and `IBufferedLogger` the replay contract the pipeline's own provider satisfies, so a held record replays through the same seam it took live rather than a second formatting path. Generated delegates carry stable `EventId` and `EventName`; `[LogProperties]` expands typed payloads into bounded tags with classification intact — `Transitive` opening the nested-member expansion where a payload's own members carry annotations a flat expansion strands — `[TagProvider]` projects a foreign type that carries no annotation, and `[TagName]`/`[LogPropertyIgnore]` rename and elide at the declaration; a payload whose classification is resolved at runtime rather than declared writes through `LoggerMessageHelper.ThreadLocalState`, `ReserveTagSpace(int)` sizing the pooled array once and `AddClassifiedTag(string, object?, DataClassificationSet)` carrying each tag's own set, so the one dynamic emitter stays allocation-free and its tags reach the redaction seam classified exactly as a generated one's do; the wire sink rides one `BatchingOptions` latency/throughput square while `Fallible` wraps it in a `FailureListenerSink` that projects sink failure through the composition-injected receipt-backed `SpineLossFact` delegate, `AuditTo` propagates it to the caller, `FallbackChain` reroutes on synchronous throw, and `Conditional` forks the error-and-above tier to the hot sink.
+- Owner: `LogPipeline` `[SmartEnum<string>]` arbitration column; `SpineLog` generated delegates; `SpineSampler` the branch's per-entry volume verdict; `IncidentBuffers` the two-scope hold-and-replay seat; `SerilogProjectionPolicy` shaping surface; `SerilogHost` the service-aware bridge binding that shape to the concrete sink set; `SpineLossFold` failure listener.
+- Cases: one pipeline row per delivery mandate — a bound OTLP-export provider takes otel-export, an unbound one projects through Serilog; the `Owner` arbitration is the total assignment; two buffer scopes — the process-wide `GlobalLogBuffer` and the operation-scoped `PerRequestLogBuffer` — each a hold whose flush is an OUTCOME rather than a timer, and each a `BufferScope` row the flush counts itself under; four sink mandates on the serilog arm — batched wire, durable fallback, hot error tier, synchronous audit.
+- Entry: `LogPipeline.Owner(ConsumptionProfile profile)` — the total arbitration projection; `SpineSampler.ShouldSample<TState>(in LogEntry<TState> entry)` — the per-entry verdict; `IncidentBuffers.Flush(InstrumentSet signals)` returns `Unit` and writes one `HostInstruments.LogsFlushed` point per flushed scope — the outcome-driven replay; `SerilogProjectionPolicy.Shape(LoggerConfiguration configuration, IBatchedLogEventSink wire, Action<LoggerSinkConfiguration> fallback, Func<LoggerAuditSinkConfiguration, LoggerConfiguration> audit, Action<LoggerSinkConfiguration> hot, IDestructuringPolicy classification, ILoggingFailureListener loss)` returns the shaped configuration; `SerilogSinks.For(ConsumptionProfile profile, IBatchedLogEventSink wire, string durableRoot, string hostKey, long fileCapBytes, IDestructuringPolicy classification, ILoggingFailureListener loss)` returns `Option<SerilogSinks>` — the arbitration and the sink-arrow set in one, absent on an export root; `SerilogHost.Boot(Option<SerilogSinks> sinks)` mints the reloadable boot logger through `CreateBootstrapLogger`; `SerilogHost.Compose(IServiceCollection services, Option<SerilogSinks> sinks)` runs the shape through `AddSerilog(IServiceCollection, Action<IServiceProvider, LoggerConfiguration>)`.
+- Auto: volume governance is THREE planes with disjoint jurisdictions and this owner seats all three, because a plane seated per emitter is a policy every new emitter re-decides. Rule selection stays `[05]`'s — category, level, and event-identity selectors a `RandomProbabilisticSamplerFilterRule` and a `LogBufferingFilterRule` express. `SpineSampler` owns the VERDICT plane as the one `LoggingSampler` subclass: a rule row cannot read the entry's own state, so the branch's real discriminants — the 1000-1099 EVENT stride that must never thin, and the live `DegradationLevel` under which the chatty floor must thin harder — land here as one `ShouldSample` fold over `LogEntry<TState>`, registered through `AddSampler(LoggingSampler)`; a probability literal spread across rule rows re-derives that verdict per category and drifts on the first rank the fold learns. Two scopes carry the HOLD plane and `IncidentBuffers` is their ONE flush owner, so the fault transition and the support capture drive one replay rather than each reaching whichever ring it happens to hold: `AddGlobalBuffer` seats the process ring, while `PerRequestLogBuffer` is RESOLVED rather than registered — its activation verb ships with the ASP.NET middleware this package does not admit, so the seat is an `Option<PerRequestLogBuffer>` a hosting root may fill and the interior flushes on a failed command or hop outcome, holding the verbose tiers of a succeeding operation and replaying exactly the one that failed; with no seat bound the global ring alone carries and nothing degrades. `LogBuffer.TryEnqueue<TState>(IBufferedLogger, in LogEntry<TState>)` is the admission both scopes share and `IBufferedLogger` the replay contract the pipeline's own provider satisfies, so a held record replays through the same seam it took live rather than a second formatting path. Generated delegates carry stable `EventId` and `EventName`; `[LogProperties]` expands typed payloads into bounded tags with classification intact — `Transitive` opening the nested-member expansion where a payload's own members carry annotations a flat expansion strands — `[TagProvider]` projects a foreign type that carries no annotation, and `[TagName]`/`[LogPropertyIgnore]` rename and elide at the declaration; a payload whose classification is resolved at runtime rather than declared writes through `LoggerMessageHelper.ThreadLocalState`, `ReserveTagSpace(int)` sizing the pooled array once and `AddClassifiedTag(string, object?, DataClassificationSet)` carrying each tag's own set, so the one dynamic emitter stays allocation-free and its tags reach the redaction seam classified exactly as a generated one's do; the wire sink rides one `BatchingOptions` latency/throughput square while `Fallible` wraps it in a `FailureListenerSink` that projects sink failure through the composition-injected receipt-backed `SpineLossFact` delegate, `AuditTo` propagates it to the caller, `FallbackChain` reroutes on synchronous throw, and `Conditional` forks the error-and-above tier to the hot sink.
 - Packages: Microsoft.Extensions.Logging.Abstractions, Microsoft.Extensions.Telemetry, Microsoft.Extensions.Telemetry.Abstractions, Serilog, Thinktecture.Runtime.Extensions.
-- Growth: one spine event is one generated-delegate row inside the 1000-1099 EVENT stride (`FaultBand.SpineEvents`); one delivery mandate is one `LogPipeline` row the `Owner` fold selects off a capability column; one volume discriminant is one arm on the `SpineSampler` fold; one buffer scope is one seat on `IncidentBuffers`; one sink-loss class is one `SpineLossFold` fact row; zero new surface.
-- Boundary: `Rasm.AppHost` IS the branch's telemetry composition owner and holds Serilog, exporter, and SDK types by charter — the no-exporter-below-composition law scopes to the S0-S2 library tiers, where a package emits `ILogger` and its minted `Meter` alone and a Serilog type, an exporter, or an ambient sink is the app-coupling defect that law forecloses; static `Log` facade calls are deleted at every tier; the host bridge is the service-aware `AddSerilog(IServiceCollection, Action<IServiceProvider, LoggerConfiguration>)` overload whose configuration action runs `SerilogProjectionPolicy.Shape`, every sink is an app-root pin, and the boot window logs through `CreateBootstrapLogger()`, frozen into the host pipeline when that bridge registers, so no startup fault predates the pipeline; destructuring pins all three caps — depth, string length, collection count — because a pipeline accepting foreign graphs is a payload-bomb seam; `CloseAndFlush` is a ranked drain participant; exactly one pipeline owner per profile row, never both on one signal; `Filter.ByExcluding` holds lifetime-noise categories out of the pipeline by `Matching.FromSource` construction, `Destructure.With` binds the redaction-preserving `IDestructuringPolicy` so a custom shaper never strips classification, and `ForContext` is the emission-side source-keyed derivation the generated delegates ride, never a second `Shape` call; `SpineLossFold` implements `ILoggingFailureListener.OnLoggingFailed(object sender, LoggingFailureKind kind, string message, IReadOnlyCollection<LogEvent>? events, Exception? exception)` and projects only the exception type, numeric code, and redacted bounded detail into `SpineLossFact`; the raw exception remains callback-local and never enters the receipt-backed fact stream; `SelfLog.Enable` is the never-throwing floor beneath the rail; `WriteTo.Fallible(configureSink, listener)` wraps the wire-sink fallback chain in a `FailureListenerSink`, and a sink outside `Fallible` is unobserved best-effort; the test row installs `AddFakeLogging` and asserts through `FakeLogCollector` snapshots, never sink text.
+- Growth: one spine event is one generated-delegate row inside the 1000-1099 EVENT stride (`FaultBand.SpineEvents`); one delivery mandate is one `LogPipeline` row the `Owner` fold selects off a capability column; one volume discriminant is one arm on the `SpineSampler` fold; one buffer scope is one `BufferScope` row both `IncidentBuffers` and its flush counter read; one sink mandate is one `SerilogSinks` column the one `Shape` call already threads; one sink-loss class is one `SpineLossFold` fact row the `InstrumentFan.LossKind` arm already partitions; zero new surface.
+- Boundary: `Rasm.AppHost` IS the branch's telemetry composition owner and holds Serilog, exporter, and SDK types by charter — the no-exporter-below-composition law scopes to the S0-S2 library tiers, where a package emits `ILogger` and its minted `Meter` alone and a Serilog type, an exporter, or an ambient sink is the app-coupling defect that law forecloses; static `Log` facade CALLS are deleted at every tier while the `Log.Logger` SLOT is written exactly once, by `SerilogHost.Boot`, because the bridge reads that slot to find the reloadable logger it reconfigures; the host bridge is the service-aware `AddSerilog(IServiceCollection, Action<IServiceProvider, LoggerConfiguration>)` overload whose configuration action runs `SerilogProjectionPolicy.Shape`, and `UseSerilog` is the `IHostBuilder`-era spelling no fence here composes; every sink is an app-root pin carried on the one `SerilogSinks` record — `WriteTo.Console(ITextFormatter)` under a display template on the hot error tier, `WriteTo.File(ITextFormatter, path, shared: true, flushToDiskInterval, rollingInterval)` on the fallback leg because co-resident processes under one mount must both append and an exclusive handle loses every record of whichever opened second, and `AuditTo.Console(ITextFormatter)` on the audit leg because a batched sink is structurally incompatible with an audit guarantee — with the durable file scoped by HOST KEY under the same rule the durable OTLP queue's residence row carries, so two hosts on one volume never append into each other's file; every leg is a rail ARROW rather than a constructed instance, so the record holds no handle and owns no disposal — `SharedFileSink` is the constructed spelling of the same sharing contract and carries `[Obsolete]` pointing back at this arrow, which returns no sink, so `flushToDiskInterval` and the ranked `CloseAndFlush` participant are the durability seats and a caller-held `IFlushableFileSink.FlushToDisk` is unreachable at this pin; the boot window logs through `CreateBootstrapLogger()`, frozen into the host pipeline when that bridge registers, so no startup fault predates the pipeline; the loss fact reaches the receipt rail under `InstrumentFan.LossKind` and no other consumer — a sink failure logged through the pipeline whose sink just failed reports on the leg it names as down; destructuring pins all three caps — depth, string length, collection count — because a pipeline accepting foreign graphs is a payload-bomb seam; `CloseAndFlush` is a ranked drain participant; exactly one pipeline owner per profile row, never both on one signal; `Filter.ByExcluding` holds lifetime-noise categories out of the pipeline by `Matching.FromSource` construction, `Destructure.With` binds the redaction-preserving `IDestructuringPolicy` so a custom shaper never strips classification, and `ForContext` is the emission-side source-keyed derivation the generated delegates ride, never a second `Shape` call; `SpineLossFold` implements `ILoggingFailureListener.OnLoggingFailed(object sender, LoggingFailureKind kind, string message, IReadOnlyCollection<LogEvent>? events, Exception? exception)` and projects only the exception type, numeric code, and redacted bounded detail into `SpineLossFact`; the raw exception remains callback-local and never enters the receipt-backed fact stream; `SelfLog.Enable` is the never-throwing floor beneath the rail; the two producing arms on this page write through the `HostInstruments` slot consts rather than re-spelling a dimension key — one spelling serves the declaring roster row and the arm that stamps it, and a telemetry-local literal beside it is the fork those consts exist to delete; `WriteTo.Fallible(configureSink, listener)` wraps the wire-sink fallback chain in a `FailureListenerSink`, and a sink outside `Fallible` is unobserved best-effort; the test row installs `AddFakeLogging` and asserts through `FakeLogCollector` snapshots, never sink text.
 
 ```csharp signature
 [SmartEnum<string>]
@@ -286,17 +300,35 @@ public sealed class SpineSampler(Func<DegradationLevel> level, Func<double> draw
     static double Floor(DegradationLevel current) => 1d / (1 << current.Rank);
 }
 
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class BufferScope {
+    public static readonly BufferScope Process = new("process");
+    public static readonly BufferScope Operation = new("operation");
+}
+
 // Two hold scopes, one flush law: a buffer holds the verbose tiers and replays them only when an outcome
 // makes them valuable. The global ring is registered here; the per-request ring is RESOLVED, because its
 // activation verb ships with the ASP.NET middleware this package does not admit — so a hosting root may
 // seat one and the interior flushes it on a failed outcome, while an unseated slot degrades to the global
 // ring alone rather than to a nullable the emitters must probe.
 public sealed record IncidentBuffers(GlobalLogBuffer Process, Option<PerRequestLogBuffer> Operation) {
-    public Unit Flush() {
-        Process.Flush();
-        Operation.IfSome(static held => held.Flush());
-        return unit;
-    }
+    // The flush counts SCOPES, never records: `LogBuffer.Flush` returns void and replays through the
+    // pipeline's own `IBufferedLogger`, which this branch never owns, so a record count here would be a
+    // measurement no surface took. Scope presence IS measured — the operation ring is seated or it is not —
+    // and the two points answer what a flush count is read for: which holds an incident actually drained.
+    public Fin<Unit> Flush(InstrumentSet signals) =>
+        Replayed().TraverseM(scope => signals.Write(
+            HostInstruments.LogsFlushed, 1L, InstrumentSet.Tags((HostInstruments.ScopeSlot, scope.Key))))
+            .As().Map(static _ => unit);
+
+    // The replay runs inside this projection, so the roster it returns is exactly the set of scopes that drained
+    // and no caller can write a point for a ring it never flushed.
+    Seq<BufferScope> Replayed() =>
+        (fun(Process.Flush)(), Operation.Match(
+            Some: static held => (fun(held.Flush)(), Seq(BufferScope.Process, BufferScope.Operation)).Item2,
+            None: static () => Seq(BufferScope.Process))).Item2;
 }
 
 public sealed record SpineLossFact(
@@ -307,6 +339,9 @@ public sealed record SpineLossFact(
     Option<string> ExceptionType,
     Option<int> ExceptionCode);
 
+// The injected `emit` is the composition's projection onto `ReceiptSinkPort.Send` under `InstrumentFan.LossKind`,
+// and it renders `Kind` as the framework enum's own NAME — the arm partitions on a text dimension like every
+// sibling arm, and a numeric ordinal would key the series on a value that re-numbers on any framework addition.
 public sealed class SpineLossFold(Action<SpineLossFact> emit, Redactor redactor) : ILoggingFailureListener {
     const int DetailCap = 512;
 
@@ -341,10 +376,22 @@ public static class SerilogProjectionPolicy {
         QueueLimit = 10_000,
     };
 
-    public static LoggerConfiguration Shape(LoggerConfiguration configuration, IBatchedLogEventSink wire, ILogEventSink fallback, ILogEventSink audit, ILogEventSink hot, IDestructuringPolicy classification, ILoggingFailureListener loss) {
+    // The four sink legs split by what each package actually publishes: the batched wire sink is a CONSTRUCTIBLE
+    // instance the composition owns and the pipeline closes, while the file and console legs exist only as
+    // extensions on the `WriteTo`/`AuditTo` rails — so those three arrive as the rail arrows that admit them and
+    // an `ILogEventSink`-typed column for any of them would be a seat no shipped overload can fill.
+    public static LoggerConfiguration Shape(
+        LoggerConfiguration configuration,
+        IBatchedLogEventSink wire,
+        Action<LoggerSinkConfiguration> fallback,
+        Func<LoggerAuditSinkConfiguration, LoggerConfiguration> audit,
+        Action<LoggerSinkConfiguration> hot,
+        IDestructuringPolicy classification,
+        ILoggingFailureListener loss) {
         ArgumentNullException.ThrowIfNull(configuration);
+        ArgumentNullException.ThrowIfNull(audit);
         SelfLog.Enable(Console.Error);
-        return configuration
+        return audit(configuration
             .MinimumLevel.ControlledBy(Floor)
             .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
             .Enrich.FromLogContext()
@@ -356,26 +403,107 @@ public static class SerilogProjectionPolicy {
             .WriteTo.Fallible(
                 observed => observed.FallbackChain(
                     write => write.Sink(wire, Batch),
-                    rescue => rescue.Sink(fallback)),
+                    rescue => fallback(rescue)),
                 loss)
-            .WriteTo.Conditional(
-                static log => log.Level >= LogEventLevel.Error,
-                static into => into.Sink(hot))
-            .AuditTo.Sink(audit);
+            .WriteTo.Conditional(static log => log.Level >= LogEventLevel.Error, hot)
+            .AuditTo);
     }
+}
+
+// The concrete sink set `Shape`'s parameters resolve to. Every column is an app-root pin held as ONE value, so
+// the boot logger and the host-bridged logger cannot shape from two sink sets and the drain reaches the same
+// durable file the boot window opened. Every leg is a rail ARROW its own package publishes rather than a
+// constructed sink instance, so this record holds no handle, owns no disposal, and the pipeline that admitted
+// each arrow is the one owner that closes it.
+public sealed record SerilogSinks(
+    IBatchedLogEventSink Wire,
+    Action<LoggerSinkConfiguration> Durable,
+    Func<LoggerAuditSinkConfiguration, LoggerConfiguration> Audit,
+    Action<LoggerSinkConfiguration> Hot,
+    IDestructuringPolicy Classification,
+    ILoggingFailureListener Loss) {
+    const string Display = "[{Timestamp:O} {Level:u3}] {Message:lj}{NewLine}{Exception}";
+
+    static readonly MessageTemplateTextFormatter Rendered = new(Display, CultureInfo.InvariantCulture);
+
+    // Flush cadence on the durable leg: the arrow form takes no handle, so `flushToDiskInterval` is the seat that
+    // lands a tail on disk between drains and the ranked `CloseAndFlush` participant lands the last one.
+    static readonly TimeSpan FileFlush = TimeSpan.FromSeconds(2);
+
+    // The MINT carries the arbitration, so an export root never binds a file leg it will not write.
+    //
+    // Host-keyed residence, the same rule the durable OTLP queue's root carries: co-resident processes under one
+    // mount write one file per host key, so the leg must admit a SECOND writer — an exclusive handle silently
+    // loses every record of whichever process opened second. `shared: true` is that admission and it is the only
+    // non-obsolete spelling of it: `SharedFileSink` carries `[Obsolete]` pointing at exactly this arrow, and the
+    // arrow returns no sink, which is why the drain-band seat below is the flush INTERVAL rather than an
+    // `IFlushableFileSink.FlushToDisk` call — the sharing contract and a caller-held flush handle are mutually
+    // exclusive at this pin, and losing a co-resident process's whole log is the larger loss.
+    // Structured JSON on the file leg and a display template on the console legs: a retained file is machine
+    // evidence a bundle and a log query both read, while a terminal line is read by a person. Both console legs
+    // pass an explicit formatter, so the interactive rendering is one pinned template rather than the package's
+    // own default output template drifting under a package bump.
+    public static Option<SerilogSinks> For(ConsumptionProfile profile, IBatchedLogEventSink wire, string durableRoot,
+        string hostKey, long fileCapBytes, IDestructuringPolicy classification, ILoggingFailureListener loss) =>
+        LogPipeline.Owner(profile).Switch(
+            state: (Wire: wire, Root: durableRoot, Host: hostKey, Cap: fileCapBytes, Shaper: classification, Loss: loss),
+            serilogProjection: static row => Some(new SerilogSinks(
+                Wire: row.Wire,
+                Durable: into => ignore(into.File(
+                    new JsonFormatter(),
+                    Path.Join(row.Root, row.Host, "spine.jsonl"),
+                    fileSizeLimitBytes: row.Cap,
+                    shared: true,
+                    flushToDiskInterval: FileFlush,
+                    rollingInterval: RollingInterval.Day)),
+                Audit: static sink => sink.Console(Rendered),
+                Hot: static into => into.Console(Rendered),
+                Classification: row.Shaper,
+                Loss: row.Loss)),
+            otelExport: static _ => Option<SerilogSinks>.None);
+}
+
+public static class SerilogHost {
+    // The boot window is the projecting arm's own two-stage init: a reloadable logger exists BEFORE the host
+    // builder, so a fault raised while modules contribute is carried by the same sink set the composed pipeline
+    // then freezes. An export root has no Serilog pipeline to pre-stage, which is exactly what the absent sink
+    // set says, so the arbitration answers both questions once.
+    // The minted logger SEATS at `Log.Logger`, which is the one sanctioned write to that slot and the whole
+    // reason the two-stage init works: `AddSerilog` reads `Log.Logger as ReloadableLogger` to decide between
+    // reconfiguring in place and building a rival logger, so an unseated bootstrap logger silently takes the
+    // rival branch and every boot-window record lands on a pipeline the host then abandons. The prohibition is
+    // on static facade CALLS — an emitter reaching `Log.Information` instead of its injected `ILogger` — and a
+    // composition root seating the slot the bridge reads is the opposite of that defect.
+    public static Option<ReloadableLogger> Boot(Option<SerilogSinks> sinks) =>
+        sinks.Map(static held => Seated(Shaped(new LoggerConfiguration(), held).CreateBootstrapLogger()));
+
+    static ReloadableLogger Seated(ReloadableLogger boot) => (Log.Logger = boot, boot).Item2;
+
+    // The service-aware bridge is the ONE registration: its action runs under the built provider, so a sink
+    // needing a resolved dependency reaches one, and the seated reloadable boot logger reconfigures in place
+    // and freezes rather than being replaced — which keeps a boot-window record and a steady-state record on
+    // one pipeline.
+    public static IServiceCollection Compose(IServiceCollection services, Option<SerilogSinks> sinks) =>
+        sinks.Match(
+            Some: held => services.AddSerilog((_, configuration) => ignore(Shaped(configuration, held))),
+            None: () => services);
+
+    static LoggerConfiguration Shaped(LoggerConfiguration configuration, SerilogSinks sinks) =>
+        SerilogProjectionPolicy.Shape(
+            configuration, sinks.Wire, sinks.Durable, sinks.Audit, sinks.Hot, sinks.Classification, sinks.Loss);
 }
 ```
 
 ## [05]-[SIGNAL_GOVERNANCE]
 
-- Owner: `TelemetryDomain` `[SmartEnum<string>]` the branch domain roster under Tier-0 `[08]-[OBSERVABILITY_CONFORMANCE]` — each row a capability subject carrying its `Head`/`Measure` name projections, so every `rasm.*` instrument name and rasm-owned dimension key in this branch resolves a row or refuses at admission; `TelemetrySignal` `[SmartEnum<string>]` governance rows and the `SignalGovernance` registration fold; `LatencyCheckpoint` `[SmartEnum<string>]` this root's own in-flight phase vocabulary and `LatencyRoster` one emitting package's contributed checkpoint/measure/tag names; `LatencySpine` the checkpoint recorder and the one folded name registration; the admitted `PyroscopeSpanProcessor` the profile-to-span linking `BaseProcessor<Activity>`; `ResourceIdentity` the one detector-composed `Action<ResourceBuilder>` every provider owner consumes; `TelemetryComposition` the disposable composition capsule every governance entry folds — resolved row, boot correlation, contributed roster, offline policy, receipt delegate, clock, the process `SpanBand` folded from the contributed trace planes, and the opened per-signal queue and transport sets; `OtlpOfflinePolicy`/`OtlpOfflineQueue`/`PersistentOtlpHandler`/`OfflineDisposition` the branch-owned durable OTLP egress and its disposition vocabulary; `OtlpTrust` the mutual-auth material a replaced transport re-reads from the same environment rows the shipped factory owned.
+- Owner: `TelemetryDomain` `[SmartEnum<string>]` the branch domain roster under Tier-0 `[08]-[OBSERVABILITY_CONFORMANCE]` — each row a capability subject carrying its `Head`/`Measure` name projections, so every `rasm.*` instrument name and rasm-owned dimension key in this branch resolves a row or refuses at admission; `TelemetrySignal` `[SmartEnum<string>]` governance rows and the `SignalGovernance` registration fold; `LatencyCheckpoint` `[SmartEnum<string>]` this root's own in-flight phase vocabulary and `LatencyRoster` one emitting package's contributed checkpoint/measure/tag names; `LatencySpine` the checkpoint recorder and the one folded name registration; the admitted `PyroscopeSpanProcessor` the profile-to-span linking `BaseProcessor<Activity>`; `ResourceIdentity` the one detector-composed `Action<ResourceBuilder>` every provider owner consumes; `TelemetryComposition` the disposable composition capsule every governance entry folds — resolved row, boot correlation, contributed roster, offline policy, receipt delegate, clock, the process `SpanBand` folded from the contributed trace planes, and the opened per-signal queue and transport sets; `OtlpOfflinePolicy`/`OtlpOfflineQueue`/`PersistentOtlpHandler`/`OfflineDisposition` the branch-owned durable OTLP egress and its disposition vocabulary; `OtlpTrust` the mutual-auth material a replaced transport re-reads from the same environment rows the shipped factory owned; `MinterRole`/`RowDisposition`/`ConformanceRow`/`ConformanceDocument` the conformance projection vocabulary this branch renders its governance row set through.
 - Cases: one governance row per signal — trace, metric, log, profile — each binding ratio, buffering, redaction, and OTLP-egress policy, the export column selecting which three open a durable queue; one latency checkpoint row per measured phase — drain, hop, capture; six offline dispositions covering every outcome the queue can observe — accept, capacity refusal, replay, deferral, corruption, and the bounded-drain exit.
-- Entry: `TelemetryComposition.Of(ResolvedProfile resolved, CorrelationId root, Action<OtlpOfflineFact> emit, TimeProvider time, params ReadOnlySpan<TelemetryContributorPort> contributors)` opens the composition, its queue set, and the one `SpanBand`, and `Dispose` releases all three at the telemetry drain band; `SignalGovernance.Rostered(TelemetryContributorPort)` gates every contributed port before it mounts, returning the port on the typed rail or a refusal naming the unrostered spelling; `SignalGovernance.Views(Seq<TelemetryContributorPort>)` projects the one per-instrument view function both provider owners bind; `SignalGovernance.Govern(IServiceCollection services, TelemetryComposition composition)` returning the host-owned `OpenTelemetryBuilder`, `SignalGovernance.GovernLogs(ILoggingBuilder, TelemetryComposition)` binding the sampler, redaction, and incident-buffer rails on the `ILogger` floor, and `SignalGovernance.EnrichContext(IServiceCollection, TelemetryComposition)` seating the two enricher rows, the latency ledger, and the outbound client-log taxonomy; `ResourceIdentity.Compose(ResolvedProfile resolved, params ReadOnlySpan<KeyValuePair<string, object>> extra)` the one identity delegate — the resolved-record detector ahead of the contrib chain and the deployment override behind it, with composition facts riding as data; `SignalGovernance.StoreDriver(OpenTelemetryBuilder)` and `SignalGovernance.StoreWire<TKey, TValue>(OpenTelemetryBuilder)` the store-composing service-root rows — driver subscription shape-free and once, wire instrumentation once per message shape; `LatencySpine.Mark(ILatencyContext context, CheckpointToken phase)` records one checkpoint, `LatencySpine.Seal` freezes the context for export at drain, and `LatencySpine.Register(IServiceCollection, params ReadOnlySpan<LatencyRoster>)` folds this root's own vocabulary with every contributed roster into ONE registration across all three name axes under `ThrowOnUnregisteredNames`.
-- Auto: provider `ForceFlush` and `Shutdown` ride the telemetry drain band; the fault transition lands the `GlobalLogBuffer.Flush` window inside support capture; `AddRandomProbabilisticSampler` carries a `RandomProbabilisticSamplerFilterRule` row keyed by maximum level so it thins the chatty floor and never the error ceiling, while a `LogBufferingFilterRule` row holds the verbose tiers until an incident flushes them, bounded by the `GlobalLogBufferingOptions` caps — record size, buffer size, auto-flush window — so the incident buffer never runs unbounded; `AddHttpClientInstrumentation` binds `HttpClientTraceInstrumentationOptions` — `FilterHttpRequestMessage` drops the loopback leg, `EnrichWithException` records through `Activity.AddException` so the exception event carries the runtime's own `exception.type`/`message`/`stacktrace` grammar and the listener-installed `ExceptionRecorder` shapes it in one place, and URL-query redaction stays the package default; `Views` binds ONE `AddView` predicate resolving each published instrument against the contributed roster — a rostered stream takes its declaring row's `Dimensions` beside the one tenancy key as `TagKeys` under the `SeriesCap` budget, and a foreign stream keeps its semconv vocabulary under the same budget — so an undeclared tag reaches no exporter, the per-tenant `TenantContext.Tags` dimension stays inside a bounded series budget on every minted meter, and one instrument yields exactly one stream; the service-app-root metric exemplar policy rides `SetExemplarFilter` per the trace-based governance row; egress binds per signal rather than through one cross-signal call, so each signal carries its own batch square, its own temporality and reader cadence, and its own durable transport, and the three `AddOtlpExporter` rows are what make those knobs reachable at all — the cross-signal `UseOtlpExporter` seat exposes exporter options, reader options, and processor options through `internal` types alone, so the cross-signal seat reaches no per-signal policy value this page pins; `Egress` binds every exporter arm — the `WireProtocol`/`WireCompression` estate pins stamp first because the exporter parses its `OTEL_EXPORTER_OTLP_*` wire keys at options construction and the deploy plane publishes the endpoint row alone, so a pin left to those keys resolves the shipped gRPC-and-uncompressed defaults — and an `OtlpOfflinePolicy` armed by durable disk BESIDE a bound OTLP provider opens one queue per exported signal at composition, where `Egress` then swaps that signal's transport for `PersistentOtlpHandler`, which answers `Accepted` once a failed batch is on disk and opportunistically replays the tail through the next request that proved the endpoint good, bounded by drain window and batch so an export call never stalls on a deep queue, and it carries both message-handler legs because the http+protobuf exporter drives the SYNCHRONOUS one; `EnableEnrichment` activates the `RootEnricher`/`CausalEnricher` seats and binds `LoggerEnrichmentOptions` — `CaptureStackTraces` and `IncludeExceptionMessage` admit exception frames onto the log signal behind the redaction seam, and `UseFileInfoForStackTraces` stays off because file and line are leak-bearing; the serilog-projection rows add `AddConsoleLatencyDataExporter` so a desktop or test host reads latency spans live with zero wire cost; the latency vocabulary registers once through `RegisterCheckpointNames` at composition, `ILatencyContextTokenIssuer.GetCheckpointToken(string)` resolves each name to a `CheckpointToken`, and runtime code records through those resolved handles only — durations never derive from stamp differences; a value-bearing `MeasureToken` recording from `GetMeasureToken(string)` is a forward row admitted only when a measure consumer exists; `ResourceIdentity.Compose` runs the minted `service.namespace`/`service.name`/`service.instance.id` triple delegate first, then chains `AddHostDetector`/`AddOperatingSystemDetector`/`AddProcessDetector`/`AddProcessRuntimeDetector` always-on and `AddContainerDetector` on the OCI-vehicle rows alone — detectors ENRICH and never replace the mint, each contributing only the semconv attributes it resolves (`host.*`, `os.*`, `process.*`, `process.runtime.*`, `container.id`), placement dimensions no backend derives from the triple, and `AddEnvironmentVariableDetector` tails the chain so the deploy plane's `OTEL_RESOURCE_ATTRIBUTES` outranks every row ahead of it; `AddBaggageActivityProcessor(SignalGovernance.PromotedBaggage)` promotes the allowlisted `rasm.tenant` and `CorrelationId` baggage entries onto every span at start, so a backend groups spend, latency, and traces by tenant with zero per-call-site tagging; `AddHttpClientLatencyTelemetry()` installs the per-phase checkpoint handler over every named `HttpClient` — name-resolution versus connection versus server time at checkpoint cost, `EnableDetailedLatencyBreakdown` the package-default breakdown — and `AddExtendedHttpClientLogging` replaces the built-in client logger with the redaction-aware form whose four `*DataClasses` maps bind the `[06]` taxonomy through `DataClassification.Marker`, bespoke tags entering as `AddHttpClientLogEnricher<T>` rows.
+- Entry: `TelemetryComposition.Of(ResolvedProfile resolved, CorrelationId root, Action<OtlpOfflineFact> emit, TimeProvider time, IConfigurationSection hmacKeys, Func<DegradationLevel> level, Seq<LatencyRoster> latency, params ReadOnlySpan<TelemetryContributorPort> contributors)` opens the composition, its queue set, and the one `SpanBand`, deriving the federation `ClassificationRoster` set from each contributed port's `Classifications` column, and `Dispose` releases all three at the telemetry drain band; `SignalGovernance.Conformance(TelemetryComposition composition)` returns the `ConformanceDocument` — the one canonical projection of this branch's conformance row set, whose serialized form is the byte-deriving input `tests/contracts/MANIFEST.md` `[02.13]-[TELEMETRY_CONVENTION]` freezes; `SignalGovernance.Rostered(TelemetryContributorPort)` gates every contributed port before it mounts, returning the port on the typed rail or a refusal naming the unrostered spelling; `SignalGovernance.Views(Seq<TelemetryContributorPort>)` projects the one per-instrument view function both provider owners bind; `SignalGovernance.Govern(IServiceCollection services, TelemetryComposition composition)` returning the host-owned `OpenTelemetryBuilder`, `SignalGovernance.GovernLogs(ILoggingBuilder, TelemetryComposition)` binding the sampler, redaction, and incident-buffer rails on the `ILogger` floor, and `SignalGovernance.EnrichContext(IServiceCollection, TelemetryComposition)` seating the two enricher rows, the latency ledger, and the outbound client-log taxonomy; `ResourceIdentity.Compose(ResolvedProfile resolved, params ReadOnlySpan<KeyValuePair<string, object>> extra)` the one identity delegate — the resolved-record detector ahead of the contrib chain and the deployment override behind it, with composition facts riding as data; `SignalGovernance.StoreDriver(OpenTelemetryBuilder)` and `SignalGovernance.StoreWire<TKey, TValue>(OpenTelemetryBuilder)` the store-composing service-root rows — driver subscription shape-free and once, wire instrumentation once per message shape; `LatencySpine.Mark(ILatencyContext context, CheckpointToken phase)` records one checkpoint, `LatencySpine.Open(ILatencyContextProvider provider, ILatencyContextTokenIssuer issuer, LatencyCheckpoint phase)` is the composition-root factory minting one context beside its resolved token so a threaded fold never resolves a name on its own, `LatencySpine.Seal(ILatencyDataExporter exporter, ILatencyContext context)` returns `IO<Unit>` — it freezes the context and hands its `LatencyData` to the exporter under the drain band's own token, and `LatencySpine.Register(IServiceCollection, params ReadOnlySpan<LatencyRoster>)` folds this root's own vocabulary with every contributed roster into ONE registration across all three name axes under `ThrowOnUnregisteredNames`.
+- Auto: provider `ForceFlush` and `Shutdown` ride the telemetry drain band; the fault transition lands the `IncidentBuffers.Flush` window inside support capture, so both held scopes replay under one owner rather than a capture reaching the process ring alone; `AddRandomProbabilisticSampler` carries a `RandomProbabilisticSamplerFilterRule` row keyed by maximum level so it thins the chatty floor and never the error ceiling, while a `LogBufferingFilterRule` row holds the verbose tiers until an incident flushes them, bounded by the `GlobalLogBufferingOptions` caps — record size, buffer size, auto-flush window — so the incident buffer never runs unbounded; `AddHttpClientInstrumentation` binds `HttpClientTraceInstrumentationOptions` — `FilterHttpRequestMessage` drops the loopback leg, `EnrichWithException` records through `Activity.AddException` so the exception event carries the runtime's own `exception.type`/`message`/`stacktrace` grammar and the listener-installed `ExceptionRecorder` shapes it in one place, and URL-query redaction stays the package default; `Views` binds ONE `AddView` predicate resolving each published instrument against the contributed roster — a rostered stream takes its declaring row's `Dimensions` beside the one tenancy key as `TagKeys` under the `SeriesCap` budget, and a foreign stream keeps its semconv vocabulary under the same budget — so an undeclared tag reaches no exporter, the per-tenant `TenantContext.Tags` dimension stays inside a bounded series budget on every minted meter, and one instrument yields exactly one stream — the key set is a SET, so a keyed level family declaring the tenancy slot as its own leading dimension takes it once, and it ALLOWLISTS rather than requires, so an entry omitting a declared key is shaped by that same row with the key absent and a family carrying its key on some entries alone stays one stream under one budget; the service-app-root metric exemplar policy rides `SetExemplarFilter` per the trace-based governance row; egress binds per signal rather than through one cross-signal call, so each signal carries its own batch square, its own temporality and reader cadence, and its own durable transport, and the three `AddOtlpExporter` rows are what make those knobs reachable at all — the cross-signal `UseOtlpExporter` seat exposes exporter options, reader options, and processor options through `internal` types alone, so the cross-signal seat reaches no per-signal policy value this page pins; `Egress` binds every exporter arm — the `WireProtocol`/`WireCompression` estate pins stamp first because the exporter parses its `OTEL_EXPORTER_OTLP_*` wire keys at options construction and the deploy plane publishes the endpoint row alone, so a pin left to those keys resolves the shipped gRPC-and-uncompressed defaults — and an `OtlpOfflinePolicy` armed by durable disk BESIDE a bound OTLP provider opens one queue per exported signal at composition, where `Egress` then swaps that signal's transport for `PersistentOtlpHandler`, which answers `Accepted` once a failed batch is on disk and opportunistically replays the tail through the next request that proved the endpoint good, bounded by drain window and batch so an export call never stalls on a deep queue, and it carries both message-handler legs because the http+protobuf exporter drives the SYNCHRONOUS one; `EnableEnrichment` activates the `RootEnricher`/`CausalEnricher` seats and binds `LoggerEnrichmentOptions` — `CaptureStackTraces` and `IncludeExceptionMessage` admit exception frames onto the log signal behind the redaction seam, and `UseFileInfoForStackTraces` stays off because file and line are leak-bearing; the serilog-projection rows add `AddConsoleLatencyDataExporter` so a desktop or test host reads latency spans live with zero wire cost; the latency vocabulary registers once through `RegisterCheckpointNames` at composition, `ILatencyContextTokenIssuer.GetCheckpointToken(string)` resolves each name to a `CheckpointToken`, and runtime code records through those resolved handles only — durations never derive from stamp differences; a value-bearing `MeasureToken` recording from `GetMeasureToken(string)` is a forward row admitted only when a measure consumer exists; `ResourceIdentity.Compose` runs the minted `service.namespace`/`service.name`/`service.instance.id` triple delegate first, then chains `AddHostDetector`/`AddOperatingSystemDetector`/`AddProcessDetector`/`AddProcessRuntimeDetector` always-on and `AddContainerDetector` on the OCI-vehicle rows alone — detectors ENRICH and never replace the mint, each contributing only the semconv attributes it resolves (`host.*`, `os.*`, `process.*`, `process.runtime.*`, `container.id`), placement dimensions no backend derives from the triple, and `AddEnvironmentVariableDetector` tails the chain so the deploy plane's `OTEL_RESOURCE_ATTRIBUTES` outranks every row ahead of it; `AddBaggageActivityProcessor(SignalGovernance.PromotedBaggage)` promotes the allowlisted `rasm.tenant` and `CorrelationId` baggage entries onto every span at start, so a backend groups spend, latency, and traces by tenant with zero per-call-site tagging; `AddHttpClientLatencyTelemetry()` installs the per-phase checkpoint handler over every named `HttpClient` — name-resolution versus connection versus server time at checkpoint cost, `EnableDetailedLatencyBreakdown` the package-default breakdown — and `AddExtendedHttpClientLogging` replaces the built-in client logger with the redaction-aware form whose four `*DataClasses` maps bind the `[06]` taxonomy through `DataClassification.Marker`, bespoke tags entering as `AddHttpClientLogEnricher<T>` rows.
 - Receipt: `LatencyData` — the frozen checkpoint spans `ILatencyDataExporter` exports at the drain band, one span per drain, hop, and capture phase; `OtlpOfflineFact` — the durable-egress evidence every queue outcome projects through the composition-injected receipt delegate onto the `Observability/instruments#RECEIPT_PROJECTION` offline arm.
-- Growth: a new capability subject is one `TelemetryDomain` row and a second package emitting under a standing subject adds none — the roster grows on subjects, never on emitters; a contributor minting on its own load-context meter is one `Published` roster on its port that the standing gate and the standing view predicate already read; a new transport-trust coordinate is one `OtlpTrust` row beside its governance variable; one governance decision is one policy value row; one stream reshaping is one `Dimensions` edit at the roster that declares the instrument, which the one view predicate already reads — a second `AddView` row is the shape that mints a duplicate stream; one measured phase is one `LatencyCheckpoint` row recorded by one `LatencySpine.Mark` call, and an emitting package's whole phase vocabulary is one `LatencyRoster` value on the composition the one registration already folds; a new store message shape is one `StoreWire<TKey, TValue>` closure at the composing root; a new resource dimension is one detector row inside `ResourceIdentity.Compose` and a new composition fact one `TelemetryComposition` column; a signal crossing onto the OTLP wire is one `Exported` value the queue set and the exporter roster both fold; a new promoted baggage key is one `PromotedBaggage` pattern row; a new offline outcome is one `OfflineDisposition` row the one counter already partitions on; zero new surface.
+- Growth: a new capability subject is one `TelemetryDomain` row and a second package emitting under a standing subject adds none — the roster grows on subjects, never on emitters; a contributor minting on its own load-context meter is one `Published` roster on its port that the standing gate and the standing view predicate already read; a new transport-trust coordinate is one `OtlpTrust` row beside its governance variable; one governance decision is one policy value row; one stream reshaping is one `Dimensions` edit at the roster that declares the instrument, which the one view predicate already reads — a second `AddView` row is the shape that mints a duplicate stream; one measured phase is one `LatencyCheckpoint` row recorded by one `LatencySpine.Mark` call, and an emitting package's whole phase vocabulary is one `LatencyRoster` value on the composition the one registration already folds and its whole classification vocabulary one `Classifications` roster on its own contributor port the one federation proof already reads; a new store message shape is one `StoreWire<TKey, TValue>` closure at the composing root; a new resource dimension is one detector row inside `ResourceIdentity.Compose` and a new composition fact one `TelemetryComposition` column; a signal crossing onto the OTLP wire is one `Exported` value the queue set and the exporter roster both fold; a new promoted baggage key is one `PromotedBaggage` pattern row; a new offline outcome is one `OfflineDisposition` row the one counter already partitions on; a new conformance obligation is one `ConformanceRow` in the one projection, and a plane that opens a seat this branch reads as withheld re-values that same row rather than adding one; zero new surface.
 - Boundary: this platform admits all span custody — one `SpanBand` over contributed `Planes`, registered beside `ForeignSource`.
-- Boundary: the domain roster is this branch's projection of one estate vocabulary — the corpus `TELEMETRY_CONVENTION` entry carries it, so a segment this branch and a peer both admit spells one subject byte-identical or fails there rather than surviving as two unjoinable series; estate identity dimensions ride the resource projection and carry no segment, which is why `Rostered` reads `PromotedBaggage` as its carve rather than minting a second allowlist, and hook-point ids stay a package-keyed space this grammar never reaches; the OTLP exporter package enters only at service app roots — the otelExport arm binds one `AddOtlpExporter` per signal through the one `Egress` seat, which stamps the estate wire pins — HTTP+protobuf the one egress protocol, gzip the one payload encoding — while endpoint, headers, and mTLS material stay deploy-plane rows the `OTEL_EXPORTER_OTLP_*` keys carry; that egress boundary is the `OtelExport` seam; the per-signal rows and the cross-signal `UseOtlpExporter` seat are mutually exclusive by package law and the per-signal form is the branch's, because the cross-signal seat routes every knob this page pins through `internal` option types and a composition behind it can set no batch square, no temporality, no reader cadence, and no transport; EF Core emits no `ActivitySource` of its own, so the ORM-layer command span is the `AddEntityFrameworkCoreInstrumentation` row `StoreDriver` registers — nesting over the Npgsql ADO driver span, complementary never redundant — while gRPC client spans ride `AddGrpcClientInstrumentation` with `SuppressDownstreamInstrumentation` so the underlying HTTP/2 leg never double-traces, superseding the client's native `Grpc.Net.Client` source and its single `Grpc.Net.Client.GrpcOut` per-call activity, and neither surface adds an `AddSource` row; the otelExport arm carries `AddAspNetCoreInstrumentation` beside the wire host for inbound request spans; store telemetry is the PORT-peer arbitration — Persistence owns the driver and the instrumented builders while the app root alone registers, so no downward reference forms: `StoreDriver` subscribes `AddNpgsql` tracing, `AddEntityFrameworkCoreInstrumentation` ORM tracing, and `AddNpgsqlInstrumentation` metrics once at the store-composing root, with `NpgsqlDataSourceBuilder.Name` (`string?`, get/set) assigned Persistence-side per logical database so `db.client.connection.pool.name` keys stable pool dimensions, and `StoreWire<TKey, TValue>` registers `AddKafkaProducerInstrumentation`/`AddKafkaConsumerInstrumentation` on both providers once per message shape over the Persistence egress `AsInstrumentedProducerBuilder` and CDC ingress `InstrumentedConsumerBuilder` legs, closing the producer-only Kafka asymmetry; the builtin rows delete the meter-side `AddRuntimeInstrumentation` registration because the runtime publishes `System.Runtime` inbox and a meter-name row is that whole admission, while `AddProcessInstrumentation` survives as a verb on the always-on metrics arm because its absolute process series exist only on the meter its registered instrumentation instance constructs, so a `ForeignSource` row subscribes an empty scope; the trace-side `AddHttpClientInstrumentation` row keeps URL-query redaction; `LatencySpine.Mark` is the single checkpoint recorder, and the `ILatencyContext` payload is carried into `DrainConductor.Drain`, `OutboundSurface.Run`, and `SupportCapture.Capture` — those folds thread the context so each phase boundary has its recording seat, deleting per-fold `Stopwatch` timing; the recorder is cheaper than child spans and free of sampling coupling; name-to-`CheckpointToken`/`MeasureToken` issuance rides `ILatencyContextTokenIssuer.GetCheckpointToken`/`GetMeasureToken`, the frozen spans read through the `ILatencyContext.LatencyData` accessor, and `ILatencyDataExporter.ExportAsync(LatencyData, CancellationToken)` exports at the telemetry drain band; `AddLatencyContext` registers the context once and the consuming folds thread it so each phase boundary records through its issued token; the NAME registration is one folded table over this root's roster and every contributor's, across checkpoints, measures, and tags alike, because an unregistered name resolves to a positionless token whose writes drop with nothing raised — a contributor recording under its own unfolded roster is instrumented in prose and silent on the wire, which is why `ThrowOnUnregisteredNames` makes the omission a boot failure and why no contributor reaches its own `RegisterCheckpointNames` call to split the table; test-row trace assertions ride one `BaseProcessor<Activity>` through `AddProcessor` and metric assertions ride `MetricCollector<T>` — no in-memory exporter package enters a production tier, and the proof estate's own in-memory exporter row stays its own admission; the `Profile` signal is the continuous-profiling rail — the admitted `PyroscopeSpanProcessor` registers as `AddProcessor<PyroscopeSpanProcessor>()` through the same seat the test-row processor uses, gated to service app roots where the profiler endpoint resolves — `Profiler.Instance` carries no address member, so the ingest address is the agent `PYROSCOPE_SERVER_ADDRESS` environment row bound from the deploy-plane profiles endpoint beside `PYROSCOPE_APPLICATION_NAME` and the CLR-profiler enablement rows, with `SetAuthToken`/`SetBasicAuth` the credential seam and `PYROSCOPE_TENANT_ID` the tenancy row — and stamps the `pyroscope.profile.id` tag on each root span so a flame graph scopes to the exact trace that showed a regression; the GenAI semantic conventions ride the trace and metric signals — an MCP-served tool span carries `gen_ai.operation.name` and the `gen_ai.provider.name` provider discriminant beside the `gen_ai.usage.input_tokens`/`output_tokens` counts, and the token-usage instruments ride the minted `Rasm.AppHost` meter, so the agentic surface the host serves shares one telemetry taxonomy with the runtime, never a parallel agent-metrics owner; durable egress has exactly ONE owner per exporter — the branch-typed queue installs through `OtlpExporterOptions.HttpClientFactory`, so the exporter's own `OTEL_DOTNET_EXPERIMENTAL_OTLP_RETRY=disk` pair stays unset wherever the handler leg is selected, and arming both gives one batch two independent persistence owners writing two directories with no shared accounting; a replaced factory DISPLACES the shipped one whole, and the shipped one is the sole application point for both the option timeout and the mutual-auth client the `OTEL_EXPORTER_OTLP_*` trust rows arm — `OtlpMtlsOptions` is internal at this pin — so `Egress` carries both halves and a durable profile exporting unauthenticated against a mutual-auth collector is the defect that row forecloses; durable-transport LIFETIME is the composition's, never the exporter's — the SDK hands its export client an `HttpClient` it never disposes and its shutdown only cancels pending requests, so neither the handler chain nor the provider directory reaches a release seat of its own and `TelemetryComposition.Dispose` at the telemetry drain band is the one seat closing both, which is also why the set opens at composition rather than inside an options delegate the SDK invokes past a sealed service collection; credential material never reaches disk because a stored blob carries the request BODY alone and the replay copies its headers off the live request that just succeeded, so a rotated ingest token applies to the whole tail and a stolen queue directory yields payloads and no key; queue DEPTH is the disposition ledger's own arithmetic — neither storage tier publishes a count or size accessor and its directory field is internal, so a depth level costs an O(n) directory walk per collection while the `queued`-minus-`replayed`-minus-`corrupt` gap answers the same question off counters already mounted; retention-expiry reclamation is the provider's own maintenance timer surfacing on the package `EventSource` alone, so an aged-out tail widens that same gap rather than minting a disposition row; plugin ALC capsules open no disk queue, so an unloaded capsule's failed batches die with it and never outlive the load context that minted them; baggage promotion is allowlist-only — `PromotedBaggage` names `TenantContext.TenantSlot` and `CorrelationId.Slot`, one predicate serving the span processor and the log processor alike, and an unlisted key reaches neither, so free-form baggage flood is structurally impossible; log-record identity is the resource projection and the shipped `AddApplicationLogEnricher` row is DELETED, not configured off — it writes an unqualified `service.name` and the deprecated `deployment.environment` spelling as package-owned tags, so leaving it seated puts two values of one dimension on two planes and a query joining a log record to a metric series compares neither, while `AddProcessLogEnricher` survives on its `ThreadId` column alone because the resource already carries `process.pid`; the latency breakdown and the `AddHttpClientInstrumentation` span are two projections of one hop — the checkpoint handler never mints a second trace, extended logging supersedes the built-in client logger so both active is the double-log defect, and `wrapHandlersPipeline` decides whether logging observes pre- or post-retry attempts on the resilience chain.
+- Boundary: the domain roster is this branch's projection of one estate vocabulary — the corpus `TELEMETRY_CONVENTION` entry carries it, so a segment this branch and a peer both admit spells one subject byte-identical or fails there rather than surviving as two unjoinable series, and `Conformance` is the member that makes that comparison possible at all: the row set is composition CODE until something projects it, and three branches holding equivalent code with no document prove nothing against each other; every row value therefore derives from the surface it reports rather than restating one, a posture with no readable owner is the one legitimate literal, and each roster joins ordinally because the three branch comparators diverge above printable ASCII and an unsorted join mints a digest a peer reproduces from the same rows only by luck; the document serializes through the suite wire roster like every other AppHost family, so no second encoder reaches it; estate identity dimensions ride the resource projection and carry no segment, which is why `Rostered` reads `PromotedBaggage` as its carve rather than minting a second allowlist, and hook-point ids stay a package-keyed space this grammar never reaches; the OTLP exporter package enters only at service app roots — the otelExport arm binds one `AddOtlpExporter` per signal through the one `Egress` seat, which stamps the estate wire pins — HTTP+protobuf the one egress protocol, gzip the one payload encoding — while endpoint, headers, and mTLS material stay deploy-plane rows the `OTEL_EXPORTER_OTLP_*` keys carry; that egress boundary is the `OtelExport` seam; the per-signal rows and the cross-signal `UseOtlpExporter` seat are mutually exclusive by package law and the per-signal form is the branch's, because the cross-signal seat routes every knob this page pins through `internal` option types and a composition behind it can set no batch square, no temporality, no reader cadence, and no transport; EF Core emits no `ActivitySource` of its own, so the ORM-layer command span is the `AddEntityFrameworkCoreInstrumentation` row `StoreDriver` registers — nesting over the Npgsql ADO driver span, complementary never redundant — while gRPC client spans ride `AddGrpcClientInstrumentation` with `SuppressDownstreamInstrumentation` so the underlying HTTP/2 leg never double-traces, superseding the client's native `Grpc.Net.Client` source and its single `Grpc.Net.Client.GrpcOut` per-call activity, and neither surface adds an `AddSource` row; the otelExport arm carries `AddAspNetCoreInstrumentation` beside the wire host for inbound request spans; store telemetry is the PORT-peer arbitration — Persistence owns the driver and the instrumented builders while the app root alone registers, so no downward reference forms: `StoreDriver` subscribes `AddNpgsql` tracing, `AddEntityFrameworkCoreInstrumentation` ORM tracing, and `AddNpgsqlInstrumentation` metrics once at the store-composing root, with `NpgsqlDataSourceBuilder.Name` (`string?`, get/set) assigned Persistence-side per logical database so `db.client.connection.pool.name` keys stable pool dimensions, and `StoreWire<TKey, TValue>` registers `AddKafkaProducerInstrumentation`/`AddKafkaConsumerInstrumentation` on both providers once per message shape over the Persistence egress `AsInstrumentedProducerBuilder` and CDC ingress `InstrumentedConsumerBuilder` legs, closing the producer-only Kafka asymmetry; the builtin rows delete the meter-side `AddRuntimeInstrumentation` registration because the runtime publishes `System.Runtime` inbox and a meter-name row is that whole admission, while `AddProcessInstrumentation` survives as a verb on the always-on metrics arm because its absolute process series exist only on the meter its registered instrumentation instance constructs, so a `ForeignSource` row subscribes an empty scope; the trace-side `AddHttpClientInstrumentation` row keeps URL-query redaction; `LatencySpine.Mark(ILatencyContext, CheckpointToken)` is the single checkpoint recorder and the three phase folds each take ONE `ILatencyContext` parameter threaded from `LatencySpine.Open` at the composition root — `DrainConductor.Drain(Seq<(string Name, DrainBand Band, int Rank, Func<CancellationToken, IO<Unit>> Drain)> rows, ILatencyContext latency, Duration cooperative, Duration forced, CheckpointToken checkpoint, InstrumentSet instruments)` at `Runtime/lifecycle#DRAIN_CONDUCTOR`, `OutboundSurface.Run(OutboundRuntime runtime, OutboundHop hop, ILatencyContext latency, Func<CancellationToken, Task<HopOutcome>> send)` at `Wire/outbound#OWNERSHIP_LAW`, and `SupportCapture.Capture(SupportRuntime runtime, SupportTrigger trigger, ILatencyContext latency)` at Observability/bundles#CAPTURE_PIPELINE — so a phase boundary records through a resolved token rather than a per-fold `Stopwatch`, and `Seal` exports each frozen ledger at the telemetry drain band; a context threaded as a runtime-record COLUMN instead is the rejected placement, because the record outlives the operation while the ledger is one operation's and a pooled context returned at a fold's own `using` cannot be a field of a value that survives it; the recorder is cheaper than child spans and free of sampling coupling; name-to-`CheckpointToken`/`MeasureToken` issuance rides `ILatencyContextTokenIssuer.GetCheckpointToken`/`GetMeasureToken`, the frozen spans read through the `ILatencyContext.LatencyData` accessor, and `ILatencyDataExporter.ExportAsync(LatencyData, CancellationToken)` exports at the telemetry drain band; `AddLatencyContext` registers the context once and the consuming folds thread it so each phase boundary records through its issued token; the NAME registration is one folded table over this root's roster and every contributor's, across checkpoints, measures, and tags alike, because an unregistered name resolves to a positionless token whose writes drop with nothing raised — a contributor recording under its own unfolded roster is instrumented in prose and silent on the wire, which is why `ThrowOnUnregisteredNames` makes the omission a boot failure and why no contributor reaches its own `RegisterCheckpointNames` call to split the table; test-row trace assertions ride one `BaseProcessor<Activity>` through `AddProcessor` and metric assertions ride `MetricCollector<T>` — no in-memory exporter package enters a production tier, and the proof estate's own in-memory exporter row stays its own admission; the `Profile` signal is the continuous-profiling rail — the admitted `PyroscopeSpanProcessor` registers as `AddProcessor<PyroscopeSpanProcessor>()` through the same seat the test-row processor uses, gated to service app roots where the profiler endpoint resolves — `Profiler.Instance` carries no address member, so the ingest address is the agent `PYROSCOPE_SERVER_ADDRESS` environment row bound from the deploy-plane profiles endpoint beside `PYROSCOPE_APPLICATION_NAME` and the CLR-profiler enablement rows, with `SetAuthToken`/`SetBasicAuth` the credential seam and `PYROSCOPE_TENANT_ID` the tenancy row — and stamps the `pyroscope.profile.id` tag on each root span so a flame graph scopes to the exact trace that showed a regression; the GenAI semantic conventions ride the trace and metric signals — an MCP-served tool span carries `gen_ai.operation.name` and the `gen_ai.provider.name` provider discriminant beside the `gen_ai.usage.input_tokens`/`output_tokens` counts, and the token-usage instruments ride the minted `Rasm.AppHost` meter, so the agentic surface the host serves shares one telemetry taxonomy with the runtime, never a parallel agent-metrics owner; durable egress has exactly ONE owner per exporter — the branch-typed queue installs through `OtlpExporterOptions.HttpClientFactory`, so the exporter's own `OTEL_DOTNET_EXPERIMENTAL_OTLP_RETRY=disk` pair stays unset wherever the handler leg is selected, and arming both gives one batch two independent persistence owners writing two directories with no shared accounting; a replaced factory DISPLACES the shipped one whole, and the shipped one is the sole application point for both the option timeout and the mutual-auth client the `OTEL_EXPORTER_OTLP_*` trust rows arm — `OtlpMtlsOptions` is internal at this pin — so `Egress` carries both halves and a durable profile exporting unauthenticated against a mutual-auth collector is the defect that row forecloses; durable-transport LIFETIME is the composition's, never the exporter's — the SDK hands its export client an `HttpClient` it never disposes and its shutdown only cancels pending requests, so neither the handler chain nor the provider directory reaches a release seat of its own and `TelemetryComposition.Dispose` at the telemetry drain band is the one seat closing both, which is also why the set opens at composition rather than inside an options delegate the SDK invokes past a sealed service collection; credential material never reaches disk because a stored blob carries the request BODY alone and the replay copies its headers off the live request that just succeeded, so a rotated ingest token applies to the whole tail and a stolen queue directory yields payloads and no key; queue DEPTH is the disposition ledger's own arithmetic — neither storage tier publishes a count or size accessor and its directory field is internal, so a depth level costs an O(n) directory walk per collection while the `queued`-minus-`replayed`-minus-`corrupt` gap answers the same question off counters already mounted; retention-expiry reclamation is the provider's own maintenance timer surfacing on the package `EventSource` alone, so an aged-out tail widens that same gap rather than minting a disposition row; plugin ALC capsules open no disk queue, so an unloaded capsule's failed batches die with it and never outlive the load context that minted them; baggage promotion is allowlist-only — `PromotedBaggage` names `TenantContext.TenantSlot` and `CorrelationId.Slot`, one predicate serving the span processor and the log processor alike, and an unlisted key reaches neither, so free-form baggage flood is structurally impossible; log-record identity is the resource projection and the shipped `AddApplicationLogEnricher` row is DELETED, not configured off — it writes an unqualified `service.name` and the deprecated `deployment.environment` spelling as package-owned tags, so leaving it seated puts two values of one dimension on two planes and a query joining a log record to a metric series compares neither, while `AddProcessLogEnricher` survives on its `ThreadId` column alone because the resource already carries `process.pid`; the latency breakdown and the `AddHttpClientInstrumentation` span are two projections of one hop — the checkpoint handler never mints a second trace, extended logging supersedes the built-in client logger so both active is the double-log defect, and `wrapHandlersPipeline` decides whether logging observes pre- or post-retry attempts on the resilience chain.
 
 ```csharp signature
 // Branch domain roster: the `<domain>` segment of every rasm.<domain>.<measure> instrument name and every
@@ -404,9 +532,12 @@ public sealed partial class TelemetryDomain {
     public static readonly TelemetryDomain Rhino = new("rhino", "document, display, and bench surfaces of the modeling host");
     public static readonly TelemetryDomain Slo = new("slo", "objective burn and severity axes");
 
-    // Estate namespace carries ONE spelling: the resource triple's `service.namespace`, the `service.name`
-    // qualifier, every instrument head, every rasm-owned dimension key, and the conformance gate's own carve
-    // all read it, so a rename moves every surface together and none carries a stale prefix the roster admits.
+    // The METRIC-PLANE namespace carries one spelling: the resource triple's `service.namespace`, the
+    // `service.name` qualifier, every instrument head, every rasm-owned dimension key, and the conformance
+    // gate's own carve all read this const, so a rename moves those five together and none carries a stale
+    // prefix the roster admits. The reach stops there by the `[05]` Boundary's own carve — hook-point ids are a
+    // package-keyed space this grammar never reaches, and the kernel capsule's id and scope validators hold
+    // their own literal, so a rename is two edits by design rather than one this const silently under-claims.
     public const string Namespace = "rasm";
 
     public const string Prefix = Namespace + ".";
@@ -462,13 +593,20 @@ public sealed partial class TelemetrySignal {
             : 1d;
 }
 
+// Each phase carries the PIVOT it is read by beside its own name, because the registration folds all three
+// name axes and a checkpoint registered without its tag leaves every dimension a reader groups the phase on
+// resolving a positionless token. The tag is the dimension the fold's own instrument row already declares —
+// drain by band, hop by hop kind, capture by trigger — so one column answers both planes and no second tag
+// vocabulary mints beside the instrument slots.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class LatencyCheckpoint {
-    public static readonly LatencyCheckpoint Drain = new("drain");
-    public static readonly LatencyCheckpoint Hop = new("hop");
-    public static readonly LatencyCheckpoint Capture = new("capture");
+    public static readonly LatencyCheckpoint Drain = new("drain", HostInstruments.BandSlot);
+    public static readonly LatencyCheckpoint Hop = new("hop", HostInstruments.HopSlot);
+    public static readonly LatencyCheckpoint Capture = new("capture", HostInstruments.TriggerSlot);
+
+    public string Pivot { get; }
 }
 
 // A contributor's registered latency vocabulary, one value per emitting package. Persistence stamps its read
@@ -498,14 +636,36 @@ public static class LatencySpine {
             .RegisterTagNames([.. folded.Tags.Distinct()]);
     }
 
-    static LatencyRoster Own => new(
-        toSeq(LatencyCheckpoint.Items).Map(static row => row.Key), Seq<string>(), Seq<string>());
+    // All three axes derive from the ONE phase roster: a checkpoint carries its own pivot, so a phase row added
+    // here registers its name and its dimension together and neither axis can be half-registered. Measures stay
+    // empty by MEASUREMENT rather than omission — this root records phase boundaries and no accumulated
+    // quantity, so the axis is a contributed one (`LatencyRoster.Measures` off Materials and Persistence) and a
+    // name minted here would register a token nothing on this root writes through.
+    static LatencyRoster Own =>
+        toSeq(LatencyCheckpoint.Items) is var phases
+            ? new(phases.Map(static row => row.Key), Seq<string>(), phases.Map(static row => row.Pivot))
+            : LatencyRoster.Empty;
+
+    // One mint per threaded fold: the provider hands the pooled context and the issuer resolves the phase name
+    // ONCE at the seam that owns the fold, so a drain, a hop, and a capture each thread a resolved token rather
+    // than re-resolving a name per boundary — the resolution the boot-strict registration exists to make total.
+    public static (ILatencyContext Context, CheckpointToken Phase) Open(
+        ILatencyContextProvider provider, ILatencyContextTokenIssuer issuer, LatencyCheckpoint phase) =>
+        (provider.CreateContext(), issuer.GetCheckpointToken(phase.Key));
 
     public static ILatencyContext Mark(ILatencyContext context, CheckpointToken phase) =>
         (context.AddCheckpoint(phase), context).Item2;
 
-    public static ILatencyContext Seal(ILatencyContext context) =>
-        (context.Freeze(), context).Item2;
+    // Freeze then export, at the drain band and nowhere else: the ledger is only complete once its owning fold
+    // has run every boundary, and an export before the freeze ships a span set the next mark would still widen.
+    // The context is `IDisposable` and returns to its pool at the caller's own `using`, so this seat exports
+    // and never releases — a release here would starve the pool for a fold still holding the handle.
+    public static IO<Unit> Seal(ILatencyDataExporter exporter, ILatencyContext context) =>
+        IO.liftAsync(async envIO => {
+            context.Freeze();
+            await exporter.ExportAsync(context.LatencyData, envIO.Token).ConfigureAwait(false);
+            return unit;
+        });
 }
 
 // --- [OFFLINE_EGRESS] -----------------------------------------------------------------------
@@ -587,10 +747,11 @@ public sealed class TelemetryComposition : IDisposable {
     int disposed;
 
     TelemetryComposition(ResolvedProfile resolved, CorrelationId root, Seq<TelemetryContributorPort> contributors,
-        Seq<LatencyRoster> latency, OtlpOfflinePolicy offline, Action<OtlpOfflineFact> emit, TimeProvider time,
+        Seq<LatencyRoster> latency, Seq<ClassificationRoster> classifications, OtlpOfflinePolicy offline,
+        Action<OtlpOfflineFact> emit, TimeProvider time, IConfigurationSection hmacKeys, Func<DegradationLevel> level,
         FrozenDictionary<string, OtlpOfflineQueue> queues, SpanBand band) =>
-        (Resolved, Root, Contributors, Latency, Offline, Emit, Time, Queues, Band) =
-            (resolved, root, contributors, latency, offline, emit, time, queues, band);
+        (Resolved, Root, Contributors, Latency, Classifications, Offline, Emit, Time, HmacKeys, Level, Queues, Band) =
+            (resolved, root, contributors, latency, classifications, offline, emit, time, hmacKeys, level, queues, band);
 
     public ResolvedProfile Resolved { get; }
 
@@ -614,21 +775,46 @@ public sealed class TelemetryComposition : IDisposable {
     // recording under a name no roster carried fails the composition rather than dropping its writes in silence.
     public Seq<LatencyRoster> Latency { get; }
 
+    // The federation rosters, DERIVED from the contributed set rather than supplied beside it: each port's
+    // `Classifications` column carries its branch's `(taxonomy, value)` pairs as plain text this assembly
+    // resolves without referencing the package that annotated them, the projection stamps the port's own
+    // `Scope` as the provenance a refusal names, and `RedactionRegistration.Federated` refuses the composition
+    // rather than letting an unrostered value erase silently at egress. A classifications argument beside the
+    // contributed ports was the twin carriage this derivation deleted.
+    public Seq<ClassificationRoster> Classifications { get; }
+
     public OtlpOfflinePolicy Offline { get; }
 
     public Action<OtlpOfflineFact> Emit { get; }
 
     public TimeProvider Time { get; }
 
+    // The HMAC key section rides the composition because the redactor rows bind from configuration at
+    // registration and validate at start: a section reached from inside the logging chain would resolve past
+    // the collection the fold registers into, and malformed key material would surface at the first redaction
+    // rather than at boot.
+    public IConfigurationSection HmacKeys { get; }
+
+    // The live degradation rank the log-volume verdict thins against, carried as the cell's own read rather
+    // than a snapshot: a captured level freezes the floor at composition and a host that degrades afterwards
+    // keeps shipping the floor it was thinning to spare.
+    public Func<DegradationLevel> Level { get; }
+
     public FrozenDictionary<string, OtlpOfflineQueue> Queues { get; }
 
     public static TelemetryComposition Of(ResolvedProfile resolved, CorrelationId root, Action<OtlpOfflineFact> emit,
-        TimeProvider time, Seq<LatencyRoster> latency, params ReadOnlySpan<TelemetryContributorPort> contributors) =>
-        Opened(resolved, root, [.. contributors], latency, OtlpOfflinePolicy.For(resolved), emit, time);
+        TimeProvider time, IConfigurationSection hmacKeys, Func<DegradationLevel> level, Seq<LatencyRoster> latency,
+        params ReadOnlySpan<TelemetryContributorPort> contributors) =>
+        Opened(resolved, root, [.. contributors], latency, OtlpOfflinePolicy.For(resolved), emit, time, hmacKeys, level);
 
     static TelemetryComposition Opened(ResolvedProfile resolved, CorrelationId root, Seq<TelemetryContributorPort> contributors,
-        Seq<LatencyRoster> latency, OtlpOfflinePolicy offline, Action<OtlpOfflineFact> emit, TimeProvider time) =>
-        new(resolved, root, contributors, latency, offline, emit, time, offline.Open(emit, time),
+        Seq<LatencyRoster> latency, OtlpOfflinePolicy offline,
+        Action<OtlpOfflineFact> emit, TimeProvider time, IConfigurationSection hmacKeys, Func<DegradationLevel> level) =>
+        new(resolved, root, contributors, latency,
+            contributors.Filter(static port => !port.Classifications.IsEmpty)
+                .Map(static port => new ClassificationRoster(port.Scope, port.Classifications.Map(static row => (row.Taxonomy, row.Value)))),
+            offline, emit, time, hmacKeys, level,
+            offline.Open(emit, time),
             SpanBand.Of(resolved.ServiceVersion, [.. contributors.Bind(static port => port.Planes)]));
 
     internal HttpClient Transport(Func<HttpClient> mint) {
@@ -860,6 +1046,48 @@ public static class ResourceIdentity {
             .AddProcessRuntimeDetector();
 }
 
+// The three minter roles the conformance row space spans: a role names what a minter can reach, so a row a
+// browser cannot carry and a row a branch dropped stay distinguishable at the digest instead of both reading
+// as absence. This branch is the PROCESS minter.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class MinterRole {
+    public static readonly MinterRole Process = new("process");
+    public static readonly MinterRole Browser = new("browser");
+    public static readonly MinterRole Deploy = new("deploy");
+}
+
+// Three dispositions, three different facts: the row is carried, the ROLE cannot reach it, or the plane
+// exposes no seat at the pinned distribution. The third is what keeps a stated ceiling out of the dropped-row
+// class — a value the branch honours with no member to declare it through still digests as that value.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class RowDisposition {
+    public static readonly RowDisposition Carried = new("carried");
+    public static readonly RowDisposition RoleAbsent = new("role-absent");
+    public static readonly RowDisposition SeatWithheld = new("seat-withheld");
+}
+
+// The disposition and the payload move together, so an absent row carries no value and a withheld one carries
+// both its value and the pin that withholds its seat; three factories are the only construction path, which is
+// what makes a carried row with no value and an absent row with one unspellable.
+public sealed record ConformanceRow(string Key, RowDisposition Disposition, Option<string> Value, Option<string> Withheld) {
+    public static ConformanceRow Of(string key, string value) => new(key, RowDisposition.Carried, Some(value), None);
+
+    public static ConformanceRow Absent(string key) => new(key, RowDisposition.RoleAbsent, None, None);
+
+    public static ConformanceRow Ceiling(string key, string value, string pin) =>
+        new(key, RowDisposition.SeatWithheld, Some(value), Some(pin));
+}
+
+// The document IS the byte-deriving input the corpus conformance entry freezes: one role, the semconv
+// coordinate every scope stamps, and the row set sorted by key so three minters frame one order.
+public sealed record ConformanceDocument(MinterRole Role, string SchemaUrl, Seq<ConformanceRow> Rows) {
+    public Seq<ConformanceRow> Ordered => toSeq(Rows.OrderBy(static row => row.Key, StringComparer.Ordinal));
+}
+
 public static class SignalGovernance {
     public static readonly Predicate<string> PromotedBaggage =
         static key => key is TenantContext.TenantSlot or CorrelationId.Slot;
@@ -879,8 +1107,9 @@ public static class SignalGovernance {
                 .Fold(rail, static (held, name) => held.Bind(carried => TelemetryDomain.Resolve(name).Map(_ => carried))));
 
     // Series budget is ONE number for every stream because the tenant dimension dominates every row's product:
-    // a per-row literal sized off the declared dimensions alone prices a nine-value classification key at
-    // thirty-two and drops every tenant past the third.
+    // a per-row literal sized off the declared dimensions alone prices the classification key at its own row
+    // count and drops every tenant past the first few, and it re-prices on the next taxonomy row where this
+    // number does not.
     public const int SeriesCap = 256;
 
     // ONE view, resolved per instrument. The SDK mints a stream per MATCHING view, so a named row beside a
@@ -899,8 +1128,13 @@ public static class SignalGovernance {
             // Rostered streams carry their declared dimensions beside the ONE estate tenancy key and nothing
             // else, so a contributor evidence string — asset key, document path, media source — reaches no
             // exporter and the `[06]` classification seam holds on the metric plane by construction. Tenancy
-            // appends rather than declaring per row because `InstrumentSet.Tags` stamps it on every write.
-            ? Shaped(spec.Kind == InstrumentKind.Distribution && spec.Bounds.IsNone, [.. spec.Dimensions, TenantContext.TenantSlot])
+            // appends rather than declaring per row because `InstrumentSet.Tags` stamps it on every write, and
+            // it DEDUPES because a level family partitioning on tenancy already declares that slot as its own
+            // leading dimension — the projection is a key SET, not a concatenation. It also ALLOWLISTS rather
+            // than requires, so an entry omitting a declared key is shaped by this same row with the key
+            // absent and a sometimes-keyed family stays ONE stream under one budget with no twin to mint.
+            ? Shaped(spec.Kind == InstrumentKind.Distribution && spec.Bounds.IsNone,
+                [.. spec.Dimensions.Add(TenantContext.TenantSlot).Distinct()])
             // Foreign instrumentation carries semconv dimensions this roster never declares, so its streams keep
             // their own convention-owned vocabulary under the same budget — projecting them would erase the
             // route, method, and pool-name keys every server and store panel breaks on.
@@ -924,6 +1158,51 @@ public static class SignalGovernance {
     // explicit ladder the moment a package mints one this branch never enumerated.
     static bool Distributed(Instrument instrument) =>
         instrument.GetType() is { IsGenericType: true } shape && shape.GetGenericTypeDefinition() == typeof(Histogram<>);
+
+    // The conformance PROJECTION: the row set this governance owner holds as composition code, rendered as one
+    // document so the estate digest has a byte-deriving input on this branch. Values PROJECT off their owners —
+    // the domain roster, the promoted pair, the series cap, the wire pins, the disposition vocabularies — so a
+    // row cannot drift from the surface it reports, and a posture with no readable owner (a merge precedence,
+    // an allowlist semantic) is the one form a literal legitimately takes because the posture IS the fact.
+    // Every roster projection sorts ORDINALLY before joining: the three branch comparators split above printable
+    // ASCII, so an unsorted or culture-sorted join mints a digest a peer cannot reproduce from the same rows.
+    public static ConformanceDocument Conformance(TelemetryComposition composition) {
+        ArgumentNullException.ThrowIfNull(composition);
+        Seq<InstrumentSpec> declared = composition.Contributors.Bind(static port => port.Declared);
+        return new(MinterRole.Process, TelemetryIdentity.SchemaUrl, Seq(
+            ConformanceRow.Of("resource.identity", Joined(
+                toSeq(ProfileIdentity.ResourceAttributes(composition.Resolved)).Map(static row => row.Key))),
+            ConformanceRow.Of("resource.precedence", "detector-chain-order, deployment-override-tail"),
+            ConformanceRow.Of("scope.coordinate", "package-id + version + schema-url, one per contributor port"),
+            ConformanceRow.Of("metric.grammar", TelemetryDomain.Prefix + "<domain>.<measure>"),
+            ConformanceRow.Of("metric.subjects", Joined(toSeq(TelemetryDomain.Items).Map(static row => row.Key))),
+            ConformanceRow.Of("metric.units", Joined(declared.Map(static row => row.Unit))),
+            ConformanceRow.Of("metric.temporality", MetricReaderTemporalityPreference.Delta.ToString()),
+            // The one standing ceiling on this branch: no provider-wide aggregation default is published and
+            // neither assembly at this pin carries the environment key other SDK trains read, so the view row is
+            // the only seat and the digest reads a stated ceiling rather than a dropped row — a pin bump that
+            // opens the seat fails here until this row re-values.
+            ConformanceRow.Ceiling("metric.aggregation", "base2-exponential", "no provider-wide aggregation seat"),
+            ConformanceRow.Of("metric.exemplar", ExemplarFilterType.TraceBased.ToString()),
+            ConformanceRow.Of("propagation.dialect", "w3c-tracecontext + baggage, one global composite"),
+            ConformanceRow.Of("propagation.adoption", Joined(toSeq(TenantAdoption.Items).Map(static row => row.Key))),
+            ConformanceRow.Of("tenant.key", TenantContext.TenantSlot),
+            ConformanceRow.Of("tenant.allowlist", Joined(Seq(TenantContext.TenantSlot, CorrelationId.Slot))),
+            ConformanceRow.Of("tenant.viewcap", SeriesCap.ToString(CultureInfo.InvariantCulture)),
+            ConformanceRow.Of("dimension.absence", "declared keys allowlist, absent entry shapes on the same row"),
+            ConformanceRow.Of("egress.protocol", WireProtocol.ToString()),
+            ConformanceRow.Of("egress.compression", WireCompression.ToString()),
+            ConformanceRow.Of("egress.translation", "prometheus utf8-preserving, dotted names, suffixes on"),
+            // Every scalar renders INVARIANT: the digest is compared across three runtimes, so an ambient-culture
+            // separator or time render mints a document a peer reproduces from the same values only by locale.
+            ConformanceRow.Of("buffer.posture", string.Create(CultureInfo.InvariantCulture,
+                $"{BufferCapBytes}/{BufferRecordCapBytes}/{BufferFlushWindow:c}")),
+            ConformanceRow.Of("loss.posture", Joined(toSeq(OfflineDisposition.Items).Map(static row => row.Key))),
+            ConformanceRow.Of("drain.bounds", Joined(toSeq(LatencyCheckpoint.Items).Map(static row => row.Key)))));
+    }
+
+    static string Joined(Seq<string> values) =>
+        string.Join(',', values.Distinct().Order(StringComparer.Ordinal));
 
     // Every push-signal batch square is a declared policy value, never a package default: the queue depth an
     // export burst survives and the delay a drop appears after are the two numbers an incident reads first.
@@ -1063,14 +1342,22 @@ public static class SignalGovernance {
     public const int BufferCapBytes = 64 * 1024 * 1024;
     public static readonly TimeSpan BufferFlushWindow = TimeSpan.FromSeconds(30);
 
+    // Redaction reaches this chain through `RedactionRegistration.Bind` and never a bare `EnableRedaction()`:
+    // every redactor row — the derived closure, the explicit `NullRedactor` pass rows, the HMAC rows, the
+    // erasing fallback — lives inside that fold, so sealing the seam without it leaves the fallback as the
+    // ONLY resolution and every classified tag erases, including the operational dimensions the pass rows
+    // exist to spare. The sampler binds here for the same reason: `SpineSampler` is the one plane a rule row
+    // cannot express, and an unregistered subclass ships the audit-stride and degradation-floor law as prose.
     public static ILoggingBuilder GovernLogs(ILoggingBuilder logging, TelemetryComposition composition) =>
-        logging
+        RedactionRegistration.Bind(logging, composition.HmacKeys)
             .AddTraceBasedSampler()
             // Level IS the sampler's filter row: rule selection matches at and BELOW the level it names, so the
             // chatty floor thins and the error ceiling passes whole. Omitting it builds a rule matching every
             // level, which ships one error in ten off an unattended host.
             .AddRandomProbabilisticSampler(TelemetrySignal.Log.Ratio(composition.Resolved.Profile), LogLevel.Warning)
-            .EnableRedaction()
+            // The draw arrives as a supplier rather than read inside the fold, so a spec drives the verdict from
+            // a known sequence instead of asserting against a process-random one.
+            .AddSampler(new SpineSampler(composition.Level, Random.Shared.NextDouble))
             .EnableEnrichment(static enrich => {
                 enrich.CaptureStackTraces = true;
                 enrich.IncludeExceptionMessage = true;
@@ -1115,87 +1402,95 @@ public static class SignalGovernance {
 
 [GOVERNANCE_VALUES]:
 
-| [INDEX] | [POLICY]                       | [VALUE]                                   | [OWNER]                                                     |
-| :-----: | :----------------------------- | :---------------------------------------- | :---------------------------------------------------------- |
-|  [01]   | attended trace ratio           | 1.0                                       | `SampleRatio` in-host and cli arms, parent-based sampler    |
-|  [02]   | unattended export trace ratio  | 0.1                                       | `SampleRatio` sidecar/companion/service/edge arms           |
-|  [03]   | log sampling floor             | trace-coupled                             | `AddTraceBasedSampler`                                      |
-|  [04]   | service-root log chatty floor  | `Log` `Ratio` at Warning and below        | `AddRandomProbabilisticSampler(double, LogLevel?)`          |
-|  [05]   | buffered-event selection       | Warning and below                         | `LogBufferingFilterRule` row                                |
-|  [06]   | metric exemplar policy         | trace-based                               | `SetExemplarFilter` at service app roots                    |
-|  [07]   | metric reader cadence          | 60 s export / 30 s timeout                | `ReaderCadence` on the metric `AddOtlpExporter` leg         |
-|  [08]   | global buffer admission        | Warning and below                         | `AddGlobalBuffer`                                           |
-|  [09]   | buffer flush window            | support-window deadline row               | `GlobalLogBuffer.Flush` on the fault transition             |
-|  [10]   | destructuring caps             | 4 deep / 1024 chars / 64 items            | `SerilogProjectionPolicy.Shape` destructuring caps          |
-|  [11]   | desktop level floor            | Information                               | `LoggingLevelSwitch`/`MinimumLevel.ControlledBy`            |
-|  [12]   | spine event-id band            | 1000-1099                                 | `LoggerMessage` `EventId` values                            |
-|  [13]   | latency name vocabulary        | own rows + every roster, boot-strict      | `LatencyRoster` fold, `ThrowOnUnregisteredNames`            |
-|  [14]   | latency span export            | drain-band flush                          | `ILatencyDataExporter` on `LatencySpine.Seal`               |
-|  [15]   | serilog wire-sink batch square | 500/2 s/10 000                            | `BatchingOptions` on `FallbackChain` sink                   |
-|  [16]   | otlp span batch square         | 4096 queue / 512 batch / 5 s / 30 s       | `BatchExportProcessorOptions<Activity>` on `SpanBatch`      |
-|  [17]   | otlp log-record batch square   | 8192 queue / 1024 batch / 2 s / 30 s      | `BatchExportLogRecordProcessorOptions` on `LogBatch`        |
-|  [18]   | http route-parameter redaction | erase                                     | `HttpRouteParameterRedactionMode`/`RequestMetadata`         |
-|  [19]   | otel processor admission       | test-row `BaseProcessor<Activity>`        | `AddProcessor` over `CompositeProcessor<Activity>`          |
-|  [20]   | meter series budget            | 256 per stream                            | `SignalGovernance.SeriesCap` on every view row              |
-|  [21]   | profile signal admission       | service-root profiler endpoint            | `AddProcessor<PyroscopeSpanProcessor>()`                    |
-|  [22]   | GenAI span/metric conventions  | `gen_ai.*` attributes, token usage        | MCP spans on the `Rasm.AppHost` meter                       |
-|  [23]   | exception log enrichment       | stack + message, file info off            | `LoggerEnrichmentOptions` on `EnableEnrichment`             |
-|  [24]   | incident buffer caps           | 64 MiB / 128 KiB / 30 s                   | `GlobalLogBufferingOptions` on `AddGlobalBuffer`            |
-|  [25]   | latency console export         | serilog-projection rows                   | `AddConsoleLatencyDataExporter`                             |
-|  [26]   | otlp egress protocol           | `http/protobuf`                           | `SignalGovernance.WireProtocol` on the `Egress` seat        |
-|  [27]   | otlp metric temporality        | delta                                     | `MetricReaderTemporalityPreference.Delta`                   |
-|  [28]   | otlp histogram aggregation     | base2 exponential; advice re-arms         | `Base2ExponentialBucketHistogramConfiguration` on `Views`   |
-|  [29]   | otlp payload compression       | gzip                                      | `SignalGovernance.WireCompression` on the `Egress` seat     |
-|  [30]   | otlp mTLS material             | CA, client cert, client key paths         | `OTEL_EXPORTER_OTLP_CERTIFICATE`/`_CLIENT_*` rows           |
-|  [31]   | otlp durable egress queue      | 512 MiB / 48 h / 2 min / 60 s write       | `OtlpOfflinePolicy.For` over `ProfileRoots.QueueRoot`       |
-|  [32]   | otlp queue arming              | durable root beside a bound provider      | `OtlpExport` gate on `OtlpOfflinePolicy.For`                |
-|  [33]   | otlp queue drain bound         | 32 blobs / 5 s drain / 30 s lease         | `OtlpOfflineQueue.Drain` per successful export              |
-|  [34]   | otlp queue disposition roster  | six outcomes the queue can observe        | `OfflineDisposition` on `OtlpOfflineFact`                   |
-|  [35]   | kafka wire spans and metrics   | producer + consumer per shape             | `SignalGovernance.StoreWire<TKey,TValue>`                   |
-|  [36]   | fan-in causal links            | drain brackets link every relayed row     | kernel `TraceCarrier.Link` on `Wire/outbox#DISPATCH_SWEEP`  |
-|  [37]   | resource identity triple       | `rasm`/`rasm.<svc>`/instance id           | `ProfileIdentity.ResourceAttributes`                        |
-|  [38]   | semconv schema coordinate      | `https://opentelemetry.io/schemas/1.43.0` | kernel `TelemetryIdentity.SchemaUrl`                        |
-|  [39]   | meter schema pin               | semconv coordinate per contributor        | `MeterOptions.TelemetrySchemaUrl` at every mint             |
-|  [40]   | npgsql spans and pool metrics  | store-composing service roots             | `SignalGovernance.StoreDriver`                              |
-|  [41]   | orm command spans              | store-composing service roots             | `AddEntityFrameworkCoreInstrumentation` on `StoreDriver`    |
-|  [42]   | aspnet server request metrics  | duration histogram + kestrel streams      | `AddAspNetCoreInstrumentation` on the meter builder         |
-|  [43]   | hop exception recording        | runtime exception event, one grammar      | `Activity.AddException` on `EnrichWithException`            |
-|  [44]   | profiler agent ingest address  | deploy-plane profiles endpoint            | `PYROSCOPE_SERVER_ADDRESS` row at service app roots         |
-|  [45]   | resource detector rows         | host/os/process/runtime; container        | `ResourceIdentity.Compose` detector chain                   |
-|  [46]   | container detector gate        | `Vehicle == ShipVehicle.Oci`              | `Containerized` column on `ConsumptionProfile.Vehicle`      |
-|  [47]   | global propagator registration | one `Correlation.Spine` composite         | `Sdk.SetDefaultTextMapPropagator`                           |
-|  [48]   | baggage promotion allowlist    | `rasm.tenant` + `CorrelationId`           | `AddBaggageActivityProcessor`/`AddBaggageProcessor`         |
-|  [49]   | otlp log record capture        | scopes, formatted body, parsed state      | `OpenTelemetryLoggerOptions` on `WithLogging`               |
-|  [50]   | log-to-span attachment         | records land as span events               | `AttachLogsToActivityEvent`                                 |
-|  [51]   | log severity mapping           | `(int)LogLevel * 4 + 1`                   | SDK `LogRecord.LogLevel` to `LogRecordSeverity`             |
-|  [52]   | outbound latency breakdown     | detailed checkpoints, package on          | `AddHttpClientLatencyTelemetry`                             |
-|  [53]   | outbound client-log redaction  | four `*DataClasses` taxonomy maps         | `AddExtendedHttpClientLogging` over `Marker`                |
-|  [54]   | otlp exported signal set       | trace, metric, log                        | `TelemetrySignal.Exported` column                           |
-|  [55]   | otlp durable transport leg     | synchronous and async handler legs        | `PersistentOtlpHandler.Send`/`SendAsync`                    |
-|  [56]   | resource merge precedence      | deployment override wins the fold         | `AddEnvironmentVariableDetector` chain tail                 |
-|  [57]   | metric view derivation         | declared dimensions + tenancy key         | `SignalGovernance.Views` one `AddView` predicate            |
-|  [58]   | log identity dimensions        | the resource projection, verbatim         | `RootEnricher` over `ProfileIdentity.ResourceAttributes`    |
-|  [59]   | log per-record process tags    | thread id; process id off                 | `AddProcessLogEnricher` beside the resource `process.pid`   |
-|  [60]   | ingress tenancy adoption       | per-carrier trust, no default             | `TenantAdoption` on `TraceContext.Continue`                 |
-|  [61]   | durable transport release      | client set closed before its queues       | `TelemetryComposition.Dispose` over `Transport`             |
-|  [62]   | otlp replay framing carve      | length and transfer-encoding re-derived   | `OtlpOfflineQueue.FramingHeaders` denylist on `Rebuild`     |
-|  [63]   | durable queue residence        | deploy volume over local disk, host-keyed | `ProfileIdentity.QueueRootVariable` ahead of the base root  |
-|  [64]   | service name qualification     | one dotted lowercase `rasm.<svc>` render  | `TelemetryDomain.Qualify` on the resource projection        |
-|  [65]   | process-level metrics          | memory, virtual, cpu, threads, uptime     | `AddProcessInstrumentation` on the always-on metrics arm    |
-|  [66]   | span band admission            | kernel domains + contributed planes       | `SpanBand.Of` over `TelemetryContributorPort.Planes`        |
-|  [67]   | trace scope registration       | band names beside the foreign roster      | `AddSource` over `TelemetryComposition.Band.Names`          |
-|  [68]   | otlp transport trust custody   | replaced factory re-mounts row [30]       | `OtlpTrust.Mount` on the durable inner handler              |
-|  [69]   | contributor naming gate reach  | mounted rows beside self-minted rows      | `Rostered`/`Views` over `TelemetryContributorPort.Declared` |
+| [INDEX] | [POLICY]                       | [VALUE]                                    | [OWNER]                                                    |
+| :-----: | :----------------------------- | :----------------------------------------- | :--------------------------------------------------------- |
+|  [01]   | attended trace ratio           | 1.0                                        | `SampleRatio` in-host/cli arms, parent-based sampler       |
+|  [02]   | unattended export trace ratio  | 0.1                                        | `SampleRatio` sidecar/companion/service/edge arms          |
+|  [03]   | log sampling floor             | trace-coupled                              | `AddTraceBasedSampler`                                     |
+|  [04]   | service-root log chatty floor  | `Log` `Ratio` at Warning and below         | `AddRandomProbabilisticSampler(double, LogLevel?)`         |
+|  [05]   | buffered-event selection       | Warning and below                          | `LogBufferingFilterRule` row                               |
+|  [06]   | metric exemplar policy         | trace-based                                | `SetExemplarFilter` at service app roots                   |
+|  [07]   | metric reader cadence          | 60 s export / 30 s timeout                 | `ReaderCadence` on the metric `AddOtlpExporter` leg        |
+|  [08]   | global buffer admission        | Warning and below                          | `AddGlobalBuffer`                                          |
+|  [09]   | buffer flush window            | support-window deadline row                | `IncidentBuffers.Flush` on the fault transition            |
+|  [10]   | destructuring caps             | 4 deep / 1024 chars / 64 items             | `SerilogProjectionPolicy.Shape` destructuring caps         |
+|  [11]   | desktop level floor            | Information                                | `LoggingLevelSwitch`/`MinimumLevel.ControlledBy`           |
+|  [12]   | spine event-id band            | 1000-1099                                  | `LoggerMessage` `EventId` values                           |
+|  [13]   | latency name vocabulary        | own rows + every roster, boot-strict       | `LatencyRoster` fold, `ThrowOnUnregisteredNames`           |
+|  [14]   | latency span export            | drain-band flush                           | `ILatencyDataExporter` on `LatencySpine.Seal`              |
+|  [15]   | serilog wire-sink batch square | 500/2 s/10 000                             | `BatchingOptions` on `FallbackChain` sink                  |
+|  [16]   | otlp span batch square         | 4096 queue / 512 batch / 5 s / 30 s        | `BatchExportProcessorOptions<Activity>` on `SpanBatch`     |
+|  [17]   | otlp log-record batch square   | 8192 queue / 1024 batch / 2 s / 30 s       | `BatchExportLogRecordProcessorOptions` on `LogBatch`       |
+|  [18]   | http route-parameter redaction | erase                                      | `HttpRouteParameterRedactionMode`/`RequestMetadata`        |
+|  [19]   | otel processor admission       | test-row `BaseProcessor<Activity>`         | `AddProcessor` over `CompositeProcessor<Activity>`         |
+|  [20]   | meter series budget            | 256 per stream                             | `SignalGovernance.SeriesCap` on every view row             |
+|  [21]   | profile signal admission       | service-root profiler endpoint             | `AddProcessor<PyroscopeSpanProcessor>()`                   |
+|  [22]   | GenAI span/metric conventions  | `gen_ai.*` attributes, token usage         | MCP spans on the `Rasm.AppHost` meter                      |
+|  [23]   | exception log enrichment       | stack + message, file info off             | `LoggerEnrichmentOptions` on `EnableEnrichment`            |
+|  [24]   | incident buffer caps           | 64 MiB / 128 KiB / 30 s                    | `GlobalLogBufferingOptions` on `AddGlobalBuffer`           |
+|  [25]   | latency console export         | serilog-projection rows                    | `AddConsoleLatencyDataExporter`                            |
+|  [26]   | otlp egress protocol           | `http/protobuf`                            | `SignalGovernance.WireProtocol` on the `Egress` seat       |
+|  [27]   | otlp metric temporality        | delta                                      | `MetricReaderTemporalityPreference.Delta`                  |
+|  [28]   | otlp histogram aggregation     | base2 exponential; advice re-arms          | `Base2ExponentialBucketHistogramConfiguration` on `Views`  |
+|  [29]   | otlp payload compression       | gzip                                       | `SignalGovernance.WireCompression` on the `Egress` seat    |
+|  [30]   | otlp mTLS material             | CA, client cert, client key paths          | `OTEL_EXPORTER_OTLP_CERTIFICATE`/`_CLIENT_*` rows          |
+|  [31]   | otlp durable egress queue      | 512 MiB / 48 h / 2 min / 60 s write        | `OtlpOfflinePolicy.For` over `ProfileRoots.QueueRoot`      |
+|  [32]   | otlp queue arming              | durable root beside a bound provider       | `OtlpExport` gate on `OtlpOfflinePolicy.For`               |
+|  [33]   | otlp queue drain bound         | 32 blobs / 5 s drain / 30 s lease          | `OtlpOfflineQueue.Drain` per successful export             |
+|  [34]   | otlp queue disposition roster  | six outcomes the queue can observe         | `OfflineDisposition` on `OtlpOfflineFact`                  |
+|  [35]   | kafka wire spans and metrics   | producer + consumer per shape              | `SignalGovernance.StoreWire<TKey,TValue>`                  |
+|  [36]   | fan-in causal links            | drain brackets link every relayed row      | kernel `TraceCarrier.Link` on `Wire/outbox#DISPATCH_SWEEP` |
+|  [37]   | resource identity triple       | `rasm`/`rasm.<svc>`/instance id            | `ProfileIdentity.ResourceAttributes`                       |
+|  [38]   | semconv schema coordinate      | `https://opentelemetry.io/schemas/1.43.0`  | kernel `TelemetryIdentity.SchemaUrl`                       |
+|  [39]   | meter schema pin               | semconv coordinate per contributor         | `MeterOptions.TelemetrySchemaUrl` at every mint            |
+|  [40]   | npgsql spans and pool metrics  | store-composing service roots              | `SignalGovernance.StoreDriver`                             |
+|  [41]   | orm command spans              | store-composing service roots              | `AddEntityFrameworkCoreInstrumentation` on `StoreDriver`   |
+|  [42]   | aspnet server request metrics  | duration histogram + kestrel streams       | `AddAspNetCoreInstrumentation` on the meter builder        |
+|  [43]   | hop exception recording        | runtime exception event, one grammar       | `Activity.AddException` on `EnrichWithException`           |
+|  [44]   | profiler agent ingest address  | deploy-plane profiles endpoint             | `PYROSCOPE_SERVER_ADDRESS` row at service app roots        |
+|  [45]   | resource detector rows         | host/os/process/runtime; container         | `ResourceIdentity.Compose` detector chain                  |
+|  [46]   | container detector gate        | `Vehicle == ShipVehicle.Oci`               | `Containerized` column on `ConsumptionProfile.Vehicle`     |
+|  [47]   | global propagator registration | one `Correlation.Spine` composite          | `Sdk.SetDefaultTextMapPropagator`                          |
+|  [48]   | baggage promotion allowlist    | `rasm.tenant` + `CorrelationId`            | `AddBaggageActivityProcessor`/`AddBaggageProcessor`        |
+|  [49]   | otlp log record capture        | scopes, formatted body, parsed state       | `OpenTelemetryLoggerOptions` on `WithLogging`              |
+|  [50]   | log-to-span attachment         | records land as span events                | `AttachLogsToActivityEvent`                                |
+|  [51]   | log severity mapping           | `(int)LogLevel * 4 + 1`                    | SDK `LogRecord.LogLevel` to `LogRecordSeverity`            |
+|  [52]   | outbound latency breakdown     | detailed checkpoints, package on           | `AddHttpClientLatencyTelemetry`                            |
+|  [53]   | outbound client-log redaction  | four `*DataClasses` taxonomy maps          | `AddExtendedHttpClientLogging` over `Marker`               |
+|  [54]   | otlp exported signal set       | trace, metric, log                         | `TelemetrySignal.Exported` column                          |
+|  [55]   | otlp durable transport leg     | synchronous and async handler legs         | `PersistentOtlpHandler.Send`/`SendAsync`                   |
+|  [56]   | resource merge precedence      | deployment override wins the fold          | `AddEnvironmentVariableDetector` chain tail                |
+|  [57]   | metric view derivation         | declared dimensions + tenancy key          | `SignalGovernance.Views` one `AddView` predicate           |
+|  [58]   | log identity dimensions        | the resource projection, verbatim          | `RootEnricher` over `ProfileIdentity.ResourceAttributes`   |
+|  [59]   | log per-record process tags    | thread id; process id off                  | `AddProcessLogEnricher` beside the resource `process.pid`  |
+|  [60]   | ingress tenancy adoption       | per-carrier trust, no default              | `TenantAdoption` on `TraceContext.Continue`                |
+|  [61]   | durable transport release      | client set closed before its queues        | `TelemetryComposition.Dispose` over `Transport`            |
+|  [62]   | otlp replay framing carve      | length and transfer-encoding re-derived    | `OtlpOfflineQueue.FramingHeaders` denylist on `Rebuild`    |
+|  [63]   | durable queue residence        | deploy volume over local disk, host-keyed  | `ProfileIdentity.QueueRootVariable` ahead of the base root |
+|  [64]   | service name qualification     | one dotted lowercase `rasm.<svc>` render   | `TelemetryDomain.Qualify` on the resource projection       |
+|  [65]   | process-level metrics          | memory, virtual, cpu, threads, uptime      | `AddProcessInstrumentation` on the always-on metrics arm   |
+|  [66]   | span band admission            | kernel domains + contributed planes        | `SpanBand.Of` over `TelemetryContributorPort.Planes`       |
+|  [67]   | trace scope registration       | band names beside the foreign roster       | `AddSource` over `TelemetryComposition.Band.Names`         |
+|  [68]   | otlp transport trust custody   | replaced factory re-mounts row [30]        | `OtlpTrust.Mount` on the durable inner handler             |
+|  [69]   | contributor naming gate reach  | mounted rows beside self-minted rows       | `Rostered`/`Views` on `TelemetryContributorPort.Declared`  |
+|  [70]   | conformance projection         | one process-role document, ordinal rows    | `SignalGovernance.Conformance` over the row set            |
+|  [71]   | log verdict-plane binding      | audit stride + degradation floor           | `AddSampler(LoggingSampler)` over `SpineSampler`           |
+|  [72]   | redaction install seam         | the derived closure, never a bare seal     | `RedactionRegistration.Bind` inside `GovernLogs`           |
+|  [73]   | serilog sink set               | wire, shared file, hot, audit              | `SerilogSinks.For` behind the pipeline arbitration         |
+|  [74]   | durable log file residence     | host-keyed path, shared append, daily roll | `WriteTo.File(shared: true)` on the `SerilogSinks` leg     |
+|  [75]   | latency phase pivots           | one dimension per registered checkpoint    | `LatencyCheckpoint.Pivot` folded into `LatencySpine.Own`   |
+|  [76]   | incident flush accounting      | one point per drained buffer scope         | `IncidentBuffers.Flush` over `BufferScope.Items`           |
+|  [77]   | federated classification proof | branch values prove against the roster     | `RedactionRegistration.Federated` at composition           |
 
 ## [06]-[REDACTION_TAXONOMY]
 
-- Owner: `DataClassification` `[SmartEnum<string>]` taxonomy with the `RedactorKind` keyless vocabulary as its redactor column; `RedactionRegistration` the binding fold and the composite-set closure; `RedactedText` the allocation-free egress read seam.
-- Cases: classification rows in escalating sensitivity order — `Internal` the non-PII internal-data tier, `Confidential` the protected business tier the durable-store retention and blob-catalog lanes classify against, `Unknown` the never-reviewed arm every unannotated shape falls to; one redactor kind per disclosure treatment — none, hmac, erase — each carrying the `Rank` that decides a composite set's treatment.
-- Entry: `RedactionRegistration.Bind(ILoggingBuilder logging, IConfigurationSection hmacKeys)` returning the redaction-enabled builder; the `AddRedaction` fold maps EVERY producible classification set — each row's own singleton and every composite the taxonomy admits — onto its redactor, and `EnableRedaction` seals the seam; `RedactedText.Into(Redactor redactor, Span<char> sink, string value)` returns `Fin<int>` — the sized non-throwing write; `RedactedText.Appended(StringBuilder into, Redactor redactor, ReadOnlySpan<char> value)` returns `StringBuilder` — the multi-part compose.
-- Auto: redactor resolution keys on WHOLE-SET equality, so a set composed through `Union` resolves only against a row registered for that same composite and NEVER against its member classifications — which makes every producible union a required row and a missing one a silent erasure with a compliance-shaped cause, so the fold DERIVES the composite rows rather than enumerating them: each pair over `Items` composes through `DataClassificationSet.Union` and takes the STRONGEST member treatment by `RedactorKind.Rank`, so a member annotated both `Personal` and `Confidential` hmacs while one annotated `Internal` and `Credential` erases, and a ninth taxonomy row extends the closure with no fold edit; a `RedactorKind.None` row binds `NullRedactor` EXPLICITLY rather than falling through, because the fail-closed fallback is erasure and an unbound `Operational` tag therefore erases every operational dimension the dashboards join on — an availability bug the fallback's own correctness manufactures; `HmacRedactorOptions.KeyId` is the declared rotation epoch stamped ahead of every pseudonym, so values hashed under different generations never correlate and a rotation cuts correlation exactly at the rotation rather than silently re-tokenizing history — the same epoch the `Agent/reasoning#MODEL_GOVERNANCE` cache key folds in, so a rotation cannot replay a body redacted under the retired generation; `NoDataClassificationAttribute` seals a member as reviewed-public and `UnknownDataClassificationAttribute` seals a never-reviewed one, so the difference between "reviewed and cleared" and "nobody looked" is a declaration rather than an absence, and the `Unknown` row's erase treatment makes the never-reviewed arm fail closed by DECLARATION where the fallback made it fail closed by accident; classification flows through `[LogProperties]` and `[TagProvider]` generated methods as `LoggerMessageState.ClassifiedTag`; `EnableRedaction` applies the bound redactor before any sink or exporter observes the tag, and the `rasm.apphost.redaction.tags` count rises per redacted tag; a sized egress read goes through `Redactor.TryRedact` into a caller span and a multi-part compose through `RedactionStringBuilderExtensions.AppendRedacted`, so a bounded detail string is redacted once into its own buffer rather than materialized, cut, and discarded.
+- Owner: `DataClassification` `[SmartEnum<string>]` taxonomy with the `RedactorKind` keyless vocabulary as its redactor column, `Marker` its projection onto the compliance key and `Resolve` the federation inverse reading a `(taxonomy, value)` pair back to an owned row; `ClassificationRoster` one branch's declared federation values; `RedactionRegistration` the binding fold, the subset-lattice closure, and the boot federation proof; `RedactedText` the allocation-free egress read seam.
+- Cases: classification rows partition by DISCLOSURE CONSEQUENCE, never by sensitivity order — the roster's declaration order is the framework pair first (`None` the reviewed-public seal, `Unknown` the never-reviewed one) and the reviewed tiers between them, while treatment is the `RedactorKind` column alone, so a reader takes the verdict off the row and never off its position; `None`/`Operational`/`Internal` pass, `HostIdentity`/`HostPath`/`Personal`/`Confidential` pseudonymize, and `UserContent`/`Credential`/`Secret`/`Unknown` erase; one redactor kind per disclosure treatment — none, hmac, erase — each carrying the `Rank` that decides a composite set's treatment; two federation refusals close the boot proof — a pair naming a taxonomy this suite does not own, and a value the roster never declared.
+- Entry: `RedactionRegistration.Bind(ILoggingBuilder logging, IConfigurationSection hmacKeys)` returning the redaction-enabled builder, reached from `[05]`'s `GovernLogs` as the ONE redaction seam; `RedactionRegistration.Federated(params ReadOnlySpan<ClassificationRoster> contributed)` returns `Fin<Unit>` — the boot proof that every branch-declared `(taxonomy, value)` pair resolves an owned row, run over the rosters the contributor seam carried; the `AddRedaction` fold maps EVERY producible classification set — each row's own singleton and every composite the taxonomy admits — onto its redactor, and `EnableRedaction` seals the seam; `RedactedText.Into(Redactor redactor, Span<char> sink, string value)` returns `Fin<int>` — the sized non-throwing write; `RedactedText.Appended(StringBuilder into, Redactor redactor, ReadOnlySpan<char> value)` returns `StringBuilder` — the multi-part compose; `RedactedText.Changed(Redactor redactor, string value)` returns `(string Masked, bool Changed)` — the counted mask every redaction-tallying column reads through.
+- Auto: redactor resolution keys on WHOLE-SET equality, so a set composed through `Union` resolves only against a row registered for that same composite and NEVER against its member classifications — which makes every producible union a required row and a missing one a silent erasure with a compliance-shaped cause, so the fold DERIVES the composite rows rather than enumerating them: every non-empty subset of `Items` builds its set from its members' markers and takes the STRONGEST member treatment by `RedactorKind.Rank`, so a member annotated both `Personal` and `Confidential` hmacs, one annotated `Internal` and `Credential` erases, a member carrying three annotations resolves its own row rather than the fallback, and a new taxonomy row extends the whole lattice with no fold edit; the proof runs the other direction at boot — `Federated` resolves every branch-declared `(taxonomy, value)` pair against `Items` and refuses composition naming the offending package and spelling, so a sibling's unrostered value cannot reach egress and erase there; a `RedactorKind.None` row binds `NullRedactor` EXPLICITLY rather than falling through, because the fail-closed fallback is erasure and an unbound `Operational` tag therefore erases every operational dimension the dashboards join on — an availability bug the fallback's own correctness manufactures; `HmacRedactorOptions.KeyId` is the declared rotation epoch stamped ahead of every pseudonym, so values hashed under different generations never correlate and a rotation cuts correlation exactly at the rotation rather than silently re-tokenizing history — the same epoch the `Agent/reasoning#MODEL_GOVERNANCE` cache key folds in, so a rotation cannot replay a body redacted under the retired generation; `NoDataClassificationAttribute` seals a member as reviewed-public and `UnknownDataClassificationAttribute` seals a never-reviewed one, so the difference between "reviewed and cleared" and "nobody looked" is a declaration rather than an absence, and the `Unknown` row's erase treatment makes the never-reviewed arm fail closed by DECLARATION where the fallback made it fail closed by accident; classification flows through `[LogProperties]` and `[TagProvider]` generated methods as `LoggerMessageState.ClassifiedTag`; `EnableRedaction` applies the bound redactor before any sink or exporter observes the tag, and `rasm.apphost.redaction.tags` counts the values THIS branch's own egress seam masked, partitioned on the classification each carried — the generated tag path redacts inside the provider and publishes no count, so a roster-wide claim there is a measurement no surface takes; a sized egress read goes through `Redactor.TryRedact` into a caller span and a multi-part compose through `RedactionStringBuilderExtensions.AppendRedacted`, so a bounded detail string is redacted once into its own buffer rather than materialized, cut, and discarded.
 - Packages: Microsoft.Extensions.Compliance.Redaction, Microsoft.Extensions.Telemetry.Abstractions, Thinktecture.Runtime.Extensions.
-- Growth: one classification row extends the singleton set AND its composites through the same derivation; one redactor kind is one case with its rank; one key generation is one `KeyId` value; zero new surface.
-- Boundary: an unredacted classified value reaching any exporter is a seam violation; classification attributes annotate shapes at definition time as `DataClassificationAttribute` subclasses through the transitively arriving compliance-abstractions surface, with `NoDataClassificationAttribute` and `UnknownDataClassificationAttribute` the two shipped seals that make a reviewed-public member and a never-reviewed member declare their status instead of sharing the absence of an annotation; redactor binding rides `AddRedaction(Action<IRedactionBuilder>)` over the DERIVED closure — every singleton and every producible composite, `SetRedactor<NullRedactor>` on the pass rows, `SetHmacRedactor(IConfigurationSection, params DataClassificationSet[])` on the pseudonym rows, `SetRedactor<ErasingRedactor>(params DataClassificationSet[])` on the erase rows — closing on `SetFallbackRedactor<ErasingRedactor>()`, which stays the fail-closed default for a set outside the closure rather than the working path for sets inside it, and the fold registers with no suppression; hmac rows pseudonymize while preserving cross-event correlation, erase rows destroy the value, and credential and secret material never persists in any signal; the log seam governs the log path while the HTTP route-parameter path is a prevention row at the instrumentation root — `RequestMetadata` declares route-template parameters and `HttpRouteParameterRedactionMode` erases them so an outgoing-request span never carries an unredacted route segment, crossing to Persistence as VALUE fields on the landed rows (`Element/codec` `SnapshotCatalogRow.Classification`, `Element/identity`) — never a guard symbol and never a second registration; one redaction policy serves logs, traces, support capture, and the route-parameter prevention row, deleting call-site string scrubbing; metric tags ride the `[05]` view seam instead — the one `AddView` predicate projects each rostered stream onto its declaring row's `Dimensions` beside the tenancy key alone, so a contributor evidence-string tag (asset key, document key, media source path) reaches an exporter only by being DECLARED on the row that mints it, where this taxonomy grades it; a foreign instrumentation stream keeps its convention-owned tags because no row of this branch declares them and none carries branch evidence.
+- Growth: one classification row extends the whole subset lattice through the same derivation and doubles its registration count, which is the declared cost a disclosure-consequence partition is sized against; one redactor kind is one case with its rank the three-call bind already folds; one federating branch is one `Classifications` roster on its own contributor port, which the composition projects into the `ClassificationRoster` set the one federation proof reads; one key generation is one `KeyId` value; zero new surface.
+- Boundary: an unredacted classified value reaching any exporter is a seam violation; classification attributes annotate shapes at definition time as `DataClassificationAttribute` subclasses through the transitively arriving compliance-abstractions surface, with `NoDataClassificationAttribute` and `UnknownDataClassificationAttribute` the two shipped seals that make a reviewed-public member and a never-reviewed member declare their status instead of sharing the absence of an annotation; redactor binding rides `AddRedaction(Action<IRedactionBuilder>)` over the DERIVED closure — every non-empty subset of the roster, grouped into one `SetRedactor<NullRedactor>` call on the pass sets, one `SetHmacRedactor(IConfigurationSection, params DataClassificationSet[])` on the pseudonym sets, and one `SetRedactor<ErasingRedactor>(params DataClassificationSet[])` on the erase sets — closing on `SetFallbackRedactor<ErasingRedactor>()`, which stays the fail-closed default for a set outside the closure rather than the working path for sets inside it, and the fold registers with no suppression; that bind is reached from `[05]`'s `GovernLogs` and from nowhere else, because a chain sealing the seam without it resolves EVERY set through the fallback and erases the pass rows this fold exists to spare — the failure reads as a working redaction plane and surfaces only when a dashboard's operational dimension is missed; hmac rows pseudonymize while preserving cross-event correlation, erase rows destroy the value, and credential and secret material never persists in any signal; the log seam governs the log path while the HTTP route-parameter path is a prevention row at the instrumentation root — `RequestMetadata` declares route-template parameters and `HttpRouteParameterRedactionMode` erases them so an outgoing-request span never carries an unredacted route segment, crossing to Persistence as VALUE fields on the landed rows (`Element/codec` `SnapshotCatalogRow.Classification`, `Element/identity`) — never a guard symbol and never a second registration; one redaction policy serves logs, traces, support capture, and the route-parameter prevention row, deleting call-site string scrubbing; metric tags ride the `[05]` view seam instead — the one `AddView` predicate projects each rostered stream onto its declaring row's `Dimensions` beside the tenancy key alone, so a contributor evidence-string tag (asset key, document key, media source path) reaches an exporter only by being DECLARED on the row that mints it, where this taxonomy grades it; a foreign instrumentation stream keeps its convention-owned tags because no row of this branch declares them and none carries branch evidence.
 
 ```csharp signature
 // Rank makes a composite set's treatment derivable: a member carrying two classifications takes the
@@ -1215,6 +1510,7 @@ public sealed partial class RedactorKind {
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+[ValidationError<Fault>]
 public sealed partial class DataClassification {
     public static readonly DataClassification None = new("none", redactor: RedactorKind.None);
     public static readonly DataClassification Operational = new("operational", redactor: RedactorKind.None);
@@ -1239,6 +1535,27 @@ public sealed partial class DataClassification {
     // map consumes — the redaction sets, the HTTP-diagnostics *DataClasses maps — never a second
     // hand-built (taxonomy, value) pair at a call site.
     public Microsoft.Extensions.Compliance.Classification.DataClassification Marker => new(nameof(DataClassification), Key);
+
+    // The federation INVERSE of `Marker`: a branch mints its annotation from a `(taxonomy, value)` string pair
+    // crossing no type reference, so this is the one seam that reads such a pair back to an owned row. The
+    // taxonomy name is checked BEFORE the value, because a pair naming a foreign taxonomy whose value happens to
+    // match a row here would otherwise admit under a vocabulary this suite never governs.
+    public static Fin<DataClassification> Resolve(string taxonomy, string value) =>
+        string.Equals(taxonomy, nameof(DataClassification), StringComparison.Ordinal)
+            ? Validate(value, null, out var row) is { } fault
+                ? Fin.Fail<DataClassification>(fault)
+                : Fin.Succ(row!)
+            : Fin.Fail<DataClassification>(new Fault.InvalidValue(
+                Label: $"{taxonomy}:{value}", Requirement: $"the {nameof(DataClassification)} suite taxonomy"));
+}
+
+// A branch's declared federation values, one value per emitting package, carried as TEXT: the federation
+// ruling is that `(taxonomy, value)` pairs cross and no type reference forms, so a typed column here would
+// break the very law this proof strengthens. It rides `TelemetryComposition` beside `LatencyRoster` — the
+// composition's other plain-text contribution — rather than the contributor port, whose every column is a
+// kernel-resolved TYPE and which would have to carry a compliance vocabulary the capsule deliberately excludes.
+public readonly record struct ClassificationRoster(string Package, Seq<(string Taxonomy, string Value)> Values) {
+    public static readonly ClassificationRoster Empty = new(string.Empty, Seq<(string, string)>());
 }
 
 // RedactedText owns the egress read seam: TryRedact sizes and writes into the caller's own buffer and reports refusal rather
@@ -1246,6 +1563,15 @@ public sealed partial class DataClassification {
 // its own buffer per part, so a two-part detail redacts each part once instead of concatenating first and
 // redacting the join — which would tokenize the separator into the pseudonym.
 public static class RedactedText {
+    // The third read shape, and the reason a caller never reaches `Redactor.Redact` directly: a masked column
+    // must report whether it CHANGED, and a length comparison answers that wrongly for every length-preserving
+    // redactor — an HMAC token and a fixed-width fill both replace a value byte-for-byte at its own width, so a
+    // fully masked bundle would report zero. The comparison is ordinal because the verdict is byte identity.
+    public static (string Masked, bool Changed) Changed(Redactor redactor, string value) =>
+        redactor.Redact(value) is var masked
+            ? (masked, !string.Equals(masked, value, StringComparison.Ordinal))
+            : default;
+
     public static Fin<int> Into(Redactor redactor, Span<char> sink, string value) =>
         redactor.TryRedact(value, sink, out var written, format: default)
             ? Fin.Succ(written)
@@ -1256,33 +1582,68 @@ public static class RedactedText {
 }
 
 public static class RedactionRegistration {
-    private static DataClassificationSet SetOf(DataClassification row) => new(row.Marker);
-
     // Every producible set is a row, singletons and composites alike: lookup keys on whole-set equality, so a
     // member annotated {Personal, Confidential} resolves NEITHER member's row and would fall to the erasing
     // fallback — an availability failure with a compliance-shaped cause, invisible until the dimension it
-    // erased is missed. The closure is DERIVED from Items rather than enumerated, so a ninth row extends it
-    // with no edit here and the composite takes the strongest member treatment by rank.
+    // erased is missed. The closure is therefore the FULL non-empty subset lattice rather than the singleton-
+    // and-pair prefix: nothing bounds how many `DataClassificationAttribute` subclasses annotate one member,
+    // attributes being per-classification and repeatable, so a pair closure leaves every triple silently
+    // erasing under exactly the law the comment claims to foreclose. The erasure is TOTALLY silent: a
+    // three-annotation member draws no generator diagnostic, raises nothing at emit, never reaches the bound
+    // redactor at all, and lands in the record as an empty value beside its correctly redacted siblings — so
+    // the only signal is a reader missing a field nobody reported. A declared two-annotation cap is the
+    // rejected alternative — the framework offers no seat to enforce one, and an unenforced cap is a comment
+    // the next annotated member breaks. Cost is the growth bound the roster reads: one taxonomy row DOUBLES
+    // this registration, which is the pressure that keeps a disclosure-consequence partition small.
+    //
+    // The bind runs THREE calls, one per treatment, because both mapping verbs take their whole set list at
+    // once — a call per subset would register the lattice one row at a time for no difference in the frozen map.
     public static ILoggingBuilder Bind(ILoggingBuilder logging, IConfigurationSection hmacKeys) {
         ArgumentNullException.ThrowIfNull(logging);
-        logging.Services.AddRedaction(redaction => Closure().Fold(redaction,
-            (seam, entry) => entry.Kind.Switch(
-                // Pass rows bind NullRedactor EXPLICITLY: unbound they fall to the erasing fallback, which
-                // silently destroys every operational dimension the dashboards join on.
-                none: seam.SetRedactor<NullRedactor>(entry.Set),
-                hmac: seam.SetHmacRedactor(hmacKeys, entry.Set),
-                erase: seam.SetRedactor<ErasingRedactor>(entry.Set))
-            ).SetFallbackRedactor<ErasingRedactor>());
+        logging.Services.AddRedaction(redaction => ignore(
+            toSeq(Closure().GroupBy(static row => row.Kind))
+                .Fold(redaction, (seam, treatment) =>
+                    // Pass rows bind NullRedactor EXPLICITLY: unbound they fall to the erasing fallback, which
+                    // silently destroys every operational dimension the dashboards join on.
+                    treatment.Key.Switch(
+                        state: (Seam: seam, Keys: hmacKeys, Sets: treatment.Select(static row => row.Set).ToArray()),
+                        none: static bound => bound.Seam.SetRedactor<NullRedactor>(bound.Sets),
+                        hmac: static bound => bound.Seam.SetHmacRedactor(bound.Keys, bound.Sets),
+                        erase: static bound => bound.Seam.SetRedactor<ErasingRedactor>(bound.Sets)))
+                .SetFallbackRedactor<ErasingRedactor>()));
         return logging.EnableRedaction(static options => options.ApplyDiscriminator = true);
     }
 
-    static Seq<(DataClassificationSet Set, RedactorKind Kind)> Closure() {
-        var rows = DataClassification.Items.AsIterable().ToSeq();
-        return rows.Map(static row => (SetOf(row), row.Redactor))
-            + rows.Bind(left => rows
-                .Filter(right => string.CompareOrdinal(left.Key, right.Key) < 0)
-                .Map(right => (SetOf(left).Union(SetOf(right)), RedactorKind.Strongest(left.Redactor, right.Redactor))));
-    }
+    // Boot federation proof: every branch-declared pair resolves an owned row, or composition refuses carrying
+    // the offending spelling. Without it the federation closes by COINCIDENCE — a sibling minting a value this
+    // roster never declared compiles, annotates, ships, and then erases at the fail-closed fallback, which is
+    // the same silent-erasure class the closure exists to delete, arriving through the one door the closure
+    // cannot reach. The refusal is a boot fault while the seam is still editable, never an egress surprise.
+    public static Fin<Unit> Federated(params ReadOnlySpan<ClassificationRoster> contributed) =>
+        Iterable<ClassificationRoster>.FromSpan(contributed).ToSeq()
+            .Bind(static roster => roster.Values.Map(pair => (roster.Package, pair.Taxonomy, pair.Value)))
+            .TraverseM(static claim => DataClassification.Resolve(claim.Taxonomy, claim.Value)
+                .MapFail(error => (Error)new Fault.InvalidValue(
+                    Label: $"{claim.Package}:{claim.Taxonomy}:{claim.Value}",
+                    Requirement: "a declared classification row on the owning roster")))
+            .As().Map(static _ => unit);
+
+    static Seq<(DataClassificationSet Set, RedactorKind Kind)> Closure() =>
+        DataClassification.Items.AsIterable().ToSeq() is var rows
+            ? toSeq(Range(1, (1 << rows.Count) - 1)).Map(mask => Composed(rows, mask))
+            : Seq<(DataClassificationSet, RedactorKind)>();
+
+    // One subset per bit pattern: the members build the set directly from their markers and fold their
+    // treatments through `Strongest`, whose `None` rank is the fold's own identity — so the composite verdict
+    // DERIVES from the rank column and no hand-authored composite table and no ordering convention exist.
+    static (DataClassificationSet Set, RedactorKind Kind) Composed(Seq<DataClassification> rows, int mask) =>
+        Sealed(rows.Map(static (row, index) => (Row: row, Index: index))
+            .Filter(pair => (mask & (1 << pair.Index)) != 0)
+            .Map(static pair => pair.Row));
+
+    static (DataClassificationSet Set, RedactorKind Kind) Sealed(Seq<DataClassification> members) =>
+        (new DataClassificationSet(members.Map(static row => row.Marker)),
+         members.Fold(RedactorKind.None, static (kind, row) => RedactorKind.Strongest(kind, row.Redactor)));
 }
 ```
 

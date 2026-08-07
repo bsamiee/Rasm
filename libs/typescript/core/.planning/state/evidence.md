@@ -252,24 +252,29 @@ const Progress: Progress.Shape = {
 
 [AVAILABILITY_LATTICE]:
 - Owner: `Availability` — the decoded snapshot class: `level`, the per-command verdict `HashMap`, the `since` stamp, and the tenant; `worst` (the snapshot lattice), `admits` (the total gate read), and `plan` (the per-tenant fold) ride it as statics. The serving gate consumes it as an injected value typed against this module — ordinary dependency over a legal import, never a port.
-- Law: the level column is the lawful bounded lattice — `Merge.lattice` over the rank `Bounded` with `full` as `minBound` and `offline` as `maxBound`, the `join` row carried in the field product — so zero health feeds fold to the `full` bottom through the lawful empty, severity is the only comparison, and no consumer compares level names lexically or through a hand ladder; gate policy is the `admits` column, data a total read projects, and `_ROWS` is contract-checked at the expression seam against the `_LEVELS` and `_POSTURES` anchors — a level without its row, an excess row, or an off-vocabulary posture fails at the declaration.
+- Law: the level column is the lawful bounded lattice — `Merge.lattice` over the rank `Bounded` with `full` as `minBound` and `suspended` as `maxBound`, the `join` row carried in the field product — so zero health feeds fold to the `full` bottom through the lawful empty, severity is the only comparison, and no consumer compares level names lexically or through a hand ladder; gate policy is the `admits` column, data a total read projects, and `_ROWS` is contract-checked at the expression seam against the `_LEVELS` and `_POSTURES` anchors — a level without its row, an excess row, or an off-vocabulary posture fails at the declaration.
+- Law: the roster is the producer's, key for key — `_LEVELS` spells the frozen `DegradationLevelKey` rows in the producer's own kebab-case and `_ROWS` carries the producer's ranks, so the lattice tops where the producer's escalation tops and a level it mints always lands. A roster narrower than the producer's refuses a mint at decode while both ends' prose still claims parity, and the lattice then bounds severity at a ceiling no producer state reaches — the drift a rank-for-rank mirror forecloses at the declaration.
 - Law: verdicts carry one total restrictiveness key — family rank first (`Available < Gated < Withheld`), then `Gated` by bounded-before-unbounded horizon and later `Hlc`, `Withheld` by level rank, and both evidence-bearing cases by reason — and `_worstVerdict` is `Merge.max` over that order, so distinct evidence never compares equal, source arrival order cannot decide a merge, and combining two sources never loosens a constraint; retry surfacing derives from `Gated.until`, never from prose parsing.
 - Law: `Availability.worst` is the `Merge.struct` field product exactly as `Progress._state` and `presence` compose it — level through the bounded lattice join, commands through `Merge.hashMap(_worstVerdict)` per-command worst-wins, `since` by stamp max, tenant first-wins — the posture derives as the field conjunction instead of a literal claim, the class re-lands through the roster's own `Merge.imap` iso, and the convergence proof rides `Converge` like every sibling instance; a hand `Semigroup.make` constructor wrap beside a roster instance is the spelling `merge#INSTANCE_ROSTER` already deletes, and `alike` is the one deliberate override — the class-native proof the iso cannot infer from a four-field mapInput. The convergence domain is one tenant lane — the plan partitions by tenant BEFORE any merge and first-wins carries `self.tenant` through, so a cross-tenant combine is an upstream fold-key defect, never a merge question.
 - Law: `Availability.admits` is total — a command absent from the map answers from the level row's posture through the `_FALLBACKS` lookup, so the gate never meets `undefined`, never re-implements the fallback, and posture-to-verdict stays a keyed row, never a branch ladder.
 - Law: the command map crosses the wire as a keyed object — the protobuf map shape — and `_Commands` respells it into the interior `HashMap` at the field, so the decoded gate keys structurally while the encoded twin stays exactly what the C# mint emits; a pairs-array wire spelling is the shape no proto map produces.
 - Law: gating durations and retry posture type against `value/fault` budget rows — the gate composes budget vocabulary with these verdicts; neither is re-declared here.
-- Boundary: the level roster mirrors the C# AppHost health plane one-to-one; roster parity pins at the interchange decode seam; `feed#ENTRY_FAMILY` records level shifts.
-- Growth: a new gate posture is one `_POSTURES` row; a new level is one `_LEVELS` entry plus its `_ROWS` row, and the bounded lattice re-tops in the same edit.
+- Boundary: the level roster mirrors `csharp:Rasm.AppHost/Observability/health#TS_PROJECTION`'s frozen `DegradationLevelKey` rows one-to-one; roster parity pins at the `CommandAvailabilityWire` decode seam, and rank and retained-capability sets derive from that roster at each end rather than crossing; `feed#ENTRY_FAMILY` records level shifts.
+- Growth: a new gate posture is one `_POSTURES` row; a producer level is one `_LEVELS` entry plus its `_ROWS` row, and the bounded lattice re-tops in the same edit.
 
 ```typescript signature
-const _LEVELS = ["full", "degraded", "readonly", "offline"] as const
+// The five rows and their ranks ARE the producer's frozen `DegradationLevelKey` roster, key for key and rank for
+// rank; `admits` is this end's gate projection of the capability set each row retains — write capability retained
+// admits every command, store-read alone admits reads, and the row retaining neither withholds.
+const _LEVELS = ["full", "reduced-remote", "local-only", "read-only", "suspended"] as const
 const _POSTURES = ["all", "reads", "none"] as const
 
 const _ROWS = {
-  full: { rank: 0, admits: "all" },
-  degraded: { rank: 1, admits: "all" },
-  readonly: { rank: 2, admits: "reads" },
-  offline: { rank: 3, admits: "none" },
+  "full": { rank: 0, admits: "all" },
+  "reduced-remote": { rank: 1, admits: "all" },
+  "local-only": { rank: 2, admits: "all" },
+  "read-only": { rank: 3, admits: "reads" },
+  "suspended": { rank: 4, admits: "none" },
 } as const satisfies Record<(typeof _LEVELS)[number], { readonly rank: number; readonly admits: (typeof _POSTURES)[number] }>
 
 const _Level = Schema.Literal(..._LEVELS)
@@ -333,7 +338,7 @@ const _fieldwise: Merge.Instance<{
   readonly since: Hlc
   readonly tenant: TenantContext
 }> = Merge.struct({
-  level: Merge.lattice<(typeof _LEVELS)[number]>({ compare: _byRank, minBound: "full", maxBound: "offline" }).join,
+  level: Merge.lattice<(typeof _LEVELS)[number]>({ compare: _byRank, minBound: "full", maxBound: "suspended" }).join,
   commands: Merge.hashMap(_worstVerdict),
   since: Merge.max(Hlc.Order),
   tenant: Merge.first(Schema.equivalence(TenantContext)),

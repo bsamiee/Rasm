@@ -19,7 +19,11 @@
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
-using System.Drawing;
+// No `using System.Drawing`: `Color` is a host simple name the branch also carries on the kernel colour rail, so
+// every colour on this page spells `System.Drawing.Color` in full. `System.Linq` is imported because the sibling
+// ordering the tree fold needs has no carrier-side member — `OrderBy`/`ThenBy` are LINQ shapes that leave the
+// carrier and re-enter through `toSeq`, and that re-entry is spelled at every use.
+using System.Linq;
 using Rasm.Domain;
 using Rhino;
 using Rhino.DocObjects;
@@ -55,7 +59,7 @@ public readonly partial struct LayerPath : IDetachedDocumentResult {
         value = string.Join(Layer.PathSeparator, segments);
         validationError = raw.Length is 0
             ? new ValidationError(message: "Layer path is blank.")
-            : segments.Select(static segment => LayerName.Refusal(value: segment)).FirstOrDefault(static fault => fault is not null);
+            : toSeq(segments).Choose(static segment => Optional(LayerName.Refusal(value: segment))).Head.IfNone(defaultValue: null!);
     }
 
     public Fin<Seq<LayerName>> Segments(Op? key = null) {
@@ -89,55 +93,61 @@ public readonly partial struct LayerPath : IDetachedDocumentResult {
 public abstract partial record LayerRef {
     private LayerRef() { }
 
-    private sealed record IdCase(Guid Value) : LayerRef;
-    private sealed record IndexCase(int Value) : LayerRef;
+    private sealed record IdCase(ResourceId Value) : LayerRef;
+    private sealed record IndexCase(ResourceIndex Value) : LayerRef;
     private sealed record PathCase(LayerPath Value) : LayerRef;
     private sealed record CurrentCase : LayerRef;
 
-    public static Fin<LayerRef> ById(Guid value) =>
-        guard(value != Guid.Empty, Op.Of().InvalidInput()).ToFin()
-            .Map(_ => (LayerRef)new IdCase(Value: value));
+    public static Fin<LayerRef> ById(Guid value, Op? key = null) =>
+        ResourceId.Admit(value: value, key: key.OrDefault()).Map(static id => (LayerRef)new IdCase(Value: id));
 
-    public static Fin<LayerRef> AtIndex(int value) =>
-        guard(value >= 0, Op.Of().InvalidInput()).ToFin()
-            .Map(_ => (LayerRef)new IndexCase(Value: value));
+    public static Fin<LayerRef> AtIndex(int value, Op? key = null) =>
+        ResourceIndex.Admit(value: value, key: key.OrDefault()).Map(static index => (LayerRef)new IndexCase(Value: index));
 
-    public static Fin<LayerRef> AtPath(LayerPath value) =>
-        guard(value != default, Op.Of().InvalidInput()).ToFin()
+    public static Fin<LayerRef> AtPath(LayerPath value, Op? key = null) =>
+        guard(value != default, key.OrDefault().InvalidInput()).ToFin()
             .Map(_ => (LayerRef)new PathCase(Value: value));
 
     public static LayerRef Current { get; } = new CurrentCase();
 
-    internal Fin<int> Index(RhinoDoc document, bool includeDeleted, Op key) =>
+    // The spine's index value object, not a bare `int`: the host's own miss sentinel for this table is `-1`, and a
+    // raw int carries it into every consumer that reads a resolved index as a live slot.
+    internal Fin<ResourceIndex> Index(RhinoDoc document, bool includeDeleted, Op key) =>
         Resolve(document: document, includeDeleted: includeDeleted, key: key)
-            .Map(static row => row.LayerIndex);
+            .Bind(row => ResourceIndex.Admit(value: row.LayerIndex, key: key));
 
     internal Fin<Layer> Resolve(RhinoDoc document, bool includeDeleted, Op key) =>
         Switch(
             state: (Document: document, IncludeDeleted: includeDeleted, Op: key),
             idCase: static (context, address) =>
-                from index in context.Op.Catch(() => Fin.Succ(value: context.Document.Layers.Find(
-                    layerId: address.Value,
-                    ignoreDeletedLayers: !context.IncludeDeleted)))
-                from _ in guard(index >= 0, context.Op.MissingContext()).ToFin()
-                from row in Optional(context.Document.Layers.FindIndex(index: index)).ToFin(Fail: context.Op.MissingContext())
+                from index in context.Op.Catch(() => ResourceIndex.Admit(
+                    value: context.Document.Layers.Find(
+                        layerId: address.Value.Value,
+                        ignoreDeletedLayers: !context.IncludeDeleted),
+                    key: context.Op))
+                from row in Optional(context.Document.Layers.FindIndex(index: index.Value)).ToFin(Fail: context.Op.MissingContext())
                 from admitted in guard(context.IncludeDeleted || !row.IsDeleted, context.Op.MissingContext()).ToFin()
                 select row,
             indexCase: static (context, address) =>
-                from row in Optional(context.Document.Layers.FindIndex(index: address.Value)).ToFin(Fail: context.Op.MissingContext())
+                from row in Optional(context.Document.Layers.FindIndex(index: address.Value.Value)).ToFin(Fail: context.Op.MissingContext())
                 from admitted in guard(context.IncludeDeleted || !row.IsDeleted, context.Op.MissingContext()).ToFin()
                 select row,
             pathCase: static (context, address) =>
-                from index in context.Op.Catch(() => Fin.Succ(value: context.Document.Layers.FindByFullPath(
-                    layerPath: address.Value.Value,
-                    notFoundReturnValue: -1)))
-                from _ in guard(index >= 0, context.Op.MissingContext()).ToFin()
-                from row in Optional(context.Document.Layers.FindIndex(index: index)).ToFin(Fail: context.Op.MissingContext())
+                from index in context.Op.Catch(() => ResourceIndex.Admit(
+                    value: context.Document.Layers.FindByFullPath(
+                        layerPath: address.Value.Value,
+                        notFoundReturnValue: NoLayer),
+                    key: context.Op))
+                from row in Optional(context.Document.Layers.FindIndex(index: index.Value)).ToFin(Fail: context.Op.MissingContext())
                 from admitted in guard(!row.IsDeleted, context.Op.MissingContext()).ToFin()
                 select row,
             currentCase: static (context, _) => Optional(context.Document.Layers.CurrentLayer)
                 .Filter(static row => !row.IsDeleted)
                 .ToFin(Fail: context.Op.InvalidResult()));
+
+    // The host's own not-found answer for this table, named once so no lookup re-spells it and `ResourceIndex`
+    // refuses it on the same line that reads it.
+    private const int NoLayer = -1;
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
@@ -172,8 +182,10 @@ public sealed partial class LayerStamp : IDetachedDocumentResult {
 - Owner: `LayerFace` carries the render/print product — draw color, print color, print width, linetype index, render-material index, section-style index — and `LayerCondition` the state product: visibility, locking, their persistent variants, expansion, currency, deletion, and reference custody. `DetailFace` is one probed per-detail override row; `LayerNode` is one detached tree node; `LayerTree` is the whole topology from one read.
 - Entry: `Layers.Ask(session, key, detailViewports)` demands `SessionNeed.Read` and mints the tree inside one callback; probe targets are call data, so the same entry answers the plain topology and any per-detail audit without a second surface.
 - Law: the tree is built from one table sweep — non-deleted rows keyed by id, children grouped by `ParentLayerId`, roots at the empty parent, siblings ordered by `SortIndex` then name — so parent/child evidence is structural, never re-derived per consumer from path text.
+- Law: the assembly is BOUNDED and never descends. `ParentLayerId` is a raw host id the table does not prove acyclic, so a recursive child walk over a cycle overflows the stack — an uncatchable process death this rail cannot report. Depth is measured by a budgeted parent climb, a cycle and an orphan each refuse typed and named, and the tree assembles deepest-first in one fold; a post-hoc count guard is the deleted form, because it can only run after the walk that would not have returned.
 - Law: the host exposes no roster of viewports carrying overrides, so per-detail evidence is probe-parameterized: each requested viewport lands a `DetailFace` only where `HasPerViewportSettings` proves one, and an unprobed override is absent evidence, never a fabricated default.
 - Boundary: every node is detached — the live `Layer` handle dies inside the demand window, and `LayerTree` implements `IDetachedDocumentResult` so it crosses out of `Demand` by construction.
+- Boundary: persistent visibility and locking are THREE-state on the write side and TWO-state on the read side, and the host closes no probe over the gap. `SetPersistentVisibility`/`UnsetPersistentVisibility` set and clear the explicit setting, but `GetPersistentVisibility` answers a bare `bool` that returns the layer's CURRENT `IsVisible` when nothing was ever set — so an explicit `true` and an unset-and-visible layer read identically, and no managed member distinguishes them. `LayerCondition` therefore reports the host's collapsed answer and names it as such: the column is what the host resolves, never proof that a setting exists. The edit side keeps all three states because it writes through the pair the host does expose.
 
 ```csharp signature
 // --- [MODELS] -----------------------------------------------------------------------------
@@ -249,8 +261,8 @@ public sealed record LayerTree(Seq<LayerNode> Roots, int Count, Option<LayerStam
 
     public Option<LayerNode> Find(LayerRef address) => address.Switch(
         state: this,
-        idCase: static (tree, target) => tree.Flatten().Find(node => node.Identity.Id == target.Value),
-        indexCase: static (tree, target) => tree.Flatten().Find(node => node.Identity.Index == target.Value),
+        idCase: static (tree, target) => tree.Flatten().Find(node => node.Identity.Id == target.Value.Value),
+        indexCase: static (tree, target) => tree.Flatten().Find(node => node.Identity.Index == target.Value.Value),
         pathCase: static (tree, target) => tree.Flatten().Find(node => node.Identity.Path == target.Value),
         currentCase: static (tree, _) => tree.Current.Bind(stamp => tree.Flatten().Find(node => node.Identity.Id == stamp.Id)));
 
@@ -260,20 +272,11 @@ public sealed record LayerTree(Seq<LayerNode> Roots, int Count, Option<LayerStam
             .Traverse(row => Leaf(layer: row, detailViewports: detailViewports, key: key).ToValidation())
             .As()
             .ToFin()
-        let byParent = nodes
-                .Filter(static entry => entry.Parent.IsSome)
-                .GroupBy(static entry => entry.Parent.IfNone(Guid.Empty))
-                .AsIterable()
-                .ToHashMap(static group => (group.Key, toSeq(group)))
+        from roots in Assembled(nodes: nodes, key: key)
         from current in Optional(document.Layers.CurrentLayer)
             .Traverse(layer => LayerStamp.Of(layer: layer, key: key))
             .As()
-        let tree = new LayerTree(
-            Roots: Ordered(nodes: nodes.Filter(static entry => entry.Parent.IsNone), byParent: byParent),
-            Count: nodes.Count,
-            Current: current)
-        from _ in guard(tree.Flatten().Count == tree.Count, key.InvalidResult()).ToFin()
-        select tree;
+        select new LayerTree(Roots: roots, Count: nodes.Count, Current: current);
     });
 
     private static Fin<LayerNode> Leaf(Layer layer, Seq<Guid> detailViewports, Op key) =>
@@ -289,14 +292,68 @@ public sealed record LayerTree(Seq<LayerNode> Roots, int Count, Option<LayerStam
             Details: detailViewports.Choose(viewport => DetailFace.Probe(layer: layer, viewport: viewport)),
             Children: Seq<LayerNode>());
 
-    private static Seq<LayerNode> Ordered(Seq<LayerNode> nodes, HashMap<Guid, Seq<LayerNode>> byParent) =>
-        nodes
+    // `ParentLayerId` is a raw host id with no acyclicity guarantee: a corrupt archive, a worksession merge, or a
+    // table read mid-edit can present A parented to B parented to A. A recursive descent over that graph does not
+    // fault — it exhausts the stack, which no `Catch` on this rail observes and no receipt can report, and the
+    // process dies. The build is therefore an explicit bounded walk: every node's depth is measured by climbing
+    // its parent chain under a budget of the node count, so a cycle exhausts the budget as a typed refusal naming
+    // the offending path and a parent id matching no row refuses as a typed orphan. Assembly then runs
+    // DEEPEST-FIRST over the measured rows, so each node is rebuilt only after every one of its children already
+    // is — one ordered fold, no descent, no second pass, and no `Flatten().Count` guard that could only notice
+    // the damage after a walk that could not survive it.
+    private static Fin<Seq<LayerNode>> Assembled(Seq<LayerNode> nodes, Op key) {
+        HashMap<Guid, LayerNode> byId = toHashMap(nodes.Map(static node => (node.Identity.Id, node)));
+        HashMap<Guid, Seq<Guid>> childIds = nodes.Fold(
+            HashMap<Guid, Seq<Guid>>(),
+            static (held, node) => node.Parent.Match(
+                Some: parent => held.AddOrUpdate(
+                    key: parent,
+                    Some: existing => existing.Add(value: node.Identity.Id),
+                    None: () => Seq(node.Identity.Id)),
+                None: () => held));
+        return nodes
+            .Traverse(node => Depth(node: node, byId: byId, key: key)
+                .Map(depth => (Node: node, Depth: depth))
+                .ToValidation())
+            .As()
+            .ToFin()
+            .Map(measured => toSeq(measured.OrderByDescending(static row => row.Depth))
+                .Fold(byId, (held, row) => held.AddOrUpdate(
+                    key: row.Node.Identity.Id,
+                    value: held.Find(row.Node.Identity.Id).IfNone(row.Node) with {
+                        Children = Sorted(rows: childIds.Find(row.Node.Identity.Id)
+                            .IfNone(Seq<Guid>())
+                            .Choose(child => held.Find(child))),
+                    })))
+            .Map(held => Sorted(rows: toSeq(nodes)
+                .Filter(static node => node.Parent.IsNone)
+                .Choose(node => held.Find(node.Identity.Id))));
+    }
+
+    // Exemption: the parent climb is a bounded statement loop — the budget IS the refusal, so expressing it as a
+    // fold would either lose the early exit or need a sentinel state richer than the answer.
+    private static Fin<int> Depth(LayerNode node, HashMap<Guid, LayerNode> byId, Op key) {
+        Option<Guid> parent = node.Parent;
+        int depth = 0;
+        while (parent.Case is Guid id) {
+            if (depth > byId.Count) {
+                return Fin.Fail<int>(error: key.InvalidResult(detail: node.Identity.Path.Value));
+            }
+            if (byId.Find(id).Case is not LayerNode owner) {
+                return Fin.Fail<int>(error: key.MissingContext());
+            }
+            parent = owner.Parent;
+            depth += 1;
+        }
+        return Fin.Succ(value: depth);
+    }
+
+    // Sibling order is the host's own: sort index first, then name under the case-insensitive comparison the layer
+    // table itself uses. The ordering leaves the carrier, so it re-enters through `toSeq` at the one site.
+    private static Seq<LayerNode> Sorted(Seq<LayerNode> rows) =>
+        toSeq(rows
             .OrderBy(static node => node.SortIndex)
-            .ThenBy(static node => node.Name.Value, StringComparer.OrdinalIgnoreCase)
-            .ToSeq()
-            .Map(node => node with {
-                Children = Ordered(nodes: byParent.Find(node.Identity.Id).IfNone(Seq<LayerNode>()), byParent: byParent),
-            });
+            .ThenBy(static node => node.Name.Value, StringComparer.OrdinalIgnoreCase));
 }
 ```
 
@@ -315,38 +372,41 @@ public sealed record LayerTree(Seq<LayerNode> Roots, int Count, Option<LayerStam
 public abstract partial record LayerOverride {
     private LayerOverride() { }
 
-    private sealed record ColorCase(Guid Viewport, Option<Color> Value) : LayerOverride;
+    private sealed record ColorCase(Guid Viewport, Option<System.Drawing.Color> Value) : LayerOverride;
     private sealed record VisibleCase(Guid Viewport, Option<bool> Value) : LayerOverride;
     private sealed record PersistentVisibilityCase(Guid Viewport, Option<bool> Value) : LayerOverride;
-    private sealed record PrintColorCase(Guid Viewport, Option<Color> Value) : LayerOverride;
+    private sealed record PrintColorCase(Guid Viewport, Option<System.Drawing.Color> Value) : LayerOverride;
     private sealed record PrintWidthCase(Guid Viewport, Option<double> Value) : LayerOverride;
     private sealed record NewDetailVisibilityCase(bool Value) : LayerOverride;
     private sealed record PurgeCase(Guid Viewport) : LayerOverride;
 
-    public static Fin<LayerOverride> Color(Guid viewport, Option<Color> value = default) =>
-        Addressed(viewport: viewport, mint: address => new ColorCase(Viewport: address, Value: value));
+    public static Fin<LayerOverride> Color(Guid viewport, Option<System.Drawing.Color> value = default, Op? key = null) =>
+        Addressed(viewport: viewport, key: key, mint: address => new ColorCase(Viewport: address, Value: value));
 
-    public static Fin<LayerOverride> Visible(Guid viewport, Option<bool> value = default) =>
-        Addressed(viewport: viewport, mint: address => new VisibleCase(Viewport: address, Value: value));
+    public static Fin<LayerOverride> Visible(Guid viewport, Option<bool> value = default, Op? key = null) =>
+        Addressed(viewport: viewport, key: key, mint: address => new VisibleCase(Viewport: address, Value: value));
 
-    public static Fin<LayerOverride> PersistentVisibility(Guid viewport, Option<bool> value = default) =>
-        Addressed(viewport: viewport, mint: address => new PersistentVisibilityCase(Viewport: address, Value: value));
+    public static Fin<LayerOverride> PersistentVisibility(Guid viewport, Option<bool> value = default, Op? key = null) =>
+        Addressed(viewport: viewport, key: key, mint: address => new PersistentVisibilityCase(Viewport: address, Value: value));
 
-    public static Fin<LayerOverride> PrintColor(Guid viewport, Option<Color> value = default) =>
-        Addressed(viewport: viewport, mint: address => new PrintColorCase(Viewport: address, Value: value));
+    public static Fin<LayerOverride> PrintColor(Guid viewport, Option<System.Drawing.Color> value = default, Op? key = null) =>
+        Addressed(viewport: viewport, key: key, mint: address => new PrintColorCase(Viewport: address, Value: value));
 
-    public static Fin<LayerOverride> PrintWidth(Guid viewport, Option<double> value = default) =>
-        from admitted in value.Traverse(width => LayerEdit.Width(value: width, op: Op.Of())).As()
-        from minted in Addressed(viewport: viewport, mint: address => new PrintWidthCase(Viewport: address, Value: admitted))
+    public static Fin<LayerOverride> PrintWidth(Guid viewport, Option<double> value = default, Op? key = null) =>
+        from admitted in value.Traverse(width => LayerEdit.Width(value: width, op: key.OrDefault())).As()
+        from minted in Addressed(
+            viewport: viewport,
+            key: key,
+            mint: address => new PrintWidthCase(Viewport: address, Value: admitted))
         select minted;
 
     public static LayerOverride NewDetailVisibility(bool value) => new NewDetailVisibilityCase(Value: value);
 
-    public static Fin<LayerOverride> Purge(Guid viewport) =>
-        Addressed(viewport: viewport, mint: address => new PurgeCase(Viewport: address));
+    public static Fin<LayerOverride> Purge(Guid viewport, Op? key = null) =>
+        Addressed(viewport: viewport, key: key, mint: address => new PurgeCase(Viewport: address));
 
-    private static Fin<LayerOverride> Addressed(Guid viewport, Func<Guid, LayerOverride> mint) =>
-        guard(viewport != Guid.Empty, Op.Of().InvalidInput()).ToFin().Map(_ => mint(arg: viewport));
+    private static Fin<LayerOverride> Addressed(Guid viewport, Op? key, Func<Guid, LayerOverride> mint) =>
+        guard(viewport != Guid.Empty, key.OrDefault().InvalidInput()).ToFin().Map(_ => mint(arg: viewport));
 
     internal Fin<Unit> Apply(Layer layer, Op key) =>
         Switch(
@@ -391,8 +451,8 @@ public abstract partial record LayerEdit {
     private LayerEdit() { }
 
     private sealed record RenameCase(LayerName Name) : LayerEdit;
-    private sealed record ColorCase(Color Value) : LayerEdit;
-    private sealed record PrintColorCase(Color Value) : LayerEdit;
+    private sealed record ColorCase(System.Drawing.Color Value) : LayerEdit;
+    private sealed record PrintColorCase(System.Drawing.Color Value) : LayerEdit;
     private sealed record PrintWidthCase(double Value) : LayerEdit;
     private sealed record LinetypeCase(int Index) : LayerEdit;
     private sealed record RenderMaterialCase(int Index) : LayerEdit;
@@ -401,26 +461,27 @@ public abstract partial record LayerEdit {
     private sealed record FlagCase(LayerFlag Flag, bool Value) : LayerEdit;
     private sealed record PersistentVisibilityCase(Option<bool> Value) : LayerEdit;
     private sealed record PersistentLockingCase(Option<bool> Value) : LayerEdit;
-    private sealed record DescriptionCase(string Value) : LayerEdit;
+    private sealed record DescriptionCase(Option<string> Value) : LayerEdit;
     private sealed record IgesLevelCase(int Value) : LayerEdit;
     private sealed record OverrideCase(LayerOverride Value) : LayerEdit;
 
     public static LayerEdit Rename(LayerName name) => new RenameCase(Name: name);
 
-    public static LayerEdit Recolor(Color value) => new ColorCase(Value: value);
+    public static LayerEdit Recolor(System.Drawing.Color value) => new ColorCase(Value: value);
 
-    public static LayerEdit PrintColor(Color value) => new PrintColorCase(Value: value);
+    public static LayerEdit PrintColor(System.Drawing.Color value) => new PrintColorCase(Value: value);
 
-    public static Fin<LayerEdit> PrintWidth(double value) =>
-        Width(value: value, op: Op.Of()).Map(static admitted => (LayerEdit)new PrintWidthCase(Value: admitted));
+    public static Fin<LayerEdit> PrintWidth(double value, Op? key = null) =>
+        Width(value: value, op: key.OrDefault()).Map(static admitted => (LayerEdit)new PrintWidthCase(Value: admitted));
 
-    public static Fin<LayerEdit> Linetype(int index) => Indexed(index: index, floor: 0, mint: static value => new LinetypeCase(Index: value));
+    public static Fin<LayerEdit> Linetype(int index, Op? key = null) =>
+        Indexed(index: index, floor: 0, key: key, mint: static value => new LinetypeCase(Index: value));
 
-    public static Fin<LayerEdit> RenderMaterial(int index) =>
-        Indexed(index: index, floor: -1, mint: static value => new RenderMaterialCase(Index: value));
+    public static Fin<LayerEdit> RenderMaterial(int index, Op? key = null) =>
+        Indexed(index: index, floor: Unassigned, key: key, mint: static value => new RenderMaterialCase(Index: value));
 
-    public static Fin<LayerEdit> SectionStyleIndex(int index) =>
-        Indexed(index: index, floor: -1, mint: static value => new SectionStyleIndexCase(Index: value));
+    public static Fin<LayerEdit> SectionStyleIndex(int index, Op? key = null) =>
+        Indexed(index: index, floor: Unassigned, key: key, mint: static value => new SectionStyleIndexCase(Index: value));
 
     public static LayerEdit CustomSectionStyle(Option<SectionStyle> value = default) => new CustomSectionStyleCase(Value: value);
 
@@ -434,16 +495,26 @@ public abstract partial record LayerEdit {
 
     public static LayerEdit Expansion(bool value) => new FlagCase(Flag: LayerFlag.Expanded, Value: value);
 
-    public static Fin<LayerEdit> Description(string value) =>
-        Op.Of().AcceptText(value: value).Map(admitted => (LayerEdit)new DescriptionCase(Value: admitted));
+    // `AcceptText` refuses blank, so the text factory could never express "clear the description" — a caller
+    // wanting an empty description had no admitted path and the only way through was to bypass admission. Clearing
+    // is its own construction, and the case carries `Option`: a value writes, absence writes the empty string the
+    // host stores for "no description".
+    public static Fin<LayerEdit> Description(string value, Op? key = null) =>
+        key.OrDefault().AcceptText(value: value)
+            .Map(admitted => (LayerEdit)new DescriptionCase(Value: Some(admitted)));
 
-    public static Fin<LayerEdit> IgesLevel(int value) =>
-        Indexed(index: value, floor: 0, mint: static admitted => new IgesLevelCase(Value: admitted));
+    public static LayerEdit ClearDescription() => new DescriptionCase(Value: Option<string>.None);
+
+    public static Fin<LayerEdit> IgesLevel(int value, Op? key = null) =>
+        Indexed(index: value, floor: 0, key: key, mint: static admitted => new IgesLevelCase(Value: admitted));
 
     public static LayerEdit Override(LayerOverride value) => new OverrideCase(Value: value);
 
-    private static Fin<LayerEdit> Indexed(int index, int floor, Func<int, LayerEdit> mint) =>
-        guard(index >= floor, Op.Of().InvalidInput()).ToFin().Map(_ => mint(arg: index));
+    private static Fin<LayerEdit> Indexed(int index, int floor, Op? key, Func<int, LayerEdit> mint) =>
+        guard(index >= floor, key.OrDefault().InvalidInput()).ToFin().Map(_ => mint(arg: index));
+
+    // The host's own "no component assigned" slot for the render-material and section-style columns.
+    private const int Unassigned = -1;
 
     internal Fin<Unit> Apply(Layer staged, Op key) =>
         Switch(
@@ -467,7 +538,9 @@ public abstract partial record LayerEdit {
             persistentLockingCase: static (context, edit) => Toggle(op: context.Op, value: edit.Value,
                 set: value => context.Staged.SetPersistentLocking(persistentLocking: value),
                 clear: context.Staged.UnsetPersistentLocking),
-            descriptionCase: static (context, edit) => Write(op: context.Op, write: () => context.Staged.Description = edit.Value),
+            descriptionCase: static (context, edit) => Write(
+                op: context.Op,
+                write: () => context.Staged.Description = edit.Value.IfNone(string.Empty)),
             igesLevelCase: static (context, edit) => Write(op: context.Op, write: () => context.Staged.IgesLevel = edit.Value),
             overrideCase: static (context, edit) => edit.Value.Apply(layer: context.Staged, key: context.Op));
 
@@ -477,8 +550,12 @@ public abstract partial record LayerEdit {
             return Fin.Succ(value: unit);
         });
 
+    // `Match` over two `Unit`-returning arms; the prior spelling wrapped each side in `fun(...)` and invoked the
+    // resulting delegate on the same line, which allocates a closure per call to express what `Match` already is.
     internal static Fin<Unit> Toggle<T>(Op op, Option<T> value, Action<T> set, Action clear) =>
-        Write(op: op, write: () => value.Match(Some: chosen => fun(() => set(obj: chosen))(), None: () => fun(clear)()));
+        Write(op: op, write: () => value.Match(
+            Some: chosen => set(obj: chosen),
+            None: () => clear()));
 
     internal static Fin<double> Width(double value, Op op) =>
         guard(double.IsFinite(value) && value >= -1.0, op.InvalidInput()).ToFin().Map(_ => value);
@@ -490,9 +567,10 @@ public abstract partial record LayerEdit {
 - Owner: `LayerOp` `[Union]` closes the structural mutation family; `LayerArrangement` `[Union]` closes sibling ordering; `LayerDelta` admits one named program with its `RedrawPolicy`; `LayerSlot` `[SmartEnum<int>]` names structural consequences, and `LayerReceipt` is the additive fold over one internal `LayerFact` stream with the sealed undo serial as a fact.
 - Entry: `Layers.Ask` is the read window; `Layers.Commit` derives its needs through `SessionNeed.Mutation`, demands once, and commits through `DocumentCommit.Sealed` — suppress, fold every operation into one receipt, seal the record with the serial stamped as an `UndoCase` fact, restore redraw state on every outcome, then repaint after restoration so a suppressing policy still lands its terminal redraw.
 - Law: reparent is staged mutation with a cycle guard — the resolved new parent must not be a child of the target — and the root move writes the empty parent id; rename and every face edit ride the same staged-copy-then-`Modify` path, so a failed program never half-writes a live layer.
-- Law: merge is object custody before structure — every object on the source layer re-homes through a retained attribute snapshot, any failed move or source deletion restores the landed prefix, and cleanup faults land beside the tally as `Seq<Error>`, foldable back onto the rail; source equal to target is refused twice — at admission by ADDRESS, where `LayerRef`'s structural equality catches only two identical addresses, and again inside `Apply` by resolved IDENTITY, which is what catches `ById` and `AtPath` naming one layer.
+- Law: merge is object custody before structure, and it composes `DocumentCommit.Compensated` — the slice's ONE compensation algebra — rather than re-deriving it: the residents are the fold's source, each re-home is a landed key, the source-layer delete is the RELEASE step whose refusal unwinds the landed prefix, and the retained attribute snapshots free after the fold settles on both exits, because a release that freed them first would hand the rollback a disposed attribute set. Cleanup faults land beside the tally as `Seq<Error>`, foldable back onto the rail; source equal to target is refused twice — at admission by ADDRESS, where `LayerRef`'s structural equality catches only two identical addresses, and again inside `Apply` by resolved IDENTITY, which is what catches `ById` and `AtPath` naming one layer.
 - Law: purge tallies compose `TableKind.Layers.Reclaim` — the vocabulary row stays the one reclamation delegate — and revive addresses the dead row by id or index with deleted resolution, the only path that may see a deleted layer.
 - Law: explicit arrangement admits one complete permutation of every active layer before the native sort boundary.
+- Law: `Rollback` is a HOST-SIDE undo of one layer's prior modification and it runs INSIDE the sealed record the delta opened. `UndoModify(layerIndex)` with no serial targets the host's current record — which is the record this commit is building — so the arm reverses edits the same envelope just landed and the seal then stamps a serial over a record whose content has already been withdrawn. A rollback therefore carries its own `UndoSerial` for a PRIOR record, and the serial-free overload is admissible only in a delta that lands no other operation on the same layer; a delta mixing `Amend` and serial-free `Rollback` on one target is the deleted form.
 - Boundary: layer-table events stay on the events page's `EventFamily.LayerTable` binding, named-layer-state save/restore stays on the presets page, and object relayering by query stays on the tables rail; this page enters `document.Objects` only inside the merge arm's custody move.
 
 ```csharp signature
@@ -507,7 +585,7 @@ public abstract partial record LayerArrangement {
     public static LayerArrangement ByName(bool ascending) => new ByNameCase(Ascending: ascending);
 
     public static Fin<LayerArrangement> Explicit(params ReadOnlySpan<LayerRef> order) {
-        Op op = Op.Of();
+        Op op = Op.Of();   // an optional before `params` forecloses the positional spread — the key mints at the entry
         return from values in Admission.All(values: order, key: op)
                from _ in guard(!values.IsEmpty, op.InvalidInput()).ToFin()
                select (LayerArrangement)new ExplicitCase(Order: values);
@@ -522,7 +600,9 @@ public abstract partial record LayerArrangement {
             }),
             explicitCase: static (context, arrange) =>
                 from indices in arrange.Order
-                    .Traverse(address => address.Index(document: context.Document, includeDeleted: false, key: context.Op).ToValidation())
+                    .Traverse(address => address.Index(document: context.Document, includeDeleted: false, key: context.Op)
+                        .Map(static index => index.Value)
+                        .ToValidation())
                     .As()
                     .ToFin()
                 let unique = indices.Distinct()
@@ -540,67 +620,76 @@ public abstract partial record LayerOp {
     private LayerOp() { }
 
     private sealed record CreateCase(LayerName Name, Option<LayerRef> Parent, Seq<LayerEdit> Edits) : LayerOp;
-    private sealed record GraftCase(LayerPath Path, Option<Color> Color) : LayerOp;
+    private sealed record GraftCase(LayerPath Path, Option<System.Drawing.Color> Color) : LayerOp;
     private sealed record AmendCase(LayerRef Target, Seq<LayerEdit> Edits) : LayerOp;
     private sealed record ReparentCase(LayerRef Target, Option<LayerRef> Parent) : LayerOp;
     private sealed record MergeCase(LayerRef Source, LayerRef Target) : LayerOp;
     private sealed record DuplicateCase(LayerRef Target, bool Objects, bool Sublayers) : LayerOp;
-    private sealed record DeleteCase(LayerRef Target, Notice Notice) : LayerOp;
-    private sealed record PurgeCase(LayerRef Target, Notice Notice) : LayerOp;
+    private sealed record DeleteCase(LayerRef Target, HostInteraction Interaction) : LayerOp;
+    private sealed record PurgeCase(LayerRef Target, HostInteraction Interaction) : LayerOp;
     private sealed record ReviveCase(LayerRef Target) : LayerOp;
-    private sealed record AnointCase(LayerRef Target, Notice Notice) : LayerOp;
+    private sealed record AnointCase(LayerRef Target, HostInteraction Interaction) : LayerOp;
     private sealed record ExposeCase(LayerRef Target) : LayerOp;
     private sealed record ArrangeCase(LayerArrangement Arrangement) : LayerOp;
     private sealed record RollbackCase(LayerRef Target, Option<uint> UndoSerial) : LayerOp;
     private sealed record ReclaimCase : LayerOp;
 
     public static Fin<LayerOp> Create(LayerName name, Option<LayerRef> parent = default, params ReadOnlySpan<LayerEdit> edits) =>
+        // an optional before `params` forecloses the positional spread — the key mints at the entry
         Admission.All(values: edits, key: Op.Of())
             .Map(admitted => (LayerOp)new CreateCase(Name: name, Parent: parent, Edits: admitted));
 
-    public static Fin<LayerOp> Graft(LayerPath path, Option<Color> color = default) =>
-        guard(path != default, Op.Of().InvalidInput()).ToFin()
+    public static Fin<LayerOp> Graft(LayerPath path, Option<System.Drawing.Color> color = default, Op? key = null) =>
+        guard(path != default, key.OrDefault().InvalidInput()).ToFin()
             .Map(_ => (LayerOp)new GraftCase(Path: path, Color: color));
 
     public static Fin<LayerOp> Amend(LayerRef target, params ReadOnlySpan<LayerEdit> edits) {
-        Op op = Op.Of();
-        return from address in Optional(target).ToFin(Fail: op.InvalidInput())
+        Op op = Op.Of();   // an optional before `params` forecloses the positional spread — the key mints at the entry
+        return from address in op.Need(target)
                from admitted in Admission.All(values: edits, key: op)
                from _ in guard(!admitted.IsEmpty, op.InvalidInput()).ToFin()
                select (LayerOp)new AmendCase(Target: address, Edits: admitted);
     }
 
-    public static Fin<LayerOp> Reparent(LayerRef target, Option<LayerRef> parent = default) =>
-        Addressed(target: target, mint: address => new ReparentCase(Target: address, Parent: parent));
+    public static Fin<LayerOp> Reparent(LayerRef target, Option<LayerRef> parent = default, Op? key = null) =>
+        Addressed(target: target, key: key, mint: address => new ReparentCase(Target: address, Parent: parent));
 
-    public static Fin<LayerOp> Merge(LayerRef source, LayerRef target) {
-        Op op = Op.Of();
-        return from origin in Optional(source).ToFin(Fail: op.InvalidInput())
-               from destination in Optional(target).ToFin(Fail: op.InvalidInput())
+    public static Fin<LayerOp> Merge(LayerRef source, LayerRef target, Op? key = null) {
+        Op op = key.OrDefault();
+        return from origin in op.Need(source)
+               from destination in op.Need(target)
                from _ in guard(origin != destination, op.InvalidInput()).ToFin()
                select (LayerOp)new MergeCase(Source: origin, Target: destination);
     }
 
-    public static Fin<LayerOp> Duplicate(LayerRef target, bool objects, bool sublayers) =>
-        Addressed(target: target, mint: address => new DuplicateCase(Target: address, Objects: objects, Sublayers: sublayers));
+    public static Fin<LayerOp> Duplicate(LayerRef target, bool objects, bool sublayers, Op? key = null) =>
+        Addressed(target: target, key: key, mint: address => new DuplicateCase(Target: address, Objects: objects, Sublayers: sublayers));
 
-    public static Fin<LayerOp> Delete(LayerRef target, Notice notice) => Noticed(target: target, notice: notice, mint: static (a, n) => new DeleteCase(Target: a, Notice: n));
+    public static Fin<LayerOp> Delete(LayerRef target, HostInteraction interaction, Op? key = null) =>
+        Dialogued(target: target, interaction: interaction, key: key, mint: static (address, dialogue) =>
+            new DeleteCase(Target: address, Interaction: dialogue));
 
-    public static Fin<LayerOp> Purge(LayerRef target, Notice notice) => Noticed(target: target, notice: notice, mint: static (a, n) => new PurgeCase(Target: a, Notice: n));
+    public static Fin<LayerOp> Purge(LayerRef target, HostInteraction interaction, Op? key = null) =>
+        Dialogued(target: target, interaction: interaction, key: key, mint: static (address, dialogue) =>
+            new PurgeCase(Target: address, Interaction: dialogue));
 
-    public static Fin<LayerOp> Revive(LayerRef target) => Addressed(target: target, mint: static address => new ReviveCase(Target: address));
+    public static Fin<LayerOp> Revive(LayerRef target, Op? key = null) =>
+        Addressed(target: target, key: key, mint: static address => new ReviveCase(Target: address));
 
-    public static Fin<LayerOp> Anoint(LayerRef target, Notice notice) => Noticed(target: target, notice: notice, mint: static (a, n) => new AnointCase(Target: a, Notice: n));
+    public static Fin<LayerOp> Anoint(LayerRef target, HostInteraction interaction, Op? key = null) =>
+        Dialogued(target: target, interaction: interaction, key: key, mint: static (address, dialogue) =>
+            new AnointCase(Target: address, Interaction: dialogue));
 
-    public static Fin<LayerOp> Expose(LayerRef target) => Addressed(target: target, mint: static address => new ExposeCase(Target: address));
+    public static Fin<LayerOp> Expose(LayerRef target, Op? key = null) =>
+        Addressed(target: target, key: key, mint: static address => new ExposeCase(Target: address));
 
-    public static Fin<LayerOp> Arrange(LayerArrangement arrangement) =>
-        Optional(arrangement).ToFin(Fail: Op.Of().InvalidInput()).Map(order => (LayerOp)new ArrangeCase(Arrangement: order));
+    public static Fin<LayerOp> Arrange(LayerArrangement arrangement, Op? key = null) =>
+        Optional(arrangement).ToFin(Fail: key.OrDefault().InvalidInput()).Map(order => (LayerOp)new ArrangeCase(Arrangement: order));
 
-    public static Fin<LayerOp> Rollback(LayerRef target, Option<uint> undoSerial = default) {
-        Op op = Op.Of();
+    public static Fin<LayerOp> Rollback(LayerRef target, Option<uint> undoSerial = default, Op? key = null) {
+        Op op = key.OrDefault();
         return (
-                Optional(target).ToFin(Fail: op.InvalidInput()).ToValidation(),
+                op.Need(target).ToValidation(),
                 guard(undoSerial.Map(static serial => serial > 0u).IfNone(noneValue: true), op.InvalidInput()).ToFin().ToValidation())
             .Apply(static (address, _) => address)
             .As()
@@ -610,15 +699,19 @@ public abstract partial record LayerOp {
 
     public static LayerOp Reclaim { get; } = new ReclaimCase();
 
-    private static Fin<LayerOp> Addressed(LayerRef target, Func<LayerRef, LayerOp> mint) =>
-        Optional(target).ToFin(Fail: Op.Of().InvalidInput()).Map(address => mint(arg: address));
+    private static Fin<LayerOp> Addressed(LayerRef target, Op? key, Func<LayerRef, LayerOp> mint) =>
+        Optional(target).ToFin(Fail: key.OrDefault().InvalidInput()).Map(address => mint(arg: address));
 
-    private static Fin<LayerOp> Noticed(LayerRef target, Notice notice, Func<LayerRef, Notice, LayerOp> mint) {
-        Op op = Op.Of();
+    private static Fin<LayerOp> Dialogued(
+        LayerRef target,
+        HostInteraction interaction,
+        Op? key,
+        Func<LayerRef, HostInteraction, LayerOp> mint) {
+        Op op = key.OrDefault();
         return (
-                Optional(target).ToFin(Fail: op.InvalidInput()).ToValidation(),
-                Optional(notice).ToFin(Fail: op.InvalidInput()).ToValidation())
-            .Apply((address, reporting) => mint(address, reporting))
+                op.Need(target).ToValidation(),
+                op.Need(interaction).ToValidation())
+            .Apply((address, dialogue) => mint(address, dialogue))
             .As()
             .ToFin();
     }
@@ -648,7 +741,7 @@ public abstract partial record LayerOp {
                 select LayerReceipt.Node(slot: LayerSlot.Grafted, stamp: stamp),
             amendCase: static (context, edit) =>
                 from index in edit.Target.Index(document: context.Document, includeDeleted: false, key: context.Op)
-                from receipt in Amended(document: context.Document, index: index, edits: edit.Edits, slot: LayerSlot.Amended, op: context.Op)
+                from receipt in Amended(document: context.Document, index: index.Value, edits: edit.Edits, slot: LayerSlot.Amended, op: context.Op)
                 select receipt,
             reparentCase: static (context, edit) =>
                 from target in edit.Target.Resolve(document: context.Document, includeDeleted: false, key: context.Op)
@@ -687,7 +780,7 @@ public abstract partial record LayerOp {
             duplicateCase: static (context, edit) =>
                 from index in edit.Target.Index(document: context.Document, includeDeleted: false, key: context.Op)
                 from minted in context.Op.Catch(() => Fin.Succ(value: toSeq(context.Document.Layers.Duplicate(
-                    layerIndex: index,
+                    layerIndex: index.Value,
                     duplicateObjects: edit.Objects,
                     duplicateSublayers: edit.Sublayers))))
                 from _ in guard(!minted.IsEmpty, context.Op.InvalidResult()).ToFin()
@@ -699,24 +792,24 @@ public abstract partial record LayerOp {
             deleteCase: static (context, edit) =>
                 from target in edit.Target.Resolve(document: context.Document, includeDeleted: false, key: context.Op)
                 from stamp in LayerStamp.Of(layer: target, key: context.Op)
-                from _ in context.Op.Confirm(success: context.Document.Layers.Delete(layerIndex: target.LayerIndex, quiet: edit.Notice.SuppressesWarnings))
+                from _ in context.Op.Confirm(success: context.Document.Layers.Delete(layerIndex: target.LayerIndex, quiet: edit.Interaction.IsQuiet))
                 select LayerReceipt.Node(slot: LayerSlot.Deleted, stamp: stamp),
             purgeCase: static (context, edit) =>
                 from target in edit.Target.Resolve(document: context.Document, includeDeleted: true, key: context.Op)
                 from stamp in LayerStamp.Of(layer: target, key: context.Op)
-                from _ in context.Op.Confirm(success: context.Document.Layers.Purge(layerIndex: target.LayerIndex, quiet: edit.Notice.SuppressesWarnings))
+                from _ in context.Op.Confirm(success: context.Document.Layers.Purge(layerIndex: target.LayerIndex, quiet: edit.Interaction.IsQuiet))
                 select LayerReceipt.Node(slot: LayerSlot.Purged, stamp: stamp),
             reviveCase: static (context, edit) =>
                 from index in edit.Target.Index(document: context.Document, includeDeleted: true, key: context.Op)
-                from _ in context.Op.Confirm(success: context.Document.Layers.Undelete(layerIndex: index))
-                from stamp in Stamped(document: context.Document, index: index, op: context.Op)
+                from _ in context.Op.Confirm(success: context.Document.Layers.Undelete(layerIndex: index.Value))
+                from stamp in Stamped(document: context.Document, index: index.Value, op: context.Op)
                 select LayerReceipt.Node(slot: LayerSlot.Revived, stamp: stamp),
             anointCase: static (context, edit) =>
                 from index in edit.Target.Index(document: context.Document, includeDeleted: false, key: context.Op)
                 from _ in context.Op.Confirm(success: context.Document.Layers.SetCurrentLayerIndex(
-                    layerIndex: index,
-                    quiet: edit.Notice.SuppressesWarnings))
-                from stamp in Stamped(document: context.Document, index: index, op: context.Op)
+                    layerIndex: index.Value,
+                    quiet: edit.Interaction.IsQuiet))
+                from stamp in Stamped(document: context.Document, index: index.Value, op: context.Op)
                 select LayerReceipt.Node(slot: LayerSlot.Anointed, stamp: stamp),
             exposeCase: static (context, edit) =>
                 from target in edit.Target.Resolve(document: context.Document, includeDeleted: false, key: context.Op)
@@ -728,9 +821,9 @@ public abstract partial record LayerOp {
             rollbackCase: static (context, edit) =>
                 from index in edit.Target.Index(document: context.Document, includeDeleted: false, key: context.Op)
                 from _ in context.Op.Confirm(success: edit.UndoSerial.Match(
-                    Some: serial => context.Document.Layers.UndoModify(layerIndex: index, undoRecordSerialNumber: serial),
-                    None: () => context.Document.Layers.UndoModify(layerIndex: index)))
-                from stamp in Stamped(document: context.Document, index: index, op: context.Op)
+                    Some: serial => context.Document.Layers.UndoModify(layerIndex: index.Value, undoRecordSerialNumber: serial),
+                    None: () => context.Document.Layers.UndoModify(layerIndex: index.Value)))
+                from stamp in Stamped(document: context.Document, index: index.Value, op: context.Op)
                 select LayerReceipt.Node(slot: LayerSlot.RolledBack, stamp: stamp),
             reclaimCase: static (context, _) => TableKind.Layers.Reclaim(document: context.Document, key: context.Op)
                 .Map(static tally => LayerReceipt.Reclaimed(tally: tally)));
@@ -772,80 +865,77 @@ public abstract partial record LayerOp {
 
     private sealed record LayerMerge(int Relayered, Seq<Error> CleanupFaults);
 
+    // The merge IS a compensation fold, so it composes the slice's one compensation algebra rather than re-spelling
+    // it: `Compensated` lands each element, rolls every landed key back on the first refusal, and settles source
+    // custody through its release policy — and the source-layer delete is exactly that release step, because it
+    // runs once the whole fold has landed and its own refusal unwinds the landed prefix like any operation fault.
+    // The hand-rolled form re-derived the same landed-then-rollback shape in sixty-five lines beside the owner,
+    // which is the deleted form the transaction rail's `Compensated` law already names.
     private static Fin<LayerMerge> Merged(RhinoDoc document, int sourceIndex, int targetIndex, Op op) =>
-        Rehomed(document: document, sourceIndex: sourceIndex, targetIndex: targetIndex, op: op).Bind(moves =>
-            op.Confirm(success: document.Layers.Delete(layerIndex: sourceIndex, quiet: true)).Match(
-                Succ: _ => Fin.Succ(value: new LayerMerge(
-                    Relayered: moves.Count,
-                    CleanupFaults: Release(moves: moves, op: op))),
-                Fail: primary => Restore(document: document, moves: moves, op: op).Match(
-                    Succ: _ => Fin.Fail<LayerMerge>(error: primary),
-                    Fail: rollback => Fin.Fail<LayerMerge>(error: primary + rollback))));
-
-    private static Fin<Seq<LayerMove>> Rehomed(RhinoDoc document, int sourceIndex, int targetIndex, Op op) =>
-        from residents in op.Catch(() => Fin.Succ(value: toSeq(document.Objects.GetObjectList(settings: new ObjectEnumeratorSettings {
-            NormalObjects = true,
-            LockedObjects = true,
-            HiddenObjects = true,
-            IncludeLights = true,
-            LayerIndexFilter = sourceIndex,
-        })).Strict()))
-        from moved in residents.Fold(
-            Fin.Succ(value: Seq<LayerMove>()),
-            (rail, native) => rail.Bind(held => Move(
+        from moves in Staged(document: document, sourceIndex: sourceIndex, op: op)
+        from merged in DocumentCommit.Compensated(
+                source: moves,
+                land: move => Move(document: document, move: move, targetIndex: targetIndex, op: op),
+                rollback: landed => Restore(
                     document: document,
-                    native: native,
-                    targetIndex: targetIndex,
-                    op: op)
-                .Map(held.Add)
-                .MapFail(primary => Restore(document: document, moves: held, op: op).Match(
-                    Succ: _ => primary,
-                    Fail: rollback => primary + rollback))))
-        select moved;
+                    moves: moves.Filter(move => landed.Exists(id => id == move.ObjectId)),
+                    op: op),
+                release: _ => op.Confirm(success: document.Layers.Delete(layerIndex: sourceIndex, quiet: true)))
+            .BiBind(
+                // The retained originals free on BOTH exits and only after the fold has settled — a release that
+                // freed them before rollback would hand the restore a disposed attribute set.
+                Succ: landed => Fin.Succ(value: new LayerMerge(
+                    Relayered: landed.Count,
+                    CleanupFaults: Release(moves: moves, op: op))),
+                Fail: primary => Fin.Fail<LayerMerge>(error: Release(moves: moves, op: op)
+                    .Fold(primary, static (fault, cleanup) => fault + cleanup)))
+        select merged;
 
-    private static Fin<LayerMove> Move(RhinoDoc document, RhinoObject native, int targetIndex, Op op) =>
-        from original in op.Catch(() => Optional(native.Attributes?.Duplicate()).ToFin(Fail: op.InvalidResult()))
-        from staged in op.Catch(() => Optional(native.Attributes?.Duplicate()).ToFin(Fail: op.InvalidResult()))
-            .MapFail(primary => Dispose(value: original, op: op).Match(
-                Succ: _ => primary,
-                Fail: cleanup => primary + cleanup))
+    // One duplicate per resident, retained as the restore payload. The census reads the residents through the
+    // spine's own query value, so the merge does not mint a second settings shape beside `QuerySpec`.
+    private static Fin<Seq<LayerMove>> Staged(RhinoDoc document, int sourceIndex, Op op) =>
+        from index in ResourceIndex.Admit(value: sourceIndex, key: op)
+        from spec in QuerySpec.Of(
+            hidden: true,
+            lights: true,
+            layer: index,
+            key: op)
+        from settings in spec.Build(document: document, key: op)
+        from residents in op.Catch(() => Optional(document.Objects.GetObjectList(settings: settings))
+            .ToFin(Fail: op.InvalidResult())
+            .Map(static values => toSeq(values).Strict()))
+        from staged in DocumentCommit.Compensated(
+            source: residents,
+            land: native => op.Catch(() => Optional(native.Attributes?.Duplicate())
+                .ToFin(Fail: op.InvalidResult())
+                .Map(original => new LayerMove(ObjectId: native.Id, Original: original))),
+            rollback: landed => Fin.Succ(value: Op.Side(() => landed.Iter(static move => move.Original.Dispose()))))
+        select staged;
+
+    private static Fin<Guid> Move(RhinoDoc document, LayerMove move, int targetIndex, Op op) =>
+        from staged in op.Catch(() => Optional(move.Original.Duplicate()).ToFin(Fail: op.InvalidResult()))
         from _ in new Lease<ObjectAttributes>.Owned(Value: staged).Use(owned => {
             owned.LayerIndex = targetIndex;
             return op.Confirm(success: document.Objects.ModifyAttributes(
-                objectId: native.Id,
+                objectId: move.ObjectId,
                 newAttributes: owned,
                 quiet: true));
-        }).MapFail(primary => Dispose(value: original, op: op).Match(
-            Succ: _ => primary,
-            Fail: cleanup => primary + cleanup))
-        select new LayerMove(ObjectId: native.Id, Original: original);
+        })
+        select move.ObjectId;
 
     private static Fin<Unit> Restore(RhinoDoc document, Seq<LayerMove> moves, Op op) => moves.Rev()
-        .Traverse(move => Restore(document: document, move: move, op: op).ToValidation())
+        .Traverse(move => op.Catch(() => op.Confirm(success: document.Objects.ModifyAttributes(
+            objectId: move.ObjectId,
+            newAttributes: move.Original,
+            quiet: true))).ToValidation())
         .As()
         .ToFin()
         .Map(static _ => unit);
 
-    private static Fin<Unit> Restore(RhinoDoc document, LayerMove move, Op op) {
-        Fin<Unit> mutation = op.Catch(() => op.Confirm(success: document.Objects.ModifyAttributes(
-            objectId: move.ObjectId,
-            newAttributes: move.Original,
-            quiet: true)));
-        Fin<Unit> cleanup = Dispose(value: move.Original, op: op);
-        return mutation.Match(
-            Succ: _ => cleanup,
-            Fail: primary => cleanup.Match(
-                Succ: _ => Fin.Fail<Unit>(error: primary),
-                Fail: release => Fin.Fail<Unit>(error: primary + release)));
-    }
-
     private static Seq<Error> Release(Seq<LayerMove> moves, Op op) => moves
-        .Choose(move => Dispose(value: move.Original, op: op).Match(
+        .Choose(move => op.Catch(() => Fin.Succ(value: Op.Side(move.Original.Dispose))).Match(
             Succ: static _ => Option<Error>.None,
             Fail: static error => Some(error)));
-
-    private static Fin<Unit> Dispose(ObjectAttributes value, Op op) =>
-        op.Catch(() => Fin.Succ(value: Op.Side(value.Dispose)));
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
@@ -942,9 +1032,9 @@ public sealed record LayerDelta {
     public Seq<LayerOp> Operations { get; }
 
     public static Fin<LayerDelta> Of(string name, RedrawPolicy redraw, params ReadOnlySpan<LayerOp> operations) {
-        Op op = Op.Of();
+        Op op = Op.Of();   // an optional before `params` forecloses the positional spread — the key mints at the entry
         return from label in op.AcceptText(value: name)
-               from policy in Optional(redraw).ToFin(Fail: op.InvalidInput())
+               from policy in op.Need(redraw)
                from admitted in Admission.All(values: operations, key: op)
                from _ in guard(!admitted.IsEmpty, op.InvalidInput()).ToFin()
                select new LayerDelta(name: label, redraw: policy, operations: admitted);
@@ -955,7 +1045,7 @@ public static class Layers {
     public static Fin<LayerTree> Ask(DocumentSession session, params ReadOnlySpan<Guid> detailViewports) {
         Op op = Op.Of();   // an optional before `params` forecloses the positional spread — the key mints at the entry
         Seq<Guid> probes = toSeq(detailViewports.ToArray());
-        return from scope in Optional(session).ToFin(Fail: op.InvalidInput())
+        return from scope in op.Need(session)
                from admitted in probes
                    .Traverse(viewport => guard(viewport != Guid.Empty, op.InvalidInput()).ToFin().Map(_ => viewport).ToValidation())
                    .As()

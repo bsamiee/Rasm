@@ -198,6 +198,14 @@ flowchart LR
     Domain e22@-->|"[PORT]: ReceiptSinkPort + InstrumentSpec + Slo"| AppUi
     Domain e23@-->|"[PORT]: ReceiptSinkPort + InstrumentSpec + SpanBand + Slo"| Compute
     Analysis e19@-->|"[SHAPE]: GeometryMeasures"| Bim
+    Domain e30@-->|"[PORT]: ReceiptSinkPort + InstrumentSpec + SpanBand"| Element
+    Domain e31@-->|"[PORT]: ReceiptSinkPort + InstrumentSpec + SpanBand + HookPoint"| Bim
+    Domain e32@-->|"[PORT]: ReceiptSinkPort + InstrumentSpec + SpanBand + HookPoint"| Materials
+    Domain e33@-->|"[SHAPE]: BenchClaim + Deterministic"| Materials
+    Domain e34@-->|"[SHAPE]: BenchClaim"| Bim
+    Numerics e35@-->|"[SHAPE]: CellLattice"| Element
+    Numerics e36@-->|"[SHAPE]: RgbProfile + CellLattice"| Bim
+    Numerics e37@-->|"[SHAPE]: RgbProfile"| Materials
     Numerics e25@-->|"[SHAPE]: SunPosition"| Compute
     Numerics e26@-->|"[SHAPE]: SunPosition"| AppUi
     Numerics e27@-->|"[SHAPE]: SunPosition"| Materials

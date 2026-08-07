@@ -28,19 +28,19 @@
 
 [CHANGE_SET_TYPES]: change records and stream contracts
 
-| [INDEX] | [SYMBOL]                                        | [TYPE_FAMILY] | [CAPABILITY]                                             |
-| :-----: | :---------------------------------------------- | :------------ | :------------------------------------------------------- |
-|  [01]   | `IChangeSet<T>`                                 | interface     | list change-set                                          |
-|  [02]   | `IChangeSet<TObject,TKey>`                      | interface     | cache change-set                                         |
-|  [03]   | `Change<T>`                                     | struct        | one list change                                          |
-|  [04]   | `Change<TObject,TKey>`                          | struct        | one cache change                                         |
-|  [05]   | `ChangeReason`                                  | enum          | cache change reason                                      |
-|  [06]   | `ListChangeReason`                              | enum          | list change reason                                       |
-|  [07]   | `ISortedChangeSet<TObject,TKey>`                | interface     | sorted change-set, `SortedItems` order snapshot          |
-|  [08]   | `IGroupChangeSet<TObject,TKey,TGroup>`          | interface     | `IChangeSet<IGroup<TObject,TKey,TGroup>,TGroup>`         |
-|  [09]   | `IImmutableGroupChangeSet<TObject,TKey,TGroup>` | interface     | `IChangeSet<IGrouping<TObject,TKey,TGroup>,TGroup>`      |
-|  [10]   | `IPagedChangeSet<TObject,TKey>`                 | interface     | paged change-set, `Response` bounds                      |
-|  [11]   | `IVirtualChangeSet<TObject,TKey>`               | interface     | `ISortedChangeSet` plus `Response` bounds                |
+| [INDEX] | [SYMBOL]                                        | [TYPE_FAMILY] | [CAPABILITY]                                        |
+| :-----: | :---------------------------------------------- | :------------ | :-------------------------------------------------- |
+|  [01]   | `IChangeSet<T>`                                 | interface     | list change-set                                     |
+|  [02]   | `IChangeSet<TObject,TKey>`                      | interface     | cache change-set                                    |
+|  [03]   | `Change<T>`                                     | struct        | one list change                                     |
+|  [04]   | `Change<TObject,TKey>`                          | struct        | one cache change                                    |
+|  [05]   | `ChangeReason`                                  | enum          | cache change reason                                 |
+|  [06]   | `ListChangeReason`                              | enum          | list change reason                                  |
+|  [07]   | `ISortedChangeSet<TObject,TKey>`                | interface     | sorted change-set, `SortedItems` order snapshot     |
+|  [08]   | `IGroupChangeSet<TObject,TKey,TGroup>`          | interface     | `IChangeSet<IGroup<TObject,TKey,TGroup>,TGroup>`    |
+|  [09]   | `IImmutableGroupChangeSet<TObject,TKey,TGroup>` | interface     | `IChangeSet<IGrouping<TObject,TKey,TGroup>,TGroup>` |
+|  [10]   | `IPagedChangeSet<TObject,TKey>`                 | interface     | paged change-set, `Response` bounds                 |
+|  [11]   | `IVirtualChangeSet<TObject,TKey>`               | interface     | `ISortedChangeSet` plus `Response` bounds           |
 
 - `Change<TObject,TKey>` carries `Reason : ChangeReason`, `Key : TKey`, and `Current : TObject` populated on EVERY reason — the removed object on `Remove` — beside `Previous : Optional<TObject>` (DynamicData's own `Optional`, populated on `Update` alone) and the `CurrentIndex`/`PreviousIndex` pair.
 
@@ -70,7 +70,7 @@
 |  [06]   | `VirtualRequest`                    | class         | `IVirtualRequest` impl, `StartIndexSizeComparer`                                   |
 |  [07]   | `IVirtualResponse`                  | interface     | virtual bounds — `StartIndex`/`Size`/`TotalSize`                                   |
 |  [08]   | `IPageResponse`                     | interface     | page bounds — `Page`/`Pages`/`PageSize`/`TotalSize`                                |
-|  [09]   | `IKeyValueCollection<TObject,TKey>` | interface     | sorted key-value snapshot with its comparer                        |
+|  [09]   | `IKeyValueCollection<TObject,TKey>` | interface     | sorted key-value snapshot with its comparer                                        |
 |  [10]   | `IGroup<TObject,TKey,TGroup>`       | interface     | live group — `Key`, `Cache : IObservableCache<TObject,TKey>`                       |
 |  [11]   | `IGrouping<TObject,TKey,TGroup>`    | interface     | immutable group snapshot — `Key`/`Count`/`Items`/`Keys`/`KeyValues`/`Lookup(TKey)` |
 |  [12]   | `Node<TObject,TKey>`                | class         | tree node — `Item`/`Depth`/`Children`/`Parent`                                     |

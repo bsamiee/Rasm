@@ -1,8 +1,8 @@
 # [COMPUTE_UNCERTAINTY]
 
-Rasm.Compute solver uncertainty: one `UncertaintyMethod` forward-UQ/reliability axis carrying a keyless `UqStrategy` driver and `SampleDesign` matrix behavior. `RandomVariable` owns inverse transforms and orthonormal recurrences; `UncertaintyResult` carries explicit optional response moments beside quantiles, sensitivity indices, surrogate fit calibration, failure probability, reliability index, and physical most-probable point.
+Rasm.Compute solver uncertainty: one `UncertaintyMethod` forward-UQ/reliability axis carrying a keyless `UqStrategy` driver, a `SampleDesign` matrix behavior, and its own draw lane. `RandomVariable` owns inverse transforms and orthonormal recurrences; `UncertaintyResult` carries explicit optional response moments beside quantiles, the method-discriminated `SensitivityPayload`, surrogate fit calibration, failure probability, reliability index, and physical most-probable point.
 
-Variance-reduced draws ride `LowDiscrepancy` through inverse transform; the Monte Carlo row owns one seeded pseudo-random matrix. Response moments use `MathNet.Numerics.Statistics`; PCE coefficients use dense or sparse QR; structured Saltelli and Morris designs own their estimators. Correlated inputs use one Cholesky-gated Gaussian copula. FORM/SORM uses a `LimitState` union over exact HyperJet derivatives or typed finite differences, and subset simulation uses the Au-Beck modified Metropolis chain.
+Variance-reduced draws ride `LowDiscrepancy` through inverse transform; every pseudo-random draw on the page — the Monte Carlo matrix, the Morris permutation and step sign, the subset chain — comes from the kernel `Deterministic.Source` keyed on `(UncertaintyMethod.Lane, …)` under `UncertaintyPolicy.Seed`, so one seed reproduces one campaign and two rows never replay each other's stream. Response moments use `MathNet.Numerics.Statistics`; PCE coefficients use dense or sparse QR over a basis built once in the format its own route consumes; structured Saltelli and Morris designs own their estimators. Correlated inputs use one Cholesky-gated Gaussian copula. FORM/SORM uses the one `LimitState` union over exact HyperJet derivatives or typed finite differences, and subset simulation uses the Au-Beck modified Metropolis chain.
 
 ## [01]-[INDEX]
 
@@ -10,24 +10,30 @@ Variance-reduced draws ride `LowDiscrepancy` through inverse transform; the Mont
 
 ## [02]-[UNCERTAINTY_LANE]
 
-- Owner: `UncertaintyMethod` `[SmartEnum<string>]` propagation-strategy rows carrying a `UqStrategy` driver discriminant and a `SampleDesign` matrix column; `RandomVariable` `[Union]` input-distribution cases each lowering to an inverse-transform `Quantile`, a closed-form `Mean`, a `Standardize` map, a `PolynomialBasis` Wiener-Askey label, and a `RecurrenceCoefficients` orthonormal-polynomial row; `RecurrenceCoefficients` the one orthonormal three-term-recurrence owner (the four Askey closed forms with the discretized-Stieltjes arbitrary-PCE construction); `UncertaintyResult` the distribution-valued response carrier (moments through kurtosis + quantiles + first/total Sobol + Morris interaction + surrogate `R²` and residual standard error + `pf` + `β` + the physical MPP); `Uncertainty` the static `UqStrategy`-dispatched (total `Switch`) `Propagate` fold driving the `Solver/optimizer#OPTIMIZER_LANE` `evaluate` oracle.
-- Cases: `SampleDesign` pseudo-random · space-filling · stratified · conditional-levels · Saltelli-AB-AB · Morris-trajectory · analytic; `UncertaintyMethod` monte-carlo · latin-hypercube-mc · polynomial-chaos · first-order-reliability · second-order-reliability · subset-simulation · sobol-saltelli · morris; `PolynomialBasis` hermite · legendre · laguerre · jacobi · arbitrary; `RandomVariable` normal · log-normal · uniform · gamma · exponential · Weibull · Gumbel · beta · triangular · empirical.
-- Entry: `public static Fin<UncertaintyResult> Propagate(Seq<RandomVariable> inputs, UncertaintyPolicy policy, Func<DesignPoint, Fin<Seq<double>>> evaluate, IClock clock)` validates every input distribution, unique names, policy bounds, method/design compatibility, response component, and correlation matrix before dispatch. `Component` faults a short or non-finite response vector; no first-component or zero fallback exists.
-- Auto: `Propagate` builds the optional Gaussian-copula `Transform` (identity when absent) and dispatches the `UqStrategy` driver off the `UncertaintyMethod.Strategy` row — the matrix-sampling driver draws the `LowDiscrepancy.Sobol` unit matrix, shapes it per `SampleDesign` (space-filling, LHS-stratified, the Saltelli `(2+d)·N` A/B/AB block, or the Morris `(d+1)·r` trajectory grid), maps each unit row through the copula and the per-axis `Quantile`, evaluates, and reduces to the moment fold with the Saltelli/Morris indices or the composed `SensitivityTornado` first-order; the spectral-fit driver fits the orthonormal Vandermonde over the per-input `RecurrenceCoefficients` through thin-QR (sparse-QR for a large basis) and reads mean/variance/Sobol closed-form from the coefficient masses; the reliability-search driver runs HLRF to the standard-normal MPP scoring `β`/`pf`/importance-factors, the SORM row adding the Breitung curvature correction; the subset driver conditions successive populations on intermediate thresholds through the Au-Beck sampler so a `pf~10⁻⁶` rare event resolves in `O(N·log pf)` evaluations. State threads as one immutable fold accumulator, never a per-method mutable loop.
-- Receipt: `Receipt` projects the full `UncertaintyResult` onto the widened `Uncertainty` `ComputeReceipt` case — method key, realized sample/evaluation count, nullable mean/variance/skewness/kurtosis (a method that does not estimate a moment carries `null`, never `NaN` or a fabricated failure), quantiles, first-order and total-effect Sobol indices, Morris interaction σ, the physical MPP, the surrogate `R²` and residual standard error the spectral fit calibrates, `pf`, and `β` — under `ReceiptScope.Execution`.
-- Packages: MathNet.Numerics, HyperJet (the exact-AD FORM/SORM gradient/Hessian leg via `SensitivityLaw`), System.Numerics.Tensors, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm.Persistence (project), BCL inbox
-- Growth: a new propagation strategy is one `UncertaintyMethod` row binding its `UqStrategy` driver and `SampleDesign`; a new input distribution is one `RandomVariable` case lowering to its `Quantile`/`Mean`/`Standardize`/`Basis`/`Recurrence` — an Askey-family input binds a closed-form `RecurrenceCoefficients` constructor, a non-Askey input falls to the one `Stieltjes` construction with zero new surface; a new response statistic is one field on `UncertaintyResult` with one slot on the `Uncertainty` receipt; a `MonteCarloRunner`/`LatinHypercubeSampler`/`PceFitter`/`FormSolver`/`SormSolver`/`SaltelliSobol`/`MorrisScreening`/`SubsetSimulator` sibling family is collapsed onto one `UqStrategy`-dispatched (total `Switch`) `Uncertainty` fold, a `MomentsResult`/`ReliabilityResult`/`SensitivityResult` result trio onto the one `UncertaintyResult` carrier, a `NormalVariable`/`WeibullVariable`/`EmpiricalVariable` class family onto the one `RandomVariable` union, and a `HermiteBasis`/`LegendreBasis`/`LaguerreBasis`/`JacobiBasis` polynomial-evaluator family onto the one `RecurrenceCoefficients` orthonormal recurrence.
-- Boundary: `evaluate` is the single solver coupling. Monte Carlo uses one seeded pseudo-random matrix; variance-reduced designs use the owned `LowDiscrepancy` generator; subset simulation uses one seeded conditional chain. Correlation admission requires a finite symmetric unit-diagonal positive-definite matrix and rejects PCE/Saltelli/Morris until a generalized correlated-sensitivity estimator exists. FORM faults a degenerate gradient or iteration-cap miss. SORM counts curvature evaluations and faults invalid Breitung curvature domains instead of dropping factors. Subset simulation faults a level-cap miss. Reliability-only results carry absent moments as `None`, not `NaN` sentinels. Fit calibration belongs to the spectral row alone — a sampling, reliability, or subset run fits no surrogate, so both calibration columns stay `None`, and an exactly-determined basis interpolates with no residual degrees of freedom, so its standard error stays `None` rather than publishing the infinite quotient.
+- Owner: `UncertaintyMethod` `[SmartEnum<string>]` propagation-strategy rows carrying a `UqStrategy` driver discriminant, a `SampleDesign` matrix column, and the draw lane every stochastic step keys on; `RandomVariable` `[Union]` input-distribution cases each lowering to an inverse-transform `Quantile`, a `Standardize` map into its own orthogonality coordinate, and a `RecurrenceCoefficients` orthonormal-polynomial row; `RecurrenceCoefficients` the one orthonormal three-term-recurrence owner (the four Askey closed forms with the discretized-Stieltjes arbitrary-PCE construction) with its own admission; `SensitivityPayload` `[Union]` the method-discriminated sensitivity carrier; `UncertaintyResult` the distribution-valued response carrier (moments through kurtosis + quantiles + the sensitivity payload + surrogate `R²` and residual standard error + `pf` + `β` + the physical MPP); `Uncertainty` the static `UqStrategy`-dispatched (total `Switch`) `Propagate` fold driving the `Solver/optimizer#OPTIMIZER_LANE` `evaluate` oracle.
+- Cases: `SampleDesign` pseudo-random · space-filling · stratified · Saltelli-AB-AB · Morris-trajectory · analytic; `UncertaintyMethod` monte-carlo · latin-hypercube-mc · polynomial-chaos · first-order-reliability · second-order-reliability · subset-simulation · sobol-saltelli · morris; `SensitivityPayload` `Sobol(First, Total)` · `Morris(MuStar, Sigma)` · `Importance(Alpha)`; `LimitState` `Oracle` · `Smooth` · `SmoothSpan`; `RandomVariable` normal · log-normal · uniform · gamma · exponential · Weibull · Gumbel · beta · triangular · empirical.
+- Entry: `public static Fin<UncertaintyResult> Propagate(Seq<RandomVariable> inputs, UncertaintyPolicy policy, Func<DesignPoint, Fin<Seq<double>>> evaluate, IClock clock)` validates every input distribution, unique names, policy bounds, method/design compatibility, response component, supplied-limit-state shape, and correlation matrix before dispatch. `Component` faults a short or non-finite response vector; no first-component or zero fallback exists.
+- Auto: `Propagate` builds the optional Gaussian-copula `Transform` (identity when absent) and dispatches the `UqStrategy` driver off the `UncertaintyMethod.Strategy` row — the matrix-sampling driver draws the `LowDiscrepancy.Sobol` unit matrix, shapes it per `SampleDesign` (space-filling, LHS-stratified, the Saltelli `(2+d)·N` A/B/AB block, or the Morris `(d+1)·r` randomized-permutation trajectory grid), maps each unit row through the copula and the per-axis `Quantile`, evaluates, and reduces to the moment fold with the Saltelli/Morris payload or the composed `SensitivityTornado` first-order; the spectral-fit driver builds the orthonormal basis over the per-input `RecurrenceCoefficients` in the format its route consumes — a dense Vandermonde for thin-QR, COO triplets for the sparse-QR route — and reads mean/variance/Sobol closed-form from the coefficient masses; the reliability-search driver runs HLRF to the standard-normal MPP scoring `β`/`pf`/importance-factors, the SORM row adding the Breitung curvature correction; the subset driver conditions successive populations on intermediate thresholds through the Au-Beck sampler so a `pf~10⁻⁶` rare event resolves in `O(N·log pf)` evaluations. State threads as one immutable fold accumulator, never a per-method mutable loop.
+- Receipt: `Receipt` projects the full `UncertaintyResult` onto the widened `Uncertainty` `ComputeReceipt` case — method key, realized sample/evaluation count, nullable mean/variance/skewness/kurtosis (a method that does not estimate a moment carries `null`, never `NaN` or a fabricated failure), quantiles, the three index slots the `SensitivityPayload` case fills (Sobol first and total, Morris μ* and σ, reliability importance factors — each case writing the slots it measured and leaving the rest empty), the physical MPP, the surrogate `R²` and residual standard error the spectral fit calibrates, `pf`, and `β` — under `ReceiptScope.Execution`.
+- Packages: MathNet.Numerics, HyperJet (the exact-AD FORM/SORM gradient/Hessian leg via `SensitivityLaw`), System.Numerics.Tensors, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm (project, `Deterministic.Source` as the one draw owner), Rasm.Persistence (project), BCL inbox
+- Boundary: the spectral fit solves on the `Tensor/blas#DENSE_ALGEBRA` route with the `DenseSubstrate` composition selected, threaded as a POLICY VALUE — an ambient substrate cell let two compositions in one process overwrite each other's choice and stamped receipts with whatever the cell held at read time. The returned `DenseSolve` carries the row that SERVED beside its witnessed residual, so a native leg declining this operand is a fact the carrier holds rather than an assumption from the row asked for.
+- Growth: a new propagation strategy is one `UncertaintyMethod` row binding its `UqStrategy` driver, `SampleDesign`, and draw lane; a new input distribution is one `RandomVariable` case lowering to its `Quantile`/`Standardize`/`Recurrence` — an Askey-family input binds a closed-form `RecurrenceCoefficients` constructor, a non-Askey input falls to the one `Stieltjes` construction with zero new surface; a new sensitivity family is one `SensitivityPayload` case with its own receipt projection arm; a new response statistic is one field on `UncertaintyResult` with one slot on the `Uncertainty` receipt; a `MonteCarloRunner`/`LatinHypercubeSampler`/`PceFitter`/`FormSolver`/`SormSolver`/`SaltelliSobol`/`MorrisScreening`/`SubsetSimulator` sibling family is collapsed onto one `UqStrategy`-dispatched (total `Switch`) `Uncertainty` fold, a `MomentsResult`/`ReliabilityResult`/`SensitivityResult` result trio onto the one `UncertaintyResult` carrier, a `NormalVariable`/`WeibullVariable`/`EmpiricalVariable` class family onto the one `RandomVariable` union, and a `HermiteBasis`/`LegendreBasis`/`LaguerreBasis`/`JacobiBasis` polynomial-evaluator family onto the one `RecurrenceCoefficients` orthonormal recurrence.
+- Boundary: `evaluate` is the single solver coupling, and the sample fold is SEQUENTIAL because that contract is the bare synchronous `Fin` — a campaign wanting overlapped evaluation composes `Solver/sweep#SWEEP_AND_BUDGET`, which owns the `IO`-lifted oracle and the chunked fan-out, rather than this lane growing a second oracle shape. Variance-reduced designs use the owned `LowDiscrepancy` generator and every pseudo-random step draws from `Deterministic.Source` on the method's lane; a bare `new Random(seed)` forks replay across runtimes and has no site left.
+- Boundary: correlation admission requires a finite symmetric unit-diagonal positive-definite matrix and rejects PCE/Saltelli/Morris until a generalized correlated-sensitivity estimator exists. FORM faults a degenerate gradient or iteration-cap miss. SORM counts curvature evaluations and faults invalid Breitung curvature domains instead of dropping factors. Subset simulation faults a level-cap miss and tallies EVERY oracle call — the seeded population, each chain's own seed probe, and each proposal — so the receipt's evaluation count is the cost the campaign actually paid.
+- Boundary: an estimate below its sample floor is ABSENT, never zero — skewness needs three samples and kurtosis four, and a fabricated `0.0` inside a `Some` reads as a measured symmetry the campaign never established. Reliability-only results carry absent moments as `None`, not `NaN` sentinels. Fit calibration belongs to the spectral row alone — a sampling, reliability, or subset run fits no surrogate, so both calibration columns stay `None`, and an exactly-determined basis interpolates with no residual degrees of freedom, so its standard error stays `None` rather than publishing the infinite quotient.
+- Boundary: PER-AXIS basis and standardization pair by construction and that pairing IS tensor-product PCE law — each axis is orthogonal with respect to its OWN measure in its OWN coordinate (Hermite over the standardized normal, Legendre over the uniform mapped to `[-1,1]`, Laguerre over the rate-scaled gamma), and the product basis is orthonormal because the joint measure factorizes. A reading that calls the per-axis coordinates "mixed" mistakes a tensor product for a change of basis; the construction is correct and a shared coordinate across axes would be the error.
+- Boundary: Morris is a GRID method — each trajectory draws its own axis permutation and step sign from the method's lane, the step is the `p/(2(p−1))` grid delta, and a step leaving `[0,1]` REFLECTS to the other side of the level grid rather than clamping, because a clamped step changes the denominator the elementary effect divides by and reports a distorted sensitivity as a measured one. The screening reads each effect's axis and signed step off the DESIGN it evaluated, so the permutation needs no side channel and cannot drift from the matrix it describes.
 
 ```csharp signature
 // --- [TYPES] ----------------------------------------------------------------------------
 
+// The matrix shapes `Design` materializes, plus `Analytic` for the rows that draw NO design matrix — the reliability
+// search walks to its own MPP and the subset chain seeds its own population, so neither reaches `Design` at all.
 [SmartEnum]
 public sealed partial class SampleDesign {
     public static readonly SampleDesign PseudoRandom = new();
     public static readonly SampleDesign SpaceFilling = new();
     public static readonly SampleDesign Stratified = new();
-    public static readonly SampleDesign ConditionalLevels = new();
     public static readonly SampleDesign SaltelliAbAb = new();
     public static readonly SampleDesign MorrisTrajectory = new();
     public static readonly SampleDesign Analytic = new();
@@ -45,33 +51,34 @@ public sealed partial class UqStrategy {
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class UncertaintyMethod {
-    public static readonly UncertaintyMethod MonteCarlo = new("monte-carlo", UqStrategy.MatrixSampling, SampleDesign.PseudoRandom);
-    public static readonly UncertaintyMethod LatinHypercubeMc = new("latin-hypercube-mc", UqStrategy.MatrixSampling, SampleDesign.Stratified);
-    public static readonly UncertaintyMethod PolynomialChaos = new("polynomial-chaos", UqStrategy.SpectralFit, SampleDesign.Stratified);
-    public static readonly UncertaintyMethod FirstOrderReliability = new("first-order-reliability", UqStrategy.ReliabilitySearch, SampleDesign.Analytic);
-    public static readonly UncertaintyMethod SecondOrderReliability = new("second-order-reliability", UqStrategy.ReliabilitySearch, SampleDesign.Analytic);
-    public static readonly UncertaintyMethod SubsetSimulation = new("subset-simulation", UqStrategy.Subset, SampleDesign.ConditionalLevels);
-    public static readonly UncertaintyMethod SobolSaltelli = new("sobol-saltelli", UqStrategy.MatrixSampling, SampleDesign.SaltelliAbAb);
-    public static readonly UncertaintyMethod Morris = new("morris", UqStrategy.MatrixSampling, SampleDesign.MorrisTrajectory);
+    public static readonly UncertaintyMethod MonteCarlo = new("monte-carlo", UqStrategy.MatrixSampling, SampleDesign.PseudoRandom, lane: 1L);
+    public static readonly UncertaintyMethod LatinHypercubeMc = new("latin-hypercube-mc", UqStrategy.MatrixSampling, SampleDesign.Stratified, lane: 2L);
+    public static readonly UncertaintyMethod PolynomialChaos = new("polynomial-chaos", UqStrategy.SpectralFit, SampleDesign.Stratified, lane: 3L);
+    public static readonly UncertaintyMethod FirstOrderReliability = new("first-order-reliability", UqStrategy.ReliabilitySearch, SampleDesign.Analytic, lane: 4L);
+    public static readonly UncertaintyMethod SecondOrderReliability = new("second-order-reliability", UqStrategy.ReliabilitySearch, SampleDesign.Analytic, lane: 5L);
+    public static readonly UncertaintyMethod SubsetSimulation = new("subset-simulation", UqStrategy.Subset, SampleDesign.Analytic, lane: 6L);
+    public static readonly UncertaintyMethod SobolSaltelli = new("sobol-saltelli", UqStrategy.MatrixSampling, SampleDesign.SaltelliAbAb, lane: 7L);
+    public static readonly UncertaintyMethod Morris = new("morris", UqStrategy.MatrixSampling, SampleDesign.MorrisTrajectory, lane: 8L);
 
     public UqStrategy Strategy { get; }
     public SampleDesign Design { get; }
+
+    // Draw lane: every pseudo-random step keys the kernel `Deterministic` source on `(Lane, …)` so one policy seed
+    // yields independent streams per row and a re-run of one method never replays another's draws. The column is
+    // DECLARED rather than derived from the key string, so a row rename never silently re-keys a stored campaign.
+    public long Lane { get; }
 }
 
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class PolynomialBasis {
-    public static readonly PolynomialBasis Hermite = new("hermite", askey: true);
-    public static readonly PolynomialBasis Legendre = new("legendre", askey: true);
-    public static readonly PolynomialBasis Laguerre = new("laguerre", askey: true);
-    public static readonly PolynomialBasis Jacobi = new("jacobi", askey: true);
-    public static readonly PolynomialBasis Arbitrary = new("arbitrary", askey: false);
-
-    public bool Askey { get; }
-}
-
+// The three-term recurrence `p̂ₖ₊₁ = ((x − Aₖ)p̂ₖ − √Bₖ p̂ₖ₋₁)/√Bₖ₊₁` for an orthoNORMAL family. `Admit` runs once per
+// basis before any evaluation: a vanishing `B` divides the normalization by zero, and a degenerate measure reaches
+// one through the Stieltjes construction, so the refusal is typed at the basis rather than a NaN column in the fit.
 public sealed record RecurrenceCoefficients(ImmutableArray<double> A, ImmutableArray<double> B) {
+    public Fin<Unit> Admit(string variable) =>
+        A.Any(static value => !double.IsFinite(value)) || B.Any(static value => !double.IsFinite(value) || value <= 1e-300)
+            ? Fin.Fail<Unit>(new ComputeFault.ModelRejected($"<uncertainty-recurrence-degenerate:{variable}>"))
+            : Fin.Succ(unit);
+
+    // Trusts `Admit`: every `B` is finite and strictly positive, so the normalizing roots are real and non-zero.
     public double Evaluate(int degree, double x) {
         double prev = 0.0, cur = 1.0;
         for (int k = 0; k < degree; k++) {
@@ -173,15 +180,6 @@ public abstract partial record RandomVariable {
             triangular: static value => InvalidName(value.Name) || !double.IsFinite(value.Lower) || !double.IsFinite(value.Upper) || !double.IsFinite(value.Mode) || value.Lower >= value.Upper || value.Mode < value.Lower || value.Mode > value.Upper,
             empirical: static value => InvalidName(value.Name) || InvalidEmpirical(value.Support, value.Cdf));
 
-    public PolynomialBasis Basis =>
-        Switch(
-            normal: static _ => PolynomialBasis.Hermite, logNormal: static _ => PolynomialBasis.Hermite,
-            uniform: static _ => PolynomialBasis.Legendre,
-            gamma: static _ => PolynomialBasis.Laguerre, exponential: static _ => PolynomialBasis.Laguerre,
-            beta: static _ => PolynomialBasis.Jacobi,
-            weibull: static _ => PolynomialBasis.Arbitrary, gumbel: static _ => PolynomialBasis.Arbitrary,
-            triangular: static _ => PolynomialBasis.Arbitrary, empirical: static _ => PolynomialBasis.Arbitrary);
-
     public double Quantile(double u) =>
         Switch(
             state: Math.Clamp(u, 1e-12, 1.0 - 1e-12),
@@ -196,19 +194,10 @@ public abstract partial record RandomVariable {
             triangular: static (p, v) => Triangular.InvCDF(v.Lower, v.Upper, v.Mode, p),
             empirical: static (p, v) => EmpiricalQuantile(v.Support, v.Cdf, p));
 
-    public double Mean =>
-        Switch(
-            normal: static v => v.Mean,
-            logNormal: static v => Math.Exp(v.Mu + 0.5 * v.Sigma * v.Sigma),
-            uniform: static v => 0.5 * (v.Lower + v.Upper),
-            gamma: static v => v.Shape / v.Rate,
-            exponential: static v => 1.0 / v.Rate,
-            weibull: static v => v.Scale * SpecialFunctions.Gamma(1.0 + 1.0 / v.Shape),
-            gumbel: static v => v.Location + v.Scale * 0.5772156649015329,
-            beta: static v => v.A / (v.A + v.B),
-            triangular: static v => (v.Lower + v.Upper + v.Mode) / 3.0,
-            empirical: static v => EmpiricalMean(v.Support, v.Cdf));
-
+    // Each case maps into the coordinate its OWN orthogonal family is defined on — the standardized normal for the
+    // Hermite rows, `[-1,1]` for Legendre, the rate-scaled variate for Laguerre — so the per-axis basis and this map
+    // are ONE decision. The tensor product of those per-axis families is orthonormal under the factorized joint
+    // measure, which is exactly why each axis keeps its own coordinate rather than sharing a global one.
     public double Standardize(double value) =>
         Switch(
             state: value,
@@ -244,12 +233,6 @@ public abstract partial record RandomVariable {
         return support[Math.Min(lo, support.Count - 1)];
     }
 
-    static double EmpiricalMean(Seq<double> support, Seq<double> cdf) {
-        double mean = 0.0, prior = 0.0;
-        for (int i = 0; i < support.Count && i < cdf.Count; i++) { mean += support[i] * (cdf[i] - prior); prior = cdf[i]; }
-        return mean;
-    }
-
     static bool InvalidName(string value) => string.IsNullOrWhiteSpace(value);
 
     static bool InvalidEmpirical(Seq<double> support, Seq<double> cdf) =>
@@ -262,12 +245,27 @@ public abstract partial record RandomVariable {
 
 public delegate DDScalarSpan SpanLimitState(ReadOnlySpan<double> values, int order, Span<double> storage);
 
+// One `SensitivityPayload` per method family, so a carrier can never hold a Morris σ in a column named for a Sobol
+// total. Each case names its OWN measures and the receipt projection reads the case — the prior shared
+// `SobolFirst`/`SobolTotal`/`Interaction` triple made every reader re-derive which method wrote which slot.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record SmoothLimitState {
-    private SmoothLimitState() { }
+public abstract partial record SensitivityPayload {
+    private SensitivityPayload() { }
 
-    public sealed record Dynamic(Func<DDScalar[], DDScalar> Evaluate) : SmoothLimitState;
-    public sealed record SpanBacked(SpanLimitState Evaluate) : SmoothLimitState;
+    public sealed record Sobol(Seq<double> First, Seq<double> Total) : SensitivityPayload;
+    public sealed record Morris(Seq<double> MuStar, Seq<double> Sigma) : SensitivityPayload;
+
+    // Reliability importance: αᵢ² is the variance share of input i at the MPP, a genuinely different measure from a
+    // variance-based index and named for what it is.
+    public sealed record Importance(Seq<double> Alpha) : SensitivityPayload;
+
+    // The three receipt index slots, filled by the case that measured them. A case writes what it took and leaves
+    // the rest empty; an empty slot is an unmeasured one, never a zero-effect claim.
+    public (Seq<double> First, Seq<double> Total, Seq<double> Interaction) Slots =>
+        Switch(
+            sobol: static s => (s.First, s.Total, Seq<double>()),
+            morris: static m => (Seq<double>(), m.MuStar, m.Sigma),
+            importance: static i => (Seq<double>(), Seq<double>(), i.Alpha));
 }
 
 public sealed record UncertaintyPolicy(
@@ -288,11 +286,17 @@ public sealed record UncertaintyPolicy(
     int SubsetMaxLevels,
     int StieltjesNodes,
     int SparseBasisThreshold,
-    Option<SmoothLimitState> SmoothLimitState) {
+    // The dense execution substrate the spectral fit solves on. `Tensor/blas#DENSE_ALGEBRA` `DenseSubstrate.Select`
+    // runs ONCE at composition and the chosen row threads as a VALUE, so this column is what composition overwrites
+    // — the same discipline `Parallelism` follows from the CPU budget. The canonical row is the managed terminal a
+    // refused native floor degrades onto anyway.
+    DenseSubstrate Substrate,
+    Option<Uncertainty.LimitState> SmoothLimitState) {
     public static readonly UncertaintyPolicy CanonicalMonteCarlo = new(
         UncertaintyMethod.MonteCarlo, Samples: 4096, PceOrder: 3, HyperbolicTruncation: false, MorrisLevels: 4, SubsetLevelProbability: 0.1,
         QuantileTaus: Seq(0.05, 0.5, 0.95), LimitStateObjective: 0, LimitStateThreshold: 0.0, Seed: 0x5DEECE66,
-        Correlation: None, FiniteDifferenceStep: 1e-4, ReliabilityIterations: 50, ReliabilityTolerance: 1e-6, SubsetMaxLevels: 12, StieltjesNodes: 256, SparseBasisThreshold: 512, SmoothLimitState: None);
+        Correlation: None, FiniteDifferenceStep: 1e-4, ReliabilityIterations: 50, ReliabilityTolerance: 1e-6, SubsetMaxLevels: 12, StieltjesNodes: 256, SparseBasisThreshold: 512,
+        Substrate: DenseSubstrate.Managed, SmoothLimitState: None);
     public static readonly UncertaintyPolicy CanonicalLatinHypercube = CanonicalMonteCarlo with { Method = UncertaintyMethod.LatinHypercubeMc };
     public static readonly UncertaintyPolicy CanonicalReliability = CanonicalMonteCarlo with { Method = UncertaintyMethod.FirstOrderReliability, Samples = 512 };
     public static readonly UncertaintyPolicy CanonicalSorm = CanonicalReliability with { Method = UncertaintyMethod.SecondOrderReliability };
@@ -310,6 +314,9 @@ public sealed record UncertaintyPolicy(
         bool design = Method == UncertaintyMethod.SobolSaltelli && Samples % 2 != 0
             || Method == UncertaintyMethod.Morris && Samples < inputs.Count + 1
             || Correlation.IsSome && (Method == UncertaintyMethod.PolynomialChaos || Method == UncertaintyMethod.SobolSaltelli || Method == UncertaintyMethod.Morris)
+            // A caller supplies the DIFFERENTIABLE arms alone; the `Oracle` arm is this lane's own construction over
+            // the injected evaluate contract, so accepting one here would let a caller replace the oracle wholesale.
+            || SmoothLimitState.Exists(static state => !state.Differentiable)
             || SmoothLimitState.IsSome && Method != UncertaintyMethod.FirstOrderReliability && Method != UncertaintyMethod.SecondOrderReliability;
         bool variables = inputs.IsEmpty || inputs.Exists(static input => input.Invalid)
             || inputs.Map(static input => input.VariableName).ToHashSet(StringComparer.Ordinal).Count != inputs.Count;
@@ -327,9 +334,7 @@ public sealed record UncertaintyResult(
     Option<double> Skewness,
     Option<double> Kurtosis,
     Seq<double> Quantiles,
-    Seq<double> SobolFirst,
-    Seq<double> SobolTotal,
-    Seq<double> Interaction,
+    Option<SensitivityPayload> Sensitivity,
     Seq<double> MostProbablePoint,
     Option<double> FitQuality,
     Option<double> ResidualStandardError,
@@ -367,14 +372,19 @@ public static class Uncertainty {
             subset: static s => Subset(s.Inputs, s.Policy, s.Transform, s.Evaluate, s.Clock))
         select result;
 
-    public static ComputeReceipt.Uncertainty Receipt(UncertaintyResult result, CorrelationId correlation, Duration elapsed) =>
-        new(result.Method.Key, result.Samples,
+    // The three index slots come from the payload CASE, so a method that took no sensitivity leaves all three empty
+    // rather than a reader guessing which of them its row was supposed to have filled.
+    public static ComputeReceipt.Uncertainty Receipt(UncertaintyResult result, CorrelationId correlation, Duration elapsed) {
+        (Seq<double> first, Seq<double> total, Seq<double> interaction) =
+            result.Sensitivity.Map(static payload => payload.Slots).IfNone((Seq<double>(), Seq<double>(), Seq<double>()));
+        return new(result.Method.Key, result.Samples,
             result.Mean.ToNullable(), result.Variance.ToNullable(), result.Skewness.ToNullable(), result.Kurtosis.ToNullable(),
-            result.Quantiles, result.SobolFirst, result.SobolTotal, result.Interaction, result.MostProbablePoint,
+            result.Quantiles, first, total, interaction, result.MostProbablePoint,
             result.FitQuality.ToNullable(), result.ResidualStandardError.ToNullable(),
             result.FailureProbability, result.ReliabilityIndex) {
             Scope = new ReceiptScope.Execution(correlation, WorkLane.Background, Substrate.CpuTensor, AllocationClass.PooledMemory, elapsed),
         };
+    }
 
     static Fin<Transform> Copula(int dim, UncertaintyPolicy policy) =>
         policy.Correlation.Match(
@@ -398,22 +408,27 @@ public static class Uncertainty {
 
     // --- [MATRIX_SAMPLING] ------------------------------------------------------------
 
+    // BOTH coordinate systems survive the design: the physical rows the oracle evaluates and the unit rows the
+    // screening reads its own step from. Morris effects are defined on the unit grid, so a physical-only design
+    // would divide every effect by a step in the input's own units and rank a millimetre axis against a kilonewton
+    // one — the ranking the method exists to produce.
+    readonly record struct SampleMatrix(Seq<double[]> Unit, Seq<ImmutableArray<double>> Physical);
+
     static Fin<UncertaintyResult> SampleAndReduce(Seq<RandomVariable> inputs, UncertaintyPolicy policy, Transform transform, Func<DesignPoint, Fin<Seq<double>>> evaluate, IClock clock) =>
         Design(inputs, policy, transform)
-            .Bind(design => Sample(design, policy, evaluate).Map(responses => Reduce(inputs, policy, design, responses, clock)));
+            .Bind(design => Sample(design.Physical, policy, evaluate).Map(responses => Reduce(inputs, policy, design, responses, clock)));
 
-    static Fin<Seq<ImmutableArray<double>>> Design(Seq<RandomVariable> inputs, UncertaintyPolicy policy, Transform transform) {
+    static Fin<SampleMatrix> Design(Seq<RandomVariable> inputs, UncertaintyPolicy policy, Transform transform) {
         int count = Math.Max(2, policy.Samples), dim = inputs.Count;
         Fin<Seq<double[]>> unit = policy.Method.Design.Switch(
             state: (Policy: policy, Count: count, Dim: dim),
-            pseudoRandom: static s => Fin.Succ(PseudoRandomDraws(s.Dim, s.Count, s.Policy.Seed)),
+            pseudoRandom: static s => Fin.Succ(PseudoRandomDraws(s.Dim, s.Count, s.Policy)),
             spaceFilling: static s => SobolDraws(s.Dim, s.Count, s.Policy.Seed),
             stratified: static s => LowDiscrepancy.LatinHypercube(s.Dim, s.Count, s.Policy.Seed, Scramble.DigitalShift).Map(net => toSeq(net)),
-            conditionalLevels: static s => SobolDraws(s.Dim, s.Count, s.Policy.Seed),
             saltelliAbAb: static s => SobolDraws(s.Dim, s.Count, s.Policy.Seed).Map(draws => Saltelli(draws, s.Count, s.Dim)),
-            morrisTrajectory: static s => SobolDraws(s.Dim, s.Count, s.Policy.Seed).Map(draws => MorrisTrajectories(draws, s.Count, s.Dim, s.Policy.MorrisLevels)),
+            morrisTrajectory: static s => SobolDraws(s.Dim, s.Count, s.Policy.Seed).Map(draws => MorrisTrajectories(draws, s.Count, s.Dim, s.Policy)),
             analytic: static _ => Fin.Succ(Seq<double[]>()));
-        return unit.Map(rows => rows.Map(row => transform.Physical(inputs, row)));
+        return unit.Map(rows => new SampleMatrix(rows, rows.Map(row => transform.Physical(inputs, row))));
     }
 
     static Fin<Seq<double[]>> SobolDraws(int dim, int count, int seed) =>
@@ -423,8 +438,14 @@ public static class Uncertainty {
                 return (next, acc.Points.Add(point));
             }).Points);
 
-    static Seq<double[]> PseudoRandomDraws(int dim, int count, int seed) {
-        Random random = new(seed);
+    // Every pseudo-random step on the page draws from the kernel's ONE source, lane-keyed by the method it feeds, so
+    // a Monte Carlo matrix, a Morris permutation, and a subset chain under one seed are three independent streams and
+    // a re-run reproduces each exactly; a bare `new Random(seed)` forks replay across runtimes.
+    static Random Source(UncertaintyPolicy policy, long step, int dim) =>
+        Deterministic.Source(seed: policy.Seed, lanes: [policy.Method.Lane, step, dim]);
+
+    static Seq<double[]> PseudoRandomDraws(int dim, int count, UncertaintyPolicy policy) {
+        Random random = Source(policy, step: 0L, dim);
         double[][] rows = [.. Enumerable.Range(0, count).Select(_ => new double[dim])];
         for (int row = 0; row < count; row++) {
             for (int axis = 0; axis < dim; axis++) { rows[row][axis] = random.NextDouble(); }
@@ -436,20 +457,24 @@ public static class Uncertainty {
         design.Fold(Fin.Succ(Seq<Seq<double>>()), (acc, coordinates) =>
             acc.Bind(responses => evaluate(new DesignPoint(coordinates, [], [])).Bind(values => Component(values, policy).Map(_ => responses.Add(values)))));
 
-    static UncertaintyResult Reduce(Seq<RandomVariable> inputs, UncertaintyPolicy policy, Seq<ImmutableArray<double>> design, Seq<Seq<double>> responses, IClock clock) {
+    // A moment BELOW its sample floor is absent, not zero: skewness needs three samples and kurtosis four, and a
+    // fabricated `0.0` inside a `Some` publishes a measured symmetry the campaign never established.
+    static UncertaintyResult Reduce(Seq<RandomVariable> inputs, UncertaintyPolicy policy, SampleMatrix design, Seq<Seq<double>> responses, IClock clock) {
         double[] qoi = [.. responses.Map(values => values[policy.LimitStateObjective])];
         double mean = Statistics.Mean(qoi), variance = Statistics.Variance(qoi);
-        double skewness = qoi.Length > 2 ? Statistics.Skewness(qoi) : 0.0;
-        double kurtosis = qoi.Length > 3 ? Statistics.Kurtosis(qoi) : 0.0;
         Seq<double> quantiles = policy.QuantileTaus.Map(tau => Statistics.Quantile(qoi, tau));
-        (Seq<double> first, Seq<double> total, Seq<double> interaction) =
+        Option<SensitivityPayload> sensitivity =
             policy.Method == UncertaintyMethod.SobolSaltelli ? SaltelliIndices(inputs.Count, Math.Max(2, policy.Samples) / 2, qoi, variance)
-            : policy.Method == UncertaintyMethod.Morris ? MorrisScreening(inputs.Count, policy, qoi)
-            : (SobolBinned(inputs, design, qoi), Seq<double>(), Seq<double>());
+            : policy.Method == UncertaintyMethod.Morris ? MorrisScreening(inputs.Count, design.Unit, qoi)
+            : SobolBinned(inputs, design.Physical, qoi).Map(static first => (SensitivityPayload)new SensitivityPayload.Sobol(first, Seq<double>()));
         double pf = qoi.Length == 0 ? 0.0 : (double)qoi.Count(value => value > policy.LimitStateThreshold) / qoi.Length;
         double beta = pf is > 0.0 and < 1.0 ? -Normal.InvCDF(0.0, 1.0, pf) : pf <= 0.0 ? double.PositiveInfinity : double.NegativeInfinity;
-        return new UncertaintyResult(policy.Method, qoi.Length, Some(mean), Some(variance), Some(skewness), Some(kurtosis), quantiles, first, total, interaction, Seq<double>(), None, None, pf, beta, clock.GetCurrentInstant());
+        return new UncertaintyResult(policy.Method, qoi.Length, Some(mean), Some(variance), Moment(qoi, 3, Statistics.Skewness), Moment(qoi, 4, Statistics.Kurtosis),
+            quantiles, sensitivity, Seq<double>(), None, None, pf, beta, clock.GetCurrentInstant());
     }
+
+    static Option<double> Moment(double[] qoi, int floor, Func<double[], double> estimate) =>
+        qoi.Length >= floor && estimate(qoi) is var value && double.IsFinite(value) ? Some(value) : None;
 
     static Seq<double[]> Saltelli(Seq<double[]> draws, int count, int dim) {
         int half = count / 2;
@@ -467,27 +492,44 @@ public static class Uncertainty {
         return toSeq(matrix);
     }
 
-    static Seq<double[]> MorrisTrajectories(Seq<double[]> draws, int count, int dim, int levels) {
-        double delta = levels / (2.0 * (levels - 1));
+    // Morris is a GRID method (Morris 1991, Campolongo 2007): each trajectory snaps its base point to the p-level
+    // grid, walks the axes in ITS OWN random permutation, and steps by Δ = p/(2(p−1)) with a random sign — the
+    // permutation and the sign are what make the elementary effects a sample of the input space rather than d
+    // repetitions of one corner walk. A step leaving the unit box REFLECTS to the other side of the grid instead of
+    // clamping, because a clamped step shortens the denominator the effect divides by and reports a distorted
+    // sensitivity as a measured one. Both draws key the method's own lane, so a campaign replays exactly.
+    static Seq<double[]> MorrisTrajectories(Seq<double[]> draws, int count, int dim, UncertaintyPolicy policy) {
+        int levels = policy.MorrisLevels, paths = Math.Max(1, count / (dim + 1));
+        double delta = levels / (2.0 * (levels - 1)), grid = 1.0 / (levels - 1);
         List<double[]> trajectories = [];
-        int paths = Math.Max(1, count / (dim + 1));
         for (int t = 0; t < paths; t++) {
-            double[] basePoint = draws.At(t % draws.Count).IfNone(() => new double[dim]);
-            trajectories.Add((double[])basePoint.Clone());
-            for (int axis = 0; axis < dim; axis++) {
+            Random rng = Source(policy, step: t, dim);
+            double[] point = [.. draws.At(t % draws.Count).IfNone(() => new double[dim])
+                .Select(u => Math.Round(Math.Clamp(u, 0.0, 1.0) / grid) * grid)];
+            trajectories.Add((double[])point.Clone());
+            foreach (int axis in Permutation(dim, rng)) {
                 double[] stepped = (double[])trajectories[^1].Clone();
-                if (axis < stepped.Length) { stepped[axis] = Math.Clamp(stepped[axis] + delta, 0.0, 1.0); }
+                double signed = rng.NextDouble() < 0.5 ? -delta : delta;
+                double moved = stepped[axis] + signed;
+                stepped[axis] = moved is < 0.0 or > 1.0 ? stepped[axis] - signed : moved;
                 trajectories.Add(stepped);
             }
         }
         return toSeq(trajectories);
     }
 
-    static (Seq<double>, Seq<double>, Seq<double>) SaltelliIndices(int dim, int half, double[] y, double variance) {
-        if (y.Length < (2 + dim) * half || variance <= 1e-18 || half <= 0) {
-            Seq<double> zero = toSeq(Enumerable.Repeat(0.0, dim));
-            return (zero, zero, Seq<double>());
-        }
+    // Fisher-Yates over the lane's stream: the axis ORDER is part of the design, so it draws from the same source
+    // every other stochastic step on the page does.
+    static int[] Permutation(int dim, Random rng) {
+        int[] order = [.. Enumerable.Range(0, dim)];
+        for (int i = dim - 1; i > 0; i--) { int j = rng.Next(i + 1); (order[i], order[j]) = (order[j], order[i]); }
+        return order;
+    }
+
+    static Option<SensitivityPayload> SaltelliIndices(int dim, int half, double[] y, double variance) {
+        // A spreadless response supports no variance share, and a short block supports no estimator at all — both
+        // report ABSENT rather than a zero vector a reader takes for measured insensitivity.
+        if (y.Length < (2 + dim) * half || variance <= 1e-18 || half <= 0) { return None; }
         ReadOnlySpan<double> ya = y.AsSpan(0, half), yb = y.AsSpan(half, half);
         double[] first = new double[dim], total = new double[dim];
         for (int i = 0; i < dim; i++) {
@@ -501,81 +543,135 @@ public static class Uncertainty {
             first[i] = sumFirst / half / variance;
             total[i] = sumTotal / (2.0 * half) / variance;
         }
-        return (toSeq(first), toSeq(total), Seq<double>());
+        return Some((SensitivityPayload)new SensitivityPayload.Sobol(toSeq(first), toSeq(total)));
     }
 
-    static (Seq<double>, Seq<double>, Seq<double>) MorrisScreening(int dim, UncertaintyPolicy policy, double[] y) {
-        double delta = policy.MorrisLevels / (2.0 * (policy.MorrisLevels - 1));
+    // The screening reads WHICH axis moved and BY HOW MUCH off the design it evaluated, so the per-trajectory
+    // permutation and step sign need no side channel and can never drift from the matrix that produced the
+    // responses. μ* is the mean |effect| (the Campolongo revision that stops cancelling a non-monotonic axis to
+    // zero) and σ the effect spread that separates an interacting axis from a linear one.
+    static Option<SensitivityPayload> MorrisScreening(int dim, Seq<double[]> unit, double[] y) {
         int paths = Math.Max(1, y.Length / (dim + 1));
-        double[] muStar = new double[dim], sum = new double[dim], sumSquare = new double[dim];
+        double[] absolute = new double[dim], sum = new double[dim], sumSquare = new double[dim];
+        int[] counts = new int[dim];
         for (int t = 0; t < paths; t++) {
             int baseRow = t * (dim + 1);
-            for (int axis = 0; axis < dim && baseRow + axis + 1 < y.Length; axis++) {
-                double effect = (y[baseRow + axis + 1] - y[baseRow + axis]) / delta;
-                muStar[axis] += Math.Abs(effect);
+            for (int leg = 0; leg < dim && baseRow + leg + 1 < y.Length && baseRow + leg + 1 < unit.Count; leg++) {
+                if (Moved(unit[baseRow + leg], unit[baseRow + leg + 1]) is not (int axis, double step)) { continue; }
+                double effect = (y[baseRow + leg + 1] - y[baseRow + leg]) / step;
+                absolute[axis] += Math.Abs(effect);
                 sum[axis] += effect;
                 sumSquare[axis] += effect * effect;
+                counts[axis]++;
             }
         }
-        Seq<double> mu = toSeq(muStar.Select(s => s / paths));
-        Seq<double> sigma = toSeq(Enumerable.Range(0, dim).Select(axis => {
-            double meanEffect = sum[axis] / paths;
-            return Math.Sqrt(Math.Max(0.0, sumSquare[axis] / paths - meanEffect * meanEffect));
-        }));
-        return (Seq<double>(), mu, sigma);
+        return counts.Any(static c => c == 0)
+            ? None
+            : Some((SensitivityPayload)new SensitivityPayload.Morris(
+                toSeq(Enumerable.Range(0, dim).Select(axis => absolute[axis] / counts[axis])),
+                toSeq(Enumerable.Range(0, dim).Select(axis => {
+                    double meanEffect = sum[axis] / counts[axis];
+                    return Math.Sqrt(Math.Max(0.0, sumSquare[axis] / counts[axis] - meanEffect * meanEffect));
+                }))));
     }
 
-    static Seq<double> SobolBinned(Seq<RandomVariable> inputs, Seq<ImmutableArray<double>> design, double[] qoi) {
+    // Exactly ONE axis changes across a trajectory leg by construction; a leg that moved none or several is not a
+    // Morris leg and contributes no effect rather than an effect attributed to a guess.
+    static (int Axis, double Step)? Moved(double[] from, double[] to) {
+        int axis = -1;
+        double step = 0.0;
+        for (int i = 0; i < from.Length && i < to.Length; i++) {
+            double delta = to[i] - from[i];
+            if (Math.Abs(delta) <= 1e-12) { continue; }
+            if (axis >= 0) { return null; }
+            (axis, step) = (i, delta);
+        }
+        return axis < 0 ? null : (axis, step);
+    }
+
+    // `Reduce` reads the index vector POSITIONALLY by input, while `SensitivityTornado.Bars` is effect-ordered and
+    // omits every axis its method could not rank — so the bars join back by axis NAME and a vector short of one
+    // entry per input yields the empty `Seq` this arm already gives total and interaction. Reading the sorted bars
+    // by position files each index under the wrong variable, and padding a missing axis with zero publishes an
+    // insensitivity the campaign never measured.
+    static Option<Seq<double>> SobolBinned(Seq<RandomVariable> inputs, Seq<ImmutableArray<double>> design, double[] qoi) {
         SweepGrid grid = new(
             inputs.Map(static v => (SweepAxis)new SweepAxis.Linear(v.VariableName, 0.0, 1.0, 2)),
             Seq(ObjectiveSense.Minimize),
             SensitivityMethod.SobolVariance);
         Seq<DesignPoint> points = toSeq(Enumerable.Range(0, Math.Min(design.Count, qoi.Length)))
             .Map(i => new DesignPoint(design[i], [qoi[i]], []));
-        return SensitivityTornado.Of(grid, points, 0).Bars.Map(static bar => bar.Effect);
+        HashMap<string, double> byAxis = SensitivityTornado.Of(grid, points, 0).Bars
+            .Fold(HashMap<string, double>(), static (map, bar) => map.AddOrUpdate(bar.Axis, bar.Effect));
+        Seq<double> indices = inputs.Map(v => byAxis.Find(v.VariableName)).Choose(identity);
+        return indices.Count == inputs.Count ? Some(indices) : None;
     }
 
     // --- [SPECTRAL_FIT] ---------------------------------------------------------------
 
     static Fin<UncertaintyResult> Spectral(Seq<RandomVariable> inputs, UncertaintyPolicy policy, Transform transform, Func<DesignPoint, Fin<Seq<double>>> evaluate, IClock clock) =>
         Design(inputs, policy, transform)
-            .Bind(design => Sample(design, policy, evaluate).Bind(responses => Fit(inputs, policy, design, responses, clock)));
+            .Bind(design => Sample(design.Physical, policy, evaluate).Bind(responses => Fit(inputs, policy, design.Physical, responses, clock)));
 
+    // The basis is built ONCE in the format its own route consumes: dense for thin-QR, COO triplets for sparse-QR.
+    // Materializing a dense Vandermonde only to walk it into triplets costs `rows × terms` doubles for a matrix the
+    // sparse route exists because it cannot hold.
     static Fin<UncertaintyResult> Fit(Seq<RandomVariable> inputs, UncertaintyPolicy policy, Seq<ImmutableArray<double>> design, Seq<Seq<double>> responses, IClock clock) {
         double[] qoi = [.. responses.Map(values => values[policy.LimitStateObjective])];
         Seq<int[]> multiIndices = MultiIndexSet(inputs.Count, policy.PceOrder, policy.HyperbolicTruncation);
         if (qoi.Length < multiIndices.Count) { return Fin.Fail<UncertaintyResult>(ComputeFault.Create($"<uncertainty-pce-underdetermined:{qoi.Length}<{multiIndices.Count}>")); }
         Seq<RecurrenceCoefficients> bases = inputs.Map(v => v.Recurrence(policy.PceOrder, policy.StieltjesNodes));
-        Matrix<double> vandermonde = Matrix<double>.Build.Dense(qoi.Length, multiIndices.Count, (row, col) =>
-            multiIndices[col].Select((degree, axis) => bases[axis].Evaluate(degree, inputs[axis].Standardize(design[row][axis]))).Aggregate(1.0, static (a, b) => a * b));
-        Vector<double> rhs = Vector<double>.Build.DenseOfArray(qoi);
-        Fin<Vector<double>> coefficients = policy.HyperbolicTruncation && multiIndices.Count > policy.SparseBasisThreshold
-            ? SparseFit(vandermonde, qoi)
-            : DenseRoute.Solve(new FactorRoute.Orthonormal(QRMethod.Thin, Modified: false), vandermonde, rhs, TolerancePolicy.Derive(vandermonde, rhs));
-        return coefficients.Map(c => ReadSpectral(inputs, policy, multiIndices, qoi, c, Calibration(vandermonde, qoi, multiIndices.Count, c), clock));
+        return inputs.Map((v, axis) => bases[axis].Admit(v.VariableName)).TraverseM(identity).As().Bind(_ => {
+            // ONE generator serves the dense build, the COO build, and the calibration GEMV, so the three can never
+            // describe different bases.
+            double Basis(int row, int col) =>
+                multiIndices[col].Select((degree, axis) => bases[axis].Evaluate(degree, inputs[axis].Standardize(design[row][axis]))).Aggregate(1.0, static (a, b) => a * b);
+            Fin<Vector<double>> coefficients = policy.HyperbolicTruncation && multiIndices.Count > policy.SparseBasisThreshold
+                ? SparseFit(Basis, qoi, multiIndices.Count)
+                : DenseFit(Basis, qoi, multiIndices.Count, policy.Substrate);
+            return coefficients.Map(c => ReadSpectral(inputs, policy, multiIndices, qoi, c, Calibration(Basis, qoi, multiIndices.Count, c), clock));
+        });
     }
 
-    // Fit calibration reads the surrogate the coefficients already define — one GEMV over the Vandermonde already
-    // built, never a second solve. An exactly-determined basis interpolates, so it has no residual degrees of freedom
-    // and its standard error stays absent rather than reporting the infinity the quotient would publish.
+    // The substrate is HANDED in, never read from an ambient cell: `DenseRoute.Solve` takes the row composition
+    // selected and answers a `DenseSolve` carrying the row that actually served beside the witnessed residual, so a
+    // native leg that declined this operand is visible in the carrier rather than assumed from the row asked for.
+    static Fin<Vector<double>> DenseFit(Func<int, int, double> basis, double[] qoi, int terms, DenseSubstrate substrate) {
+        Matrix<double> vandermonde = Matrix<double>.Build.Dense(qoi.Length, terms, (row, col) => basis(row, col));
+        Vector<double> rhs = Vector<double>.Build.DenseOfArray(qoi);
+        return DenseRoute.Solve(new FactorRoute.Orthonormal(QRMethod.Thin, Modified: false), vandermonde, rhs, TolerancePolicy.Derive(vandermonde, rhs), substrate)
+            .Map(static solved => solved.X);
+    }
+
+    // Fit calibration reads the surrogate the coefficients already define — one pass over the SAME basis generator
+    // the solve consumed, never a second solve and never a retained matrix. An exactly-determined basis interpolates,
+    // so it has no residual degrees of freedom and its standard error stays absent rather than reporting the infinity
+    // the quotient would publish.
     static (Option<double> Quality, Option<double> StandardError) Calibration(
-        Matrix<double> vandermonde, double[] qoi, int terms, Vector<double> coefficients) {
-        double[] modelled = (vandermonde * coefficients).ToArray();
+        Func<int, int, double> basis, double[] qoi, int terms, Vector<double> coefficients) {
+        double[] modelled = new double[qoi.Length];
+        for (int row = 0; row < qoi.Length; row++) {
+            double value = 0.0;
+            for (int col = 0; col < terms; col++) { value += basis(row, col) * coefficients[col]; }
+            modelled[row] = value;
+        }
         return (Some(GoodnessOfFit.RSquared(modelled, qoi)),
             qoi.Length > terms ? Some(GoodnessOfFit.StandardError(modelled, qoi, terms)) : None);
     }
 
-    static Fin<Vector<double>> SparseFit(Matrix<double> vandermonde, double[] qoi) {
+    // COO is built DIRECTLY from the basis generator: the dropped near-zeros are exactly the entries a hyperbolic
+    // truncation makes sparse, so the triplet lists carry the retained mass and no dense intermediate ever exists.
+    static Fin<Vector<double>> SparseFit(Func<int, int, double> basis, double[] qoi, int terms) {
         List<int> rows = [];
         List<int> cols = [];
         List<double> values = [];
-        for (int r = 0; r < vandermonde.RowCount; r++) {
-            for (int c = 0; c < vandermonde.ColumnCount; c++) {
-                double entry = vandermonde[r, c];
+        for (int r = 0; r < qoi.Length; r++) {
+            for (int c = 0; c < terms; c++) {
+                double entry = basis(r, c);
                 if (Math.Abs(entry) > 1e-12) { rows.Add(r); cols.Add(c); values.Add(entry); }
             }
         }
-        return SparseOps.Ingest(SparseFormat.Coo, vandermonde.RowCount, vandermonde.ColumnCount, [.. rows], [.. cols], [.. values])
+        return SparseOps.Ingest(SparseFormat.Coo, qoi.Length, terms, [.. rows], [.. cols], [.. values])
             .Bind(csr => SparseOps.Factor(csr, FactorKind.Qr, ColumnOrdering.MinimumDegreeAtA, pivotTol: 0.0, dropFloor: 1e-12))
             .Bind(op => op.Solve(qoi, double.PositiveInfinity))
             .Map(static solution => Vector<double>.Build.DenseOfArray(solution));
@@ -596,29 +692,39 @@ public static class Uncertainty {
             }
             if (active == 1 && sole >= 0) { first[sole] += mass; }
         }
-        double inverse = variance > 1e-18 ? 1.0 / variance : 0.0;
         Seq<double> quantiles = policy.QuantileTaus.Map(tau => Statistics.Quantile(qoi, tau));
         double standardDeviation = Math.Sqrt(Math.Max(0.0, variance));
         double beta = standardDeviation > 1e-12 ? (policy.LimitStateThreshold - mean) / standardDeviation : double.PositiveInfinity;
         double pf = double.IsFinite(beta) ? Normal.CDF(0.0, 1.0, -beta) : beta > 0.0 ? 0.0 : 1.0;
-        double skewness = qoi.Length > 2 ? Statistics.Skewness(qoi) : 0.0;
-        double kurtosis = qoi.Length > 3 ? Statistics.Kurtosis(qoi) : 0.0;
-        return new UncertaintyResult(policy.Method, qoi.Length, Some(mean), Some(variance), Some(skewness), Some(kurtosis), quantiles,
-            toSeq(first.Select(m => m * inverse)), toSeq(total.Select(m => m * inverse)), Seq<double>(), Seq<double>(),
-            calibration.Quality, calibration.StandardError, pf, beta, clock.GetCurrentInstant());
+        // A spreadless spectral fit supports no variance share, so the payload is ABSENT rather than a zero vector.
+        Option<SensitivityPayload> sensitivity = variance > 1e-18
+            ? Some((SensitivityPayload)new SensitivityPayload.Sobol(
+                toSeq(first.Select(m => m / variance)), toSeq(total.Select(m => m / variance))))
+            : None;
+        return new UncertaintyResult(policy.Method, qoi.Length, Some(mean), Some(variance), Moment(qoi, 3, Statistics.Skewness), Moment(qoi, 4, Statistics.Kurtosis),
+            quantiles, sensitivity, Seq<double>(), calibration.Quality, calibration.StandardError, pf, beta, clock.GetCurrentInstant());
     }
 
+    // Hyperbolic truncation prunes DURING the descent on the running q-norm, so a high-dimensional order-5 basis
+    // never enumerates the full tensor grid it discards at the leaf — the prior leaf-only test walked `(order+1)^dim`
+    // candidates to keep a set two orders of magnitude smaller, which is the whole cost the truncation exists to cut.
     static Seq<int[]> MultiIndexSet(int dim, int order, bool hyperbolic) {
+        const double q = 0.5;
+        double bound = Math.Pow(order, q);
         List<int[]> indices = [];
-        void Recurse(int axis, int[] current, int remaining) {
-            if (axis == dim) {
-                double q = hyperbolic ? Math.Pow(current.Sum(d => Math.Pow(d, 0.5)), 2.0) : current.Sum();
-                if (q <= order + 1e-9) { indices.Add((int[])current.Clone()); }
-                return;
+        void Recurse(int axis, int[] current, double accumulated) {
+            if (axis == dim) { indices.Add((int[])current.Clone()); return; }
+            for (int d = 0; d <= order; d++) {
+                double next = accumulated + (hyperbolic ? Math.Pow(d, q) : d);
+                // The q-norm is monotone in every degree, so a partial index already past the bound can extend to
+                // nothing admissible and the whole subtree prunes here.
+                if (next > (hyperbolic ? bound : order) + 1e-9) { break; }
+                current[axis] = d;
+                Recurse(axis + 1, current, next);
             }
-            for (int d = 0; d <= remaining; d++) { current[axis] = d; Recurse(axis + 1, current, remaining - (hyperbolic ? 0 : d)); }
+            current[axis] = 0;
         }
-        Recurse(0, new int[dim], order);
+        Recurse(0, new int[dim], 0.0);
         return toSeq(indices);
     }
 
@@ -628,11 +734,11 @@ public static class Uncertainty {
     sealed record HlrfAcc(double[] U, double GHere, double[] Grad, double G0, bool Converged, int Evals);
 
     static Fin<UncertaintyResult> Reliability(Seq<RandomVariable> inputs, UncertaintyPolicy policy, Transform transform, Func<DesignPoint, Fin<Seq<double>>> evaluate, IClock clock) {
-        LimitState g = policy.SmoothLimitState.Match(
-            Some: static smooth => smooth.Switch(
-                dynamic: static source => (LimitState)new LimitState.Smooth(source.Evaluate),
-                spanBacked: static source => (LimitState)new LimitState.SmoothSpan(source.Evaluate)),
-            None: () => new LimitState.Oracle(u => evaluate(new DesignPoint(transform.FromU(inputs, u), [], []))
+        // ONE union: a caller supplies a differentiable arm or nothing, and the black-box arm closes over the injected
+        // oracle here — a parallel `SmoothLimitState` union carrying the same two cases forced every construction to
+        // translate between two spellings of one concept.
+        LimitState g = policy.SmoothLimitState.IfNone(() =>
+            new LimitState.Oracle(u => evaluate(new DesignPoint(transform.FromU(inputs, u), [], []))
                 .Bind(values => Component(values, policy).Map(value => policy.LimitStateThreshold - value))));
         return Hlrf(inputs.Count, policy, g).Bind(mpp =>
             (policy.Method == UncertaintyMethod.SecondOrderReliability ? Breitung(mpp, policy, g) : Fin.Succ((FailureProbability: mpp.FailureProbability, Evals: 0)))
@@ -646,6 +752,11 @@ public static class Uncertainty {
         public sealed record Oracle(Func<double[], Fin<double>> G) : LimitState;
         public sealed record Smooth(Func<DDScalar[], DDScalar> G) : LimitState;
         public sealed record SmoothSpan(SpanLimitState G) : LimitState;
+
+        // The two hyper-dual arms earn exact derivatives; the oracle arm is the lane's own black-box construction and
+        // is what `UncertaintyPolicy.Validate` refuses from a caller.
+        public bool Differentiable =>
+            Switch(oracle: static _ => false, smooth: static _ => true, smoothSpan: static _ => true);
 
         public Fin<(double G, double[] Grad, int Evals)> Probe(double[] u, double step) =>
             Switch(
@@ -695,8 +806,8 @@ public static class Uncertainty {
     static UncertaintyResult Assemble(Seq<RandomVariable> inputs, UncertaintyPolicy policy, Transform transform, MppState mpp, double pf, IClock clock) {
         double beta = pf is > 0.0 and < 1.0 ? -Normal.InvCDF(0.0, 1.0, pf) : mpp.Beta;
         return new UncertaintyResult(policy.Method, mpp.Evaluations, None, None, None, None,
-            Seq<double>(), Seq<double>(), toSeq(mpp.Alpha.Select(static a => a * a)), Seq<double>(), toSeq(transform.FromU(inputs, mpp.U)),
-            None, None, pf, beta, clock.GetCurrentInstant());
+            Seq<double>(), Some(new SensitivityPayload.Importance(toSeq(mpp.Alpha.Select(static a => a * a)))),
+            toSeq(transform.FromU(inputs, mpp.U)), None, None, pf, beta, clock.GetCurrentInstant());
     }
 
     static Fin<MppState> Hlrf(int dim, UncertaintyPolicy policy, LimitState g) =>
@@ -806,7 +917,7 @@ public static class Uncertainty {
         int dim = inputs.Count, n = Math.Max(4, policy.Samples);
         double p0 = Math.Clamp(policy.SubsetLevelProbability, 0.01, 0.5);
         int keep = Math.Max(1, (int)Math.Round(p0 * n));
-        Random rng = new(policy.Seed);
+        Random rng = Source(policy, step: 0L, dim);
         Func<double[], Fin<double>> lsf = u => evaluate(new DesignPoint(transform.FromU(inputs, u), [], []))
             .Bind(values => Component(values, policy).Map(value => policy.LimitStateThreshold - value));
         return Population(dim, n, rng, lsf).Bind(initial =>
@@ -823,33 +934,36 @@ public static class Uncertainty {
             return lsf(u).Map(value => population.Add((u, value)));
         }));
 
+    // The tally counts EVERY oracle call the level spent — each chain's own seed re-evaluation and each proposal —
+    // not the returned population size. The two differ by one per chain, and a receipt that reports the smaller
+    // number under-states the cost of the exact rare-event estimate the method exists to make affordable.
     static Fin<SubsetAcc> Advance(SubsetAcc state, int dim, int n, int keep, double p0, Random rng, Func<double[], Fin<double>> lsf) {
         (double[] U, double Lsf)[] sorted = state.Population.OrderBy(static p => p.Lsf).ToArray();
         double threshold = sorted[Math.Min(keep, sorted.Length) - 1].Lsf;
         if (threshold <= 0.0) { return Fin.Succ(state with { Done = true }); }
         double[][] seeds = [.. sorted.Take(keep).Select(static p => p.U)];
-        return Repopulate(seeds, dim, n, threshold, rng, lsf).Map(population =>
-            state with { Population = population, Probability = state.Probability * p0, Evaluations = state.Evaluations + population.Count });
+        return Repopulate(seeds, dim, n, threshold, rng, lsf).Map(level =>
+            state with { Population = level.Population, Probability = state.Probability * p0, Evaluations = state.Evaluations + level.Evaluations });
     }
 
-    static Fin<Seq<(double[] U, double Lsf)>> Repopulate(double[][] seeds, int dim, int n, double threshold, Random rng, Func<double[], Fin<double>> lsf) {
+    static Fin<(Seq<(double[] U, double Lsf)> Population, int Evaluations)> Repopulate(double[][] seeds, int dim, int n, double threshold, Random rng, Func<double[], Fin<double>> lsf) {
         int basePerChain = Math.Max(1, n / seeds.Length), remainder = Math.Max(0, n - basePerChain * seeds.Length);
-        return toSeq(seeds).Fold(Fin.Succ((Index: 0, Population: Seq<(double[], double)>())), (acc, seed) =>
+        return toSeq(seeds).Fold(Fin.Succ((Index: 0, Population: Seq<(double[], double)>(), Evaluations: 0)), (acc, seed) =>
             acc.Bind(state => Chain(seed, basePerChain + (state.Index < remainder ? 1 : 0), dim, threshold, rng, lsf)
-                .Map(chain => (state.Index + 1, state.Population + chain))))
-            .Map(static state => state.Population);
+                .Map(chain => (state.Index + 1, state.Population + chain.Out, state.Evaluations + chain.Evaluations))))
+            .Map(static state => (state.Population, state.Evaluations));
     }
 
-    static Fin<Seq<(double[] U, double Lsf)>> Chain(double[] seed, int steps, int dim, double threshold, Random rng, Func<double[], Fin<double>> lsf) =>
+    static Fin<(Seq<(double[] U, double Lsf)> Out, int Evaluations)> Chain(double[] seed, int steps, int dim, double threshold, Random rng, Func<double[], Fin<double>> lsf) =>
         lsf(seed).Bind(seedLsf => toSeq(Enumerable.Range(0, steps)).Fold(
-            Fin.Succ((State: (U: seed, Lsf: seedLsf), Out: Seq<(double[], double)>())),
+            Fin.Succ((State: (U: seed, Lsf: seedLsf), Out: Seq<(double[], double)>(), Evaluations: 1)),   // the seed probe is the chain's first oracle call
             (acc, _) => acc.Bind(step => {
                 double[] candidate = Propose(step.State.U, dim, rng);
                 return lsf(candidate).Map(candidateLsf => {
                     (double[], double) next = candidateLsf <= threshold ? (candidate, candidateLsf) : step.State;
-                    return (State: next, Out: step.Out.Add(next));
+                    return (State: next, Out: step.Out.Add(next), Evaluations: step.Evaluations + 1);
                 });
-            })).Map(static result => result.Out));
+            })).Map(static result => (result.Out, result.Evaluations)));
 
     static double[] Propose(double[] u, int dim, Random rng) =>
         [.. Enumerable.Range(0, dim).Select(i => {
@@ -867,7 +981,7 @@ public static class Uncertainty {
         double pf = Math.Clamp(state.Probability * finalFraction, 0.0, 1.0);
         double beta = pf is > 0.0 and < 1.0 ? -Normal.InvCDF(0.0, 1.0, pf) : pf <= 0.0 ? double.PositiveInfinity : double.NegativeInfinity;
         return new UncertaintyResult(policy.Method, state.Evaluations, None, None, None, None,
-            Seq<double>(), Seq<double>(), Seq<double>(), Seq<double>(), Seq<double>(), None, None, pf, beta, clock.GetCurrentInstant());
+            Seq<double>(), None, Seq<double>(), None, None, pf, beta, clock.GetCurrentInstant());
     }
 }
 ```

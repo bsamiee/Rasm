@@ -58,6 +58,7 @@
 
 - `ISmartEnum<TKey>` and `IObjectFactory<TValue>`: memberless arities, so a generic constraint names the owner kind without naming its case or error type.
 - `IObjectFactory<T, TValue, out TValidationError>`: one static abstract member — `Validate(TValue? value, IFormatProvider? provider, out T? item)` returning `TValidationError?` — null return means admitted with `item` populated; a constrained generic dispatches it with no instance.
+- `IValidationError<out T> where T : class`: one static abstract member — `static abstract T Create(string message)` — so an owner's custom error type carries a message-only mint and every generated admission path reaches it through the constraint, never through an instance or a container. A domain fault graduating to a `[ValidationError<TCustom>]` carrier therefore needs exactly this member and a message-shaped construction for it.
 - `Argument<T>`: `readonly ref struct` carrying `IsSet` with an implicit conversion from `T`, so a generated update distinguishes an omitted argument from a null one.
 - `UnknownSmartEnumIdentifierException`: extends `KeyNotFoundException` and carries `EnumType` with the offending `Value`.
 
@@ -166,7 +167,7 @@
 - `Owner.Get`: returns `null` for a null key and throws `UnknownSmartEnumIdentifierException` for an unknown non-null key.
 - `Owner.Create`: throws on a validation error, so a boundary value enters through `TryCreate` or `Validate`.
 - `[ComplexValueObject]` admission: `Validate(<members in declaration order>, out Owner?)` returning `ValidationError?` — no `IFormatProvider` parameter; `Create`/`TryCreate` share the member-ordered arity (probe-proven on the live generator).
-- `[SmartEnum<TKey>]` ctor: the generator emits the private ctor itself — `(key, <plain non-key columns in declaration order>, <delegate>)` with each `[UseDelegateFromConstructor]` delegate LAST, named for its partial method, and no parameter defaults; `ValidateConstructorArguments` covers key plus columns, never the delegate; a hand-declared chaining ctor overload beside the generated one is admitted (probe-proven on the live generator).
+- `[SmartEnum<TKey>]` ctor: the generator emits the private ctor itself — `(key, <plain non-key columns in declaration order>, <delegates>)` with the `[UseDelegateFromConstructor]` delegates after every plain column and ordered among themselves by partial-method DECLARATION order — never alphabetical — each named for its partial method, and no parameter defaults; `ValidateConstructorArguments` covers key plus columns, never the delegates; a hand-declared chaining ctor overload beside the generated one is admitted (probe-proven on the live generator).
 - `Owner.Create`, `Owner.TryCreate`, and `Owner.Empty`: named by `CreateFactoryMethodName`, `TryCreateFactoryMethodName`, and `DefaultInstancePropertyName`.
 - `ValidateFactoryArguments`: takes each argument by `ref`, so normalization lands before construction and a trimmed or clamped value reaches the generated ctor.
 - `Owner.Switch` and `Owner.Map`: `SwitchMapStateParameterName` threads caller state into every arm, so an arm lambda closes over nothing; `DefaultWithPartialOverloads` adds the overload that handles a subset.

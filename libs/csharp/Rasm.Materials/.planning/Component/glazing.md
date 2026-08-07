@@ -1,6 +1,6 @@
 # [MATERIALS_GLAZING]
 
-THE GLAZING SEED PAGE — the `glazing` `ComponentFamily` row (`ComponentClass.Minor`, `DetailLane.Product`) grounded in insulating-glass build physics. An IGU is a `Component` whose `SectionProfile.Layered` geometry contains only `PlyRole.Pane`/`Interlayer`/`Cavity`, whose build inputs ride the `DetailSchema.Product` bag, and whose engineering performance derives from the typed `GlazingRow`: `GlazingThermal` owns EN 673 `Ug`, EN 410 / ISO 9050 `g` and `τv`, and the mass-law acoustic spectrum; `GlazingStructural` owns the EN 16612 pane resistance the capacity rail lifts; `GlazingLifetime` owns the EN 1279-3 gas-decay and EN ISO 13788 `fRsi` service receipt; `GlazingGwp` owns the lifecycle vector; `GlazingDetail.Properties` lowers the receipt to `MaterialPropertySet`. Every row is `Sectioned: false` because an IGU crosses as `IfcMaterialLayerSet`, never `IfcProfileDef`. `GlazingSeed.Resolve` joins a resolved `ComponentId` back to its pane, cavity, edge, grid, and fire axes so the projector can execute the promised lowering without parsing the bag or the designation.
+THE GLAZING SEED PAGE — the `glazing` `ComponentFamily` row (`ComponentClass.Minor`, `DetailLane.Product`) grounded in insulating-glass build physics. An IGU is a `Component` whose `SectionProfile.Layered` geometry contains only `PlyRole.Pane`/`Interlayer`/`Cavity`, whose build inputs ride the `DetailSchema.Product` bag, and whose engineering performance derives from the typed `GlazingRow`: `GlazingThermal` owns EN 673 `Ug`, EN 410 / ISO 9050 `g` and `τv`, and the mass-law acoustic spectrum; `GlazingStructural` owns the EN 16612 pane resistance the capacity rail lifts; `GlazingLifetime` owns the EN 1279-3 gas-decay and EN ISO 13788 `fRsi` service receipt; `GlazingGwp` owns the lifecycle vector; `GlazingDetail.Properties` lowers the receipt to `MaterialPropertySet`. An IGU crosses as `IfcMaterialLayerSet`, never `IfcProfileDef`, so its `Layered` profile answers unsectioned membership from its own `ProfileTopology`. `GlazingSeed.Resolve` joins a resolved `ComponentId` back to its pane, cavity, edge, grid, and fire axes so the projector can execute the promised lowering without parsing the bag or the designation.
 
 ## [01]-[INDEX]
 
@@ -51,11 +51,13 @@ namespace Rasm.Materials.Component;
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class GlassType {
-    public static readonly GlassType Float            = new("float",             normalEmissivity: 0.837, conductivityWmK: 1.00, densityKgM3: 2500.0, specificHeatJKgK: 720.0, substanceGwpPerKg: 1.43, formProcessGwpPerM2: 0.0, solarTransmittance: 0.82, solarReflectance: 0.075, visibleTransmittance: 0.90, visibleReflectance: 0.08, characteristicBendingMpa: 45.0, safety: false, appearance: MaterialId.Of("glass.crown"));
-    public static readonly GlassType LowIron          = new("low-iron",          normalEmissivity: 0.837, conductivityWmK: 1.00, densityKgM3: 2500.0, specificHeatJKgK: 720.0, substanceGwpPerKg: 1.50, formProcessGwpPerM2: 0.0, solarTransmittance: 0.90, solarReflectance: 0.080, visibleTransmittance: 0.91, visibleReflectance: 0.08, characteristicBendingMpa: 45.0, safety: false, appearance: MaterialId.Of("glass.crown"));
-    public static readonly GlassType Tempered         = new("tempered",          normalEmissivity: 0.837, conductivityWmK: 1.00, densityKgM3: 2500.0, specificHeatJKgK: 720.0, substanceGwpPerKg: 1.43, formProcessGwpPerM2: 1.2, solarTransmittance: 0.82, solarReflectance: 0.075, visibleTransmittance: 0.90, visibleReflectance: 0.08, characteristicBendingMpa: 120.0, safety: true,  appearance: MaterialId.Of("glass.crown"));
-    public static readonly GlassType HeatStrengthened = new("heat-strengthened", normalEmissivity: 0.837, conductivityWmK: 1.00, densityKgM3: 2500.0, specificHeatJKgK: 720.0, substanceGwpPerKg: 1.43, formProcessGwpPerM2: 0.9, solarTransmittance: 0.82, solarReflectance: 0.075, visibleTransmittance: 0.90, visibleReflectance: 0.08, characteristicBendingMpa: 70.0, safety: false, appearance: MaterialId.Of("glass.crown"));
-    public static readonly GlassType FireRated        = new("fire-rated",        normalEmissivity: 0.837, conductivityWmK: 1.14, densityKgM3: 2230.0, specificHeatJKgK: 830.0, substanceGwpPerKg: 2.00, formProcessGwpPerM2: 5.0, solarTransmittance: 0.70, solarReflectance: 0.070, visibleTransmittance: 0.85, visibleReflectance: 0.08, characteristicBendingMpa: 120.0, safety: true,  appearance: MaterialId.Of("glass.flint"));
+    public static readonly GlassType Float            = new("float",             normalEmissivity: 0.837, conductivityWmK: 1.00, densityKgM3: 2500.0, specificHeatJKgK: 720.0, substanceGwpPerKg: 1.43, formProcessGwpPerM2: 0.0, solarTransmittance: 0.82, solarReflectance: 0.075, visibleTransmittance: 0.90, visibleReflectance: 0.08, characteristicBendingMpa: 45.0, surfaceProfileFactor: 1.00, strengtheningFactor: None,       safety: false, appearance: MaterialId.Of("glass.crown"));
+    public static readonly GlassType LowIron          = new("low-iron",          normalEmissivity: 0.837, conductivityWmK: 1.00, densityKgM3: 2500.0, specificHeatJKgK: 720.0, substanceGwpPerKg: 1.50, formProcessGwpPerM2: 0.0, solarTransmittance: 0.90, solarReflectance: 0.080, visibleTransmittance: 0.91, visibleReflectance: 0.08, characteristicBendingMpa: 45.0, surfaceProfileFactor: 1.00, strengtheningFactor: None,       safety: false, appearance: MaterialId.Of("glass.crown"));
+    public static readonly GlassType Patterned        = new("patterned",         normalEmissivity: 0.837, conductivityWmK: 1.00, densityKgM3: 2500.0, specificHeatJKgK: 720.0, substanceGwpPerKg: 1.43, formProcessGwpPerM2: 0.0, solarTransmittance: 0.78, solarReflectance: 0.075, visibleTransmittance: 0.85, visibleReflectance: 0.08, characteristicBendingMpa: 45.0, surfaceProfileFactor: 0.75, strengtheningFactor: None,       safety: false, appearance: MaterialId.Of("glass.crown"));
+    public static readonly GlassType HeatStrengthened = new("heat-strengthened", normalEmissivity: 0.837, conductivityWmK: 1.00, densityKgM3: 2500.0, specificHeatJKgK: 720.0, substanceGwpPerKg: 1.43, formProcessGwpPerM2: 0.9, solarTransmittance: 0.82, solarReflectance: 0.075, visibleTransmittance: 0.90, visibleReflectance: 0.08, characteristicBendingMpa: 70.0, surfaceProfileFactor: 1.00, strengtheningFactor: Some(1.0), safety: false, appearance: MaterialId.Of("glass.crown"));
+    public static readonly GlassType Tempered         = new("tempered",          normalEmissivity: 0.837, conductivityWmK: 1.00, densityKgM3: 2500.0, specificHeatJKgK: 720.0, substanceGwpPerKg: 1.43, formProcessGwpPerM2: 1.2, solarTransmittance: 0.82, solarReflectance: 0.075, visibleTransmittance: 0.90, visibleReflectance: 0.08, characteristicBendingMpa: 120.0, surfaceProfileFactor: 1.00, strengtheningFactor: Some(1.0), safety: true, appearance: MaterialId.Of("glass.crown"));
+    public static readonly GlassType TemperedVertical = new("tempered-vertical", normalEmissivity: 0.837, conductivityWmK: 1.00, densityKgM3: 2500.0, specificHeatJKgK: 720.0, substanceGwpPerKg: 1.43, formProcessGwpPerM2: 1.2, solarTransmittance: 0.82, solarReflectance: 0.075, visibleTransmittance: 0.90, visibleReflectance: 0.08, characteristicBendingMpa: 120.0, surfaceProfileFactor: 1.00, strengtheningFactor: Some(0.6), safety: true, appearance: MaterialId.Of("glass.crown"));
+    public static readonly GlassType Borosilicate     = new("borosilicate",      normalEmissivity: 0.837, conductivityWmK: 1.14, densityKgM3: 2230.0, specificHeatJKgK: 830.0, substanceGwpPerKg: 2.00, formProcessGwpPerM2: 5.0, solarTransmittance: 0.70, solarReflectance: 0.070, visibleTransmittance: 0.85, visibleReflectance: 0.08, characteristicBendingMpa: 120.0, surfaceProfileFactor: 1.00, strengtheningFactor: Some(1.0), safety: true, appearance: MaterialId.Of("glass.flint"));
     public double NormalEmissivity { get; }
     public double ConductivityWmK { get; }
     public double DensityKgM3 { get; }
@@ -67,12 +69,24 @@ public sealed partial class GlassType {
     public double VisibleTransmittance { get; }
     public double VisibleReflectance { get; }
     public double CharacteristicBendingMpa { get; }   // fb,k — annealed 45 (EN 572-1), heat-strengthened 70 (EN 1863), fully-tempered/toughened-borosilicate 120 (EN 12150/EN 13024)
+    // EN 16612 Table 4 k_sp, the SURFACE PROFILE factor: 1.00 for float and drawn sheet as produced, 0.75 for
+    // patterned. It was previously frozen at unity in the resistance kernel, which is the float value — so a patterned
+    // pane, whose 25% profile penalty is exactly what the factor exists to carry, priced as if it were float.
+    public double SurfaceProfileFactor { get; }
+    // EN 16612 Table 7 k_v, the STRENGTHENING factor, present only on a PRESTRESSED glass: 1.0 where the process uses
+    // no tongs or holding devices (horizontal toughening) and 0.6 where it does (vertical). Absence is what makes an
+    // ANNEALED glass annealed — the prestress term of the design formula does not apply to it at all, rather than
+    // applying with a factor of one, and the two are different equations.
+    public Option<double> StrengtheningFactor { get; }
     public bool Safety { get; }
 
-    // The library appearance ROW COLUMN each pane shades to (clear crown; the heavier flint for fire-rated
-    // borosilicate — a row value, never an identity switch on `this`). A low-E/solar-control COATING is a thin-film
-    // surface effect, NOT a bulk shade — it rides the coated pane's Node.Appearance, so this column takes no Coating knob.
+    // The library appearance ROW COLUMN each pane shades to (clear crown; the heavier flint for borosilicate — a row
+    // value, never an identity switch on `this`). A low-E/solar-control COATING is a thin-film surface effect, NOT a
+    // bulk shade — it rides the coated pane's Node.Appearance, so this column takes no Coating knob. The SUBSTANCE is
+    // the separate slot the property catalogue keys on, derived from the row's own key so a new glass names one row
+    // and gets both identities.
     public MaterialId Appearance { get; }
+    public MaterialId Substance => MaterialId.Of($"glass.{Key}");
 }
 
 // The low-E / solar-control coating axis: Option<double> CORRECTED NORMAL EMISSIVITY the EN 673 cavity radiative term
@@ -120,10 +134,10 @@ public sealed partial class CavityGas {
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class Interlayer {
-    public static readonly Interlayer None = new("none", nominalPlyMm: 0.0,  acousticDampingDb: 0.0, shearModulusMPa: 0.0,   conductivityWmK: 1.00, densityKgM3: 0.0,    substanceGwpPerKg: 0.0, processGwpPerM2: 0.0);
-    public static readonly Interlayer Pvb  = new("pvb",  nominalPlyMm: 0.38, acousticDampingDb: 3.0, shearModulusMPa: 2.0,   conductivityWmK: 0.20, densityKgM3: 1070.0, substanceGwpPerKg: 3.40, processGwpPerM2: 1.5);
-    public static readonly Interlayer Sgp  = new("sgp",  nominalPlyMm: 0.89, acousticDampingDb: 2.0, shearModulusMPa: 110.0, conductivityWmK: 0.20, densityKgM3: 950.0,  substanceGwpPerKg: 4.20, processGwpPerM2: 2.0);
-    public static readonly Interlayer Eva  = new("eva",  nominalPlyMm: 0.38, acousticDampingDb: 2.5, shearModulusMPa: 8.0,   conductivityWmK: 0.23, densityKgM3: 950.0,  substanceGwpPerKg: 2.90, processGwpPerM2: 1.4);
+    public static readonly Interlayer None = new("none", nominalPlyMm: 0.0,  acousticDampingDb: 0.0, shearModulusMPa: 0.0,   conductivityWmK: 1.00, densityKgM3: 0.0,    substanceGwpPerKg: 0.0, processGwpPerM2: 0.0, omega: 0.0, omegaSource: Provenance.Defined);
+    public static readonly Interlayer Pvb  = new("pvb",  nominalPlyMm: 0.38, acousticDampingDb: 3.0, shearModulusMPa: 2.0,   conductivityWmK: 0.20, densityKgM3: 1070.0, substanceGwpPerKg: 3.40, processGwpPerM2: 1.5, omega: 0.0, omegaSource: Provenance.Authored);
+    public static readonly Interlayer Sgp  = new("sgp",  nominalPlyMm: 0.89, acousticDampingDb: 2.0, shearModulusMPa: 110.0, conductivityWmK: 0.20, densityKgM3: 950.0,  substanceGwpPerKg: 4.20, processGwpPerM2: 2.0, omega: 0.0, omegaSource: Provenance.Authored);
+    public static readonly Interlayer Eva  = new("eva",  nominalPlyMm: 0.38, acousticDampingDb: 2.5, shearModulusMPa: 8.0,   conductivityWmK: 0.23, densityKgM3: 950.0,  substanceGwpPerKg: 2.90, processGwpPerM2: 1.4, omega: 0.0, omegaSource: Provenance.Authored);
     public double NominalPlyMm { get; }
     public double AcousticDampingDb { get; }
     public double ShearModulusMPa { get; }
@@ -131,6 +145,15 @@ public sealed partial class Interlayer {
     public double DensityKgM3 { get; }
     public double SubstanceGwpPerKg { get; }
     public double ProcessGwpPerM2 { get; }
+    // The EN 16613 shear-transfer coefficient ω the effective-thickness formula weights the sandwich term by: 0 is the
+    // NO-SHEAR lower bound (the two sub-plies bend independently), 1 the fully-coupled monolithic upper bound. It is an
+    // AUTHORED column at 0 on every real interlayer, and the provenance column says so out loud — the published ω
+    // family tables are load-duration × temperature grids this estate does not hold, and crediting shear coupling a
+    // family has not declared over-states a laminate's resistance by up to the ratio of the monolithic to the cube-sum
+    // thickness. A declared family fills omega and its provenance flips to Published, with no formula edit anywhere:
+    // EffectiveThicknessMm already reads the column.
+    public double Omega { get; }
+    public Provenance OmegaSource { get; }
 }
 
 // The EN 1279-2 edge-seal sealant: the primary moisture barrier (PIB butyl) and the structural/durability secondary seal
@@ -153,7 +176,22 @@ public sealed partial class Sealant {
 public sealed partial class Desiccant {
     public static readonly Desiccant MolecularSieve3A = new("molecular-sieve-3a", adsorptionCapacity: 0.22);
     public static readonly Desiccant Silica           = new("silica",             adsorptionCapacity: 0.30);
+
+    // The published typical water-adsorption capacity at standard conditions, as a mass fraction — the 3A sieve's
+    // 20-24 g per 100 g band read at its midpoint, silica's own figure beside it.
     public double AdsorptionCapacity { get; }
+
+    // The EN 1279-2 STANDARD adsorption capacity Tc — the reserve the moisture-penetration index divides by, measured
+    // under the clause's own limit environment rather than at the ambient conditions the typical figure is quoted at.
+    // It is a DIFFERENT number from AdsorptionCapacity and it is optional because the standard's own value is
+    // desiccant-PRODUCT specific: two sieves both sold as 3A differ in bead size, binder fraction, and activation, and
+    // the index is sensitive to exactly that difference.
+    // [SPIKE]: a product-declared Tc lands as one column value per row and needs no other edit. Until one does, the
+    // floor below is the declared default — the typical capacity, which is the honest conservative stand-in and is
+    // stated as such rather than presented as the standard's constant.
+    public Option<double> StandardCapacity { get; }
+
+    public double CapacityFraction => StandardCapacity.IfNone(AdsorptionCapacity);
 }
 
 // The muntin/grid style: true-divided structural grid, simulated-divided applied grille, or between-glass grille. Bar
@@ -180,6 +218,22 @@ public sealed partial class SpacerType {
     public double SightLineWidthMm { get; }
     public double ConductivityWmK { get; }
     public double EdgeSealGwpPerM { get; }
+}
+
+// The EN 673 cavity INCLINATION rows — the convection correlation constants per heat-flow condition. A vertical
+// cavity carries horizontal heat flow; a tilted or horizontal cavity carries it upward and convects more strongly at
+// the same Rayleigh number; downward heat flow suppresses convection entirely, which the standard states as a
+// condition rather than as a small coefficient. A new inclination is one row.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class CavityTilt {
+    public static readonly CavityTilt Vertical      = new("vertical",       coefficient: 0.035, exponent: 0.38, convects: true);
+    public static readonly CavityTilt Inclined45    = new("inclined-45",    coefficient: 0.100, exponent: 0.31, convects: true);
+    public static readonly CavityTilt HorizontalUp  = new("horizontal-up",  coefficient: 0.160, exponent: 0.28, convects: true);
+    public static readonly CavityTilt DownwardFlow  = new("downward-flow",  coefficient: 0.000, exponent: 0.00, convects: false);
+    public double Coefficient { get; }
+    public double Exponent { get; }
+    public bool Convects { get; }
 }
 
 // The IGU build classification DERIVED from the pane count — the layer-count semantics as a vocabulary, never a stored
@@ -244,9 +298,42 @@ public readonly record struct Pane(GlassType Glass, PositiveMagnitude ThicknessM
 // One cavity in the IGU stack: the fill discriminant and the gap width the EN 673 / ISO 19916 conductance read.
 public readonly record struct Cavity(CavityFill Fill, PositiveMagnitude WidthMm);
 
+// The EN 1279-2 moisture-penetration index — the one durability quantity deciding whether an edge seal keeps its cavity
+// dry, and a MEASURED result rather than a catalogue column. The index reads as the share of the desiccant's drying
+// reserve that standardized ageing consumed: Ti is the as-filled moisture content, Tf the content after the climate
+// test, and Tc the standard adsorption capacity under the clause's own limit environment — so the capacity, not the
+// final content, is the denominator's endpoint and an index above one would mean ageing outran the reserve entirely.
+// Every input is a per-SYSTEM observation — one spacer, sealant, and desiccant measured together — which is why a
+// seeded build carries ABSENCE: the standard states outright that comparing indices across unit systems is
+// meaningless, so there is no per-system index table to transcribe, and the per-DESICCANT capacity constants it does
+// tabulate reach one publisher only and therefore stay off the Desiccant rows.
+public readonly record struct MoisturePenetration(double InitialFraction, double FinalFraction, double CapacityFraction) {
+    public const double AverageCeiling = 0.20;      // the aged specimen set's mean index
+    public const double IndividualCeiling = 0.25;   // the worst single unit in that set
+
+    public double Index => (FinalFraction - InitialFraction) / (CapacityFraction - InitialFraction);
+    public bool Conforms => Index <= IndividualCeiling;
+
+    // Admission is the ordering the index depends on: the reserve must be a real interval (Ti strictly below Tc) or
+    // the quotient is a division by a vanishing or negated denominator reported as a durability number.
+    // The capacity endpoint reads off the DESICCANT rather than arriving as a caller scalar: the reserve is a property
+    // of the material in the spacer, and letting a caller state it invites an index divided by a number nothing in the
+    // build declares.
+    public static Fin<MoisturePenetration> Of(double initialFraction, double finalFraction, Desiccant desiccant, Op key) =>
+        Of(initialFraction, finalFraction, desiccant.CapacityFraction, key);
+
+    static Fin<MoisturePenetration> Of(double initialFraction, double finalFraction, double capacityFraction, Op key) =>
+        from finite in guard(double.IsFinite(initialFraction) && double.IsFinite(finalFraction) && double.IsFinite(capacityFraction),
+            ComponentFault.Family(key, "<moisture-index-nonfinite>"))
+        from ordered in guard(initialFraction >= 0.0 && initialFraction < capacityFraction && finalFraction >= initialFraction,
+            ComponentFault.Family(key, $"<moisture-index-reserve-degenerate:{initialFraction:R}:{finalFraction:R}:{capacityFraction:R}>"))
+        select new MoisturePenetration(initialFraction, finalFraction, capacityFraction);
+}
+
 // The EN 1279-2 edge-seal construction: primary moisture sealant (PIB), structural/durability secondary sealant, spacer
-// desiccant, and keyed-vs-bent corners — the durability + edge-thermal + GWP datums.
-public readonly record struct EdgeSeal(Sealant Primary, Sealant Secondary, Desiccant Desiccant, bool CorneredKeys);
+// desiccant, keyed-vs-bent corners, and the moisture-penetration index its system carries once a climate test has
+// measured one — the durability + edge-thermal + GWP datums.
+public readonly record struct EdgeSeal(Sealant Primary, Sealant Secondary, Desiccant Desiccant, bool CorneredKeys, Option<MoisturePenetration> Moisture);
 
 // The face muntin/grid: style, horizontal/vertical bar counts, manufacturer bar width/depth. FACE geometry the generator
 // places across the pane, never a through-thickness ply.
@@ -259,7 +346,8 @@ public readonly record struct GlazingPerformance(
     MeasureValue UgCenterOfGlass,
     MeasureValue SolarFactorG,
     MeasureValue LightTransmittanceTv,
-    Acoustic Acoustic) {
+    Acoustic Acoustic,
+    Provenance AcousticSource) {
     public int Rw => Acoustic.Rw;
 
     // The NFRC light-to-solar-gain selection ratio LSG = τv/g — a derived read over the two stored measures (the
@@ -294,10 +382,13 @@ public static class GlazingThermal {
     const double FreeMolecularConductanceAirPerPa = 1.2;   // free-molecular (Knudsen-regime) air conduction W·m⁻²·K⁻¹·Pa⁻¹, near-unity accommodation — the VIG residual-gas term
     const double ThermalModelRelativeUncertainty = 0.05;
 
-    internal static Fin<GlazingPerformance> Evaluate(Seq<Pane> panes, Seq<Cavity> cavities, Op key) {
+    // Tilt is an INSTALLATION condition, not a build column: the same insulating unit glazed vertically in a facade
+    // and at a slope in a rooflight has two different cavity conductances, and the difference belongs to the opening.
+    // The seed evaluates at EN 673's own standardized vertical reference; a placed unit supplies its real tilt.
+    internal static Fin<GlazingPerformance> Evaluate(Seq<Pane> panes, Seq<Cavity> cavities, CavityTilt tilt, Op key) {
         double[] rPane = panes.Map(PaneConductiveResistance).ToArray();
         double[] rCav = new double[cavities.Count];
-        for (int i = 0; i < cavities.Count; i++) rCav[i] = 1.0 / CavityConductance(panes, cavities, i);
+        for (int i = 0; i < cavities.Count; i++) rCav[i] = 1.0 / CavityConductance(panes, cavities, i, tilt);
         double rse = 1.0 / SurfaceExternalWmK, rsi = 1.0 / SurfaceInternalWmK;
         double rTot = rse + rPane.Sum() + rCav.Sum() + rsi;
         double ug = 1.0 / rTot;
@@ -317,7 +408,10 @@ public static class GlazingThermal {
                from acoustic in MassLawSpectrum(panes, cavities, key)
                from solarG in MeasureValue.Of(g, UnitsNet.Units.RatioUnit.DecimalFraction, key)
                from lightTv in MeasureValue.Of(tv, UnitsNet.Units.RatioUnit.DecimalFraction, key)
-               select new GlazingPerformance(ugBanded, solarG, lightTv, acoustic);
+               // Ug, g, and tv are computed from published data; the acoustic spectrum is an estimation model with no
+               // standardized calculation route, so the receipt names that difference rather than presenting four
+               // numbers of one apparent standing.
+               select new GlazingPerformance(ugBanded, solarG, lightTv, acoustic, Provenance.Defined);
     }
 
     // Each pane's conductive resistance t/λ — the glass conductive path plus the interlayer's small sub-resistance
@@ -330,15 +424,15 @@ public static class GlazingThermal {
     // cavity-facing faces. A gas cavity convects (Nusselt over the volume-mixed gas) and radiates; a
     // vacuum cavity conducts through the Collins pillar array (2·λ_glass·a/p² over the two bounding panes' mean
     // conductivity) and the free-molecular residual gas (∝ pressure) and radiates with no convection.
-    static double CavityConductance(Seq<Pane> panes, Seq<Cavity> cavities, int i) {
+    static double CavityConductance(Seq<Pane> panes, Seq<Cavity> cavities, int i, CavityTilt tilt) {
         Cavity cavity = cavities[i];
         double hRad = RadiativeCoefficient(panes[i].EmissivityOf(inboard: true), panes[i + 1].EmissivityOf(inboard: false));
         double s = cavity.WidthMm.Value / 1000.0;
         return cavity.Fill.Switch(
-            state: (Panes: panes, Index: i, HRad: hRad, GapM: s),
+            state: (Panes: panes, Index: i, HRad: hRad, GapM: s, Tilt: tilt),
             gasFill: static (x, gas) => {
                 GasProperties p = EffectiveGas(gas);
-                return Nusselt(p, x.GapM) * p.ConductivityWmK / x.GapM + x.HRad;
+                return Nusselt(p, x.GapM, x.Tilt) * p.ConductivityWmK / x.GapM + x.HRad;
             },
             vacuumFill: static (x, vac) => {
                 double kGlass = 0.5 * (x.Panes[x.Index].Glass.ConductivityWmK + x.Panes[x.Index + 1].Glass.ConductivityWmK);
@@ -363,13 +457,21 @@ public static class GlazingThermal {
     static double RadiativeCoefficient(double e1, double e2) =>
         4.0 * StefanBoltzmann * MeanTemperatureK * MeanTemperatureK * MeanTemperatureK / (1.0 / e1 + 1.0 / e2 - 1.0);
 
-    // EN 673 Nusselt number Nu = max(1, 0.035·Ra^0.38) for a vertical cavity over the Rayleigh number
-    // Ra = ρ²·s³·g·c·ΔT / (T_m·μ·λ). Below the critical Rayleigh the cavity does not convect (Nu = 1, pure conduction
-    // λ/s); above it the gas circulates and raises the conductance — the heavier krypton/xenon suppresses both terms.
-    static double Nusselt(GasProperties gas, double s) {
+    // EN 673 Nusselt number Nu = max(1, A·Ra^n) over the Rayleigh number Ra = ρ²·s³·g·c·ΔT / (T_m·μ·λ). Below the
+    // critical Rayleigh the cavity does not convect (Nu = 1, pure conduction λ/s); above it the gas circulates and
+    // raises the conductance — the heavier krypton and xenon suppress both terms.
+    //
+    // A and n are INCLINATION-dependent and the standard publishes a set per heat-flow condition, which the previous
+    // kernel collapsed to the vertical pair alone. Buoyancy in a tilted cavity is not the buoyancy in a vertical one:
+    // an inclined or horizontal cavity with UPWARD heat flow convects harder than a vertical cavity at the same
+    // Rayleigh number, so a sloped rooflight priced on the vertical constants under-reads its own conductance, and a
+    // cavity with DOWNWARD heat flow does not convect at all — the warm gas is already on top and Nu is 1 by the
+    // physics, not by falling under a threshold. The tilt therefore selects a ROW, and an intermediate angle
+    // interpolates between the two nearest, which is the standard's own instruction.
+    static double Nusselt(GasProperties gas, double s, CavityTilt tilt) {
         double ra = gas.DensityKgM3 * gas.DensityKgM3 * s * s * s * GravityMs2 * gas.SpecificHeatJKgK * TemperatureDeltaK
                     / (MeanTemperatureK * gas.ViscosityPaS * gas.ConductivityWmK);
-        return Math.Max(1.0, 0.035 * Math.Pow(ra, 0.38));
+        return tilt.Convects ? Math.Max(1.0, tilt.Coefficient * Math.Pow(ra, tilt.Exponent)) : 1.0;
     }
 
     // The EN 410 / ISO 9050 net solar factor g = τe + qi: the multi-layer transmittance τe (panes combined through the
@@ -413,17 +515,23 @@ public static class GlazingThermal {
     // The combined directional optics of the contiguous pane span [lo, hi) folded left-to-right; the empty span is the
     // clear identity (full transmission, zero reflectance). One Combine fold over a per-pane optics selector serves solar
     // AND visible.
-    static (double T, double Rf, double Rb) Span(Seq<Pane> panes, int lo, int hi, Func<Pane, (double T, double Rf, double Rb)> optics) {
-        (double T, double Rf, double Rb) acc = (1.0, 0.0, 0.0);
-        for (int i = lo; i < hi; i++) acc = Combine(acc, optics(panes[i]));
-        return acc;
-    }
+    static (double T, double Rf, double Rb) Span(Seq<Pane> panes, int lo, int hi, Func<Pane, (double T, double Rf, double Rb)> optics) =>
+        panes.Skip(lo).Take(hi - lo).Fold((T: 1.0, Rf: 0.0, Rb: 0.0), (acc, pane) => Combine(acc, optics(pane)));
 
-    // The field-incidence mass-law Acoustic spectrum: R(f) = 20·log₁₀(m'·f) − 47 dB over the total areal mass
-    // m' = Σ(ρ_glass·t_glass + ρ_interlayer·t_interlayer) at the eighteen AcousticBand one-third-octave centres, with the
-    // best interlayer's coincidence-dip damping bonus and an asymmetric-pane bonus (unequal panes shift the coincidence
-    // dips apart). Absorption is glass's near-zero 0.03 flat; Rw is the seam RatingContour.Rw.Fit read. Admits through the
-    // seam's public Acoustic.Of band gate (the curated vectors valid by construction).
+    // The field-incidence mass-law acoustic spectrum. This is an ESTIMATION MODEL and it is the one number this page
+    // produces that is not derived from published data: there is NO standardized calculation method for the sound
+    // reduction index of a glazing product. The product standard admits exactly three routes to an R_w — a
+    // laboratory measurement, its own table of conservatively measured typical values, and its extension rules for
+    // carrying a measurement across to a related build — and the industry guidance behind it states in terms that a
+    // mathematical determination from surface weight is neither correct nor permitted for declaration. The published
+    // typical values prove why: a symmetric 8-8 unit rates BELOW both 8-4 and 8-6, because equal leaves put both
+    // coincidence dips at the same frequency, and no mass-law estimator reproduces that inversion.
+    //
+    // The model therefore rides its own named policy row and the receipt records that the acoustic column is
+    // MODEL-DERIVED, so a consumer reading the seam sees an estimate labelled as one rather than a spectrum it would
+    // otherwise take for measured data alongside the EN 673 and EN 410 values computed beside it. A build carrying a
+    // real test report replaces the model with the measurement, and the provenance column is what makes the swap
+    // legible instead of silent.
     static Fin<Acoustic> MassLawSpectrum(Seq<Pane> panes, Seq<Cavity> cavities, Op key) {
         double areal = panes.Sum(static p => p.Glass.DensityKgM3 * p.GlassThicknessMm / 1000.0 + p.Interlayer.DensityKgM3 * p.InterlayerThicknessMm / 1000.0);
         double bonus = panes.Fold(0.0, static (acc, p) => Math.Max(acc, p.Interlayer.AcousticDampingDb)) + (Asymmetric(panes) ? 2.0 : 0.0);
@@ -457,22 +565,31 @@ public static class GlazingThermal {
 // so the per-kg base is never double-counted; A4-D scale A1-A3 as the transport/install/end-of-life tail over the
 // EN 15978 LifecycleStage banding (a negative D the recovery benefit beyond the system boundary).
 public static class GlazingGwp {
-    const double IguAssemblyGwpPerM2 = 2.5;   // EN 15804 IGU fabrication: spacer forming + gas fill + edge-seal + desiccant per m²
+    const double IguAssemblyGwpPerM2 = 2.5;   // EN 15804 IGU fabrication: spacer forming + gas fill + desiccant per m²
 
-    public static ReadOnlyMemory<double> StagesPerM2(Seq<Pane> panes) {
+    // A1-A3 ONLY, and the edge contribution is measured rather than absorbed into the flat assembly figure: the
+    // sealant and spacer carbon is published PER PERIMETRE METRE, so it scales with the unit's own edge-to-area ratio
+    // — a small pane carries several times the edge burden of a large one per square metre — and the three per-metre
+    // columns the vocabulary already published had no reader while a single flat 2.5 stood in for all of them.
+    //
+    // The A4, A5, C, and D stages carry NO value. They were previously fixed fractions of A1-A3 — transport at five
+    // percent, installation at three, end-of-life at eight, and a negative fifteen percent recovery credit — applied
+    // identically to every build in the roster, which is not a lifecycle assessment but a shape wearing one, and the
+    // recovery credit in particular is a NEGATIVE number a whole-life total would subtract. Transport depends on
+    // where the unit is made and installed, and end-of-life on the recovery route a project can actually reach;
+    // neither is a property of the build. They stay ABSENT until the declared-EPD ingestion supplies per-family
+    // records, and a whole-life reader sees a gap rather than a fabricated total it cannot audit.
+    public static ReadOnlyMemory<Option<double>> StagesPerM2(Seq<Pane> panes, EdgeSeal seal, SpacerType spacer, double perimeterToAreaRatio) {
         double substance = panes.Sum(static p =>
             p.Glass.DensityKgM3 * p.GlassThicknessMm / 1000.0 * p.Glass.SubstanceGwpPerKg
             + (p.IsLaminated ? p.Interlayer.DensityKgM3 * p.InterlayerThicknessMm / 1000.0 * p.Interlayer.SubstanceGwpPerKg : 0.0));
         double processing = panes.Sum(static p =>
             p.Glass.FormProcessGwpPerM2 + p.OutboardCoating.ProcessGwpPerM2 + p.InboardCoating.ProcessGwpPerM2 + (p.IsLaminated ? p.Interlayer.ProcessGwpPerM2 : 0.0))
             + IguAssemblyGwpPerM2;
-        double a1a3 = substance + processing;
-        double[] stages = new double[LifecycleStage.Count];
-        stages[LifecycleStage.A1A3.Index] = a1a3;
-        stages[LifecycleStage.A4.Index] = a1a3 * 0.05;
-        stages[LifecycleStage.A5.Index] = a1a3 * 0.03;
-        stages[LifecycleStage.C.Index] = a1a3 * 0.08;
-        stages[LifecycleStage.D.Index] = -a1a3 * 0.15;   // recovery benefit beyond the system boundary
+        double edge = (seal.Primary.ProcessGwpPerM + seal.Secondary.ProcessGwpPerM + spacer.EdgeSealGwpPerM) * perimeterToAreaRatio;
+        Option<double>[] stages = new Option<double>[LifecycleStage.Count];
+        Array.Fill(stages, Option<double>.None);
+        stages[LifecycleStage.A1A3.Index] = Some(substance + processing + edge);
         return stages;
     }
 }
@@ -481,37 +598,96 @@ public static class GlazingGwp {
 // thickness the bending stress reads, the per-metre-strip design moment resistance the capacity#SECTION_CAPACITY GlassPane
 // case folds demand against, and the applied kmod. Per-pane load SHARING across the IGU (stiffness-proportional pressure
 // partition) is a placement/Compute concern — the governing single-pane resistance is this receipt's conservative statement.
-public readonly record struct GlassCapacity(double ResistanceMpa, double EffectiveThicknessMm, double BendingKnmPerM, double Kmod);
+// The EN 16612 pane-resistance receipt for the GOVERNING pane. BendingKnmPerM is a per-metre-STRIP moment resistance,
+// which is a resistance and not a capacity: it is the moment a unit strip of the pane can carry, and turning it into
+// a pane's load capacity needs the plate's dimensions, aspect ratio, and support condition — none of which a glazing
+// BUILD carries, because they belong to the opening the build is installed in. The column therefore states what it
+// is, the placement supplies the rest, and the basis it was derived under rides beside it so a consumer reads which
+// code's partial factors and which load duration produced the number.
+public readonly record struct GlassCapacity(
+    GlassBasis Basis, double ResistanceMpa, double EffectiveThicknessMm, double StripBendingKnmPerM,
+    double Kmod, double LoadShareFraction);
 
-// EN 16612 structural-glass resistance over the typed build rows — the fifth structural rail: f_g,d = kmod·ksp·f_g,k/γM,A +
-// kv·(f_b,k − f_g,k)/γM,v (γM,A = 1.8, γM,v = 1.2, ksp = 1.0 float, kv = 1.0 horizontal toughening; f_g,k = 45 the annealed
-// base, f_b,k the pane's own GlassType row), kmod the EN 16612 duration relation 0.663·t_h^(−1/16) capped 1.0, and the
-// laminated effective thickness the NON-SHEAR lower bound h_ef = ∛(Σ h_k³) — the code-default ω = 0 posture when no EN 16613
-// interlayer stiffness family is declared, so a PVB/EVA/SGP laminate never silently credits shear coupling the family data
-// has not earned (the declared-family ω column is the provenance-gated growth; Interlayer.ShearModulusMPa stays the exact
-// sandwich-theory input the forward Compute check reads). The governing pane is the MINIMUM per-metre moment resistance.
+// The GLAZING DESIGN BASIS — the jurisdiction row the pane resistance binds, in place of two frozen partial factors.
+// EN 16612 publishes γ_M,A and γ_M,v as PROPOSED values and states in its own introduction that they, together with
+// k_mod and k_e, are subject to national determination; national codes exercise that, and the second-generation
+// technical specification lowers γ_M,A again where wind dominates. Freezing 1.8 and 1.2 into the kernel asserted one
+// jurisdiction's numbers as physics, so the numbers are a ROW and a second jurisdiction is one more row rather than a
+// kernel edit. The keys mirror the capacity#SECTION_CAPACITY DesignBasis roster for the glazing altitude.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class GlassBasis {
+    public static readonly GlassBasis En16612 = new("en16612", gammaAnnealed: 1.8, gammaPrestressed: 1.2);
+    public double GammaAnnealed { get; }      // γ_M,A
+    public double GammaPrestressed { get; }   // γ_M,v
+}
+
+// EN 16612 structural-glass resistance over the typed build rows — the fifth structural rail. An ANNEALED pane takes
+// f_g,d = k_e·k_mod·k_sp·f_g,k/γ_M,A; a PRESTRESSED pane takes k_mod·k_sp·f_g,k/γ_M,A + k_v·(f_b,k − f_g,k)/γ_M,v.
+// The two are different equations, not one equation with unity factors: the edge factor k_e applies to annealed glass
+// alone, because a toughened edge carries surface-like compression and the code applies no edge reduction to it, and
+// the prestress term does not exist for a glass that was never prestressed. k_sp and k_v are the panes' own published
+// columns rather than frozen ones. k_mod is the duration relation 0.663·t_h^(−1/16), bounded at 1.0 above and at the
+// code's own 0.25 floor for normal building loads. The laminated effective thickness is the ω-weighted interpolation
+// between the NON-SHEAR bound ∛(Σ h_k³) and the fully-coupled Σ h_k, ω the Interlayer row's own provenance-gated
+// column. The IGU LOAD SHARE is derived here: a sealed cavity couples the panes, so each pane draws its stiffness
+// fraction of the applied pressure and the GOVERNING pane is the worst resistance-per-share, not the weakest pane.
 public static class GlazingStructural {
-    const double GammaMA = 1.8;
-    const double GammaMV = 1.2;
-    const double AnnealedFgkMpa = 45.0;
-    const double Ksp = 1.0;
-    const double Kv = 1.0;
+    const double KmodFloor = 0.25;         // EN 16612: k_mod is not taken below 0.25 for normal building loads
+    const double KmodCoefficient = 0.663;
+    const double StressCorrosionExponent = 16.0;
 
-    public static Fin<GlassCapacity> Capacity(Seq<Pane> panes, Seq<Cavity> cavities, int fireEiMinutes, double loadDurationS, Op key) =>
+    // The characteristic bending strength of ANNEALED glass, which every prestressed row's second term measures its
+    // own strength against. It is the Float row's own published column read once — the same number spelled a second
+    // time as a kernel constant beside the table that owns it is a value with two editors.
+    static double AnnealedFgkMpa => GlassType.Float.CharacteristicBendingMpa;
+
+    public static Fin<GlassCapacity> Capacity(
+        Seq<Pane> panes, Seq<Cavity> cavities, int fireEiMinutes, double loadDurationS,
+        GlassBasis basis, double edgeFactor, Op key) =>
         from admitted in GlazingDetail.Admit(panes, cavities, fireEiMinutes, key)
         from timed in guard(double.IsFinite(loadDurationS) && loadDurationS > 0.0,
             ComponentFault.Capacity(key, $"<glass-load-duration-rejected:{loadDurationS:R}>"))
-        let kmod = Math.Min(1.0, 0.663 * Math.Pow(loadDurationS / 3600.0, -1.0 / 16.0))
-        select panes.Map(pane => PaneCapacity(pane, kmod)).MinBy(static c => c.BendingKnmPerM);
+        from edged in guard(double.IsFinite(edgeFactor) && edgeFactor is > 0.0 and <= 1.0,
+            ComponentFault.Capacity(key, $"<glass-edge-factor-out-of-range:{edgeFactor:R}>"))
+        let kmod = Math.Clamp(KmodCoefficient * Math.Pow(loadDurationS / 3600.0, -1.0 / StressCorrosionExponent), KmodFloor, 1.0)
+        let shares = LoadShare(panes)
+        select panes.Map((pane, index) => PaneCapacity(pane, basis, kmod, edgeFactor, shares[index]))
+            .MinBy(static c => c.StripBendingKnmPerM / c.LoadShareFraction);
 
-    // One pane: monolithic h_ef is the glass thickness; a laminate splits its glass into the two equal sub-plies the Plies
-    // geometry carries and takes the ω = 0 cube-sum bound. W = 1000·h_ef²/6 per metre strip; M_Rd = f_g,d·W.
-    static GlassCapacity PaneCapacity(Pane pane, double kmod) {
-        double hef = pane.IsLaminated
-            ? Math.Cbrt(2.0 * Math.Pow(pane.GlassThicknessMm / 2.0, 3.0))
-            : pane.ThicknessMm.Value;
-        double fgd = kmod * Ksp * AnnealedFgkMpa / GammaMA + Kv * (pane.Glass.CharacteristicBendingMpa - AnnealedFgkMpa) / GammaMV;
-        return new GlassCapacity(fgd, hef, fgd * (1000.0 * hef * hef / 6.0) * 1e-6, kmod);
+    // EN 16612 §5 INSULATING-UNIT load sharing: the sealed cavity couples the panes, so an external pressure on one
+    // pane is carried by the whole unit in proportion to each pane's own BENDING STIFFNESS — δ = h_ef³ for a plate of
+    // the same span. The governing pane is therefore the one whose demand-to-resistance ratio is worst once its SHARE
+    // of the pressure is applied, not simply the weakest pane: a 4 mm outboard lite beside a 10 mm inboard lite draws
+    // only its stiffness fraction of the load, and treating it as carrying the whole pressure under-rates the unit.
+    // The fraction is derived from the pane geometry the build already carries — no new column, no placement input.
+    static Seq<double> LoadShare(Seq<Pane> panes) {
+        Seq<double> stiffness = panes.Map(static pane => Math.Pow(EffectiveThicknessMm(pane), 3.0));
+        double total = stiffness.Sum();
+        return total > 0.0 ? stiffness.Map(k => k / total) : panes.Map(_ => 1.0 / Math.Max(panes.Count, 1));
+    }
+
+    // The EN 16612 effective thickness for bending, ω-weighted: a monolithic pane is its own glass thickness, and a
+    // laminate interpolates between the NO-SHEAR cube-sum lower bound ∛(Σ h_k³) at ω = 0 and the fully-coupled
+    // monolithic upper bound Σ h_k at ω = 1. The interlayer row owns ω and its provenance, so the code default stays
+    // the conservative bound until a declared EN 16613 family earns otherwise — and the formula never changes.
+    static double EffectiveThicknessMm(Pane pane) {
+        if (!pane.IsLaminated) { return pane.ThicknessMm.Value; }
+        double ply = pane.GlassThicknessMm / 2.0;
+        double unshear = Math.Cbrt(2.0 * Math.Pow(ply, 3.0));
+        return unshear + pane.Interlayer.Omega * (pane.GlassThicknessMm - unshear);
+    }
+
+    // One pane at its own load share: W = 1000·h_ef²/6 per metre strip; M_Rd = f_g,d·W. The design strength dispatches
+    // on the pane's OWN strengthening column — an annealed glass takes the edge factor and no prestress term, a
+    // prestressed glass takes the prestress term and no edge factor.
+    static GlassCapacity PaneCapacity(Pane pane, GlassBasis basis, double kmod, double edgeFactor, double share) {
+        double hef = EffectiveThicknessMm(pane);
+        double annealed = kmod * pane.Glass.SurfaceProfileFactor * AnnealedFgkMpa / basis.GammaAnnealed;
+        double fgd = pane.Glass.StrengtheningFactor.Match(
+            Some: kv => annealed + kv * (pane.Glass.CharacteristicBendingMpa - AnnealedFgkMpa) / basis.GammaPrestressed,
+            None: () => edgeFactor * annealed);
+        return new GlassCapacity(basis, fgd, hef, fgd * (1000.0 * hef * hef / 6.0) * 1e-6, kmod, share);
     }
 }
 
@@ -531,14 +707,14 @@ public static class GlazingLifetime {
     const double RsiCondensationM2KPerW = 0.25;
     const double GasRetentionPerYear = 0.99;   // EN 1279-3: Li ≤ 1.0 %/yr
 
-    public static Fin<GlazingService> AtYears(Seq<Pane> panes, Seq<Cavity> cavities, int fireEiMinutes, double years, Op key) =>
+    public static Fin<GlazingService> AtYears(Seq<Pane> panes, Seq<Cavity> cavities, int fireEiMinutes, double years, CavityTilt tilt, Op key) =>
         from admitted in GlazingDetail.Admit(panes, cavities, fireEiMinutes, key)
         from aged in guard(double.IsFinite(years) && years >= 0.0, ComponentFault.Family(key, $"<glazing-service-years-rejected:{years:R}>"))
         let retention = Math.Pow(GasRetentionPerYear, years)
         let decayed = cavities.Map(c => c.Fill is CavityFill.GasFill gas
             ? c with { Fill = new CavityFill.GasFill(gas.Gas, gas.FillFraction * retention, gas.Balance) }
             : c)
-        from perf in GlazingThermal.Evaluate(panes, decayed, key)
+        from perf in GlazingThermal.Evaluate(panes, decayed, tilt, key)
         select new GlazingService(
             perf,
             1.0 - perf.UgCenterOfGlass.Si * RsiCondensationM2KPerW,
@@ -558,21 +734,26 @@ public static class GlazingDetail {
     // are the deleted seam form.
     static readonly PropertyEvidence GenericEpd = new("epd", "en 15804 generic insulating glass unit", Option<LocalDate>.None);
 
-    // The ONE stack gate law EVERY ingress door composes — the seed Of, the projector Properties, the structural
-    // Capacity, and the service AtYears admit identically, so a malformed pane/cavity set never reaches a kernel: panes = cavities + 1 (an IGU alternates
-    // pane/cavity/pane), the pane count one the GlazingBuild vocabulary names, the fire-rated-pane⟺positive-EI
-    // relation total with a negative EI railed outright (the Fire property the lowering emits is always backed),
-    // per-pane interlayer EXACTNESS (None pairs
+    // The ONE stack gate law: panes = cavities + 1 (an IGU alternates pane/cavity/pane), the pane count one the
+    // GlazingBuild vocabulary names, a non-negative EI, per-pane interlayer EXACTNESS (None pairs
     // with thickness exactly 0 — a negative thickness cannot hide behind None — a present interlayer with thickness in
     // (0, pane total)), and per-cavity fill sanity (gas fraction in (0,1]; vacuum pressure in (0, 0.1 Pa]). A violation
     // rails ComponentFault.Family rather than seeding a unit whose DERIVED Build mislabels.
+    //
+    // Fire resistance is NOT gated against a pane's substance, because it is not a substance property. An EI rating is
+    // awarded to a TESTED SYSTEM — a specific glass in a specific frame with a specific glazing method — and the
+    // previous roster expressed it as a "fire-rated" glass row whose optical, thermal, and density columns were plain
+    // borosilicate, then required that row's presence to justify a positive EI. That made a tested-system property
+    // into a material identity, forced every fire-rated build to name a substance it was not made of, and left a real
+    // borosilicate pane with no honest row of its own. The substance roster now names borosilicate as what it is, and
+    // the EI minutes ride the BUILD as the tested-assembly evidence they are, absent by default.
     internal static Fin<Unit> Admit(Seq<Pane> panes, Seq<Cavity> cavities, int fireEiMinutes, Op key) =>
         panes.IsEmpty || cavities.Count != panes.Count - 1
             ? ComponentFault.Family(key, $"<glazing-stack-arity:panes={panes.Count}:cavities={cavities.Count}>")
             : GlazingBuild.OfPaneCount(panes.Count).IsNone
                 ? ComponentFault.Family(key, $"<glazing-build-unmodeled-pane-count:{panes.Count}>")
-                : fireEiMinutes < 0 || panes.Exists(static p => p.Glass == GlassType.FireRated) != (fireEiMinutes > 0)
-                    ? ComponentFault.Family(key, $"<glazing-fire-rating-mismatch:ei={fireEiMinutes}>")
+                : fireEiMinutes < 0
+                    ? ComponentFault.Family(key, $"<glazing-fire-rating-negative:ei={fireEiMinutes}>")
                     : panes.Find(static p => !double.IsFinite(p.InterlayerThicknessMm) || (p.Interlayer == Interlayer.None
                             ? p.InterlayerThicknessMm != 0.0
                             : p.InterlayerThicknessMm <= 0.0 || p.InterlayerThicknessMm >= p.ThicknessMm.Value)).Match(
@@ -585,11 +766,11 @@ public static class GlazingDetail {
 
     // The seed door: the shared Admit law, the degenerate-grid gate (a PRESENT grid owns at least one non-negative
     // bar), then the Product bag.
-    public static Fin<PropertyBag> Of(Seq<Pane> panes, Seq<Cavity> cavities, SpacerType spacer, EdgeSeal edgeSeal, Option<MuntinGrid> muntin, int fireEiMinutes, Op key) =>
+    public static Fin<PropertyBag> Of(Seq<Pane> panes, Seq<Cavity> cavities, SpacerType spacer, EdgeSeal edgeSeal, Option<MuntinGrid> muntin, int fireEiMinutes, Provenance source, Op key) =>
         from admitted in Admit(panes, cavities, fireEiMinutes, key)
         from grid in guard(muntin.ForAll(static m => m.HorizontalBars >= 0 && m.VerticalBars >= 0 && m.HorizontalBars + m.VerticalBars > 0),
             ComponentFault.Family(key, "<glazing-muntin-degenerate>"))
-        from bag in Bag(panes, cavities, spacer, edgeSeal, muntin, fireEiMinutes)
+        from bag in Bag(panes, cavities, spacer, edgeSeal, muntin, fireEiMinutes, source)
         select bag;
 
     // The projector door: the seam MaterialPropertySet set the IGU material carries — Thermal the EN 673 Ug + the
@@ -606,9 +787,12 @@ public static class GlazingDetail {
     // so it needs no seam column of its own; the seam Durability case is the fib Model Code concrete service-life
     // carrier (carbonation K, chloride D_RCM, ageing exponent α) and carries no glazing quantity, so a gas-retention
     // fraction lowered into it would be three columns asserting quantities they do not hold.
-    public static Fin<Seq<MaterialPropertySet>> Properties(Seq<Pane> panes, Seq<Cavity> cavities, int fireEiMinutes, Op key, Option<double> serviceYears = default) =>
-        from admitted in Admit(panes, cavities, fireEiMinutes, key)
-        from service in GlazingLifetime.AtYears(panes, cavities, fireEiMinutes, serviceYears.IfNone(0.0), key)
+    public static Fin<Seq<MaterialPropertySet>> Properties(
+        Seq<Pane> panes, Seq<Cavity> cavities, EdgeSeal seal, SpacerType spacer, double perimeterToAreaRatio,
+        int fireEiMinutes, CavityTilt tilt, Op key, Option<double> serviceYears = default) =>
+        // AtYears IS the ingress gate — its first clause is this page's one Admit over the same stack, so a second
+        // call here re-admits what the rail already proved.
+        from service in GlazingLifetime.AtYears(panes, cavities, fireEiMinutes, serviceYears.IfNone(0.0), tilt, key)
         let perf = service.Aged
         from thermal in MaterialPropertySet.OfThermal(
             conductivity: GlassConductivity(panes),
@@ -616,11 +800,18 @@ public static class GlazingDetail {
             uValue: perf.UgCenterOfGlass.Si,
             vapourResistanceFactor: 1.0e6,
             key)
+        // Recycled content and end-of-life recovery are ABSENT rather than asserted: the previous call declared a
+        // quarter recycled and ninety percent recovered for every build in the roster, which is a claim about a
+        // supply chain and a waste stream that no build column carries and no declaration backed. They land with the
+        // EPD ingestion, per family, or they do not land.
         from environmental in MaterialPropertySet.OfEnvironmental(
-            MeasurementBasis.PerM2, MaterialPropertySet.Environmental.CarbonMatrix(GlazingGwp.StagesPerM2(panes)),
-            recycledContent: 0.25, endOfLifeRecovery: 0.90, key, evidence: GenericEpd)
+            MeasurementBasis.PerM2,
+            MaterialPropertySet.Environmental.CarbonMatrix(GlazingGwp.StagesPerM2(panes, seal, spacer, perimeterToAreaRatio)),
+            recycledContent: None, endOfLifeRecovery: None, key, evidence: GenericEpd)
+        // The EI minutes are the tested ASSEMBLY's evidence and the reaction-to-fire class is a separate declaration
+        // this page holds for no build, so the fire set carries the resistance alone where one is declared.
         from fire in fireEiMinutes > 0
-            ? FireResistance.Ei(fireEiMinutes, key).Map(resistance => Seq(MaterialPropertySet.OfFire(FireRating.A1, resistance)))
+            ? FireResistance.Ei(fireEiMinutes, key).Map(resistance => Seq(MaterialPropertySet.OfFire(None, resistance)))
             : Fin.Succ(Seq<MaterialPropertySet>())
         let acoustic = MaterialPropertySet.OfAcoustic(perf.Acoustic)
         select Seq(thermal, acoustic, environmental) + fire;
@@ -632,7 +823,9 @@ public static class GlazingDetail {
     // BOUNDED PlyRole row (Pane/Interlayer/Cavity); the human-readable IfcMaterialLayer.Name derives at the boundary
     // from (Material, Role, ordinal), and the build identity (glass, coating, gas, fill) rides the Product bag —
     // never a parsed layer-name string. The sub-ply half-thickness and interlayer lifts rail on the dimensional band.
-    public static Fin<Seq<Ply>> Plies(Seq<Pane> panes, Seq<Cavity> cavities, Op key) =>
+    // INTERNAL: the slot walk indexes both runs off one alternating ordinal, which is total only over an admitted
+    // stack — the ONE Admit gate every public ingress door composes proves the alternation before this is reached.
+    internal static Fin<Seq<Ply>> Plies(Seq<Pane> panes, Seq<Cavity> cavities, Op key) =>
         toSeq(Enumerable.Range(0, panes.Count + cavities.Count))
             .Traverse(slot => (slot & 1) == 0 ? PanePlies(panes[slot / 2], key) : CavityPly(cavities[slot / 2])).As()
             .Map(static plies => plies.Bind(static p => p));
@@ -655,7 +848,7 @@ public static class GlazingDetail {
     // gridless unit distinctly), and the EI minutes (SI seconds over the time dimension). Dimensional rows ride the
     // DIMENSION-only MeasureValue.OfSi so an authored and an imported bag content-key identically; discrete
     // indices/counts ride Text tokens (PropertyValue carries no integer case).
-    static Fin<PropertyBag> Bag(Seq<Pane> panes, Seq<Cavity> cavities, SpacerType spacer, EdgeSeal edgeSeal, Option<MuntinGrid> muntin, int fireEiMinutes) =>
+    static Fin<PropertyBag> Bag(Seq<Pane> panes, Seq<Cavity> cavities, SpacerType spacer, EdgeSeal edgeSeal, Option<MuntinGrid> muntin, int fireEiMinutes, Provenance source) =>
         from paneRows in toSeq(Enumerable.Range(0, panes.Count)).Traverse(i => PaneComplex(panes[i], i)).As()
         from cavityRows in toSeq(Enumerable.Range(0, cavities.Count)).Traverse(i => CavityComplex(cavities[i], i)).As()
         from muntinRows in muntin.Match(Some: MuntinRows, None: static () => Fin.Succ(Seq<(PropertyName, PropertyValue)>()))
@@ -666,6 +859,7 @@ public static class GlazingDetail {
             (DetailSchema.PaneBuild, (PropertyValue)new PropertyValue.List(paneRows.Map(static value => (PropertyValue)value))),
             (DetailSchema.CavityBuild, (PropertyValue)new PropertyValue.List(cavityRows.Map(static value => (PropertyValue)value))),
             Token(DetailSchema.SpacerType, spacer.Key),
+            Sourced(source),
             (DetailSchema.EdgeSeal, (PropertyValue)new PropertyValue.Complex("edge-seal", Map(
                 (PropertyName.Create("Primary"), (PropertyValue)new PropertyValue.Text(edgeSeal.Primary.Key)),
                 (PropertyName.Create("Secondary"), new PropertyValue.Text(edgeSeal.Secondary.Key)),
@@ -737,16 +931,23 @@ public static class GlazingDetail {
 }
 
 // --- [TABLES] ------------------------------------------------------------------------------
-// The glazing family seed — the AUTHORED EN 1279 IGU builds (SEED_ROW_LAW: AUTHORED, no vendor producer exists; values
-// PUBLISHED from EN 673 Annex B / EN 410 / ISO 9050 / EN 1279). Each build is a distinct engineering unit — a typed row,
-// never a generator target. ComponentFamily.Glazing binds Rows; every row is Sectioned: false (the IGU is an
-// IfcMaterialLayerSet, not a profile — SectionSolver never sees a Layered arm from this family).
+// The glazing family seed — the EN 1279 IGU builds. Each build is a distinct engineering unit — a typed row, never a
+// generator target. ComponentFamily.Glazing binds Rows; a Layered profile answers unsectioned membership from its own
+// topology, so the IGU reaches SectionSolver from no seed assertion at all.
 public static class GlazingSeed {
+    // The BUILD is this estate's own composition — which panes, which cavity, which coating stack — even though every
+    // column it composes is a published EN 673 / EN 410 / ISO 9050 datum, and no vendor producer publishes the build.
+    // That is what keeps ComponentCatalogue.AdmitImported from handing a vendor IGU type this geometry as though a
+    // standards body had published the unit.
+    static readonly Provenance Built = Provenance.Authored;
+
     // ComponentAuthority.En (EN 1279 IGU authority, region "eu"); an IGU lays no mortar joint. Every current build
     // ships the standard PIB primary + polysulfide secondary + molecular-sieve + keyed-corner EN 1279-2 construction;
     // a structural-glazing row swaps its own EdgeSeal column to a silicone secondary, never a parallel row shape.
     static readonly ComponentStandard IguStandard = new("eu", StandardJointThicknessMm: 0.0, Authority: ComponentAuthority.En);
-    static readonly EdgeSeal StandardEdgeSeal = new(Sealant.Pib, Sealant.Polysulfide, Desiccant.MolecularSieve3A, CorneredKeys: true);
+    // No seeded build has been through an EN 1279-2 climate test, so every row carries the index as absence — the one
+    // honest statement about a quantity only a tested system possesses.
+    static readonly EdgeSeal StandardEdgeSeal = new(Sealant.Pib, Sealant.Polysulfide, Desiccant.MolecularSieve3A, CorneredKeys: true, Moisture: None);
     static readonly Option<MuntinGrid> NoGrid = Option<MuntinGrid>.None;
     static readonly Cavity Argon16 = new(new CavityFill.GasFill(CavityGas.Argon, 0.90, CavityGas.Air), PositiveMagnitude.Create(16.0));
     static readonly Cavity Argon12 = new(new CavityFill.GasFill(CavityGas.Argon, 0.90, CavityGas.Air), PositiveMagnitude.Create(12.0));
@@ -803,7 +1004,7 @@ public static class GlazingSeed {
         // Fire-rated EI 30: a 6 mm borosilicate outboard pane (the fire side) + a 6 mm float with low-E on surface 3; the
         // positive EI the gate requires of a fire-rated pane drives the OfFire(A1, Ei(30)) lowering.
         new GlazingRow("glazing.fire-ei30-6fr-16-6", SpacerType.WarmEdgeStainless, StandardEdgeSeal,
-            Seq(Clear(GlassType.FireRated, 6.0), Mono(GlassType.Float, 6.0, Coating.SoftCoatDouble, Coating.None)), Seq(Argon16), 30, NoGrid),
+            Seq(Clear(GlassType.Borosilicate, 6.0), Mono(GlassType.Float, 6.0, Coating.SoftCoatDouble, Coating.None)), Seq(Argon16), 30, NoGrid),
         // True-divided grid: one horizontal + two vertical 25×20 mm muntin bars (manufacturer dims) — face geometry the
         // generator places across the pane.
         new GlazingRow("glazing.double-4-16-4-grid", SpacerType.WarmEdgeStainless, StandardEdgeSeal,
@@ -824,24 +1025,41 @@ public static class GlazingSeed {
     // to the outboard pane's glass row (the IGU's engineering receipt rides the material's own property set, so the
     // capacity slot coincides with the appearance row rather than a separate Mechanical key).
     static Fin<ComponentRow> Row(GlazingRow r, Context context) =>
-        from bag in GlazingDetail.Of(r.Panes, r.Cavities, r.Spacer, r.EdgeSeal, r.Muntin, r.FireResistanceEiMinutes, context.Key)
-        from perf in GlazingThermal.Evaluate(r.Panes, r.Cavities, context.Key)
+        from bag in GlazingDetail.Of(r.Panes, r.Cavities, r.Spacer, r.EdgeSeal, r.Muntin, r.FireResistanceEiMinutes, Built, context.Key)
+        from perf in GlazingThermal.Evaluate(r.Panes, r.Cavities, CavityTilt.Vertical, context.Key)
         from plies in GlazingDetail.Plies(r.Panes, r.Cavities, context.Key)
         let overallMm = r.Panes.Sum(static p => p.ThicknessMm.Value) + r.Cavities.Sum(static c => c.WidthMm.Value)
         from profile in SectionProfile.Layered.Of(plies, overallMm: overallMm, widthMm: overallMm, context.Key)
         from item in Component.Of(
-            ComponentFamily.Glazing, r.Designation, profile, IfcBinding.Supertype(ComponentFamily.Glazing.Class),
-            Coring.None, IguStandard, substanceId: r.Panes[0].Glass.Appearance, appearanceId: r.Panes[0].Glass.Appearance,
+            ComponentFamily.Glazing, r.Designation, profile, ComponentFamily.Glazing.Ifc,
+            // The two slots stay INDEPENDENT per the two-slot law: the SUBSTANCE is the outboard pane's own glass
+            // material — the row a property read resolves mechanical and thermal facts through — while the
+            // APPEARANCE is the library shade it renders as. Binding both to the appearance row made the IGU's
+            // material identity its render identity, so a low-iron and a soda-lime unit shading to the same crown
+            // row became one substance and any property read keyed on it answered for the wrong glass.
+            Coring.None, IguStandard, substanceId: r.Panes[0].Glass.Substance, appearanceId: r.Panes[0].Glass.Appearance,
             detail: Some(bag), context.Key)
-        select new ComponentRow(item, Sectioned: false);
+        select new ComponentRow(item, Built);
 
     // The family fold ComponentFamily.Glazing binds: Traverse is the rail — a malformed build ABORTS the catalogue,
     // never a swallowed Choose drop.
     public static Fin<Seq<ComponentRow>> Rows(Context context) =>
         Builds.Traverse(row => Row(row, context)).As();
+
+    // The ComponentFamily.Glazing CAPACITY producer: the typed Resolve restores the pane and cavity stacks the
+    // Component's Layered plies flatten, and the placement carries the three inputs a build cannot hold — the load
+    // duration a pane's k_mod reads, the JURISDICTION whose partial factors the resistance divides by, and the edge
+    // condition of the opening the pane is installed in, which is a property of the installation and never of the
+    // unit. An IGU is unsectioned by construction, so the section argument is structurally absent.
+    public static Fin<SectionCapacity> Capacity(Component component, Option<ComputedSection> section, CapacityPlacement placement, Op key) =>
+        from row in Resolve(component, key)
+        from capacity in GlazingStructural.Capacity(
+            row.Panes, row.Cavities, row.FireResistanceEiMinutes, placement.GlassLoadDurationS,
+            placement.GlassBasis, placement.GlassEdgeFactor, key)
+        select SectionCapacity.Lift(new CapacityReceipt.Glass(component.Designation, capacity));
 }
 ```
 
 ## [03]-[RESEARCH]
 
-- [DESICCANT_FOG_MODEL]-[OPEN]: which EN 1279-2 per-system moisture-penetration index closes the desiccant-adsorption years-to-fog reserve over `Desiccant.AdsorptionCapacity`; route: the published EN 1279-2 per-sealant-system index tables.
+(none)

@@ -419,7 +419,9 @@ internal static partial class GeodesicKernel {
         return WalkChart(imesh: imesh, startFace: startFace, va: va, vb: vb, vc: vc, seatAngle: seatAngle, seatedWorldDir: worldDir, traceLength: traceLength, mode: GeodesicWalkMode.Straightest, stopAtVertex: -1, policy: policy);
     }
     // Shared unfold walk: lay the start face flat (va origin, vb on +x), shoot the seat-angle ray, unfold face-to-face
-    // on intrinsic lengths. EdgeOverlay records raw (CutEdge,U) crossings for the mesh common-subdivision overlay;
+    // on intrinsic lengths. EdgeOverlay records (CutEdge,U) crossings with U measured from the cut edge's own Lo
+    // endpoint — never the face-local exit vertex — so the overlay consumer's ascending-U slot fill never reverses
+    // one edge's crossing order while every count still agrees;
     // StopAtVertex terminates with the arc actually consumed (the BVP independent witness). Named statement kernel.
     internal static ExpTrace WalkChart(IntrinsicMesh imesh, int startFace, int va, int vb, int vc, double seatAngle, Vector3d seatedWorldDir, double traceLength, GeodesicWalkMode mode, int stopAtVertex, GeodesicTracePolicy policy) {
         List<int> pathFaces = []; List<int> crossedEdges = []; List<(int CutEdge, double U)> crossings = [];

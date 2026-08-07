@@ -437,7 +437,7 @@ public abstract partial record SurfaceOp {
                         op.Catch(() =>
                             ModelGate.Staged(op: op, success: NurbsSurface.MakeCompatible(
                                 surface0: first, surface1: second, nurb0: out NurbsSurface nurb0, nurb1: out NurbsSurface nurb1),
-                                (SurfaceSlot.Compatible, (GeometryBase[])[nurb0, nurb1], false))));
+                                (SurfaceSlot.Compatible, (GeometryBase[])[nurb0, nurb1], false)))));
             },
             matchEdge: static (model, edit) => {
                 Op op = Op.Of(name: nameof(MatchEdge));

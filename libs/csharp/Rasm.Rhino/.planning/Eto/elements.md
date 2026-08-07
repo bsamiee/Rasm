@@ -116,7 +116,7 @@ public static class FaultRail {
 ## [03]-[SPEC]
 
 - Owner: `ElementSpec` applies identity, state, tooltip, style, and binding plans once; `ElementReceipt` owns the realized subtree; `UiLease` is the one release gate — every Eto capsule derives it, so the interlocked one-shot release, the `Released` probe, the `ReleaseFaults` ledger, and the non-throwing `Dispose` terminal exist exactly once and no capsule overrides the terminal to route its own faults.
-- Entry: `Element.Realize` admits its shared `ElementSpec` and runtime before dispatch; `ElementReceipt.Mint` brackets construction, and `ElementReceipt.Create` admits the host without returning a live control outside its owner.
+- Entry: `Element.Realize` admits its shared `ElementSpec` and runtime before dispatch; `ElementReceipt.Mint` brackets construction over a `ControlMint`, so a leaf minting host objects beside its control hands them to the receipt in the same answer, and `ElementReceipt.Create` admits the host without returning a live control outside its owner.
 - Auto: binding plans fold fail-fast and release earlier receipts on failure; styles enroll through the injected `ThemeSeam`.
 - Receipt: `ElementReceipt` exposes the host control and accumulates every binding, child, resource, and host release fault before terminating.
 - Growth: another uniform control axis is one `ElementSpec` field consumed in `Create`.
@@ -170,6 +170,14 @@ public sealed record ElementSpec(
 }
 
 public sealed record ElementRuntime(ThemeSeam Themes, IntentTable Intents);
+
+// A minted control and the host objects minted BESIDE it: a radio group builds one `RadioButton` per row inside its
+// layout, and those buttons are the only leaf payloads no receipt would otherwise reach — a container is not custody.
+// The carrier is total, so a mint with nothing beside its control converts implicitly and a later multi-object leaf
+// costs no edit at any consumer.
+public readonly record struct ControlMint(Control Host, Seq<IDisposable> Resources) {
+    public static implicit operator ControlMint(Control host) => new(Host: host, Resources: Seq<IDisposable>());
+}
 
 // --- [SERVICES] -----------------------------------------------------------------------------
 public abstract class UiLease : IDisposable {
@@ -244,21 +252,23 @@ public sealed class ElementReceipt : UiLease {
                 .MapFail(fault => fault.Also(held.Rev().Map(static receipt => (Func<Fin<Unit>>)receipt.Release).Drained(key)))));
 
     internal static Fin<ElementReceipt> Mint(
-        Func<Control> mint,
+        Func<ControlMint> mint,
         ElementSpec spec,
         ElementRuntime runtime,
         Seq<ElementReceipt> children,
         Op key) {
-        Control? host = null;
+        ControlMint? host = null;
         return key.Catch(() => {
-                Control built = mint();
+                ControlMint built = mint();
                 host = built;
                 return Fin.Succ(built);
             })
             .MapFail(fault => fault.Also((
                 children.Rev().Map(static child => (Func<Fin<Unit>>)child.Release)
-                + Optional(host).Map(control => Seq(Step(control.Dispose, key))).IfNone(Seq<Func<Fin<Unit>>>())).Drained(key)))
-            .Bind(control => Create(control, spec, runtime, children, key, HostCustody.Owned, Seq<IDisposable>()));
+                + (host is { } built
+                    ? built.Resources.Rev().Map(resource => Step(resource.Dispose, key)) + Seq(Step(built.Host.Dispose, key))
+                    : Seq<Func<Fin<Unit>>>())).Drained(key)))
+            .Bind(built => Create(built.Host, spec, runtime, children, key, HostCustody.Owned, built.Resources));
     }
 
     private static Func<Fin<Unit>> Step(Action release, Op key) =>
@@ -291,7 +301,7 @@ public sealed class ElementReceipt : UiLease {
 - Owner: `ControlSpec` carries every leaf-control modality, and each case owns only the payload its constructor consumes.
 - Cases: text, choice, scalar, picker, content, and indicator cases share one admission path and one realization consumer.
 - Entry: `ControlSpec.Admit` accumulates every referenced payload, collection element, enum, range, and selection defect through `FaultRail` before `ControlSpec.Mint`; both entries remain internal to `Element.Realize`.
-- Growth: another host control is one exact-payload case and one total mint arm.
+- Growth: another host control is one exact-payload case and one total mint arm answering its control plus whatever host objects it minted beside it.
 - Boundary: host enums and images remain at this Eto seam; paint colors enter through canvas `PerceptualColor` projection.
 
 ```csharp signature
@@ -417,7 +427,7 @@ public abstract partial record ControlSpec {
             Defined(spec.Axis, nameof(spec.Axis)),
             (spec.Thickness > 0, nameof(spec.Thickness), "separator thickness must be positive")));
 
-    internal Control Mint() => Switch(
+    internal ControlMint Mint() => Switch<ControlMint>(
         line: static spec => Configure(new TextBox { ReadOnly = spec.Access.HostReadOnly, TextAlignment = spec.Alignment }, spec.Placeholder, spec.MaxLength),
         area: static spec => new TextArea { ReadOnly = spec.Access.HostReadOnly, Wrap = spec.Wrap.Enabled },
         rich: static spec => new RichTextArea { ReadOnly = spec.Access.HostReadOnly },
@@ -499,14 +509,17 @@ public abstract partial record ControlSpec {
         return control;
     }
 
-    private static StackLayout Radio(Radios spec) {
+    // The group's buttons are host controls with no receipt of their own, so the mint hands them back beside the layout
+    // and the element receipt releases them; the first button is the group controller, so the fold reads its own head.
+    private static ControlMint Radio(Radios spec) {
+        Seq<RadioButton> buttons = spec.Items.Fold(Seq<RadioButton>(), (held, text) => held.Add(
+            new RadioButton(held.IsEmpty ? null : held[0]) {
+                Text = text,
+                Checked = spec.Selected.Map(value => value == held.Count).IfNone(false),
+            })).Strict();
         StackLayout layout = new() { Orientation = spec.Axis };
-        _ = spec.Items.Fold((Index: 0, Controller: (RadioButton?)null), (held, text) => {
-            RadioButton button = new(held.Controller) { Text = text, Checked = spec.Selected.Map(value => value == held.Index).IfNone(false) };
-            layout.Items.Add(new StackLayoutItem(button));
-            return (held.Index + 1, held.Controller ?? button);
-        });
-        return layout;
+        _ = buttons.Iter(button => layout.Items.Add(new StackLayoutItem(button)));
+        return new ControlMint(Host: layout, Resources: buttons.Map(static button => (IDisposable)button));
     }
 
     private static DateTimePicker MomentRange(Moment spec) {
@@ -647,7 +660,7 @@ public abstract partial record Element {
 
     private static Fin<ElementReceipt> Leaf(
         ElementSpec spec,
-        Func<Control> mint,
+        Func<ControlMint> mint,
         (ElementRuntime Runtime, Op Key) held) =>
         ElementReceipt.Mint(mint, spec, held.Runtime, Seq<ElementReceipt>(), held.Key);
 
@@ -711,8 +724,8 @@ public abstract partial record Element {
 ## [06]-[GRID]
 
 - Owner: `GridPlan<TRow>` retains typed rows through flat or tree shape, lowers to host `object[]` only at `GridItem` construction, and routes callback faults through its injected error sink; it is a class because that sink is live state, and a structural-equality carrier holding divergent fault history is a value lying about its own identity.
-- Cases: `GridRows<TRow>` distinguishes flat rows from a tree carrying child projection, expansion policy, node budget, and identity equality; `CellSpec` covers host cell modalities through one guarded callback sink.
-- Entry: `IGridPlan.Realize` rejects default expansion limits, absent equality, repeated identities, and budget exhaustion before returning a host tree.
+- Cases: `GridRows<TRow>` distinguishes flat rows from a tree carrying child projection, expansion policy, node budget, path-depth budget, and identity equality; `CellSpec` covers host cell modalities through one guarded callback sink.
+- Entry: `IGridPlan.Realize` rejects default expansion limits, absent equality, repeated identities, and both budget exhaustions before returning a host tree; the depth budget is what stands between a linear chain inside the node budget and an unrecoverable stack overflow.
 - Output: grid realization returns one unadmitted host control; `ElementReceipt.Create` applies the caller's `ElementSpec` exactly once, and `GridPlan.Failures` retains callback and reporter faults.
 - Growth: another cell is one `CellSpec` case, another topology is one `GridRows<TRow>` case, and another host column capability is one `GridColumnFeature` row folded through `Features`.
 
@@ -771,11 +784,15 @@ public abstract partial record CellSpec {
 public abstract partial record GridRows<TRow> {
     private GridRows() { }
     public sealed record Flat(Seq<TRow> Rows) : GridRows<TRow>;
+    // Two bounds, two exhaustion modes: `Limit` caps the nodes the whole expansion admits, `Depth` caps how far one
+    // path may descend. One limit value type carries both because the admission is identical and the axis is the
+    // column, and a chain inside the node budget still overflows the CLR stack — the one failure no rail catches.
     public sealed record Tree(
         Seq<TRow> Roots,
         Func<TRow, Seq<TRow>> Children,
         Func<TRow, bool> Expanded,
         GridExpansionLimit Limit,
+        GridExpansionLimit Depth,
         System.Collections.Generic.IEqualityComparer<TRow> Identity) : GridRows<TRow>;
 }
 
@@ -880,6 +897,9 @@ public sealed class GridPlan<TRow>(
         tree.Limit.Value <= 0
             ? Fin.Fail<TreeGridItemCollection>(new UiFault.Rejected(
                 Key: key, Field: nameof(tree.Limit), Reason: "tree expansion requires an admitted positive limit"))
+            : tree.Depth.Value <= 0
+            ? Fin.Fail<TreeGridItemCollection>(new UiFault.Rejected(
+                Key: key, Field: nameof(tree.Depth), Reason: "tree expansion requires an admitted positive depth"))
             : Optional(tree.Identity)
                 .ToFin(new UiFault.Rejected(Key: key, Field: nameof(tree.Identity), Reason: "tree expansion requires identity equality"))
                 .Bind(identity => tree.Roots.Fold(
@@ -887,22 +907,29 @@ public sealed class GridPlan<TRow>(
                         Items: Seq<ITreeGridItem>(),
                         Seen: System.Collections.Immutable.ImmutableHashSet.Create(identity),
                         Remaining: tree.Limit.Value)),
-                    (rail, root) => rail.Bind(state => Branch(root, tree, state.Remaining, state.Seen, key)
+                    (rail, root) => rail.Bind(state => Branch(root, tree, state.Remaining, tree.Depth.Value, state.Seen, key)
                         .Map(branch => (
                             Items: state.Items.Add(branch.Item),
                             branch.Seen,
                             branch.Remaining))))
                 .Map(state => new TreeGridItemCollection(state.Items)));
 
+    // The node budget rides the fold because it spans the whole expansion; the depth budget rides the ARGUMENT because
+    // it is per path and resets at each root. Depth refuses before the recursive frame is pushed, since a stack
+    // overflow ends the process rather than the rail.
     private Fin<(ITreeGridItem Item, System.Collections.Immutable.ImmutableHashSet<TRow> Seen, int Remaining)> Branch(
         TRow row,
         GridRows<TRow>.Tree tree,
         int remaining,
+        int depth,
         System.Collections.Immutable.ImmutableHashSet<TRow> seen,
         Op key) {
         if (remaining <= 0)
             return Fin.Fail<(ITreeGridItem, System.Collections.Immutable.ImmutableHashSet<TRow>, int)>(
                 new UiFault.Rejected(Key: key, Field: nameof(tree.Limit), Reason: "tree expansion exhausted its node limit"));
+        if (depth <= 0)
+            return Fin.Fail<(ITreeGridItem, System.Collections.Immutable.ImmutableHashSet<TRow>, int)>(
+                new UiFault.Rejected(Key: key, Field: nameof(tree.Depth), Reason: "tree expansion exceeded its depth limit"));
         if (seen.Contains(row))
             return Fin.Fail<(ITreeGridItem, System.Collections.Immutable.ImmutableHashSet<TRow>, int)>(
                 new UiFault.Rejected(Key: key, Field: nameof(tree.Identity), Reason: "tree expansion revisited a node identity"));
@@ -911,7 +938,7 @@ public sealed class GridPlan<TRow>(
         return key.Catch(() => Fin.Succ(tree.Children(row)))
             .Bind(children => children.Fold(
                 Fin.Succ((Items: Seq<ITreeGridItem>(), Seen: admitted, Remaining: remaining - 1)),
-                (rail, child) => rail.Bind(state => Branch(child, tree, state.Remaining, state.Seen, key)
+                (rail, child) => rail.Bind(state => Branch(child, tree, state.Remaining, depth - 1, state.Seen, key)
                     .Map(branch => (
                         Items: state.Items.Add(branch.Item),
                         branch.Seen,

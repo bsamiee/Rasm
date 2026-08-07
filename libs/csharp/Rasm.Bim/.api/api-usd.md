@@ -22,7 +22,7 @@
 |  [03]   | `SdfPath`                                      | scene-graph path | the prim/property address (`/World/Mesh.points`)                 |
 |  [04]   | `UsdEditTarget`                                | edit target      | which layer authored opinions land in                            |
 |  [05]   | `UsdTimeCode`                                  | time code        | time-sample coordinate (`Default()`/`EarliestTime()`/`(double)`) |
-|  [06]   | `UsdStagePopulationMask` / `UsdStageLoadRules` | load policy      | masked/partial stage population and payload load rules           |
+|  [06]   | `UsdStagePopulationMask` / `UsdStageLoadRules` | load policy      | the masked-open population mask; the payload load-rule set       |
 |  [07]   | `UsdPrimRange`                                 | traversal range  | the prim iteration a stage `Traverse` yields                     |
 |  [08]   | `Usd_PrimFlagsPredicate`                       | traversal filter | the active/defined/loaded predicate a filtered traversal takes   |
 
@@ -92,18 +92,19 @@
 | :-----: | :------------------------------------------------------------------ | :------------- | :------------------------------------------------ |
 |  [01]   | `Open(string, InitialLoadSet)` / `Open(SdfLayerHandle, …)`          | static open    | reads a `.usd*` file or layer into a stage        |
 |  [02]   | `OpenMasked(string, UsdStagePopulationMask, …)`                     | static open    | partial-stage open under a population mask        |
-|  [03]   | `CreateNew(string identifier, …)` / `CreateInMemory(…)`             | static create  | authors a new on-disk or in-memory stage          |
-|  [04]   | `Save()` / `SaveSessionLayers()` / `Reload()`                       | persist        | writes dirty / session layers / reloads           |
-|  [05]   | `Export(string, bool, StdStringMap)` / `ExportToString(out string)` | export         | writes the composed stage to a file/string        |
-|  [06]   | `Flatten(bool addSourceFileComment)` → `SdfLayerHandle`             | flatten        | composes the layer stack into one flat layer      |
-|  [07]   | `GetRootLayer` / `GetSessionLayer`                                  | layer access   | the root and session layers                       |
-|  [08]   | `GetEditTarget` / `SetEditTarget(UsdEditTarget)`                    | layer access   | reads/sets the active edit target                 |
-|  [09]   | `UsdGeom.UsdGeomGetStageUpAxis(UsdStage)` → `TfToken`               | stage metadata | per-stage `upAxis` (`"Y"` default, `"Z"` CAD/BIM) |
-|  [10]   | `UsdGeom.UsdGeomSetStageUpAxis(UsdStage, TfToken)` → `bool`         | stage metadata | authors the per-stage `upAxis` token              |
-|  [11]   | `UsdGeom.UsdGeomGetStageMetersPerUnit(UsdStage)` → `double`         | stage metadata | per-stage linear-unit scale (`metersPerUnit`)     |
-|  [12]   | `MuteLayer(string)`                                                 | stage meta     | layer muting                                      |
-|  [13]   | `SetStartTimeCode` / `SetEndTimeCode` / `SetTimeCodesPerSecond`     | stage meta     | the animation time range (`double`)               |
-|  [14]   | `IsSupportedFile(string filePath)`                                  | probe          | format admissibility before open                  |
+|  [03]   | `new UsdStagePopulationMask(SdfPathVector)`                         | mask build     | the populated-subtree mask a masked open takes    |
+|  [04]   | `CreateNew(string identifier, …)` / `CreateInMemory(…)`             | static create  | authors a new on-disk or in-memory stage          |
+|  [05]   | `Save()` / `SaveSessionLayers()` / `Reload()`                       | persist        | writes dirty / session layers / reloads           |
+|  [06]   | `Export(string, bool, StdStringMap)` / `ExportToString(out string)` | export         | writes the composed stage to a file/string        |
+|  [07]   | `Flatten(bool addSourceFileComment)` → `SdfLayerHandle`             | flatten        | composes the layer stack into one flat layer      |
+|  [08]   | `GetRootLayer` / `GetSessionLayer`                                  | layer access   | the root and session layers                       |
+|  [09]   | `GetEditTarget` / `SetEditTarget(UsdEditTarget)`                    | layer access   | reads/sets the active edit target                 |
+|  [10]   | `UsdGeom.UsdGeomGetStageUpAxis(UsdStage)` → `TfToken`               | stage metadata | per-stage `upAxis` (`"Y"` default, `"Z"` CAD/BIM) |
+|  [11]   | `UsdGeom.UsdGeomSetStageUpAxis(UsdStage, TfToken)` → `bool`         | stage metadata | authors the per-stage `upAxis` token              |
+|  [12]   | `UsdGeom.UsdGeomGetStageMetersPerUnit(UsdStage)` → `double`         | stage metadata | per-stage linear-unit scale (`metersPerUnit`)     |
+|  [13]   | `MuteLayer(string)`                                                 | stage meta     | layer muting                                      |
+|  [14]   | `SetStartTimeCode` / `SetEndTimeCode` / `SetTimeCodesPerSecond`     | stage meta     | the animation time range (`double`)               |
+|  [15]   | `IsSupportedFile(string filePath)`                                  | probe          | format admissibility before open                  |
 
 [ENTRYPOINT_SCOPE]: prim definition, traversal, and composition
 - note: surfaces are `UsdStage` or `UsdPrim` methods
@@ -140,9 +141,11 @@
 |  [08]   | `size()` / `this[int]`                                                      | array build | array size and indexer                    |
 |  [09]   | `UsdGeomPrimvarsAPI.CreatePrimvar(TfToken, SdfValueTypeName, TfToken, int)` | primvar     | per-vertex/face/uniform interpolated data |
 |  [10]   | `new SdfPath(string)` / `AppendChild(TfToken)` / `AppendProperty(TfToken)`  | path build  | scene-graph path construction             |
-|  [11]   | `IsPrimPath()` / `GetAsString()`                                            | path build  | path predicate and string form            |
-|  [12]   | `UsdRelationship.GetTargets() -> SdfPathVector`                             | read        | the relationship's target paths           |
-|  [13]   | `SdfPathVector.Count` / `this[int]`                                         | access      | path-vector size and indexer              |
+|  [11]   | `IsPrimPath()` / `IsAbsolutePath()` / `GetAsString()`                       | path build  | path predicates and string form           |
+|  [12]   | `SdfPath.IsValidPathString(string, out string)`                             | path admit  | the path-string grammar gate              |
+|  [13]   | `UsdRelationship.GetTargets() -> SdfPathVector`                             | read        | the relationship's target paths           |
+|  [14]   | `new SdfPathVector(IEnumerable<SdfPath>)` / `Add(SdfPath)`                  | path build  | the path run a mask ctor takes            |
+|  [15]   | `SdfPathVector.Count` / `this[int]`                                         | access      | path-vector size and indexer              |
 
 [ENTRYPOINT_SCOPE]: typed geometry/shading schema authoring
 - note: each schema `Define(stage, path)`s the prim and exposes `Get*Attr`/`Create*Attr`; `new UsdGeom*(UsdPrim)` wraps a traversed prim on import; material binding is `UsdShadeMaterialBindingAPI.Apply(prim).Bind(...)`
@@ -184,10 +187,11 @@
 - mesh bridge: a kernel mesh crosses `UsdGeomMesh` through the typed-array seam — `GetPointsAttr().Get(VtValue)` yields a `VtVec3fArray` of `GfVec3f` and `GetFaceVertexIndicesAttr()`/`GetFaceVertexCountsAttr()` the topology; export builds `VtVec3fArray`/`VtIntArray` and writes them through the attribute `Set` (never a `Set*Attr`), with `UsdGeomPrimvarsAPI.CreatePrimvar` carrying uv/color.
 - instancer bridge: `UsdGeomPointInstancer` IS the interchange carrier's block-and-instance overlay authored in USD — `GetPrototypesRel().GetTargets()` names the geometry, `GetProtoIndicesAttr()` the per-instance slot, and `ComputeInstanceTransformsAtTime` composes positions, orientations, scales AND each prototype's xform under the `invisibleIds` mask, so a hand-multiplied TRS triple beside it drops mask and xform together; prototype subtrees leave the mesh pass, so no stage bakes them twice.
 - shading seam: `UsdShadeMaterial`/`UsdShadeShader` (UsdPreviewSurface), read and authored through `UsdShadeMaterialBindingAPI`, map to the `Semantics/appearance#APPEARANCE_PROJECTION` `AppearanceSummary` host-neutral PBR record, reconciled with the `csharp:Rasm.Materials` OpenPBR owner at the content-key seam.
-- federation: USD references/payloads/variants are the layered-federation mechanism — a per-discipline model is a sublayer or reference, a design option a variant set — so `Review/diff#MODEL_DIFF` and `AppUi` variant switching compose on USD's native arcs, and `OpenMasked`/`UsdStageLoadRules` stream partial stages for large scenes.
+- federation: USD references/payloads/variants are the layered-federation mechanism — a per-discipline model is a sublayer or reference, a design option a variant set — so `Review/diff#MODEL_DIFF` and `AppUi` variant switching compose on USD's native arcs.
 
 [LOCAL_ADMISSION]:
 - `UsdStage` is the one USD codec root; one stage reads and writes every `.usd*` variant by the native plugin tree, never a per-format `UsdaReader`/`UsdcReader` family.
+- Stage population is an OPEN-TIME decision: `import#IMPORT_RAIL` `BimIo.ImportGeometry` opens through `UsdStage.OpenMasked` under a `UsdStagePopulationMask` built from its `UsdScope`'s admitted prim paths, so a scoped read of a federated site delivery never composes the layers outside the mask; a post-open prim filter pays the whole stack's composition first and is the rejected form, and a scope path admits through `SdfPath.IsValidPathString` plus the absolute-and-prim predicates rather than a locally-spelled path grammar.
 - Prim and attribute authoring goes through the typed schemas and the `SdfValueTypeName`/`VtValue`/`Vt*Array` value path; a raw attribute-name string beside the typed schema is the rejected form.
 - BIM semantics stay the GeometryGym IFC graph's; deriving `BimElement`/`IfcClass` from USD prim names is the named boundary violation.
 - `FrameNormalization`'s Y-up→Z-up row (on `format#FORMAT_AXIS`) normalizes the imported frame; a USD-local frame leaking into the kernel is the rejected form.

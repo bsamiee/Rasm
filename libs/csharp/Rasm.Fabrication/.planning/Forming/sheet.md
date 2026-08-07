@@ -10,60 +10,123 @@
 
 ## [02]-[SHEET_DEVELOPMENT]
 
-- Owner: `FormPolicy` owns admitted sheet intent; `SheetSource` owns formed-panel, component, and kernel-surface ingress; `SheetLink` owns panel and surface adjacency; `SheetForm` owns line-form and local-feature evidence; `FlatPattern` owns development and projection.
+- Owner: `FormPolicy` owns admitted sheet intent; `SheetSource` owns formed-panel, component, and kernel-surface ingress; `SheetLink` owns panel and surface adjacency; `SheetForm` owns line-form and local-feature evidence; `FlatPattern` owns development and projection; `ElasticLaw` and `FormingCanon` own the folder-wide forming law every `Rasm.Fabrication.Forming` page composes.
 - Cases: `KSource` resolves table, measured-coupon, `DIN 6935`, and material-physics neutral-axis positions; `HemKind` carries per-row sweep and inside-radius laws; `ReliefKind` sizes and generates rectangular, obround, tear, and circular reliefs; `SheetForm` carries each feature's distinct evidence and its tooling demand.
 - Entry: `FlatPattern.Unfold(FormPolicy, FabricationInput)` is the frozen development seam, and `FlatPattern.Formed(UnfoldResult, Seq<BendStep>)` is the frozen result projection.
 - Auto: Panel links derive a topological placement order; the generated grain field gates bend radius and loop-feature strain; surface links shift kernel islands by neutral-axis deltas; every bend endpoint enters one relief-seat census that folds co-terminating bends into one corner seat sized against the formed radius; one `PolygonOp.Boolean` subtracts admitted reliefs.
 - Receipt: `UnfoldResult` preserves flat regions, bend topology, forming physics, kernel isometry, neutral-axis displacement, feature evidence, relief evidence, and material identity.
-- Packages: `LanguageExt.Core`, `Thinktecture.Runtime.Extensions`, `QuikGraph`, `UnitsNet`, `Rasm`, the `Rasm.Element` `CanonicalWriter` codec, and the `Geometry2D` owner compose the surface.
+- Packages: `LanguageExt.Core`, `Thinktecture.Runtime.Extensions`, `QuikGraph`, `MathNet.Numerics` (`Brent.TryFindRoot`, the folder's one elastic-recovery inversion), `UnitsNet`, `Rasm`, the `Rasm.Element` `CanonicalWriter` codec behind `FabricationCanon`, and the `Geometry2D` owner compose the surface.
 - Growth: each K convention is one `KSource` row, a hem geometry is one `HemKind` row, a relief geometry is one `ReliefKind` row, a sheet feature is one `SheetForm` case, a link modality is one `SheetLink` case, and a new source is one `SheetSource` case with one total dispatch arm.
 - Boundary: Forming owns neutral-axis and feature development; kernel isometry, planar topology, process physics, and content identity remain at their canonical owners.
 
+- Law: `ElasticLaw` is the folder's ONE springback inversion — the cubic recovery over the loaded radius and its bracketed root find, byte-identical where `Forming/brake` and `Forming/tube` each carried it — and `FormingCanon` its ONE shared preimage row. Neither sibling sits below the other two by dependency, so the shared law seats on the folder's substrate page and both reach it through the one namespace; every framing primitive composes the S0 `FabricationCanon` rather than a Forming copy.
+- Law: `FlatRejection` is the closed refusal vocabulary — a rejection locus is a key a receipt partitions by and a consumer matches on, so an interpolated slug at a raise site is the deleted form; `Forming/brake` carries the same shape for its own lane.
+- Law: `PanelClosure` is computed ONCE per unfold, threaded on the assembly, and published on `UnfoldEvidence.Descendants` — `Forming/brake` reads it for sequence descent and this page for the neutral-axis shift. One reverse-topological fold over the bend tree unions each panel's children into its own set, so the census costs one pass rather than one search per panel, and the order is the acyclicity gate the surface lane otherwise skipped.
+- Law: relief-corner clustering is a DISJOINT SET over the proximity relation. A first-match-wins fold is non-transitive, so three seats within probe distance in a chain landed as one cluster or two purely by arrival order, and a corner took either one relief or two overlapping cuts on the same geometry.
+- Law: `Nesting/nfp` `Nest.Rings` is the ONE `Chain`-to-`Loop` termination this page composes; the island walk already owns winding and once-counted edges, so a second termination here forks the admitted context.
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
-using Rasm.Element.Projection;
 using LanguageExt;
 using LanguageExt.Common;
+using MathNet.Numerics.RootFinding;
 using QuikGraph;
 using QuikGraph.Algorithms;
+using QuikGraph.Collections;
 using Rasm.Domain;
+using Rasm.Element.Projection;
 using Rasm.Fabrication.Geometry2D;
+using Rasm.Fabrication.Nesting;
 using Rasm.Fabrication.Process;
 using Rasm.Meshing;
+using Rasm.Numerics;
 using Rasm.Parametric;
 using Rasm.Processing;
 using Rhino.Geometry;
 using Thinktecture;
 using UnitsNet;
 using static LanguageExt.Prelude;
+// `Rasm.Meshing` publishes a `TopologyReceipt` of its own, so the region receipt this page reads binds by name.
+using TopologyReceipt = Rasm.Fabrication.Geometry2D.TopologyReceipt;
 
 namespace Rasm.Fabrication.Forming;
 
 // --- [TYPES] --------------------------------------------------------------------------------------------------------------------------------------
+// The flat-pattern refusal vocabulary as ROWS: a rejection locus is a closed key a receipt partitions by and a
+// consumer matches on, so a bare slug at a raise site — invisible to every reader until it is read out of a fault
+// message — is the deleted form, and the generated-owner admission refusals key here too rather than forking a
+// second producer of one string. A row's key is a LITERAL: a row reading its own `Key` as its constructor argument
+// is a self-referential static initializer that faults at type init before any raise site runs.
+// `Forming/brake` carries the same shape for its own lane.
+[SmartEnum<string>]
+public sealed partial class FlatRejection {
+    public static readonly FlatRejection BandAdmit = new("sheet:band-admit");
+    public static readonly FlatRejection Bend = new("sheet:bend");
+    public static readonly FlatRejection BendLength = new("sheet:bend-length");
+    public static readonly FlatRejection CouponAdmit = new("sheet:coupon-admit");
+    public static readonly FlatRejection EvidenceAdmit = new("sheet:evidence-admit");
+    public static readonly FlatRejection FeatureBend = new("sheet:feature-bend");
+    public static readonly FlatRejection FeatureBound = new("sheet:feature-bound");
+    public static readonly FlatRejection FeatureCurl = new("sheet:feature-curl");
+    public static readonly FlatRejection FeatureHem = new("sheet:feature-hem");
+    public static readonly FlatRejection FeatureJog = new("sheet:feature-jog");
+    public static readonly FlatRejection FeatureMeasure = new("sheet:feature-measure");
+    public static readonly FlatRejection FormingBudget = new("sheet:forming-budget");
+    public static readonly FlatRejection GrainAdmit = new("sheet:grain-admit");
+    public static readonly FlatRejection GrainAxis = new("sheet:grain-axis");
+    public static readonly FlatRejection Input = new("sheet:input");
+    public static readonly FlatRejection KCoupon = new("sheet:k-coupon");
+    public static readonly FlatRejection KCouponApplicability = new("sheet:k-coupon-applicability");
+    public static readonly FlatRejection KQuery = new("sheet:k-query");
+    public static readonly FlatRejection KResult = new("sheet:k-result");
+    public static readonly FlatRejection KTable = new("sheet:k-table");
+    public static readonly FlatRejection LineBead = new("sheet:line-bead");
+    public static readonly FlatRejection LineDimple = new("sheet:line-dimple");
+    public static readonly FlatRejection LineEmboss = new("sheet:line-emboss");
+    public static readonly FlatRejection LineLouver = new("sheet:line-louver");
+    public static readonly FlatRejection NeutralAxis = new("sheet:neutral-axis");
+    public static readonly FlatRejection PanelEdge = new("sheet:panel-edge");
+    public static readonly FlatRejection PolicyAdmit = new("sheet:policy-admit");
+    public static readonly FlatRejection QueryAdmit = new("sheet:query-admit");
+    public static readonly FlatRejection ReliefAxis = new("sheet:relief-axis");
+    public static readonly FlatRejection ReliefSide = new("sheet:relief-side");
+    public static readonly FlatRejection ReliefTrace = new("sheet:relief-trace");
+    public static readonly FlatRejection SurfaceBendLength = new("sheet:surface-bend-length");
+    public static readonly FlatRejection SurfaceChild = new("sheet:surface-child");
+    public static readonly FlatRejection SurfaceParent = new("sheet:surface-parent");
+    public static readonly FlatRejection SurfaceResult = new("sheet:surface-result");
+    public static readonly FlatRejection TableAdmit = new("sheet:table-admit");
+    public static readonly FlatRejection TopologyTrace = new("sheet:topology-trace");
+}
+
 [SmartEnum<string>]
 public sealed partial class KSource {
     public static readonly KSource Table = new("table", static query => query.Table
-        .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Forming, "flat:k-table"))
+        .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Forming, FlatRejection.KTable.Key))
         .Bind(table => table.Resolve(query)));
     public static readonly KSource Coupon = new("coupon", static query => query.Coupon
-        .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Forming, "flat:k-coupon"))
+        .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Forming, FlatRejection.KCoupon.Key))
         .Bind(coupon => coupon.Calibrate(query)));
     // DIN 6935 fixes the correction factor at `k = 0.65 + 0.5·lg(r/s)`, held at 0.65 below `r/s = 0.65` and capped
-    // at 1.0 above; the floor is the standard's own lower branch, and dropping it to 0.5 understates the neutral
-    // axis by a fifth on exactly the tight-radius bends this row exists to answer.
+    // at 1.0 above. The floor is the standard's own lower BRANCH and binds at `r/s = 0.65`, not wherever the
+    // formula happens to reach 0.65 — a symmetric `Clamp` binds it at `r/s = 1.0` instead and raises the whole
+    // `0.65 ≤ r/s < 1` band, where the formula still applies, onto the constant it exists to fall back from.
     public static readonly KSource Din6935 = new("din-6935", static query =>
-        Fin.Succ(Math.Clamp(0.65 + (0.5 * Math.Log10(query.RadiusMm / query.ThicknessMm)), 0.65, 1.0) / 2.0));
+        query.RadiusMm / query.ThicknessMm switch {
+            var ratio => Fin.Succ((ratio < 0.65
+                ? 0.65
+                : Math.Min(0.65 + (0.5 * Math.Log10(ratio)), 1.0)) / 2.0),
+        });
     public static readonly KSource Physics = new("physics", static query => Fin.Succ(query.Forming.KFactor));
 
     [UseDelegateFromConstructor]
     private partial Fin<double> ResolveAdmitted(KQuery query);
 
     public Fin<double> Resolve(KQuery? query) => Optional(query)
-        .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Forming, "flat:k-query"))
+        .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Forming, FlatRejection.KQuery.Key))
         .Bind(ResolveAdmitted)
         .Bind(static k => double.IsFinite(k) && k is > 0.0 and < 1.0
             ? Fin.Succ(k)
-            : Fin.Fail<double>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, "flat:k-result")));
+            : Fin.Fail<double>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, FlatRejection.KResult.Key)));
 }
 
 [SmartEnum<string>]
@@ -124,6 +187,21 @@ public abstract partial record SheetForm {
 
     public bool IsFeature => IsValid && !IsLine;
 
+    // The turn the punch actually EXECUTES, which is the bend angle only where the form is an ordinary turn: a
+    // teardrop or rolled hem sweeps past the flat and a curl sweeps its own declared arc, so `Forming/brake` gates
+    // punch reach on this rather than on `AngleDeg` — a hem gated at its nominal 180 admitted a punch that cannot
+    // reach the 270 the row commands, and the infeasibility surfaced as a collision or a scrapped part.
+    public double Swept(double angleDeg) => Switch(
+        state: Math.Abs(angleDeg),
+        bend: static (angle, _) => angle,
+        hem: static (_, row) => row.Kind.Sweep.Degrees,
+        jog: static (angle, _) => angle,
+        curl: static (_, row) => row.Sweep.Degrees,
+        bead: static (angle, _) => angle,
+        louver: static (angle, _) => angle,
+        emboss: static (angle, _) => angle,
+        dimple: static (angle, _) => angle);
+
     // Line forms whose geometry demands dedicated tooling override the policy default at candidate admission;
     // None defers to FormPolicy, so one part mixes hemmed, curled, and ordinary bends under one policy.
     public Option<(BendMethod Method, PunchKind Punch)> Tooling => Switch(
@@ -154,6 +232,7 @@ public sealed partial class HemKind {
 }
 
 [ComplexValueObject]
+[ValidationError<FabricationFault>]
 public sealed partial class BendCoupon {
     public Material Material { get; }
     public Option<string> Grade { get; }
@@ -166,7 +245,7 @@ public sealed partial class BendCoupon {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref ValidationError? validationError,
+        ref FabricationFault? validationError,
         ref Material material,
         ref Option<string> grade,
         ref BendMethod method,
@@ -183,7 +262,7 @@ public sealed partial class BendCoupon {
             && double.IsFinite(developedAllowanceMm) && developedAllowanceMm > 0.0
             && double.IsFinite(radiusThicknessTolerance) && radiusThicknessTolerance >= 0.0
                 ? null
-                : new ValidationError(message: "Bend coupon must carry material, method, measured geometry, and an R/T applicability band.");
+                : new FabricationFault.PolicyInadmissible(FabConcern.Forming, FlatRejection.CouponAdmit.Key);
 
     public Fin<double> Calibrate(KQuery query) {
         double couponRatio = InsideRadiusMm / ThicknessMm;
@@ -195,11 +274,12 @@ public sealed partial class BendCoupon {
             && Math.Abs(queryRatio - couponRatio) <= RadiusThicknessTolerance
             && double.IsFinite(k) && k is > 0.0 and < 1.0
                 ? Fin.Succ(k)
-                : Fin.Fail<double>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, "flat:k-coupon-applicability"));
+                : Fin.Fail<double>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, FlatRejection.KCouponApplicability.Key));
     }
 }
 
 [ComplexValueObject]
+[ValidationError<FabricationFault>]
 public sealed partial class KFactorBand {
     public Material Material { get; }
     public Option<string> Grade { get; }
@@ -211,7 +291,7 @@ public sealed partial class KFactorBand {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref ValidationError? validationError,
+        ref FabricationFault? validationError,
         ref Material material,
         ref Option<string> grade,
         ref BendMethod method,
@@ -225,22 +305,23 @@ public sealed partial class KFactorBand {
             && double.IsFinite(kLow) && double.IsFinite(kHigh)
             && kLow is > 0.0 and < 1.0 && kHigh is > 0.0 and < 1.0
                 ? null
-                : new ValidationError(message: "K-factor bands require an admitted material-method interval and bounded neutral-axis factors.");
+                : new FabricationFault.PolicyInadmissible(FabConcern.Forming, FlatRejection.BandAdmit.Key);
 }
 
 [ComplexValueObject]
+[ValidationError<FabricationFault>]
 public sealed partial class KFactorTable {
     public Arr<KFactorBand> Bands { get; }
 
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Arr<KFactorBand> bands) =>
+    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref Arr<KFactorBand> bands) =>
         validationError = !bands.IsEmpty
-            && bands.GroupBy(static band => (band.Material, band.Grade, band.Method)).ForAll(static series =>
+            && toSeq(bands.GroupBy(static band => (band.Material, band.Grade, band.Method))).ForAll(static series =>
                 series.OrderBy(static band => band.RtLow)
                     .Zip(series.OrderBy(static band => band.RtLow).Skip(1))
                     .All(static pair => pair.First.RtHigh <= pair.Second.RtLow))
                 ? null
-                : new ValidationError(message: "K-factor bands must form finite non-overlapping material and method series.");
+                : new FabricationFault.PolicyInadmissible(FabConcern.Forming, FlatRejection.TableAdmit.Key);
 
     public Fin<double> Resolve(KQuery query) {
         Arr<KFactorBand> exact = Bands.Filter(band => band.Material == query.Material.Family && band.Method == query.Method
@@ -253,11 +334,12 @@ public sealed partial class KFactorTable {
             .Map(band => band.KLow + ((band.KHigh - band.KLow)
                 * ((query.RadiusMm / query.ThicknessMm) - band.RtLow) / (band.RtHigh - band.RtLow)))
             .Filter(static k => double.IsFinite(k) && k is > 0.0 and < 1.0)
-            .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Forming, $"flat:k-band:{query.Material.Family.Key}:{query.Method.Key}"));
+            .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Forming, FlatRejection.KTable.Key));
     }
 }
 
 [ComplexValueObject]
+[ValidationError<FabricationFault>]
 public sealed partial class KQuery {
     public MaterialSpec Material { get; }
     public BendMethod Method { get; }
@@ -269,7 +351,7 @@ public sealed partial class KQuery {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref ValidationError? validationError,
+        ref FabricationFault? validationError,
         ref MaterialSpec material,
         ref BendMethod method,
         ref double radiusMm,
@@ -281,7 +363,7 @@ public sealed partial class KQuery {
             && double.IsFinite(radiusMm) && radiusMm > 0.0
             && double.IsFinite(thicknessMm) && thicknessMm > 0.0
                 ? null
-                : new ValidationError(message: "K-factor query must carry admitted material, method, forming, radius, and thickness.");
+                : new FabricationFault.PolicyInadmissible(FabConcern.Forming, FlatRejection.QueryAdmit.Key);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -339,6 +421,7 @@ public abstract partial record SheetSource {
 }
 
 [ComplexValueObject]
+[ValidationError<FabricationFault>]
 public sealed partial class GrainLaw {
     public double RollingDeg { get; }
     public double Parallel { get; }
@@ -347,7 +430,7 @@ public sealed partial class GrainLaw {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref ValidationError? validationError,
+        ref FabricationFault? validationError,
         ref double rollingDeg,
         ref double parallel,
         ref double transverse,
@@ -357,12 +440,12 @@ public sealed partial class GrainLaw {
             && double.IsFinite(transverse) && transverse > 0.0
             && double.IsFinite(exponent) && exponent >= 1.0
                 ? null
-                : new ValidationError(message: "Grain law must carry a rolling axis, positive directional limits, and a finite interpolation exponent.");
+                : new FabricationFault.PolicyInadmissible(FabConcern.Forming, FlatRejection.GrainAdmit.Key);
 
     public Fin<double> At(Vector3d direction) {
         Vector3d projected = new(direction.X, direction.Y, 0.0);
         if (!projected.Unitize())
-            return Fin.Fail<double>(new GeometryFault.DegenerateInput(Kind.Line, None, "flat:grain-axis").ToError());
+            return Fin.Fail<double>(new GeometryFault.DegenerateInput(Kind.Line, None, FlatRejection.GrainAxis.Key).ToError());
         double radians = Angle.FromDegrees(RollingDeg).Radians;
         Vector3d rolling = new(Math.Cos(radians), Math.Sin(radians), 0.0);
         double parallel = Math.Abs(projected * rolling);
@@ -374,6 +457,7 @@ public sealed partial class GrainLaw {
 }
 
 [ComplexValueObject]
+[ValidationError<FabricationFault>]
 public sealed partial class FormPolicy {
     public SheetSource Source { get; }
     public MaterialSpec Material { get; }
@@ -395,7 +479,7 @@ public sealed partial class FormPolicy {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref ValidationError? validationError,
+        ref FabricationFault? validationError,
         ref SheetSource source,
         ref MaterialSpec material,
         ref ConstitutiveState state,
@@ -424,7 +508,7 @@ public sealed partial class FormPolicy {
             && double.IsFinite(torsalBudget) && torsalBudget >= 0.0
             && double.IsFinite(featureStrainLimit) && featureStrainLimit > 0.0
                 ? null
-                : new ValidationError(message: "Sheet policy must carry admitted material, geometry, calibration, tooling, and budgets.");
+                : new FabricationFault.PolicyInadmissible(FabConcern.Forming, FlatRejection.PolicyAdmit.Key);
 
 }
 
@@ -455,15 +539,25 @@ public sealed record ReliefSeat(
 public sealed record SheetFeatureEvidence(SheetForm Form, double DevelopedMm, double PeakStrain);
 public sealed record PanelRegion(int Panel, Loop Boundary);
 
+// The panel-descent closure the unfold walk computed, published as receipt data: `Forming/brake` reads it for
+// bend-sequence descent and this page for neutral-axis shift, so the tree is walked ONCE per unfold and the
+// reachable census is a column rather than a per-bend recursion in two pages.
+public sealed record PanelClosure(Map<int, Set<int>> Reachable) {
+    public Set<int> Under(int panel) => Reachable.Find(panel).IfNone(Set<int>()).Add(panel);
+    public int Size => Reachable.Values.Sum(static reached => reached.Count);
+}
+
 public sealed record UnfoldEvidence(
     Option<DevelopmentReceipt> Isometry,
     Seq<PanelRegion> Panels,
     Seq<(int Bend, double ShiftMm)> NeutralAxis,
     Seq<SheetFeatureEvidence> Features,
     Seq<ReliefSeat> Reliefs,
-    TopologyReceipt Topology);
+    TopologyReceipt Topology,
+    PanelClosure Descendants);
 
 [ComplexValueObject]
+[ValidationError<FabricationFault>]
 public sealed partial class UnfoldResult {
     public Arr<Loop> Flat { get; }
     public Seq<BendLine> Bends { get; }
@@ -474,7 +568,7 @@ public sealed partial class UnfoldResult {
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref ValidationError? validationError,
+        ref FabricationFault? validationError,
         ref Arr<Loop> flat,
         ref Seq<BendLine> bends,
         ref double thicknessMm,
@@ -512,7 +606,7 @@ public sealed partial class UnfoldResult {
                 && double.IsFinite(feature.PeakStrain) && feature.PeakStrain >= 0.0)
             && evidence.Reliefs.ForAll(relief => Valid(relief, bends, evidence.Topology, flat[0].Tolerance.Absolute.Value))
                 ? null
-                : new ValidationError(message: "Unfold evidence must carry closed compatible flats and fully admitted bend rows.");
+                : new FabricationFault.PolicyInadmissible(FabConcern.Forming, FlatRejection.EvidenceAdmit.Key);
 
     private static bool Valid(ReliefSeat relief, Seq<BendLine> bends, TopologyReceipt topology, double toleranceMm) {
         double unitTolerance = Math.Sqrt(double.BitIncrement(1.0) - 1.0);
@@ -536,10 +630,55 @@ public sealed partial class UnfoldResult {
 }
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
+// --- [FORMING_CANON]
+// The folder's shared forming law. Neither sibling page sits below the other two by dependency — `Forming/brake`
+// consumes this page and `Forming/tube` consumes neither — so the shared law seats at the folder's substrate page
+// and reaches both through the one `Rasm.Fabrication.Forming` namespace. It declares only what a second page
+// would otherwise re-spell: everything a preimage frames composes the S0 `FabricationCanon` family and
+// `Loop.CanonicalBytes` instead.
+
+// Elastic recovery follows the LOADED radius, not the commanded angle. With the neutral-fibre arc conserved the
+// loaded radius falls as the command opens, so the recovered angle is `command * (4r^3 - 3r + 1)` over the
+// normalized elastic index `r`. That relation is cubic in a reciprocal of the command and has no closed inverse,
+// which is what puts the bracketed root find on the rail — the one genuinely transcendental inversion the folder
+// runs. Each caller supplies its own section geometry: a sheet bend's fibre is `k·t` over the punch working
+// radius, a tube's is `(k - 0.5)·wall` over the centreline radius with the extreme fibre at half the major.
+public readonly record struct ElasticLaw(double ArcMm, double FibreMm, double ElasticIndex) {
+    public double Recovered(double commandDeg) {
+        double index = ElasticIndex * ((ArcMm / Angle.FromDegrees(commandDeg).Radians) - FibreMm);
+        return commandDeg * ((4.0 * index * index * index) - (3.0 * index) + 1.0);
+    }
+
+    // Absence is the bracket refusing to straddle: the caller names what an unrecoverable command means on its
+    // own plane rather than inheriting a fault from a shared kernel.
+    public Option<double> Commanded(double targetDeg, double maximumOverbendDeg, double accuracyDeg, int iterations) =>
+        Brent.TryFindRoot(
+            command => Recovered(command) - targetDeg,
+            targetDeg,
+            targetDeg + maximumOverbendDeg,
+            accuracyDeg,
+            iterations,
+            out double commanded)
+                ? Some(commanded)
+                : None;
+}
+
+public static class FormingCanon {
+    // The process-budget evidence row, framed once for every forming preimage that carries its material state.
+    public static CanonicalWriter Budget(this CanonicalWriter writer, BudgetEvidence evidence) => writer
+        .Double(evidence.State.TemperatureC).Double(evidence.State.Hardness)
+        .Double(evidence.State.StrainRate).Double(evidence.State.Strain)
+        .Double(evidence.State.MoistureFraction).Double(evidence.State.GrainSizeUm)
+        .Double(evidence.PowerW)
+        .Maybe(evidence.Energy.Joules, static (target, value) => target.Double(value))
+        .Maybe(evidence.Energy.Seconds, static (target, value) => target.Double(value))
+        .Discriminant(evidence.Material.Family).String(evidence.Material.Identity.Grade);
+}
+
 public static class FlatPattern {
     public static Fin<UnfoldResult> Unfold(FormPolicy policy, FabricationInput input) =>
         policy is null || input is null
-            ? Fin.Fail<UnfoldResult>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, "flat:input"))
+            ? Fin.Fail<UnfoldResult>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, FlatRejection.Input.Key))
             : from bendLength in BendLength(policy.Source)
               from forming in FormedRow(policy.Material, input.Process, policy.State, policy.ThicknessMm, bendLength)
               from assembly in policy.Source.Switch(
@@ -566,7 +705,7 @@ public static class FlatPattern {
         ProcessPhysics.Budget(new PhysicsRequest.Forming(process, material, state, thicknessMm, bendLengthMm))
             .Bind(static budget => budget is ProcessBudget.Formed formed
             ? Fin.Succ(formed)
-            : Fin.Fail<ProcessBudget.Formed>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, "flat:forming-budget")));
+            : Fin.Fail<ProcessBudget.Formed>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, FlatRejection.FormingBudget.Key)));
 
     private static Fin<double> BendLength(SheetSource source) => source.Switch(
         panels: static row => Total(row.Links.Map(static link => link.ParentEdge.A.DistanceTo(link.ParentEdge.B))),
@@ -577,7 +716,7 @@ public static class FlatPattern {
         Mesh mesh = source.Value.Mesh.DuplicateNative();
         return source.Links.Traverse(link => (link.SourceA < mesh.Vertices.Count && link.SourceB < mesh.Vertices.Count
                 ? Fin.Succ(mesh.Vertices.Point3dAt(link.SourceA).DistanceTo(mesh.Vertices.Point3dAt(link.SourceB)))
-                : Fin.Fail<double>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, "flat:surface-bend-length")))
+                : Fin.Fail<double>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, FlatRejection.SurfaceBendLength.Key)))
             .ToValidation()).As().ToFin().Bind(Total);
     }
 
@@ -585,7 +724,7 @@ public static class FlatPattern {
         double total = lengths.Fold(0.0, static (sum, length) => sum + length);
         return double.IsFinite(total) && total > 0.0
             ? Fin.Succ(total)
-            : Fin.Fail<double>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, "flat:bend-length"));
+            : Fin.Fail<double>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, FlatRejection.BendLength.Key));
     }
 
     private static Fin<SheetAssembly> DevelopPanels(
@@ -596,30 +735,34 @@ public static class FlatPattern {
         ProcessBudget.Formed forming) =>
         from schedule in LinkOrder(panels.Count, links)
         from bends in schedule.Order.Traverse(link => BendOf(link, policy, forming).ToValidation()).As().ToFin()
+        from closure in ClosureOf(bends)
         from placed in schedule.Order.FoldM<Fin, PanelState>(PanelState.Start(panels, schedule.Root), (state, link) => Place(state, link, bends)).As()
         select new SheetAssembly(
             placed.Flat,
             bends,
             features,
             None,
-            placed.Flat.Map((loop, panel) => new PanelRegion(panel, loop)).ToSeq());
+            toSeq(placed.Flat).Map((loop, panel) => new PanelRegion(panel, loop)),
+            closure);
 
     private static Fin<SheetAssembly> DevelopSurface(SheetSource.Surface source, FormPolicy policy, ProcessBudget.Formed forming) =>
         from development in Development.Apply(new DevelopOp.Unroll(source.Value, policy.Development))
         from unrolled in development is DevelopmentResult.Unrolled value
             ? Fin.Succ(value)
-            : Fin.Fail<DevelopmentResult.Unrolled>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, "flat:surface-result"))
+            : Fin.Fail<DevelopmentResult.Unrolled>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, FlatRejection.SurfaceResult.Key))
         from _ in unrolled.Receipt.MaxIsometry <= policy.IsometryBudget && unrolled.Receipt.MaxTorsal <= policy.TorsalBudget
             ? Fin.Succ(unit)
             : Fin.Fail<Unit>(FabricationFault.UnfoldInfeasible(unrolled.Atlas.Islands.Count, unrolled.Field.RailOffsets.Count))
         from bends in source.Links.Traverse(link => SurfaceBendOf(link, unrolled.Atlas.Islands, policy, forming).ToValidation()).As().ToFin()
-        from panels in Neutralize(unrolled.Atlas.Islands, bends, source.Value.Mesh.Tolerance)
+        from closure in ClosureOf(bends)
+        from panels in Neutralize(unrolled.Atlas.Islands, bends, closure, source.Value.Mesh.Tolerance)
         select new SheetAssembly(
             panels.Map(static panel => panel.Boundary).ToArr(),
             bends,
             source.Features,
             Some(unrolled.Receipt),
-            panels);
+            panels,
+            closure);
 
     private static Fin<UnfoldResult> Finish(SheetAssembly assembly, FormPolicy policy, ProcessBudget.Formed forming) =>
         from topology in Regions(assembly.Flat)
@@ -646,7 +789,8 @@ public static class FlatPattern {
                 assembly.Bends.Map(static bend => (bend.Index, bend.Projection.NeutralShiftMm)),
                 features,
                 seats,
-                finalTopology))
+                finalTopology,
+                assembly.Descendants))
         select result;
 
     private static Fin<BendLine> BendOf(SheetLink.Panel link, FormPolicy policy, ProcessBudget.Formed forming) =>
@@ -658,9 +802,9 @@ public static class FlatPattern {
         FormPolicy policy,
         ProcessBudget.Formed forming) =>
         from parent in islands.Map((island, index) => (Island: island, Index: index)).Find(row => row.Island.Chart == link.Parent)
-            .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Forming, "flat:surface-parent"))
+            .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Forming, FlatRejection.SurfaceParent.Key))
         from child in islands.Map((island, index) => (Island: island, Index: index)).Find(row => row.Island.Chart == link.Child)
-            .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Forming, "flat:surface-child"))
+            .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Forming, FlatRejection.SurfaceChild.Key))
         from a in Local(parent.Island, link.SourceA)
         from b in Local(parent.Island, link.SourceB)
         from bend in Annotate(
@@ -696,7 +840,7 @@ public static class FlatPattern {
             && double.IsFinite(resolvedRadius) && resolvedRadius >= minimumRadius
             && line.A.IsValid && line.B.IsValid && line.A != line.B
                 ? Fin.Succ(unit)
-                : Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, "flat:bend"))
+                : Fin.Fail<Unit>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, FlatRejection.Bend.Key))
                from query in KQuery.Validate(
                    policy.Material,
                    policy.Method,
@@ -724,16 +868,16 @@ public static class FlatPattern {
                 + value.Spacing.Millimeters),
             curl: static (state, value) => Fin.Succ(
                 value.Sweep.Radians * (value.InsideRadius.Millimeters + (state.K * state.Thickness))),
-            bead: static (_, _) => Fin.Fail<double>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, "flat:line-bead")),
-            louver: static (_, _) => Fin.Fail<double>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, "flat:line-louver")),
-            emboss: static (_, _) => Fin.Fail<double>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, "flat:line-emboss")),
-            dimple: static (_, _) => Fin.Fail<double>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, "flat:line-dimple")));
+            bead: static (_, _) => Fin.Fail<double>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, FlatRejection.LineBead.Key)),
+            louver: static (_, _) => Fin.Fail<double>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, FlatRejection.LineLouver.Key)),
+            emboss: static (_, _) => Fin.Fail<double>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, FlatRejection.LineEmboss.Key)),
+            dimple: static (_, _) => Fin.Fail<double>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, FlatRejection.LineDimple.Key)));
         double setback = Math.Tan(angle * Math.PI / 360.0) * (radiusMm + thicknessMm);
         return allowance.Map(value => new BendProjection(value, setback, (2.0 * setback) - value, value - referenceArcMm));
     }
 
     private static Fin<(int Root, Seq<SheetLink.Panel> Order)> LinkOrder(int panels, Seq<SheetLink.Panel> links) {
-        Set<int> children = links.Map(static link => link.Child).ToSet();
+        Set<int> children = toSet(links.Map(static link => link.Child));
         bool tree = panels > 0 && links.Count == panels - 1 && children.Count == links.Count
             && links.ForAll(link => link.Parent >= 0 && link.Parent < panels && link.Child >= 0 && link.Child < panels
                 && link.Parent != link.Child && link.Prerequisites.ForAll(prerequisite => prerequisite >= 0 && prerequisite < panels));
@@ -753,9 +897,9 @@ public static class FlatPattern {
 
     private static Fin<PanelState> Place(PanelState state, SheetLink.Panel link, Seq<BendLine> bends) =>
         from parent in state.Placement.Find(link.Parent)
-            .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Forming, $"flat:parent:{link.Parent}"))
+            .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Forming, FlatRejection.SurfaceParent.Key))
         from resolved in bends.Find(row => row.Child == link.Child)
-            .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Forming, $"flat:bend:{link.Child}"))
+            .ToFin(new FabricationFault.PolicyInadmissible(FabConcern.Forming, FlatRejection.SurfaceChild.Key))
         // The flat gap between two untrimmed panel outlines is the bend DEDUCTION, not the allowance: the allowance
         // is the developed length along the neutral axis, and seating the panels at that distance oversizes every
         // developed flat by twice the setback per bend. `DeductionMm` is the signed gap the placement wants.
@@ -766,33 +910,52 @@ public static class FlatPattern {
             Placement = state.Placement.Add(link.Child, child),
         };
 
-    private static Fin<Seq<PanelRegion>> Neutralize(Seq<UvIsland> islands, Seq<BendLine> bends, Context tolerance) =>
+    private static Fin<Seq<PanelRegion>> Neutralize(
+        Seq<UvIsland> islands,
+        Seq<BendLine> bends,
+        PanelClosure closure,
+        Context tolerance) =>
         islands.Map((island, index) => (Island: island, Index: index))
             .Traverse(row => row.Island.Boundary(tolerance, Op.Of(name: nameof(Neutralize)))
-                .Bind(chains => Rings(chains, tolerance))
+                .Bind(chains => Nest.Rings(chains, tolerance))
                 .Map(loops => loops.Map(loop => new PanelRegion(row.Index, loop))).ToValidation()).As().ToFin()
             .Map(static regions => regions.Bind(static region => region))
             .Bind(regions => bends.FoldM<Fin, Seq<PanelRegion>>(regions,
-                (state, bend) => ShiftSurface(state, bend, bends)).As());
+                (state, bend) => ShiftSurface(state, bend, closure)).As());
 
     private static Fin<Seq<PanelRegion>> ShiftSurface(
         Seq<PanelRegion> regions,
         BendLine bend,
-        Seq<BendLine> bends) {
+        PanelClosure closure) {
         Vector3d edge = bend.Line.B - bend.Line.A;
         Vector3d normal = new(-edge.Y, edge.X, 0.0);
-        Set<int> descendants = Descendants(bends, Set(bend.Child));
+        Set<int> descendants = closure.Under(bend.Child);
         return normal.Unitize()
             ? regions.Traverse(region => (descendants.Contains(region.Panel)
                 ? Transform(region.Boundary, point => point + (normal * bend.Projection.NeutralShiftMm))
                     .Map(loop => region with { Boundary = loop })
                 : Fin.Succ(region)).ToValidation()).As().ToFin()
-            : Fin.Fail<Seq<PanelRegion>>(new GeometryFault.DegenerateInput(Kind.Line, None, "flat:neutral-axis").ToError());
+            : Fin.Fail<Seq<PanelRegion>>(new GeometryFault.DegenerateInput(Kind.Line, None, FlatRejection.NeutralAxis.Key).ToError());
     }
 
-    private static Set<int> Descendants(Seq<BendLine> bends, Set<int> seed) {
-        Set<int> closure = seed.Union(bends.Filter(bend => seed.Contains(bend.Parent)).Map(static bend => bend.Child).ToSet());
-        return closure.Count > seed.Count ? Descendants(bends, closure) : closure;
+    // Panel descent is computed ONCE per unfold over the bend parent-to-child tree, threaded on `SheetAssembly`,
+    // and published on `UnfoldEvidence.Descendants` — the surface path resolved it a second time for its own
+    // neutral-axis shift and `Forming/brake` carried a byte-identical per-bend recursion over the same tree.
+    // ONE walk means one walk: a topological order visited in REVERSE has every child's set already settled, so
+    // each panel unions its children's sets once and the whole census costs one pass over vertices and edges.
+    // A search from every panel — the deleted `TreeBreadthFirstSearch` fold — paid that pass once per panel.
+    // The order is also the acyclicity proof the surface path never had: only the panel lane's `LinkOrder`
+    // established a tree, and a cyclic surface link set silently produced a closure naming every panel.
+    internal static Fin<PanelClosure> ClosureOf(Seq<BendLine> bends) {
+        AdjacencyGraph<int, SEdge<int>> tree = new(allowParallelEdges: false);
+        tree.AddVerticesAndEdgeRange(bends.Map(static bend => new SEdge<int>(bend.Parent, bend.Child)));
+        return tree.IsDirectedAcyclicGraph()
+            ? Fin.Succ(new PanelClosure(toSeq(tree.TopologicalSort()).Rev().Fold(
+                Map<int, Set<int>>(),
+                (closure, panel) => closure.Add(panel, toSeq(tree.OutEdges(panel)).Fold(
+                    Set<int>(),
+                    (reached, edge) => reached.Add(edge.Target).Union(closure.Find(edge.Target).IfNone(Set<int>())))))))
+            : Fin.Fail<PanelClosure>(FabricationFault.UnfoldInfeasible(tree.VertexCount, bends.Count));
     }
 
     private static Fin<SheetFeatureEvidence> FeatureOf(
@@ -800,10 +963,10 @@ public static class FlatPattern {
         FormPolicy policy,
         ProcessBudget.Formed forming) => feature.Switch(
         state: (Policy: policy, Forming: forming),
-        bend: static (_, _) => Fin.Fail<SheetFeatureEvidence>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, "flat:feature-bend")),
-        hem: static (_, _) => Fin.Fail<SheetFeatureEvidence>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, "flat:feature-hem")),
-        jog: static (_, _) => Fin.Fail<SheetFeatureEvidence>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, "flat:feature-jog")),
-        curl: static (_, _) => Fin.Fail<SheetFeatureEvidence>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, "flat:feature-curl")),
+        bend: static (_, _) => Fin.Fail<SheetFeatureEvidence>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, FlatRejection.FeatureBend.Key)),
+        hem: static (_, _) => Fin.Fail<SheetFeatureEvidence>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, FlatRejection.FeatureHem.Key)),
+        jog: static (_, _) => Fin.Fail<SheetFeatureEvidence>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, FlatRejection.FeatureJog.Key)),
+        curl: static (_, _) => Fin.Fail<SheetFeatureEvidence>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, FlatRejection.FeatureCurl.Key)),
         bead: static (state, value) => FeatureFromLoop(value, value.Path, value.Width.Millimeters, value.Depth.Millimeters, state.Policy, state.Forming),
         louver: static (state, value) => FeatureFromLoop(value, value.Aperture, 0.0, value.Height.Millimeters, state.Policy, state.Forming),
         emboss: static (state, value) => FeatureFromLoop(value, value.Footprint, 0.0, value.Height.Millimeters, state.Policy, state.Forming),
@@ -832,10 +995,10 @@ public static class FlatPattern {
         from bounded in loop.Apply(new ProfileOp.Bound())
         from path in measured is ProfileResult.Measure metric
             ? Fin.Succ(metric.Path.Millimeters)
-            : Fin.Fail<double>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, "flat:feature-measure"))
+            : Fin.Fail<double>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, FlatRejection.FeatureMeasure.Key))
         from diagonal in bounded is ProfileResult.Bound bound
             ? Fin.Succ(bound.Box.Diagonal.Length)
-            : Fin.Fail<double>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, "flat:feature-bound"))
+            : Fin.Fail<double>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, FlatRejection.FeatureBound.Key))
         from grainFactors in policy.Grain.Map(grain => toSeq(Enumerable.Range(0, loop.Count))
             .Traverse(index => grain.At(loop.At(index + 1) - loop.At(index)).ToValidation()).As().ToFin())
             .IfNone(Fin.Succ(Seq(1.0)))
@@ -844,16 +1007,16 @@ public static class FlatPattern {
         select evidence;
 
     private static Fin<TopologyReceipt> Regions(Arr<Loop> flat) =>
-        PolygonAlgebra.Apply(new PolygonOp.Inspect(flat.ToSeq(), new PolygonQuery.Topology(PolygonFill.NonZero)))
+        PolygonAlgebra.Apply(new PolygonOp.Topology(flat.ToSeq(), PolygonFill.NonZero))
             .Bind(static trace => trace is PolygonTrace.Regions regions
                 ? Fin.Succ(regions.Result)
-                : Fin.Fail<TopologyReceipt>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, "flat:topology-trace")));
+                : Fin.Fail<TopologyReceipt>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, FlatRejection.TopologyTrace.Key)));
 
     private static Fin<Seq<ReliefSeat>> ReliefSeats(Arr<Loop> flat, Seq<BendLine> bends, TopologyReceipt topology, FormPolicy policy) {
         double probe = Math.Max(policy.ThicknessMm, flat[0].Tolerance.Absolute.Value * 2.0);
         return bends.Bind(static bend => Seq((Bend: bend, At: bend.Line.A), (Bend: bend, At: bend.Line.B)))
             .Traverse(pair => (
-                from axis in Unit(pair.Bend.Line.B - pair.Bend.Line.A, "flat:relief-axis")
+                from axis in Unit(pair.Bend.Line.B - pair.Bend.Line.A, FlatRejection.ReliefAxis.Key)
                 let left = new Vector3d(-axis.Y, axis.X, 0.0)
                 from contained in Seq(left, -left).Traverse(direction => flat
                     .Traverse(loop => loop.Apply(new ProfileOp.Contains(pair.At + (direction * probe)))
@@ -862,9 +1025,9 @@ public static class FlatPattern {
                     .Map(static hits => hits.Exists(identity)).ToValidation()).As().ToFin()
                 from inward in contained.Filter(identity).Count == 1
                     ? contained.Head
-                        .ToFin(new GeometryFault.DegenerateInput(Kind.Polyline, None, "flat:relief-side").ToError())
+                        .ToFin(new GeometryFault.DegenerateInput(Kind.Polyline, None, FlatRejection.ReliefSide.Key).ToError())
                         .Map(hit => hit ? left : -left)
-                    : Fin.Fail<Vector3d>(new GeometryFault.DegenerateInput(Kind.Polyline, None, "flat:relief-side").ToError())
+                    : Fin.Fail<Vector3d>(new GeometryFault.DegenerateInput(Kind.Polyline, None, FlatRejection.ReliefSide.Key).ToError())
                 from holeClear in topology.Nodes.Filter(static node => node.IsHole)
                     .Traverse(node => node.Boundary.Apply(new ProfileOp.Contains(pair.At))
                         .Map(static result => result is ProfileResult.Contains inside && inside.Value)
@@ -883,25 +1046,32 @@ public static class FlatPattern {
 
     // Bend terminations sharing one point are one corner seat sized for the deepest meeting bend, so a corner
     // takes a single relief instead of overlapping cuts and a lone bend against free boundary still seats alone.
-    private static Seq<ReliefSeat> Corners(Seq<ReliefSeat> seats, double probeMm) =>
-        seats.Fold(Seq<ReliefSeat>(), (held, seat) => held
-            .Map(static (row, index) => (Row: row, Index: index))
-            .Find(row => row.Row.At.DistanceTo(seat.At) <= probeMm)
-            .Match(
-                Some: found => held.Map((row, index) => index != found.Index ? row : row with {
-                    WidthMm = Math.Max(row.WidthMm, seat.WidthMm),
-                    DepthMm = Math.Max(row.DepthMm, seat.DepthMm),
-                    InsideRadiusMm = Math.Max(row.InsideRadiusMm, seat.InsideRadiusMm),
-                    Meeting = row.Meeting.Union(seat.Meeting),
-                    ExistingClearance = row.ExistingClearance && seat.ExistingClearance,
-                }),
-                None: () => held.Add(seat)));
+    // Clustering is a DISJOINT SET over the proximity relation: a first-match-wins fold is non-transitive, so three
+    // seats within probe distance in a chain landed as two clusters or one depending purely on arrival order.
+    private static Seq<ReliefSeat> Corners(Seq<ReliefSeat> seats, double probeMm) {
+        ForestDisjointSet<int> forest = new(seats.Count);
+        toSeq(Enumerable.Range(0, seats.Count)).Iter(forest.MakeSet);
+        toSeq(Enumerable.Range(0, seats.Count)).Iter(left => toSeq(Enumerable.Range(left + 1, seats.Count - left - 1))
+            .Filter(right => seats[left].At.DistanceTo(seats[right].At) <= probeMm)
+            .Iter(right => forest.Union(left, right)));
+        return toSeq(toSeq(Enumerable.Range(0, seats.Count))
+                .GroupBy(forest.FindSet)
+                .OrderBy(static group => group.Key))
+            .Map(group => toSeq(group).Map(index => seats[index]))
+            .Choose(cluster => cluster.Head.Map(head => cluster.Fold(head, static (merged, seat) => merged with {
+                WidthMm = Math.Max(merged.WidthMm, seat.WidthMm),
+                DepthMm = Math.Max(merged.DepthMm, seat.DepthMm),
+                InsideRadiusMm = Math.Max(merged.InsideRadiusMm, seat.InsideRadiusMm),
+                Meeting = merged.Meeting.Union(seat.Meeting),
+                ExistingClearance = merged.ExistingClearance && seat.ExistingClearance,
+            })));
+    }
 
     private static Fin<Arr<Loop>> Difference(Arr<Loop> flat, Seq<Loop> cuts) =>
         PolygonAlgebra.Apply(new PolygonOp.Boolean(flat.ToSeq(), cuts, BooleanOp.Difference, PolygonFill.NonZero))
             .Bind(static trace => trace is PolygonTrace.Regions regions
                 ? Fin.Succ(regions.Result.Nodes.Map(static node => node.Boundary).ToArr())
-                : Fin.Fail<Arr<Loop>>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, "flat:relief-trace")));
+                : Fin.Fail<Arr<Loop>>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, FlatRejection.ReliefTrace.Key)));
 
     internal static Fin<Loop> Rectangular(ReliefSeat seat, Context tolerance) =>
         ReliefPolygon(seat, tolerance, static (center, along, normal, halfWidth, halfDepth) => [
@@ -927,7 +1097,7 @@ public static class FlatPattern {
             center + (along * halfWidth) + (normal * halfDepth),
             center + (normal * halfDepth * 2.0),
             center - (along * halfWidth) + (normal * halfDepth),
-        ], Arr(0.0, Math.Tan(Math.PI / 8.0), Math.Tan(Math.PI / 8.0), 0.0));
+        ], Arr(0.0, QuarterTurnBulge, QuarterTurnBulge, 0.0));
 
     // Four cardinal points at one radius about a seated centre keep the cut circular at every width-to-depth
     // ratio; sharing the width and depth half-extents as two radii would emit an ellipse under a bulge quarter turn.
@@ -937,7 +1107,7 @@ public static class FlatPattern {
             center + (normal * (Math.Max(halfDepth, halfWidth) - halfWidth)),
             center + (normal * Math.Max(halfDepth, halfWidth)) + (along * halfWidth),
             center + (normal * (Math.Max(halfDepth, halfWidth) + halfWidth)),
-        ], Arr(Math.Tan(Math.PI / 8.0), Math.Tan(Math.PI / 8.0), Math.Tan(Math.PI / 8.0), Math.Tan(Math.PI / 8.0)));
+        ], Arr(QuarterTurnBulge, QuarterTurnBulge, QuarterTurnBulge, QuarterTurnBulge));
 
     private static Fin<Loop> ReliefPolygon(
         ReliefSeat seat,
@@ -963,139 +1133,98 @@ public static class FlatPattern {
         MaterialSpec material,
         ProcessBudget.Formed forming,
         UnfoldEvidence evidence) =>
-        UnfoldResult.Validate(flat, bends, thicknessMm, material, forming, evidence, out UnfoldResult result) is { } error
-            ? Fin.Fail<UnfoldResult>(new FabricationFault.PolicyInadmissible(FabConcern.Forming, error.Message))
-            : Fin.Succ(result);
+        UnfoldResult.Validate(flat, bends, thicknessMm, material, forming, evidence, out UnfoldResult result)
+            .Admitted(result);
 
     private static Option<int> Local(UvIsland island, int source) =>
         toSeq(Enumerable.Range(0, island.Vertices.Count)).Find(index => island.Vertices[index] == source);
-
-    // Kernel `UvIsland.Boundary` owns the island walk — once-counted edges, face-inherited winding, outer CCW and
-    // holes CW, branching typed — so this owner only terminates its Chain carrier into the Loop atom.
-    private static Fin<Seq<Loop>> Rings(Seq<Chain> chains, Context tolerance) =>
-        chains.TraverseM(chain => Loop.Admit(
-            toSeq(chain.Points).ToArr(), chain.Closed, Arr<double>(), tolerance)).As();
 
     private static Fin<Loop> Transform(Loop loop, Func<Point3d, Point3d> apply) =>
         Loop.Admit(loop.Vertices.Map(apply).ToArr(), loop.Closed, loop.Bulges, loop.Tolerance);
 
     private static Point3d Planar(Point2d point) => new(point.X, point.Y, 0.0);
 
-    // Every preimage on this page composes the ONE `Rasm.Element` `CanonicalWriter`: a page-local `double` framing is
-    // what let two artifacts with identical content mint different keys depending on which page keyed them, and
-    // `Double` additionally folds `-0.0` and every NaN payload to one pattern the raw IEEE write leaves forked.
+    // Every preimage on this page composes the ONE `Rasm.Element` `CanonicalWriter` through the S0 `FabricationCanon`
+    // family and `Loop.CanonicalBytes`: a page-local point, loop, optional, or row framing is what let two artifacts
+    // with identical content mint different keys depending on which page keyed them, and the rotation-canonical loop
+    // preimage additionally folds two spellings of one closed region onto one key. Only `SheetForm` — this page's own
+    // vocabulary — declares a writer here.
     private static byte[] Canonical(UnfoldResult unfold, Seq<BendStep> bends) {
         CanonicalWriter writer = new(unfold.Evidence.Topology.Tolerance.Absolute.Value);
         _ = writer.Double(unfold.ThicknessMm)
-            .String(unfold.Material.Family.Key)
+            .Discriminant(unfold.Material.Family)
             .String(unfold.Material.Identity.Grade)
             .Double(unfold.Forming.TensileRm)
             .Double(unfold.Forming.KFactor)
             .Double(unfold.Forming.SpringbackRatio)
             .Double(unfold.Forming.MinBendRadiusFactor)
             .Double(unfold.Forming.FlowStressMpa)
-            .Double(unfold.Forming.LimitStrain);
-        Write(writer, unfold.Forming.Evidence);
-        _ = writer.Ordinal(unfold.Flat.Count);
-        unfold.Flat.Iter(loop => Write(writer, loop));
-        _ = writer.Ordinal(unfold.Bends.Count);
-        unfold.Bends.Iter(bend => {
-            _ = writer.Ordinal(bend.Index);
-            Write(writer, bend.Line.A); Write(writer, bend.Line.B);
-            _ = writer.Ordinal(bend.Parent).Ordinal(bend.Child)
-                .Double(bend.AngleDeg).Double(bend.InsideRadiusMm).Double(bend.K)
-                .Double(bend.Projection.AllowanceMm).Double(bend.Projection.SetbackMm)
-                .Double(bend.Projection.DeductionMm).Double(bend.Projection.NeutralShiftMm);
-            Write(writer, bend.Form);
-            _ = writer.Ordinal(bend.Prerequisites.Count);
-            bend.Prerequisites.Order().Iter(prerequisite => writer.Ordinal(prerequisite));
-        });
-        _ = writer.Ordinal(unfold.Evidence.Features.Count);
-        unfold.Evidence.Features.Iter(feature => {
-            Write(writer, feature.Form);
-            _ = writer.Double(feature.DevelopedMm).Double(feature.PeakStrain);
-        });
-        _ = writer.Ordinal(unfold.Evidence.Reliefs.Count);
-        unfold.Evidence.Reliefs.Iter(relief => {
-            Write(writer, relief.At);
-            _ = writer.Double(relief.Along.X).Double(relief.Along.Y).Double(relief.Along.Z)
-                .Double(relief.Inward.X).Double(relief.Inward.Y).Double(relief.Inward.Z)
+            .Double(unfold.Forming.LimitStrain)
+            .Budget(unfold.Forming.Evidence)
+            .Rows(unfold.Flat.ToSeq(), static (target, loop) => loop.CanonicalBytes(target))
+            .Rows(unfold.Bends, static (target, bend) => Write(
+                target.Ordinal(bend.Index).Coords(bend.Line.A).Coords(bend.Line.B)
+                    .Ordinal(bend.Parent).Ordinal(bend.Child)
+                    .Double(bend.AngleDeg).Double(bend.InsideRadiusMm).Double(bend.K)
+                    .Double(bend.Projection.AllowanceMm).Double(bend.Projection.SetbackMm)
+                    .Double(bend.Projection.DeductionMm).Double(bend.Projection.NeutralShiftMm),
+                bend.Form)
+                .Rows(toSeq(bend.Prerequisites.Order()), static (slot, prerequisite) => slot.Ordinal(prerequisite)))
+            .Rows(unfold.Evidence.Features, static (target, feature) =>
+                Write(target, feature.Form).Double(feature.DevelopedMm).Double(feature.PeakStrain))
+            .Rows(unfold.Evidence.Reliefs, static (target, relief) => target
+                .Coords(relief.At).Coords(relief.Along).Coords(relief.Inward)
                 .Double(relief.WidthMm).Double(relief.DepthMm).Double(relief.InsideRadiusMm)
-                .Ordinal(relief.Meeting.Count);
-            relief.Meeting.Order().Iter(bend => writer.Ordinal(bend));
-            _ = writer.Bool(relief.ExistingClearance);
-        });
-        _ = writer.Bool(unfold.Evidence.Isometry.IsSome);
-        unfold.Evidence.Isometry.Iter(receipt => writer
-            .Ordinal(receipt.Strips).Ordinal(receipt.Rulings)
-            .Double(receipt.MaxIsometry).Double(receipt.MeanIsometry).Double(receipt.MaxTorsal)
-            .Ordinal(receipt.Components));
-        _ = writer.Ordinal(unfold.Evidence.Panels.Count);
-        unfold.Evidence.Panels.Iter(panel => {
-            _ = writer.Ordinal(panel.Panel);
-            Write(writer, panel.Boundary);
-        });
-        _ = writer.Ordinal(unfold.Evidence.NeutralAxis.Count);
-        unfold.Evidence.NeutralAxis.Iter(row => writer.Ordinal(row.Bend).Double(row.ShiftMm));
-        _ = writer.String(unfold.Evidence.Topology.Fill.Key)
+                .Rows(toSeq(relief.Meeting.Order()), static (slot, bend) => slot.Ordinal(bend))
+                .Bool(relief.ExistingClearance))
+            .Maybe(unfold.Evidence.Isometry, static (target, receipt) => target
+                .Ordinal(receipt.Strips).Ordinal(receipt.Rulings)
+                .Double(receipt.MaxIsometry).Double(receipt.MeanIsometry).Double(receipt.MaxTorsal)
+                .Ordinal(receipt.Components))
+            .Rows(unfold.Evidence.Panels, static (target, panel) =>
+                panel.Boundary.CanonicalBytes(target.Ordinal(panel.Panel)))
+            .Rows(unfold.Evidence.NeutralAxis, static (target, row) => target.Ordinal(row.Bend).Double(row.ShiftMm))
+            // The kernel fill row keys on `int`, so its own declared key is the discriminant; the string framing
+            // `FabricationCanon.Discriminant` carries is for the string-keyed owners.
+            .Ordinal(unfold.Evidence.Topology.Fill.Key)
             .Double(unfold.Evidence.Topology.Tolerance.Absolute.Value)
             .Double(unfold.Evidence.Topology.Plane)
-            .Ordinal(unfold.Evidence.Topology.Nodes.Count);
-        unfold.Evidence.Topology.Nodes.Iter(node => {
-            _ = writer.Ordinal(node.Index).Bool(node.Parent.IsSome);
-            node.Parent.Iter(parent => writer.Ordinal(parent));
-            _ = writer.Ordinal(node.Depth).Bool(node.IsHole);
-            Write(writer, node.Boundary);
-            _ = writer.Double(node.SignedArea);
-        });
-        _ = writer.Ordinal(bends.Count);
-        bends.Iter(bend => {
-            Write(writer, bend.Line.A); Write(writer, bend.Line.B);
-            _ = writer.Ordinal(bend.Order).Double(bend.AngleDeg).Double(bend.RadiusMm)
+            .Rows(unfold.Evidence.Topology.Nodes, static (target, node) => node.Boundary
+                .CanonicalBytes(target
+                    .Ordinal(node.Index)
+                    .Maybe(node.Parent, static (slot, parent) => slot.Ordinal(parent))
+                    .Ordinal(node.Depth).Bool(node.IsHole))
+                .Double(node.SignedArea))
+            .Rows(bends, static (target, bend) => target
+                .Coords(bend.Line.A).Coords(bend.Line.B)
+                .Ordinal(bend.Order).Double(bend.AngleDeg).Double(bend.RadiusMm)
                 .Double(bend.KFactor).Double(bend.OverbendDeg).Double(bend.TonnageKn)
-                .String(bend.Orientation.Key);
-        });
+                .Discriminant(bend.Orientation));
         return writer.ToBytes().ToArray();
     }
 
-    private static void Write(CanonicalWriter writer, Point3d point) =>
-        _ = writer.Double(point.X).Double(point.Y).Double(point.Z);
-
-    private static void Write(CanonicalWriter writer, Loop loop) {
-        _ = writer.Ordinal(loop.Count).Bool(loop.Closed).Double(loop.Tolerance.Absolute.Value);
-        loop.Vertices.Iter(point => Write(writer, point));
-        loop.Bulges.Iter(bulge => writer.Double(bulge));
-    }
-
-    private static void Write(CanonicalWriter writer, BudgetEvidence evidence) {
-        _ = writer.Double(evidence.State.TemperatureC).Double(evidence.State.Hardness)
-            .Double(evidence.State.StrainRate).Double(evidence.State.Strain)
-            .Double(evidence.State.MoistureFraction).Double(evidence.State.GrainSizeUm)
-            .Double(evidence.PowerW)
-            .Bool(evidence.Energy.Joules.IsSome);
-        evidence.Energy.Joules.Iter(value => writer.Double(value));
-        _ = writer.Bool(evidence.Energy.Seconds.IsSome);
-        evidence.Energy.Seconds.Iter(value => writer.Double(value));
-        _ = writer.String(evidence.Material.Family.Key).String(evidence.Material.Identity.Grade);
-    }
-
-    private static void Write(CanonicalWriter writer, SheetForm form) => _ = form.Switch(
+    private static CanonicalWriter Write(CanonicalWriter writer, SheetForm form) => form.Switch(
         state: writer,
         bend: static (target, _) => target.String(nameof(SheetForm.Bend)),
-        hem: static (target, value) => target.String(nameof(SheetForm.Hem)).String(value.Kind.Key).Double(value.Gap.Millimeters),
+        hem: static (target, value) => target.String(nameof(SheetForm.Hem)).Discriminant(value.Kind).Double(value.Gap.Millimeters),
         jog: static (target, value) => target.String(nameof(SheetForm.Jog)).Double(value.Offset.Millimeters).Double(value.Spacing.Millimeters),
         curl: static (target, value) => target.String(nameof(SheetForm.Curl)).Double(value.InsideRadius.Millimeters).Double(value.Sweep.Radians),
-        bead: static (target, value) => { _ = target.String(nameof(SheetForm.Bead)); Write(target, value.Path); return target.Double(value.Width.Millimeters).Double(value.Depth.Millimeters); },
-        louver: static (target, value) => { _ = target.String(nameof(SheetForm.Louver)); Write(target, value.Aperture); return target.Double(value.Height.Millimeters).Double(value.Opening.Radians); },
-        emboss: static (target, value) => { _ = target.String(nameof(SheetForm.Emboss)); Write(target, value.Footprint); return target.Double(value.Height.Millimeters).Double(value.Draft.Radians); },
-        dimple: static (target, value) => { _ = target.String(nameof(SheetForm.Dimple)); Write(target, value.Footprint); return target.Double(value.Depth.Millimeters).Double(value.ToolRadius.Millimeters); });
+        bead: static (target, value) => value.Path.CanonicalBytes(target.String(nameof(SheetForm.Bead)))
+            .Double(value.Width.Millimeters).Double(value.Depth.Millimeters),
+        louver: static (target, value) => value.Aperture.CanonicalBytes(target.String(nameof(SheetForm.Louver)))
+            .Double(value.Height.Millimeters).Double(value.Opening.Radians),
+        emboss: static (target, value) => value.Footprint.CanonicalBytes(target.String(nameof(SheetForm.Emboss)))
+            .Double(value.Height.Millimeters).Double(value.Draft.Radians),
+        dimple: static (target, value) => value.Footprint.CanonicalBytes(target.String(nameof(SheetForm.Dimple)))
+            .Double(value.Depth.Millimeters).Double(value.ToolRadius.Millimeters));
 
     private sealed record SheetAssembly(
         Arr<Loop> Flat,
         Seq<BendLine> Bends,
         Seq<SheetForm> Features,
         Option<DevelopmentReceipt> Isometry,
-        Seq<PanelRegion> Panels);
+        Seq<PanelRegion> Panels,
+        PanelClosure Descendants);
 
     private sealed record PanelState(Arr<Loop> Panels, Arr<Loop> Flat, HashMap<int, PlanarPlacement> Placement) {
         public static PanelState Start(Arr<Loop> panels, int root) => new(panels, panels, HashMap((root, PlanarPlacement.Identity)));
@@ -1115,8 +1244,11 @@ public static class FlatPattern {
             Vector3d from = source.B - source.A;
             Vector3d to = target.A - target.B;
             if (!from.Unitize() || !to.Unitize())
-                return Fin.Fail<PlanarPlacement>(new GeometryFault.DegenerateInput(Kind.Line, None, "flat:panel-edge").ToError());
-            double cos = (from * to) / (from.Length * to.Length);
+                return Fin.Fail<PlanarPlacement>(new GeometryFault.DegenerateInput(Kind.Line, None, FlatRejection.PanelEdge.Key).ToError());
+            // Both operands are already unitized, so the cosine IS the dot and the sine IS the cross z-component;
+            // dividing through their lengths again is arithmetic on two ones that reads as a normalization the
+            // vectors already carry.
+            double cos = from * to;
             double sin = Vector3d.CrossProduct(from, to).Z;
             Vector3d normal = new(-to.Y, to.X, 0.0);
             Point3d rotated = new((cos * source.A.X) - (sin * source.A.Y), (sin * source.A.X) + (cos * source.A.Y), source.A.Z);

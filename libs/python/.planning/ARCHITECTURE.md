@@ -178,21 +178,21 @@ flowchart LR
 
 ## [05]-[ROUTING]
 
-| [INDEX] | [CHANGE]                            | [OWNER_SURFACE]                    | [SHAPE_OF_THE_EDIT]                              |
-| :-----: | :---------------------------------- | :--------------------------------- | :----------------------------------------------- |
-|  [01]   | machinery a second sibling composes | `runtime`                          | one S0 owner row every consumer imports          |
-|  [02]   | a graduating evidence axis          | `compute/graduation/handoff.py`    | one `HandoffAxis` case                           |
-|  [03]   | a branch metric or signal           | `runtime/observability/metrics.py` | one `INSTRUMENTS` row                            |
-|  [04]   | a hook point                        | `runtime/observability/hooks.py`   | one `HookPoint` row under a package-qualified id |
-|  [05]   | an external proto wire family       | `runtime/transport/shapes.py`      | one `PROTO_VOCABULARY` row the drift gate proves |
-|  [06]   | a package dependency                | root `pyproject.toml`              | one admission row in the owning group            |
-|  [07]   | a durable evidence fact             | `runtime/observability/journal.py` | one `Fact` case beside its `Retain` class        |
-|  [08]   | a metered resource                  | `runtime/observability/journal.py` | one `Resource` row in both branch spellings      |
-|  [09]   | a retention class                   | `runtime/observability/journal.py` | one `Retain` member with its window row          |
-|  [10]   | an analytics residence              | `data/tabular/lakehouse.py`        | one row answering the estate residence floor     |
-|  [11]   | a remote columnar query end         | `data/tabular/query.py`            | one `RemoteDriver` row on the one Flight plane   |
-|  [12]   | a graded benchmark subject          | `runtime/observability/profiles.py`| one roster row at the owning folder              |
-|  [13]   | a store-reaching residence consumer | `runtime/transport/roots.py`       | one `store_handle` call carrying config+provider |
+| [INDEX] | [CHANGE]                            | [OWNER_SURFACE]                     | [SHAPE_OF_THE_EDIT]                              |
+| :-----: | :---------------------------------- | :---------------------------------- | :----------------------------------------------- |
+|  [01]   | machinery a second sibling composes | `runtime`                           | one S0 owner row every consumer imports          |
+|  [02]   | a graduating evidence axis          | `compute/graduation/handoff.py`     | one `HandoffAxis` case                           |
+|  [03]   | a branch metric or signal           | `runtime/observability/metrics.py`  | one `INSTRUMENTS` row                            |
+|  [04]   | a hook point                        | `runtime/observability/hooks.py`    | one `HookPoint` row under a package-qualified id |
+|  [05]   | an external proto wire family       | `runtime/transport/shapes.py`       | one `PROTO_VOCABULARY` row the drift gate proves |
+|  [06]   | a package dependency                | root `pyproject.toml`               | one admission row in the owning group            |
+|  [07]   | a durable evidence fact             | `runtime/observability/journal.py`  | one `Fact` case beside its `Retain` class        |
+|  [08]   | a metered resource                  | `runtime/observability/journal.py`  | one `Resource` row in both branch spellings      |
+|  [09]   | a retention class                   | `runtime/observability/journal.py`  | one `Retain` member with its window row          |
+|  [10]   | an analytics residence              | `data/tabular/lakehouse.py`         | one row answering the estate residence floor     |
+|  [11]   | a remote columnar query end         | `data/tabular/query.py`             | one `RemoteDriver` row on the one Flight plane   |
+|  [12]   | a graded benchmark subject          | `runtime/observability/profiles.py` | one roster row at the owning folder              |
+|  [13]   | a store-reaching residence consumer | `runtime/transport/roots.py`        | one `store_handle` call carrying config+provider |
 
 ## [06]-[ADMISSION_POLICY]
 

@@ -7,7 +7,7 @@
 [PACKAGE_SURFACE]: host assembly `Grasshopper2`
 - package: `Grasshopper2` (Rhino 9 WIP Grasshopper 2 plug-in SDK; not a NuGet pin — the in-process `Grasshopper2.dll` under `Grasshopper2Plugin.rhp` is the resolved asset)
 - assembly: `Grasshopper2`
-- namespace: `Grasshopper2.Parameters.Special`
+- namespace: `Grasshopper2.Parameters.Special`, `Grasshopper2.SpecialObjects` (`ScribbleObject`, `ScribbleFont`)
 - adjacent namespaces: `Grasshopper2.Data`, `Grasshopper2.Parameters`, `Grasshopper2.Types.Colour`, `Grasshopper2.UI`, `GrasshopperIO` resolve the value carriers, pears, and IO seams
 - rail: host-grasshopper special objects
 
@@ -66,7 +66,8 @@ Each roster line carries one type's constructor and public members grouped by ac
 [ENTRYPOINT_SCOPE]: editors and samplers
 - `GradientEditorObject` — ctor `(string, GripGradient)`; get `Gradient: Gradient`; get/set `Parameter0` `Parameter1` `Interaction`
 - `FunctionEditorObject` — ctor `(string, Function)`; get `Editor: FunctionEditorBase`
-- `MaterialEditorObject` — ctor `(string, DisplayMaterial)`; get/set `ForeRotation` `BackRotation` `IdenticalForeAndBack` `Material`
+- `MaterialEditorObject` — ctor `(string, DisplayMaterial)`; get/set `ForeRotation` `BackRotation` `IdenticalForeAndBack` `Material`; the rotation type `Eto.Forms.RotationF` is DECLARED IN `Grasshopper2.dll` inside the `Eto.Forms` namespace — a host-injected foreign-namespace type, not an Eto member
+- `ScribbleObject` (`Grasshopper2.SpecialObjects`) — get/set `Text` `TextAngle` `TextFont` `TextStyle` `TextColour` `TextAlign` over the `ScribbleFont` carrier
 - `ImageSamplerObject` — get `DisplayImage: Bitmap`; get/private-set `Image: Bitmap`; get/set `ImageUri` `Normalised` `Luminance` `LimitBehaviour` `DrawSamples`
 - `HistogramObject` — get `BucketCountText` `Pins`; get/set `Style` `Palette` `BucketCount` `BucketRange`
 - `QuickGraphObject` — get `Pins`

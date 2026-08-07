@@ -402,7 +402,7 @@ public static class GeoRows {
             deferred: static d => GeoSource.Capture(GeoFormat.GeoJson, () =>
                 d.Table.TryDeserializeJsonObject<T>(GeoWire.Options, out T? typed) ? Optional(typed) : None),
             columns: static c => GeoSource.Capture(GeoFormat.GeoPackage, () => Optional(JsonSerializer.Deserialize<T>(
-                JsonSerializer.SerializeToUtf8Bytes(c.Bag.ToDictionary(), GeoWire.Options), GeoWire.Options))),
+                JsonSerializer.SerializeToUtf8Bytes(c.Bag.ToDictionary(static kv => kv.Key, static kv => kv.Value), GeoWire.Options), GeoWire.Options))),
             bare: static _ => (Validation<GeoIngestFault, Option<T>>)Option<T>.None);
     }
 }
@@ -426,7 +426,7 @@ public static class GeoWire {
 
     public static Unit Write(GeoSpec spec, Seq<GeoPayload> features) {
         FeatureCollection collection = [];
-        features.Iter(f => collection.Add(new Feature(f.Shape, new AttributesTable(f.Properties.ToDictionary()))));
+        features.Iter(f => collection.Add(new Feature(f.Shape, new AttributesTable(f.Properties.ToDictionary(static kv => kv.Key, static kv => kv.Value)))));
         return spec.Source.Read(
             path:   p => { File.WriteAllBytes(p, JsonSerializer.SerializeToUtf8Bytes(collection, Options)); return unit; },
             stream: s => { JsonSerializer.Serialize(s, collection, Options); return unit; });

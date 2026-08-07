@@ -1,6 +1,6 @@
 # [CORE_FORMAT]
 
-Format engines carry the interchange plane — one arm per contract byte dialect, each a configured-once pure engine behind one `Schema.transformOrFail` fold so every malformed payload is a `ParseError` on the one admission rail and no second codec fault vocabulary exists. `Proto` is the protobuf-es engine: read/write posture, the census-guarded `GenMessage` suite table, the singular type registry, the size-delimited frame stream both directions, and the custom-option read. `Cbor` is the canonical RFC 8949 decoder with the interop posture no cross-language byte can bypass, the `setSizeLimits` DoS gate, and the chunked `decodeIter` lane for multi-segment payloads. `Pack` is the MessagePack engine carrying the sixteen-byte `Hlc` extension row, the interner context thread, i64 fidelity, and the `ExtData` foreign-ext seam. `Patch` is the RFC 6902 engine: the six-op `Operation` union over the branch pointer brand, the `Pointer` traversal codec, the clone-fenced value-rail apply, the content-key-reconciled minimal diff, and the OCC test-guard egress. Engines are format mechanics only — which family decodes through which arm, what a decoded value lands as, and every verification are the codec registry's concern. Module `core/src/interchange/format.ts` owns them; a new proto family is one suite row, a new engine posture axis is one policy field, and a further dialect is a new engine owner beside them, never a widening of one.
+Format engines carry the interchange plane — one arm per contract byte dialect, each a configured-once pure engine behind one `Schema.transformOrFail` fold so every malformed payload is a `ParseError` on the one admission rail and no second codec fault vocabulary exists. `Proto` is the protobuf-es engine: read/write posture, the census-guarded `GenMessage` suite table, the singular type registry, the size-delimited frame stream both directions, and the custom-option read. `Cbor` is the canonical RFC 8949 decoder with the interop posture no cross-language byte can bypass, the `setSizeLimits` DoS gate, and the chunked `decodeIter` lane for multi-segment payloads. `Pack` is the MessagePack engine carrying the sixteen-byte `Hlc` extension row, the interner context thread, i64 fidelity, and the `ExtData` foreign-ext seam. `Patch` is the RFC 6902 engine: the six-op `Operation` union over the branch pointer brand, the `Pointer` traversal codec, the clone-fenced value-rail apply, the content-key-reconciled minimal diff, and the OCC test-guard egress. `Json` is the module's one byte-to-text crossing fused with `Schema.parseJson`: the bounded frame, the composed owned-vocabulary schema, the newline-delimited document walk, the canonical egress, and the held-octet render a refused frame still answers through. Engines are format mechanics only — which family decodes through which arm, what a decoded value lands as, and every verification are the codec registry's concern. Module `core/src/interchange/format.ts` owns them; a new proto family is one suite row, a new engine posture axis is one policy field, and a further dialect is a new engine owner beside them, never a widening of one.
 
 ## [01]-[INDEX]
 
@@ -9,6 +9,7 @@ Format engines carry the interchange plane — one arm per contract byte dialect
 - [04]-[CBOR_ENGINE]: the configured canonical decoder, the DoS gate, the quirk augmentation; `Cbor`.
 - [05]-[MSGPACK_ENGINE]: the `Hlc`-ext codec pair, the interner context, stream and zero-copy egress; `Pack`.
 - [06]-[JSONPATCH_ENGINE]: the op union, apply, diff, OCC guards, and the patch content key; `Patch`.
+- [07]-[JSON_ENGINE]: the bounded UTF-8 crossing, the fused parse, the newline walk, the held-octet render; `Json`.
 
 ## [02]-[ENGINE_FOLD]
 
@@ -16,7 +17,7 @@ Format engines carry the interchange plane — one arm per contract byte dialect
 - Owner: `_lifted`, the one transform builder every byte arm instantiates — a `(decode, encode)` function pair folds into a `Schema.transformOrFail` from held octets to `Schema.Unknown`, each direction catching the engine's throw through `Either.try` into `ParseResult.Type`, so a codec defect joins the admission rail at the seam it occurred and the interior never meets a raw engine throw.
 - Law: engines configure once at module scope — instance options, ceilings, extension registries are module-init facts; a per-call engine construction re-mints codec state and is the rejected form.
 - Law: a decode-only arm states its posture as a typed refusal — the encode direction fails `ParseResult.Forbidden` so an accidental egress through a decode-only schema dies at the boundary as evidence, never as silent bytes.
-- Growth: a fifth dialect instantiates `_lifted` with its own engine pair; the fold shape never changes.
+- Growth: a further dialect instantiates `_lifted` with its own engine pair; the fold shape never changes.
 - Packages: `effect` (`Schema`, `ParseResult`, `Either`).
 
 ```typescript signature
@@ -92,44 +93,31 @@ const _frame = (gen: DescMessage): Schema.Schema<Message, Uint8Array> =>
     (value) => (isMessage(value, gen) ? toBinary(gen, value, _WRITE) : undefined),
   ).pipe(Schema.compose(_Message, { strict: false }))
 
+// The roster is exactly the families a `.proto` DECLARES, and `rasm/channels.proto` — the one landed descriptor
+// source — declares the texture families alone. A source-generated-JSON producer is therefore absent BY LAW: the
+// AppHost runtime-evidence set ([02.21]) and the AppUi product-shell set ([02.22]) each owe no descriptor source
+// under [02.9], so a row here for one of them would bind a schema no `.proto` declares and read its bytes through
+// a reader nothing writes for. The appearance families are absent on their own ground — their wire is the
+// producer's MessagePack integer-keyed roster, and a proto declaration beside it is a second schema for one wire.
+// The seam summary is no family at all: it rides inside `NodeWire` field 7 as the `rasm.element.v1` payload.
 const _names = [
-  "ReceiptEnvelopeWire", "HlcStampWire", "TenantContextWire", "CommandAvailabilityWire", "RenderReceiptWire",
-  "FaultDetailWire", "QuantityWire", "ElementGraphWire", "NodeWire", "RelationshipWire",
-  "ProgressMarkWire", "CredentialPemWire", "BenchmarkClaimWire", "HostFingerprintWire",
-  "BindingStatusWire", "CoercedValueWire", "WriteReceiptWire", "FlagVerdictWire",
-  "ControlIntentWire", "LayoutConstraintWire", "CommandGateWire", "BcfTopicWire", "BcfViewpointWire",
-  "GeoFeatureWire", "BimWire", "DiffWire", "IdsAuditWire",
-  // the appearance families (MaterialWire/OpenPbrGroupsWire) are NOT proto names: `rasm/channels.proto`
-  // declares no message for them and the contract forecloses one — their wire is the producer's MessagePack
-  // integer-keyed roster, landed through the codec page's Pack arm. The seam summary is no family at all:
-  // its wire is the `rasm.element.v1` `AppearanceWire` payload inside `NodeWire` (field 7).
+  "HlcStampWire", "FaultDetailWire", "QuantityWire", "ElementGraphWire", "GraphDeltaWire", "NodeWire", "RelationshipWire",
+  "ProgressMarkWire", "BenchmarkClaimWire",
+  "BcfTopicWire", "BcfViewpointWire", "GeoFeatureWire", "BimWire", "DiffWire", "IdsAuditWire",
   "TextureSetWire", "AssetSetManifest",
-  "ArtifactFrameWire", "GeometryPayloadWire", "GeometryResidencyWire",
-  "CommandPayloadWire", "SupportCaptureWire", "CapabilityDescriptorWire",
+  "ArtifactFrameWire", "GeometryPayloadWire",
 ] as const
 
 const _suite = {
-  ReceiptEnvelopeWire: pb.ReceiptEnvelopeWireSchema,
   HlcStampWire: pb.HlcStampWireSchema,
-  TenantContextWire: pb.TenantContextWireSchema,
-  CommandAvailabilityWire: pb.CommandAvailabilityWireSchema,
-  RenderReceiptWire: pb.RenderReceiptWireSchema,
   FaultDetailWire: pb.FaultDetailWireSchema,
   QuantityWire: pb.QuantityWireSchema,
   ElementGraphWire: pb.ElementGraphWireSchema,
+  GraphDeltaWire: pb.GraphDeltaWireSchema,
   NodeWire: pb.NodeWireSchema,
   RelationshipWire: pb.RelationshipWireSchema,
   ProgressMarkWire: pb.ProgressMarkWireSchema,
-  CredentialPemWire: pb.CredentialPemWireSchema,
   BenchmarkClaimWire: pb.BenchmarkClaimWireSchema,
-  HostFingerprintWire: pb.HostFingerprintWireSchema,
-  BindingStatusWire: pb.BindingStatusWireSchema,
-  CoercedValueWire: pb.CoercedValueWireSchema,
-  WriteReceiptWire: pb.WriteReceiptWireSchema,
-  FlagVerdictWire: pb.FlagVerdictWireSchema,
-  ControlIntentWire: pb.ControlIntentWireSchema,
-  LayoutConstraintWire: pb.LayoutConstraintWireSchema,
-  CommandGateWire: pb.CommandGateWireSchema,
   BcfTopicWire: pb.BcfTopicWireSchema,
   BcfViewpointWire: pb.BcfViewpointWireSchema,
   GeoFeatureWire: pb.GeoFeatureWireSchema,
@@ -140,10 +128,6 @@ const _suite = {
   AssetSetManifest: pb.AssetSetManifestSchema,
   ArtifactFrameWire: pb.ArtifactFrameWireSchema,
   GeometryPayloadWire: pb.GeometryPayloadWireSchema,
-  GeometryResidencyWire: pb.GeometryResidencyWireSchema,
-  CommandPayloadWire: pb.CommandPayloadWireSchema,
-  SupportCaptureWire: pb.SupportCaptureWireSchema,
-  CapabilityDescriptorWire: pb.CapabilityDescriptorWireSchema,
 } as const
 
 declare namespace Proto {
@@ -421,13 +405,74 @@ const Patch: Patch.Shape = {
     unescape: unescapeToken,
   },
 }
+```
+
+## [07]-[JSON_ENGINE]
+
+[JSON_ENGINE]:
+- Owner: `Json`, the arm the AppHost's source-generated `System.Text.Json` roster crosses on — `_utf8` the module's one byte-to-text crossing lifted through `_lifted` under the assembled-byte bound, `frame` the bounded byte-to-value schema, `schema(owned)` the composed byte-to-owned-vocabulary schema every json registry row instantiates, `stream(frames)` the newline-delimited document walk lifted to `Stream`, `encode(value)` the UTF-8 egress a quarantine thunk re-mints through, and `text(octets)` the held-octet render.
+- Law: the crossing is one marked kernel pair and no third decoder exists — `_strict` fails a malformed sequence into `_lifted`'s admission rail so a truncated multi-byte tail dies at the seam as evidence, while `_render` is lossy exactly so `text` answers over octets the strict pair already refused; that render is the one diagnostic a binary arm structurally cannot give, and it never feeds a decode.
+- Law: the parse fuses at the declaration — `Schema.parseJson` carries `JSON.parse` and `JSON.stringify` as one bidirectional codec composed onto the crossing, so no `JSON.parse` call stands beside a decode and `schema` composes the owned vocabulary onto that pair exactly as `Pack.schema` composes onto the msgpack pair.
+- Law: the arm carries a real inverse — the roster crosses under `JsonSerializerDefaults.Web`, whose member spelling is a mechanical projection of the producer's own members, so the encode leg re-emits what the producer wrote and the codec registry's json rows take the golden-byte roundtrip proof exactly as every proto and msgpack row does.
+- Law: the admitted-document ceiling reads the `Ingress` floor's assembled-byte row rather than a fresh literal, exactly as `Proto._STREAM` does, and it arms on the OCTETS ahead of the crossing so an oversized document refuses before a decoder allocates its text. The walk prices each line by its code-unit extent against that same row — UTF-8 spends at least one byte per code unit, so the text read is a conservative reading of the byte budget and never admits past it.
+- Law: the walk is newline-delimited because the producer emits one document per line — `Stream.decodeText` and `Stream.splitLines` own the framing, blank separators drop before the parse, and a hand buffer scanning for `\n` re-derives both operators.
+- Growth: a posture axis is one `_TEXT` field; a second framing (length-prefixed, record-separator) is one member beside `stream`, never a second engine.
+- Boundary: which family decodes through this arm, every landing shape, and the quarantine render that consumes `text` are the codec registry's; the assembled-byte budget itself is the `value` `Ingress` owner's.
+- Packages: `effect` (`Schema`, `Stream`, `Effect`); `../value/schema.ts` (`Ingress`).
+
+```typescript signature
+const _TEXT = { fatal: true } as const
+
+const _strict = new TextDecoder("utf-8", _TEXT)
+// The lossy twin exists for `text` alone: a quarantined frame renders where the strict pair already refused,
+// and no decode path reaches it.
+const _render = new TextDecoder("utf-8")
+const _encoder = new TextEncoder()
+
+const _bounded: Schema.Schema<Uint8Array, Uint8Array> = Schema.Uint8ArrayFromSelf.pipe(
+  Schema.filter((octets) => octets.byteLength <= Ingress.floor.maxAssembledBytes, {
+    message: () => "<json-document-overrun>",
+  }),
+)
+
+const _utf8: Schema.Schema<unknown, Uint8Array> = _bounded.pipe(
+  Schema.compose(_lifted((octets) => _strict.decode(octets), (value) => _encoder.encode(value as string))),
+)
+
+// both directions of the fused codec configure once at module scope: one admission policy, never a per-line mint
+const _json = Schema.parseJson()
+const _document = Schema.decodeUnknown(_json)
+const _rendered = Schema.encodeSync(_json)
+
+const Json: {
+  readonly frame: Schema.Schema<unknown, Uint8Array>
+  readonly schema: <A, I>(owned: Schema.Schema<A, I>) => Schema.Schema<A, Uint8Array>
+  readonly stream: (frames: AsyncIterable<Uint8Array>) => Stream.Stream<unknown, unknown>
+  readonly encode: (value: unknown) => Uint8Array
+  readonly text: (octets: Uint8Array) => string
+} = {
+  frame: _utf8.pipe(Schema.compose(_json, { strict: false })),
+  schema: (owned) => _utf8.pipe(Schema.compose(Schema.parseJson(owned), { strict: false })),
+  stream: (frames) =>
+    Stream.fromAsyncIterable(frames, (defect) => defect).pipe(
+      Stream.decodeText("utf-8"),
+      Stream.splitLines,
+      Stream.filter((line) => line.length > 0),
+      Stream.mapEffect((line) =>
+        line.length > Ingress.floor.maxAssembledBytes
+          ? Effect.fail(`<json-document-overrun:${line.length}>`)
+          : _document(line)),
+    ),
+  encode: (value) => _encoder.encode(_rendered(value)),
+  text: (octets) => _render.decode(octets),
+}
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 
-export { Cbor, Pack, Patch, Proto }
+export { Cbor, Json, Pack, Patch, Proto }
 ```
 
-## [07]-[RESEARCH]
+## [08]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.

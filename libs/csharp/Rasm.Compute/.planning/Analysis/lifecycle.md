@@ -6,32 +6,63 @@ One hand-thin EC3 client rides a typed `HttpClient` and a source-generated `Syst
 
 ## [01]-[INDEX]
 
-- [02]-[EC3_BOUNDARY]: `Ec3Service` reads openEPD wire types under a success-only content-key cache and the raw-kgCO2e GWP discipline.
+- [02]-[EC3_BOUNDARY]: the `EpdQuery`→`EpdDeclaration` resolver contract and `Ec3Service` the openEPD adapter satisfying it under a success-only content-key cache and the raw-kgCO2e GWP discipline.
 - [03]-[CARBON_RUNNER]: `RunCarbon` the pure-sync EN 15978 takeoff and `EnrichCarbon` the async EC3 ingress resolving each undeclared ply through the fallback ladder.
 - [04]-[COST_RUNNER]: `RunCost` the supply/install/lifecycle rollup over the composition, guarded to the requested `Currency`.
 
 ## [02]-[EC3_BOUNDARY]
 
-- Owner: `Ec3Service` the typed-`HttpClient` embodied-carbon read client; the openEPD wire-type family (`Epd`/`ScopeSet`/`Measurement`/`StatisticsDto`/`Envelope<T>`); the success-only `XxHash128` content-key cache; the `LciaMethod` `[SmartEnum<string>]` impact-method selector; the `CarbonQuery` request input the `AssessmentRequest.Carbon` case carries.
-- Entry: `Statistics` · `Search` · `ByUuid` expose GET-only reads returning `Fin<T>`. `408`/`429`/`5xx` responses classify as transient `FailureKind.Timeout`; deterministic client responses classify as `FailureKind.Input`; transport and cancellation exceptions lower onto typed endpoint/timeout faults.
-- Auto: the three reads share ONE polymorphic `Cached<T>` fold parameterized by the decode shape (`Unwrap<T>` for the `{payload, meta}` envelope, `Bare<T>` for the by-UUID document) — no parallel `GetEnvelope`/`GetBare` pair; the cache stores the SUCCESS DTO ONLY (`Epd[]`/`StatisticsDto`/`Epd`, never a `Fin` or a `Seq`), the factory throwing the boundary fault so `HybridCache.GetOrCreateAsync` writes nothing on a failure and a transient `429`/`5xx` never poisons a content-key; the cache slot is `XxHash128.HashToUInt128` over the `(kind, omf, page|method)` string, every entry held under one `HybridCacheEntryOptions` policy (a days-scale distributed `Expiration` matching the provider's EPD revision cadence, an hour-scale `LocalCacheExpiration` re-validating L1 across redeploys) and tagged `ec3` + `ec3:<kind>` so a category recall is one tag eviction; the AppHost-owned resilience handler honors `429` + `Retry-After` as the backoff floor.
-- Packages: `System.Net.Http` (typed client + `ReadFromJsonAsync(JsonSerializerContext)`), `System.Text.Json` (source-generated context, AOT-safe), `System.IO.Hashing` (`XxHash128.HashToUInt128`), Microsoft.Extensions.Caching.Hybrid (`HybridCache.GetOrCreateAsync` stateful overload), LanguageExt.Core, NodaTime (`Instant`), BCL inbox; no NuGet SDK to pin (REST integration).
-- Growth: a new LCIA method is one `LciaMethod` row; a new decoded openEPD member is one source-gen context property; a new read endpoint is one method composing the same `Cached<T>` fold — the client widens by row/method, never a second HTTP client and never a per-endpoint cache path.
-- Boundary: only the GET read surface is consumed (Rasm is a carbon consumer, never a publisher). GWP `Measurement.Mean` is kgCO2e per declared unit and is not a `UnitsNet` quantity — it crosses interior signatures as a raw `double` and lands as a dimensionless `MeasureValue` labeled `kgCO2e` through `DomainMeasure`, never `UnitsNet.Mass` and never the abbreviation-resolving `MeasureValue.Of` (which rejects `kgCO2e`). Ingress `Normalize`s the per-module vector to per-one-unit of its native basis and tags that `MeasurementBasis` the `AggregateEnvironmental` fold scales by — a volume `declared_unit` → PerM3, an area → PerM2, a mass → PerKg, else the `kg_per_declared_unit` → PerKg chain; density is not read at ingress (a per-kg basis resolves to mass at aggregation against the ply `Mechanical.Density`), and an unresolvable bare-count declaration is railed and the ply skipped. Hyphenated LCIA scope keys (`A1A2A3`, `B1`…`B7`, `C1`…`C4`) require `[JsonPropertyName]` aliases; the `fields` query mask trims the response to the decoded projection so the token cost stays minimal; a failed read is the explicit `Fin.Fail` the caller surfaces, never a cached failure re-served as success.
+- Owner: `EpdQuery` the closed request `[Union]` (`Products`/`Document`/`Generic`) and `EpdDeclaration`/`DeclaredAmount` the provider-neutral answer, together the `Func<EpdQuery, Task<Fin<Seq<EpdDeclaration>>>>` resolver contract every carbon fold takes; `Ec3Service` the openEPD ADAPTER satisfying it; the openEPD wire-type family (`Epd`/`ScopeSet`/`Measurement`/`StatisticsDto`/`Envelope<T>`/`Amount`); the success-only `XxHash128` content-key cache; the `LciaMethod` `[SmartEnum<string>]` impact-method selector with its citation `Key` and wire `WireKey` columns; the `CarbonQuery` request input the `AssessmentRequest.Carbon` case carries.
+- Entry: `Ec3Service.Resolve(EpdQuery query)` → `Task<Fin<Seq<EpdDeclaration>>>` is the adapter's ONE read, its generated total `Switch` binding the category page search, the by-identity document, and the category statistic onto three GET-only legs. `408`/`429`/`5xx` responses classify as transient `FailureKind.Timeout`; deterministic client responses classify as `FailureKind.Input`; transport and cancellation exceptions lower onto typed endpoint/timeout faults.
+- Auto: the three legs share ONE polymorphic `Cached<T>` fold parameterized by the decode shape (`Unwrap<T>` for the `{payload, meta}` envelope, `Bare<T>` for the by-identity document) — no parallel `GetEnvelope`/`GetBare` pair; the cache stores the SUCCESS DTO ONLY (`Epd[]`/`StatisticsDto`/`Epd`, never a `Fin` or a `Seq`), the factory throwing the boundary fault so `HybridCache.GetOrCreateAsync` writes nothing on a failure and a transient `429`/`5xx` never poisons a content-key; the cache slot is `XxHash128.HashToUInt128` over the `(kind, omf, page|method|uuid)` string, every entry held under one `HybridCacheEntryOptions` policy (a days-scale distributed `Expiration` matching the provider's EPD revision cadence, an hour-scale `LocalCacheExpiration` re-validating L1 across redeploys) and tagged `ec3` + `ec3:<kind>` so a category recall is one tag eviction; the AppHost-owned resilience handler honors `429` + `Retry-After` as the backoff floor. Every module a declaration carries bands onto the seam `LifecycleStage` roster through ONE generated projection keyed by stage row, so the wire's fifteen `[JsonPropertyName]` members map by data rather than by a hand-summed fixed-slot literal.
+- Packages: `System.Net.Http` (typed client + `ReadFromJsonAsync(Type, JsonSerializerContext)`), `System.Text.Json` (source-generated context, AOT-safe), `System.IO.Hashing` (`XxHash128.HashToUInt128`), Microsoft.Extensions.Caching.Hybrid (`HybridCache.GetOrCreateAsync` stateful overload), Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime (`Instant`), Rasm.Element (project — `LifecycleStage` the banding projection is generated over), BCL inbox; no NuGet SDK to pin (REST integration).
+- Growth: a new LCIA method is one `LciaMethod` row carrying its citation and wire spellings; a new decoded openEPD member is one source-gen context property plus one banding entry; a new lifecycle module is one seam `LifecycleStage` row with one banding entry here; a SECOND carbon provider is one type satisfying the resolver contract with zero edit to the folds — the boundary widens by row and by adapter, never by a second HTTP client and never a per-endpoint cache path.
+- Boundary: the carbon folds take the RESOLVER, never this class — an assessment that names its provider cannot be run against a second catalogue, a fixture, or a cached corpus without editing the fold, and the concrete client is exactly what a test then has to fake through HTTP. Only the GET read surface is consumed (Rasm is a carbon consumer, never a publisher), and the openEPD wire family stays adapter-local: `Epd`/`ScopeSet`/`Amount` never cross the resolver contract, `EpdDeclaration` carrying the per-stage vector, the two basis witnesses, the expiry, and the citation the folds actually read. GWP `Measurement.Mean` is kgCO2e per declared unit and is not a `UnitsNet` quantity — it crosses interior signatures as a raw `double` and lands as a dimensionless `MeasureValue` labeled `kgCO2e` through `DomainMeasure`, never `UnitsNet.Mass` and never the abbreviation-resolving `MeasureValue.Of` (which rejects `kgCO2e`). `LciaMethod` carries its wire spelling as its OWN column (the `Model/providers#EP_AXIS` `WireKey` precedent): the citation a report renders and the token `impacts[method]` and `lcia_method=` are keyed by are two facts, and one string serving both makes a renamed citation silently miss every impact lookup. The vocabulary is CLOSED and absence rides `Option` at the read — an `Unknown` sentinel row is a member of a closed family that names no method, and it resolves against no wire key while type-checking everywhere. Hyphenated LCIA scope keys (`A1A2A3`, `B1`…`B7`, `C1`…`C4`) require `[JsonPropertyName]` aliases; the `fields` query mask trims each leg to its own projection, so a category page carries candidate identity and basis alone and the winner's impacts are fetched once by identity rather than for every row the page returned; a failed read is the explicit `Fin.Fail` the caller surfaces, never a cached failure re-served as success.
 
 ```csharp signature
 // --- [TYPES] -------------------------------------------------------------------------------
+// The Key is the CITATION a report renders; WireKey is the token `impacts[method]` and `lcia_method=` are keyed by. One
+// string serving both makes a renamed citation silently miss every impact lookup, so each row declares its own crossing
+// spelling exactly as the EP axis does. The family is CLOSED — absence rides Option at the read site, never a sentinel
+// row that names no method, resolves against no wire key, and type-checks everywhere.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class LciaMethod {
-    public static readonly LciaMethod En15978 = new("EN 15978:2011");
-    public static readonly LciaMethod IpccAr6 = new("IPCC AR6");
-    public static readonly LciaMethod Traci21 = new("TRACI 2.1");
-    public static readonly LciaMethod Ef31    = new("EF 3.1");
-    public static readonly LciaMethod Unknown = new("Unknown LCIA");
+    public static readonly LciaMethod En15978 = new("EN 15978:2011", wireKey: "EN 15978");
+    public static readonly LciaMethod IpccAr6 = new("IPCC AR6", wireKey: "IPCC AR6");
+    public static readonly LciaMethod Traci21 = new("TRACI 2.1", wireKey: "TRACI 2.1");
+    public static readonly LciaMethod Ef31    = new("EF 3.1", wireKey: "EF 3.1");
+
+    public string WireKey { get; }
+}
+
+// ONE carbon-resolution request: the case is the rung of the fallback ladder, its payload the coordinates. Three legs on
+// one contract means a second catalogue, a fixture, or a cached corpus substitutes by binding one delegate.
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record EpdQuery {
+    private EpdQuery() { }
+
+    // A category page of CANDIDATES — identity, expiry, and basis alone, no impacts.
+    public sealed record Products(string Omf, LciaMethod Method, int Page) : EpdQuery;
+    // The winning candidate's full declaration, fetched once by identity rather than for every row the page returned.
+    public sealed record Document(string Uuid, LciaMethod Method) : EpdQuery;
+    // The category substitution line a ply with no fresh product declaration falls back to.
+    public sealed record Generic(string Omf, LciaMethod Method) : EpdQuery;
 }
 
 // --- [MODELS] ------------------------------------------------------------------------------
+// Magnitude plus its unit abbreviation — the two facts a basis resolves from, which the seam MeasureValue.Of coerces to
+// an SI dimension and scalar once.
+public readonly record struct DeclaredAmount(double Qty, string Unit);
+
+// Provider-neutral environmental declaration: the per-stage GWP vector in the declaration's OWN basis, the two basis
+// witnesses Normalize reads, the expiry a freshness filter reads, and the citation pair a PropertyEvidence carries.
+// StageGwp is None on a candidate row, whose page projection carries no impacts — the fold then resolves the winner's
+// document, and a declaration that reaches normalization without a vector rails rather than defaulting a zero one.
+public sealed record EpdDeclaration(
+    string Source, string Reference, Option<Instant> ValidUntil,
+    Option<DeclaredAmount> DeclaredUnit, Option<DeclaredAmount> KgPerDeclaredUnit, Option<double[]> StageGwp);
+
 // Carbon request input carries category OMF as default scope, an
 // optional per-material OMF override (a multi-material assembly resolves each ply from its OWN EC3 category — concrete,
 // insulation, and gypsum never share one EPD), the LCIA method, and the design target the verdict ratios against.
@@ -51,9 +82,10 @@ public sealed record Measurement(double Mean);
 // (no alias); the uncertainty-free Amount carries no rsd. This is the field the per-declared-unit -> per-m³ chain reads.
 public sealed record Amount(double? Qty, string? Unit);
 
-// EN 15978 life-cycle modules band onto the seam LifecycleStage 6-vector. ToStageVector sums the
-// FULL use-stage B1..B7 and end-of-life C1..C4 — never only B1/C1 — so the whole-life GWP folds every module the EPD
-// declares; A1A2A3 is the cradle-to-gate product total, D the beyond-system-boundary credit.
+// EN 15978 life-cycle modules band onto the seam LifecycleStage roster. The fifteen [JsonPropertyName] members ARE the
+// wire and stay verbatim; the BANDING is one generated projection keyed by seam stage row, so the whole-life GWP folds
+// every module the EPD declares and a new stage row is one entry rather than a re-cut fixed-slot literal whose every
+// later slot shifts. A1A2A3 is the cradle-to-gate product total, D the beyond-system-boundary credit.
 public sealed record ScopeSet(
     [property: JsonPropertyName("A1A2A3")] Measurement? A1A2A3,
     [property: JsonPropertyName("A4")] Measurement? A4, [property: JsonPropertyName("A5")] Measurement? A5,
@@ -64,11 +96,29 @@ public sealed record ScopeSet(
     [property: JsonPropertyName("C1")] Measurement? C1, [property: JsonPropertyName("C2")] Measurement? C2,
     [property: JsonPropertyName("C3")] Measurement? C3, [property: JsonPropertyName("C4")] Measurement? C4,
     [property: JsonPropertyName("D")] Measurement? D) {
-    public double[] ToStageVector() => [
-        Mean(A1A2A3), Mean(A4), Mean(A5),
-        Mean(B1) + Mean(B2) + Mean(B3) + Mean(B4) + Mean(B5) + Mean(B6) + Mean(B7),
-        Mean(C1) + Mean(C2) + Mean(C3) + Mean(C4),
-        Mean(D)];
+
+    // ONE banding owner: each seam stage row names the wire members that sum onto it. A stage the wire declares nothing
+    // for reads zero through the projection rather than shifting every slot after it.
+    static readonly FrozenDictionary<LifecycleStage, Func<ScopeSet, double>> Banding =
+        new KeyValuePair<LifecycleStage, Func<ScopeSet, double>>[] {
+            new(LifecycleStage.A1A3, static s => Mean(s.A1A2A3)),
+            new(LifecycleStage.A4,   static s => Mean(s.A4)),
+            new(LifecycleStage.A5,   static s => Mean(s.A5)),
+            new(LifecycleStage.B,    static s => Mean(s.B1) + Mean(s.B2) + Mean(s.B3) + Mean(s.B4) + Mean(s.B5) + Mean(s.B6) + Mean(s.B7)),
+            new(LifecycleStage.C,    static s => Mean(s.C1) + Mean(s.C2) + Mean(s.C3) + Mean(s.C4)),
+            new(LifecycleStage.D,    static s => Mean(s.D)),
+        }.ToFrozenDictionary();
+
+    // Projection generated over the seam roster, written at each row's OWN Index, so the vector is arity-correct by
+    // construction against LifecycleStage.Count rather than by the order a literal happened to be typed in.
+    public double[] ToStageVector() {
+        double[] vector = new double[LifecycleStage.Count];
+        foreach (LifecycleStage stage in LifecycleStage.Items) {
+            vector[stage.Index] = Banding.TryGetValue(stage, out Func<ScopeSet, double>? read) ? read(this) : 0.0;
+        }
+        return vector;
+    }
+
     static double Mean(Measurement? m) => m?.Mean ?? 0.0;
 }
 
@@ -76,9 +126,10 @@ public sealed record Epd(string? Id, [property: JsonPropertyName("valid_until")]
     [property: JsonPropertyName("declared_unit")] Amount? DeclaredUnit,
     [property: JsonPropertyName("kg_per_declared_unit")] Amount? KgPerDeclaredUnit,
     Dictionary<string, Dictionary<string, ScopeSet>> Impacts) {
-    // Per-module carbon reads impacts[method]["gwp"] and returns None when either key is absent.
+    // Per-module carbon reads impacts[<wire key>]["gwp"] and returns None when either key is absent — the method's WIRE
+    // spelling, never its citation, so a re-worded citation cannot silently miss the lookup.
     public Option<ScopeSet> Gwp(LciaMethod method) =>
-        Impacts.TryGetValue(method.Key, out Dictionary<string, ScopeSet> set) && set.TryGetValue("gwp", out ScopeSet gwp) ? Some(gwp) : None;
+        Impacts.TryGetValue(method.WireKey, out Dictionary<string, ScopeSet> set) && set.TryGetValue("gwp", out ScopeSet gwp) ? Some(gwp) : None;
 }
 
 // Category-scoped GWP substitution line carries EC3 conservative_estimate (80th-percentile) in kgCO2e per declared unit
@@ -90,24 +141,52 @@ public sealed record StatisticsDto(
     [property: JsonPropertyName("declared_unit")] Amount? DeclaredUnit);
 
 // --- [SERVICES] ----------------------------------------------------------------------------
+// The openEPD ADAPTER: it satisfies the resolver contract and owns every wire spelling behind it, so the carbon folds
+// name a delegate and this class is one binding at the composition root.
 public sealed class Ec3Service(HttpClient http, HybridCache cache, JsonSerializerContext json) {
-    // Freshest-EPD search reads one page wide: a single token charge surfaces enough
-    // category candidates for Freshest to pick the latest valid_until, never a per-ply multi-page crawl.
+    // Candidate search reads one page wide: a single token charge surfaces enough category rows for the freshness pick,
+    // never a per-ply multi-page crawl.
     const int SearchPageSize = 100;
 
-    // LCIA method is behavior-bearing on the wire: lcia_method selects
-    // which method's statistics line the service computes, so the cache identity and the remote request agree and
-    // Fallback therefore cannot label one method's conservative estimate as another's GWP.
-    public Task<Fin<StatisticsDto>> Statistics(string omf, LciaMethod method) =>
-        Cached<StatisticsDto>($"stat:{omf}:{method.Key}", $"/v2/epds/statistics?omf={Uri.EscapeDataString(omf)}&lcia_method={Uri.EscapeDataString(method.Key)}", Unwrap<StatisticsDto>);
+    // Candidate rows carry identity and basis ONLY — the winner's impacts are fetched once by identity, so a hundred-row
+    // page never pays for ninety-nine impact matrices the fold discards.
+    const string CandidateFields = "id,valid_until,declared_unit,kg_per_declared_unit";
+    const string DocumentFields = "id,valid_until,declared_unit,kg_per_declared_unit,impacts";
 
-    public async Task<Fin<Seq<Epd>>> Search(string omf, int page) =>
-        (await Cached<Epd[]>($"search:{omf}:{page}",
-            $"/v2/epds/search?omf={Uri.EscapeDataString(omf)}&page_number={page}&page_size={SearchPageSize}&fields=id,valid_until,declared_unit,kg_per_declared_unit,impacts", Unwrap<Epd[]>))
-            .Map(static e => e.ToSeq());
+    // ONE read over the generated total Switch: a new rung is a case the compiler demands an arm for. LCIA method is
+    // behavior-bearing on the wire — lcia_method selects which method's statistics line the service computes — so the
+    // cache identity and the remote request agree and no leg can label one method's estimate as another's GWP.
+    public async Task<Fin<Seq<EpdDeclaration>>> Resolve(EpdQuery query) => await query.Switch(
+        products: async p => (await Cached<Epd[]>($"search:{p.Omf}:{p.Method.WireKey}:{p.Page}",
+                $"/v2/epds/search?omf={Uri.EscapeDataString(p.Omf)}&page_number={p.Page}&page_size={SearchPageSize}&fields={CandidateFields}",
+                Unwrap<Epd[]>))
+            .Map(static rows => toSeq(rows).Map(static row => Candidate(row))),
+        document: async d => (await Cached<Epd>($"epd:{d.Uuid}:{d.Method.WireKey}",
+                $"/epds/{Uri.EscapeDataString(d.Uuid)}?fields={DocumentFields}", Bare<Epd>))
+            .Map(row => Declared(row, d.Method)),
+        generic: async g => (await Cached<StatisticsDto>($"stat:{g.Omf}:{g.Method.WireKey}",
+                $"/v2/epds/statistics?omf={Uri.EscapeDataString(g.Omf)}&lcia_method={Uri.EscapeDataString(g.Method.WireKey)}",
+                Unwrap<StatisticsDto>))
+            .Map(static stats => Substitution(stats)));
 
-    public Task<Fin<Epd>> ByUuid(string uuid) =>
-        Cached<Epd>($"epd:{uuid}", $"/epds/{Uri.EscapeDataString(uuid)}?fields=id,declared_unit,kg_per_declared_unit,impacts", Bare<Epd>);
+    // Wire -> neutral, one lowering per leg. A candidate carries no vector; a document carries the method's vector when
+    // the declaration holds one and NONE otherwise, so the fold rails on an unusable winner instead of reading zeros.
+    static EpdDeclaration Candidate(Epd row) =>
+        new("epd", row.Id ?? "", Optional(row.ValidUntil), Declared(row.DeclaredUnit), Declared(row.KgPerDeclaredUnit), None);
+
+    static Seq<EpdDeclaration> Declared(Epd row, LciaMethod method) =>
+        Seq(Candidate(row) with { StageGwp = row.Gwp(method).Map(static scope => scope.ToStageVector()) });
+
+    // A category statistic resolves A1-A3 alone (its conservative estimate is a cradle-to-gate substitution value) and
+    // carries no kg_per_declared_unit, so a mass-based category grounds through its declared_unit or not at all.
+    static Seq<EpdDeclaration> Substitution(StatisticsDto stats) {
+        double[] product = new double[LifecycleStage.Count];
+        product[LifecycleStage.A1A3.Index] = stats.ConservativeEstimate;
+        return Seq(new EpdDeclaration("ec3-statistics", "conservative", None, Declared(stats.DeclaredUnit), None, Some(product)));
+    }
+
+    static Option<DeclaredAmount> Declared(Amount? amount) =>
+        amount is { Qty: { } qty } ? Some(new DeclaredAmount(qty, amount.Unit ?? "")) : None;
 
     // Entry lifetime follows EPD revision cadence rather than session duration, so the
     // distributed entry holds for days while the in-process L1 re-validates hourly against redeploys; the kind-and-omf
@@ -142,9 +221,9 @@ public sealed class Ec3Service(HttpClient http, HybridCache cache, JsonSerialize
             status is HttpStatusCode.RequestTimeout or HttpStatusCode.TooManyRequests || (int)status >= 500 ? FailureKind.Timeout : FailureKind.Input,
             $"<ec3:{path}>", Some((int)status));
 
-    // Source-generated decode rides ReadFromJsonAsync(Type, JsonSerializerContext), because the generic
-    // ReadFromJsonAsync<T> only binds JsonSerializerOptions/JsonTypeInfo<T>/CancellationToken, never a JsonSerializerContext,
-    // so the closed Envelope<Epd[]>/Envelope<StatisticsDto>/Epd the context registers resolve through the Type form.
+    // Source-generated decode rides the (Type, JsonSerializerContext) pair — one of the three contract-bound forms every
+    // serializer verb admits — so the closed Envelope<Epd[]>/Envelope<StatisticsDto>/Epd contracts the context registers
+    // resolve without a reflection fallback and without hand-casting a JsonTypeInfo out of the context per call.
     static async ValueTask<Option<T>> Unwrap<T>(HttpContent content, JsonSerializerContext json) where T : notnull =>
         Optional(((Envelope<T>?)await content.ReadFromJsonAsync(typeof(Envelope<T>), json))?.Payload);
 
@@ -159,12 +238,12 @@ public sealed class Ec3Service(HttpClient http, HybridCache cache, JsonSerialize
 
 ## [03]-[CARBON_RUNNER]
 
-- Owner: `LifecycleAssessment.RunCarbon` the pure-sync EN 15978 embodied-carbon assessment (a graph read, no network); `LifecycleAssessment.EnrichCarbon` the async EC3 ingress that decodes EC3 declarations onto the seam `MaterialPropertySet.Environmental` and returns a graph-enriching `GraphDelta`; the Compute-owned `LifecycleGraphReads.TakeoffOf` base-quantity read; the `CarbonQuery` request input.
-- Entry: `public static Fin<AssessmentResult> RunCarbon(ElementGraph graph, AssessmentRequest.Carbon request, IClock clock)` folds `AssemblyAggregator.AggregateEnvironmental` over each target's `MaterialComposition` and baked `TakeoffOf`; `EnrichCarbon` resolves undeclared plies through product search then category statistics and returns a typed `GraphDelta` rail.
-- Auto: `RunCarbon` resolves each ply's seam properties through one `Func<MaterialId, Fin<Seq<MaterialPropertySet>>>` resolver keyed on the composition's native `MaterialId` (never a graph `NodeId`), and the per-element area + volume through `TakeoffOf`, so a baked and an EC3-resolved declaration fold identically. `EnrichCarbon` enumerates the undeclared ply materials (the `MaterialId` set lacking the `Environmental` case, not the element's directly-associated material), resolves each from EC3 through the fallback ladder, `Normalize`s the `ScopeSet` to per-one-unit of its native basis and tags that `MeasurementBasis`, embeds the carbon-only per-stage GwpTotal row into the full seam `(ImpactCategory × LifecycleStage)` matrix through `CarbonMatrix` (un-declared indicator rows zeroed, the partial-EPD invariant), and accumulates one monoid `GraphDelta` the composition root applies (an unresolvable-basis ply is skipped, not mis-scaled). Assessment stays a pure-sync graph read because every network call lives in the explicit `EnrichCarbon` ingress, never inside the fold.
-- Packages: LanguageExt.Core (`Fin`/`Seq`/`Option`/`Map`), Rasm.Element (project — `ElementGraph`, `MaterialComposition`, `MaterialPropertySet`/`OfEnvironmental`/`PropertyEvidence`, `MaterialPropertyAccess.Environmental`, `ImpactCategory`/`LifecycleStage`, `MeasurementBasis`, `MaterialId`, `NodeId`, `Node.Material`/`Node.QuantitySet`, `Relationship.Assign`/`AssignKind`, `GraphDelta.Put`, `MeasureValue.Of`/`MeasureValue.Si`, `Dimension.VolumeDim`/`Dimension.AreaDim`/`Dimension.MassDim`, `Provenance`), UnitsNet (via `MeasureValue.Of` — the `declared_unit` abbreviation -> SI dimension/scalar coercion the basis tagging rides), Rasm (kernel `Op`), the `Analysis/aggregator` `AssemblyAggregator`/`ElementQuantity`/`PlyQuantity`, the `Ec3Service`, NodaTime (`Instant`), BCL inbox (`ImmutableArray<double>` the seam impact-matrix store the ingress builds).
-- Growth: a new lifecycle module is one seam `LifecycleStage` row (the `StageGwp` vector, the `ScopeSet` banding, and the aggregator fold widen by data); a biogenic-carbon credit or a circularity index is one fact over the same aggregation, never a parallel carbon owner; a richer EC3 selection (lowest-GWP, spec-matched) is one refinement of `Freshest`.
-- Boundary: the PRIMARY GWP is the local `AggregateEnvironmental` over each ply's baked `Environmental` — EC3 is the FALLBACK the async `EnrichCarbon` resolves, cached through `HybridCache`, applied as a `GraphDelta` before the sync `RunCarbon`, so a fully-declared model needs no network call; the takeoff reads the baked `Qto_*BaseQuantities` (`TakeoffOf`) so a target with no base quantity rails `AssessmentInputMissing` rather than a silent zero takeoff; the GWP/intensity stay raw kgCO2e through `DomainMeasure` (dimensionless `MeasureValue` + label), never `UnitsNet.Mass`; `EnrichCarbon` splits failure by kind — a DETERMINISTIC data absence (no fresh EPD, a `declared_unit` with no resolvable dimension such as a bare-count declaration lacking `kg_per_declared_unit`, a missing method GWP) skips the ply so `RunCarbon` rails the still-undeclared ply at its own fold, never defaulting a sentinel carbon or admitting a mis-scaled figure (a per-m² or per-kg EPD folds correctly under its tagged `MeasurementBasis` rather than being dropped), while a TRANSPORT/timeout fault aborts the enrichment rail (a partial delta masks the outage a retry still resolves); the runner reads the CONCRETE graph (above the seam), the write-back the `Analysis/assessment` spine's content-keyed `Node.Assessment`.
+- Owner: `LifecycleAssessment.RunCarbon` the pure-sync EN 15978 embodied-carbon assessment (a graph read, no network); `LifecycleAssessment.EnrichCarbon` the async ingress that decodes resolved declarations onto the seam `MaterialPropertySet.Environmental` and returns a graph-enriching `GraphDelta`; `Resolve`/`Fallback`/`Freshest`/`ToEnvironmental`/`Normalize` the per-ply fallback ladder; the Compute-owned `LifecycleGraphReads.TakeoffOf` base-quantity read; the `CarbonQuery` request input.
+- Entry: `public static Fin<AssessmentResult> RunCarbon(ElementGraph graph, AssessmentRequest.Carbon request, IClock clock)` folds `AssemblyAggregator.AggregateEnvironmental` over each target's `MaterialComposition` and baked `TakeoffOf`; `EnrichCarbon(ElementGraph graph, Func<EpdQuery, Task<Fin<Seq<EpdDeclaration>>>> epds, AssessmentRequest.Carbon request, IClock clock, Op key)` resolves undeclared plies through the ladder and returns a typed `GraphDelta` rail.
+- Auto: `RunCarbon` resolves each ply's seam properties through one `Func<MaterialId, Fin<Seq<MaterialPropertySet>>>` resolver keyed on the composition's native `MaterialId` (never a graph `NodeId`), and the per-element area + volume through `TakeoffOf`, so a baked and a catalogue-resolved declaration fold identically. `EnrichCarbon` enumerates the undeclared ply materials (the `MaterialId` set lacking the `Environmental` case, not the element's directly-associated material), resolves each through the three-rung ladder — the category page's freshest non-expired candidate, that winner's own document, then the category substitution line — `Normalize`s the declaration's stage vector to per-one-unit of its native basis and tags that `MeasurementBasis`, embeds the carbon-only per-stage GwpTotal row into the full seam `(ImpactCategory × LifecycleStage)` matrix through `CarbonMatrix` (un-declared indicator rows zeroed, the partial-EPD invariant), and accumulates one monoid `GraphDelta` the composition root applies (an unresolvable-basis ply is skipped, not mis-scaled). Assessment stays a pure-sync graph read because every network call lives behind the explicit `EnrichCarbon` resolver, never inside the fold.
+- Packages: LanguageExt.Core (`Fin`/`Seq`/`Option`/`Map`), Rasm.Element (project — `ElementGraph`, `MaterialComposition`, `MaterialPropertySet`/`OfEnvironmental`/`PropertyEvidence`, `MaterialPropertyAccess.Environmental`, `ImpactCategory`/`LifecycleStage`, `MeasurementBasis`, `MaterialId`, `NodeId`, `Node.Material`/`Node.QuantitySet`, `Relationship.Assign`/`AssignKind`, `GraphDelta.Put`, `MeasureValue.Of`/`MeasureValue.Si`, `Dimension.VolumeDim`/`Dimension.AreaDim`/`Dimension.MassDim`, `Provenance`), UnitsNet (via `MeasureValue.Of` — the declared-unit abbreviation -> SI dimension/scalar coercion the basis tagging rides), Rasm (kernel `Op`), the `Analysis/aggregator` `AssemblyAggregator`/`ElementQuantity`/`PlyQuantity`, NodaTime (`Instant`), BCL inbox (`ImmutableArray<double>` the seam impact-matrix store the ingress builds).
+- Growth: a new lifecycle module is one seam `LifecycleStage` row (the `StageGwp` vector, the `ScopeSet` banding entry, and the aggregator fold widen by data); a biogenic-carbon credit or a circularity index is one fact over the same aggregation, never a parallel carbon owner; a richer selection (lowest-GWP, spec-matched) is one refinement of `Freshest`; a second carbon catalogue is one resolver binding.
+- Boundary: the fold takes the RESOLVER — `Func<EpdQuery, Task<Fin<Seq<EpdDeclaration>>>>` — not a named service, so the ladder is provider-neutral by construction and a fixture, a second catalogue, or a cached corpus substitutes at the composition root; naming the concrete client here made the ladder untestable without an HTTP fake and unusable against any other provider. The PRIMARY GWP is the local `AggregateEnvironmental` over each ply's baked `Environmental` — the catalogue is the FALLBACK the async `EnrichCarbon` resolves, applied as a `GraphDelta` before the sync `RunCarbon`, so a fully-declared model needs no network call; the takeoff reads the baked `Qto_*BaseQuantities` (`TakeoffOf`) so a target with no base quantity rails `AssessmentInputMissing` rather than a silent zero takeoff; the GWP/intensity stay raw kgCO2e through `DomainMeasure` (dimensionless `MeasureValue` + label), never `UnitsNet.Mass`; `EnrichCarbon` splits failure by kind — a DETERMINISTIC data absence (no fresh declaration, a declared unit with no resolvable dimension such as a bare-count row lacking its kg-per-unit witness, a missing method GWP) skips the ply so `RunCarbon` rails the still-undeclared ply at its own fold, never defaulting a sentinel carbon or admitting a mis-scaled figure (a per-m² or per-kg declaration folds correctly under its tagged `MeasurementBasis` rather than being dropped), while a TRANSPORT/timeout fault aborts the enrichment rail (a partial delta masks the outage a retry still resolves); the runner reads the CONCRETE graph (above the seam), the write-back the `Analysis/assessment` spine's content-keyed `Node.Assessment`.
 
 ```csharp signature
 // --- [OPERATIONS] --------------------------------------------------------------------------
@@ -189,19 +268,21 @@ public static partial class LifecycleAssessment {
                 request.Query.TargetKgCo2e > 0.0 ? state.Total / request.Query.TargetKgCo2e : double.NaN,
                 new Provenance("LifecycleAssessment", request.Route.Standard, request.Route.SolverVersion, clock.GetCurrentInstant())));
 
-    // Async EC3 ingress resolves each undeclared ply through product EPD then category-statistic fallback,
-    // decodes the ScopeSet to the carbon GwpTotal row in the seam matrix, and accumulates the enriching delta the
-    // composition root applies before the sync RunCarbon, so a fully-declared model needs no network call.
-    public static async Task<Fin<GraphDelta>> EnrichCarbon(ElementGraph graph, Ec3Service ec3, AssessmentRequest.Carbon request, IClock clock, Op key) {
+    // Async ingress resolves each undeclared ply through the three-rung ladder, decodes the declaration to the carbon
+    // GwpTotal row in the seam matrix, and accumulates the enriching delta the composition root applies before the sync
+    // RunCarbon, so a fully-declared model needs no network call. The resolver is a PARAMETER: the ladder is domain
+    // logic over a contract, and the catalogue behind it is a composition-root binding.
+    public static async Task<Fin<GraphDelta>> EnrichCarbon(
+        ElementGraph graph, Func<EpdQuery, Task<Fin<Seq<EpdDeclaration>>>> epds, AssessmentRequest.Carbon request, IClock clock, Op key) {
         Fin<GraphDelta> delta = Fin.Succ(GraphDelta.Empty);
-        // EC3 ingress boundary: a serial, rate-limited fetch over the token-metered endpoint, each resolved ply accumulated
-        // onto the monoid delta. Failure splits by kind: DETERMINISTIC data absence (AssessmentInputMissing — no fresh EPD,
-        // an unresolvable declared-unit basis, a missing method GWP) SKIPS the ply, because RunCarbon then rails the
-        // still-undeclared ply with its own precise fault at the fold — the right surfacing point — while a mis-scaled
-        // default would be silent; a TRANSPORT/timeout fault ABORTS the rail, because a partial delta would erase the
-        // outage and mask the plies a retry could still resolve.
+        // Ingress boundary: a serial, rate-limited fetch over a token-metered endpoint, each resolved ply accumulated
+        // onto the monoid delta. Failure splits by kind: DETERMINISTIC data absence (AssessmentInputMissing — no fresh
+        // declaration, an unresolvable declared-unit basis, a missing method GWP) SKIPS the ply, because RunCarbon then
+        // rails the still-undeclared ply with its own precise fault at the fold — the right surfacing point — while a
+        // mis-scaled default would be silent; a TRANSPORT/timeout fault ABORTS the rail, because a partial delta would
+        // erase the outage and mask the plies a retry could still resolve.
         foreach (Node.Material material in MissingDeclarations(graph, request.Targets)) {
-            Fin<MaterialPropertySet> resolved = await Resolve(ec3, request.Query, material, clock.GetCurrentInstant(), key);
+            Fin<MaterialPropertySet> resolved = await Resolve(epds, request.Query, material, clock.GetCurrentInstant(), key);
             delta = resolved.Match(
                 Succ: environmental => delta.Map(current => current.Put(material with { Properties = material.Properties.Add(environmental) })),
                 Fail: error => error is ComputeFault.AssessmentInputMissing ? delta : delta.Bind(_ => Fin.Fail<GraphDelta>(error)));
@@ -225,82 +306,89 @@ public static partial class LifecycleAssessment {
     static Func<MaterialId, Fin<Seq<MaterialPropertySet>>> Resolver(ElementGraph graph) =>
         mid => graph.Material(mid).Map(static m => m.Properties).ToFin((Error)new ComputeFault.AssessmentInputMissing($"<material-absent:{mid.Value}>"));
 
-    // Per-ply fallback chooses the freshest valid product EPD in its category, else the category
-    // conservative-estimate line; a per-material OMF override resolves a multi-material assembly. Each rung tags the EPD's
-    // native MeasurementBasis without a density — a per-kg basis resolves to mass at aggregation, so no density is needed here.
-    static async Task<Fin<MaterialPropertySet>> Resolve(Ec3Service ec3, CarbonQuery query, Node.Material material, Instant now, Op key) {
+    // Per-ply ladder: the freshest non-expired candidate in the ply's category, that winner's own full declaration, else
+    // the category substitution line; a per-material OMF override resolves a multi-material assembly. Each rung tags the
+    // declaration's native MeasurementBasis without a density — a per-kg basis resolves to mass at aggregation.
+    static async Task<Fin<MaterialPropertySet>> Resolve(
+        Func<EpdQuery, Task<Fin<Seq<EpdDeclaration>>>> epds, CarbonQuery query, Node.Material material, Instant now, Op key) {
         string omf = query.OmfByMaterial.Find(material.MaterialKey.Value).IfNone(query.Omf);
-        Fin<Seq<Epd>> searched = await ec3.Search(omf, page: 1);
-        return await searched.Match(
-            Succ: epds => Freshest(epds, query.Method, now).Match(
-                Some: epd => Task.FromResult(ToEnvironmental(epd, query.Method, key)),
-                None: () => Fallback(ec3, omf, query.Method, key)),
-            // Only deterministic DATA ABSENCE degrades to category statistics; a transport or timeout fault is a
+        Fin<Seq<EpdDeclaration>> candidates = await epds(new EpdQuery.Products(omf, query.Method, Page: 1));
+        return await candidates.Match(
+            Succ: rows => Freshest(rows, now).Match(
+                Some: winner => Document(epds, winner, query.Method, omf, key),
+                None: () => Fallback(epds, omf, query.Method, key)),
+            // Only deterministic DATA ABSENCE degrades to the substitution line; a transport or timeout fault is a
             // retryable outage that aborts the enrichment rail typed — masking it behind a statistics fallback
             // would return a partial delta after a transient failure, the deleted form.
-            Fail: fault => fault is ComputeFault.EndpointUnreachable || fault is ComputeFault.AnalysisFailed { Kind: var kind } && kind == FailureKind.Timeout
+            Fail: fault => Retryable(fault)
                 ? Task.FromResult(Fin.Fail<MaterialPropertySet>(fault))
-                : Fallback(ec3, omf, query.Method, key));
+                : Fallback(epds, omf, query.Method, key));
     }
 
-    static async Task<Fin<MaterialPropertySet>> Fallback(Ec3Service ec3, string omf, LciaMethod method, Op key) =>
-        (await ec3.Statistics(omf, method)).Bind(stats => FromStatistics(stats, key));
+    // The winner's document carries the impacts its candidate row omitted. A document that still resolves no vector for
+    // this method is deterministic absence, so it descends to the substitution line rather than railing the ply.
+    static async Task<Fin<MaterialPropertySet>> Document(
+        Func<EpdQuery, Task<Fin<Seq<EpdDeclaration>>>> epds, EpdDeclaration winner, LciaMethod method, string omf, Op key) {
+        Fin<Seq<EpdDeclaration>> document = await epds(new EpdQuery.Document(winner.Reference, method));
+        return await document.Match(
+            Succ: rows => rows.Head.Filter(static row => row.StageGwp.IsSome).Match(
+                Some: declaration => Task.FromResult(ToEnvironmental(declaration, key)),
+                None: () => Fallback(epds, omf, method, key)),
+            Fail: fault => Retryable(fault)
+                ? Task.FromResult(Fin.Fail<MaterialPropertySet>(fault))
+                : Fallback(epds, omf, method, key));
+    }
 
-    // Freshest non-stale EPD carries method GWP; null valid_until is non-expiring, while dated entries require valid_until >= now.
-    // Latest expiry wins within the category.
-    static Option<Epd> Freshest(Seq<Epd> epds, LciaMethod method, Instant now) =>
-        epds.Filter(e => e.Gwp(method).IsSome && (e.ValidUntil is not { } valid || valid >= now))
-            .OrderByDescending(static e => e.ValidUntil ?? Instant.MaxValue)
-            .ToSeq().Head;
+    static async Task<Fin<MaterialPropertySet>> Fallback(
+        Func<EpdQuery, Task<Fin<Seq<EpdDeclaration>>>> epds, string omf, LciaMethod method, Op key) =>
+        (await epds(new EpdQuery.Generic(omf, method)))
+            .Bind(rows => rows.Head.ToFin((Error)new ComputeFault.AssessmentInputMissing($"<epd-substitution-absent:{omf}>")))
+            .Bind(declaration => ToEnvironmental(declaration, key));
 
-    // Normalize the ScopeSet to per-one-unit of its native basis (tagged with the MeasurementBasis the fold scales by,
-    // DeclaredQuantity remains shared with cost before carbon GwpTotal embeds into the full seam
-    // (ImpactCategory × LifecycleStage) matrix through CarbonMatrix and admit it through OfEnvironmental — the un-declared
-    // indicator rows stay zero (the partial-EPD invariant). An unresolvable basis rails None so EnrichCarbon skips the ply.
-    // OfEnvironmental takes the matrix, no gwpKgCo2e param and no GlobalWarmingPotential field; the carbon rides the
-    // GwpTotal-row cells (Gwp => IndicatorAt(GwpTotal, A1A3) is the seam's derived cradle-to-gate read). The EPD id +
-    // LocalDate expiry ride the PropertyEvidence arg (the Instant lowers via InUtc().Date, never a coarse int year).
-    static Fin<MaterialPropertySet> ToEnvironmental(Epd epd, LciaMethod method, Op key) =>
-        epd.Gwp(method).Match(
-            Some: scope => Normalize(scope.ToStageVector(), epd.DeclaredUnit, epd.KgPerDeclaredUnit, key).Match(
+    // One transient discriminant both descent points read, so a retryable outage can never be classified two ways.
+    static bool Retryable(Error fault) =>
+        fault is ComputeFault.EndpointUnreachable || fault is ComputeFault.AnalysisFailed { Kind: var kind } && kind == FailureKind.Timeout;
+
+    // Freshest non-stale candidate: an absent expiry is non-expiring, a dated one requires expiry >= now, and the latest
+    // expiry wins within the category. Candidate rows carry no impacts, so the GWP filter belongs one rung lower.
+    static Option<EpdDeclaration> Freshest(Seq<EpdDeclaration> rows, Instant now) =>
+        toSeq(rows.Filter(row => row.ValidUntil.Match(Some: valid => valid >= now, None: static () => true))
+            .OrderByDescending(static row => row.ValidUntil.IfNone(Instant.MaxValue))).Head;
+
+    // ONE decode for every rung — a per-rung decode re-spelled the basis chain, the matrix embed, and the evidence stamp
+    // three times. Normalize the declaration's stage vector to per-one-unit of its native basis (tagged with the
+    // MeasurementBasis the fold scales by), embed the carbon GwpTotal row into the full seam (ImpactCategory ×
+    // LifecycleStage) matrix through CarbonMatrix, and admit it through OfEnvironmental — the un-declared indicator rows
+    // stay zero (the partial-EPD invariant). OfEnvironmental takes the matrix, no gwpKgCo2e param and no
+    // GlobalWarmingPotential field; the carbon rides the GwpTotal-row cells (Gwp => IndicatorAt(GwpTotal, A1A3) is the
+    // seam's derived cradle-to-gate read). The citation pair + LocalDate expiry ride the PropertyEvidence arg (the
+    // Instant lowers via InUtc().Date, never a coarse int year).
+    static Fin<MaterialPropertySet> ToEnvironmental(EpdDeclaration declaration, Op key) =>
+        declaration.StageGwp.Match(
+            Some: vector => Normalize(vector, declaration.DeclaredUnit, declaration.KgPerDeclaredUnit, key).Match(
                 Some: norm => MaterialPropertySet.OfEnvironmental(
                     norm.Basis, MaterialPropertySet.Environmental.CarbonMatrix(norm.PerUnit), recycledContent: 0.0, endOfLifeRecovery: 0.0,
-                    key, new PropertyEvidence("epd", epd.Id ?? "", Optional(epd.ValidUntil).Map(static v => v.InUtc().Date))),
-                None: () => Fin.Fail<MaterialPropertySet>((Error)new ComputeFault.AssessmentInputMissing($"<ec3-epd-basis-unresolved:{epd.Id}>"))),
-            None: () => Fin.Fail<MaterialPropertySet>((Error)new ComputeFault.AssessmentInputMissing($"<ec3-epd-missing-gwp:{epd.Id}>")));
+                    key, new PropertyEvidence(declaration.Source, declaration.Reference, declaration.ValidUntil.Map(static v => v.InUtc().Date))),
+                None: () => Fin.Fail<MaterialPropertySet>((Error)new ComputeFault.AssessmentInputMissing($"<epd-basis-unresolved:{declaration.Reference}>"))),
+            None: () => Fin.Fail<MaterialPropertySet>((Error)new ComputeFault.AssessmentInputMissing($"<epd-missing-gwp:{declaration.Reference}>")));
 
-    // Category conservative estimate (EC3 80th-percentile substitution value) lands on A1-A3,
-    // A1-A3 is the only stage a category statistic resolves; downstream modules stay zero until a product EPD supplies them. This
-    // category declared_unit drives the SAME basis Normalize (no kg_per_declared_unit at category scope, so a mass/area/
-    // volume declared_unit tags PerKg/PerM2/PerM3 the aggregator scales by — a bare-count category with no unit rails).
-    static Fin<MaterialPropertySet> FromStatistics(StatisticsDto stats, Op key) {
-        double[] product = new double[LifecycleStage.Count];
-        product[LifecycleStage.A1A3.Index] = stats.ConservativeEstimate;
-        return Normalize(product, stats.DeclaredUnit, null, key).Match(
-            Some: norm => MaterialPropertySet.OfEnvironmental(norm.Basis, MaterialPropertySet.Environmental.CarbonMatrix(norm.PerUnit),
-                recycledContent: 0.0, endOfLifeRecovery: 0.0, key, new PropertyEvidence("ec3-statistics", "conservative", None)),
-            None: () => Fin.Fail<MaterialPropertySet>((Error)new ComputeFault.AssessmentInputMissing("<ec3-statistics-basis-unresolved>")));
-    }
-
-    // Normalize a per-declared-unit StageGwp vector to per-one-unit of its native basis and tag the MeasurementBasis the
-    // fold scales by — the strongest-dimension route winning through the Option `|` choice: a volume declared_unit ->
-    // PerM3, an area -> PerM2, a mass -> PerKg, else the kg_per_declared_unit chain -> PerKg / kg-per-unit. Density is not
-    // read here — a per-kg basis resolves to mass at aggregation (volume × the ply Mechanical.Density). None whenever no
-    // basis evidence resolves — a MISSING declared_unit included: only the kg_per_declared_unit chain can still ground it,
-    // and absent both the ply is skipped (a defaulted PerM3 over an unknown basis mis-scales the EPD as volume material —
-    // Unknown basis stays distinguishable from per-m³, deleting the prior fabricated default.
-    static Option<(MeasurementBasis Basis, double[] PerUnit)> Normalize(double[] perDeclaredUnit, Amount? declaredUnit, Amount? kgPerDeclaredUnit, Op key) {
-        if (declaredUnit is not { } unit) {
-            return kgPerDeclaredUnit is { } bare && MeasureValue.Of(bare.Qty ?? 0.0, bare.Unit ?? "", key).ToOption().Map(static m => m.Si).Filter(static kg => kg > 0.0) is { IsSome: true, Case: double kgOnly }
-                ? Some((MeasurementBasis.PerKg, Scale(perDeclaredUnit, 1.0 / kgOnly)))
-                : None;
+    // Normalize a per-declared-unit stage vector to per-one-unit of its native basis and tag the MeasurementBasis the
+    // fold scales by — the strongest-dimension route winning through the Option `|` choice: a volume declared unit ->
+    // PerM3, an area -> PerM2, a mass -> PerKg, else the kg-per-unit chain -> PerKg. Density is not read here — a per-kg
+    // basis resolves to mass at aggregation (volume × the ply Mechanical.Density). None whenever no basis evidence
+    // resolves — a MISSING declared unit included: only the kg-per-unit chain can still ground it, and absent both the
+    // ply is skipped, because a defaulted PerM3 over an unknown basis mis-scales the declaration as volume material.
+    static Option<(MeasurementBasis Basis, double[] PerUnit)> Normalize(
+        double[] perDeclaredUnit, Option<DeclaredAmount> declaredUnit, Option<DeclaredAmount> kgPerDeclaredUnit, Op key) {
+        Option<double> kgPerUnit = kgPerDeclaredUnit.Bind(k => MeasureValue.Of(k.Qty, k.Unit, key).ToOption().Map(static m => m.Si)).Filter(static kg => kg > 0.0);
+        if (declaredUnit.Case is not DeclaredAmount unit) {
+            return kgPerUnit.Map(kg => (MeasurementBasis.PerKg, Scale(perDeclaredUnit, 1.0 / kg)));
         }
-        Option<MeasureValue> declared = MeasureValue.Of(unit.Qty ?? 1.0, unit.Unit ?? "", key).ToOption();
-        Option<double> kgPerUnit = kgPerDeclaredUnit is { } k ? MeasureValue.Of(k.Qty ?? 0.0, k.Unit ?? "", key).ToOption().Map(static m => m.Si) : None;
+        Option<MeasureValue> declared = MeasureValue.Of(unit.Qty, unit.Unit, key).ToOption();
         Option<(MeasurementBasis, double[])> byVolume  = declared.Filter(static d => d.Dimension == Dimension.VolumeDim && d.Si > 0.0).Map(d => (MeasurementBasis.PerM3, Scale(perDeclaredUnit, 1.0 / d.Si)));
         Option<(MeasurementBasis, double[])> byArea    = declared.Filter(static d => d.Dimension == Dimension.AreaDim && d.Si > 0.0).Map(d => (MeasurementBasis.PerM2, Scale(perDeclaredUnit, 1.0 / d.Si)));
         Option<(MeasurementBasis, double[])> byMass    = declared.Filter(static d => d.Dimension == Dimension.MassDim && d.Si > 0.0).Map(d => (MeasurementBasis.PerKg, Scale(perDeclaredUnit, 1.0 / d.Si)));
-        Option<(MeasurementBasis, double[])> byKgChain = kgPerUnit.Filter(static kg => kg > 0.0).Map(kg => (MeasurementBasis.PerKg, Scale(perDeclaredUnit, 1.0 / kg)));
+        Option<(MeasurementBasis, double[])> byKgChain = kgPerUnit.Map(kg => (MeasurementBasis.PerKg, Scale(perDeclaredUnit, 1.0 / kg)));
         return byVolume | byArea | byMass | byKgChain;
     }
 
@@ -314,7 +402,7 @@ public static partial class LifecycleAssessment {
     // Environmental.StageGwp), every un-declared indicator row zeroed (the partial-EPD invariant), so the ingress never
     // re-spells the offset arithmetic the seam owns; a full EN 15804+A2 method passes its matrix to OfEnvironmental directly.
     static Fin<Seq<AssessmentFact>> StageFacts(NodeId id, ImmutableArray<double> stageGwp) =>
-        LifecycleStage.Items.ToSeq().TraverseM(stage => DomainMeasure($"{id.Value}/gwp-{stage.Module}", stageGwp[stage.Index], "kgCO2e")).As();
+        toSeq(LifecycleStage.Items).TraverseM(stage => DomainMeasure($"{id.Value}/gwp-{stage.Module}", stageGwp[stage.Index], "kgCO2e")).As();
 
     // GWP and in-place cost are domain-basis scalars (kgCO2e, kgCO2e/m², a currency code), not UnitsNet quantities — a
     // dimensionless MeasureValue carrying the domain label, never the abbreviation-resolving MeasureValue.Of (which
@@ -324,56 +412,46 @@ public static partial class LifecycleAssessment {
         MeasureValue.OfSi(QuantityType.Scalar, Dimension.Dimensionless, si, unit).Map(value => AssessmentFact.Measure(name, value));
 }
 
-// Element geometric takeoff distributes GWP and cost per ply through a Compute-owned ElementGraph extension reading
-// baked Qto_*BaseQuantities, preferring net over gross and scanning every Qto set so wall/slab/beam reads without a
-// per-type accessor. A target with no baked base quantity rails the missing input rather than a silent zero takeoff.
+// Element geometric takeoff distributes GWP and cost per ply, reading the baked Qto_*BaseQuantities through the one
+// Analysis/assessment AnalysisReads owner over the QuantityRows net-over-gross chains — every Qto set scanned, so a
+// wall/slab/beam reads without a per-type accessor. A target with no baked base quantity rails the missing input.
 public static class LifecycleGraphReads {
-    const string NetVolume = "NetVolume";
-    const string GrossVolume = "GrossVolume";
-    const string NetSideArea = "NetSideArea";
-    const string NetArea = "NetArea";
-    const string GrossSideArea = "GrossSideArea";
-
     extension(ElementGraph graph) {
+        // Every row keys through a Rasm.Element-declared static and every read composes the one
+        // Analysis/assessment AnalysisReads owner, so the net-over-gross preference is stated once on the declarer
+        // and this reader shares one spelling with the non-referencing Bim and Fabrication writers.
         public Fin<ElementQuantity> TakeoffOf(NodeId element) {
-            Seq<Node.QuantitySet> bags = graph.EdgesAt(element)
-                .Choose(e => e is Relationship.Assign { SubKind: AssignKind.PropertyDefinition } a && a.Subject == element
-                    ? graph.Find<Node.QuantitySet>(a.Definition) : None);
-            Option<double> volume = Named(bags, NetVolume) | Named(bags, GrossVolume);
-            Option<double> area = Named(bags, NetSideArea) | Named(bags, NetArea) | Named(bags, GrossSideArea);
+            Option<double> volume = graph.Magnitude(element, QuantityRows.Volume);
+            Option<double> area = graph.Magnitude(element, QuantityRows.SurfaceArea);
             return volume.IsNone && area.IsNone
                 ? Fin.Fail<ElementQuantity>((Error)new ComputeFault.AssessmentInputMissing($"<element-base-quantities-absent:{element.Value}>"))
                 // Fabrication NestYield.WasteAreaMm2 seam quantity contributes when the graph carries a nest-yield
                 // row for this element — joins as the decode-side WasteAreaM2 column, so off-cut waste rolls
                 // into the same AggregateEnvironmental/AggregateCost folds (the circulation ingress row).
-                : Fin.Succ(new ElementQuantity(area.IfNone(0.0), volume.IfNone(0.0), NestWasteM2(bags)));
+                : Fin.Succ(new ElementQuantity(area.IfNone(0.0), volume.IfNone(0.0),
+                    graph.Magnitude(element, QuantityRows.NestWasteArea).IfNone(0.0)));
         }
     }
-
-    static Option<double> Named(Seq<Node.QuantitySet> bags, string name) =>
-        bags.Choose(qs => qs.Bag.Values.Find(PropertyName.Create(name))).Head.Map(static m => m.Si);
-
-    // Fabrication nest-yield decode reads the seam-baked waste-area quantity (NestYield.WasteAreaMm2 lowered
-    // onto the element's quantity bag by the Fabrication projector) read as SI m² — absent rows contribute 0.
-    static double NestWasteM2(Seq<Node.QuantitySet> bags) => Named(bags, "NestWasteArea").IfNone(0.0);
 }
 ```
 
 ## [04]-[COST_RUNNER]
 
-- Owner: `LifecycleAssessment.RunCost` the supply/install/lifecycle cost rollup runner.
-- Entry: `public static Fin<AssessmentResult> RunCost(ElementGraph graph, AssessmentRequest.Cost request, IClock clock)` folds `AssemblyAggregator.AggregateCost` over each target's `MaterialComposition` and baked `TakeoffOf`, guards currency, and emits `supply-total`/`install-total`/`in-place-total` facts.
+- Owner: `LifecycleAssessment.RunCost` the supply/install/lifecycle cost rollup runner; `CostBudget` the acceptance derivation over the request's two budget columns.
+- Entry: `public static Fin<AssessmentResult> RunCost(ElementGraph graph, AssessmentRequest.Cost request, IClock clock)` folds `AssemblyAggregator.AggregateCost` over each target's `MaterialComposition` and baked `TakeoffOf`, guards currency, emits `supply-total`/`install-total`/`in-place-total` facts, and ratios the in-place total against the resolved budget.
 - Packages: LanguageExt.Core, Rasm.Element (project — `ElementGraph`, `MaterialComposition`, `MaterialPropertySet.Cost`, `Currency`, `MaterialId`, `NodeId`, `MeasureValue`, `Dimension`, `Provenance`), the `Analysis/aggregator` `AssemblyAggregator`/`ElementQuantity`/`PlyQuantity`, the Compute-owned `TakeoffOf`, BCL inbox.
-- Growth: a maintenance-cost-over-service-life sum or a circularity-cost credit is one fold over the same composition; the cost rail spans all composition cases (a single material or a profile member has a unit supply/install cost); the cost arm is bracketed (`§1`) — the runner stays proportionate (the aggregator fold + the fact emit), the depth reserved for carbon and the physical disciplines.
-- Boundary: this is the embodied MATERIAL-cost takeoff only — construction SCHEDULING, resource-leveling, and 4D cost-loading stay in `Rasm.Bim` (MPXJ), never re-derived here; the `request.Currency` is load-bearing — the aggregated cost is guarded to it (a material priced in a different `Currency` rails, since the fold carries no exchange rate), so the request currency is a real validation target, never a decorative field; the per-ply quantity derives from the seam `Cost.Basis` against the baked `TakeoffOf` (or a `PlyQuantity` override); a material with no `Cost` case rails `AssessmentInputMissing`; the bracketed rollup carries no acceptance budget, so the governing ratio is `double.NaN` → `NotApplicable` (the informational rating, never a `0.0`-ratio `Satisfied` falsely asserting a budget pass) — the same no-target convention the energy and carbon runners hold.
+- Growth: a maintenance-cost-over-service-life sum or a circularity-cost credit is one fold over the same composition; the cost rail spans all composition cases (a single material or a profile member has a unit supply/install cost); a new acceptance modality is one `AssessmentRequest.Cost` budget column with one `CostBudget` arm.
+- Boundary: this is the embodied MATERIAL-cost takeoff only — construction SCHEDULING, resource-leveling, and 4D cost-loading stay in `Rasm.Bim` (MPXJ), never re-derived here; the `request.Currency` is load-bearing — the aggregated cost is guarded to it (a material priced in a different `Currency` rails, since the fold carries no exchange rate), so the request currency is a real validation target, never a decorative field; the per-ply quantity derives from the seam `Cost.Basis` against the baked `TakeoffOf` (or a `PlyQuantity` override); a material with no `Cost` case rails `AssessmentInputMissing`. The governing ratio is REAL where the caller states a budget: `BudgetTotal` is the absolute cap on the target set's in-place cost, `BudgetPerArea` the rate against the same takeoff area the aggregator distributes cost by, the absolute column winning where both ride. A stated budget makes the verdict a genuine `Satisfied`/`Marginal`/`Exceeded` band; only a request carrying NEITHER column projects `double.NaN` → `NotApplicable` (the informational rating, never a `0.0`-ratio `Satisfied` falsely asserting a budget pass) — the same no-target convention the energy and carbon runners hold, now a stated absence rather than a permanent one. Budgets are `decimal` because money is exact and a binary double silently re-rounds every currency figure it touches; the ratio widens once at the divide, where the operands are already a measured total.
 
 ```csharp signature
 // --- [OPERATIONS] --------------------------------------------------------------------------
 public static partial class LifecycleAssessment {
+    // The fold threads the in-place total and the takeoff area beside the facts, because both budget columns ratio
+    // against a set-wide quantity a per-element fact stream cannot recover after the fact.
     public static Fin<AssessmentResult> RunCost(ElementGraph graph, AssessmentRequest.Cost request, IClock clock) =>
         request.Targets.Fold(
-            Fin.Succ(Seq<AssessmentFact>()),
-            (acc, id) => acc.Bind(facts =>
+            Fin.Succ((Facts: Seq<AssessmentFact>(), InPlace: 0.0, AreaM2: 0.0)),
+            (acc, id) => acc.Bind(state =>
                 from composition in graph.CompositionOf(id).ToFin((Error)new ComputeFault.AssessmentInputMissing($"<cost-element-missing-composition:{id.Value}>"))
                 from geometry in graph.TakeoffOf(id)
                 from cost in AssemblyAggregator.AggregateCost(composition, Resolver(graph), Seq<PlyQuantity>(), geometry)
@@ -383,9 +461,22 @@ public static partial class LifecycleAssessment {
                 from supply in DomainMeasure($"{id.Value}/supply-total", cost.SupplyTotal, cost.Currency.Key)
                 from install in DomainMeasure($"{id.Value}/install-total", cost.InstallTotal, cost.Currency.Key)
                 from inPlace in DomainMeasure($"{id.Value}/in-place-total", cost.TotalInPlace, cost.Currency.Key)
-                select facts.Add(supply).Add(install).Add(inPlace)))
-            .Map(facts => AssessmentResult.Of(request.Route, facts, double.NaN,
+                select (Facts: state.Facts.Add(supply).Add(install).Add(inPlace),
+                    InPlace: state.InPlace + cost.TotalInPlace,
+                    AreaM2: state.AreaM2 + geometry.AreaM2)))
+            .Map(state => AssessmentResult.Of(request.Route, state.Facts,
+                CostBudget(request, state.AreaM2).Map(budget => state.InPlace / budget).IfNone(double.NaN),
                 new Provenance("LifecycleAssessment", request.Route.Standard, request.Route.SolverVersion, clock.GetCurrentInstant())));
+
+    // Budget resolution is a two-rung choice, absolute first: BudgetTotal caps the whole target set, BudgetPerArea rates
+    // against the SAME takeoff area the aggregator distributes cost by. A non-positive budget resolves to None rather
+    // than an infinite ratio, so a zero column reports NotApplicable instead of asserting an instant exceedance.
+    static Option<double> CostBudget(AssessmentRequest.Cost request, double areaM2) =>
+        request.BudgetTotal.Map(static total => (double)total)
+        | request.BudgetPerArea.Map(rate => (double)rate * areaM2)
+        is { IsSome: true, Case: double budget } && budget > 0.0
+            ? Some(budget)
+            : None;
 }
 ```
 

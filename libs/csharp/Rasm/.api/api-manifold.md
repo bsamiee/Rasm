@@ -140,25 +140,25 @@ MeshGL carries its output triangles as RUNS — maximal contiguous index ranges 
 
 `ManifoldError` is the native error vocabulary the binding folds into `GeometryFault`; `manifold_status` is the first eager read after each boolean. An execution context reaches an evaluation ONLY through the eager op that consumes its attachment: `manifold_with_context` returns a COPY carrying the context, and `manifold_status` or a `manifold_refine*` call consumes it. DEFERRED ops — boolean operators, transforms, and the batch fold — IGNORE an attached context and return a result carrying none, so a context bound to the operands governs nothing and its progress read reports an evaluation that never ran under it. The attachment belongs on the RESULT, immediately before the terminal force, and cancellation there records `MANIFOLD_CANCELLED`.
 
-| [INDEX] | [SURFACE]                                        | [CAPABILITY]            |
-| :-----: | :----------------------------------------------- | :---------------------- |
-|  [01]   | `ManifoldError`                                  | error vocabulary        |
-|  [02]   | `MANIFOLD_NO_ERROR`                              | successful status       |
-|  [03]   | `MANIFOLD_NOT_MANIFOLD`                          | manifoldness fault      |
-|  [04]   | `MANIFOLD_NON_FINITE_VERTEX`                     | finite-coordinate fault |
-|  [05]   | `MANIFOLD_INVALID_CONSTRUCTION`                  | construction fault      |
-|  [06]   | `MANIFOLD_RESULT_TOO_LARGE`                      | result-size fault       |
-|  [07]   | `MANIFOLD_CANCELLED`                             | cancellation fault      |
-|  [08]   | `manifold_status(manifold)`                      | eager status read       |
-|  [09]   | `manifold_execution_context(mem)`                | execution context       |
-|  [10]   | `manifold_execution_context_cancel(context)`     | cancellation request    |
-|  [11]   | `manifold_execution_context_cancelled(context)`  | cancellation read       |
-|  [12]   | `manifold_execution_context_progress(context)`   | progress read           |
-|  [13]   | `manifold_with_context(mem, manifold, context)`  | result-side attachment  |
-|  [14]   | `manifold_execution_context_size()`              | sizing                  |
-|  [15]   | `manifold_alloc_execution_context()`             | allocation              |
-|  [16]   | `manifold_destruct_execution_context(context)`   | destructor only         |
-|  [17]   | `manifold_delete_execution_context(context)`     | destructor plus free    |
+| [INDEX] | [SURFACE]                                       | [CAPABILITY]            |
+| :-----: | :---------------------------------------------- | :---------------------- |
+|  [01]   | `ManifoldError`                                 | error vocabulary        |
+|  [02]   | `MANIFOLD_NO_ERROR`                             | successful status       |
+|  [03]   | `MANIFOLD_NOT_MANIFOLD`                         | manifoldness fault      |
+|  [04]   | `MANIFOLD_NON_FINITE_VERTEX`                    | finite-coordinate fault |
+|  [05]   | `MANIFOLD_INVALID_CONSTRUCTION`                 | construction fault      |
+|  [06]   | `MANIFOLD_RESULT_TOO_LARGE`                     | result-size fault       |
+|  [07]   | `MANIFOLD_CANCELLED`                            | cancellation fault      |
+|  [08]   | `manifold_status(manifold)`                     | eager status read       |
+|  [09]   | `manifold_execution_context(mem)`               | execution context       |
+|  [10]   | `manifold_execution_context_cancel(context)`    | cancellation request    |
+|  [11]   | `manifold_execution_context_cancelled(context)` | cancellation read       |
+|  [12]   | `manifold_execution_context_progress(context)`  | progress read           |
+|  [13]   | `manifold_with_context(mem, manifold, context)` | result-side attachment  |
+|  [14]   | `manifold_execution_context_size()`             | sizing                  |
+|  [15]   | `manifold_alloc_execution_context()`            | allocation              |
+|  [16]   | `manifold_destruct_execution_context(context)`  | destructor only         |
+|  [17]   | `manifold_delete_execution_context(context)`    | destructor plus free    |
 
 - Cancellation is sticky and granular per boolean, and the context is safe to read and write from any thread, so the cancel request may cross from a caller thread while the evaluation runs.
 - The ctx-aware static factories — `manifold_execution_context_level_set`, `_level_set_seq`, `_of_meshgl`, `_of_meshgl64`, `_smooth`, `_smooth64` — take the context as an argument because they have no source manifold to attach one to; every other op reaches a context only through `manifold_with_context`, so a construction that must report progress spells the ctx-aware form rather than binding after the fact.

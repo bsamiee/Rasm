@@ -315,7 +315,8 @@ POINTER = re.compile(r"[\w./-]*\w\.md#[\w.-]+|\b[\w./-]+/[\w.-]+#(?![A-Z][A-Z0-9
 FRESHNESS_DEICTIC = re.compile(r"(?<!-)\b(?:currently|recently|nowadays|at\s+present|these\s+days|going\s+forward|modern)\b(?!-)", re.IGNORECASE)
 WEAK_VERB = re.compile(r"\b(?:supports|provides|offers|allows|enables)\b", re.IGNORECASE)
 # Soft-preference and discourse hedges warn: `prefer` names a legitimate default across the estate, so review adjudicates each.
-SOFT_HEDGE = re.compile(r"\b(?:however|prefer(?:s|red|ably)?|etc)\b", re.IGNORECASE)
+# `etc` holds case: the discourse hedge is lowercase, while all-caps spells a domain acronym (the ETC texture-compression family).
+SOFT_HEDGE = re.compile(r"\b(?:however|prefer(?:s|red|ably)?|(?-i:etc|Etc))\b", re.IGNORECASE)
 # Grade and intensity words fail: each grades a fact the fact already carries, and deleting one costs no law. Roster admits
 # only the unambiguous — a domain term the corpus owns (`robust` predicates, `optimal` collapse, `ideal` in the algebraic
 # sense, `perfect` forwarding/hashing), estate vocabulary (`first-class`, `rich`, `advanced`), and a contrastive `merely`

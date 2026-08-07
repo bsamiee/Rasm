@@ -52,7 +52,7 @@
 - `Rhino.Geometry.SubDEdgeTag` — `Unset=0` `Smooth=1` `Crease=2` `SmoothX=4`.
 - `Rhino.Geometry.SubDComponentLocation : byte` — `Unset` `ControlNet` `Surface`.
 - `Rhino.Geometry.SubDVertexTag : byte` — `Unset` `Smooth` `Crease` `Corner` `Dart`.
-- `SubDDisplayParameters.Density : uint` — `UnsetDensity=0` `ExtraCoarseDensity=1` `CoarseDensity=2` `MediumDensity=3` `FineDensity=4` (=`DefaultDensity`) `ExtraFineDensity=5` `MaximumDensity=6`.
+- `SubDDisplayParameters.Density -> uint` — `UnsetDensity=0` `ExtraCoarseDensity=1` `CoarseDensity=2` `MediumDensity=3` `FineDensity=4` (=`DefaultDensity`) `ExtraFineDensity=5` `MaximumDensity=6`.
 - `MeshExtruderParameterMode` — `CoverWalls` `KeepAndStretch`; `MeshExtruderFaceDirectionMode` — `Keep` `OrientClosedFrontOut`.
 - `MeshRefinements.LoopFormula` — `Loop` `Warren` `WarrenWeimer`; `MeshRefinements.CreaseEdges` — `NakedFixed` `NakedSmooth` `CornerFixedOtherCreased` `Auto`.
 - `SubDCreationOptions.InteriorCreaseOption` — `Unset` `None` `AtMeshDoubleEdge`; `ConvexCornerOption` / `ConcaveCornerOption` — `Unset` `None` `AtMeshCorner`.
@@ -113,7 +113,7 @@
 
 - `ShrinkWrap` also wraps `IEnumerable<Mesh>` and `PointCloud` sources directly.
 - `RequireIterativeCleanup(IEnumerable<Mesh>, double) -> bool` probes whether cleanup is needed.
-- `MeshRefinements.RefinementSettings` carries `Level : int`, `NakedEdgeMode : CreaseEdges`, `ContinueRequest : CancellationToken`.
+- `MeshRefinements.RefinementSettings` carries `Level -> int`, `NakedEdgeMode -> CreaseEdges`, `ContinueRequest -> CancellationToken`.
 
 [MESH_BOOLEANS]: `Mesh` static booleans, each `-> Mesh[]` with `out Result, out int[][]` diagnostics.
 
@@ -169,20 +169,20 @@
 
 [MESH_QUAD_REMESH_ASYNC]: `Mesh` async quad-remesh; every row returns `Task<Mesh>` and closes on the same trailing `IProgress<int>, CancellationToken` pair, so the cells carry the leading arguments alone.
 
-| [INDEX] | [SURFACE]                                                                    | [SHAPE]  | [CAPABILITY]              |
+| [INDEX] | [SURFACE]                                                                     | [SHAPE]  | [CAPABILITY]              |
 | :-----: | :---------------------------------------------------------------------------- | :------- | :------------------------ |
-|  [01]   | `QuadRemeshAsync(QuadRemeshParameters, IEnumerable<Curve>)`                  | instance | whole mesh, guide curves  |
+|  [01]   | `QuadRemeshAsync(QuadRemeshParameters, IEnumerable<Curve>)`                   | instance | whole mesh, guide curves  |
 |  [02]   | `QuadRemeshAsync(IEnumerable<int>, QuadRemeshParameters, IEnumerable<Curve>)` | instance | face-block scoped remesh  |
-|  [03]   | `QuadRemeshBrepAsync(Brep, QuadRemeshParameters, IEnumerable<Curve>)`        | static   | brep source, guide curves |
+|  [03]   | `QuadRemeshBrepAsync(Brep, QuadRemeshParameters, IEnumerable<Curve>)`         | static   | brep source, guide curves |
 
 - Each async row drops its guide-curve argument in a sibling overload; progress is `IProgress<int>` on every quad-remesh member, never `IProgress<double>`.
 
 [MESH_CHECK]: `Mesh` reasoned validity verdict against caller-chosen defect classes.
 
-| [INDEX] | [SURFACE]                                             | [SHAPE]  | [CAPABILITY]                                 |
-| :-----: | :---------------------------------------------------- | :------- | :------------------------------------------- |
-|  [01]   | `Check(TextLog, ref MeshCheckParameters) -> bool`     | instance | per-defect verdict with counts and a log     |
-|  [02]   | `MeshCheckParameters.Defaults() -> MeshCheckParameters` | static | every check enabled, distance unset          |
+| [INDEX] | [SURFACE]                                               | [SHAPE]  | [CAPABILITY]                             |
+| :-----: | :------------------------------------------------------ | :------- | :--------------------------------------- |
+|  [01]   | `Check(TextLog, ref MeshCheckParameters) -> bool`       | instance | per-defect verdict with counts and a log |
+|  [02]   | `MeshCheckParameters.Defaults() -> MeshCheckParameters` | static   | every check enabled, distance unset      |
 
 [CHECK_TOGGLES]: `CheckForDegenerateFaces` `CheckForInvalidNgons` `CheckForNakedEdges` `CheckForNonManifoldEdges` `CheckForExtremelyShortEdges` `CheckForBadNormals` `CheckForDuplicateFaces` `CheckForRandomFaceNormals` `CheckForDisjointMeshes` `CheckForUnusedVertices` `CheckForSelfIntersection` — all public get/set `bool`
 [CHECK_COUNTS]: `DegenerateFaceCount` `InvalidNgonCount` `NakedEdgeCount` `NonManifoldEdgeCount` `ExtremelyShortEdgeCount` `NonUnitVectorNormalCount` `ZeroLengthNormalCount` `VertexFaceNormalsDifferCount` `DuplicateFaceCount` `RandomFaceNormalCount` `DisjointMeshCount` `UnusedVertexCount` `SelfIntersectingPairsCount` — all public read-only `int`
@@ -226,11 +226,11 @@
 
 [VERTEX_COLOR_WRITES]: `MeshVertexColorList` false-colour writers; every setter returns `bool` and answers `false` on an out-of-range index rather than raising.
 
-- `Rhino.Geometry.Collections.MeshVertexColorList.CreateMonotoneMesh(Color baseColor) : bool` — sizes the list to the vertex count and fills it with one colour; the sizing step every per-component write depends on, since the indexer raises `IndexOutOfRangeException` past `Count`.
-- `Rhino.Geometry.Collections.MeshVertexColorList.SetColor(MeshFace face, Color color) : bool` — writes all corners of one face; the per-face grain a `ComponentIndexType.MeshFace` sample addresses.
-- `Rhino.Geometry.Collections.MeshVertexColorList.SetColor(int index, Color color) : bool` / `SetColor(int index, int red, int green, int blue) : bool` — the per-vertex grain an ngon boundary ring writes through.
-- `Rhino.Geometry.Collections.MeshVertexColorList.SetColors(Color[] colors) : bool` / `AppendColors(Color[] colors) : bool` / `Clear() : void` / `Count : int` (settable) — whole-array replace, append, drop, and explicit resize.
-- `Rhino.Geometry.MeshNgon.BoundaryVertexIndexList() : uint[]` / `BoundaryVertexCount : int` — the ngon's own boundary ring; the indices are `uint` and narrow at the call site.
+- `Rhino.Geometry.Collections.MeshVertexColorList.CreateMonotoneMesh(Color baseColor) -> bool` — sizes the list to the vertex count and fills it with one colour; the sizing step every per-component write depends on, since the indexer raises `IndexOutOfRangeException` past `Count`.
+- `Rhino.Geometry.Collections.MeshVertexColorList.SetColor(MeshFace face, Color color) -> bool` — writes all corners of one face; the per-face grain a `ComponentIndexType.MeshFace` sample addresses.
+- `Rhino.Geometry.Collections.MeshVertexColorList.SetColor(int index, Color color) -> bool` / `SetColor(int index, int red, int green, int blue) -> bool` — the per-vertex grain an ngon boundary ring writes through.
+- `Rhino.Geometry.Collections.MeshVertexColorList.SetColors(Color[] colors) -> bool` / `AppendColors(Color[] colors) -> bool` / `Clear() -> void` / `Count -> int` (settable) — whole-array replace, append, drop, and explicit resize.
+- `Rhino.Geometry.MeshNgon.BoundaryVertexIndexList() -> uint[]` / `BoundaryVertexCount -> int` — the ngon's own boundary ring; the indices are `uint` and narrow at the call site.
 
 [MESH_CONFIG]: `MeshingParameters` carriers feeding the mesh ops.
 
@@ -248,7 +248,7 @@
 [BOOLEAN_KNOBS]: `Tolerance` `TextLog` `CancellationToken` `ProgressReporter`
 - `QuadRemeshParameters`: `TargetEdgeLength` nonzero overrides the count, `AdaptiveSize` ranges 0-100, `GuideCurveInfluence` is 0 approximate / 1 interp-edge-ring / 2 interp-edge-loop, `PreserveMeshArrayEdgesMode` is 0 off / 1 smart / 2 strict, and progress is `IProgress<int>`, never `IProgress<double>`.
 - `ShrinkWrapParameters` builds through the static `Mesh.ShrinkWrap`; no `CreateShrinkWrap` spelling exists.
-- `ReduceMeshParameters`: `Error : string` is the host-written diagnostic.
+- `ReduceMeshParameters`: `Error -> string` is the host-written diagnostic.
 
 [SUBD_BUILD]: `SubD` static construction; rows return `SubD` unless noted.
 
@@ -288,17 +288,17 @@
 
 [SUBD_INTERPOLATOR]: `SubDSurfaceInterpolator` (`public class SubDSurfaceInterpolator : IDisposable`) surface-point solve; the four factories each report the free-vertex census through `out uint`.
 
-| [INDEX] | [SURFACE]                                                                             | [SHAPE]  | [CAPABILITY]                        |
-| :-----: | :------------------------------------------------------------------------------------- | :------- | :---------------------------------- |
-|  [01]   | `CreateFromSubD(SubD, out uint) -> SubDSurfaceInterpolator`                            | static   | every free vertex interpolates      |
-|  [02]   | `CreateFromMarkedVertices(SubD, bool, out uint) -> SubDSurfaceInterpolator`            | static   | mark polarity selects the free set  |
-|  [03]   | `CreateFromSelectedVertices(SubD, out uint) -> SubDSurfaceInterpolator`                | static   | document selection is the free set  |
+| [INDEX] | [SURFACE]                                                                              | [SHAPE]  | [CAPABILITY]                         |
+| :-----: | :------------------------------------------------------------------------------------- | :------- | :----------------------------------- |
+|  [01]   | `CreateFromSubD(SubD, out uint) -> SubDSurfaceInterpolator`                            | static   | every free vertex interpolates       |
+|  [02]   | `CreateFromMarkedVertices(SubD, bool, out uint) -> SubDSurfaceInterpolator`            | static   | mark polarity selects the free set   |
+|  [03]   | `CreateFromSelectedVertices(SubD, out uint) -> SubDSurfaceInterpolator`                | static   | document selection is the free set   |
 |  [04]   | `CreateFromVertexIdList(SubD, IEnumerable<uint>, out uint) -> SubDSurfaceInterpolator` | static   | explicit vertex ids are the free set |
-|  [05]   | `Solve(Point3d[]) -> bool`                                                             | instance | fit the surface through the points  |
-|  [06]   | `InterpolatedVertexCount() -> uint` / `FixedVertexCount() -> uint`                     | instance | free and pinned vertex censuses     |
-|  [07]   | `VertexIdList() -> uint[]` / `InterpolatedVertexIndex(uint) -> uint`                   | instance | id roster and per-id ordinal        |
-|  [08]   | `IsInterpolatedVertex(uint) -> bool` / `IsInterpolatedVertex(SubDVertex) -> bool`      | instance | membership probe by id or component |
-|  [09]   | `Clear() -> void` / `Transform(Transform) -> void`                                     | instance | reset and re-place the solve state  |
+|  [05]   | `Solve(Point3d[]) -> bool`                                                             | instance | fit the surface through the points   |
+|  [06]   | `InterpolatedVertexCount() -> uint` / `FixedVertexCount() -> uint`                     | instance | free and pinned vertex censuses      |
+|  [07]   | `VertexIdList() -> uint[]` / `InterpolatedVertexIndex(uint) -> uint`                   | instance | id roster and per-id ordinal         |
+|  [08]   | `IsInterpolatedVertex(uint) -> bool` / `IsInterpolatedVertex(SubDVertex) -> bool`      | instance | membership probe by id or component  |
+|  [09]   | `Clear() -> void` / `Transform(Transform) -> void`                                     | instance | reset and re-place the solve state   |
 
 - `MaximumRecommendedInterpolatedVertexCount` is a `static uint` PROPERTY reading `1000`, `ContextId` is a `Guid` property, and the censuses are METHODS — the call parentheses discriminate the two families, and a `Guid`-keyed context row survives a `Clear()`.
 - `Solve` answers `bool` alone with no cause, so an arity mismatch is gated against `InterpolatedVertexCount()` BEFORE the call; the point array length must equal that census, which only the minted solver knows.
@@ -335,8 +335,9 @@
 - Editing mutates in place returning a `bool` or count (`Reduce`, `Weld`, `Subdivide`, `FillHoles`, `CollapseFacesByEdgeLength`, `UnifyNormals`) or new pieces (`Split*`, `Offset`, `ExtractNonManifoldEdges`); the component lists are the topology-read and in-place-edit surface, and `SubD` is a distinct model whose `SubDEdgeTag`, cap style, and component location carry crease-and-corner semantics a mesh cannot represent.
 
 [STACKING]:
-- `LanguageExt.Core`(`../../.api/api-languageext.md`): a nullable single build lifts to `Option<Mesh>`/`Option<SubD>`, a null-or-empty array lands as `Seq<Mesh>`, an in-place `bool`/`int` edit folds into a `Fin` keyed to the mutated geometry, the boolean `Result`+`int[][]` map and the hull/offset side-channels fold into a typed mesh receipt, and `QuadRemeshBrepAsync`/`QuadRemeshAsync` project their `Task<Mesh>` onto the effect rail.
-- `Thinktecture.Runtime.Extensions`(`../../.api/api-thinktecture-runtime-extensions.md`): the closed vocabularies wrap as `[SmartEnum<TKey>]`/`[Flags]`-backed owners; the mesh op models as a `[Union]` over the from-source, generate, boolean, split, and edit arms, and the subd op as a `[Union]` over the create, subdivide, offset, and convert arms.
+- `RhinoCommon` value substrate(`libs/csharp/.api/api-rhinocommon.md`): the `Point3d`/`Vector3d`/`Plane`/`Transform`/`BoundingBox`/`Interval` carriers this boundary threads cross the wire from the substrate; it composes them and re-derives none.
+- `LanguageExt.Core`(`libs/csharp/.api/api-languageext.md`): a nullable single build lifts to `Option<Mesh>`/`Option<SubD>`, a null-or-empty array lands as `Seq<Mesh>`, an in-place `bool`/`int` edit folds into a `Fin` keyed to the mutated geometry, the boolean `Result`+`int[][]` map and the hull/offset side-channels fold into a typed mesh receipt, and `QuadRemeshBrepAsync`/`QuadRemeshAsync` project their `Task<Mesh>` onto the effect rail.
+- `Thinktecture.Runtime.Extensions`(`libs/csharp/.api/api-thinktecture-runtime-extensions.md`): the closed vocabularies wrap as `[SmartEnum<TKey>]`/`[Flags]`-backed owners; the mesh op models as a `[Union]` over the from-source, generate, boolean, split, and edit arms, and the subd op as a `[Union]` over the create, subdivide, offset, and convert arms.
 - `Rasm` kernel: host-neutral isotropic and quad remesh, quadric decimation, and stencil subdivision stand at the kernel altitude and the boundary re-derives none of them; densities, counts, tolerances, and offset distances compose the kernel numeric owners before the native call.
 
 [LOCAL_ADMISSION]:

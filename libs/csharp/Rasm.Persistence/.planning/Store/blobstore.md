@@ -169,7 +169,9 @@ public abstract partial record ObjectEncryption {
     }
 
     // Seal every frame under ONE content-key-stable DEK, the frame ORDINAL folded into the nonce's low word so no
-    // two frames of one object reuse a nonce — the AES-GCM contract's one non-negotiable. The DEK zeroizes once
+    // two frames of one object reuse a nonce — the AES-GCM contract's one non-negotiable. The nonce's key half
+    // composes the kernel `ContentHash.Half` high lane; its big-endian byte WRITE is this sealed-frame format's
+    // own frozen projection per the owner's boundary law — stored layout, never a second lane convention. The DEK zeroizes once
     // after the whole walk rather than per frame, because `Acquire` is the CAS and re-acquiring per frame would
     // multiply the keyring round trip by the object's frame count.
     public IO<(ReadOnlySequence<byte> Bytes, Option<WrappedKey> Dek)> SealSource(ContentAddress key, ChunkPolicy policy, ReadOnlySequence<byte> plain) =>
@@ -183,7 +185,7 @@ public abstract partial record ObjectEncryption {
                         long at = ordinal * frame.Stride;
                         int span = (int)long.Min(frame.Stride, plain.Length - at);
                         Span<byte> slot = framed.AsSpan((int)(ordinal * (frame.Stride + SealFrame.Overhead)));
-                        BinaryPrimitives.WriteUInt64BigEndian(slot[..8], (ulong)(key.Value >> 64));
+                        BinaryPrimitives.WriteUInt64BigEndian(slot[..8], ContentHash.Half(key.Value, 1));
                         BinaryPrimitives.WriteUInt32BigEndian(slot.Slice(8, 4), (uint)ordinal);
                         plain.Slice(at, span).CopyTo(slot.Slice(SealFrame.Overhead, span));
                         aead.Encrypt(slot[..12], slot.Slice(SealFrame.Overhead, span), slot.Slice(SealFrame.Overhead, span), slot.Slice(12, 16));
@@ -784,10 +786,11 @@ public static class ObjectIo {
             }));
 
     // Lift every SDK call once into `RemoteStoreFault` at the leg boundary so the engine interior is total over rails
-    // (boundaries.md `[EXCEPTION_CAPTURE]`): each provider's status/exception family folds structurally — the `412`
-    // precondition is `Conflict`, `404` is `NotFound`, `401`/`403` is `Denied`, `413` is `Oversize`, a no-response
-    // connection failure is the only transient `Transport` (status 0), every OTHER status is a typed `Transport`, and an
-    // unrecognized exception is a NON-transient `Text` (a generic exception is NEVER retried — the deterministic default).
+    // (`docs/stacks/csharp/rails-and-effects#EXCEPTION_CAPTURE`): each provider's status/exception family folds
+    // structurally — the `412` precondition is `Conflict`, `404` is `NotFound`, `401`/`403` is `Denied`, `413` is
+    // `Oversize`, a no-response connection failure is the only transient `Transport` (status 0), every OTHER
+    // status is a typed `Transport`, and an unrecognized exception is a NON-transient `Text` (a generic exception
+    // is NEVER retried — the deterministic default).
     static IO<T> Bound<T>(string provider, ContentAddress key, Func<Task<T>> call) =>
         IO.liftAsync(call) | @catch<IO, T>(static _ => true, e => IO.fail<T>(Lift(provider, key, e)));
 
@@ -833,7 +836,7 @@ public static class ObjectIo {
             Some: IO.pure,
             None: () => Bound("s3", key, () => r.Client.InitiateMultipartUploadAsync(store.Stamp(new InitiateMultipartUploadRequest { BucketName = r.Bucket, Key = key.Name(r.Tenant), StorageClass = tier.S3Class, ChecksumAlgorithm = store.Integrity.S3Algorithm, ChecksumType = ChecksumType.FULL_OBJECT }, now))).Map(static x => x.UploadId)),
         Stage: (token, key, part, bytes) => Bound("s3", key, () => r.Client.UploadPartAsync(new UploadPartRequest { BucketName = r.Bucket, Key = key.Name(r.Tenant), UploadId = token, PartNumber = part.Number, PartSize = part.Length, InputStream = bytes.AsStream() })).Map(x => new CommittedPart(part.Number, x.ETag)),
-        Seal: (store, _, token, key, parts, _, _) => Bound("s3", key, () => r.Client.CompleteMultipartUploadAsync(new CompleteMultipartUploadRequest { BucketName = r.Bucket, Key = key.Name(r.Tenant), UploadId = token, IfNoneMatch = "*", ChecksumXXHASH128 = store.Integrity.Wire(key).IfNoneUnsafe(static () => null), PartETags = parts.Map(static p => new PartETag(p.Number, p.ETag)).ToList() })).Map(static _ => unit),
+        Seal: (store, _, token, key, parts, _, _) => Bound("s3", key, () => r.Client.CompleteMultipartUploadAsync(new CompleteMultipartUploadRequest { BucketName = r.Bucket, Key = key.Name(r.Tenant), UploadId = token, IfNoneMatch = "*", ChecksumXXHASH128 = store.Integrity.Wire(key).ValueUnsafe(), PartETags = parts.Map(static p => new PartETag(p.Number, p.ETag)).ToList() })).Map(static _ => unit),
         Abort: (token, key) => string.IsNullOrEmpty(token) ? IO.pure(unit) : Bound("s3", key, () => r.Client.AbortMultipartUploadAsync(new AbortMultipartUploadRequest { BucketName = r.Bucket, Key = key.Name(r.Tenant), UploadId = token })).Map(static _ => unit),
         Committed: (token, key) => Bound("s3", key, () => r.Client.ListPartsAsync(new ListPartsRequest { BucketName = r.Bucket, Key = key.Name(r.Tenant), UploadId = token })).Map(static x => toSeq(x.Parts).Map(static p => new CommittedPart(p.PartNumber, p.ETag))),
         Fetch: (key, range) => Bound("s3", key, () => r.Client.GetObjectAsync(new GetObjectRequest { BucketName = r.Bucket, Key = key.Name(r.Tenant), ByteRange = range.Match(Some: static w => new ByteRange(w.Start, w.End), None: static () => null) })).Map(static x => x.ResponseStream),

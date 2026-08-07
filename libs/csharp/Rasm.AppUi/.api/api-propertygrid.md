@@ -58,20 +58,20 @@
 
 [ANNOTATION_TYPES]: editor-hint attributes — `PropertyModels.ComponentModel`; each payload member is a readonly field unless the row marks it settable, and each targets `Property` and `Field` unless the row says otherwise.
 
-| [INDEX] | [SYMBOL]                          | [PAYLOAD]                                                       | [CAPABILITY]                    |
-| :-----: | :-------------------------------- | :-------------------------------------------------------------- | :------------------------------ |
-|  [01]   | `FloatPrecisionAttribute`         | `Increment : decimal`, `FormatString`                           | float display precision         |
-|  [02]   | `IntegerIncrementAttribute`       | `Increment : int`                                               | integer editor increment        |
-|  [03]   | `ProgressAttribute`               | `Minimum`, `Maximum`, `FormatString`, settable `ShowProgressText` | progress-bar editor hint      |
-|  [04]   | `WatermarkAttribute`              | `Watermark : string`                                            | editor watermark text           |
-|  [05]   | `TrackableAttribute`              | `Minimum`, `Maximum` + four settable knobs                      | drag-numeric editor marker      |
-|  [06]   | `MultilineTextAttribute`          | `IsMultiline : bool`, ctor default true                         | multiline string editor         |
-|  [07]   | `UnitAttribute`                   | `Unit : string`                                                 | unit label display              |
-|  [08]   | `EnumDisplayNameAttribute`        | `DisplayName : string`, targets `Enum`/`Field`                  | per-enum-member display name    |
-|  [09]   | `EnumExcludeAttribute`            | marker, targets `Enum`/`Field`                                  | exclude an enum member          |
-|  [10]   | `CustomPropertyOrderAttribute`    | `ICustomPropertyOrderHandler`                                   | explicit property order         |
-|  [11]   | `AutoCollapseCategoriesAttribute` | `CategoryNames`, `ShouldAutoCollapse`, targets `Class`          | collapse categories on load     |
-|  [12]   | `ControlClassesAttribute`         | `Classes : string[]`, `AllowMultiple`                           | Avalonia style classes          |
+| [INDEX] | [SYMBOL]                          | [PAYLOAD]                                                         | [CAPABILITY]                 |
+| :-----: | :-------------------------------- | :---------------------------------------------------------------- | :--------------------------- |
+|  [01]   | `FloatPrecisionAttribute`         | `Increment : decimal`, `FormatString`                             | float display precision      |
+|  [02]   | `IntegerIncrementAttribute`       | `Increment : int`                                                 | integer editor increment     |
+|  [03]   | `ProgressAttribute`               | `Minimum`, `Maximum`, `FormatString`, settable `ShowProgressText` | progress-bar editor hint     |
+|  [04]   | `WatermarkAttribute`              | `Watermark : string`                                              | editor watermark text        |
+|  [05]   | `TrackableAttribute`              | `Minimum`, `Maximum` + four settable knobs                        | drag-numeric editor marker   |
+|  [06]   | `MultilineTextAttribute`          | `IsMultiline : bool`, ctor default true                           | multiline string editor      |
+|  [07]   | `UnitAttribute`                   | `Unit : string`                                                   | unit label display           |
+|  [08]   | `EnumDisplayNameAttribute`        | `DisplayName : string`, targets `Enum`/`Field`                    | per-enum-member display name |
+|  [09]   | `EnumExcludeAttribute`            | marker, targets `Enum`/`Field`                                    | exclude an enum member       |
+|  [10]   | `CustomPropertyOrderAttribute`    | `ICustomPropertyOrderHandler`                                     | explicit property order      |
+|  [11]   | `AutoCollapseCategoriesAttribute` | `CategoryNames`, `ShouldAutoCollapse`, targets `Class`            | collapse categories on load  |
+|  [12]   | `ControlClassesAttribute`         | `Classes : string[]`, `AllowMultiple`                             | Avalonia style classes       |
 
 - `FloatPrecisionAttribute` mints from three constructors — `(int precision = 2)` derives both members from a digit count, while `(decimal, string)` and `(double, string)` take the increment and format directly.
 - `TrackableAttribute`'s settable knobs are `Increment` (default `0.01`), `FormatString`, `AllowSpin`, and `ShowButtonSpinner`; its two bounds arrive through the `(double min = 0, double max = 100)` constructor.
@@ -138,14 +138,14 @@
 
 Namespaces below drop the shared `Avalonia.PropertyGrid.` prefix.
 
-| [INDEX] | [SYMBOL]                               | [NAMESPACE]           | [CAPABILITY]                                            |
-| :-----: | :------------------------------------- | :-------------------- | :------------------------------------------------------ |
-|  [01]   | `ICellEditFactory`                     | `Controls`            | editor-factory contract, ten members                    |
-|  [02]   | `ICellEditFactoryCollection`           | `Controls`            | factory-set and per-cell build contract                 |
-|  [03]   | `AbstractCellEditFactory`              | `Controls.Factories`  | editor-factory base; subclass per custom editor         |
-|  [04]   | `CellEditFactoryService`               | `Services`            | static `Default : ICellEditFactoryCollection`           |
-|  [05]   | `LocalizationService`                  | `Services`            | static `Default : ILocalizationService`                 |
-|  [06]   | `AssemblyJsonAssetLocalizationService` | `Services`            | JSON-asset service over an `Assembly` or asset `Uri`    |
+| [INDEX] | [SYMBOL]                               | [NAMESPACE]          | [CAPABILITY]                                         |
+| :-----: | :------------------------------------- | :------------------- | :--------------------------------------------------- |
+|  [01]   | `ICellEditFactory`                     | `Controls`           | editor-factory contract, ten members                 |
+|  [02]   | `ICellEditFactoryCollection`           | `Controls`           | factory-set and per-cell build contract              |
+|  [03]   | `AbstractCellEditFactory`              | `Controls.Factories` | editor-factory base; subclass per custom editor      |
+|  [04]   | `CellEditFactoryService`               | `Services`           | static `Default : ICellEditFactoryCollection`        |
+|  [05]   | `LocalizationService`                  | `Services`           | static `Default : ILocalizationService`              |
+|  [06]   | `AssemblyJsonAssetLocalizationService` | `Services`           | JSON-asset service over an `Assembly` or asset `Uri` |
 
 - The two interfaces sit in `Avalonia.PropertyGrid.Controls` while the base class sits one namespace deeper in `.Controls.Factories`, so a `using` for the base does not bring the contract into scope.
 - Built-in factories are public and subclassable under `Avalonia.PropertyGrid.Controls.Factories.Builtins`, each an `AbstractCellEditFactory` unless noted: `Common`, `Boolean`, `Color`, `Collection`, `CheckedList`, `SelectableList`, `Enum`, `Expandable`, `Numeric`, `String`, `Path`, `DateTime`, `Time`, `FontFamily`, `Image`, `Progress` (extends `Numeric`), `Trackable` (extends `Numeric`) — a narrowed editor derives the nearest built-in and raises `ImportPriority`, never re-implements the base.
@@ -172,12 +172,12 @@ Namespaces below drop the shared `Avalonia.PropertyGrid.` prefix.
 
 [MODEL_SYNTHESIS_TYPES]: descriptor synthesis over a bound instance — `PropertyModels.Utils` / `.ComponentModel` / `.ComponentModel.DataAnnotations`
 
-| [INDEX] | [SYMBOL]                        | [NAMESPACE]                     | [CAPABILITY]                                            |
-| :-----: | :------------------------------ | :------------------------------ | :------------------------------------------------------ |
-|  [01]   | `PropertyDescriptorBuilder`     | `PropertyModels.Utils`          | descriptor set over one target or an `IEnumerable` set  |
-|  [02]   | `MultiObjectPropertyDescriptor` | `PropertyModels.ComponentModel` | one descriptor fanning writes across a merged selection |
-|  [03]   | `ListElementPropertyDescriptor` | `PropertyModels.ComponentModel` | per-element descriptor inside a collection editor       |
-|  [04]   | `DependsOnPropertyAttribute`    | `…ComponentModel.DataAnnotations` | derived-member dependency, `AllowMultiple`            |
+| [INDEX] | [SYMBOL]                        | [NAMESPACE]                       | [CAPABILITY]                                            |
+| :-----: | :------------------------------ | :-------------------------------- | :------------------------------------------------------ |
+|  [01]   | `PropertyDescriptorBuilder`     | `PropertyModels.Utils`            | descriptor set over one target or an `IEnumerable` set  |
+|  [02]   | `MultiObjectPropertyDescriptor` | `PropertyModels.ComponentModel`   | one descriptor fanning writes across a merged selection |
+|  [03]   | `ListElementPropertyDescriptor` | `PropertyModels.ComponentModel`   | per-element descriptor inside a collection editor       |
+|  [04]   | `DependsOnPropertyAttribute`    | `…ComponentModel.DataAnnotations` | derived-member dependency, `AllowMultiple`              |
 
 - `MultiObjectPropertyDescriptor : PropertyDescriptor, IEnumerable<PropertyDescriptor>`: `this[int]` indexer and `GetEnumerator()` expose the merged descriptor set (`Descriptors` itself is internal); `PropertyType`, `ComponentType`, `Converter`, `DisplayName`, and `Category` all read descriptor zero, and `IsReadOnly` is true when ANY child is.
 - `GetValue(object? component)` folds the per-target values and returns NULL the moment two disagree, which is the same answer a uniformly null value gives — a mixed-state read therefore takes `GetValues(object[] components) : object?[]` and folds distinctness itself.
@@ -269,18 +269,18 @@ Namespaces below drop the shared `Avalonia.PropertyGrid.` prefix.
 
 [FACTORY_ENTRYPOINTS]: `ICellEditFactory` contract — match, create, refresh, and read/write one cell editor. Rows [05], [06], and [09] carry a base implementation a custom factory usually must displace.
 
-| [INDEX] | [SURFACE]                                          | [CAPABILITY]             | [BASE_BODY]                                  |
-| :-----: | :------------------------------------------------- | :----------------------- | :------------------------------------------- |
-|  [01]   | `Accept(object accessToken) : bool`                | clone admission          | `accessToken is PropertyGrid`                |
-|  [02]   | `ImportPriority : int`                             | match priority           | `100`                                        |
-|  [03]   | `HandleNewProperty(PropertyCellContext) : Control?` | editor creation         | abstract                                     |
-|  [04]   | `HandlePropertyChanged(PropertyCellContext) : bool` | editor refresh          | abstract                                     |
-|  [05]   | `HandleReadOnlyStateChanged(Control, bool)`        | read-only refresh        | `control.IsEnabled = !readOnly` on the root  |
-|  [06]   | `HandlePropagateVisibility(…) : PropertyVisibility?` | filter-driven visibility | `null`, deferring to the default match     |
-|  [07]   | `SetPropertyValue(PropertyCellContext, object?)`   | command-routed write     | `SetAndRaise(context, CellEdit, value, old)` |
-|  [08]   | `GetPropertyValue(PropertyCellContext) : object?`  | value read               | `context.GetValue()`                         |
-|  [09]   | `Clone() : ICellEditFactory?`                      | per-cell factory clone   | `Activator.CreateInstance(GetType())`        |
-|  [10]   | `Collection : ICellEditFactoryCollection?`         | owning set               | `internal set`, the collection assigns it    |
+| [INDEX] | [SURFACE]                                            | [CAPABILITY]             | [BASE_BODY]                                  |
+| :-----: | :--------------------------------------------------- | :----------------------- | :------------------------------------------- |
+|  [01]   | `Accept(object accessToken) : bool`                  | clone admission          | `accessToken is PropertyGrid`                |
+|  [02]   | `ImportPriority : int`                               | match priority           | `100`                                        |
+|  [03]   | `HandleNewProperty(PropertyCellContext) : Control?`  | editor creation          | abstract                                     |
+|  [04]   | `HandlePropertyChanged(PropertyCellContext) : bool`  | editor refresh           | abstract                                     |
+|  [05]   | `HandleReadOnlyStateChanged(Control, bool)`          | read-only refresh        | `control.IsEnabled = !readOnly` on the root  |
+|  [06]   | `HandlePropagateVisibility(…) : PropertyVisibility?` | filter-driven visibility | `null`, deferring to the default match       |
+|  [07]   | `SetPropertyValue(PropertyCellContext, object?)`     | command-routed write     | `SetAndRaise(context, CellEdit, value, old)` |
+|  [08]   | `GetPropertyValue(PropertyCellContext) : object?`    | value read               | `context.GetValue()`                         |
+|  [09]   | `Clone() : ICellEditFactory?`                        | per-cell factory clone   | `Activator.CreateInstance(GetType())`        |
+|  [10]   | `Collection : ICellEditFactoryCollection?`           | owning set               | `internal set`, the collection assigns it    |
 
 - Row [06] spells in full as `HandlePropagateVisibility(object? target, PropertyCellContext context, IPropertyGridFilterContext filterContext, string? filterText = null, bool filterMatchesParentCategory = false)`.
 

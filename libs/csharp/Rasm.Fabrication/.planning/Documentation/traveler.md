@@ -1,40 +1,42 @@
 # [RASM_FABRICATION_TRAVELER]
 
-`TravelerDocument` is the deterministic shop-execution document assembled from admitted fabrication results and cross-domain receipts. It preserves each upstream receipt at its owning type; `ContentKey.Of(EgressKind.Traveler, bytes)` mints document and amendment identities, and `TravelerArtifact` carries canonical bytes for rendering and persistence.
+`TravelerDocument` is the deterministic shop-execution document assembled from admitted fabrication results and cross-domain receipts. It preserves each upstream receipt at its owning type; `ContentKey.Of(EgressKind.Traveler, bytes)` mints document and amendment identities over a `CanonicalWriter` binary preimage, and `TravelerArtifact` carries the transport rendering for display and persistence beside that identity.
 
-`Fabrication.Run` remains the sole public package entry. `Traveler.Assemble` is internal, owns canonical encoding, and parameterizes the clock and result projection; rendering and persistence consume the resulting `TravelerArtifact`.
+`Fabrication.Run` remains the sole public package entry. `Traveler.Assemble` is internal, owns identity and encoding, and parameterizes the clock and result projection. The planned route is a DAG: `BindRoutes` gates acyclicity before it sorts, and the step depth, release frontier, and dangling-binding counts it measures ride the document as witness columns rather than being re-derived at every reader.
 
 ## [01]-[INDEX]
 
-- [02]-[TRAVELER]: scalar owners and `TravelerReceiptCorpus` admit fan-in; `TravelerControl` owns instructions; `TravelerSection.Outputs` preserves every result; `TravelerAmendment` owns the `TravelerStepState` arrow; `Traveler.Assemble` builds, encodes, keys, chains, and projects one artifact.
+- [02]-[TRAVELER_IDENTITY]: the four typed text identities, the locus and sampling families, unit dispositions, the control family, and the admitted receipt corpus.
+- [03]-[TRAVELER_DOCUMENT]: sections and their marks reconciliation, the amendment family and its step-state arrow, and the document shape.
+- [04]-[TRAVELER_ASSEMBLY]: the route DAG and its witness, the key census harvest, the canonical preimage, the transport codec, amendment sealing, and `Traveler.Assemble`.
 
-## [02]-[TRAVELER]
+## [02]-[TRAVELER_IDENTITY]
 
-`TravelerReceiptCorpus` composes tooling, setup, feature-frame, capability, manufacturability, procedure, sealed-record, inspection-link, control, and amendment owners. Its digital-product-passport identity derives from sealed records, so no writable twin can diverge. `TravelerText`, `TravelerQuantity`, and ordinal owners admit shared scalar regimes; `TravelerIdentity` composes work order, part, revision, quantity, heat lot, and serial identity. `TravelerMarks` reads the run's typed drawing marks — keyed tag rows, unkeyed free-text runs, and every keyed row contradicting the declared identity.
-
-`TravelerControl` is one generated family over `TravelerLocus`. Global, step, operation, setup, and characteristic loci bind instructions; `Material` retains unit identity, and `Package` fixes the global locus with label, method, and destination policy. `Safety` carries residual-risk rank; `Inspect` carries every, first-article, skip-lot, or attribute sampling evidence. New capability grows as a case, and multiplicity grows as corpus rows.
-
-`BindRoutes` proves every control locus, amendment step, inspection link, and release-program binding against the planned route and the document's posted outputs, accumulating the four classes independently: a corpus whose controls, amendments, inspection links, and release programs all dangle reports all four witnesses with their counts in one verdict, so a planner never re-runs assembly to discover the next class of break.
-
-`TravelerSection` collapses the document model into direct `Header`, `Route`, `Tooling`, `Specification`, `Procedure`, `Outputs`, and `Quality` cases. `Outputs` retains the complete `FabricationResult` sequence and document dialect instead of reducing program, projection, placement, additive, verification, inspection, plan, forming, motion, or prior-traveler evidence to selected fields. Section order follows construction, so no parallel rank roster restates the closed family.
-
-`TravelerCanonicalCodec.Encode` receives one `TravelerCanonicalSource` case carrying the whole `TravelerDocument` or `TravelerAmendment`, serializes through `QualityReport.CanonicalJson`, normalizes text, sorts object properties ordinally, preserves semantic array order, and returns canonical UTF-8 JSON with its fixed artifact descriptor. `Traveler` owns identity minting from those bytes, and each document or amendment receipt retains its descriptor and canonical bytes beside the minted identity.
-
-`TravelerAmendment` models execution without mutating the planned document. `Completed`, `Held`, `Released`, `Deviated`, and `Scrapped` cases record predecessor key, admitted step and actor, timestamp, evidence, and case-specific duration or disposition; `Completed.Estimate` retains the `CostReceipt` clock and derives actual-versus-estimated variance. `Released.Delivery` retains the verified controller handoff that authorizes the held-to-open edge, and `Released.Program` names the planned release artifact that handoff must prove — the corpus gate admits a release only when `Delivery.Image` matches `Program` by kind and digest, so a verified transfer of the wrong program never opens a held step, and `BindRoutes` proves the named program is one of the document's posted outputs. `Deviated` and `Scrapped` carry `TravelerUnits`, so a lot-wide disposition and a named-serial disposition are distinct cases and partial scrap of a serialized run records the exact units it consumed.
-
-`TravelerAmendment.Advance` owns the step-state arrow as one total generated dispatch, and `Disposition.Terminal` with `Accepted` supplies the `Deviated` target: an accepted terminal disposition completes the step, a refused terminal disposition scraps it, and a nonterminal disposition retains prior state. `SealAmendments` folds the sequence against the document key and per-step `TravelerStepState`, rejecting broken predecessors, non-monotone time, illegal transitions, and post-terminal events before emitting an immutable content-key chain. `FabricationFact.Traveler.Of` projects the sealed artifact's amendment-chain length onto `rasm.fabrication.traveler.amendments` through `Process/telemetry#FACT_PROJECTION` as kind `traveler`, and the amendment `Actor` carries the personal classification row from `Process/telemetry#CLASSIFICATION`.
+- Owner: `TravelerId`, `TravelerName`, `TravelerNote`, and `TravelerActor` own the four text regimes a traveler carries; `TravelerQuantity`, `TravelerStep`, `TravelerOperation`, and `TravelerSetup` own the ordinal regimes; `TravelerLocus` owns binding position; `TravelerControl` owns instructions; `TravelerReceiptCorpus` owns the admitted fan-in.
+- Law: text is typed by ITS OWN REGIME, never by one shared wrapper. An identifier a shop keys on, a human-facing name, a free narrative, and a person are four different admissions with four different transposition risks, and one owner covering all of them makes passing a hazard where an authority belongs a compile-clean mistake.
+- Law: `TravelerActor` carries the personal classification at ITS OWN declaration, so every actor and authority column inherits redaction from the type rather than from a per-field attribute a new column can forget.
+- Law: `TravelerControl` is one generated family over `TravelerLocus`. Global, step, operation, setup, and characteristic loci bind instructions; `Material` retains unit identity, and `Package` fixes the global locus with label, method, and destination policy. Every case is POSITIONAL over its base locus — a hand constructor beside the record's own is a second construction path.
+- Law: only the characteristic locus decides admission here; the routing loci prove membership later against the planned route, where the step, operation, and setup identities exist.
+- Law: `TravelerReceiptCorpus` derives its digital-product-passport identity from its sealed records, so no writable twin can diverge; an inspection link admits only where the named record actually carries the named feature, and a `HoldRelease` admits only where a carried `ProcedureReceipt` actually planned that hold point.
+- Growth: a control modality is one `TravelerControl` case; a sampling regime is one `TravelerSampling` case; a corpus row family is one column and one preimage row.
+- Packages: `Rasm.Element` (`AdmissionSlots`), `Rasm.Fabrication.Process` (`ContentKey`, `EgressKind`, `FabricationResult`, `InspectionFeature`, `PlannedStep`, `FabricationFault`, `Admission`), `Documentation/report` (`SealedRecord`, `Disposition`, `CharacteristicId`), `Joining/procedure` (`ProcedureReceipt`, `HoldPoint`, `HoldRelease`, `HoldPointKey`), `Spec` (`CapabilityReport`, `DfmReport`, `FeatureFrameReceipt`), `Fixturing/setups` (`SetupSchedule`), `Tooling/magazine` (`ToolChange`, `ToolAssembly`), `Posting/dialect` (`ProgramDelivery`, `PostDialect`), `Verify/estimation` (`CostReceipt`), UnitsNet, NodaTime, Thinktecture, LanguageExt.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
+using System;
+using System.Linq;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using System;
+using System.Text.Json.Serialization;
 using LanguageExt;
 using LanguageExt.Common;
 using LanguageExt.Traits;
 using NodaTime;
+using QuikGraph;
+using QuikGraph.Algorithms;
 using Rasm.Domain;
+using Rasm.Element.Projection;
 using Rasm.Fabrication.Fixturing;
 using Rasm.Fabrication.Ingress;
 using Rasm.Fabrication.Joining;
@@ -51,8 +53,8 @@ using static LanguageExt.Prelude;
 namespace Rasm.Fabrication.Documentation;
 
 // --- [TYPES] --------------------------------------------------------------------------------------------------------------------------------------
-// Rank orders the hierarchy of controls ascending by residual risk, so a safety fold reports the
-// weakest admitted control without re-deriving the ordering at each reader.
+// Rank orders the hierarchy of controls ascending by residual risk, so a safety fold reports the weakest admitted
+// control without re-deriving the ordering at each reader.
 [SmartEnum<string>]
 public sealed partial class SafetyControlLevel {
     public static readonly SafetyControlLevel Elimination    = new("elimination", rank: 0);
@@ -61,58 +63,151 @@ public sealed partial class SafetyControlLevel {
     public static readonly SafetyControlLevel Administrative = new("administrative", rank: 3);
     public static readonly SafetyControlLevel Protective     = new("protective", rank: 4);
 
-    private SafetyControlLevel(string key, int rank) : this(key) => Rank = rank;
-
     public int Rank { get; }
 }
 
+// The relation an edge of the planned route carries. A traveler orders work in sequence and transfers it between
+// fixtures; tagging the edge is what lets a witness report WHY two steps are ordered without a side map.
+[SmartEnum<string>]
+public sealed partial class TravelerRelation {
+    public static readonly TravelerRelation Sequence = new("sequence");
+    public static readonly TravelerRelation Fixture = new("fixture");
+}
+
 // --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
+// FOUR text regimes, four admissions. An identifier is keyed on, a name is displayed, a note is read, and an actor
+// is a person the classification rail redacts — one wrapper over all four admits every transposition between them.
 [ValueObject<string>]
-public readonly partial struct TravelerText {
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
-        value = value?.Trim() ?? string.Empty;
-        validationError = value.Length == 0 ? new ValidationError("traveler:text") : null;
+[ValidationError<FabricationFault>]
+public readonly partial struct TravelerId {
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref string value) {
+        value = value.Trim();
+        // An identifier is keyed on and printed on a label, so interior whitespace makes two rows that scan alike
+        // key apart; a name or a note carries no such constraint.
+        if (!Witness.Keyed(value) || value.Any(char.IsWhiteSpace))
+            validationError = Traveler.Refusal("id");
     }
+
+    public static Fin<TravelerId> Admit(string value) => Admission.OfValue<TravelerId, string>(value);
+}
+
+[ValueObject<string>]
+[ValidationError<FabricationFault>]
+public readonly partial struct TravelerName {
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref string value) {
+        value = value.Trim();
+        if (!Witness.Keyed(value))
+            validationError = Traveler.Refusal("name");
+    }
+
+    public static Fin<TravelerName> Admit(string value) => Admission.OfValue<TravelerName, string>(value);
+}
+
+[ValueObject<string>]
+[ValidationError<FabricationFault>]
+public readonly partial struct TravelerNote {
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref string value) {
+        value = value.Trim();
+        if (!Witness.Keyed(value))
+            validationError = Traveler.Refusal("note");
+    }
+
+    public static Fin<TravelerNote> Admit(string value) => Admission.OfValue<TravelerNote, string>(value);
+}
+
+// The person a step names. Classification rides the TYPE, so every actor and authority column redacts without a
+// per-column attribute a new column can forget.
+[ValueObject<string>]
+[ValidationError<FabricationFault>]
+[PersonalData]
+public readonly partial struct TravelerActor {
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref string value) {
+        value = value.Trim();
+        if (!Witness.Keyed(value))
+            validationError = Traveler.Refusal("actor");
+    }
+
+    public static Fin<TravelerActor> Admit(string value) => Admission.OfValue<TravelerActor, string>(value);
 }
 
 [ValueObject<int>]
+[ValidationError<FabricationFault>]
 public readonly partial struct TravelerQuantity {
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) =>
-        validationError = value < 1 ? new ValidationError("traveler:quantity") : null;
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref int value) {
+        if (value < 1)
+            validationError = Traveler.Refusal("quantity");
+    }
+
+    public static Fin<TravelerQuantity> Admit(int value) => Admission.OfValue<TravelerQuantity, int>(value);
 }
 
 [ValueObject<int>]
+[ValidationError<FabricationFault>]
 public readonly partial struct TravelerStep {
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) =>
-        validationError = value < 0 ? new ValidationError("traveler:step") : null;
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref int value) {
+        if (value < 0)
+            validationError = Traveler.Refusal("step");
+    }
+
+    public static Fin<TravelerStep> Admit(int value) => Admission.OfValue<TravelerStep, int>(value);
 }
 
 [ValueObject<int>]
+[ValidationError<FabricationFault>]
 public readonly partial struct TravelerOperation {
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) =>
-        validationError = value < 0 ? new ValidationError("traveler:operation") : null;
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref int value) {
+        if (value < 0)
+            validationError = Traveler.Refusal("operation");
+    }
+
+    public static Fin<TravelerOperation> Admit(int value) => Admission.OfValue<TravelerOperation, int>(value);
 }
 
 [ValueObject<int>]
+[ValidationError<FabricationFault>]
 public readonly partial struct TravelerSetup {
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) =>
-        validationError = value < 0 ? new ValidationError("traveler:setup") : null;
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(ref FabricationFault? validationError, ref int value) {
+        if (value < 0)
+            validationError = Traveler.Refusal("setup");
+    }
+
+    public static Fin<TravelerSetup> Admit(int value) => Admission.OfValue<TravelerSetup, int>(value);
 }
 
 // Lot and serialized dispositions remain separate; a count beside serials would force consumer sniffing.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+[JsonPolymorphic(TypeDiscriminatorPropertyName = "kind")]
+[JsonDerivedType(typeof(Lot), "lot")]
+[JsonDerivedType(typeof(Serialized), "serialized")]
 public abstract partial record TravelerUnits {
     private TravelerUnits() { }
 
     public sealed record Lot(TravelerQuantity Value) : TravelerUnits;
-    public sealed record Serialized(Seq<TravelerText> Values) : TravelerUnits;
+    public sealed record Serialized(Seq<TravelerId> Values) : TravelerUnits;
 
     public int Count => Switch(
         lot:        static value => value.Value.ToValue(),
         serialized: static value => value.Values.Count);
+
+    public bool Valid => Switch(
+        lot:        static _ => true,
+        serialized: static value => !value.Values.IsEmpty && value.Values.Distinct().Count == value.Values.Count);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+[JsonPolymorphic(TypeDiscriminatorPropertyName = "kind")]
+[JsonDerivedType(typeof(Every), "every")]
+[JsonDerivedType(typeof(FirstArticle), "first-article")]
+[JsonDerivedType(typeof(Skip), "skip")]
+[JsonDerivedType(typeof(AttributePlan), "attribute-plan")]
 public abstract partial record TravelerSampling {
     private TravelerSampling() { }
 
@@ -120,9 +215,23 @@ public abstract partial record TravelerSampling {
     public sealed record FirstArticle : TravelerSampling;
     public sealed record Skip(TravelerQuantity Interval) : TravelerSampling;
     public sealed record AttributePlan(TravelerQuantity SampleSize, int Accept, int Reject) : TravelerSampling;
+
+    public bool Valid => Switch(
+        every: static _ => true,
+        firstArticle: static _ => true,
+        skip: static _ => true,
+        attributePlan: static value => value.Accept >= 0
+            && value.Reject == value.Accept + 1
+            && value.Accept < value.SampleSize.ToValue());
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+[JsonPolymorphic(TypeDiscriminatorPropertyName = "kind")]
+[JsonDerivedType(typeof(Global), "global")]
+[JsonDerivedType(typeof(Step), "step")]
+[JsonDerivedType(typeof(Operation), "operation")]
+[JsonDerivedType(typeof(Setup), "setup")]
+[JsonDerivedType(typeof(Characteristic), "characteristic")]
 public abstract partial record TravelerLocus {
     private TravelerLocus() { }
 
@@ -134,235 +243,92 @@ public abstract partial record TravelerLocus {
 }
 
 [ComplexValueObject]
+[ValidationError<FabricationFault>]
 public sealed partial class TravelerIdentity {
-    public TravelerText WorkOrder { get; }
-    public TravelerText PartNumber { get; }
-    public TravelerText Revision { get; }
+    public TravelerId WorkOrder { get; }
+    public TravelerId PartNumber { get; }
+    public TravelerId Revision { get; }
     public TravelerQuantity Quantity { get; }
-    public Option<TravelerText> HeatLot { get; }
-    public Seq<TravelerText> Serials { get; }
+    public Option<TravelerId> HeatLot { get; }
+    public Seq<TravelerId> Serials { get; }
 
+    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref ValidationError? validationError,
-        ref TravelerText workOrder,
-        ref TravelerText partNumber,
-        ref TravelerText revision,
+        ref FabricationFault? validationError,
+        ref TravelerId workOrder,
+        ref TravelerId partNumber,
+        ref TravelerId revision,
         ref TravelerQuantity quantity,
-        ref Option<TravelerText> heatLot,
-        ref Seq<TravelerText> serials) {
-        bool valuesValid = workOrder != default && partNumber != default && revision != default && quantity != default
-            && heatLot.ForAll(static value => value != default);
-        bool serialsValid = serials.ForAll(static value => value != default)
-            && serials.Distinct().Count == serials.Count
-            && (serials.IsEmpty || serials.Count == quantity.ToValue());
-        if (!valuesValid || !serialsValid)
-            validationError = new ValidationError("traveler:identity");
+        ref Option<TravelerId> heatLot,
+        ref Seq<TravelerId> serials) {
+        // A serialized run names every unit exactly once; an unserialized run names none. A partial roster is the
+        // state that makes a scrap disposition unable to say which units it consumed.
+        if (serials.Distinct().Count != serials.Count
+            || (!serials.IsEmpty && serials.Count != quantity.ToValue()))
+            validationError = Traveler.Refusal("identity");
     }
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record TravelerControl {
-    private TravelerControl(TravelerLocus locus) => Locus = locus;
+[JsonPolymorphic(TypeDiscriminatorPropertyName = "kind")]
+[JsonDerivedType(typeof(Work), "work")]
+[JsonDerivedType(typeof(Hold), "hold")]
+[JsonDerivedType(typeof(Safety), "safety")]
+[JsonDerivedType(typeof(Material), "material")]
+[JsonDerivedType(typeof(Resource), "resource")]
+[JsonDerivedType(typeof(Inspect), "inspect")]
+[JsonDerivedType(typeof(Approve), "approve")]
+[JsonDerivedType(typeof(Package), "package")]
+public abstract partial record TravelerControl(TravelerLocus Locus) {
+    public sealed record Work(TravelerLocus Locus, TravelerNote Instruction) : TravelerControl(Locus);
 
-    public TravelerLocus Locus { get; }
+    public sealed record Hold(TravelerLocus Locus, TravelerActor Authority) : TravelerControl(Locus);
 
-    public sealed record Work : TravelerControl {
-        public Work(TravelerLocus locus, TravelerText instruction) : base(locus) => Instruction = instruction;
-        public TravelerText Instruction { get; }
-    }
+    public sealed record Safety(
+        TravelerLocus Locus,
+        TravelerNote Hazard,
+        SafetyControlLevel Level,
+        TravelerNote Control,
+        Seq<TravelerName> ProtectiveEquipment) : TravelerControl(Locus);
 
-    public sealed record Hold : TravelerControl {
-        public Hold(TravelerLocus locus, TravelerText authority) : base(locus) => Authority = authority;
-        public TravelerText Authority { get; }
-    }
+    public sealed record Material(
+        TravelerLocus Locus,
+        TravelerId Item,
+        TravelerId Lot,
+        IQuantity Quantity) : TravelerControl(Locus);
 
-    public sealed record Safety : TravelerControl {
-        public Safety(
-            TravelerLocus locus,
-            TravelerText hazard,
-            SafetyControlLevel level,
-            TravelerText control,
-            Seq<TravelerText> protectiveEquipment)
-            : base(locus) => (Hazard, Level, Control, ProtectiveEquipment) = (hazard, level, control, protectiveEquipment);
-        public TravelerText Hazard { get; }
-        public SafetyControlLevel Level { get; }
-        public TravelerText Control { get; }
-        public Seq<TravelerText> ProtectiveEquipment { get; }
-    }
+    public sealed record Resource(TravelerLocus Locus, TravelerName Name, TravelerQuantity Quantity) : TravelerControl(Locus);
 
-    public sealed record Material : TravelerControl {
-        public Material(TravelerLocus locus, TravelerText item, TravelerText lot, IQuantity quantity)
-            : base(locus) => (Item, Lot, Quantity) = (item, lot, quantity);
-        public TravelerText Item { get; }
-        public TravelerText Lot { get; }
-        public IQuantity Quantity { get; }
-    }
+    public sealed record Inspect(
+        TravelerLocus Locus,
+        TravelerName Method,
+        TravelerId Gauge,
+        TravelerSampling Sampling,
+        TravelerActor Authority) : TravelerControl(Locus);
 
-    public sealed record Resource : TravelerControl {
-        public Resource(TravelerLocus locus, TravelerText name, TravelerQuantity quantity)
-            : base(locus) => (Name, Quantity) = (name, quantity);
-        public TravelerText Name { get; }
-        public TravelerQuantity Quantity { get; }
-    }
+    public sealed record Approve(TravelerLocus Locus, TravelerName Role, TravelerActor Authority) : TravelerControl(Locus);
 
-    public sealed record Inspect : TravelerControl {
-        public Inspect(
-            TravelerLocus locus,
-            TravelerText method,
-            TravelerText gauge,
-            TravelerSampling sampling,
-            TravelerText authority)
-            : base(locus) => (Method, Gauge, Sampling, Authority) = (method, gauge, sampling, authority);
-        public TravelerText Method { get; }
-        public TravelerText Gauge { get; }
-        public TravelerSampling Sampling { get; }
-        public TravelerText Authority { get; }
-    }
+    // Packaging is a whole-order act, so its locus is fixed rather than caller-supplied.
+    public sealed record Package(TravelerName Label, TravelerName Method, TravelerName Destination)
+        : TravelerControl(new TravelerLocus.Global());
 
-    public sealed record Approve : TravelerControl {
-        public Approve(TravelerLocus locus, TravelerText role, TravelerText authority)
-            : base(locus) => (Role, Authority) = (role, authority);
-        public TravelerText Role { get; }
-        public TravelerText Authority { get; }
-    }
-
-    public sealed record Package : TravelerControl {
-        public Package(TravelerText label, TravelerText method, TravelerText destination)
-            : base(new TravelerLocus.Global()) => (Label, Method, Destination) = (label, method, destination);
-        public TravelerText Label { get; }
-        public TravelerText Method { get; }
-        public TravelerText Destination { get; }
-    }
+    // Only the DIMENSIONED and cross-field invariants the generated identities cannot state.
+    public bool Valid => Switch(
+        work: static _ => true,
+        hold: static _ => true,
+        safety: static _ => true,
+        material: static value => value.Quantity is not null
+            && double.IsFinite((double)value.Quantity.Value) && (double)value.Quantity.Value > 0.0,
+        resource: static _ => true,
+        inspect: static value => value.Sampling.Valid,
+        approve: static _ => true,
+        package: static _ => true);
 }
-
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record TravelerAmendment {
-    private TravelerAmendment(ContentKey previous, TravelerStep step, TravelerText actor, Instant at, Seq<ContentKey> evidence) =>
-        (Previous, Step, Actor, At, Evidence) = (previous, step, actor, at, evidence);
-
-    public ContentKey Previous { get; }
-    public TravelerStep Step { get; }
-    [PersonalData]
-    public TravelerText Actor { get; }
-    public Instant At { get; }
-    public Seq<ContentKey> Evidence { get; }
-
-    public sealed record Completed : TravelerAmendment {
-        public Completed(
-            ContentKey previous,
-            TravelerStep step,
-            TravelerText actor,
-            Instant started,
-            Instant completed,
-            Duration actual,
-            Option<CostReceipt> estimate,
-            Seq<ContentKey> evidence)
-            : base(previous, step, actor, completed, evidence) => (Started, Actual, Estimate) = (started, actual, estimate);
-        public Instant Started { get; }
-        public Duration Actual { get; }
-        public Option<CostReceipt> Estimate { get; }
-        public Option<Duration> Variance => Estimate.Map(value => Actual - value.MachineTime);
-    }
-
-    public sealed record Held : TravelerAmendment {
-        public Held(ContentKey previous, TravelerStep step, TravelerText actor, Instant at, TravelerText cause, Seq<ContentKey> evidence)
-            : base(previous, step, actor, at, evidence) => Cause = cause;
-        public TravelerText Cause { get; }
-    }
-
-    public sealed record Released : TravelerAmendment {
-        public Released(
-            ContentKey previous,
-            TravelerStep step,
-            TravelerText actor,
-            Instant at,
-            TravelerText authority,
-            ContentKey program,
-            ProgramDelivery delivery,
-            Seq<ContentKey> evidence)
-            : base(previous, step, actor, at, evidence) => (Authority, Program, Delivery) = (authority, program, delivery);
-        public TravelerText Authority { get; }
-        public ContentKey Program { get; }
-        public ProgramDelivery Delivery { get; }
-    }
-
-    public sealed record Deviated : TravelerAmendment {
-        public Deviated(
-            ContentKey previous,
-            TravelerStep step,
-            TravelerText actor,
-            Instant at,
-            TravelerText deviation,
-            Disposition disposition,
-            TravelerUnits units,
-            TravelerText authority,
-            Seq<ContentKey> evidence)
-            : base(previous, step, actor, at, evidence) =>
-            (Deviation, Disposition, Units, Authority) = (deviation, disposition, units, authority);
-        public TravelerText Deviation { get; }
-        public Disposition Disposition { get; }
-        public TravelerUnits Units { get; }
-        public TravelerText Authority { get; }
-    }
-
-    public sealed record Scrapped : TravelerAmendment {
-        public Scrapped(
-            ContentKey previous,
-            TravelerStep step,
-            TravelerText actor,
-            Instant at,
-            TravelerText reason,
-            TravelerUnits units,
-            TravelerText authority,
-            Seq<ContentKey> evidence)
-            : base(previous, step, actor, at, evidence) => (Reason, Units, Authority) = (reason, units, authority);
-        public TravelerText Reason { get; }
-        public TravelerUnits Units { get; }
-        public TravelerText Authority { get; }
-    }
-
-    // Total over the case family: a sixth amendment breaks this dispatch at the owner rather than
-    // falling through a catch-all into a refusal that reads like a legal transition.
-    public Fin<TravelerStepState> Advance(TravelerStepState prior, Op key) => Switch(
-        state: (Prior: prior, Key: key),
-        completed: static (state, _) => state.Prior == TravelerStepState.Open
-            ? Fin.Succ(TravelerStepState.Completed)
-            : Fin.Fail<TravelerStepState>(state.Key.InvalidInput()),
-        held: static (state, _) => state.Prior == TravelerStepState.Open
-            ? Fin.Succ(TravelerStepState.Held)
-            : Fin.Fail<TravelerStepState>(state.Key.InvalidInput()),
-        released: static (state, value) => state.Prior == TravelerStepState.Held && value.Delivery.Verified
-            ? Fin.Succ(TravelerStepState.Open)
-            : Fin.Fail<TravelerStepState>(state.Key.InvalidInput()),
-        deviated: static (state, value) => state.Prior.Terminal
-            ? Fin.Fail<TravelerStepState>(state.Key.InvalidInput())
-            : Fin.Succ(value.Disposition.Terminal
-                ? value.Disposition.Accepted ? TravelerStepState.Completed : TravelerStepState.Scrapped
-                : state.Prior),
-        scrapped: static (state, _) => state.Prior.Terminal
-            ? Fin.Fail<TravelerStepState>(state.Key.InvalidInput())
-            : Fin.Succ(TravelerStepState.Scrapped));
-}
-
-[SmartEnum<int>]
-public sealed partial class TravelerStepState {
-    public static readonly TravelerStepState Open = new(0, terminal: false);
-    public static readonly TravelerStepState Held = new(1, terminal: false);
-    public static readonly TravelerStepState Completed = new(2, terminal: true);
-    public static readonly TravelerStepState Scrapped = new(3, terminal: true);
-
-    public bool Terminal { get; }
-}
-
-public sealed record TravelerAmendmentReceipt(
-    ContentKey Key,
-    TravelerAmendment Amendment,
-    TravelerArtifactDescriptor Descriptor,
-    ReadOnlyMemory<byte> Canonical);
 
 public sealed record TravelerInspectionLink(InspectionFeature Feature, ContentKey Record);
 
 [ComplexValueObject]
+[ValidationError<FabricationFault>]
 public sealed partial class TravelerReceiptCorpus {
     public TravelerIdentity Identity { get; }
     public Seq<ToolChange> ToolChanges { get; }
@@ -378,11 +344,21 @@ public sealed partial class TravelerReceiptCorpus {
         .Distinct()
         .Head;
     public Seq<TravelerInspectionLink> Inspections { get; }
+
+    // The as-run half of the procedure plane's hold points. The plan rides `ProcedureReceipt`, so the release is the
+    // one thing this corpus adds: a blocking hold advances against a party's attested release, never against an
+    // instruction a reader would have to interpret off a rendered sheet.
+    public Seq<HoldRelease> Releases { get; }
     public Seq<TravelerControl> Controls { get; }
     public Seq<TravelerAmendment> Amendments { get; }
 
+    // Every blocking hold the carried procedures plan, unreleased by the carried attestations — read through the
+    // procedure plane's OWN satisfaction law, so this page states no second rule about what releases a hold.
+    public Seq<HoldPoint> UnreleasedHolds => Procedures.Bind(receipt => receipt.Plan.Unreleased(Releases));
+
+    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref ValidationError? validationError,
+        ref FabricationFault? validationError,
         ref TravelerIdentity identity,
         ref Seq<ToolChange> toolChanges,
         ref Seq<ToolAssembly> toolAssemblies,
@@ -393,89 +369,187 @@ public sealed partial class TravelerReceiptCorpus {
         ref Seq<ProcedureReceipt> procedures,
         ref Seq<SealedRecord> records,
         ref Seq<TravelerInspectionLink> inspections,
+        ref Seq<HoldRelease> releases,
         ref Seq<TravelerControl> controls,
         ref Seq<TravelerAmendment> amendments) {
-        bool membersValid = identity is not null
-            && toolChanges.ForAll(static value => value is not null)
-            && toolAssemblies.ForAll(static value => value is not null)
-            && setups.ForAll(static value => value is not null)
-            && frames.ForAll(static value => value is not null)
-            && capabilities.ForAll(static value => value is not null)
-            && manufacturability.ForAll(static value => value is not null)
-            && procedures.ForAll(static value => value is not null)
-            && records.ForAll(static value => value is not null)
-            && inspections.ForAll(static value => value is not null
-                && value.Feature is not null && value.Record is not null)
-            && controls.ForAll(static value => value is not null)
-            && amendments.ForAll(static value => value is not null);
-        bool recordsUnique = membersValid
-            && records.Fold(Set<ContentKey>(), static (keys, value) => keys.Add(value.Key)).Count == records.Count;
-        bool passportBound = membersValid
-            && records.Bind(static value => value.DigitalProductPassport.ToSeq()).Distinct().Count <= 1;
-        bool inspectionsBound = membersValid
-            && inspections.Distinct().Count == inspections.Count
+        bool recordsUnique = records.Map(static value => value.Key).Distinct().Count == records.Count;
+        bool passportBound = records.Bind(static value => value.DigitalProductPassport.ToSeq()).Distinct().Count <= 1;
+        bool inspectionsBound = inspections.Distinct().Count == inspections.Count
             && inspections.ForAll(link => records.Exists(record => record.Key == link.Record
                 && record.Records.Bind(static value => value.InspectionFeatures).Contains(link.Feature)));
-        if (!membersValid || !recordsUnique || !passportBound || !inspectionsBound
-            || !controls.ForAll(ValidControl) || !amendments.ForAll(ValidAmendment))
-            validationError = new ValidationError("traveler:corpus");
+        // A release attests a hold point some carried procedure actually planned; one naming a hold nobody demanded
+        // is an attestation for a gate that never existed, which is exactly the row a forged sign-off looks like.
+        Set<HoldPointKey> planned = toSet(procedures.Bind(static receipt => receipt.Plan.Holds)
+            .Map(static hold => hold.Key));
+        bool releasesBound = releases.ForAll(release => planned.Contains(release.Point));
+        if (!recordsUnique || !passportBound || !inspectionsBound || !releasesBound
+            || !controls.ForAll(static control => control.Valid)
+            || !amendments.ForAll(static amendment => amendment.Valid))
+            validationError = Traveler.Refusal("corpus");
+    }
+}
+```
+
+## [03]-[TRAVELER_DOCUMENT]
+
+- Owner: `TravelerSection` owns the document model; `TravelerMarks` owns drawing-mark reconciliation; `TravelerAmendment` owns execution events and the step-state arrow; `TravelerStepState` owns step lifecycle; `TravelerDocument` owns the assembled shape.
+- Law: `TravelerSection.Outputs` retains the complete `FabricationResult` sequence and document dialect instead of reducing program, projection, placement, additive, verification, inspection, plan, forming, motion, or prior-traveler evidence to selected fields. Section order follows construction, so no parallel rank roster restates the closed family.
+- Law: `TravelerStepState` carries NOT-STARTED as a real state. A step no one has touched and a step someone opened are different facts, and collapsing them makes the first event on a step indistinguishable from the second — which is exactly the transition a route-precedence gate has to refuse.
+- Law: `TravelerAmendment` models execution without mutating the planned document; `Completed`, `Held`, `Released`, `Deviated`, and `Scrapped` record predecessor key, admitted step and actor, timestamp, evidence, and case-specific duration or disposition. Every case is POSITIONAL over its base columns.
+- Law: `Released.Delivery` retains the verified controller handoff that authorizes the held-to-open edge, and `Released.Program` names the planned release artifact that handoff must prove — the corpus gate admits a release only when `Delivery.Image` matches `Program` by kind and digest, so a verified transfer of the wrong program never opens a held step.
+- Law: `Deviated` and `Scrapped` carry `TravelerUnits`, so a lot-wide disposition and a named-serial disposition are distinct cases and partial scrap of a serialized run records the exact units it consumed.
+- Law: `TravelerAmendment.Advance` owns the step-state arrow as one total generated dispatch, and `Disposition.Terminal` with `Accepted` supplies the `Deviated` target: an accepted terminal disposition completes the step, a refused terminal disposition scraps it, and a nonterminal disposition retains prior state.
+- Law: marks reconcile by NAME against the declared identity, and a row absent from the drawing raises no divergence — the sheet carries no such mark. Every tagged mark under a row is read, so a sheet carrying two values for one key prints both contradictions.
+- Growth: an amendment modality is one case with its own `Advance` arm; a section is one case; a reconciled mark row is one entry in the reconcilable roster.
+
+```csharp signature
+// --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+[JsonPolymorphic(TypeDiscriminatorPropertyName = "kind")]
+[JsonDerivedType(typeof(Completed), "completed")]
+[JsonDerivedType(typeof(Held), "held")]
+[JsonDerivedType(typeof(Released), "released")]
+[JsonDerivedType(typeof(Deviated), "deviated")]
+[JsonDerivedType(typeof(Scrapped), "scrapped")]
+public abstract partial record TravelerAmendment(
+    ContentKey Previous,
+    TravelerStep Step,
+    TravelerActor Actor,
+    Instant At,
+    Seq<ContentKey> Evidence) {
+    public sealed record Completed(
+        ContentKey Previous,
+        TravelerStep Step,
+        TravelerActor Actor,
+        Instant Started,
+        Instant At,
+        Duration Actual,
+        Option<CostReceipt> Estimate,
+        Seq<ContentKey> Evidence) : TravelerAmendment(Previous, Step, Actor, At, Evidence) {
+        public Option<Duration> Variance => Estimate.Map(value => Actual - value.MachineTime);
     }
 
-    // Only the characteristic locus decides admission; the routing loci prove membership later
-    // against the planned route, where the step, operation, and setup identities exist.
-    static bool ValidControl(TravelerControl control) =>
-        control.Locus is not null
-        && (control.Locus is not TravelerLocus.Characteristic characteristic || characteristic.Value != default)
-        && control.Switch(
-            work: static value => value.Instruction != default,
-            hold: static value => value.Authority != default,
-            safety: static value => value.Hazard != default && value.Control != default && value.Level is not null
-                && value.ProtectiveEquipment.ForAll(static item => item != default),
-            material: static value => value.Item != default && value.Lot != default && value.Quantity is not null
-                && double.IsFinite((double)value.Quantity.Value) && (double)value.Quantity.Value > 0.0,
-            resource: static value => value.Name != default && value.Quantity != default,
-            inspect: static value => value.Method != default && value.Gauge != default
-                && ValidSampling(value.Sampling) && value.Authority != default,
-            approve: static value => value.Role != default && value.Authority != default,
-            package: static value => value.Label != default && value.Method != default && value.Destination != default);
+    public sealed record Held(
+        ContentKey Previous,
+        TravelerStep Step,
+        TravelerActor Actor,
+        Instant At,
+        TravelerNote Cause,
+        Seq<ContentKey> Evidence) : TravelerAmendment(Previous, Step, Actor, At, Evidence);
 
-    static bool ValidSampling(TravelerSampling sampling) =>
-        sampling is not null && sampling.Switch(
-            every: static _ => true,
-            firstArticle: static _ => true,
-            skip: static value => value.Interval != default,
-            attributePlan: static value => value.SampleSize != default
-                && value.Accept >= 0
-                && value.Reject == value.Accept + 1
-                && value.Accept < value.SampleSize.ToValue());
+    public sealed record Released(
+        ContentKey Previous,
+        TravelerStep Step,
+        TravelerActor Actor,
+        Instant At,
+        TravelerActor Authority,
+        ContentKey Program,
+        ProgramDelivery Delivery,
+        Seq<ContentKey> Evidence) : TravelerAmendment(Previous, Step, Actor, At, Evidence);
 
-    static bool ValidUnits(TravelerUnits units) =>
-        units is not null && units.Switch(
-            lot: static value => value.Value != default,
-            serialized: static value => !value.Values.IsEmpty
-                && value.Values.ForAll(static serial => serial != default)
-                && value.Values.Distinct().Count == value.Values.Count);
+    public sealed record Deviated(
+        ContentKey Previous,
+        TravelerStep Step,
+        TravelerActor Actor,
+        Instant At,
+        TravelerNote Deviation,
+        Disposition Disposition,
+        TravelerUnits Units,
+        TravelerActor Authority,
+        Seq<ContentKey> Evidence) : TravelerAmendment(Previous, Step, Actor, At, Evidence);
 
-    static bool ValidAmendment(TravelerAmendment amendment) =>
-        amendment.Previous is not null && amendment.Actor != default
-        && amendment.Evidence.ForAll(static value => value is not null)
-        && amendment.Switch(
-            completed: static value => value.Started <= value.At
-                && value.Actual >= Duration.Zero
-                && value.Actual <= value.At - value.Started
-                && value.Estimate.ForAll(static estimate => estimate is not null && estimate.MachineTime >= Duration.Zero),
-            held: static value => value.Cause != default,
-            // Release admission binds the handoff to ITS planned artifact: a verified transfer of the
-            // wrong program is refused here, before any step-state arrow can read it.
-            released: static value => value.Authority != default && value.Program is not null
-                && value.Delivery is { Verified: true } delivery
-                && delivery.Image.Kind == value.Program.Kind && delivery.Image.Digest == value.Program.Digest,
-            deviated: static value => value.Deviation != default && value.Disposition is not null
-                && ValidUnits(value.Units) && value.Authority != default,
-            scrapped: static value => value.Reason != default && ValidUnits(value.Units) && value.Authority != default);
+    public sealed record Scrapped(
+        ContentKey Previous,
+        TravelerStep Step,
+        TravelerActor Actor,
+        Instant At,
+        TravelerNote Reason,
+        TravelerUnits Units,
+        TravelerActor Authority,
+        Seq<ContentKey> Evidence) : TravelerAmendment(Previous, Step, Actor, At, Evidence);
+
+    // Release admission binds the handoff to ITS planned artifact: a verified transfer of the wrong program is
+    // refused here, before any step-state arrow can read it.
+    public bool Valid => Switch(
+        completed: static value => value.Started <= value.At
+            && value.Actual >= Duration.Zero
+            && value.Actual <= value.At - value.Started,
+        held: static _ => true,
+        released: static value => value.Delivery is { Verified: true } delivery
+            && delivery.Image.Kind == value.Program.Kind && delivery.Image.Digest == value.Program.Digest,
+        deviated: static value => value.Units.Valid,
+        scrapped: static value => value.Units.Valid);
+
+    // Total over the case family: a sixth amendment breaks this dispatch at the owner rather than falling through
+    // a catch-all into a refusal that reads like a legal transition.
+    // The whole arrow lives HERE, NOT-STARTED included: the first completion or hold on an untouched step opens it
+    // and lands, a release demands a held step, a deviation demands work already under way, and scrap ends any
+    // non-terminal step including one never started — material scrapped before its first operation is a real event.
+    public Fin<TravelerStepState> Advance(TravelerStepState prior) => Switch(
+        state: prior,
+        completed: static (state, _) => state.Terminal || state == TravelerStepState.Held
+            ? Fin.Fail<TravelerStepState>(Traveler.Transition(state, "completed"))
+            : Fin.Succ(TravelerStepState.Completed),
+        held: static (state, _) => state.Terminal || state == TravelerStepState.Held
+            ? Fin.Fail<TravelerStepState>(Traveler.Transition(state, "held"))
+            : Fin.Succ(TravelerStepState.Held),
+        released: static (state, _) => state == TravelerStepState.Held
+            ? Fin.Succ(TravelerStepState.Open)
+            : Fin.Fail<TravelerStepState>(Traveler.Transition(state, "released")),
+        deviated: static (state, value) => state.Terminal || !state.Started
+            ? Fin.Fail<TravelerStepState>(Traveler.Transition(state, "deviated"))
+            : Fin.Succ(value.Disposition.Terminal
+                ? value.Disposition.Accepted ? TravelerStepState.Completed : TravelerStepState.Scrapped
+                : state),
+        scrapped: static (state, _) => state.Terminal
+            ? Fin.Fail<TravelerStepState>(Traveler.Transition(state, "scrapped"))
+            : Fin.Succ(TravelerStepState.Scrapped));
 }
 
+// NOT-STARTED is a real state: a step no one has touched is not an open step, and the difference is what a
+// route-precedence gate reads when it refuses work opened out of order.
+[SmartEnum<int>]
+public sealed partial class TravelerStepState {
+    public static readonly TravelerStepState NotStarted = new(0, terminal: false, started: false);
+    public static readonly TravelerStepState Open = new(1, terminal: false, started: true);
+    public static readonly TravelerStepState Held = new(2, terminal: false, started: true);
+    public static readonly TravelerStepState Completed = new(3, terminal: true, started: true);
+    public static readonly TravelerStepState Scrapped = new(4, terminal: true, started: true);
+
+    public bool Terminal { get; }
+    public bool Started { get; }
+}
+
+public sealed record TravelerAmendmentReceipt(
+    ContentKey Key,
+    TravelerAmendment Amendment,
+    TravelerArtifactDescriptor Descriptor,
+    ReadOnlyMemory<byte> Rendering);
+
+// The route walk's own outputs, NAMED: the step count the sort ordered, the deepest chain it measured, the
+// release frontier its sinks and roots name, and the four dangling classes the binding gate counted. A consumer
+// reading route depth re-derives nothing, and a planner sees all four break classes in one verdict.
+public sealed record RouteWitness(
+    int Steps,
+    int Depth,
+    Seq<int> Roots,
+    Seq<int> Sinks,
+    int DanglingControls,
+    int DanglingAmendments,
+    int DanglingInspections,
+    int DanglingPrograms,
+    int UnreleasedHolds);
+
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+[JsonPolymorphic(TypeDiscriminatorPropertyName = "kind")]
+[JsonDerivedType(typeof(Header), "header")]
+[JsonDerivedType(typeof(Route), "route")]
+[JsonDerivedType(typeof(Tooling), "tooling")]
+[JsonDerivedType(typeof(Specification), "specification")]
+[JsonDerivedType(typeof(Procedure), "procedure")]
+[JsonDerivedType(typeof(Outputs), "outputs")]
+[JsonDerivedType(typeof(Quality), "quality")]
+[JsonDerivedType(typeof(Marks), "marks")]
 public abstract partial record TravelerSection {
     private TravelerSection() { }
 
@@ -490,7 +564,8 @@ public abstract partial record TravelerSection {
         Seq<PlannedStep> Steps,
         Seq<SetupSchedule> Setups,
         Seq<StockSnapshot> Stock,
-        Seq<TravelerControl> Controls) : TravelerSection;
+        Seq<TravelerControl> Controls,
+        RouteWitness Witness) : TravelerSection;
     public sealed record Tooling(Seq<ToolChange> Changes, Seq<ToolAssembly> Assemblies) : TravelerSection;
     public sealed record Specification(
         Seq<FeatureFrameReceipt> Frames,
@@ -498,7 +573,10 @@ public abstract partial record TravelerSection {
         Seq<DfmReport> Manufacturability) : TravelerSection;
     public sealed record Procedure(Seq<ProcedureReceipt> Receipts) : TravelerSection;
     public sealed record Outputs(Option<PostDialect> Dialect, Seq<FabricationResult> Results) : TravelerSection;
-    public sealed record Quality(Seq<SealedRecord> Records, Seq<TravelerInspectionLink> Inspections) : TravelerSection;
+    public sealed record Quality(
+        Seq<SealedRecord> Records,
+        Seq<TravelerInspectionLink> Inspections,
+        Seq<HoldRelease> Releases) : TravelerSection;
     // Marks carry the drawing's own typed rows: Keyed holds the tag-name read a shop looks a part mark or heat
     // number up by, and Free holds the text and paragraph runs a mark carries with no key. Reconciled names every
     // keyed row whose value contradicts the caller-supplied identity, so a traveler printed against a superseded
@@ -506,12 +584,14 @@ public abstract partial record TravelerSection {
     public sealed record Marks(
         Map<string, Arr<ProfileMarking>> Keyed,
         Seq<ProfileMarking> Free,
-        Seq<(string Row, string Drawing, string Declared)> Reconciled) : TravelerSection;
+        Seq<MarkDivergence> Reconciled) : TravelerSection;
 }
 
-// Marking reads: the traveler resolves part identity against the drawing rather than re-parsing an entity sweep it
-// never receives. PartMark and HeatNumber are the two rows a shop floor keys on, so they reconcile by name against
-// TravelerIdentity while every other keyed row rides through unreconciled.
+public sealed record MarkDivergence(string Row, string Drawing, string Declared);
+
+// Marking reads: the traveler resolves part identity against the drawing rather than re-parsing an entity sweep
+// it never receives. PartMark and HeatNumber are the two rows a shop floor keys on, so they reconcile by name
+// against TravelerIdentity while every other keyed row rides through unreconciled.
 internal static class TravelerMarks {
     const string PartMarkRow = "PartMark";
     const string HeatNumberRow = "HeatNumber";
@@ -530,22 +610,24 @@ internal static class TravelerMarks {
                 .Bind(row => Divergence(keyed, row.Item1, row.Item2)));
     }
 
-    // Rows absent from the drawing raise no divergence — the sheet carries no such mark; a row present with a
-    // different value is the contradiction a traveler prints. EVERY tagged mark under the row is read, so a sheet
-    // carrying two values for one key prints both contradictions: a head-only read hides every later mark behind
-    // whichever one the drawing happened to author first, which is exactly the mark a shop floor mis-keys on.
-    static Seq<(string Row, string Drawing, string Declared)> Divergence(
-        Map<string, Arr<ProfileMarking>> keyed, string row, TravelerText declared) =>
+    // A row present with a different value is the contradiction a traveler prints. EVERY tagged mark under the row
+    // is read, so a sheet carrying two values for one key prints both: a head-only read hides every later mark
+    // behind whichever one the drawing happened to author first, which is exactly the mark a shop mis-keys on.
+    static Seq<MarkDivergence> Divergence(
+        Map<string, Arr<ProfileMarking>> keyed, string row, TravelerId declared) =>
         keyed.Find(row).ToSeq()
             .Bind(static marks => marks.ToSeq())
             .Choose(static mark => mark.Content is MarkingContent.Tag tag ? Some(tag.Type.Text) : None)
             .Filter(text => !string.Equals(text, declared.ToValue(), StringComparison.Ordinal))
-            .Map(text => (row, text, declared.ToValue()));
+            .Map(text => new MarkDivergence(row, text, declared.ToValue()));
 }
 
 public sealed record TravelerDocument(Instant StampedAt, Seq<TravelerSection> Sections, Seq<ContentKey> Composed);
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+[JsonPolymorphic(TypeDiscriminatorPropertyName = "kind")]
+[JsonDerivedType(typeof(Document), "document")]
+[JsonDerivedType(typeof(Amendment), "amendment")]
 public abstract partial record TravelerCanonicalSource {
     private TravelerCanonicalSource() { }
 
@@ -554,37 +636,52 @@ public abstract partial record TravelerCanonicalSource {
 }
 
 public sealed record TravelerArtifactDescriptor(string Schema, string MediaType, string Encoding);
-public sealed record TravelerEncoding(TravelerArtifactDescriptor Descriptor, ReadOnlyMemory<byte> Canonical);
+public sealed record TravelerEncoding(TravelerArtifactDescriptor Descriptor, ReadOnlyMemory<byte> Rendering);
 
 public sealed record TravelerArtifact(
     TravelerDocument Document,
     TravelerArtifactDescriptor Descriptor,
-    ReadOnlyMemory<byte> Canonical,
+    ReadOnlyMemory<byte> Rendering,
     ContentKey Key,
     Seq<ContentKey> Consumed,
     Seq<ContentKey> Produced,
     Option<ContentKey> DigitalProductPassport,
     Seq<TravelerAmendmentReceipt> Amendments);
+```
 
+## [04]-[TRAVELER_ASSEMBLY]
+
+- Owner: `TravelerPreimage` owns identity bytes; `TravelerCanonicalCodec` owns the transport rendering; `Traveler` owns the route DAG, the key harvest, amendment sealing, and `Assemble`.
+- Law: identity rides a `CanonicalWriter` BINARY preimage over `FabricationCanon`, never a serializer's bytes — the same law `Documentation/report` and `Joining/weld` key under, so one document keyed here and the same document keyed through any sibling addresses identically. The JSON rendering stays the TRANSPORT the display and persistence seams read, and its `[JsonPolymorphic]` rosters are what make both codec arms round-trip without a runtime type argument.
+- Law: a COMPOSED receipt enters the preimage by the key census it contributes and by the discriminating ordinals it authored — a receipt's own owner keys its full shape, and re-transcribing that shape here forks the two keys the day either page grows a column. The traveler's OWN authored rows — identity, controls, marks, amendment payloads, and the route witness — enter in full.
+- Law: the planned route is a DAG. `IsDirectedAcyclicGraph` gates BEFORE `SourceFirstBidirectionalTopologicalSort`, so a forged precedence answers a typed fault instead of throwing inside a sort, and `Roots`/`Sinks` are the release frontier a shop reads.
+- Law: dangling controls, amendments, inspection links, release programs, and unreleased blocking holds are INDEPENDENT faults that accumulate: a planner correcting one route must see the other four in the same verdict, and their counts ride `RouteWitness` so a passing document still reports the frontier it proved. The hold gate reads `Joining/procedure` `HoldPoint`/`HoldRelease` evidence, so a traveler advances against a party's attested release and never against a hold point it merely printed.
+- Law: an amendment obeys ROUTE PRECEDENCE. A step opens only once every predecessor in the sorted route reached a terminal state, so work recorded out of order refuses at the seal rather than producing a chain no route explains.
+- Law: the key census reads `FabricationResult.Keys` — the result family's OWN census — so every case contributes its subjects and artifacts, and motion and inspection results stop contributing nothing to lineage while every other case does.
+- Exemption: `TravelerCanonicalCodec.Write` is the byte kernel over the rendered node tree; `Traveler.RouteGraph` is the graph-population kernel and only its named witness columns leave.
+- Entry: `Traveler.Assemble(request, input, clock, egress, tap)` is the one assembly; the tap defaults to the silent port so a headless assembly branches nowhere.
+- Receipt: `TravelerArtifact` carries the document, its descriptor and rendering, the minted key, the consumed and produced key sets, the passport identity, and the sealed amendment chain. `FabricationFact.Traveler.Of` projects the sealed artifact's amendment-chain length onto `rasm.fabrication.traveler.amendments` through `Process/telemetry#FACT_PROJECTION` as kind `traveler`.
+- Packages: QuikGraph (`BidirectionalGraph`, `STaggedEdge`, `IsDirectedAcyclicGraph`, `SourceFirstBidirectionalTopologicalSort`, `Sinks`, `Roots`, `InEdges`), `Rasm.Element` `CanonicalWriter` through `Process/owner#RUN_DISPATCH` `FabricationCanon`, `System.Text.Json` for the transport rendering.
+
+```csharp signature
+// --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
+// The transport rendering: sorted ordinally, NFC-normalized, and array order preserved. The roster on each union
+// is what carries the case discriminator, so BOTH arms serialize through the two-argument call and neither reads
+// a runtime type — the erasure that let a statically-typed document arm write `{}` for its own sections.
 internal static class TravelerCanonicalCodec {
     static readonly TravelerArtifactDescriptor Descriptor = new(
         "rasm.fabrication.traveler", "application/json", "utf-8");
 
     public static Fin<TravelerEncoding> Encode(TravelerCanonicalSource source) =>
         Try.lift(() => {
-                JsonNode root = source.Switch<JsonNode>(
-                    document: static value => JsonSerializer.SerializeToNode(value.Value, QualityReport.CanonicalJson)!,
-                    amendment: static value => JsonSerializer.SerializeToNode(
-                        value.Value,
-                        value.Value.GetType(),
-                        QualityReport.CanonicalJson)!);
+                JsonNode root = JsonSerializer.SerializeToNode(source, QualityReport.CanonicalJson)!;
                 using MemoryStream stream = new();
                 using (Utf8JsonWriter writer = new(stream, new JsonWriterOptions { Indented = false }))
                     Write(writer, root);
                 return new TravelerEncoding(Descriptor, stream.ToArray());
             })
             .Run()
-            .MapFail(static error => Op.Of(name: "fabrication:traveler-codec").InvalidResult(detail: error.Message));
+            .MapFail(static _ => Traveler.Refusal("encode").ToError());
 
     static void Write(Utf8JsonWriter writer, JsonNode node) {
         switch (node) {
@@ -612,20 +709,182 @@ internal static class TravelerCanonicalCodec {
     }
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
-internal static class Traveler {
-    static readonly Op TravelerOp = Op.Of(name: "fabrication:traveler");
+// The IDENTITY bytes. Authored rows enter whole; composed receipts enter by their own keys and by the ordinals
+// this document authored over them.
+internal static class TravelerPreimage {
+    // The document authors no measured geometry — every dimensioned fact it carries belongs to a receipt that
+    // keyed it already — so the writer declares no quantization and its grid never rounds a composed key.
+    const double ExactGrid = 0.0;
 
+    public static ReadOnlyMemory<byte> Of(TravelerCanonicalSource source) =>
+        source.Switch(
+            state: new CanonicalWriter(ExactGrid),
+            document: static (sink, value) => sink.Ordinal(0).Document(value.Value),
+            amendment: static (sink, value) => sink.Ordinal(1).Amendment(value.Value))
+        .ToBytes();
+
+    extension(CanonicalWriter sink) {
+        internal CanonicalWriter Key(ContentKey key) => key.CanonicalBytes(sink);
+
+        internal CanonicalWriter Moment(Instant at) => sink.I64(at.ToUnixTimeTicks());
+
+        internal CanonicalWriter Text(string value) => sink.String(value.Normalize(NormalizationForm.FormC));
+
+        internal CanonicalWriter Locus(TravelerLocus locus) => locus.Switch(
+            state: sink,
+            global: static (row, _) => row.Ordinal(0),
+            step: static (row, value) => row.Ordinal(1).Ordinal(value.Value.ToValue()),
+            operation: static (row, value) => row.Ordinal(2).Ordinal(value.Step.ToValue()).Ordinal(value.Value.ToValue()),
+            setup: static (row, value) => row.Ordinal(3).Ordinal(value.Value.ToValue()),
+            characteristic: static (row, value) => row.Ordinal(4).U128(value.Value.ToValue()));
+
+        internal CanonicalWriter Sampling(TravelerSampling sampling) => sampling.Switch(
+            state: sink,
+            every: static (row, _) => row.Ordinal(0),
+            firstArticle: static (row, _) => row.Ordinal(1),
+            skip: static (row, value) => row.Ordinal(2).Ordinal(value.Interval.ToValue()),
+            attributePlan: static (row, value) => row.Ordinal(3)
+                .Ordinal(value.SampleSize.ToValue()).Ordinal(value.Accept).Ordinal(value.Reject));
+
+        internal CanonicalWriter Units(TravelerUnits units) => units.Switch(
+            state: sink,
+            lot: static (row, value) => row.Ordinal(0).Ordinal(value.Value.ToValue()),
+            serialized: static (row, value) => row.Ordinal(1)
+                .Rows(value.Values, static (inner, serial) => inner.Text(serial.ToValue())));
+
+        internal CanonicalWriter Control(TravelerControl control) => control.Switch(
+            state: sink.Locus(control.Locus),
+            work: static (row, value) => row.Ordinal(0).Text(value.Instruction.ToValue()),
+            hold: static (row, value) => row.Ordinal(1).Text(value.Authority.ToValue()),
+            safety: static (row, value) => row.Ordinal(2)
+                .Text(value.Hazard.ToValue()).Discriminant(value.Level).Text(value.Control.ToValue())
+                .Rows(value.ProtectiveEquipment, static (inner, item) => inner.Text(item.ToValue())),
+            material: static (row, value) => row.Ordinal(3)
+                .Text(value.Item.ToValue()).Text(value.Lot.ToValue())
+                .String(value.Quantity.QuantityInfo.Name)
+                .Double(value.Quantity.As(value.Quantity.QuantityInfo.BaseUnitInfo.Value)),
+            resource: static (row, value) => row.Ordinal(4)
+                .Text(value.Name.ToValue()).Ordinal(value.Quantity.ToValue()),
+            inspect: static (row, value) => row.Ordinal(5)
+                .Text(value.Method.ToValue()).Text(value.Gauge.ToValue())
+                .Sampling(value.Sampling).Text(value.Authority.ToValue()),
+            approve: static (row, value) => row.Ordinal(6)
+                .Text(value.Role.ToValue()).Text(value.Authority.ToValue()),
+            package: static (row, value) => row.Ordinal(7)
+                .Text(value.Label.ToValue()).Text(value.Method.ToValue()).Text(value.Destination.ToValue()));
+
+        internal CanonicalWriter Identity(TravelerIdentity identity) => sink
+            .Text(identity.WorkOrder.ToValue()).Text(identity.PartNumber.ToValue()).Text(identity.Revision.ToValue())
+            .Ordinal(identity.Quantity.ToValue())
+            .Maybe(identity.HeatLot, static (row, lot) => row.Text(lot.ToValue()))
+            .Rows(identity.Serials, static (row, serial) => row.Text(serial.ToValue()));
+
+        internal CanonicalWriter Witness(RouteWitness witness) => sink
+            .Ordinal(witness.Steps).Ordinal(witness.Depth)
+            .Rows(witness.Roots, static (row, order) => row.Ordinal(order))
+            .Rows(witness.Sinks, static (row, order) => row.Ordinal(order))
+            .Ordinal(witness.DanglingControls).Ordinal(witness.DanglingAmendments)
+            .Ordinal(witness.DanglingInspections).Ordinal(witness.DanglingPrograms)
+            .Ordinal(witness.UnreleasedHolds);
+
+        internal CanonicalWriter Section(TravelerSection section) => section.Switch(
+            state: sink,
+            header: static (row, value) => row.Ordinal(0)
+                .Identity(value.Identity).Discriminant(value.Process).String(value.Machine.Key)
+                .Coords(value.View.Forward).Coords(value.View.ScreenU).Coords(value.View.ScreenV)
+                .Moment(value.StampedAt)
+                .Rows(value.Sources, static (inner, key) => inner.Key(key)),
+            route: static (row, value) => row.Ordinal(1)
+                .Rows(value.Steps, static (inner, step) => inner
+                    .Ordinal(step.Order).Discriminant(step.Process).String(step.Machine.Key)
+                    .Maybe(step.Instance, static (cell, instance) => cell.Text(instance.ToValue()))
+                    .Ordinal(step.Setup)
+                    .Rows(toSeq(step.Operations), static (cell, operation) => cell.Ordinal(operation))
+                    .Maybe(step.Program, static (cell, key) => cell.Key(key)))
+                .Rows(value.Setups, static (inner, setup) => inner.Key(setup.Key))
+                .Rows(value.Stock, static (inner, snapshot) => inner.Ordinal(snapshot.Setup).Key(snapshot.Key))
+                .Rows(value.Controls, static (inner, control) => inner.Control(control))
+                .Witness(value.Witness),
+            tooling: static (row, value) => row.Ordinal(2)
+                .Rows(value.Changes, static (inner, change) => inner
+                    .Ordinal(change.ProgramTool).Double(change.Retract).Double(change.LengthOffset))
+                .Rows(value.Assemblies, static (inner, assembly) => inner
+                    .Text(assembly.Key.ToValue()).Text(assembly.SerialNumber)),
+            specification: static (row, value) => row.Ordinal(3)
+                .Rows(value.Frames, static (inner, frame) => inner.U128(frame.Id.ToValue()).Key(frame.Control.Source))
+                .Rows(value.Capabilities, static (inner, report) => inner
+                    .U128(report.Identity.Characteristic).Double(report.Verdict.Cpk).Moment(report.At))
+                .Rows(value.Manufacturability, static (inner, report) => inner
+                    .U128(report.ComponentKey).Moment(report.At)),
+            procedure: static (row, value) => row.Ordinal(4)
+                .Rows(value.Receipts, static (inner, receipt) => inner
+                    .Text(receipt.WpsId.ToValue()).Ordinal(receipt.Revision).Bool(receipt.Qualified)),
+            // Every result contributes its OWN key census, so a case carrying subjects rather than artifacts is
+            // preimage-visible exactly as one carrying artifacts is.
+            outputs: static (row, value) => row.Ordinal(5)
+                .Maybe(value.Dialect, static (inner, dialect) => inner.Discriminant(dialect))
+                .Rows(value.Results, static (inner, result) => inner
+                    .Rows(result.Keys, static (cell, key) => cell.Key(key))),
+            quality: static (row, value) => row.Ordinal(6)
+                .Rows(value.Records, static (inner, record) => inner.Key(record.Key))
+                .Rows(value.Inspections, static (inner, link) => inner.Text(link.Feature.Key.ToValue()).Key(link.Record))
+                .Rows(value.Releases, static (inner, release) => inner
+                    .Ordinal(release.Point.Joint).Discriminant(release.Point.Family).Discriminant(release.Point.Sampling)
+                    .Discriminant(release.By).Moment(release.At).Bool(release.Attended)
+                    .Maybe(release.Method, static (cell, method) => cell.Discriminant(method))),
+            marks: static (row, value) => row.Ordinal(7)
+                .Rows(toSeq(value.Keyed.Keys.OrderBy(identity, StringComparer.Ordinal)),
+                    static (inner, name) => inner.Text(name))
+                .Ordinal(value.Free.Count)
+                .Rows(value.Reconciled, static (inner, divergence) => inner
+                    .Text(divergence.Row).Text(divergence.Drawing).Text(divergence.Declared)));
+
+        internal CanonicalWriter Document(TravelerDocument document) => sink
+            .Moment(document.StampedAt)
+            .Rows(document.Sections, static (row, section) => row.Section(section))
+            .Rows(document.Composed, static (row, key) => row.Key(key));
+
+        internal CanonicalWriter Amendment(TravelerAmendment amendment) => amendment.Switch(
+            state: sink
+                .Key(amendment.Previous).Ordinal(amendment.Step.ToValue())
+                .Text(amendment.Actor.ToValue()).Moment(amendment.At)
+                .Rows(amendment.Evidence, static (row, key) => row.Key(key)),
+            completed: static (row, value) => row.Ordinal(0)
+                .Moment(value.Started).I64(value.Actual.BclCompatibleTicks)
+                .Maybe(value.Estimate, static (inner, estimate) => inner
+                    .Key(estimate.Subject).I64(estimate.MachineTime.BclCompatibleTicks)),
+            held: static (row, value) => row.Ordinal(1).Text(value.Cause.ToValue()),
+            released: static (row, value) => row.Ordinal(2)
+                .Text(value.Authority.ToValue()).Key(value.Program).Key(value.Delivery.Image),
+            deviated: static (row, value) => row.Ordinal(3)
+                .Text(value.Deviation.ToValue()).Discriminant(value.Disposition)
+                .Units(value.Units).Text(value.Authority.ToValue()),
+            scrapped: static (row, value) => row.Ordinal(4)
+                .Text(value.Reason.ToValue()).Units(value.Units).Text(value.Authority.ToValue()));
+    }
+}
+
+internal static class Traveler {
+    internal static FabricationFault Refusal(string locus) =>
+        new FabricationFault.PolicyInadmissible(FabConcern.Documentation, $"traveler:{locus}");
+
+    internal static Error Transition(TravelerStepState prior, string event_) =>
+        Refusal($"transition:{prior.Key}:{event_}").ToError();
+
+    // The fact fires where the ARTIFACT settles — after the key mints and the amendment chain seals — so the
+    // amendment-depth measure the roster carries is the sealed chain rather than a draft the fold later extended.
     internal static Fin<FabricationResult> Assemble(
         FabricationPolicy.Document request,
         FabricationInput input,
         IClock clock,
-        Func<TravelerArtifact, FabricationResult> egress) =>
+        Func<TravelerArtifact, FabricationResult> egress,
+        FabricationTap? tap = null) =>
         from document in Build(request, input, clock.GetCurrentInstant())
+        let key = ContentKey.Of(EgressKind.Traveler,
+            TravelerPreimage.Of(new TravelerCanonicalSource.Document(document)).Span)
         from encoded in TravelerCanonicalCodec.Encode(new TravelerCanonicalSource.Document(document))
-        let key = ContentKey.Of(EgressKind.Traveler, encoded.Canonical.Span)
-        from amendments in SealAmendments(key, document.StampedAt, request.Corpus.Amendments)
-        let consumed = (Seq(key)
+        from amendments in SealAmendments(key, document, request.Corpus.Amendments)
+        let consumed = toSeq((Seq(key)
             + document.Composed
             + amendments.Map(static value => value.Amendment.Previous)
             + amendments.Bind(static value => value.Amendment.Evidence)
@@ -636,46 +895,44 @@ internal static class Traveler {
             }))
             .Distinct()
             .OrderBy(static value => value.Kind.Key)
-            .ThenBy(static value => value.Digest)
-            .ToSeq()
-        select egress(new TravelerArtifact(
+            .ThenBy(static value => value.Digest))
+        let artifact = new TravelerArtifact(
             document,
             encoded.Descriptor,
-            encoded.Canonical,
+            encoded.Rendering,
             key,
             consumed,
             Seq(key) + amendments.Map(static value => value.Key),
             request.Corpus.DigitalProductPassport,
-            amendments));
+            amendments)
+        let _fact = (tap ?? FabricationTap.Silent).Fire(FabricationFact.Traveler.Of(artifact))
+        select egress(artifact);
 
     static Fin<TravelerDocument> Build(FabricationPolicy.Document request, FabricationInput input, Instant stampedAt) =>
-        request.Results.Fold(
-            (Steps: Seq<PlannedStep>(), Keys: Seq<ContentKey>()),
-            Gather) switch {
-                var harvested =>
-                    from _ in BindRoutes(request.Corpus, harvested.Steps, request.Results)
-                    let composed = (
-                        input.ParentRuns
-                        + input.Sources
-                        + input.MaterialCertificate.ToSeq()
-                        + request.Corpus.DigitalProductPassport.ToSeq()
-                        + request.Corpus.Records.Map(static value => value.Key)
-                        + harvested.Keys)
-                        .Distinct()
-                        .OrderBy(static value => value.Kind.Key)
-                        .ThenBy(static value => value.Digest)
-                        .ToSeq()
-                    let sections = Seq<TravelerSection>(
-                        new TravelerSection.Header(request.Corpus.Identity, input.Process, input.Machine, input.View, stampedAt, input.Sources),
-                        new TravelerSection.Route(harvested.Steps, request.Corpus.Setups, input.Snapshots, request.Corpus.Controls),
-                        new TravelerSection.Tooling(request.Corpus.ToolChanges, request.Corpus.ToolAssemblies),
-                        new TravelerSection.Specification(request.Corpus.Frames, request.Corpus.Capabilities, request.Corpus.Manufacturability),
-                        new TravelerSection.Procedure(request.Corpus.Procedures),
-                        new TravelerSection.Outputs(request.Dialect, request.Results),
-                        new TravelerSection.Quality(request.Corpus.Records, request.Corpus.Inspections),
-                        TravelerMarks.Of(input, request.Corpus.Identity))
-                    select new TravelerDocument(stampedAt, sections, composed),
-            };
+        request.Results.Fold((Steps: Seq<PlannedStep>(), Keys: Seq<ContentKey>()), Gather) switch {
+            var harvested =>
+                from witness in BindRoutes(request.Corpus, harvested.Steps, request.Results)
+                let composed =
+                    toSeq((input.ParentRuns
+                    + input.Sources
+                    + input.MaterialCertificate.ToSeq()
+                    + request.Corpus.DigitalProductPassport.ToSeq()
+                    + request.Corpus.Records.Map(static value => value.Key)
+                    + harvested.Keys)
+                    .Distinct()
+                    .OrderBy(static value => value.Kind.Key)
+                    .ThenBy(static value => value.Digest))
+                let sections = Seq<TravelerSection>(
+                    new TravelerSection.Header(request.Corpus.Identity, input.Process, input.Machine, input.View, stampedAt, input.Sources),
+                    new TravelerSection.Route(harvested.Steps, request.Corpus.Setups, input.Snapshots, request.Corpus.Controls, witness),
+                    new TravelerSection.Tooling(request.Corpus.ToolChanges, request.Corpus.ToolAssemblies),
+                    new TravelerSection.Specification(request.Corpus.Frames, request.Corpus.Capabilities, request.Corpus.Manufacturability),
+                    new TravelerSection.Procedure(request.Corpus.Procedures),
+                    new TravelerSection.Outputs(request.Dialect, request.Results),
+                    new TravelerSection.Quality(request.Corpus.Records, request.Corpus.Inspections, request.Corpus.Releases),
+                    TravelerMarks.Of(input, request.Corpus.Identity))
+                select new TravelerDocument(stampedAt, sections, composed),
+        };
 
     readonly record struct RouteIndex(
         Set<int> Steps,
@@ -684,35 +941,75 @@ internal static class Traveler {
         Seq<InspectionFeature> Inspections,
         Set<ContentKey> Programs);
 
-    // Dangling controls, amendments, inspection links, and release programs are independent faults:
-    // a planner correcting one route must see the other three in the same verdict, so the four
-    // gates accumulate rather than short-circuit on whichever class happens to fail first.
-    static Fin<Unit> BindRoutes(
+    // The route as the DAG the architecture charters: order-adjacency is the sequence relation and a setup change
+    // is the fixture relation, each tagged on its own edge so a witness reports WHY two steps are ordered.
+    static BidirectionalGraph<int, STaggedEdge<int, TravelerRelation>> RouteGraph(Seq<PlannedStep> planned) {
+        BidirectionalGraph<int, STaggedEdge<int, TravelerRelation>> route = new(allowParallelEdges: false);
+        Seq<PlannedStep> ordered = toSeq(planned.OrderBy(static step => step.Order));
+        route.AddVertexRange(ordered.Map(static step => step.Order));
+        ordered.Zip(ordered.Tail).Iter(pair => route.AddEdge(new STaggedEdge<int, TravelerRelation>(
+            pair.Item1.Order,
+            pair.Item2.Order,
+            pair.Item1.Setup == pair.Item2.Setup ? TravelerRelation.Sequence : TravelerRelation.Fixture)));
+        return route;
+    }
+
+    // Dangling controls, amendments, inspection links, and release programs are independent faults: a planner
+    // correcting one route must see the other three in the same verdict, so the four gates accumulate rather than
+    // short-circuit on whichever class happens to fail first. The acyclicity gate rails BEFORE the sort, so a
+    // forged precedence answers a typed fault instead of throwing inside a traversal.
+    static Fin<RouteWitness> BindRoutes(
         TravelerReceiptCorpus corpus,
         Seq<PlannedStep> planned,
         Seq<FabricationResult> results) =>
-        Index(planned, results) switch {
-            var available => (
-                Bound(corpus.Controls.Filter(control => !Routed(control.Locus, available, planned)), "traveler:control-route"),
-                Bound(corpus.Amendments.Filter(value => !available.Steps.Contains(value.Step.ToValue())), "traveler:amendment-step"),
-                Bound(corpus.Inspections.Filter(link => !available.Inspections.Contains(link.Feature)), "traveler:inspection-feature"),
-                Bound(corpus.Amendments.Filter(value => value is TravelerAmendment.Released released
-                    && !available.Programs.Contains(released.Program)), "traveler:release-program"))
-                .Apply(static (_, _, _, _) => unit)
-                .As()
-                .ToFin(),
+        (Index(planned, results), RouteGraph(planned)) switch {
+            var (available, route) =>
+                from _acyclic in guard(route.IsDirectedAcyclicGraph(), Refusal("route-cyclic").ToError()).ToFin()
+                let sorted = toSeq(route.SourceFirstBidirectionalTopologicalSort())
+                let depth = sorted.Fold(Map<int, int>(), (held, vertex) => held.AddOrUpdate(
+                    vertex,
+                    toSeq(route.InEdges(vertex)).Fold(0, (deepest, edge) =>
+                        Math.Max(deepest, 1 + held.Find(edge.Source).IfNone(0)))))
+                let dangling = (
+                    Controls: corpus.Controls.Filter(control => !Routed(control.Locus, available, planned)),
+                    Amendments: corpus.Amendments.Filter(value => !available.Steps.Contains(value.Step.ToValue())),
+                    Inspections: corpus.Inspections.Filter(link => !available.Inspections.Contains(link.Feature)),
+                    Programs: corpus.Amendments.Filter(value => value is TravelerAmendment.Released released
+                        && !available.Programs.Contains(released.Program)),
+                    // A blocking hold the procedure plane planned and nobody released gates the whole document: a
+                    // traveler that prints a hold point as an instruction and advances anyway is the rendered-text
+                    // reading this gate exists to refuse.
+                    Holds: corpus.UnreleasedHolds)
+                from _bound in (
+                    Bound(dangling.Controls, "control-route"),
+                    Bound(dangling.Amendments, "amendment-step"),
+                    Bound(dangling.Inspections, "inspection-feature"),
+                    Bound(dangling.Programs, "release-program"),
+                    Bound(dangling.Holds, "hold-release"))
+                    .Apply(static (_, _, _, _, _) => unit)
+                    .As()
+                    .ToFin()
+                select new RouteWitness(
+                    sorted.Count,
+                    depth.Values.Fold(0, Math.Max),
+                    toSeq(route.Roots()),
+                    toSeq(route.Sinks()),
+                    dangling.Controls.Count,
+                    dangling.Amendments.Count,
+                    dangling.Inspections.Count,
+                    dangling.Programs.Count,
+                    dangling.Holds.Count),
         };
 
     static RouteIndex Index(Seq<PlannedStep> planned, Seq<FabricationResult> results) =>
         new(toSet(planned.Map(static value => value.Order)),
             toSet(planned.Map(static value => value.Setup)),
-            results
+            toSet(results
                 .Choose(static result => result is FabricationResult.HiddenLineResult projection
                     ? Some(projection.Projection.Characteristics)
                     : None)
                 .Bind(static values => values)
-                .Map(static value => value.Characteristic.Id)
-                .ToSet(),
+                .Map(static value => value.Characteristic.Id)),
             results
                 .Choose(static result => result is FabricationResult.InspectionResult inspection
                     ? Some(inspection.Features)
@@ -733,63 +1030,98 @@ internal static class Traveler {
             characteristic: value => available.Characteristics.Contains(value.Value));
 
     static K<Validation<Error>, Unit> Bound<T>(Seq<T> unbound, string locus) =>
-        guard(unbound.IsEmpty, (Error)new FabricationFault.PolicyInadmissible(FabConcern.Documentation, $"{locus}:{unbound.Count}"))
-            .ToFin()
-            .ToValidation();
+        AdmissionSlots.Gate(unbound.IsEmpty, Refusal($"{locus}:{unbound.Count}"));
 
+    // The result family's OWN key census: every case contributes its subjects and its artifacts, so a motion or
+    // inspection result reaches document lineage exactly as a posted program does. The plan case additionally
+    // contributes the ROUTE, which is the one thing no key can carry.
     static (Seq<PlannedStep> Steps, Seq<ContentKey> Keys) Gather(
         (Seq<PlannedStep> Steps, Seq<ContentKey> Keys) state,
         FabricationResult result) =>
-        result.Switch(
-            hiddenLineResult: value => state with { Keys = state.Keys + value.Projection.Sources },
-            motion: _ => state,
-            placement: value => state with { Keys = state.Keys.Add(value.Key) },
-            additiveResult: value => state with { Keys = state.Keys + value.Artifacts },
-            verificationResult: value => state with {
-                Keys = state.Keys + value.Snapshots.Map(static snapshot => snapshot.Key) + Seq(value.Residual.Key),
-            },
-            inspectionResult: _ => state,
-            postedProgram: value => state with { Keys = state.Keys.Add(value.Key) },
-            travelerDocument: value => state with { Keys = state.Keys + Seq(value.Key) + value.Consumed + value.Produced },
-            fabricationPlan: value => state with {
-                Steps = state.Steps + value.Steps,
-                Keys = state.Keys + Seq(value.Key) + value.Artifacts,
-            },
-            formedResult: value => state with { Keys = state.Keys.Add(value.Key) });
+        (Steps: state.Steps + (result is FabricationResult.FabricationPlan plan ? plan.Steps : Seq<PlannedStep>()),
+         Keys: state.Keys + result.Keys
+             + (result is FabricationResult.TravelerDocument prior ? prior.Consumed + prior.Produced : Seq<ContentKey>()));
 
+    // Route precedence is what a chain of amendments must obey: a step opens only once every predecessor the sort
+    // ordered before it reached a terminal state, so work recorded out of order refuses here rather than sealing
+    // a chain no route explains.
     static Fin<Seq<TravelerAmendmentReceipt>> SealAmendments(
         ContentKey root,
-        Instant stampedAt,
+        TravelerDocument document,
         Seq<TravelerAmendment> amendments) =>
-        amendments.FoldM(
-            (Previous: root,
-             At: stampedAt,
-             Receipts: Seq<TravelerAmendmentReceipt>(),
-             States: HashMap<TravelerStep, TravelerStepState>()),
-            (state, amendment) =>
-                from _ in guard(amendment.Previous == state.Previous, TravelerOp.InvalidInput()).ToFin()
-                from __ in guard(
-                    amendment.At >= state.At
-                    && (amendment is not TravelerAmendment.Completed completed || completed.Started >= stampedAt),
-                    TravelerOp.InvalidInput()).ToFin()
-                let prior = state.States.Find(amendment.Step).IfNone(TravelerStepState.Open)
-                from next in amendment.Advance(prior, TravelerOp)
-                from encoded in TravelerCanonicalCodec.Encode(new TravelerCanonicalSource.Amendment(amendment))
-                let key = ContentKey.Of(EgressKind.Traveler, encoded.Canonical.Span)
-                select (
-                    Previous: key,
-                    At: amendment.At,
-                    Receipts: state.Receipts.Add(new TravelerAmendmentReceipt(
-                        key,
-                        amendment,
-                        encoded.Descriptor,
-                        encoded.Canonical)),
-                    States: state.States.SetItem(amendment.Step, next)))
-            .Map(static state => state.Receipts);
+        Precedence(document) switch {
+            var predecessors => amendments.FoldM(
+                (Previous: root,
+                 At: document.StampedAt,
+                 Receipts: Seq<TravelerAmendmentReceipt>(),
+                 States: HashMap<int, TravelerStepState>()),
+                (state, amendment) =>
+                    from _chain in guard(amendment.Previous == state.Previous, Refusal("chain-parent").ToError()).ToFin()
+                    from _clock in guard(
+                        amendment.At >= state.At
+                        && (amendment is not TravelerAmendment.Completed completed || completed.Started >= document.StampedAt),
+                        Refusal("chain-clock").ToError()).ToFin()
+                    let step = amendment.Step.ToValue()
+                    from _order in guard(
+                        predecessors.Find(step).IfNone(Seq<int>()).ForAll(prior =>
+                            state.States.Find(prior).IfNone(TravelerStepState.NotStarted).Terminal),
+                        Refusal($"route-precedence:{step}").ToError()).ToFin()
+                    from next in amendment.Advance(state.States.Find(step).IfNone(TravelerStepState.NotStarted))
+                    let key = ContentKey.Of(EgressKind.Traveler,
+                        TravelerPreimage.Of(new TravelerCanonicalSource.Amendment(amendment)).Span)
+                    from encoded in TravelerCanonicalCodec.Encode(new TravelerCanonicalSource.Amendment(amendment))
+                    select (
+                        Previous: key,
+                        At: amendment.At,
+                        Receipts: state.Receipts.Add(new TravelerAmendmentReceipt(
+                            key,
+                            amendment,
+                            encoded.Descriptor,
+                            encoded.Rendering)),
+                        States: state.States.SetItem(step, next)))
+                .Map(static state => state.Receipts),
+        };
+
+    // The predecessor closure the route section already proved: every step ordered before a step, read off the
+    // one sorted graph rather than re-walked per amendment.
+    static Map<int, Seq<int>> Precedence(TravelerDocument document) =>
+        document.Sections
+            .Choose(static section => section is TravelerSection.Route route ? Some(route.Steps) : None)
+            .Head
+            .Map(static steps => toSeq(steps.OrderBy(static step => step.Order)) switch {
+                var ordered => ordered.Fold(
+                    Map<int, Seq<int>>(),
+                    (held, step) => held.AddOrUpdate(
+                        step.Order,
+                        ordered.Filter(prior => prior.Order < step.Order).Map(static prior => prior.Order))),
+            })
+            .IfNone(Map<int, Seq<int>>());
 }
 ```
 
-## [03]-[RESEARCH]
+```mermaid
+---
+config:
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+---
+flowchart LR
+    accTitle: Traveler assembly
+    accDescr: Fabrication results harvest their own key census and route steps, the route gates as a DAG and publishes its witness, the document keys over a canonical binary preimage, renders through the transport codec, and seals its amendment chain under route precedence.
+    Results["FabricationResult sequence"] -->|"result.Keys census"| Gather["Traveler.Gather — steps and keys"]
+    Corpus["TravelerReceiptCorpus — tooling, setups, frames, records, controls, amendments"] --> Bind
+    Gather --> Bind["BindRoutes — IsDirectedAcyclicGraph then SourceFirstBidirectionalTopologicalSort"]
+    Bind --> Witness["RouteWitness — depth, roots, sinks, dangling counts"]
+    Witness --> Document["TravelerDocument — sections plus composed keys"]
+    Document -->|"CanonicalWriter preimage"| Key["ContentKey.Of(EgressKind.Traveler)"]
+    Document -->|"CanonicalJson rosters, sorted plus NFC"| Rendering["TravelerEncoding — transport bytes"]
+    Key --> Seal["SealAmendments — chain, clock, route precedence, step state"]
+    Seal --> Artifact["TravelerArtifact — key, consumed, produced, amendment chain"]
+```
+
+## [05]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.

@@ -14,7 +14,7 @@ Every source enters `LanePolicy.drain` as a SOURCE-keyed `Admit` whose `ContentK
 - Law: runtime `Kernel.of` mints `_tessellate_ifc`/`_tessellate_cad` as `Kernel.name`, and `traced_kernel` passes that name to `Profiles.phase`; the daemon adds no profile registry or in-kernel instrumentation beyond the pulse proxy write.
 - Law: both kernels take the lane conduit's pickled `tap` as a trailing offload arg and beat the graduation `GeometryPulse.TESSELLATION` point through `pulsed` — the IFC iterator every `PULSE_STRIDE` elements, the CAD arm once per opaque bridge hop — so a `Hooks` tap streams live tessellation progress under the lane's lossy drop law with the worker reaching only the queue proxy.
 - Law: the durable tier is a content-addressed SPILL, never an authority — two write-once objects per unit under one `spill_path` derivation, the GLB octets keyed by the artifact's own wire key and a `SpillHeader` keyed by the policy-folded cache key resolving onto it, because `ArtifactSync` holds a wire key and asks for octets while a cold daemon holds a source and a policy and asks which artifact they produced. `create` is the put mode: an object already under a content-addressed key holds those same octets, so an overwrite buys a race with a fleet peer and nothing else; the header lands only past a cleared artifact write, so no reader resolves a pointer onto octets that are not there. The read-through runs AHEAD of the kernel and its every failure mode folds to absence — the cost of a store miss is a tessellation nobody skipped, where a rail there would be a tessellation nobody GOT because a store was briefly unreachable — and the refusal still lands as a `rejected` receipt so an outage reads as evidence rather than as a daemon that quietly stopped replaying. The re-mint over returned octets is the PROOF the store answered what the header names, so a corrupted object refuses by name instead of replaying under an identity it does not hash to. `SpillOutcome` rides the crossing's own receipt row, since a second receipt family would leave a reader joining two streams to answer one question, and `_phase` derives replay provenance across both reuse tiers at ONE site.
-- Entry: `tessellate` RETURNS the results — the flagship egress the `mesh/serve` servicer streams; receipts stay on `contribute`, and a partial failure rides the stream as a `rejected` row, never a silent drop and never a fluent `self` stranding the GLB in the cache.
+- Entry: `tessellate` RETURNS the results — the flagship egress the `mesh/serve` servicer streams; receipts stay on `contribute`, and a partial failure rides the stream as a `rejected` row, never a silent drop and never a fluent `self` stranding the GLB in the cache. Its `budget` keyword is the caller's dialed deadline the served leg carries in: it rides each unit's `Kernel.deadline`, so the lane's own tighter-bound fold governs the offload and this page spells no second narrowing, an abandoned call railing `deadline` on its unit and landing a `rejected` receipt instead of paying out a tessellation nobody reads. The budget stays out of the cache seed — a deadline shifts no output byte, and folding it would key one tessellation per dialed bound.
 - Auto: `num_threads` binds from `LanePolicy.capacity` so the iterator's intra-kernel parallelism and the lane's slot allocator share one capacity, never a hardcoded literal.
 - Receipt: the daemon mints no `GeometrySubject` — the C# `IfcSemanticModel` projects the IFC graph in-process, and the downstream `mesh/repair#MESH`/`scan/reconstruction#RECONSTRUCTION` owners graduate the conditioned solid.
 - Packages: `ifcopenshell` (`file.from_string`, `geom.settings`/`iterator`/`serializers.gltf`/`serializer_settings`), the `mesh/cad#BRIDGE` bridge surface, `msgspec` (the one deterministic `SpillHeader` codec pair), and the runtime identity/lane/fault/receipt/store rails per the fence imports; the kernel crosses as `Kernel.of(kernel, KernelTrait.HOSTILE)` — the native OCCT body rides the warm process pool, its trait row supplying the `WORKER` worker-death retry at the offload leg.
@@ -264,11 +264,19 @@ class TessellationDaemon:  # structural ReceiptContributor conformance — no su
         # this folder would have to invent a root for.
         self._store = store
 
-    async def tessellate(self, source: TessellationSource | Sequence[TessellationSource]) -> "RuntimeRail[Block[TessellationResult]]":
+    async def tessellate(
+        self, source: TessellationSource | Sequence[TessellationSource], *, budget: "Option[float]" = Nothing
+    ) -> "RuntimeRail[Block[TessellationResult]]":
         # cleared Ok carries every landed result in admission order; an Error arm still carries every per-source
         # fact and rejected row on the receipt stream, so a partial failure is addressable evidence.
+        # `budget` is the CALLER's dialed deadline, threaded onto each unit's kernel rather than onto a re-minted
+        # lane: the lane already folds the tighter of its own bound and the kernel's at the offload hop, so one
+        # narrowing law stands at its owner and this page spells no second one. A per-call lane copy would also
+        # fork the daemon its warm cache lives on, which is the replay this tier exists to serve.
         warm = self._cache
-        admit = (Block.singleton(source) if isinstance(source, TessellationSource) else Block.of_seq(source)).map(self._admit)
+        admit = (Block.singleton(source) if isinstance(source, TessellationSource) else Block.of_seq(source)).map(
+            lambda one: self._admit(one, budget)
+        )
         units = admit.choose(Result.to_option)
         receipt = await self._lane.drain(units.map(lambda a: a[2]), warm)
         self._cache = receipt.cache
@@ -279,17 +287,19 @@ class TessellationDaemon:  # structural ReceiptContributor conformance — no su
         return faults.try_head().map(Error).default_value(Ok(results))
 
     # railed `Error` carries the key-mint `BoundaryFault` the fold surfaces as a `rejected` receipt.
-    def _admit(self, source: TessellationSource) -> RuntimeRail[tuple[ContentKey, SourceTag, "Admit[TessellationResult]"]]:
+    def _admit(self, source: TessellationSource, budget: "Option[float]") -> RuntimeRail[tuple[ContentKey, SourceTag, "Admit[TessellationResult]"]]:
         # the mesher spec and the source's own fields are SEMANTIC fields of one preimage, so they ride `parts` and
         # the identity owner frames each with its own length: concatenated, a knob value ending where a body begins
         # collides two distinct tessellations onto one cache slot, and the slot silently replays the wrong artifact.
+        # `budget` never enters the seed: a deadline cannot shift a success's bytes, so folding it would key one
+        # tessellation per dialed budget and defeat the replay this cache exists for.
         kernel, seed, args = _dispatch(source)
         return ContentIdentity.of(source.tag, IdentitySource(parts=(self._mesher.spec, *seed))).map(
-            lambda key: self._unit(kernel, args, key, source.tag)
+            lambda key: self._unit(kernel, args, key, source.tag, budget)
         )
 
     def _unit(
-        self, kernel: TessellateKernel, args: tuple[object, ...], key: ContentKey, tag: SourceTag
+        self, kernel: TessellateKernel, args: tuple[object, ...], key: ContentKey, tag: SourceTag, budget: "Option[float]"
     ) -> tuple[ContentKey, SourceTag, "Admit[TessellationResult]"]:
         async def work() -> RuntimeRail[TessellationResult]:
             # durable tier BEFORE the kernel: a warm restart or a fleet peer already holds this exact unit, so the
@@ -302,7 +312,8 @@ class TessellationDaemon:  # structural ReceiptContributor conformance — no su
                     return Ok(held)
                 case _:
                     offloaded = await self._lane.offload(
-                        Kernel.of(kernel, KernelTrait.HOSTILE), *args, self._mesher, self._lane.capacity, self._lane.pulses.tap
+                        Kernel.of(kernel, KernelTrait.HOSTILE, deadline=budget),
+                        *args, self._mesher, self._lane.capacity, self._lane.pulses.tap,
                     )
                     match offloaded.map(lambda y: TessellationResult(key, y[0], y[2], y[3], y[1])):
                         case Result(tag="ok", ok=fresh):

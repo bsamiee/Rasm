@@ -130,7 +130,7 @@ Tessellation bridges the exact B-rep to an indexed triangle mesh; `linearDeflect
 [STACKING]:
 - `ACadSharp`(`.api/api-acadsharp.md`): the 2D complement — `ACadSharp` admits 2D profiles (polylines, arcs into `Loop`), this admits 3D solids (STEP/IGES into B-rep into mesh); a 3D STEP solid tessellates then planar-sections to 2D loops, a 2D DXF profile goes straight to `Loop`, neither duplicating the other.
 - `CavalierContours`(`.api/api-cavaliercontours.md`): a planar section of the tessellated `OcctMesh` is line-only (the mesh carries no curvature), so arc-comp toolpaths re-fit the line chains through the owned Bolton biarc fold (`Posting/program`) or carry bulge into `CavalierContours`.
-- `geometry3Sharp`(`.api/api-geometry3sharp.md`): the `OcctMesh` triangle soup crosses through `Vertices` and `TriangleIndices` to the geometry3Sharp mesh owner — only the admitted mesh crosses, never the live `OcctShape` handle.
+- `geometry3Sharp`(`libs/csharp/.api/api-geometry3sharp.md`): the `OcctMesh` triangle soup crosses through `Vertices` and `TriangleIndices` to the geometry3Sharp mesh owner — only the admitted mesh crosses, never the live `OcctShape` handle.
 - kernel mesh seam: an imported solid flows `ImportStep` into `Triangulate` into `OcctMesh` into the kernel `MeshSpace` vocabulary for the planar-section and `DrawingProjection` rails, while dirty STL routes through the predicate-gated `HealOp`; `OcctVector3d`/`OcctPointCoordinates`/`OcctBoundingBox` map one-directionally at the boundary to the kernel `Vector3d`/`Point3d`/box.
 - kernel persistence seam: a `ExportStep`/`ExportIges`/`ExportStl` mints through `ContentKey.Of` into `ContentHash.Of` and enrolls in the Persistence artifact index, never a local hasher or schema-local content-key fork.
 

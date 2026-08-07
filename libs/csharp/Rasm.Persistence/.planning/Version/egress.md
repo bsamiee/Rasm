@@ -9,8 +9,8 @@
 
 ## [02]-[EGRESS_PUMP]
 
-- Owner: `EgressPump` the static surface owning the one drain bracket — notification wait, cursor read, windowed row drain, envelope projection, sink delivery, ack fold, cursor advance, dead-letter capture; `DeadLetterRow` the typed dead-letter document (content key, sink, sequence, fault, attempt count) stored in the SAME Marten session so a dead-letter and its cursor state commit atomically; `EgressReceipt` the per-drain evidence implementing the kernel `IValidityEvidence`; `EgressFault` the 8270 band; `EgressPorts` the injected delegate frame (`Wait` binds `NpgsqlConnection.WaitAsync` with its bounded poll, then feed, coordination, redaction, propagator trace-stamping, and session-bound dead-letter arrows) filled at the composition root.
-- Entry: `public static IO<Fin<EgressReceipt>> Drain(EgressSink sink, OutboxCursor cursor, EgressPorts ports, ProjectionContext frame)` is the one pump — it drains `ReplayWindow.DurableOps(cursor.Sequence, sink.Binding.Batch)` rows from the changefeed (the `Version/ledger` windowed-read case parameterized for this drain — never a third read surface), projects each row through `Egress.Envelope`, delivers through the sink row's composition, folds every outcome to `DeliveryAck`, and advances the cursor through `Store/coordination` `OutboxAdvance(sink.Binding.Key, through)` ONLY past the contiguous `Persisted` prefix — the first `Indeterminate` holds the cursor at its predecessor (a held cursor re-drains, the sink's dedup absorbs the replay), a `Refused` writes the `DeadLetterRow` and the drain continues past it; `public static IO<Fin<EgressReceipt>> Replay(EgressSink sink, Seq<DeadLetterRow> letters, EgressPorts ports, ProjectionContext frame)` re-delivers dead-lettered entries by content key through the SAME envelope/deliver/ack fold — replay is the pump re-parameterized, never a second delivery path.
+- Owner: `EgressPump` the static surface owning the one drain bracket — notification wait, cursor read, windowed row drain, envelope projection, sink delivery, ack fold, cursor advance, dead-letter capture; `DeadLetterRow` the typed dead-letter document (content key, sink, sequence, fault, attempt count) stored in the SAME Marten session so a dead-letter and its cursor state commit atomically; `EgressReceipt` the per-drain evidence implementing the kernel `IValidityEvidence`; `EgressFault` the 8270 band; `EgressPorts` the injected delegate frame (`Wait` binds `NpgsqlConnection.WaitAsync` with its bounded poll, then feed, coordination, redaction, propagator trace-stamping, and the session-bound dead-letter triple — `Letters` reads, `DeadLetter` writes, `Retire` terminates) filled at the composition root.
+- Entry: `public static IO<Fin<EgressReceipt>> Drain(EgressSink sink, OutboxCursor cursor, EgressPorts ports, ProjectionContext frame)` is the one pump — it drains `ReplayWindow.DurableOps(cursor.Sequence, sink.Binding.Batch)` rows from the changefeed (the `Version/ledger` windowed-read case parameterized for this drain — never a third read surface), projects each row through `Egress.Envelope`, delivers through the sink row's composition, folds every outcome to `DeliveryAck`, and advances the cursor through `Store/coordination` `OutboxAdvance(sink.Binding.Key, through)` ONLY past the contiguous `Persisted` prefix — the first `Indeterminate` holds the cursor at its predecessor (a held cursor re-drains, the sink's dedup absorbs the replay), a `Refused` writes the `DeadLetterRow` and the drain continues past it; `public static IO<Fin<EgressReceipt>> Replay(EgressSink sink, EgressPorts ports, ProjectionContext frame)` loads that sink's letters through `EgressPorts.Letters` at the sink's own batch width and re-delivers them by content key through the SAME envelope/deliver/ack fold — replay is the pump re-parameterized, never a second delivery path, and it takes the drain's own three arguments because the loader is the read half of the pair `DeadLetter`/`Retire` write.
 - Auto: the drain is one fold per batch — `rows.Map(Egress.Envelope).Map(sink.Deliver)` folded left with the contiguous-prefix advance accumulator, so ordering per partition key is preserved (the envelope's `partitionkey` = `EntityKey` keeps per-entity order inside every sink that partitions) and a mid-batch refusal never advances past unconfirmed work; the pump wakes on the coordination `pg_notify('rasm_outbox', sink)` channel through `NpgsqlConnection.WaitAsync` on an otherwise-idle connection, with the bounded poll as the correctness floor (a missed NOTIFY costs latency, never a lost row — the cursor law owns correctness); the webhook row's `DeliveryUnconfirmed` reconciliation re-reads `net._http_response` by request-id on the NEXT drain, so a PENDING response resolves without a dedicated poller; a crash between delivery and advance re-drains the suffix and every sink's dedup column states what absorbs it (`#EGRESS_SINK`); dead-letter replay decrements nothing — the receipt's conservation fold proves `delivered + held + deadLettered == drained` on every drain.
 - Receipt: a drain rides `store.egress.drain` carrying the sink, the from/through sequences, and the delivered/duplicate/held/dead-lettered counts; a dead-letter rides `store.egress.deadletter` carrying the content key and the fault; a replay rides `store.egress.replay`; each settled drain receipt fires the `rasm.persistence.egress.delivered` observe point (`Store/observability#HOOK_RAIL`) as a composition-root tap on the drain outcome, never an emit call inside the fold.
 - Packages: Npgsql (`NpgsqlConnection.Notification`/`WaitAsync` — the pump wake), Marten (`IDocumentSession.Store`/`SaveChangesAsync` — the dead-letter document), Rasm (`IValidityEvidence`/`ValidityClaim`), Microsoft.Extensions.Compliance.Redaction (`IRedactorProvider.GetRedactor(DataClassificationSet)` — the classified-field gate before the boundary), LanguageExt.Core, NodaTime, Thinktecture.Runtime.Extensions, BCL inbox.
@@ -35,8 +35,11 @@ public sealed record DeadLetterRow(UInt128 ContentKey, SinkKey Sink, long Sequen
 
 // `EgressPorts` is the injected delegate frame the composition root fills: sink clients, the coordination advance arrow, the
 // payload redactor, and the dead-letter store/retire arrows — values on a Persistence-owned shape, never an
-// AppHost type ([A.1]). `DeadLetter`/`Retire` close over the SAME Marten `IDocumentSession` as the cursor
-// state (`Store` then `SaveChangesAsync` with the drain), so a letter and its drain commit atomically; `Redact`
+// AppHost type ([A.1]). `DeadLetter`/`Retire`/`Letters` close over the SAME Marten `IDocumentSession` as the
+// cursor state (`Store` then `SaveChangesAsync` with the drain), so a letter and its drain commit atomically —
+// `Letters` is the READ half that pairs them: a letter set is loaded by sink under the same tenant transaction
+// that will retire or re-letter it, which is what makes `Replay` a closed fold rather than a surface whose
+// caller has to find its own input and can therefore hand it letters from another sink or another tenant; `Redact`
 // masks the row's classified payload fields (built from `IRedactorProvider.GetRedactor(DataClassificationSet)`,
 // `ErasingRedactor` the fail-closed fallback) and reports whether masking fired. `Stamp` renders a continued
 // `ActivityContext` onto the W3C pair at the propagator owning that format — the AppHost `TraceContext`
@@ -49,6 +52,7 @@ public sealed record EgressPorts(
     Func<ReplayWindow, IO<Seq<OpLogEntry>>> Feed,
     Func<OpLogEntry, (ReadOnlyMemory<byte> Data, bool Redacted)> Redact,
     Func<ActivityContext, (string Traceparent, Option<string> Tracestate)> Stamp,
+    Func<SinkKey, int, IO<Seq<DeadLetterRow>>> Letters,
     Func<DeadLetterRow, IO<Unit>> DeadLetter,
     Func<DeadLetterRow, IO<Unit>> Retire);
 
@@ -118,7 +122,11 @@ public static class EgressPump {
                 : sink.Deliver(Egress.Envelope(row, ports.Redact, ports.Stamp), row).Bind(ack => ack.Switch(
                     persisted:     p  => IO.pure(state with { Through = row.Sequence, Delivered = state.Delivered + 1, Duplicates = state.Duplicates + (p.Duplicate ? 1 : 0) }),
                     indeterminate: _  => IO.pure(state with { Held = state.Held + 1, Open = false }),
-                    refused:       rf => ports.DeadLetter(new DeadLetterRow(row.ContentKey, sink.Binding.Key, row.Sequence, rf.Detail, 1, frame.Now()))
+                    // `Attempts: 1` is the MEASURED first attempt, not a filled slot: this fold is the only
+                    // site a letter is minted at and the row it letters was delivered exactly once. Every
+                    // later count comes from `Replay`'s own `Attempts + 1`, so the column is monotone from
+                    // its first write and no arm publishes a count no delivery produced.
+                    refused:       rf => ports.DeadLetter(new DeadLetterRow(row.ContentKey, sink.Binding.Key, row.Sequence, rf.Detail, Attempts: 1, frame.Now()))
                                              .Map(_ => state with { Through = row.Sequence, Dead = state.Dead + 1 })))).As()
         from advance in folded.Through > cursor.Sequence
             ? ports.Coordinate(new CoordinationOp.OutboxAdvance(sink.Binding.Key, folded.Through), sink.Binding.Held)
@@ -126,13 +134,18 @@ public static class EgressPump {
         let receipt = new EgressReceipt(sink.Binding.Key, cursor.Sequence, folded.Through, rows.Count, folded.Delivered, folded.Duplicates, folded.Held, folded.Dead, frame.Elapsed(mark), frame.Now(), frame.Correlation)
         select advance.Match(Succ: _ => Fin<EgressReceipt>.Succ(receipt), Fail: error => Fin<EgressReceipt>.Fail(error));
 
-    // Replay IS the drain fold re-parameterized over the letter set — never a second delivery path. Each
-    // letter re-reads its row through the ONE windowed feed (the singleton window at Sequence-1), re-delivers
-    // through the same envelope/leg, and a Persisted retires the letter; a still-refusing row re-letters with
-    // Attempts+1 (the replay schedule's gate); a vanished row (retention-swept) retires as Held — the
-    // conservation fold closes over letters exactly as the drain closes over rows.
-    public static IO<Fin<EgressReceipt>> Replay(EgressSink sink, Seq<DeadLetterRow> letters, EgressPorts ports, ProjectionContext frame) =>
+    // Replay IS the drain fold re-parameterized over the letter set — never a second delivery path. The letter
+    // set is READ here through `ports.Letters` at the sink's own batch width rather than handed in, so replay
+    // takes the same three arguments the drain takes and no caller can pair a sink with another sink's or
+    // another tenant's letters. Each letter re-reads its row through the ONE windowed feed (the singleton
+    // window at Sequence-1), re-delivers through the same envelope/leg, and a Persisted retires the letter; a
+    // still-refusing row re-letters with Attempts+1 — attempts are MONOTONE by construction, the count is the
+    // replay schedule's gate, and `Retire` is the one terminal, so no reset arrow exists to fabricate a fresh
+    // budget for a poison row; a vanished row (retention-swept) retires as Held — the conservation fold closes
+    // over letters exactly as the drain closes over rows.
+    public static IO<Fin<EgressReceipt>> Replay(EgressSink sink, EgressPorts ports, ProjectionContext frame) =>
         from mark in IO.lift(frame.Mark)
+        from letters in ports.Letters(sink.Binding.Key, sink.Binding.Batch)
         from folded in letters.FoldM(
             (Delivered: 0, Duplicates: 0, Held: 0, Dead: 0),
             (state, letter) =>
@@ -156,7 +169,7 @@ public static class EgressPump {
 | :-----: | :------------ | :--------------------------------------------- | :--------------------------------------------------------------- |
 |  [01]   | drain source  | `ReplayWindow.DurableOps` past the sink cursor | one windowed read (ledger); presence never enters                |
 |  [02]   | advance law   | contiguous `Persisted` prefix only             | Indeterminate holds; Refused dead-letters and continues          |
-|  [03]   | replay        | the same fold over `DeadLetterRow` keys        | never a second delivery path                                     |
+|  [03]   | replay        | `Letters` loads, the same fold re-delivers     | monotone `Attempts`; `Retire` terminal; no second delivery path  |
 |  [04]   | wake          | `WaitAsync` on `rasm_outbox` + bounded poll    | NOTIFY is latency; the poll floor owns correctness               |
 |  [05]   | redaction     | `Redact` before envelope construction          | fail-closed `ErasingRedactor`; classified fields never cross raw |
 |  [06]   | receipt floor | conservation `ValidityClaim.All` fold          | delivered + held + dead == drained, exactly once ([C])           |

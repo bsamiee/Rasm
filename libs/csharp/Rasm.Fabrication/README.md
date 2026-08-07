@@ -16,7 +16,7 @@ Every manufacturing process folds through a single `FabricationPolicy` dispatch 
 
 [TOOLING]:
 - [07]-[MAGAZINE](.planning/Tooling/magazine.md): ISO-13399 tool-assembly magazine and the minimal-swap tool-life schedule.
-- [08]-[CUTTINGDATA](.planning/Tooling/cuttingdata.md): Kienzle machinability seeds and the cutter-form projection.
+- [08]-[CUTTINGDATA](.planning/Tooling/cuttingdata.md): Kienzle seeds, chatter-stability recommendation, and the cutter-form projection.
 - [09]-[WEAR](.planning/Tooling/wear.md): Flank-wear and condition-based remaining-life estimation over decoded machine telemetry.
 
 [GEOMETRY2D]:
@@ -33,18 +33,18 @@ Every manufacturing process folds through a single `FabricationPolicy` dispatch 
 [TOOLPATH]:
 - [17]-[MOTION](.planning/Toolpath/motion.md): CAM generator arms over process modality and cut strategy.
 - [18]-[SURFACE](.planning/Toolpath/surface.md): Cutter-location surface finishing — waterline, scallop, pencil, rest.
-- [19]-[PARTITION](.planning/Toolpath/partition.md): Seeded Voronoi cells with border, centroid, and Lloyd-residual evidence.
+- [19]-[PARTITION](.planning/Toolpath/partition.md): Generative site field to boundary-clipped cells, density closure, and the 3D complex.
 - [20]-[GUARD](.planning/Toolpath/guard.md): Scope-stamped planar, medial, voxel, and robot collision receipts.
 - [21]-[SKELETON](.planning/Toolpath/skeleton.md): Constant-engagement walk over the kernel clearance family.
 - [22]-[TURNING](.planning/Toolpath/turning.md): Controller-neutral lathe algebra under one `CutSide` row.
 - [23]-[WIRE](.planning/Toolpath/wire.md): Wire-EDM demand owner — guide correspondence, wire-bow evidence, simultaneous blocks.
-- [24]-[LINK](.planning/Toolpath/link.md): Precedence-aware transition routing with volumetric keepouts and guarded segments.
+- [24]-[LINK](.planning/Toolpath/link.md): Precedence-safe refined tour over routed transitions with volumetric keepouts.
 - [25]-[BEVEL](.planning/Toolpath/bevel.md): Station-varying edge preparation with tilt compensation and coupled THC evidence.
 
 [KINEMATICS]:
-- [26]-[CELL](.planning/Kinematics/cell.md): Robot-cell target compilation and batch placement search over one loaded cell.
+- [26]-[CELL](.planning/Kinematics/cell.md): Robot-cell target compilation, batch placement search, and the planner timing census.
 - [27]-[MACHINE](.planning/Kinematics/machine.md): Parameterized machine-chain inverse with TCP/RTCP and dynamics-true timing.
-- [28]-[FLEET](.planning/Kinematics/fleet.md): Shop registry ranking capability over stations, tooling state, and measured performance.
+- [28]-[FLEET](.planning/Kinematics/fleet.md): Shop registry ranking capability and seating finite capacity over generated availability.
 - [29]-[OBSERVATION](.planning/Kinematics/observation.md): Decoded machine-telemetry slice every measured consumer reads.
 
 [ADDITIVE]:
@@ -84,8 +84,8 @@ Every manufacturing process folds through a single `FabricationPolicy` dispatch 
 
 [DOCUMENTATION]:
 - [53]-[PROJECTION](.planning/Documentation/projection.md): Multi-view drafting projection with pose, convention, scale, and characteristic anchors.
-- [54]-[TRAVELER](.planning/Documentation/traveler.md): Content-keyed shop-execution document with the immutable as-run amendment chain.
-- [55]-[REPORT](.planning/Documentation/report.md): Signed as-built quality records and the attested passport egress.
+- [54]-[TRAVELER](.planning/Documentation/traveler.md): Content-keyed shop-execution document: immutable as-run amendment chain, hold-release gate.
+- [55]-[REPORT](.planning/Documentation/report.md): Signed as-built quality records, shop-schedule deliverables, and the attested passport.
 
 [FORMING]:
 - [56]-[SHEET](.planning/Forming/sheet.md): One unfold owner — bend-allowance flat patterning over the kernel development.
@@ -93,9 +93,9 @@ Every manufacturing process folds through a single `FabricationPolicy` dispatch 
 - [58]-[TUBE](.planning/Forming/tube.md): Tube centerline folding, elongation carry, and analytic cope development.
 
 [JOINING]:
-- [59]-[WELD](.planning/Joining/weld.md): Joint-by-prep bead-stack composition over the typed `JointPrep` groove law.
-- [60]-[SEQUENCE](.planning/Joining/sequence.md): Depth-interleaved distortion-control weld ordering with inherent-strain evidence.
-- [61]-[PROCEDURE](.planning/Joining/procedure.md): Profile-generated WPS/PQR, personnel qualification, and derived inspection scope.
+- [59]-[WELD](.planning/Joining/weld.md): Joint-by-prep bead-lattice composition over the typed `JointPrep` groove law under an arc-fit gate.
+- [60]-[SEQUENCE](.planning/Joining/sequence.md): Depth-interleaved distortion-control weld ordering under thermal, preload, and release loads.
+- [61]-[PROCEDURE](.planning/Joining/procedure.md): Profile-generated WPS/PQR, personnel qualification, inspection scope, and the hold-point plan.
 
 ## [02]-[DOMAIN_PACKAGES]
 
@@ -103,11 +103,9 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 
 [GEOMETRY_ENGINES]:
 - `CavalierContours` — arc-native bulge-polyline offset and boolean owner.
-- `geometry3Sharp` — biarc and 2D curve-fit owner.
 - `OpenCAMLib` — 3-axis cutter-location engine for surface finishing; vendored over shared `libocl`.
 
 [EXCHANGE_INGRESS]:
-- `ACadSharp` — DWG/DXF profile read; the Bim mesh-read and AppUi drafting-write legs live at their folders.
 - `DSTV.Net` — DSTV/NC1 steel-fabrication exchange for profile-cut programs.
 - `OcctNet.Wrapper` — STEP/IGES B-rep ingress to shape and mesh.
 
@@ -138,14 +136,19 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 - `NodaTime.Serialization.SystemTextJson` — STJ codec carrying those instants, intervals, and zones across the content-keyed wire.
 
 [NUMERIC_SUBSTRATE]:
-- `CSparse`
 - `UnitsNet` — cut-parameter and tolerance quantity boundary.
 - `MathNet.Numerics` — capability distribution fits and Monte-Carlo tolerance stackup.
 - `System.Numerics.Tensors` — SIMD-lowered sampling folds across the hot toolpath and nesting lanes.
 - `CommunityToolkit.HighPerformance` — 2D span grids for grayscale, engagement, and layer-census rasters.
 
+[GEOMETRY_INTERCHANGE]:
+- `ACadSharp` — DWG/DXF profile-read leg into `Loop` values and markings; Bim holds the mesh read, AppUi the drafting write.
+
 [PLANAR_GEOMETRY]:
 - `Clipper2` — line-space lanes behind the `FillOf` seam; offset, boolean, and morphology lower onto the `Rasm` kernel owners.
+
+[MESH_PROCESSING]:
+- `geometry3Sharp` — line-sourced `BiArcFit2` biarc fit feeding `G2`/`G3` arc emit.
 
 [GRAPH_ALGORITHM]:
 - `QuikGraph` — setup-precedence, assembly, and rapid-link routing graphs, bipartite fixture assignment, and the mesh-shell disjoint-set partition.
@@ -161,7 +164,7 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 
 [WIRE_CODEGEN]:
 - `Generator.Equals` — compile-time structural equality and member-level difference receipts over attributed partial owners.
-- `Riok.Mapperly` — source-generated boundary projections, including the `extern alias R3` seam copyists.
+- `Riok.Mapperly` — source-generated boundary projections over non-aliased shapes; a shape behind an `extern alias` keeps a hand copyist.
 
 [RUNTIME_INBOX]:
 - `System.Diagnostics.Metrics` — in-box owner of the instrument surface.

@@ -223,43 +223,55 @@
 
 [ENTRYPOINT_SCOPE]: ConstraintSolver routing model and solve — `RoutingIndexManager` maps caller nodes to solver indices; callbacks register through index-typed delegates
 
-| [INDEX] | [SURFACE]                                             | [SHAPE]  | [CAPABILITY]                   |
-| :-----: | :---------------------------------------------------- | :------- | :----------------------------- |
-|  [01]   | `RoutingIndexManager(int, int, int)`                  | ctor     | single-depot index manager     |
-|  [02]   | `RoutingIndexManager(int, int, int[], int[])`         | ctor     | multi-depot index manager      |
-|  [03]   | `RoutingModel(RoutingIndexManager)`                   | ctor     | routing model                  |
-|  [04]   | `RegisterTransitCallback(LongLongToLong)`             | instance | arc-cost/transit evaluator     |
-|  [05]   | `RegisterUnaryTransitCallback(LongToLong)`            | instance | unary transit evaluator        |
-|  [06]   | `RegisterTransitMatrix(long[][])`                     | instance | matrix transit evaluator       |
-|  [07]   | `SetArcCostEvaluatorOfAllVehicles(int)`               | instance | global arc cost                |
-|  [08]   | `SetArcCostEvaluatorOfVehicle(int, int)`              | instance | per-vehicle arc cost           |
-|  [09]   | `AddDimension(int, long, long, bool, string)`         | instance | capacity dimension             |
-|  [10]   | `AddDimensionWithVehicleCapacity(.., long[], ..)`     | instance | per-vehicle capacity dimension |
-|  [11]   | `GetDimensionOrDie(string)`                           | instance | dimension lookup               |
-|  [12]   | `AddDisjunction(long[], long)`                        | instance | optional-visit disjunction     |
-|  [13]   | `AddPickupAndDelivery(long, long)`                    | instance | pickup-delivery pairing        |
-|  [14]   | `SetFixedCostOfVehicle(long, int)`                    | instance | per-vehicle fixed cost         |
-|  [15]   | `SolveWithParameters(RoutingSearchParameters)`        | instance | runs routing search            |
-|  [16]   | `SetVisitType / AddHardTypeIncompatibility(int, int)` | instance | visit-type regulations         |
-|  [17]   | `AddResourceGroup()`                                  | instance | shared-resource group          |
+| [INDEX] | [SURFACE]                                                                | [SHAPE]  | [CAPABILITY]                               |
+| :-----: | :----------------------------------------------------------------------- | :------- | :----------------------------------------- |
+|  [01]   | `RoutingIndexManager(int, int, int)`                                     | ctor     | single-depot index manager                 |
+|  [02]   | `RoutingIndexManager(int, int, int[], int[])`                            | ctor     | multi-depot index manager                  |
+|  [03]   | `RoutingModel(RoutingIndexManager)`                                      | ctor     | routing model                              |
+|  [04]   | `RegisterTransitCallback(LongLongToLong)`                                | instance | arc-cost/transit evaluator                 |
+|  [05]   | `RegisterUnaryTransitCallback(LongToLong)`                               | instance | unary transit evaluator                    |
+|  [06]   | `RegisterTransitMatrix(long[][])`                                        | instance | matrix transit evaluator                   |
+|  [07]   | `SetArcCostEvaluatorOfAllVehicles(int)`                                  | instance | global arc cost                            |
+|  [08]   | `SetArcCostEvaluatorOfVehicle(int, int)`                                 | instance | per-vehicle arc cost                       |
+|  [09]   | `AddDimension(int, long, long, bool, string)`                            | instance | capacity dimension                         |
+|  [10]   | `AddDimensionWithVehicleCapacity(.., long[], ..)`                        | instance | per-vehicle capacity dimension             |
+|  [11]   | `GetDimensionOrDie(string)`                                              | instance | dimension lookup                           |
+|  [12]   | `AddDisjunction(long[], long)`                                           | instance | optional-visit disjunction                 |
+|  [13]   | `AddPickupAndDelivery(long, long)`                                       | instance | pickup-delivery pairing                    |
+|  [14]   | `SetFixedCostOfVehicle(long, int)`                                       | instance | per-vehicle fixed cost                     |
+|  [15]   | `SolveWithParameters(RoutingSearchParameters)`                           | instance | runs routing search                        |
+|  [16]   | `SetVisitType / AddHardTypeIncompatibility(int, int)`                    | instance | visit-type regulations                     |
+|  [17]   | `AddResourceGroup()`                                                     | instance | shared-resource group                      |
+|  [18]   | `operations_research_constraint_solver.DefaultRoutingSearchParameters()` | static   | default proto; mutate fields, then solve   |
+|  [19]   | `GetStatus()`                                                            | instance | terminal `RoutingSearchStatus.Types.Value` |
+|  [20]   | `Start(int)` / `IsEnd(long)` / `NextVar(long)`                           | instance | per-vehicle route walk                     |
+|  [21]   | `RoutingIndexManager.IndexToNode(long)` / `NodeToIndex(int)`             | instance | solver-index and caller-node projection    |
+|  [22]   | `RoutingDimension.CumulVar(long)`                                        | instance | cumulative variable at an index            |
+|  [23]   | `RoutingDimension.SetCumulVarRange(long, long, long)`                    | instance | time-window bound                          |
+|  [24]   | `Assignment.Value(IntVar)` / `Min(IntVar)` / `Max(IntVar)`               | instance | solved variable reads                      |
+|  [25]   | `Assignment.ObjectiveValue()`                                            | instance | total arc cost of the solution             |
+
+- `RoutingDimension.SetCumulVarRange`: ranges live on the DIMENSION, never the `IntVar`.
 
 [ENTRYPOINT_SCOPE]: `Google.OrTools.Graph` max-flow / min-cost-flow / assignment — build the arc set imperatively (each `Add*` returns the arc index), `Solve` returns the `Status`, then read the optimal value and per-arc flow
 
 | [INDEX] | [SURFACE]                                                                            | [SHAPE]  | [CAPABILITY]                    |
 | :-----: | :----------------------------------------------------------------------------------- | :------- | :------------------------------ |
-|  [01]   | `MaxFlow.AddArcWithCapacity(int, int, long)`                                         | instance | one capacitated arc, its index  |
-|  [02]   | `MaxFlow.SetArcCapacity(int, long)`                                                  | instance | reset an arc for a re-solve     |
-|  [03]   | `MaxFlow.Solve(int, int) -> Status`                                                  | instance | push-relabel over source/sink   |
-|  [04]   | `MaxFlow.OptimalFlow() / Flow(int)`                                                  | instance | max-flow value / per-arc flow   |
-|  [05]   | `MinCostFlow(int[, int])`                                                            | ctor     | pre-sized min-cost-flow engine  |
-|  [06]   | `MinCostFlow.AddArcWithCapacityAndUnitCost(int, int, long, long)`                    | instance | one capacitated, priced arc     |
-|  [07]   | `MinCostFlow.SetNodeSupply(int, long)`                                               | instance | node supply (+) / demand (−)    |
-|  [08]   | `MinCostFlow.Solve() / SolveMaxFlowWithMinCost() -> Status`                          | instance | min-cost / max-flow-at-min-cost |
-|  [09]   | `MinCostFlow.OptimalCost() / MaximumFlow() / Flow(int)`                              | instance | cost / total flow / per-arc     |
-|  [10]   | `LinearSumAssignment.AddArcWithCost(int, int, long)`                                 | instance | one left→right assignment arc   |
-|  [11]   | `LinearSumAssignment.Solve() / OptimalCost() / RightMate(int) / AssignmentCost(int)` | instance | assignment, cost, mate          |
+|  [01]   | `MaxFlow()`                                                                          | ctor     | max-flow engine                 |
+|  [02]   | `MaxFlow.AddArcWithCapacity(int, int, long)`                                         | instance | one capacitated arc, its index  |
+|  [03]   | `MaxFlow.SetArcCapacity(int, long)`                                                  | instance | reset an arc for a re-solve     |
+|  [04]   | `MaxFlow.Solve(int, int) -> Status`                                                  | instance | push-relabel over source/sink   |
+|  [05]   | `MaxFlow.OptimalFlow() / Flow(int)`                                                  | instance | max-flow value / per-arc flow   |
+|  [06]   | `MinCostFlow([int[, int]])`                                                          | ctor     | optionally pre-sized engine     |
+|  [07]   | `MinCostFlow.AddArcWithCapacityAndUnitCost(int, int, long, long)`                    | instance | one capacitated, priced arc     |
+|  [08]   | `MinCostFlow.SetNodeSupply(int, long)`                                               | instance | node supply (+) / demand (−)    |
+|  [09]   | `MinCostFlow.Solve() / SolveMaxFlowWithMinCost() -> Status`                          | instance | min-cost / max-flow-at-min-cost |
+|  [10]   | `MinCostFlow.OptimalCost() / MaximumFlow() / Flow(int)`                              | instance | cost / total flow / per-arc     |
+|  [11]   | `LinearSumAssignment.AddArcWithCost(int, int, long)`                                 | instance | one left→right assignment arc   |
+|  [12]   | `LinearSumAssignment.Solve() / OptimalCost() / RightMate(int) / AssignmentCost(int)` | instance | assignment, cost, mate          |
 
-- `MaxFlow.Flow`: saturated arcs (`Flow == Capacity`) read the min-cut.
+- `MaxFlow.Flow`: saturated arcs (`Flow == Capacity`) read the min-cut; `MaxFlow` exposes no capacity accessor, so a caller comparing against the capacity retains the value it passed to `AddArcWithCapacity`.
+- `MinCostFlow.Status`: declared on the shared `MinCostFlowBase`, so a `switch` over it spells the base type.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
