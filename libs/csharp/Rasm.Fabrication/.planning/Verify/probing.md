@@ -735,12 +735,13 @@ file sealed record UnregisteredFeature(
 
 ## [04]-[DATUM_AND_RESULT]
 
-- Owner: `DatumPolicy` closes assigned transform, best-fit registration, and primitive substitution over the current `DatumReceipt` wire; `RegistrationSpread` owns the anisotropic registration budget; `ProbeReport` owns the pre-egress evidence fold.
+- Owner: `DatumPolicy` closes assigned transform, best-fit registration, primitive substitution, and memo replay over the current `DatumReceipt` wire; `RegistrationSpread` owns the anisotropic registration budget; `ProbeMemo` mints the registration content identity; `ProbeReport` owns the pre-egress evidence fold.
 - Law: NO result, receipt, or content key depends on hash iteration order. Grouping serves lookup alone — the substitute fit is computed once per plan key over a keyed index and then READ BACK onto the features in their own admitted order, so residual ordinals, the census population, and the projected atoms all keep the deterministic order the target fold assigned. Where a fold must emit groups it orders on the declared `ProbePlan.Key` ascending, so even the refusal that reports first is fixed.
 - Law: registration propagates ANISOTROPICALLY. A point residual over an inlier cloud of characteristic radius bounds the residual rotation at residual-over-radius, which displaces a feature at its lever arm by that angle times the arm. One uniform term understates every feature outside the cloud and overstates the datum origin itself, so both the cloud radius and the per-feature lever arm enter the budget; an assigned setup transform carries no alignment residual and states its absence rather than a zero.
 - Law: the kernel conformance metrics are defined over an UNSIGNED residual — `ConformanceMetric.Maximum` ranks by magnitude and carries no sign — so the census residual carries the absolute deviation while the signed deviation stays a named column on `MeasuredFeature`. Feeding a signed value into that slot makes the worst-sample rank the most positive rather than the worst, which reports a clean surface for a wholly undersize feature set.
 - Entry: `Probe.Inspect(InspectPolicy, FabricationInput, FabricationTap? tap = null, SpanBand? band = null)` — the tap and band both default, so a headless run emits and traces nothing with no branch of its own.
 - Entry: `ProbeBench.Workload` admits the `icp-probe-fit` measured workload — a best-fit datum lane over the feature-census floor — and `ProbeBench.Run` is the fold the corpus gate times against `FabricationBenchClaims.IcpProbeFit`; measurement and receipt projection stay the bench edge's under the AppHost claim-field map.
+- Law: the fit memo lane is one content key and one cache ride on the standing owner pattern — `ProbeMemo.Key` folds every fit-shifting input, the cache key spells the `icp:` prefix the Persistence solver-memo band dispatches on through the branch `HybridCache` L2, a hit re-enters as `DatumPolicy.Replay` with the memoized transform, residual, and radius, and a miss solves `BestFit` then publishes `(Transform, FinalDelta, RadiusMm)`; the lane composes at the cache-owning boundary, so `Probe.Inspect` and the statement kernel stay memo-free and synchronous.
 - Exemption: the two-cloud registration region is a statement kernel — resource release is not expressible on the `Fin` rail, and one region releasing both clouds on every exit path replaces a compensating dispose inside a failure lambda, which is a second custody path that leaks the moment a third resource joins.
 - Auto: `AlignKind.AlignDetailed` projects a transform only through `AlignmentReceipt.Project<Transform>`; `Fit.Apply` retains per-feature and datum-substitution `FitReceipt` evidence, and a group thinned below its kind's `MinimalSamples` carries no fit rather than a fabricated one; transformed measured points precede every `ResidualSample`.
 - Receipt: `ProbeReport` closes the pre-egress evidence fold — cycles, datum, fitted features, the kernel residual spread and its worst sample, and the capability study — while the frozen `InspectionResult` projects only `InspectionFeature` atoms. `Probe.Inspect` mints `FabricationFact.Probe` beside the frozen result — conformance counts and the worst deviation onto `rasm.fabrication.probe.features` and `rasm.fabrication.probe.deviation` through `Process/telemetry#FACT_PROJECTION` as kind `probe` — because `ProbeReport` is file-scoped and the fact is its one telemetry projection. The worst deviation reads the census's own ranked sample, so the instrument, the receipt, and the kernel ranking are ONE quantity and no seeded fold stands beside them. The whole fold runs inside the `FabricationEngine.Probe` bracket the run spine's `SpanBand` opens, with `EnginePhase.DatumRegistered` and `EnginePhase.FeaturesFitted` as its span marks; the settled datum alignment fires the `FabricationFact.Engine.Of` ICP-iteration row through the same tap.
@@ -760,11 +761,43 @@ public abstract partial record DatumPolicy {
         FitPolicy FitPolicy,
         AlignKind Registration,
         AlignmentPolicy Alignment) : DatumPolicy;
+    // `Replay` carries the memoized fit's MEASURED residual and lever radius, so the anisotropic budget
+    // survives replay — `Setup`'s absent spread states an unmeasured registration, never a replayed one.
+    public sealed record Replay(DatumReceipt Datum, Transform Registration, double DeltaMm, double RadiusMm) : DatumPolicy;
 
     public DatumReceipt Receipt => Switch(
         setup: static row => row.Datum,
         bestFit: static row => row.Datum,
-        substitute: static row => row.Datum);
+        substitute: static row => row.Datum,
+        replay: static row => row.Datum);
+}
+
+// `ProbeMemo.Key` folds every fit-shifting input through ONE `CanonicalWriter` pass — count-framed measured
+// and nominal triples in admitted order, the kind row key, every policy column, the context tolerances —
+// hashed by the kernel seed-zero entry, so a byte-identical observation set under one policy resolves ONE
+// key across processes and runs. Cache keys spell `icp:{Key:x32}` — the prefix the Persistence solver-memo
+// band dispatches on — and the lane composes at the cache-owning boundary: a hit replays as
+// `DatumPolicy.Replay` carrying the memoized transform, residual, and radius, a miss runs `BestFit` and
+// publishes; the sync statement kernel inside `Align` stays memo-free.
+public static class ProbeMemo {
+    public static UInt128 Key(Seq<UnregisteredFeature> features, AlignKind kind, AlignmentPolicy policy, Context context) {
+        CanonicalWriter w = new(context.Absolute.Value);
+        w.Ordinal(features.Count);
+        features.Iter(row => {
+            w.Double(row.Measured.X).Double(row.Measured.Y).Double(row.Measured.Z);
+            w.Double(row.Target.Nominal.X).Double(row.Target.Nominal.Y).Double(row.Target.Nominal.Z);
+        });
+        w.String(kind.Key)
+            .I64(policy.MaxIterations.Value)
+            .Double(policy.ConvergenceTolerance.Value).Double(policy.ResidualTolerance.Value).Double(policy.StepTolerance.Value)
+            .Double(policy.RobustScale.Value).Double(policy.CovarianceRidge.Value).Double(policy.MadToSigma.Value)
+            .I64(policy.OptimizerBudget.Value)
+            .Bool(policy.EstimateScale)
+            .Optional(policy.TrimFraction.Map(static trim => trim.Value))
+            .I64(policy.CoarseLevels.Value)
+            .Double(context.Relative.Value).Double(context.Angle.Value).String(context.Unit.Key);
+        return ContentHash.Of(w.ToBytes().Span);
+    }
 }
 
 [ComplexValueObject]
@@ -950,7 +983,8 @@ public static class Probe {
     private static bool DatumValid(DatumPolicy policy) => policy.Switch(
         setup: static row => row.Registration.IsValid,
         bestFit: static _ => true,
-        substitute: static row => !row.Kinds.IsEmpty && row.Kinds.Distinct().Count == row.Kinds.Count);
+        substitute: static row => !row.Kinds.IsEmpty && row.Kinds.Distinct().Count == row.Kinds.Count,
+        replay: static row => row.Registration.IsValid && row.DeltaMm >= 0.0 && row.RadiusMm > 0.0);
 
     // One contact leaving its admitted path is per-contact evidence, never a program verdict: aborting here
     // would destroy every other feature's measurement over a single rejected touch, so the reason rides the
@@ -1092,7 +1126,15 @@ public static class Probe {
                 .Filter(pair => fit.Inliers[pair.Index])
                 .Map(static pair => pair.Feature)
             from aligned in Align(inliers, state.Context, row.Registration, row.Alignment)
-            select Seated(row.Datum, aligned, inliers, Some(fit)));
+            select Seated(row.Datum, aligned, inliers, Some(fit)),
+        // Replay seats the memoized fit with its measured spread: no solve, no receipt, and the same
+        // degenerate-radius gate `Seated` applies, so a replayed budget is never priced from a dead radius.
+        replay: static (state, row) => row.Registration.IsValid
+            ? Fin.Succ(new ProbeDatum(
+                row.Datum, row.Registration, Centroid(state.Features),
+                row.RadiusMm > EpsilonPolicy.SqrtEpsilon ? Some(new RegistrationSpread(row.DeltaMm, row.RadiusMm)) : None,
+                None, None))
+            : Fin.Fail<ProbeDatum>(new FabricationFault.PolicyInadmissible(FabConcern.Verify, "probe:replay-transform")));
 
     // A rigid registration's residual rotation acts about the CENTROID of the cloud it was solved over, and that
     // cloud's RMS lever arm is what turns a point residual into a bound on the rotation. `DatumReceipt` carries

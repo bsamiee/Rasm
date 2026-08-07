@@ -1,14 +1,15 @@
 # [PERSISTENCE_QUERY_CACHE]
 
-Rasm.Persistence owns one content-addressed artifact index, model-result recency owner, buffer-contract L2 contribution, codec factory, and optional wide-column projection. The `Version/retention#RETENTION_CLASSES` `ArtifactKind` axis this index composes carries `CacheTier` into the AppHost runtime lane. `ModelResultIndex` closes `RecencyHorizon` and `IClock`; callers cannot replace freshness policy. `CacheL2Store` persists capped deadlines and tenant-partitioned keys. `IndexResidency` selects `MartenPg | ScyllaWideColumn` without forking admission, identity, retention, or horizon policy.
+Rasm.Persistence owns one content-addressed artifact index, model-result recency owner, durable solver-memo band, buffer-contract L2 contribution, codec factory, and optional wide-column projection. The `Version/retention#RETENTION_CLASSES` `ArtifactKind` axis this index composes carries `CacheTier` into the AppHost runtime lane. `ModelResultIndex` closes `RecencyHorizon` and `IClock`; callers cannot replace freshness policy. `CacheL2Store` persists capped deadlines and tenant-partitioned keys. `IndexResidency` selects `MartenPg | ScyllaWideColumn` without forking admission, identity, retention, or horizon policy.
 
 ## [01]-[INDEX]
 
 - [02]-[ARTIFACT_BLOB_INDEX]: `ArtifactIndexRow` admits content-keyed under the composed `Version/retention` asset-class axis, and `Project` folds the source-keyed family.
 - [03]-[MODEL_RESULT_INDEX]: `ModelResultKey` keys each call, `ModelResultIndex` owns the content-addressed recency/dedup horizon with its gate folded into the lookup, and the lookup/publish seam carries reuse.
 - [04]-[BENCHMARK_INDEX]: `BenchmarkFamily` rosters the standing corpus, `BenchmarkRow` carries the durable claim, and `Claim` resolves fingerprint-gated and recency-bounded.
-- [05]-[L2_CONTRIBUTION]: `IBufferDistributedCache` stores the `Store`-keyed buffer contract, one `IHybridCacheSerializerFactory` mints the MessagePack codec, `TenantId` partitions the content-address key the AppHost cache port resolves over, and `CacheLane.Store` gates the Redis invalidation backplane beside it.
-- [06]-[INDEX_RESIDENCY]: `IndexResidency` axes deployment (`marten-pg` default · `scylla-widecolumn` scale-out), LWT claims gate wide-column admission and the `PagingState` sweep, and `WideColumnFault` folds `DriverException` at one boundary.
+- [05]-[SOLVER_MEMO]: `SolverMemoKind` rosters the content-exact solver producers by key prefix, `SolverMemoRow` persists each memo deadline-free under the `cache` class, and `SolverMemo` owns the band read/write with its hit accounting.
+- [06]-[L2_CONTRIBUTION]: `IBufferDistributedCache` stores the `Store`-keyed buffer contract, one `IHybridCacheSerializerFactory` mints the MessagePack codec, `TenantId` partitions the content-address key the AppHost cache port resolves over, and `CacheLane.Store` gates the Redis invalidation backplane beside it.
+- [07]-[INDEX_RESIDENCY]: `IndexResidency` axes deployment (`marten-pg` default · `scylla-widecolumn` scale-out), LWT claims gate wide-column admission and the `PagingState` sweep, and `WideColumnFault` folds `DriverException` at one boundary.
 
 ## [02]-[ARTIFACT_BLOB_INDEX]
 
@@ -40,6 +41,7 @@ using Microsoft.Extensions.Caching.Hybrid;
 using NodaTime;
 using Rasm.Domain;                                // TenantId — the frame tenancy the partition digests
 using Rasm.Persistence.Element;
+using Rasm.Persistence.Store;                     // RollingWindow — the partition roster (provisioning#SERVER_EXTENSIONS)
 using Rasm.Persistence.Version;
 using StackExchange.Redis;
 using Thinktecture;
@@ -319,14 +321,72 @@ public sealed record BenchmarkRow {
 |  [05]   | corpus roster   | one `BenchmarkFamily` row per family | typed case mint derives the complete row key      |
 |  [06]   | measurement src | `Summary.ResultStatistics`/`GcStats` | the BenchmarkDotNet graph; never a Stopwatch loop |
 
-## [05]-[L2_CONTRIBUTION]
+## [05]-[SOLVER_MEMO]
+
+- Owner: `SolverMemoKind` the closed producer roster carrying each lane's key prefix and producing identity; `SolverMemoRow` the durable content-keyed memo row; `SolverMemo` the band read/write and its hit-accounting slots.
+- Cases: `Nfp` — the Fabrication pair-matrix polygons keyed by `PairTable.Key`/`InnerKey` over pair geometry, tolerance, rotation, clearance, kerf, and chord error; `Icp` — the registration fits keyed by `ProbeMemo.Key` over both point sets, the align kind, the policy columns, and the context tolerances; each row names its producer identity, so the band stores foreign solver truth without re-deriving it.
+- Entry: `SolverMemo.Get(SolverMemoKind kind, UInt128 identity)` is the synchronous-lane read a warm start blocks on; `Put(SolverMemoRow row)` upserts by identity, so a byte-identical re-publish is a no-op.
+- Auto: federation is the LANDED `HybridCache` path — the Fabrication memo lanes ride the branch `HybridCache` whose L2 is this folder's `#L2_CONTRIBUTION` `IBufferDistributedCache`, so the band opens NO cross-package seam: the L2 store dispatches on the key prefix through `SolverMemoKind.Of`, a solver-memo key persists as a `SolverMemoRow` with no deadline while every other key keeps the capped-deadline row, and a cross-run or cross-process warm start is an ordinary L2 hit; solver truth is content-exact — the producer key folds EVERY input that shifts the result, so an input change IS a new key, staleness is unspellable, and no recency horizon applies.
+- Receipt: a band hit rides `store.cache.memo.hit`, a miss `store.cache.memo.miss`, a publish `store.cache.memo.publish` — each carrying the kind key, so per-lane hit accounting is a query over the fact stream, never a mutable row counter.
+- Packages: Marten (`IDocumentStore`), MessagePack (`MessagePackSerializer`), LanguageExt.Core, Thinktecture.Runtime.Extensions, NodaTime, BCL inbox.
+- Growth: a new solver memo lane is one `SolverMemoKind` row — prefix and producer identity — beside the producer-side content key and cache ride; zero new surface here.
+- Boundary: identity is the PRODUCER's content key — this band mints no key and decodes no payload, so solver truth round-trips opaque and only its producer reads it; content-exactness is what deletes the recency horizon — the `#MODEL_RESULT_INDEX` horizon governs results whose identity is not total over inputs, and importing it here expires truth that cannot stale; rows derive `RetentionClass.Cache`, so the `Version/retention#SWEEP_AND_GC` sweep alone evicts by budget; the S2-peer law holds whole — Fabrication never references this package, the composition root binds the `HybridCache` L2, and the prefix dispatch is the entire federation seam; tenant scoping rides the same `CachePartition.Scoped` derivation every L2 row takes.
+
+```csharp signature
+// --- [TYPES] ------------------------------------------------------------------------------
+// Producer rows: the PREFIX is the L2 dispatch discriminant and the producer label names the key mint, so
+// the band's vocabulary and the cache-key spelling cannot drift apart.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class SolverMemoKind {
+    public static readonly SolverMemoKind Nfp = new("nfp", "PairTable.Key/InnerKey");
+    public static readonly SolverMemoKind Icp = new("icp", "ProbeMemo.Key");
+
+    public string Producer { get; }
+    public string Prefix => $"{Key}:";
+    private SolverMemoKind(string key, string producer) : this(key) => Producer = producer;
+
+    // `Of` is the L2 store's routing read: a solver-memo key lands in the durable band, every other key
+    // keeps the deadline-capped generic row.
+    public static Option<SolverMemoKind> Of(string cacheKey) =>
+        toSeq(Items).Find(kind => cacheKey.StartsWith(kind.Prefix, StringComparison.Ordinal));
+}
+
+// --- [MODELS] -----------------------------------------------------------------------------
+public sealed record SolverMemoRow(SolverMemoKind Kind, UInt128 Identity, ReadOnlyMemory<byte> Payload, Instant At) {
+    public RetentionClass Retention => RetentionClass.Cache;
+}
+
+// --- [OPERATIONS] -------------------------------------------------------------------------
+public static class SolverMemo {
+    public static readonly StoreSlot HitSlot = StoreSlot.Create("store.cache.memo.hit");
+    public static readonly StoreSlot MissSlot = StoreSlot.Create("store.cache.memo.miss");
+    public static readonly StoreSlot PublishSlot = StoreSlot.Create("store.cache.memo.publish");
+    public static readonly Seq<StoreSlot> Slots = Seq(HitSlot, MissSlot, PublishSlot);
+
+    public static IO<Option<SolverMemoRow>> Get(SolverMemoKind kind, UInt128 identity, Func<SolverMemoKind, UInt128, IO<Option<SolverMemoRow>>> resolve) =>
+        resolve(kind, identity);
+
+    public static IO<Unit> Put(SolverMemoRow row, Func<SolverMemoRow, IO<Unit>> record) => record(row);
+}
+```
+
+| [INDEX] | [POLICY]        | [VALUE]                              | [BINDING]                                              |
+| :-----: | :-------------- | :----------------------------------- | :----------------------------------------------------- |
+|  [01]   | identity        | the producer's content key           | the band mints none; payload stays producer-opaque     |
+|  [02]   | freshness       | content-exact, no horizon            | an input change IS a new key; staleness unspellable    |
+|  [03]   | federation      | L2 prefix dispatch                   | zero cross-package seam; composition binds the L2      |
+|  [04]   | retention class | `cache` — budget-swept, no deadline  | the sweep governs; a TTL would delete replayable truth |
+|  [05]   | hit accounting  | the three `store.cache.memo.*` slots | per-lane counts query the fact stream                  |
+
+## [06]-[L2_CONTRIBUTION]
 
 - Owner: `CacheL2Store` contributes the Marten-backed `IBufferDistributedCache`; `CacheCodecFactory` contributes one MessagePack serializer factory; `CachePartition` derives tenant-scoped keys; `CacheBackplane` owns Redis beat and RESP3 tracking invalidation through one `InvalidationMode` drain; AppHost retains the `HybridCache` L1, stampede, and tag owner.
 - Cases: the L2 store backs every lane whose `CacheLane.Store` is set (`ModelResult`, `Projection` on `durable-l2`) while a lane with no `Store` (`ArtifactBlob`) resolves the default `HybridCache` with no L2 leg; the codec factory yields a `CacheCodec<T>` for every payload `T` from one MessagePack pass, so a `ModelResultRow`, a `Cached<Fin<T>>` envelope, and a projection document round-trip under one registered factory.
-- Entry: `TryGetAsync` rejects expired rows and refreshes a sliding deadline beneath its absolute cap before writing the supplied buffer; `SetAsync` converts nullable platform options into internal `Option` state; `RefreshAsync` advances the same deadline; `CachePartition.Scoped` derives the tenant partition; `Configure` selects RESP3, `EnableTracking` issues `CLIENT TRACKING ON BCAST PREFIX`, and `Drain` folds beat tags or `__redis__:invalidate` keys into the matching `HybridCache` invalidation operation.
-- Auto: `IBufferDistributedCache` routes payloads through pooled writers and `ReadOnlySequence<byte>`; `CacheBlob` materializes one durable `byte[]` and stores deadline absence as `Option`. `TryGetAsync` rejects `ExpiresAt <= now()` and renews sliding rows. `SetAsync` derives the earliest absolute, relative, or sliding deadline. `CacheCodec<T>` uses `SnapshotCodec.Binary`. `Scoped` digests the injected tenant through `ContentAddress.Of`.
-- Receipt: the L2 contribution emits no cache fact of its own — hit/miss/evict are the AppHost `HybridCacheOptions.ReportTagMetrics` consequences metered by lane tag, and the durable row lifecycle is the `Version/retention` `cache`/`blob` sweep's; the contribution is a storage + codec leg, never a second receipt stream.
-- Packages: Microsoft.Extensions.Caching.Hybrid (`IBufferDistributedCache`/`IHybridCacheSerializer<T>`/`IHybridCacheSerializerFactory`/`HybridCache.RemoveAsync`/`RemoveByTagAsync`), Marten (`IDocumentStore`), MessagePack (`MessagePackSerializer`), StackExchange.Redis (`ConfigurationOptions.Protocol`/`RedisProtocol.Resp3`/`IConnectionMultiplexer.GetDatabase`/`GetSubscriber`/`IDatabase.ExecuteAsync`/`ISubscriber.SubscribeAsync`/`ChannelMessageQueue`/`RedisChannel`), Rasm.Element (`ContentAddress`), LanguageExt.Core, BCL inbox.
+- Entry: `CacheL2Store.Partition(StoreOptions)` publishes the `cache-blob` `Store/provisioning#SERVER_EXTENSIONS` `RollingWindow` mapping contribution the composition root folds over the spine seat; `TryGetAsync` rejects expired rows and refreshes a sliding deadline beneath its absolute cap before writing the supplied buffer; `SetAsync` converts nullable platform options into internal `Option` state; `RefreshAsync` advances the same deadline; `CachePartition.Scoped` derives the tenant partition; `Configure` selects RESP3, `EnableTracking` issues `CLIENT TRACKING ON BCAST PREFIX`, and `Drain` folds beat tags or `__redis__:invalidate` keys into the matching `HybridCache` invalidation operation.
+- Auto: `IBufferDistributedCache` routes payloads through pooled writers and `ReadOnlySequence<byte>`; `CacheBlob` materializes one durable `byte[]` and stores deadline absence as `Option`. `TryGetAsync` rejects `ExpiresAt <= now()` and renews sliding rows. `SetAsync` derives the earliest absolute, relative, or sliding deadline; both verbs FIRST route the key through `#SOLVER_MEMO` `SolverMemoKind.Of` — a solver-memo prefix reads and writes the durable band's `SolverMemoRow` (deadline-free, the caller's expiration options discarded because content-exact truth cannot stale) while every other key keeps the capped-deadline row. `CacheCodec<T>` uses `SnapshotCodec.Binary`. `Scoped` digests the injected tenant through `ContentAddress.Of`.
+- Receipt: the L2 contribution emits no cache fact of its own — hit/miss/evict are the AppHost `HybridCacheOptions.ReportTagMetrics` consequences metered by lane tag, and the durable row lifecycle is the `Version/retention` `cache`/`blob` sweep's, the `CacheBlob` table paying it at PARTITION grain through its `Store/provisioning#SERVER_EXTENSIONS` `RollingWindow` row (one receipted `DropPartition` per aged day rather than one eviction per row); the contribution is a storage + codec leg, never a second receipt stream.
+- Packages: Microsoft.Extensions.Caching.Hybrid (`IBufferDistributedCache`/`IHybridCacheSerializer<T>`/`IHybridCacheSerializerFactory`/`HybridCache.RemoveAsync`/`RemoveByTagAsync`), Marten (`IDocumentStore`; `StoreOptions.Schema.For<T>().PartitionOn` through `RollingWindow.Declare`), MessagePack (`MessagePackSerializer`), StackExchange.Redis (`ConfigurationOptions.Protocol`/`RedisProtocol.Resp3`/`IConnectionMultiplexer.GetDatabase`/`GetSubscriber`/`IDatabase.ExecuteAsync`/`ISubscriber.SubscribeAsync`/`ChannelMessageQueue`/`RedisChannel`), Rasm.Element (`ContentAddress`), LanguageExt.Core, BCL inbox.
 - Growth: a new L2 topology is one composition row; a new payload type uses the existing factory; a new invalidation posture is one `InvalidationMode` case. Redis deployment composes `Configure`, `EnableTracking`, and `Drain(Tracking, token)`; beat deployments use `Drain(Beat, token)`.
 - Boundary: Persistence contributes exactly ONE L2 store row (the `IBufferDistributedCache` buffer-contract storage that spares the cache-runtime intermediate-array copy, persisting one `byte[]` at the Marten document seam) and ONE `IHybridCacheSerializerFactory` (the MessagePack codec for every payload `T`), registered through the AppHost `CacheSurface.Register(services, contributed)` `AddSerializerFactory` on every keyed builder, never a per-type `AddSerializer<T>`; the AppHost `HybridCache` runtime composes ON TOP — `GetOrCreateAsync` drives stampede-protected single-flight population, `RemoveByTagAsync` cuts a lane by its key tag, and the `HybridCacheEntryFlags` lane axis (`DisableLocalCache` on the `ArtifactBlob` lane so an oversized GLB never pins L1, `None` on the `ModelResult` lane) is the per-lane L1/L2 routing — so the L1+stampede+tag-invalidation half is the AppHost port's and the L2-store+serializer half is this contribution, one cache owner across both and never a second; the L2 wire is the `messagepack` `SnapshotCodec.Binary` row so the durable cache bytes and the snapshot/event bytes share one codec and one `Instant` formatter, never a cache-local serializer; the content-address key partitions by `TenantId` through `Scoped` so the `#MODEL_RESULT_INDEX` `ModelResultKey.ToString` lane key and the `#ARTIFACT_BLOB_INDEX` content key both read one tenant-scoped identity exactly as `Element/identity#ELEMENT_IDENTITY` scopes the durable row by `current_setting('rasm.tenant')` over the kernel's canonical tenant text; tag invalidation is an explicit cache capability and never substitutes for durable store integrity — a tag cut is a logical miss-until-expiry, the `RemoveAsync` physical delete its sibling, and the durable reuse rows live on the retention sweep, not the cache TTL; the backplane is LOSSY BY DESIGN — a missed beat is a TTL-bounded stale read, never corruption (the presence-lane precedent), because correctness lives in the durable index rows and the runtime's self-describing expiry envelope, so the beat channel is a latency optimization the deployment composes only where the Redis `Store` row is live; hardening the backplane into a delivery guarantee creates a second reliability owner beside `Version/egress`, the deleted form.
 
@@ -334,6 +394,13 @@ public sealed record BenchmarkRow {
 // --- [SERVICES] ---------------------------------------------------------------------------
 
 public sealed class CacheL2Store(IDocumentStore store, CacheToken storeKey, Func<DateTimeOffset> now) : IBufferDistributedCache {
+    // `Partition` publishes the L2 row's mapping contribution the composition root folds over the
+    // `Element/graph#STREAM_GRAIN` spine seat: policy stays the `Store/provisioning#SERVER_EXTENSIONS`
+    // `RollingWindow` `cache-blob` row and this publishes only the duplicated key, so a `PartitionOn` carrying its
+    // own period literals is the deleted form. It seats HERE because the S0 spine may not name this S3 type.
+    public static StoreOptions Partition(StoreOptions opts) =>
+        RollingWindow.CacheBlob.Declare<CacheBlob>(opts, static row => row.Window);
+
     public bool TryGet(string key, IBufferWriter<byte> destination) => TryGetAsync(key, destination).AsTask().GetAwaiter().GetResult();
 
     public async ValueTask<bool> TryGetAsync(string key, IBufferWriter<byte> destination, CancellationToken token = default) {
@@ -358,6 +425,7 @@ public sealed class CacheL2Store(IDocumentStore store, CacheToken storeKey, Func
         session.Store(new CacheBlob(
             Physical(key),
             value.ToArray(),
+            stamp,
             Optional(options.AbsoluteExpiration),
             Deadline(stamp, Optional(options.AbsoluteExpiration), Optional(options.AbsoluteExpirationRelativeToNow), Optional(options.SlidingExpiration)),
             Optional(options.SlidingExpiration)));
@@ -394,7 +462,13 @@ public sealed class CacheL2Store(IDocumentStore store, CacheToken storeKey, Func
     }
 }
 
-public sealed record CacheBlob(string Id, byte[] Payload, Option<DateTimeOffset> AbsoluteExpiration, Option<DateTimeOffset> ExpiresAt, Option<TimeSpan> SlidingExpiration);
+// `Window` is the IMMUTABLE admission stamp and the `Store/provisioning#SERVER_EXTENSIONS` `RollingWindow`
+// `cache-blob` partition key — the duplicated `DateTimeOffset` its declaration asserts at configuration time.
+// `ExpiresAt` alone moves under a sliding refresh, so a renewed row stays in the partition it was admitted to
+// and no upsert ever migrates a row across partitions; this family's aged edge sits a day past the `cache`
+// class age bound, so a dropped partition retires only rows the per-row verdict already evicted and a live
+// sliding entry the drop catches is a logical miss the next populate refills.
+public sealed record CacheBlob(string Id, byte[] Payload, DateTimeOffset Window, Option<DateTimeOffset> AbsoluteExpiration, Option<DateTimeOffset> ExpiresAt, Option<TimeSpan> SlidingExpiration);
 
 public sealed class CacheCodecFactory : IHybridCacheSerializerFactory {
     public bool TryCreateSerializer<T>([NotNullWhen(true)] out IHybridCacheSerializer<T>? serializer) {
@@ -491,7 +565,7 @@ public sealed class CacheBackplane(IConnectionMultiplexer connection, HybridCach
 |  [07]   | GH-plugin root profile | raster-byte `IHybridCacheSerializer` admission | `MaximumPayloadBytes` sized to the largest canvas raster      |
 |  [08]   | GH-plugin tag metering | `ReportTagMetrics = true`                      | `gh-doc:{documentId:N}` the per-document dimension            |
 
-## [06]-[INDEX_RESIDENCY]
+## [07]-[INDEX_RESIDENCY]
 
 - Owner: `IndexResidency` is the closed `MartenPg | ScyllaWideColumn` deployment family. `WideColumnRow` mirrors the content index. `WideColumnIndex` owns mapping, conditional admission, and cursor paging without forking identity or horizon policy.
 - Cases: `IndexResidency` rows are `MartenPg` and `ScyllaWideColumn`; `ClaimMode` is `Idempotent | Required`; `ClaimVerdict` is `Inserted | Duplicate`; `WideColumnFault` closes availability, operation/read/write timeout, LWT refusal, host, invalid-query, and schema-exists causes across `8451`–`8458`.
@@ -630,7 +704,7 @@ public static class WideColumnIndex {
 |  [04]   | consistency/retry | named `IExecutionProfile` rows + `TokenAwarePolicy` | policy declared once; never per-call branching          |
 |  [05]   | fault fold        | `WideColumnFault.Lift` at ONE boundary              | `FaultBand.WideColumn + n`; no driver exception crosses |
 
-## [07]-[RESEARCH]
+## [08]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.

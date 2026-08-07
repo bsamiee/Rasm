@@ -33,7 +33,8 @@ Rasm.Persistence/            # refs the Rasm.Element seam + Rasm kernel ONLY; no
 │   ├── Tabular.cs           # Delimited and spreadsheet source lane
 │   ├── Schedule.cs          # Schedule-file codec and durable task-relation DAG
 │   ├── Geospatial.cs        # Geospatial feature source lane
-│   └── Issue.cs             # BCF issue-row seam and issue-cycle reconcile
+│   ├── Issue.cs             # BCF issue-row seam and issue-cycle reconcile
+│   └── Pointcloud.cs        # E57/LAS/LAZ scan decode, chunked blob residence, per-region cells
 └── Store/                   # Durable-home and coordination substrate
     ├── BlobStore.cs         # Content-keyed object store with a write-blob-first seal
     ├── Schema.cs            # Sole current-state contract and immutable generation state machine
@@ -50,7 +51,7 @@ S0–S3 order the sub-domains; `Version` and `Store` co-seat as a coupled pair �
 
 - S0 `Element` — the system-of-record spine consuming no sibling: `ModelId`, `GraphStoreOp`, the `SnapshotCodec` content-address codec.
 - S0 `Element` — the `IdentityStore` one-transaction identity owner and the `GrantSet` ACL algebra.
-- S1 `Ingest` — file-codec ingress over the spine alone: `TabularSource`, `GeoFeatureRow`, `ScheduleSpec`, the durable `TaskRelation` rows.
+- S1 `Ingest` — file-codec ingress over the spine alone: `TabularSource`, `GeoFeatureRow`, `ScheduleSpec`, `TaskRelation`, `ScanSource`, `ScanRegion`.
 - S1 law — the Bim sequencing DAG orders the `TaskRelation` rows.
 - S2 `Version` — `OpLogEntry`, `Hlc`, `TimeCut`, and `RetentionClass`, the coupled durable stratum's version half.
 - S2 `Store` — `ObjectStore`, `StorageTier`, `LeaseToken`, and `OutboxCursor`; the mutual retention-tier exchange stays same-stratum.

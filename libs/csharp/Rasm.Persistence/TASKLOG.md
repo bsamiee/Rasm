@@ -20,40 +20,7 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic included; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Tasks state landing-grain work decomposing an idea.
 -->
 
-[MODEL_QUALIFIED_SETS]-[QUEUED]: Model-qualified element sets — re-cut the `ElementSet` preimage over `(ModelId, NodeId)` and re-freeze its parity vector in the same pass.
-- Capability: set membership carries the owning model, evaluation resolves across the `ProjectGraph` roster, and the multi-graph topology view answers federation-altitude selections.
-- Shape: preimage re-frame on `Query/lane#ELEMENT_SET_ALGEBRA`, the `ContentParityCorpus` `ParitySlot.ElementSet` vector re-cut beside it, and the multi-graph view case on `Query/topology#GRAPH_TOPOLOGY` over the durable `ModelLink` edges.
-- Unlocks: cross-model clash sets and whole-project QTO subjects as one content-addressed currency.
-- Anchors: `IDEAS.md` `[FEDERATED_ELEMENT_SET]`; `ModelLink`/`ProjectGraph` on `Element/graph`, the length-framed preimage discipline.
-- Tension: the frozen parity vector binds the `NodeId`-only preimage — both cut in one pass or cross-runtime keys diverge.
-
-[POINTCLOUD_CODEC_ADMIT_ROSTER]-[QUEUED]: Admit the surveyed reality-capture codec pair onto the central manifest and its catalogue tier.
-- Capability: the ruled E57 and LAS/LAZ managed codecs become composable surface — one manifest row each, one folder registry row each, one `.api` catalogue each at member depth — so the reality-capture page composes verified members rather than a package nobody admitted.
-- Shape: two `Directory.Packages.props` rows, two `libs/csharp/Rasm.Persistence/README.md` `[SCALEOUT_BACKENDS]`-peer registry rows under a reality-capture label, and two catalogues at `libs/csharp/Rasm.Persistence/.api/`.
-- Unlocks: `IDEAS.md` `[POINTCLOUD_CODEC_ADMISSION]` — the codec page's `Packages:` line resolves to admitted rows.
-- Anchors: the survey verdict on `[POINTCLOUD_CODEC_SURVEY]`; the catalog-alignment law binding manifest, registry, and catalogue as one touch-point set.
-- Atomic: two package rows and their catalogues, no page authoring.
-
-[SOLVER_MEMO_BAND]-[QUEUED]: Solver-memo band — content-keyed NFP pair and ICP fit memos persist beside the benchmark index and replay across runs.
-- Capability: a durable memo band keyed by the Fabrication content keys — NFP pair geometry, ICP fit results — with hit accounting, so expensive solver truth computes once and replays across processes.
-- Shape: one memo band on `libs/csharp/Rasm.Persistence/.planning/Query/cache.md` beside `#BENCHMARK_INDEX`, reads on the synchronous lane, publication through the standing residence law.
-- Unlocks: nesting and registration solves warm-start from durable memos instead of recomputing per run.
-- Anchors: the `#BENCHMARK_INDEX` content-address and recency precedent, the Fabrication memo-key origin.
-- Ripple: `Rasm.Fabrication` `[SOLVER_MEMO_CACHE]`.
-
-[ROLLING_WINDOW_PARTITIONS]-[QUEUED]: Rolling range partitions retire aged time-series rows by dropping a partition rather than sweeping them.
-- Capability: a date-keyed document family declares its own retention window on its mapping, so the trailing edge retires as a partition drop the database performs in constant time and the leading edge provisions ahead of the clock — a whole retention class stops paying per-row sweep cost.
-- Shape: a `ByRollingRange` declaration on the observability usage-series and evidence-bundle mappings at `Store/provisioning`, plus the maintenance verbs seated on the existing startup migration leg beside `ApplyAllDatabaseChangesOnStartup`.
-- Unlocks: `Version/retention#SWEEP_AND_GC` stops enumerating aged rows for the declared-expiry classes, keeping the receipted sweep for the content-keyed classes that genuinely need reachability.
-- Anchors: `.api/api-marten.md` rolling-partition rows — the declaration asserts its duplicated date key at configuration time, one shared manager rolls several tables in one pass, a `DEFAULT` overflow partition means an out-of-window row stores rather than failing, and the three `store.Advanced` verbs split roll-forward from drop-aged so the destructive half is opt-in.
-- Tension: the trailing drop is a real deletion the retention receipt rail must still account for, so the conservation identity has to admit a partition-drop verdict rather than counting per-row evictions.
-
-[SEARCH_WIRE_PROJECTION]-[QUEUED]: Search wire projection — the retrieval lane exposes one typed query/result wire with corpus-coverage rows for the document-search plane.
-- Capability: the landed BM25/tsquery retrieval owner projects a typed query/result wire — query union in, ranked hits with branch lineage out — and coverage rows admit the notebook-cell, issue-text, and evidence-payload corpora onto the indexed set.
-- Shape: wire members on `libs/csharp/Rasm.Persistence/.planning/Query/retrieval.md` beside the fusion fold; one coverage row per corpus naming its indexed columns.
-- Unlocks: the AppUi `Document/search.md` plane queries every durable text corpus through one wire.
-- Anchors: the retrieval predicate family and `LexicalRank` arms, the fusion lineage receipt, the `key_field` anchor law.
-- Ripple: `Rasm.AppUi` `[DOCUMENT_SEARCH]`.
+(none)
 
 ## [02]-[CLOSED]
 
@@ -61,6 +28,10 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 [ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
+[MODEL_QUALIFIED_SETS]-[COMPLETE]: the `ElementSet` preimage re-cut over `SetKey` `(ModelId, NodeId)` — byte-derived total order, fixed-width big-endian model bytes beside length-framed node text — with the `elementset` parity prose re-spelled at `Version/commits#CRDT_WIRE` in the same pass, `Evaluate` threading the caller-supplied `SetScope` with the new `SelectionFault.Scope` rail, `Query/topology#GRAPH_TOPOLOGY` gaining `ProjectView`/`ProjectEdge`/`ProjectTie` over the durable `ModelLink` rows (composite `(FromModel, FromNode)` index landed at `Element/graph`), and the consumer cascade — cypher model-stamped vertices, federation `SetScope` port with scope-qualified literal lowering, issue `SetKey` correlation, retrieval fusion keys — landed whole.
+[SOLVER_MEMO_BAND]-[COMPLETE]: landed as `Query/cache#SOLVER_MEMO` — `SolverMemoKind` (`nfp`/`icp`) with prefix dispatch on the L2 store, deadline-free `SolverMemoRow` under `RetentionClass.Cache`, `store.cache.memo.*` hit accounting, zero cross-package seam (the landed HybridCache L2 federation IS the path) — with the ICP estate-side half landed at `Rasm.Fabrication` `Verify/probing`: `ProbeMemo.Key` content identity over both point sets, kind, policy columns, and context tolerances, and the `DatumPolicy.Replay` case seating a memoized fit with its measured spread.
+[ROLLING_WINDOW_PARTITIONS]-[COMPLETE]: landed as the `RollingWindow` roster at `Store/provisioning#SERVER_EXTENSIONS` (`CacheBlob` and `DeadLetterRow` rows, one shared `ManagedRangePartitions`, per-family `Partition(StoreOptions)` contributions the composition root folds), the boot verbs on `Element/identity` `SchemaGate.AdmitMarten` (single-writer rolls both edges), and `Version/retention` `SweepVerdict.DropPartition` with `Key` minted through `IdentityScheme.NamePlusEpoch` so the conservation identity closes over partition-grained inventory; one-table-one-manager law stated at the `MaintenanceJob` roster.
+[SEARCH_WIRE_PROJECTION]-[COMPLETE]: the wire stood substantially landed at `Query/retrieval#DOCUMENT_CORPUS`; this pass closed the residuals — `CorpusKind` gained the `Node` row and per-row coverage columns (subject/member/body semantics), and the AppUi `Document/search#INDEX_WIRE` twin records collapsed onto the store-declared `DocumentQuery`/`DocumentHit` through the legal package reference (`SearchWire` owns encode/decode; a member-for-member re-spelled record is the deleted twin).
 [CDC_ENVELOPE_SPELLING]-[COMPLETE]: `CdcEnvelope` returns zero hits across every design page and catalog — the `api-cloudevents.md` charter and field-map rows and the `Query/columnar.md` projection comment re-spelled to the realized `Egress.Envelope` projection (the `api-nats.md` site the card named carried no occurrence on re-probe), landed in the same pass as the AppHost `[OUTBOX_ENVELOPE_SPELLING]` mirror.
 [POINTCLOUD_CODEC_SURVEY]-[COMPLETE]: the survey ran and the family EXISTS — `Aardvark.Data.E57` carries the E57 reader and `Unofficial.laszip.netstandard` the LAS/LAZ codec, both resolving on nuget.org at the same current platform version, both already transitively resident in the branch's restore graph, and neither superseded; the discarded candidates (`laszip.net`, `LASzip.Net`, `Aardvark.Data.Points.Import.Laszip`) resolve on no configured source, so the roster is the two admitted rows and the hand-rolled E57 XML-plus-binary layout the card named as the forbidden alternative is foreclosed by an existing managed reader rather than by preference.
 [MQTT_SINK_MEMBERS]-[COMPLETE]: refuted on disk — `Version/egress#EGRESS_SINK` already carries the realized `Mqtt(SinkBinding, string Topic)` case, its `Binding` arm, the structured-mode `ToMqttApplicationMessage` encode, the `V500` `UserProperties` trace stamp through the `ValueBuffer` overload, and the `MqttClientPublishResult` reason-code fold, with both `libs/csharp/.api/api-mqtt.md` and `libs/csharp/.api/api-cloudevents-mqtt.md` landed; the arming condition had long since resolved.

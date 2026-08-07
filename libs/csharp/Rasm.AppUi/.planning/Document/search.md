@@ -146,7 +146,7 @@ public sealed partial class SearchQuery {
 
 - Owner: `SearchSource` `[SmartEnum<string>]` — the closed coverage vocabulary, each row carrying its own projection column; `SearchDocument` — the one candidate shape every row projects into; `SearchCorpus` — the composition-bound live rosters every row projects from; `SearchProjections` — the row column bodies beside the one total corpus mint; `SearchScan` — the corpus fold that turns candidates into ranked results.
 - Cases: `SearchSource` = cell · prose · issue · node · evidence — each row a projection of a landed owner, never a second model of it.
-- Entry: `public static Seq<SearchDocument> Of(SearchCorpus corpus)` — the corpus mint as one fold over the coverage roster, so a declared source cannot contribute nothing; `public static Fin<Seq<SearchResult>> Local(ISearchStrategy strategy, SearchQuery query, Seq<SearchDocument> corpus)` — the one in-memory fold: every scoped candidate runs the query's own strategy, and each hit constructs through the SAME `DocumentHitWire` shape the store answers with and decodes through the same gate, so both legs share one result-construction path.
+- Entry: `public static Seq<SearchDocument> Of(SearchCorpus corpus)` — the corpus mint as one fold over the coverage roster, so a declared source cannot contribute nothing; `public static Fin<Seq<SearchResult>> Local(ISearchStrategy strategy, SearchQuery query, Seq<SearchDocument> corpus)` — the one in-memory fold: every scoped candidate runs the query's own strategy, and each hit constructs through the SAME `DocumentHit` shape the store answers with and decodes through the same gate, so both legs share one result-construction path.
 - Auto: a cell projects the text it AUTHORS — a code cell its source, a markdown cell its prose, a parameter its key, an evidence cell its query — while the pin-bearing chart and render cells and the viewpoint carry structured payloads with no authored text and project nothing, so a hit can never point inside a payload it could not locate a span in. Prose projects the RAW markdown source rather than a second inline-to-text fold, and a hit rebases onto the run spans `Theme/typography` already carries, exactly as `Document/media` resolves its link hits. Issues project the topic title beside every `CommentLens` entry the board already holds, so search reads the board's own projection and opens no second comment read. Nodes project the ONE authored string a `GraphNodeRow` carries — its title — because a node's pins, extent, containment, and rotation are structure rather than text, so a node hit points at a word the author typed and a titleless node projects nothing. Evidence projects the sealed envelope's payload text, which stays opaque to the join by design, so attribution is correlation-and-kind rather than a re-validated typed owner. Local rank is the hit density a candidate answers with, normalized against its own text length so a long document cannot outrank a precise short one on volume alone.
 - Packages: Avalonia.AvaloniaEdit, Thinktecture.Runtime.Extensions, LanguageExt.Core
 - Growth: a new covered source is one `SearchSource` row carrying its projection column, one `SearchCorpus` roster member it reads, its `SearchResult` case, and its `SearchOpen` case — the three case additions break their dispatches at compile time and the projection cannot be omitted, because the row's constructor demands it; zero new surface, and no source gains a search entrypoint of its own.
@@ -259,12 +259,12 @@ public static class SearchScan {
 
     // `FindAll` yields `ISearchResult : ISegment`, so offset and length come off the segment itself and the
     // whole match set is measured once before any hit is shaped.
-    static Func<SearchDocument, Seq<DocumentHitWire>> Hits(ISearchStrategy strategy) =>
+    static Func<SearchDocument, Seq<DocumentHit>> Hits(ISearchStrategy strategy) =>
         candidate => toSeq(strategy.FindAll(new StringTextSource(candidate.Text), 0, candidate.Text.Length)) switch {
             var found => found.Map(hit => Wire(candidate, hit, Density(found.Count, candidate.Text.Length))),
         };
 
-    static DocumentHitWire Wire(SearchDocument candidate, ISearchResult hit, double rank) =>
+    static DocumentHit Wire(SearchDocument candidate, ISearchResult hit, double rank) =>
         new(candidate.Source.Key, candidate.Subject, candidate.Member, candidate.Title,
             hit.StartOffset, hit.Length, Snippet(candidate, hit), rank);
 
@@ -288,7 +288,7 @@ public static class SearchScan {
 - Owner: `SearchResult` `[Union]` — the ranked, source-attributed result family; `SearchScope` — the filter-algebra roster over the result attributes a scoped panel narrows on; `SearchPlane` — the keyed hit cache, its virtualization window, and the one run that fills both; `DocumentSearch` — the instrument declarations and their write sites.
 - Cases: `SearchResult` = Cell | Prose | Issue | Node | Evidence — one case per covered source, each carrying exactly the anchor arity its surface opens on.
 - Law: rank descends and the result key breaks the tie, so two hits at one score order deterministically and the ordinal projection the extent ledger rebuilds from cannot disagree between two reads.
-- Entry: `public IO<Fin<Unit>> Run(SearchQuery query, Seq<SearchDocument> corpus, Option<Func<DocumentQueryWire, IO<Fin<Seq<DocumentHitWire>>>>> resident)` — one run per query folding both legs onto one cache; `public IObservable<IChangeSet<RealizedItem<SearchResult>, string>> Realize(IObservable<ViewportRange> viewport)` — the realized window every result surface binds; `public PaletteProvider Provider(Func<PaletteQuery, IO<Fin<Unit>>> run)` and `public Fin<SearchOpen> Activate(string key)` — the `Shell/commands#PALETTE_FEDERATION` seam: the provider row streams source-badged `PaletteHit` rows into the one merged palette fold and resolves a hit key back to its typed navigation request, and the leg drives its own bound `Run` off the query it was opened with, so coverage and progress arrive on one emission.
+- Entry: `public IO<Fin<Unit>> Run(SearchQuery query, Seq<SearchDocument> corpus, Option<Func<DocumentQuery, IO<Fin<Seq<DocumentHit>>>>> resident)` — one run per query folding both legs onto one cache; `public IObservable<IChangeSet<RealizedItem<SearchResult>, string>> Realize(IObservable<ViewportRange> viewport)` — the realized window every result surface binds; `public PaletteProvider Provider(Func<PaletteQuery, IO<Fin<Unit>>> run)` and `public Fin<SearchOpen> Activate(string key)` — the `Shell/commands#PALETTE_FEDERATION` seam: the provider row streams source-badged `PaletteHit` rows into the one merged palette fold and resolves a hit key back to its typed navigation request, and the leg drives its own bound `Run` off the query it was opened with, so coverage and progress arrive on one emission.
 - Auto: the local scan answers from the in-memory corpus and the resident leg answers from the store's index, and BOTH publish into the same cache under the same keys — a hit both legs found collapses to one row because the key is anchor-plus-offset, and the merge keeps the higher score of the pair rather than whichever leg wrote last. The resident leg is a DECLARED arm rather than a required call, so a profile that provisioned no store binds `None` and the run publishes the local scan alone on the same rail. Results stream through `DynamicData` `FilterOnObservable`, whose per-item `IObservable<bool>` re-admits each row as its own late fact settles, and the ordered snapshot feeds `VirtualWindow.Realize` so a hundred-thousand-hit result set realizes exactly the viewport.
 - Receipt: hits and latency contribute inward through `DocumentSearch.TelemetryRow`; both rows partition on the source slot alone, and the tag keys each writer spells are the same slots the declarations carry and the descriptions name.
 - Packages: DynamicData, System.Reactive, Markdig, NodaTime, Thinktecture.Runtime.Extensions, LanguageExt.Core
@@ -408,11 +408,11 @@ public sealed record SearchPlane(
     public IO<Fin<Unit>> Run(
         SearchQuery query,
         Seq<SearchDocument> corpus,
-        Option<Func<DocumentQueryWire, IO<Fin<Seq<DocumentHitWire>>>>> resident) =>
+        Option<Func<DocumentQuery, IO<Fin<Seq<DocumentHit>>>>> resident) =>
         (from strategy in FinT.lift<IO, ISearchStrategy>(query.Strategy())
          from local in FinT.lift<IO, Seq<SearchResult>>(SearchScan.Local(strategy, query, corpus))
          from decoded in resident.Match(
-             Some: store => new FinT<IO, Seq<SearchResult>>(store(DocumentQueryWire.Of(query)).Map(answered => answered
+             Some: store => new FinT<IO, Seq<SearchResult>>(store(SearchWire.Of(query)).Map(answered => answered
                  .MapFail(static error => (Error)new SearchFault.SourceUnreachable($"search/resident: {error.Message}"))
                  .Bind(static wired => wired.TraverseM(static hit => hit.Decode()).As()))),
              None: static () => FinT.lift<IO, Seq<SearchResult>>(Fin.Succ(Seq<SearchResult>())))
@@ -605,66 +605,47 @@ public static class CodePaneSearch {
 
 ## [06]-[INDEX_WIRE]
 
-- Owner: `DocumentQueryWire` — the query VALUE the store lane consumes; `DocumentHitWire` — the hit VALUE it answers with and the decode onto the result family.
-- Entry: `public static DocumentQueryWire Of(SearchQuery query)` — the one encode, projecting the admitted query's own columns; `public Fin<SearchResult> Decode()` — the one decode, admitting the source row before it dispatches.
+- Owner: `SearchWire` — the one encode/decode seam over the store-declared `DocumentQuery`/`DocumentHit` records this plane composes directly through its package reference; the store lane declares the wire shape once and this owner projects onto and off it.
+- Entry: `public static DocumentQuery Of(SearchQuery query)` — the one encode, projecting the admitted query's own columns; `public static Fin<SearchResult> Decode(this DocumentHit hit)` — the one decode, admitting the source row before it dispatches.
 - Auto: the query wire carries terms, the grammar's predicate token, the scoped source keys, the optional subject narrowing, the ceiling, and the two matching-policy columns — exactly the admitted query and nothing derived from it. The hit wire carries the source key, the subject-and-member identity pair, the display title, the span as offset and length, the snippet the store extracted, and the score its rank engine produced. Decoding admits the source key FIRST and dispatches on the admitted row, so an unknown key refuses as `SearchFault.WireMismatched` before any case constructs, and a case whose anchor arity the wire cannot satisfy refuses as `SearchFault.AnchorAbsent`.
 - Packages: Markdig, Thinktecture.Runtime.Extensions, LanguageExt.Core
-- Growth: a new covered source is one key both ends already spell through `SearchSource`; a new hit column is one wire member both ends transcribe; zero new surface.
-- Boundary: index custody is the store's — the corpus table, its analyzer, its index method, and its rank engine all live at `csharp:Rasm.Persistence/Query/retrieval#DOCUMENT_CORPUS`, so nothing here names a table, an index, or a rank function and an AppUi-local index is the deleted form. The wire is the whole contract: field names are FROZEN and both ends transcribe them, the grammar crosses as the `SearchGrammar` row's own predicate token rather than a second vocabulary, and the source keys cross as `SearchSource` keys so a scope value and a store filter are one spelling. The store's rank ARM — which lexical branch produced a score, and whether it degraded — is that lane's own branch lineage and rides its receipt; a copy of it here would be a column no AppUi arm reads. The span crosses as offset and length because `SourceSpan`'s end is inclusive and a raw end field would let the two ends disagree by one character; the store returns identities and snippets alone, so a payload it already holds never re-crosses to be re-materialized here.
+- Growth: a new covered source is one `SearchSource` row whose key matches the store's `CorpusKind` row; a new hit column is one member on the store's declaration this decode reads; zero new surface.
+- Boundary: index custody is the store's — the corpus table, its analyzer, its index method, and its rank engine all live at `csharp:Rasm.Persistence/Query/retrieval#DOCUMENT_CORPUS`, so nothing here names a table, an index, or a rank function and an AppUi-local index is the deleted form. The store's `DocumentQuery`/`DocumentHit` declarations ARE the contract and this plane composes them directly — a member-for-member re-spelled record here is the deleted twin; the grammar crosses as the `SearchGrammar` row's own predicate token rather than a second vocabulary, and the source keys cross as `SearchSource` keys so a scope value and a store filter are one spelling. The store's rank ARM — which lexical branch produced a score, and whether it degraded — is that lane's own branch lineage and rides its receipt; a copy of it here would be a column no AppUi arm reads. The span crosses as offset and length because `SourceSpan`'s end is inclusive and a raw end field would let the two ends disagree by one character; the store returns identities and snippets alone, so a payload it already holds never re-crosses to be re-materialized here.
 
 ```csharp signature
-// The consumed store contract. AppUi sends a query VALUE and reads hit VALUES; field names are frozen and
-// both ends transcribe them, so nothing here names a table, an index method, or a rank function.
-public sealed record DocumentQueryWire(
-    string Terms,
-    string Predicate,
-    Seq<string> Sources,
-    Option<string> Subject,
-    int Limit,
-    bool CaseSensitive,
-    bool WholeWords) {
-
+// The store's `DocumentQuery`/`DocumentHit` records compose directly off the package reference; this seam
+// owns only the projection onto them and the decode off them, so nothing here names a table, an index
+// method, a rank function, or a re-spelled wire record.
+public static class SearchWire {
     // The encode is a pure projection of the ADMITTED query, so the wire cannot carry a value the query
     // shape refused — the grammar crosses as its own predicate token and the scope as source keys.
-    public static DocumentQueryWire Of(SearchQuery query) =>
+    public static DocumentQuery Of(SearchQuery query) =>
         new(query.Terms, query.Grammar.Predicate, toSeq(query.Scope).Map(static source => source.Key),
             query.Subject, (int)query.Limit, query.CaseSensitive, query.WholeWords);
-}
 
-// The span crosses as offset and LENGTH: `SourceSpan` carries an inclusive end, so a raw end field would
-// let the two ends disagree by one character on every hit.
-public sealed record DocumentHitWire(
-    string Source,
-    string Subject,
-    Option<string> Member,
-    string Title,
-    int SpanStart,
-    int SpanLength,
-    string Snippet,
-    double Score) {
-
-    public SourceSpan Span => new(SpanStart, SpanStart + SpanLength - 1);
+    // The span reprojects as `SourceSpan`'s inclusive end off the wire's offset-and-length pair.
+    public static SourceSpan Span(this DocumentHit hit) => new(hit.SpanStart, hit.SpanStart + hit.SpanLength - 1);
 
     // Admission first, dispatch second: the source key resolves to its row before any case constructs, so
     // an unknown key refuses whole rather than defaulting into a case whose anchors it cannot fill.
-    public Fin<SearchResult> Decode() =>
-        (SearchSource.TryGet(Source, out SearchSource? row) ? Optional(row) : Option<SearchSource>.None)
-            .ToFin(new SearchFault.WireMismatched($"search/source: {Source}"))
-            .Bind(source => source.Switch<DocumentHitWire, Fin<SearchResult>>(
-                state: this,
+    public static Fin<SearchResult> Decode(this DocumentHit hit) =>
+        (SearchSource.TryGet(hit.Source, out SearchSource? row) ? Optional(row) : Option<SearchSource>.None)
+            .ToFin(new SearchFault.WireMismatched($"search/source: {hit.Source}"))
+            .Bind(source => source.Switch<DocumentHit, Fin<SearchResult>>(
+                state: hit,
                 cell: static (w, _) => w.Member
                     .ToFin(new SearchFault.AnchorAbsent($"search/cell: {w.Subject} carries no cell id"))
-                    .Map(id => (SearchResult)new SearchResult.Cell(w.Subject, id, w.Span, w.Score, w.Snippet)),
+                    .Map(id => (SearchResult)new SearchResult.Cell(w.Subject, id, w.Span(), w.Score, w.Snippet)),
                 prose: static (w, _) => Fin.Succ<SearchResult>(
-                    new SearchResult.Prose(w.Subject, w.Span, w.Score, w.Snippet)),
+                    new SearchResult.Prose(w.Subject, w.Span(), w.Score, w.Snippet)),
                 issue: static (w, _) => Fin.Succ<SearchResult>(
-                    new SearchResult.Issue(w.Subject, w.Member, w.Span, w.Score, w.Snippet)),
+                    new SearchResult.Issue(w.Subject, w.Member, w.Span(), w.Score, w.Snippet)),
                 node: static (w, _) => w.Member
                     .ToFin(new SearchFault.AnchorAbsent($"search/node: {w.Subject} carries no node key"))
-                    .Map(key => (SearchResult)new SearchResult.Node(w.Subject, key, w.Span, w.Score, w.Snippet)),
+                    .Map(key => (SearchResult)new SearchResult.Node(w.Subject, key, w.Span(), w.Score, w.Snippet)),
                 evidence: static (w, _) => w.Member
                     .ToFin(new SearchFault.AnchorAbsent($"search/evidence: {w.Subject} carries no receipt kind"))
-                    .Map(kind => (SearchResult)new SearchResult.Evidence(w.Subject, kind, w.Span, w.Score, w.Snippet))));
+                    .Map(kind => (SearchResult)new SearchResult.Evidence(w.Subject, kind, w.Span(), w.Score, w.Snippet))));
 }
 ```
 
@@ -673,7 +654,7 @@ public sealed record DocumentHitWire(
 - Owner: `HitPreview` `[Union]` the per-hit preview shape; `PreviewEmphasis` the match-span emphasis fold; `SourceGroup` the per-source band with its count badge; `ResultsPanel` the panel state and its keyboard walk; `RecentQuery` the recalled query row; `PanelScope` the scoped-panel mint over the refinement owner.
 - Cases: `HitPreview` = Snippet | Thumbnail — a text hit shows its excerpt with the match emphasized, and a hit whose owner sealed a visual shows that visual.
 - Entry: `public static Seq<SourceGroup> Group(Seq<RealizedItem<SearchResult>> realized, Func<SearchSource, int> totals, SearchQuery query)` — the source bands with their badge counts; `public static HitPreview Preview(SearchResult hit, SearchQuery query, Func<SearchResult, Option<(string Key, string Caption)>> thumbnails)` — the one preview projection; `public ResultsPanel Walk(int delta)` and `public Option<DialogIntent> Peek(Func<SearchResult, Option<(string RouteKey, IReactiveObject Content)>> preview)` — the keyboard walk and its peek-on-focus; `public Fin<SearchOpen> Commit()` — the settled navigation request a focused hit raises; `public static Func<SearchResult, IObservable<bool>> Scoped(SearchPlane plane, IObservable<FilterExpr> scopes, FilterPace pace, IScheduler scheduler, Action<Error> fault)` — the scoped-panel mint; `public static Seq<RecentQuery> Remember(Seq<RecentQuery> held, SearchQuery query, int hits, Instant at)` — the recent-query fold; `public HashMap<SearchSource, int> Coverage()` on `SearchPlane` — the per-source totals the badges read.
-- Auto: grouping partitions the REALIZED window rather than the whole cache, so a panel showing a hundred-thousand-hit answer bands exactly the rows it renders and the badge counts read off the plane's own per-source totals rather than off the visible slice — a badge that counted only what was realized would shrink as the user scrolled. The preview emphasis re-runs the query's OWN strategy over the snippet, so the emphasized characters are the same match the ranking found and no second matcher decides what to bold. Peek-on-focus raises a `DialogIntent.Peek` carrying the focused hit's route key, so a walked hit previews on the canvas stack beside the panel without displacing it and without entering the navigation stack — arrowing through results therefore mints no back entries. Committing a focused hit raises the settled `SearchOpen` request, so the panel's activation and the palette's activation reach one navigator. A scoped panel composes the plane's OWN `Admits` delegate through `SearchScope.Refine`, so narrowing to one notebook costs no re-query while widening COVERAGE re-runs, exactly as the scope split states. Recent queries are the admitted `SearchQuery` values themselves, so recalling one re-runs a query the shape already validated and a recalled row cannot carry terms the admission would refuse.
+- Auto: grouping partitions the REALIZED window rather than the whole cache, so a panel showing a hundred-thousand-hit answer bands exactly the rows it renders and the badge counts read off the plane's own per-source totals rather than off the visible slice — a badge counting only the realized slice shrinks as the user scrolls. The preview emphasis re-runs the query's OWN strategy over the snippet, so the emphasized characters are the same match the ranking found and no second matcher decides what to bold. Peek-on-focus raises a `DialogIntent.Peek` carrying the focused hit's route key, so a walked hit previews on the canvas stack beside the panel without displacing it and without entering the navigation stack — arrowing through results therefore mints no back entries. Committing a focused hit raises the settled `SearchOpen` request, so the panel's activation and the palette's activation reach one navigator. A scoped panel composes the plane's OWN `Admits` delegate through `SearchScope.Refine`, so narrowing to one notebook costs no re-query while widening COVERAGE re-runs, exactly as the scope split states. Recent queries are the admitted `SearchQuery` values themselves, so recalling one re-runs a query the shape already validated and a recalled row cannot carry terms the admission would refuse.
 - Packages: DynamicData, System.Reactive, Avalonia, Avalonia.AvaloniaEdit, NodaTime, Thinktecture.Runtime.Extensions, LanguageExt.Core
 - Growth: a new preview modality is one `HitPreview` case; a new panel affordance is one `ControlIntent` row on the existing fold; a new recall column is one `RecentQuery` member; zero new surface.
 - Boundary: the panel is PRESENTATION over the ranked window and mints no query path — a panel-local scan, a panel-local sort, and a panel-local result list are the three deleted forms, so the rows it renders are the realized items the one fabric produced and their order is the one comparer's. Grouping never re-sorts: bands present in rank order of their best hit and rows within a band keep the window's order, so a grouped view and a flat view show one ranking. Peek seats on the CANVAS stack and the opened surface enters through the settled navigation verb, so a preview and a commit are two different stacks and a walked-past hit leaves nothing behind. Highlight navigation into an opened code pane rides the settled `[05]` `CodePaneSearch.Reveal` mint, so the panel raises a request and never touches an editor. Scope chips render the `Editing/livedata#FILTER_ALGEBRA` vocabulary — a panel-local scope grammar is the deleted form — and a compile failure holds the last good predicate rather than silently widening the panel.
@@ -820,8 +801,8 @@ flowchart LR
     SearchQuery -->|Strategy| ISearchStrategy
     ISearchStrategy --> SearchScan
     SearchDocument --> SearchScan
-    SearchQuery -->|DocumentQueryWire| ResidentIndex["Persistence document corpus"]
-    ResidentIndex -->|DocumentHitWire| SearchPlane
+    SearchQuery -->|DocumentQuery| ResidentIndex["Persistence document corpus"]
+    ResidentIndex -->|DocumentHit| SearchPlane
     SearchScan --> SearchPlane
     SearchPlane -->|Realize| VirtualWindow
     VirtualWindow --> ResultsPanel

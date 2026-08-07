@@ -37,13 +37,14 @@ It persists the graph over a Marten append substrate and depends up on the `Rasm
 - [22]-[SCHEDULE](.planning/Ingest/schedule.md): Schedule-file codec and its durable task-relation DAG.
 - [23]-[GEOSPATIAL](.planning/Ingest/geospatial.md): Geospatial feature source lane.
 - [24]-[ISSUE](.planning/Ingest/issue.md): BCF issue rows — GlobalId correlation, cycle reconcile, and the typed-row seam to the container custodian.
+- [25]-[POINTCLOUD](.planning/Ingest/pointcloud.md): Reality-capture codec — E57/LAS/LAZ scan headers, chunked blob residence, per-region H3 cells.
 
 [STORE]:
-- [25]-[BLOBSTORE](.planning/Store/blobstore.md): Content-keyed artifact object plane with its write-blob-first seal.
-- [26]-[SCHEMA](.planning/Store/schema.md): Owns the canonical backend contract and generation algebra.
-- [27]-[PROVISIONING](.planning/Store/provisioning.md): Verify-only extension tier and provider materializer rows.
-- [28]-[COORDINATION](.planning/Store/coordination.md): Token-fenced lease store owning budget, CAS, lease, membership, and outbox.
-- [29]-[OBSERVABILITY](.planning/Store/observability.md): Store telemetry over harvests, hook rail, chargeback residence, and contributor port.
+- [26]-[BLOBSTORE](.planning/Store/blobstore.md): Content-keyed artifact object plane with its write-blob-first seal.
+- [27]-[SCHEMA](.planning/Store/schema.md): Owns the canonical backend contract and generation algebra.
+- [28]-[PROVISIONING](.planning/Store/provisioning.md): Verify-only extension tier and provider materializer rows.
+- [29]-[COORDINATION](.planning/Store/coordination.md): Token-fenced lease store owning budget, CAS, lease, membership, and outbox.
+- [30]-[OBSERVABILITY](.planning/Store/observability.md): Store telemetry over harvests, hook rail, chargeback residence, and contributor port.
 
 ## [02]-[DOMAIN_PACKAGES]
 
@@ -122,6 +123,9 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 - `MPXJ.Net` — MS-Project, P6, and Asta schedule-file codec the `Sep`/`MiniExcel` lanes lack.
 - `Sep`
 
+[REALITY_CAPTURE]: Managed scan decode behind the `Ingest/pointcloud` residence leg.
+- `Aardvark.Data.E57` — ASTM E57 read decode: file header, `Data3D` scan-setup metadata, and the CompressedVector point stream.
+
 [APPEND_AND_EGRESS]: Marten append substrate, the out-of-Rhino sync transports, and the CDC change-egress pipeline.
 - `Marten` — PostgreSQL event store; `GraphDelta` bodies fold `ElementGraph` via `AggregateStreamAsync` AS-OF.
 - `Confluent.Kafka`
@@ -174,6 +178,7 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 [GEOMETRY_INTERCHANGE]:
 - `Speckle.Sdk` — the send half: serialiser, transports, and client behind `SyncTransport.SpeckleLikeDiff`.
 - `Speckle.Objects` — the `Base`-derived geometry and `DataObject` shapes a sync marshal targets.
+- `Unofficial.laszip.netstandard` — one LAS/LAZ engine for two consumers: Bim decodes for scan-to-BIM, this folder for chunked residence and `.lax` windowed reads.
 
 [ENERGY_SIMULATION]:
 - `PollinationSDK` — cloud-run transport, sidecar-only; the durable `Version/provenance` `CloudRunFact` half.

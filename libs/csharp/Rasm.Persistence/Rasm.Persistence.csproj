@@ -74,6 +74,10 @@
         <PackageReference Include="ZstdSharp.Port" />
     </ItemGroup>
 
+    <ItemGroup Label="Reality Capture">
+        <PackageReference Include="Aardvark.Data.E57" />
+    </ItemGroup>
+
     <ItemGroup Label="Event Transport">
         <PackageReference Include="CloudNative.CloudEvents" />
         <PackageReference Include="CloudNative.CloudEvents.Mqtt" />
@@ -84,6 +88,7 @@
     <ItemGroup Label="Geometry Interchange">
         <PackageReference Include="Speckle.Objects" />
         <PackageReference Include="Speckle.Sdk" />
+        <PackageReference Include="Unofficial.laszip.netstandard" />
     </ItemGroup>
 
     <ItemGroup Label="Energy Simulation">

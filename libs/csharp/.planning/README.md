@@ -58,6 +58,7 @@ Cross-folder substrate every C# package composes. Libraries emit telemetry throu
 - `SharpGLTF.Ext.3DTiles` — `EXT_structural_metadata` and `EXT_mesh_features` overlay on the shared glTF graph.
 - `Speckle.Sdk` — the `Base` object-graph, detach/chunk serialisation, and DI-resolved send/receive transport surface.
 - `Speckle.Objects` — the geometry roster and `DataObject` host-object family over `Base`.
+- `Unofficial.laszip.netstandard` — one managed LAS/LAZ codec for two consumers: Bim scan-to-BIM decode, Persistence chunked residence and `.lax` windowed reads.
 
 [MESH_PROCESSING]:
 - `Alimer.Bindings.MeshOptimizer` — GPU-ready mesh optimization, meshlet, LOD, and `EXT_meshopt_compression` codec substrate.

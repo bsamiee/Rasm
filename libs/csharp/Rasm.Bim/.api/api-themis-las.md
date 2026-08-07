@@ -1,6 +1,6 @@
 # [RASM_BIM_API_THEMIS_LAS]
 
-`Themis.Las` owns managed uncompressed ASPRS LAS decode/encode — every point data record format (0-10) streamed into a `LasPoint` facet carrier over a `MathNet.Numerics` `Vector<double>` position, with the public header and the CRS-WKT-carrying VLR/EVLR surface. It decodes UNCOMPRESSED `.las` only; the `.laz` compressed leg is the separate-assembly `Unofficial.laszip.netstandard` peer (`api-laszip`), and `reconstruct#LAS_INGEST` `LasIngest.Decode` folds the two as one dual-engine ingest front dispatched once by `LasCompression.Sniff`, this reader owning the uncompressed leg.
+`Themis.Las` owns managed uncompressed ASPRS LAS decode/encode — every point data record format (0-10) streamed into a `LasPoint` facet carrier over a `MathNet.Numerics` `Vector<double>` position, with the public header and the CRS-WKT-carrying VLR/EVLR surface. It decodes UNCOMPRESSED `.las` only; the `.laz` compressed leg is the separate-assembly `Unofficial.laszip.netstandard` peer (`libs/csharp/.api/api-laszip.md`), and `reconstruct#LAS_INGEST` `LasIngest.Decode` folds the two as one dual-engine ingest front dispatched once by `LasCompression.Sniff`, this reader owning the uncompressed leg.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -9,7 +9,7 @@
 - assembly: `Themis.Las` → the `net10.0` consumer binds `lib/net8.0/Themis.Las.dll` (sole `lib/` TFM; pure-managed AnyCPU IL, ALC-safe, no per-RID native asset)
 - namespace: `Themis.Las`, `Themis.Las.Structs`, `Themis.Las.Builders`, `Themis.Las.Stream`, `Themis.Las.Time`
 - depends: `MathNet.Numerics` — `LasPoint.Position` is a `MathNet.Numerics.LinearAlgebra.Vector<double>`, so the point geometry rides the Compute MathNet substrate directly
-- scope: ASPRS LAS point data record formats 0-10; UNCOMPRESSED `.las` only — the `.laz` compressed leg is the `Unofficial.laszip.netstandard` peer (`api-laszip`)
+- scope: ASPRS LAS point data record formats 0-10; UNCOMPRESSED `.las` only — the `.laz` compressed leg is the `Unofficial.laszip.netstandard` peer (`libs/csharp/.api/api-laszip.md`)
 - rail: `reconstruct#LAS_INGEST` — the uncompressed leg of the dual-engine scan-to-BIM ingest front
 
 ## [02]-[PUBLIC_TYPES]
@@ -70,7 +70,7 @@
 |  [07]   | `void Dispose()`                                                  | instance | releases the underlying stream handle            |
 
 [ENTRYPOINT_SCOPE]: point write
-- note: `LasWriter` authors a LAS file — `Initialize` writes header+VLRs, `WritePoints` streams the body, the header composed through `LasHeaderBuilder`; the LAZ-compressed emit is the `api-laszip` writer leg.
+- note: `LasWriter` authors a LAS file — `Initialize` writes header+VLRs, `WritePoints` streams the body, the header composed through `LasHeaderBuilder`; the LAZ-compressed emit is the `libs/csharp/.api/api-laszip.md` writer leg.
 
 | [INDEX] | [SURFACE]                                                                  | [SHAPE]  | [CAPABILITY]                            |
 | :-----: | :------------------------------------------------------------------------- | :------- | :-------------------------------------- |
@@ -105,7 +105,7 @@
 - `ILasHeader` carries LAS version, point data format, scale/offset, bounding extrema, standard + extended per-return counts, and waveform/EVLR offsets, composed through the fluent `LasHeaderBuilder`; VLR/EVLR records (`LasVariableLengthRecord`) carry the OGC WKT/GeoTIFF CRS keys (record `2112`) and the classification lookup, read from the surface rather than a re-minted parser
 
 [STACKING]:
-- `Unofficial.laszip.netstandard`(`.api/api-laszip`): `LasIngest.Decode` composes this reader as the UNCOMPRESSED leg with the laszip compressed leg as one front — `LasCompression.Sniff` (public-header point-data-format byte at offset 104, high bit = LASzip) selects the engine once without a full open, `ReadLas` folds the no-alloc `GetNextPoint(ref LasPoint)` loop into one `LasCloud` (positions `Clone()`-detached, classes `& 0x1F`-masked below format 6), and the kernel registration is agnostic to which engine decoded
+- `Unofficial.laszip.netstandard`(`libs/csharp/.api/api-laszip.md`): `LasIngest.Decode` composes this reader as the UNCOMPRESSED leg with the laszip compressed leg as one front — `LasCompression.Sniff` (public-header point-data-format byte at offset 104, high bit = LASzip) selects the engine once without a full open, `ReadLas` folds the no-alloc `GetNextPoint(ref LasPoint)` loop into one `LasCloud` (positions `Clone()`-detached, classes `& 0x1F`-masked below format 6), and the kernel registration is agnostic to which engine decoded
 - `csharp:Rasm.Compute/Tensor/blas`(`#DENSE_ALGEBRA`): `LasPoint.Position` is the `MathNet.Numerics` `Vector<double>` the Compute dense-LA substrate consumes with no re-wrap, so a point batch crosses into covariance/PCA normal estimation and ICP transform directly, each collected instance a `Clone()` off the reader's one mutating vector
 - content identity: the source-cloud bytes content-key as the `reconstruct#RECONSTRUCTION` `ReconstructionLineage` `[ValueObject<UInt128>]` through the kernel `Rasm.Domain.ContentHash` seed-zero `XxHash128` composed via the seam `CanonicalWriter`, never a second hashing scheme and never the upper-stratum `Rasm.Compute` `InterchangeIdentity` (that reference inverts the strata DAG)
 - classification seed: `LasPoint.Classification` (`& 0x1F`-masked below format 6 at ingest) folds into `LasCloud.ClassHistogram` and reduces to the `SegmentedCloud.DominantClass` the `reconstruct#RECONSTRUCTION` `AsprsBias` policy and `ElementClassifier` `(PrimitiveShape, IfcDomain, orientation)` table key on
@@ -118,7 +118,7 @@
 - byte admission is PATH-BOUND: the ingest span-writes raw bytes to one `try/finally`-scoped temp path because the sole shipped `IStreamHandler` (`AsyncStreamHandler`) constructs from `(string, uint)`; `new LasReader(IStreamHandler)` is the stream growth seam
 - `LasHeaderBuilder` composes the header and `ILasHeader` reads it
 - LAS GPS time (`GpsTime`), CRS WKT VLR (`LasVariableLengthRecord`), and ASPRS classification (`LasPoint.Classification`) thread onto the canonical owners `georeference#GEO_PROJECTION` and `reconstruct#RECONSTRUCTION`
-- LAZ decodes at the `api-laszip` peer, routed by a `LasCompression.Sniff`-detected compressed input; both engines are pure-managed IL, so the ALC firebreak holds
+- LAZ decodes at the `libs/csharp/.api/api-laszip.md` peer, routed by a `LasCompression.Sniff`-detected compressed input; both engines are pure-managed IL, so the ALC firebreak holds
 
 [RAIL_LAW]:
 - Package: `Themis.Las` (MIT)

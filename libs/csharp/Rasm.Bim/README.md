@@ -70,7 +70,6 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 - `dotbim` — lightweight `.bim` mesh-and-metadata interchange.
 - `Openize.Drako` — Draco mesh compression.
 - `Themis.Las` — uncompressed LAS point-cloud decode.
-- `Unofficial.laszip.netstandard` — compressed LAZ point-cloud decode.
 - `StructuralAnalysisFormat` — SAF/XLSX exchange over seam structural payloads.
 - `Xbim.CobieExpress` — COBie FM-handover emit.
 - `Xbim.IO.CobieExpress`
@@ -135,6 +134,7 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 - `SharpGLTF.Ext.3DTiles` — authors the 3D Tiles overlay at `Exchange/export#TILE_METADATA`.
 - `Speckle.Sdk` — receive-side `Base` graph: `Flatten` traversal, display values, metre conversion.
 - `Speckle.Objects` — display-mesh geometry and the `DataObject` host-object family the import seam folds.
+- `Unofficial.laszip.netstandard` — compressed-LAZ decode leg of the dual-engine `Exchange/reconstruct` ingest front.
 
 [MESH_PROCESSING]:
 - `Alimer.Bindings.MeshOptimizer` — meshopt compression behind the mesh encoders.

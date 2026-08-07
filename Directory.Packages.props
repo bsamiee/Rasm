@@ -90,6 +90,7 @@
         <PackageVersion Include="SharpGLTF.Toolkit"                                       Version="1.0.6" />
         <PackageVersion Include="Speckle.Objects"                                         Version="2026.6.0" />
         <PackageVersion Include="Speckle.Sdk"                                             Version="2026.6.0" />
+        <PackageVersion Include="Unofficial.laszip.netstandard"                           Version="5.6.2" />
     </ItemGroup>
 
     <ItemGroup Label="Mesh Processing">
@@ -158,7 +159,6 @@
     </ItemGroup>
 
     <ItemGroup Label="BIM">
-        <PackageVersion Include="Aardvark.Data.E57"                                       Version="5.6.2" />
         <PackageVersion Include="AssimpNetter"                                            Version="6.0.5" />
         <PackageVersion Include="bertt.CityJSON"                                          Version="2.5.0" />
         <PackageVersion Include="BrickSchema.Net"                                         Version="1.3.30" />
@@ -182,7 +182,6 @@
         <PackageVersion Include="SwiftCollections.Lean"                                   Version="6.0.0" />
         <PackageVersion Include="Themis.Las"                                              Version="2025.3.5" />
         <PackageVersion Include="UniversalSceneDescription"                               Version="7.3.4" />
-        <PackageVersion Include="Unofficial.laszip.netstandard"                           Version="5.6.2" />
         <PackageVersion Include="VividOrange.Cases"                                       Version="0.1.0" />
         <PackageVersion Include="VividOrange.Countries"                                   Version="0.1.0" />
         <PackageVersion Include="VividOrange.Loads"                                       Version="0.1.0" />
@@ -308,6 +307,7 @@
     </ItemGroup>
 
     <ItemGroup Label="Persistence">
+        <PackageVersion Include="Aardvark.Data.E57"                                       Version="5.6.2" />
         <!-- Held at 1.0.1: BimOpenSchema.IO 1.6.1 regressed its TFM to net8.0-windows7.0, incompatible with the net10.0 targets. -->
         <PackageVersion Include="Ara3D.BimOpenSchema"                                     Version="1.0.1" />
         <PackageVersion Include="Ara3D.BimOpenSchema.IO"                                  Version="1.0.1" />

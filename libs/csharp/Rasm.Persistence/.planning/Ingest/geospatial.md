@@ -620,4 +620,4 @@ public static class GeoContainer {
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
 -->
 
-[RASTER_CLUSTER_AVAILABILITY]-[OPEN]: does the operator cluster serve `postgis_raster` and `postgis_sfcgal` (the two provisioned `Degradable` rows the `Query/lane` `SetPredicate.Raster` leaf and any exact-3D `CG_*` lowering fold out on absence); `uv run python -m tools.assay provision` against the live cluster, then the `Store/provisioning` verify batch's own extension probe.
+(none)

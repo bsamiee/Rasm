@@ -2,7 +2,7 @@
 
 Rasm.Persistence routes every read by its consistency demand: interactive-correctness queries (clash, void-resolution, live QTO, containment) bind the synchronous authoritative lane — the inline `Element/graph` `GraphProjection` and the in-process `Query/topology` QuikGraph view — while analytical queries (aggregation, search, columnar rollup) bind the async watermarked columnar and cypher lanes. A query demanding correctness from an async view blocks on the projection daemon's non-stale wait before reading, so a read-your-writes interactive query is correct by construction and never touches a daemon-lagged projection.
 
-`QueryLane` is the lane axis carrying each lane's wait policy; `ReadRequest` discriminates correctness and query modality without boolean products; `StalenessWatermark` measures projection lag as the event-log head sequence against the daemon shard's high-water mark. `ElementSet` is the universal content-addressed selection currency every clash/IDS/MVD/QTO surface consumes and produces, `SetExpr` its selection-tree algebra and `SetPredicate` its closed typed leaf algebra, and `Closure` folds a bounded transitive walk over the `Query/topology` incidence. A retrieval-shaped read routes to the `Query/retrieval` fusion lane, which read-through-caches on the `ElementSet.Receipt` this owner mints. `NodeId`/`ElementGraph` arrive from `Rasm.Element`, and the inline projection and analytical lanes arrive from their owners.
+`QueryLane` is the lane axis carrying each lane's wait policy; `ReadRequest` discriminates correctness and query modality without boolean products; `StalenessWatermark` measures projection lag as the event-log head sequence against the daemon shard's high-water mark. `ElementSet` is the universal content-addressed selection currency every clash/IDS/MVD/QTO surface consumes and produces — membership is the model-qualified `SetKey`, evaluation spans the caller-supplied `SetScope` model roster — `SetExpr` its selection-tree algebra and `SetPredicate` its closed typed leaf algebra, and `Closure` folds a bounded transitive walk over the `Query/topology` incidence. A retrieval-shaped read routes to the `Query/retrieval` fusion lane, which read-through-caches on the `ElementSet.Receipt` this owner mints. `NodeId`/`ElementGraph` arrive from `Rasm.Element`, `ModelId` from `Element/graph#STREAM_GRAIN`, and the inline projection and analytical lanes arrive from their owners.
 
 ## [01]-[INDEX]
 
@@ -268,14 +268,14 @@ public static class ReflectedRead {
 
 ## [03]-[ELEMENT_SET_ALGEBRA]
 
-- Owner: `ElementSet` the polymorphic composable selection record carrying a stable content-addressed receipt; `SetPredicate` the closed leaf-predicate algebra; `SetExpr` the selection-tree algebra; `WalkDepth` the admitted bounded-depth `[ValueObject<int>]` every bounded walk carries — the `Closure` fold, the `Cell` ring, the `Query/topology` `Ancestry`/`Descent`, the `Query/cypher` `Reach` hops all consume this ONE axis; `SelectionFault` the closed admission band (846x off the `Element/graph#FAULT_TABLES` registry) an invalid bound rails; `ElementSetAlgebra` the static surface owning literal selection, the boolean/spatial/cell/property/classification combinators, and the stable-receipt fold.
-- Cases: `Spatial | Cell | Jsonpath | Classification | Containment | Material | Exists | Raster` on `SetPredicate` (the bounded operator within each typed — `SpatialOp` on `Spatial`, `JsonComparison` on `Jsonpath`, the admitted `WalkDepth` ring on `Cell`, `RasterOp` on `Raster`); `Literal | Predicate | ByRule | Union | Intersect | Difference | Closure` on `SetExpr`.
-- Entry: `public static Fin<ElementSet> Evaluate(SetExpr expr, SetResolve resolve)` aborts on an index or expansion failure and otherwise folds the expression tree into a stable key set; `Receipt` derives the content-addressed set identity over the length-framed distinct-sorted preimage; `Canonical` is the preimage the parity corpus freezes.
-- Auto: an element set is the universal BIM currency — clash, IDS, MVD, QTO, and rule surfaces all consume and produce `ElementSet` values, so a clash result is an `ElementSet`, an IDS pass-set is an `ElementSet`, and a QTO subject is an `ElementSet`; the set receipt is `XxHash128` over the LENGTH-FRAMED distinct-sorted `NodeId` preimage (a LE `int32` key count, then per key a LE `int32` byte length and its UTF8 bytes) so two selections yielding the same elements share one receipt AND two different key sets can never collide on an unframed concatenation; the boolean combinators fold over evaluated leaf sets, and the one `Predicate` leaf carries a `SetPredicate` — `Spatial` lowers to the GiST predicate the TYPED `SpatialOp` `.Key` (`ST_Intersects`/`ST_Within`/`ST_DWithin`/…) names so a typo is a missing vocabulary row at compile time rather than a silent sequential scan — the `Ranged` `ST_DWithin` row consumes the leaf's `Distance` radius, and a ranged op without `Some` rails `SelectionFault.Rejected` at leaf lowering rather than lowering a two-argument call the server rejects, `Cell` to the `h3-pg` grid-disk bucket predicate over the identity tier's cell column (`h3_grid_disk(anchor, k)` membership the cell index serves — the H3 counterpart of the `Spatial` GiST leaf, so a storey-band or proximity selection is index-served without a geometry decode), `Jsonpath` to a jsonb path predicate under the typed `JsonComparison` comparator, `Classification` to a tsvector/classification predicate, `Containment` to the containment-edge ancestry, `Material`/`Exists` to their jsonb existence forms, `Raster` to the `postgis_raster` in-db predicate the typed `RasterOp.Key` names — bare `ST_Intersects(rast, geom)` coverage membership, or the statistical `ST_SummaryStats(ST_Clip(rast, geom), band)` mean against the leaf `Threshold` — so a "sample the coverage under this footprint" selection pushes server-side onto the provisioned `postgis_raster` extension and never pays a full blob fetch plus in-process decode (the extension's `Degradable` rank folds this leaf out at admission when the cluster lacks it); every bounded walk carries the admitted `WalkDepth` — a raw `int` depth never crosses into the interior, so a negative bound is a typed `SelectionFault.Depth` at admission, never a silent empty selection the `<= depth` predicate fakes; the `Closure` arm is a GENUINE bounded transitive fold — it evaluates its `Seed` sub-expression then folds `Depth` one-hop `Expand` waves accumulating the reachable frontier to its fixpoint, never an opaque leaf identical to `Predicate`.
+- Owner: `ElementSet` the polymorphic composable selection record carrying a stable content-addressed receipt; `SetKey` the model-qualified member with the one cross-runtime total order; `SetScope` the caller-supplied model roster evaluation resolves across; `SetPredicate` the closed leaf-predicate algebra; `SetExpr` the selection-tree algebra; `WalkDepth` the admitted bounded-depth `[ValueObject<int>]` every bounded walk carries — the `Closure` fold, the `Cell` ring, the `Query/topology` `Ancestry`/`Descent`, the `Query/cypher` `Reach` hops all consume this ONE axis; `SelectionFault` the closed admission band (846x off the `Element/graph#FAULT_TABLES` registry) an invalid bound rails; `ElementSetAlgebra` the static surface owning literal selection, the boolean/spatial/cell/property/classification combinators, and the stable-receipt fold.
+- Cases: `Spatial | Cell | Jsonpath | Classification | Containment | Material | Exists | Raster` on `SetPredicate` (the bounded operator within each typed — `SpatialOp` on `Spatial`, `JsonComparison` on `Jsonpath`, the admitted `WalkDepth` ring on `Cell`, `RasterOp` on `Raster`; `Containment` anchors on a model-qualified `SetKey`); `Literal | Predicate | ByRule | Union | Intersect | Difference | Closure` on `SetExpr`, `Literal` carrying `SetKey` members.
+- Entry: `public static Fin<ElementSet> Evaluate(SetExpr expr, SetScope scope, SetResolve resolve)` aborts on an index or expansion failure, rails a literal key outside the scope, and otherwise folds the expression tree into a stable key set; `Receipt` derives the content-addressed set identity over the framed distinct-sorted preimage; `Canonical` is the preimage the parity corpus freezes.
+- Auto: an element set is the universal BIM currency — clash, IDS, MVD, QTO, and rule surfaces all consume and produce `ElementSet` values, so a clash result is an `ElementSet`, an IDS pass-set is an `ElementSet`, and a QTO subject is an `ElementSet`; the set receipt is `XxHash128` over the FRAMED distinct-sorted `SetKey` preimage (a LE `int32` key count, then per key the fixed-width 16-byte big-endian model bytes and an LE `int32` node byte length with its UTF8 bytes) so two selections yielding the same members share one receipt AND two different key sets can never collide on an unframed concatenation; the boolean combinators fold over evaluated leaf sets, and the one `Predicate` leaf carries a `SetPredicate` — `Spatial` lowers to the GiST predicate the TYPED `SpatialOp` `.Key` (`ST_Intersects`/`ST_Within`/`ST_DWithin`/…) names so a typo is a missing vocabulary row at compile time rather than a silent sequential scan — the `Ranged` `ST_DWithin` row consumes the leaf's `Distance` radius, and a ranged op without `Some` rails `SelectionFault.Rejected` at leaf lowering rather than lowering a two-argument call the server rejects, `Cell` to the `h3-pg` grid-disk bucket predicate over the identity tier's cell column (`h3_grid_disk(anchor, k)` membership the cell index serves — the H3 counterpart of the `Spatial` GiST leaf, so a storey-band or proximity selection is index-served without a geometry decode), `Jsonpath` to a jsonb path predicate under the typed `JsonComparison` comparator, `Classification` to a tsvector/classification predicate, `Containment` to the containment-edge ancestry, `Material`/`Exists` to their jsonb existence forms, `Raster` to the `postgis_raster` in-db predicate the typed `RasterOp.Key` names — bare `ST_Intersects(rast, geom)` coverage membership, or the statistical `ST_SummaryStats(ST_Clip(rast, geom), band)` mean against the leaf `Threshold` — so a "sample the coverage under this footprint" selection pushes server-side onto the provisioned `postgis_raster` extension and never pays a full blob fetch plus in-process decode (the extension's `Degradable` rank folds this leaf out at admission when the cluster lacks it); every bounded walk carries the admitted `WalkDepth` — a raw `int` depth never crosses into the interior, so a negative bound is a typed `SelectionFault.Depth` at admission, never a silent empty selection the `<= depth` predicate fakes; the `Closure` arm is a GENUINE bounded transitive fold — it evaluates its `Seed` sub-expression then folds `Depth` one-hop `Expand` waves accumulating the reachable frontier to its fixpoint, never an opaque leaf identical to `Predicate`.
 - Receipt: an evaluation rides `store.elementset.eval` carrying the leaf count and the result cardinality; the stable receipt is the reuse key the `Query/retrieval#FUSION_AND_REUSE` read-through caches on.
-- Packages: Rasm (`Rasm.Domain` `ContentHash.Of` — the one federation hasher, seed-zero `XxHash128` value-identical; `Expected` the band base), Rasm.Persistence (`Element/identity#ELEMENT_IDENTITY` `H3Cell` — the `Cell` leaf anchor; `Element/graph#FAULT_TABLES` `FaultBand` — the `Selection` band registry row), System.Buffers (`ArrayBufferWriter`/`BinaryPrimitives`), Thinktecture.Runtime.Extensions, LanguageExt.Core, NetTopologySuite, NodaTime, BCL inbox.
+- Packages: Rasm (`Rasm.Domain` `ContentHash.Of` — the one federation hasher, seed-zero `XxHash128` value-identical; `Expected` the band base), Rasm.Persistence (`Element/graph#STREAM_GRAIN` `ModelId` — the `SetKey` model half; `Element/identity#ELEMENT_IDENTITY` `H3Cell` — the `Cell` leaf anchor; `Element/graph#FAULT_TABLES` `FaultBand` — the `Selection` band registry row), System.Buffers (`ArrayBufferWriter`/`BinaryPrimitives`), Thinktecture.Runtime.Extensions, LanguageExt.Core, NetTopologySuite, NodaTime, BCL inbox.
 - Growth: a new selection primitive is one `SetPredicate` case (lowered by the `Predicate` leaf) or one `SetExpr` tree case; a new spatial operator is one `SpatialOp` row, a new jsonb comparator one `JsonComparison` row; a new bounded walk consumes the ONE `WalkDepth` admission, never a second depth carrier; a new combinator is one fold arm; zero new surface — a per-discipline selection class, a saved-search table, a string-query DSL, a raw-string leaf, or a free-string operator on a typed leaf is the deleted form because the algebra is one composable tree the planner lowers, every leaf predicate is a typed case, and every bounded operator within a leaf is a vocabulary row.
-- Boundary: `ElementSet` is the one composable currency — every analysis surface takes an `ElementSet` and yields an `ElementSet` so results compose (a clash result intersected with a classification selection is one `SetExpr.Intersect`, never a join in application code); the receipt is content-addressed over the length-framed distinct-sorted preimage so it is stable across runs, peers, and tenants AND unambiguous — a positional or timestamp-keyed selection id, or an unframed byte concatenation two key sets collide on, is the deleted form; the `Closure` combinator is a real bounded transitive fold whose one-hop `Expand` is the `Query/topology#GRAPH_TOPOLOGY` incidence neighbour over the seam graph (the reachability owner stays the graph/topology owner, the bounded fold stays here), NEVER the `Version/ledger#CHANGEFEED` `Closure` — that ledger manifest is a representation-content-hash blob-transfer set keyed by `UInt128`, a DIFFERENT closure that cannot answer a `NodeId` reachability selection, so conflating the two is the deleted altitude error; every leaf predicate is a typed `SetPredicate` case and every bounded operator within it is a vocabulary row — the spatial operator is a `SpatialOp` smart-enum, the jsonb comparator a `JsonComparison` smart-enum — so a selection that promised a spatial intersection carries the typed `ST_*` operator the GiST index serves and the geometry, never a free string a typo degrades to a scan; selection evaluation pushes through the lane router so a `Spatial` leaf executes on the GiST index and a `Jsonpath` leaf on the jsonb index in the store, never client-side; the `ElementSet.Preimage` length-framed byte shape is what the `Version/commits#CRDT_WIRE` `ContentParityCorpus.Contribute(ParitySlot.ElementSet, set.Preimage)` freezes as the `elementset` parity vector (CONTRIBUTED by this owner, never reverse-imported into the Version owner).
+- Boundary: `ElementSet` is the one composable currency — every analysis surface takes an `ElementSet` and yields an `ElementSet` so results compose (a clash result intersected with a classification selection is one `SetExpr.Intersect`, never a join in application code); the receipt is content-addressed over the length-framed distinct-sorted preimage so it is stable across runs, peers, and tenants AND unambiguous — a positional or timestamp-keyed selection id, or an unframed byte concatenation two key sets collide on, is the deleted form; the `Closure` combinator is a real bounded transitive fold whose one-hop `Expand` is the `Query/topology#GRAPH_TOPOLOGY` incidence neighbour over the seam graph (the reachability owner stays the graph/topology owner, the bounded fold stays here), NEVER the `Version/ledger#CHANGEFEED` `Closure` — that ledger manifest is a representation-content-hash blob-transfer set keyed by `UInt128`, a DIFFERENT closure that cannot answer a `NodeId` reachability selection, so conflating the two is the deleted altitude error; every leaf predicate is a typed `SetPredicate` case and every bounded operator within it is a vocabulary row — the spatial operator is a `SpatialOp` smart-enum, the jsonb comparator a `JsonComparison` smart-enum — so a selection that promised a spatial intersection carries the typed `ST_*` operator the GiST index serves and the geometry, never a free string a typo degrades to a scan; selection evaluation pushes through the lane router so a `Spatial` leaf executes on the GiST index and a `Jsonpath` leaf on the jsonb index in the store, never client-side; scope is caller DATA — evaluation takes the `SetScope` roster as a value and reads no project rollup of its own, so read-your-writes holds per model and the async `ProjectGraph` roster is one legitimate supplier of a scope, never the evaluator's own read; a federated selection spans separate model streams WITHOUT minting a union graph — the seam `Federate` union stays the materialized-coordination path under its one header, and neither substitutes for the other; the `ElementSet.Preimage` framed byte shape — fixed-width big-endian model bytes beside the length-framed node text under the `SetKey` order — is what the `Version/commits#CRDT_WIRE` `ContentParityCorpus.Contribute(ParitySlot.ElementSet, set.Preimage)` freezes as the `elementset` parity vector (CONTRIBUTED by this owner, never reverse-imported into the Version owner), and a membership or framing change re-cuts that vector in the same pass.
 
 ```csharp signature
 // Jsonb-predicate vocabulary (`@>`/`?`/`->>` comparisons the GIN `jsonb_ops` index serves) is one closed
@@ -304,21 +304,25 @@ public abstract partial record SelectionFault : Expected, IValidationError<Selec
     public sealed record Depth(int Found) : SelectionFault;
     public sealed record Rejected(string Detail) : SelectionFault;
     public sealed record Reflected(string Detail) : SelectionFault;
+    public sealed record Scope(string Detail) : SelectionFault;
 
     public override int Code => FaultBand.Selection + Switch(
         depth:     static _ => 0,
         rejected:  static _ => 1,
-        reflected: static _ => 2);
+        reflected: static _ => 2,
+        scope:     static _ => 3);
 
     public override string Message => Switch(
         depth:     static c => $"<selection-depth:{c.Found}>",
         rejected:  static c => $"<selection-rejected:{c.Detail}>",
-        reflected: static c => $"<selection-reflected:{c.Detail}>");
+        reflected: static c => $"<selection-reflected:{c.Detail}>",
+        scope:     static c => $"<selection-scope:{c.Detail}>");
 
     public override string Category => Switch(
         depth:     static _ => "Depth",
         rejected:  static _ => "Rejected",
-        reflected: static _ => "Reflected");
+        reflected: static _ => "Reflected",
+        scope:     static _ => "Scope");
 
     public static SelectionFault Create(string message) => new Rejected(message);
 }
@@ -377,6 +381,32 @@ public sealed partial class RasterOp {
     private RasterOp(string key, bool statistical) : this(key) => Statistical = statistical;
 }
 
+// `SetKey` is the model-qualified member: the owning stream's `ModelId` beside the seam `NodeId`, ordered by
+// the model's RFC-4122 big-endian wire bytes then ordinal over the node text — ONE total order every runtime
+// derives from the same two byte sequences, never `Guid.CompareTo`'s field-wise order no peer reproduces.
+public readonly record struct SetKey(ModelId Model, NodeId Node) : IComparable<SetKey> {
+    public int CompareTo(SetKey other) {
+        Span<byte> mine = stackalloc byte[16];
+        Span<byte> theirs = stackalloc byte[16];
+        Model.Value.TryWriteBytes(mine, bigEndian: true, out _);
+        other.Model.Value.TryWriteBytes(theirs, bigEndian: true, out _);
+        int byModel = mine.SequenceCompareTo(theirs);
+        return byModel != 0 ? byModel : string.CompareOrdinal(Node.Value, other.Node.Value);
+    }
+}
+
+// `SetScope` is the CALLER-supplied model roster leaf resolution spans — one model for a single-model
+// selection, the roster a `ProjectGraph` read handed over for a project-altitude one. Scope arrives as DATA,
+// so an interactive cross-model selection still binds the synchronous per-model projections and
+// read-your-writes holds; an evaluator-side roster read would inherit the async daemon's lag.
+public readonly record struct SetScope(Seq<ModelId> Models) {
+    public static Fin<SetScope> Of(Seq<ModelId> models) =>
+        models.IsEmpty
+            ? Fin.Fail<SetScope>(new SelectionFault.Scope("<empty>"))
+            : Fin.Succ(new SetScope(toSeq(models.Distinct())));
+    public bool Admits(ModelId model) => Models.Contains(model);
+}
+
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, SwitchMethods = SwitchMapMethodsGeneration.Default)]
 public abstract partial record SetPredicate {
     private SetPredicate() { }
@@ -384,7 +414,9 @@ public abstract partial record SetPredicate {
     public sealed record Cell(H3Cell Anchor, WalkDepth Ring) : SetPredicate;
     public sealed record Jsonpath(SetPath Path, JsonComparison Cmp, Option<string> Value) : SetPredicate;
     public sealed record Classification(SetPath SystemPath, Option<string> Value) : SetPredicate;
-    public sealed record Containment(NodeId Ancestor, bool Subtree) : SetPredicate;
+    // The ancestor names its model: a containment walk climbs ONE model's spatial tree, and the qualified
+    // key is what lets a project-scoped expression seat per-model containment leaves side by side.
+    public sealed record Containment(SetKey Ancestor, bool Subtree) : SetPredicate;
     public sealed record Material(Option<string> Value) : SetPredicate;
     public sealed record Exists(SetPath Path) : SetPredicate;
     // Coverage-raster leaf: elements whose geometry the named coverage admits under the raster predicate — a
@@ -396,7 +428,7 @@ public abstract partial record SetPredicate {
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, SwitchMethods = SwitchMapMethodsGeneration.Default)]
 public abstract partial record SetExpr {
     private SetExpr() { }
-    public sealed record Literal(Seq<NodeId> Keys) : SetExpr;
+    public sealed record Literal(Seq<SetKey> Keys) : SetExpr;
     public sealed record Predicate(SetPredicate Leaf) : SetExpr;
     public sealed record ByRule(string RuleId) : SetExpr;
     public sealed record Union(SetExpr Left, SetExpr Right) : SetExpr;
@@ -405,60 +437,69 @@ public abstract partial record SetExpr {
     public sealed record Closure(SetExpr Seed, WalkDepth Depth) : SetExpr;
 }
 
-public readonly record struct ElementSet(UInt128 Receipt, Seq<NodeId> Keys, int Count, ReadOnlyMemory<byte> Preimage) {
-    public static readonly ElementSet Empty = Of(Seq<NodeId>());
-    // `Preimage` exposes the exact length-framed bytes hashed by `Receipt` and frozen by the parity corpus.
-    public static ElementSet Of(Seq<NodeId> keys) {
-        Seq<NodeId> sorted = toSeq(keys.Distinct().OrderBy(static k => k.Value, StringComparer.Ordinal));
+public readonly record struct ElementSet(UInt128 Receipt, Seq<SetKey> Keys, int Count, ReadOnlyMemory<byte> Preimage) {
+    public static readonly ElementSet Empty = Of(Seq<SetKey>());
+    // `Preimage` exposes the exact framed bytes hashed by `Receipt` and contributed to the parity corpus.
+    public static ElementSet Of(Seq<SetKey> keys) {
+        Seq<SetKey> sorted = toSeq(keys.Distinct().OrderBy(static k => k));
         ReadOnlyMemory<byte> preimage = ElementSetAlgebra.Canonical(sorted);
         return new ElementSet(ContentHash.Of(preimage.Span), sorted, sorted.Count, preimage);
     }
 }
 
-// `SetResolve` carries index-backed leaf resolution and one-hop topology expansion.
-// Threaded ports keep reachability in the graph owner while this page owns algebraic closure.
-public readonly record struct SetResolve(Func<SetExpr, Fin<Seq<NodeId>>> Leaf, Func<Seq<NodeId>, Fin<Seq<NodeId>>> Expand);
+// `SetResolve` carries scope-threaded index-backed leaf resolution and one-hop topology expansion.
+// Threaded ports keep reachability in the graph owner while this page owns algebraic closure; `Expand`
+// crosses model boundaries only through the durable `ModelLink` edges the project view lifts.
+public readonly record struct SetResolve(Func<SetExpr, SetScope, Fin<Seq<SetKey>>> Leaf, Func<Seq<SetKey>, Fin<Seq<SetKey>>> Expand);
 
 public static class ElementSetAlgebra {
     // `Receipt` uses the kernel seed-zero `ContentHash.Of` entry over parity-frozen bytes.
-    public static UInt128 Receipt(Seq<NodeId> sortedKeys) => ContentHash.Of(Canonical(sortedKeys).Span);
+    public static UInt128 Receipt(Seq<SetKey> sortedKeys) => ContentHash.Of(Canonical(sortedKeys).Span);
 
-    // Cross-runtime parity frames distinct-sorted UTF-8 keys with little-endian lengths.
-    // Framing distinguishes concatenation-equivalent key rosters.
-    public static ReadOnlyMemory<byte> Canonical(Seq<NodeId> sortedKeys) {
+    // Cross-runtime parity: an LE `int32` key count, then per key the FIXED-WIDTH 16-byte RFC-4122 big-endian
+    // model bytes UNFRAMED (the preimage-framing law length-frames only variable width) and the node text as
+    // an LE `int32` byte length plus UTF8. Sorted under the `SetKey` comparator, so every runtime derives one
+    // byte stream from one member set and framing distinguishes concatenation-equivalent rosters.
+    public static ReadOnlyMemory<byte> Canonical(Seq<SetKey> sortedKeys) {
         ArrayBufferWriter<byte> buffer = new();
         BinaryPrimitives.WriteInt32LittleEndian(buffer.GetSpan(4), sortedKeys.Count);
         buffer.Advance(4);
-        foreach (NodeId key in sortedKeys) {
-            int bytes = Encoding.UTF8.GetByteCount(key.Value);
+        foreach (SetKey key in sortedKeys) {
+            key.Model.Value.TryWriteBytes(buffer.GetSpan(16), bigEndian: true, out _);
+            buffer.Advance(16);
+            int bytes = Encoding.UTF8.GetByteCount(key.Node.Value);
             BinaryPrimitives.WriteInt32LittleEndian(buffer.GetSpan(4), bytes);
             buffer.Advance(4);
-            Encoding.UTF8.GetBytes(key.Value, buffer.GetSpan(bytes));
+            Encoding.UTF8.GetBytes(key.Node.Value, buffer.GetSpan(bytes));
             buffer.Advance(bytes);
         }
         return buffer.WrittenMemory;
     }
 
-    public static Fin<ElementSet> Evaluate(SetExpr expr, SetResolve resolve) => expr.Switch(
-        resolve,
-        literal: static (_, lit) => Fin.Succ(ElementSet.Of(lit.Keys)),
-        predicate: static (r, e) => r.Leaf(e).Map(ElementSet.Of),
-        byRule: static (r, e) => r.Leaf(e).Map(ElementSet.Of),
-        union: static (r, u) =>
-            from left in Evaluate(u.Left, r)
-            from right in Evaluate(u.Right, r)
+    public static Fin<ElementSet> Evaluate(SetExpr expr, SetScope scope, SetResolve resolve) => expr.Switch(
+        (Scope: scope, Resolve: resolve),
+        // A literal key naming a model outside the scope rails rather than silently contributing a member no
+        // leaf resolution would ever have admitted.
+        literal: static (s, lit) => lit.Keys.Find(key => !s.Scope.Admits(key.Model)).Match(
+            Some: foreign => Fin.Fail<ElementSet>(new SelectionFault.Scope($"<literal-model:{foreign.Model.Value}>")),
+            None: () => Fin.Succ(ElementSet.Of(lit.Keys))),
+        predicate: static (s, e) => s.Resolve.Leaf(e, s.Scope).Map(ElementSet.Of),
+        byRule: static (s, e) => s.Resolve.Leaf(e, s.Scope).Map(ElementSet.Of),
+        union: static (s, u) =>
+            from left in Evaluate(u.Left, s.Scope, s.Resolve)
+            from right in Evaluate(u.Right, s.Scope, s.Resolve)
             select ElementSet.Of(left.Keys + right.Keys),
-        intersect: static (r, i) =>
-            from left in Evaluate(i.Left, r)
-            from right in Evaluate(i.Right, r)
+        intersect: static (s, i) =>
+            from left in Evaluate(i.Left, s.Scope, s.Resolve)
+            from right in Evaluate(i.Right, s.Scope, s.Resolve)
             select ElementSet.Of(toSeq(left.Keys.Intersect(right.Keys))),
-        difference: static (r, d) =>
-            from left in Evaluate(d.Left, r)
-            from right in Evaluate(d.Right, r)
+        difference: static (s, d) =>
+            from left in Evaluate(d.Left, s.Scope, s.Resolve)
+            from right in Evaluate(d.Right, s.Scope, s.Resolve)
             select ElementSet.Of(toSeq(left.Keys.Except(right.Keys))),
-        closure: static (r, c) => Evaluate(c.Seed, r).Bind(seed => Closed(seed.Keys, c.Depth.Value, r.Expand)));
+        closure: static (s, c) => Evaluate(c.Seed, s.Scope, s.Resolve).Bind(seed => Closed(seed.Keys, c.Depth.Value, s.Resolve.Expand)));
 
-    static Fin<ElementSet> Closed(Seq<NodeId> seed, int depth, Func<Seq<NodeId>, Fin<Seq<NodeId>>> expand) =>
+    static Fin<ElementSet> Closed(Seq<SetKey> seed, int depth, Func<Seq<SetKey>, Fin<Seq<SetKey>>> expand) =>
         Range(0, depth).Fold(
             Fin.Succ((Reached: seed, Frontier: seed)),
             (state, _) => state.Bind(acc => acc.Frontier.IsEmpty
@@ -473,11 +514,13 @@ public static class ElementSetAlgebra {
 | [INDEX] | [POLICY]           | [VALUE]                                                 | [BINDING]                                                |
 | :-----: | :----------------- | :------------------------------------------------------ | :------------------------------------------------------- |
 |  [01]   | selection currency | `ElementSet` in and out                                 | every analysis surface composes; never an app join       |
-|  [02]   | receipt            | `ContentHash.Of` over length-framed preimage            | stable + collision-free; the reuse key + parity preimage |
-|  [03]   | typed leaves       | `SetPredicate` + `SpatialOp`/`JsonComparison` operators | no raw-string predicate/op; lowered to a store index     |
-|  [04]   | closure            | bounded transitive fold over topology                   | one-hop `Expand` is `Query/topology`; not the manifest   |
-|  [05]   | bounded depth      | `WalkDepth` admitted once (`SelectionFault.Depth`)      | closure/cell/topology/cypher share ONE axis; no raw int  |
-|  [06]   | cell leaf          | `Cell(H3Cell, WalkDepth)` grid-disk predicate           | `h3-pg` index-served; the H3 sibling of the GiST leaf    |
+|  [02]   | membership         | `SetKey` — `(ModelId, NodeId)` under one byte order     | federation-altitude members; comparator is cross-runtime |
+|  [03]   | scope              | caller-supplied `SetScope` model roster                 | data, never an evaluator-side async roster read          |
+|  [04]   | receipt            | `ContentHash.Of` over the framed preimage               | stable + collision-free; the reuse key + parity preimage |
+|  [05]   | typed leaves       | `SetPredicate` + `SpatialOp`/`JsonComparison` operators | no raw-string predicate/op; lowered to a store index     |
+|  [06]   | closure            | bounded transitive fold over topology                   | one-hop `Expand` is `Query/topology`; not the manifest   |
+|  [07]   | bounded depth      | `WalkDepth` admitted once (`SelectionFault.Depth`)      | closure/cell/topology/cypher share ONE axis; no raw int  |
+|  [08]   | cell leaf          | `Cell(H3Cell, WalkDepth)` grid-disk predicate           | `h3-pg` index-served; the H3 sibling of the GiST leaf    |
 
 ## [04]-[RESEARCH]
 

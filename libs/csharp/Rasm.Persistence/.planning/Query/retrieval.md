@@ -290,9 +290,9 @@ public sealed partial class LexicalRank {
 - Entry: `Train` fits and content-keys the codebook; `AdcScan(..., RetrievalLimit)` admits query, codebook, row layout, and result bound before table access; `VectorIndex` supplies codebooks, fine forms, and coded rows through injected ports.
 - Auto: `Train` rejects an empty/ragged corpus, a dimension not divisible by `subspaces`, and a corpus smaller than `codesPerSubspace` (which leaves trailing centroid slots untrained at zero) to the typed `RetrievalFault` rail, slices each corpus vector's subspace window, seeds the centroid grid from the first `codesPerSubspace` sub-vectors (deterministic first-k seeding, reproducible across retrains), and iterates assignment (nearest centroid by `TensorPrimitives.Distance`) and mean recompute (`TensorPrimitives.Add` accumulate, `TensorPrimitives.Divide` by the cluster count) — the SAME `TensorPrimitives.Distance` the Compute `EncodeProduct` assigns with, so train-time and encode-time partitions agree bit-for-bit — then snapshots centroid storage and mints the content `Id` over little-endian layout and finite centroid scalars through seed-zero `XxHash128`, collapsing signed zero so equal codebooks key identically across RIDs; `AdcScan` builds the `Subspaces × CodesPerSubspace` table by `TensorPrimitives.Distance` of each query sub-vector against every centroid ONCE, then folds each coded row to the sum of its per-subspace table lookups and keeps the nearest `top` through a bounded `PriorityQueue` heap keyed on ascending distance (never a full sort, never a per-row centroid-distance recompute — the table amortizes it); `Probe` projects the float32 fine bytes onto the `Pgvector.Vector` ANN column the HNSW/diskann index residence is built over.
 - Receipt: a codebook train rides `store.vector.train` carrying the subspace and code counts and the content `Id`; an ADC scan rides `store.vector.adc` carrying the corpus cardinality and the top; a fine-form resolve rides `store.vector.resolve` carrying the survivor count; the candidate recall/latency is the upstream Compute embedding owner's measured concern, never re-emitted here.
-- Packages: System.Numerics.Tensors (`TensorPrimitives.Distance`/`Add`/`Divide`), System.IO.Hashing (`XxHash128` streaming `Append`/`GetCurrentHashAsUInt128`, seed zero — the kernel growth-row streaming member for a preimage that outgrows a one-shot span), Pgvector (`Vector`), Rasm.Element (`NodeId`), LanguageExt.Core, Thinktecture.Runtime.Extensions, BCL inbox.
+- Packages: System.Numerics.Tensors (`TensorPrimitives.Distance`/`Add`/`Divide`), System.IO.Hashing (`XxHash128` streaming `Append`/`GetCurrentHashAsUInt128`, seed zero — the kernel growth-row streaming member for a preimage that outgrows a one-shot span), Pgvector (`Vector`), Rasm.Persistence (`Query/lane#ELEMENT_SET_ALGEBRA` `SetKey`), LanguageExt.Core, Thinktecture.Runtime.Extensions, BCL inbox.
 - Growth: a retrained codebook mints a new `Id`; a fine encoding is one `VectorFine` case; a richer ANN residence is one `VectorRoute` case.
-- Boundary: `ProductCodebook` is the ONE PQ vocabulary the seam shares — Compute imports it by its `Rasm.Persistence (project)` reference and does nearest-centroid encode and centroid-reconstruction decode over it but NEVER fits it, so defining it in Compute forces a `Persistence → Compute` cycle (the dependency runs `Compute → Persistence` only) and a Compute-side k-means is the named drift defect; training uses the SAME `TensorPrimitives.Distance` Compute assigns with so the partition a centroid grid induces at train time and at encode time is identical, and the codebook is supplied content-keyed so a re-train mints a fresh `Id` that re-keys every dependent `product-quantized` artifact (the `Model/embedding#EMBEDDING` content key folds the codebook `Id`); the two-stage retrieval is honest — the `binary-hamming` coarse gate (Compute) returns content keys, `Resolve` reads the survivors' `int8-scalar`/`float32` fine forms by content key, and the Compute `Rank` reranks over those fine forms, so the magnitude a 1-bit encoding discards is recovered from the stored fine residence and never faked from the ±1 decode; the amortized ADC scan is Persistence's because this lane owns the index traversal and the `#FUSION_AND_REUSE` recency-bounded reuse while the BOUNDED rerank over the resolved survivors is Compute's, so the query→centroid table is built once and reused across the whole corpus and a per-candidate centroid-distance recompute is the deleted form; the vector branch (the ADC or in-PG HNSW ranked rows mapped through `VectorRow.Subject` to `NodeId`s) feeds `#FUSION_AND_REUSE` `FusionRank.Fuse` as one ranked branch, and the `Probe` `vector(N)` column is the same pgvector store type the `Element/identity#ELEMENT_IDENTITY` `Embedding` per-model locator rides (the corpus-grain retrieval index here, the per-model envelope locator there — two grains, never one duplicated index); the residence holds the typed `VectorFine` form and the optional `NodeId` only, no `EmbeddingVector`/`VectorEncoding`/`VectorScore` Compute type, so the strata dependency stays one-directional exactly as the `#FUSION_AND_REUSE` and `Query/cache#MODEL_RESULT_INDEX` owners keep it.
+- Boundary: `ProductCodebook` is the ONE PQ vocabulary the seam shares — Compute imports it by its `Rasm.Persistence (project)` reference and does nearest-centroid encode and centroid-reconstruction decode over it but NEVER fits it, so defining it in Compute forces a `Persistence → Compute` cycle (the dependency runs `Compute → Persistence` only) and a Compute-side k-means is the named drift defect; training uses the SAME `TensorPrimitives.Distance` Compute assigns with so the partition a centroid grid induces at train time and at encode time is identical, and the codebook is supplied content-keyed so a re-train mints a fresh `Id` that re-keys every dependent `product-quantized` artifact (the `Model/embedding#EMBEDDING` content key folds the codebook `Id`); the two-stage retrieval is honest — the `binary-hamming` coarse gate (Compute) returns content keys, `Resolve` reads the survivors' `int8-scalar`/`float32` fine forms by content key, and the Compute `Rank` reranks over those fine forms, so the magnitude a 1-bit encoding discards is recovered from the stored fine residence and never faked from the ±1 decode; the amortized ADC scan is Persistence's because this lane owns the index traversal and the `#FUSION_AND_REUSE` recency-bounded reuse while the BOUNDED rerank over the resolved survivors is Compute's, so the query→centroid table is built once and reused across the whole corpus and a per-candidate centroid-distance recompute is the deleted form; the vector branch (the ADC or in-PG HNSW ranked rows mapped through `VectorRow.Subject` to model-qualified `SetKey`s) feeds `#FUSION_AND_REUSE` `FusionRank.Fuse` as one ranked branch, and the `Probe` `vector(N)` column is the same pgvector store type the `Element/identity#ELEMENT_IDENTITY` `Embedding` per-model locator rides (the corpus-grain retrieval index here, the per-model envelope locator there — two grains, never one duplicated index); the residence holds the typed `VectorFine` form and the optional `SetKey` only, no `EmbeddingVector`/`VectorEncoding`/`VectorScore` Compute type, so the strata dependency stays one-directional exactly as the `#FUSION_AND_REUSE` and `Query/cache#MODEL_RESULT_INDEX` owners keep it.
 
 ```csharp signature
 // --- [ERRORS] -----------------------------------------------------------------------------
@@ -432,7 +432,7 @@ public readonly record struct VectorRow(
     VectorFine Fine,
     ReadOnlyMemory<byte> Codes,
     UInt128 CodebookId,
-    Option<NodeId> Subject) {
+    Option<SetKey> Subject) {
     public int Dimension => Fine.Dimension;
     public Pgvector.Vector Probe() => new(Fine.Decode());
 }
@@ -548,7 +548,7 @@ public sealed record VectorIndex(
 |  [04]   | coarse→fine rerank  | `Resolve` reads `int8`/`float32` fine    | magnitude recovered from the residence, never faked       |
 |  [05]   | ADC amortization    | one query→centroid table per scan        | reused across the corpus; never a per-row recompute       |
 |  [06]   | admission rail      | `RetrievalFault` 841x                    | the pre-split bare `Error.New(8360..8363)` is dead        |
-|  [07]   | strata one-way      | `VectorFine` + `NodeId` only             | no Compute type crosses down                              |
+|  [07]   | strata one-way      | `VectorFine` + `SetKey` only             | no Compute type crosses down                              |
 
 ## [05]-[FUSION_AND_REUSE]
 
@@ -575,7 +575,7 @@ public sealed partial class RetrievalBranch {
     private RetrievalBranch(string key, string index) : this(key) => Index = index;
 }
 
-public readonly record struct FusionHit(NodeId Key, double Score, Seq<(RetrievalBranch Branch, int Rank)> Lineage);
+public readonly record struct FusionHit(SetKey Key, double Score, Seq<(RetrievalBranch Branch, int Rank)> Lineage);
 
 public readonly record struct RetrievalCachePolicy(Identifier Namespace, Duration TimeToLive);
 
@@ -584,7 +584,7 @@ public readonly record struct RetrievalCachePolicy(Identifier Namespace, Duratio
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record RetrievalOp {
     private RetrievalOp() { }
-    public sealed record Fuse(Seq<(RetrievalBranch Branch, Seq<NodeId> Ranked)> Branches) : RetrievalOp;
+    public sealed record Fuse(Seq<(RetrievalBranch Branch, Seq<SetKey> Ranked)> Branches) : RetrievalOp;
     public sealed record Train(Seq<ReadOnlyMemory<float>> Corpus, int Subspaces, int CodesPerSubspace, TrainingPasses Passes) : RetrievalOp;
     public sealed record AdcScan(ReadOnlyMemory<float> Query, ProductCodebook Codebook, Seq<VectorRow> Coded, RetrievalLimit Top) : RetrievalOp;
 }
@@ -603,7 +603,7 @@ public static class FusionRank {
     public const int RrfConstant = 60;
 
     // Indexed `Seq.Map` yields the one-based rank used by the fixed reciprocal-rank policy.
-    public static Seq<FusionHit> Fuse(Seq<(RetrievalBranch Branch, Seq<NodeId> Ranked)> branches) =>
+    public static Seq<FusionHit> Fuse(Seq<(RetrievalBranch Branch, Seq<SetKey> Ranked)> branches) =>
         toSeq(branches
             .Bind(static b => b.Ranked.Map((key, index) => (Key: key, b.Branch, Rank: index + 1)))
             .GroupBy(static c => c.Key)
@@ -655,25 +655,34 @@ public static class Retrieval {
 ## [06]-[DOCUMENT_CORPUS]
 
 - Owner: `CorpusKind` is the closed document-source roster whose keys ARE the wire tokens the consuming shell spells; `CorpusRow` is the indexed row the lane admits and the projection returns identity from; `DocumentPredicate` is the closed token-to-`Bm25Predicate` lowering; `DocumentQuery`/`DocumentHit` are the consumed query and answer wire; `DocumentCorpus` owns admission, statement composition, and hit shaping.
-- Cases: `CorpusKind` is `Cell | Prose | Issue | Evidence`; `DocumentPredicate` is `Match | Phrase | PhrasePrefix | Regex`, one row per grammar the consumer's own vocabulary closes.
+- Cases: `CorpusKind` is `Cell | Prose | Issue | Node | Evidence`, each row carrying its coverage columns — the subject, member, and body semantics its documents fill; `DocumentPredicate` is `Match | Phrase | PhrasePrefix | Regex`, one row per grammar the consumer's own vocabulary closes.
 - Entry: `public static Fin<string> Statement(DocumentQuery query, LexicalRank rank)` admits the wire ONCE — non-blank terms, a non-empty scope of admitted `CorpusKind` keys, a bounded limit — then lowers the predicate token, the scope filter, the subject narrowing, and the rank arm's own score and order fragments into one statement; `public static Fin<DocumentHit> Shape(...)` folds one projected row into the answer wire.
 - Auto: this corpus is a `RetrievalBranch.Lexical` residence, so a document search is a first-class branch a `#FUSION_AND_REUSE` `Fuse` can take beside the vector and spatial branches without a second ranked-list shape. The predicate token selects its `Bm25Predicate` case and the whole-word column selects the exact-term operator inside the `Match` row alone — a phrase already bounds its tokens, a prefix contradicts a boundary by construction, and a pattern carries its own. Case sensitivity is NOT an index property: the `bm25` analyzer case-folds at build, so the lane narrows case-insensitively and gates the matched set with a positional containment test before ranking. The snippet, its positions, and the score all project through `#LEXICAL_ALGEBRA` — `SearchProjection.Snippet`, `SearchProjection.SnippetPositions`, and the rank row's own `Score` — so the degrade arm answers the same column set at reduced lexical power.
 - Receipt: a document search rides the `#FUSION_AND_REUSE` `store.fusion.rank` branch lineage under `RetrievalBranch.Lexical`, so the arm that ranked it is visible without a second fact.
 - Packages: `pg_search` (server-side — the `pdb` schema, the `bm25` access method), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox.
-- Growth: a new document source is one `CorpusKind` row both ends already spell; a new grammar is one `DocumentPredicate` row lowering to an existing `Bm25Predicate` case; zero new surface and no second corpus relation.
-- Boundary: INDEX CUSTODY IS THIS OWNER'S and the consuming shell holds none — the corpus relation, its `bm25` index with `content_key` as the declared `key_field`, its generated `lexemes` tsvector for the degrade arm, and the ingest that lands rows from the durable owners all live here, so a shell-side index is the deleted form. Index DDL still lands via raw `MigrationBuilder.Sql` on the EF migration rail (`Element/identity#SCHEMA_VERDICT`) exactly as `#LEXICAL_ALGEBRA` rules — this section emits QUERY SQL only. The wire is the WHOLE contract with `csharp:Rasm.AppUi/Document/search#INDEX_WIRE`: field names are frozen and both ends transcribe them, the grammar crosses as a predicate token rather than a second vocabulary, the scope crosses as `CorpusKind` keys, and the limit ceiling agrees at both admissions so neither end can accept what the other refuses. The projection returns IDENTITIES, snippet text, positions, and a score alone — the body a hit matched never re-crosses, because the row store already holds it and a returned payload would fork residence. The wire carries no rank-arm column: which branch ranked a hit is this lane's own receipt lineage, and a copy on the wire would be a column the consumer never reads. Every identifier admits through the `#COLUMNAR_LANE` `Identifier` trust gate and every free-text payload crosses the one `Bm25Predicate.Lit` seam, so a quote-bearing term is inert literal text by construction.
+- Growth: a new document source is one `CorpusKind` row carrying its coverage columns, and the consumer's source roster gains the matching key; a new grammar is one `DocumentPredicate` row lowering to an existing `Bm25Predicate` case; zero new surface and no second corpus relation.
+- Boundary: INDEX CUSTODY IS THIS OWNER'S and the consuming shell holds none — the corpus relation, its `bm25` index with `content_key` as the declared `key_field`, its generated `lexemes` tsvector for the degrade arm, and the ingest that lands rows from the durable owners all live here, so a shell-side index is the deleted form. Index DDL still lands via raw `MigrationBuilder.Sql` on the EF migration rail (`Element/identity#SCHEMA_VERDICT`) exactly as `#LEXICAL_ALGEBRA` rules — this section emits QUERY SQL only. `DocumentQuery` and `DocumentHit` are the WHOLE contract with `csharp:Rasm.AppUi/Document/search#INDEX_WIRE`, and that plane composes these declarations directly through its legal package reference — a member-for-member re-spelled record at the consumer is the deleted twin; the grammar crosses as a predicate token rather than a second vocabulary, the scope crosses as `CorpusKind` keys, and the limit ceiling admits at both ends against the one `LimitCeiling`. The projection returns IDENTITIES, snippet text, positions, and a score alone — the body a hit matched never re-crosses, because the row store already holds it and a returned payload would fork residence. The wire carries no rank-arm column: which branch ranked a hit is this lane's own receipt lineage, and a copy on the wire would be a column the consumer never reads. Every identifier admits through the `#COLUMNAR_LANE` `Identifier` trust gate and every free-text payload crosses the one `Bm25Predicate.Lit` seam, so a quote-bearing term is inert literal text by construction.
 
 ```csharp signature
 // --- [TYPES] ------------------------------------------------------------------------------
-// The corpus roster is the CONSUMER's own source vocabulary: keys are the frozen wire tokens both ends
-// spell, so a scope filter arriving on the wire and a stored row's kind are one value read twice.
+// The corpus roster: keys are the wire tokens a scope filter spells, and the coverage columns are row DATA
+// naming what fills the indexed attribution triple for that kind — so admission, ingest, and the consumer's
+// result decode all read one roster and an uncovered source is a missing ROW, never a silent refusal.
+// `Member` is empty on a kind whose documents carry no sub-anchor; `Keyed` derives the presence test.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class CorpusKind {
-    public static readonly CorpusKind Cell = new("cell");
-    public static readonly CorpusKind Prose = new("prose");
-    public static readonly CorpusKind Issue = new("issue");
-    public static readonly CorpusKind Evidence = new("evidence");
+    public static readonly CorpusKind Cell = new("cell", subject: "notebook document id", member: "cell id", body: "cell source text");
+    public static readonly CorpusKind Prose = new("prose", subject: "prose document id", member: "", body: "raw markdown source");
+    public static readonly CorpusKind Issue = new("issue", subject: "issue topic id", member: "comment id", body: "issue and comment text");
+    public static readonly CorpusKind Node = new("node", subject: "graph document id", member: "node key", body: "node title text");
+    public static readonly CorpusKind Evidence = new("evidence", subject: "correlation id", member: "receipt kind", body: "receipt payload text");
+
+    public string Subject { get; }
+    public string Member { get; }
+    public string Body { get; }
+    public bool Keyed => Member.Length > 0;
+    private CorpusKind(string key, string subject, string member, string body) : this(key) => (Subject, Member, Body) = (subject, member, body);
 }
 
 // One wire token lowers to ONE `Bm25Predicate` case. The whole-word column is read by the `Match` row
@@ -704,8 +713,8 @@ public sealed partial class DocumentPredicate {
 public readonly record struct CorpusRow(
     UInt128 ContentKey, CorpusKind Kind, string Subject, Option<string> Member, string Title, string Body);
 
-// The consumed wire. `csharp:Rasm.AppUi/Document/search#INDEX_WIRE` sends `DocumentQuery` values and reads
-// `DocumentHit` values; field names are FROZEN and both ends transcribe them.
+// The query and answer wire. The `csharp:Rasm.AppUi/Document/search#INDEX_WIRE` plane composes THESE
+// declarations directly — one declaration serves both ends, so the shape cannot fork.
 public sealed record DocumentQuery(
     string Terms,
     string Predicate,

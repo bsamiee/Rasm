@@ -210,12 +210,12 @@ public sealed class FederationPlan {
 
 ## [03]-[PLAN_LOWERING]
 
-- Owner: `LoweringTarget` the two-arm `[Union]` the visitor folds every relation into (`Keyed(SetExpr)` the key-selection half, `Tabular(Relation)` the columnar half); `FederationLowering` the `RelationVisitor<Fin<LoweringTarget>, Unit>` double-dispatch fold covering the FULL relation roster (the base class throws `NotImplementedException` on an unhandled kind, so a partial visitor fails LOUD and the funnel converts it to `UnsupportedRelation` — never a silent drop); `FederationPorts` the injected execution ports (`SetResolve` from `Query/lane`, the columnar `AdbcQuery` arm from `Query/columnar`, the watermark measure, the clock); `FederatedResult` the receipt implementing the kernel `IValidityEvidence` floor; `Federation` the static surface owning the ONE `Execute` entry — cut-shape default and cadence dispatch internalized, so no caller-orchestrated sibling exists.
+- Owner: `LoweringTarget` the two-arm `[Union]` the visitor folds every relation into (`Keyed(SetExpr)` the key-selection half, `Tabular(Relation)` the columnar half); `FederationLowering` the `RelationVisitor<Fin<LoweringTarget>, SetScope>` double-dispatch fold covering the FULL relation roster (the base class throws `NotImplementedException` on an unhandled kind, so a partial visitor fails LOUD and the funnel converts it to `UnsupportedRelation` — never a silent drop); `FederationPorts` the injected execution ports (the caller-declared `SetScope` beside `SetResolve` from `Query/lane`, the columnar `AdbcQuery` arm from `Query/columnar`, the watermark measure, the clock); `FederatedResult` the receipt implementing the kernel `IValidityEvidence` floor; `Federation` the static surface owning the ONE `Execute` entry — cut-shape default and cadence dispatch internalized, so no caller-orchestrated sibling exists.
 - Cases: `SetRelation` lowers verified union and intersection variants when every input is keyed; every other set operation remains tabular instead of defaulting to difference. `VirtualTableReadRelation` admits every key on the `Fin` rail. `ExchangeRelation` remains tabular so partition semantics survive. `WriteRelation` rails `WriteRejected`; every engine-owned relation remains tabular.
 - Entry: `Execute` resolves the optional cut, threads watermark failure, dispatches by cadence, and preserves every execution rail. `OneShot` composes the `Fin<ElementSet>` or `Fin<Seq<RecordBatch>>` result. `Materialized` passes the `Plan` returned by `SubstraitToDifferentialCompute.Convert` into `FederationPorts.Materialize`; conversion alone never counts as execution.
 - Auto: the lowering is a VISITOR fold, never a switch over relation type names — `Relation.Accept` double-dispatches into the typed `Visit*` overrides so a new Substrait relation kind surfaces as the base-class throw the funnel converts to `UnsupportedRelation`; only a one-column `id` schema enters the key-selection arm, preventing a filtered multi-column relation from losing its row payload; predicate pushdown resolves a root `StructReferenceSegment.Field` through the relation's `NamedStruct.Names`, admits the result through `SetPath`, and composes comparison, range, `LIKE`, null, `AND`, and `OR` functions into `SetExpr`; the full `RelationVisitor` roster lowers explicitly, with engine-owned plan, normalization, iteration-reference, buffer, substream, and exchange-reference relations remaining tabular; the `(plan-digest·full-cut·watermark)` replay frame includes the `Hlc.Logical` counter and optional stream version before `ContentHash.Of` mints `FederatedResult.ReplayKey`; an unreachable live endpoint lifts at the columnar/ADBC boundary into `SourceUnreachable`, structurally distinct from the `SourceUncapable` capability refusal.
 - Receipt: an execution rides `store.federation.execute` carrying the digest, the cut, the watermark gap, the source row, and the arm taken (`keyed`/`tabular`/`materialized`); a replay hit rides the `Query/cache` reuse index receipts, never a second fact stream here; the `Materialized` arm's fact rides `store.federation.materialize` carrying the view table.
-- Packages: FlowtideDotNet.Substrait (`RelationVisitor<TReturn,TState>`/`ExpressionVisitor<TOutput,TState>`/`Relation` roster/`SetOperation`/`Conversion.SubstraitToDifferentialCompute`), Apache.Arrow (`RecordBatch` — the owned batch currency the `Tabular` port drains inside the columnar ADBC statement window; a live `QueryResult` never crosses the port), Rasm (`Rasm.Domain` `ContentHash`/`IValidityEvidence`/`ValidityClaim`), Rasm.Element (`NodeId`), Rasm.Persistence (`Query/lane#ELEMENT_SET_ALGEBRA` `SetExpr`/`SetResolve`/`ElementSet`, `Query/lane#READ_ROUTING` `StalenessWatermark`, `Query/columnar` `AdbcQuery`, `Version/timetravel#TIME_TRAVEL` `TimeCut` — frozen vocabulary), NodaTime, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox.
+- Packages: FlowtideDotNet.Substrait (`RelationVisitor<TReturn,TState>`/`ExpressionVisitor<TOutput,TState>`/`Relation` roster/`SetOperation`/`Conversion.SubstraitToDifferentialCompute`), Apache.Arrow (`RecordBatch` — the owned batch currency the `Tabular` port drains inside the columnar ADBC statement window; a live `QueryResult` never crosses the port), Rasm (`Rasm.Domain` `ContentHash`/`IValidityEvidence`/`ValidityClaim`), Rasm.Element (`NodeId`), Rasm.Persistence (`Query/lane#ELEMENT_SET_ALGEBRA` `SetExpr`/`SetResolve`/`SetKey`/`SetScope`/`ElementSet`, `Query/lane#READ_ROUTING` `StalenessWatermark`, `Query/columnar` `AdbcQuery`, `Version/timetravel#TIME_TRAVEL` `TimeCut` — frozen vocabulary), NodaTime, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox.
 - Growth: a new relation kind is one `Visit*` override lowering to an existing arm; a new execution surface is one `LoweringTarget` case and one `Execute` arm; a new pushdown predicate is one `SetPredicate` mapping row in the expression fold; zero new surface — a second engine beside the standing lanes, a thin single-door single-relation-arm lowering, a switch over relation type names beside the visitor, a `Seq<Error>`-flattened lowering failure, or a replay key minted off a second hasher is the deleted form because the owner is a router/lowerer, the visitor is total-by-throw, and the replay identity composes the kernel digest.
 - Boundary: `SetExpr` executes only when `SourceKind.IsLive` is false; live sources ship the retained wire to the tabular port. `WriteRelation` refuses fail-closed. `SubstraitToDifferentialCompute.Convert` mutates and returns a `Plan`, and the materialization port must execute that returned plan before a receipt succeeds; a materialized mode without a primary key rails `MaterializationRejected` at `FederationPlan.Admit`. `FederationPlan` and `FederatedResult` expose no public constructor, so admission and success stamping cannot be bypassed; an empty keyed or tabular result remains valid execution evidence. `FederatedResult` frames the complete cut, source, and mode identity into `ReplayKey`, so distinct HLC cells, stream versions, bindings, and materialized views cannot collide.
 
@@ -231,9 +231,12 @@ public abstract partial record LoweringTarget {
 }
 
 // --- [SERVICES] -----------------------------------------------------------------------------
-// `FederationPorts` inject selection, tabular, live, watermark, materialization, and clock boundaries.
-// Tabular execution drains owned record batches before its ADBC statement closes.
+// `FederationPorts` inject the read scope, selection, tabular, live, watermark, materialization, and clock
+// boundaries. `Scope` is the caller-declared model roster the read-scope law demands — the plan carries
+// filters, projections, and folds alone, never the models it may touch — and tabular execution drains owned
+// record batches before its ADBC statement closes.
 public sealed record FederationPorts(
+    SetScope Scope,
     SetResolve Resolve,
     Func<AdbcRequest, IO<Fin<Seq<RecordBatch>>>> Tabular,
     Func<Plan, IO<Fin<Unit>>> Materialize,
@@ -243,11 +246,11 @@ public sealed record FederationPorts(
 // --- [OPERATIONS] ---------------------------------------------------------------------------
 // `FederationLowering` implements every catalogued Substrait relation visitor override.
 // Base throws for new relation kinds, and `Execute` converts the failure to `UnsupportedRelation`.
-public sealed class FederationLowering : RelationVisitor<Fin<LoweringTarget>, Unit> {
-    public override Fin<LoweringTarget> VisitRootRelation(RootRelation root, Unit state) => Visit(root.Input, state);
+public sealed class FederationLowering : RelationVisitor<Fin<LoweringTarget>, SetScope> {
+    public override Fin<LoweringTarget> VisitRootRelation(RootRelation root, SetScope state) => Visit(root.Input, state);
 
     // Verified union/intersection variants lower locally; every other operation preserves its full tabular semantics.
-    public override Fin<LoweringTarget> VisitSetRelation(SetRelation set, Unit state) =>
+    public override Fin<LoweringTarget> VisitSetRelation(SetRelation set, SetScope state) =>
         toSeq(set.Inputs).Map(input => Visit(input, state)).TraverseM(identity).As().Map(lowered =>
             lowered.ForAll(static target => target is LoweringTarget.Keyed)
                 ? set.Operation switch {
@@ -259,26 +262,26 @@ public sealed class FederationLowering : RelationVisitor<Fin<LoweringTarget>, Un
 
     // ReadRelation: the filter pushes down through the expression fold onto a typed SetPredicate leaf where the
     // store index serves it; an inexpressible filter keeps the whole read in the tabular subtree.
-    public override Fin<LoweringTarget> VisitReadRelation(ReadRelation read, Unit state) =>
+    public override Fin<LoweringTarget> VisitReadRelation(ReadRelation read, SetScope state) =>
         Fin.Succ((SetLowering.IsKeyed(read) ? SetLowering.Predicate(read.Filter, read.BaseSchema.Names) : None).Match(
             Some: static expr => (LoweringTarget)new LoweringTarget.Keyed(expr),
             None: () => new LoweringTarget.Tabular(read)));
 
-    public override Fin<LoweringTarget> VisitFilterRelation(FilterRelation filter, Unit state) =>
+    public override Fin<LoweringTarget> VisitFilterRelation(FilterRelation filter, SetScope state) =>
         Visit(filter.Input, state).Map(inner => inner is LoweringTarget.Keyed keyed
             ? SetLowering.Schema(filter.Input).Bind(fields => SetLowering.Predicate(filter.Condition, fields)).Match(
                 Some: expr => (LoweringTarget)new LoweringTarget.Keyed(new SetExpr.Intersect(keyed.Expr, expr)),
                 None: () => new LoweringTarget.Tabular(filter))
             : new LoweringTarget.Tabular(filter));
 
-    public override Fin<LoweringTarget> VisitVirtualTableReadRelation(VirtualTableReadRelation literal, Unit state) =>
+    public override Fin<LoweringTarget> VisitVirtualTableReadRelation(VirtualTableReadRelation literal, SetScope state) =>
         SetLowering.IsKeyed(literal)
-            ? SetLowering.Keys(literal).Map(keys => (LoweringTarget)new LoweringTarget.Keyed(new SetExpr.Literal(keys)))
+            ? SetLowering.Keys(literal, state).Map(keys => (LoweringTarget)new LoweringTarget.Keyed(new SetExpr.Literal(keys)))
             : Fin.Succ((LoweringTarget)new LoweringTarget.Tabular(literal));
 
     // Bounded keyed iterations lower to `Closure`; unbounded or seedless iterations remain tabular.
     // `WalkDepth` admits foreign bounds before the fold.
-    public override Fin<LoweringTarget> VisitIterationRelation(IterationRelation iteration, Unit state) =>
+    public override Fin<LoweringTarget> VisitIterationRelation(IterationRelation iteration, SetScope state) =>
         (Optional(iteration.MaxIterations), Optional(iteration.Input)).Apply((depth, seed) =>
             Visit(seed, state).Bind(lowered => lowered is LoweringTarget.Keyed keyed
                 ? WalkDepth.Validate(depth, null, out WalkDepth walk) is { } fault
@@ -290,38 +293,38 @@ public sealed class FederationLowering : RelationVisitor<Fin<LoweringTarget>, Un
 
     // A key-equijoin over two Keyed sides is a semijoin on the shared key space — SetExpr.Intersect; every
     // other join shape (outer, theta, projection-bearing) belongs to the engine arm.
-    public override Fin<LoweringTarget> VisitJoinRelation(JoinRelation join, Unit state) =>
+    public override Fin<LoweringTarget> VisitJoinRelation(JoinRelation join, SetScope state) =>
         (Visit(join.Left, state), Visit(join.Right, state)).Apply((left, right) =>
             (left, right, SetLowering.KeySemijoin(join)) switch {
                 (LoweringTarget.Keyed l, LoweringTarget.Keyed r, true) => (LoweringTarget)new LoweringTarget.Keyed(new SetExpr.Intersect(l.Expr, r.Expr)),
                 _ => new LoweringTarget.Tabular(join),
             }).As();
 
-    public override Fin<LoweringTarget> VisitProjectRelation(ProjectRelation rel, Unit state) => Fin.Succ((LoweringTarget)new LoweringTarget.Tabular(rel));
-    public override Fin<LoweringTarget> VisitAggregateRelation(AggregateRelation rel, Unit state) => Fin.Succ((LoweringTarget)new LoweringTarget.Tabular(rel));
-    public override Fin<LoweringTarget> VisitSortRelation(SortRelation rel, Unit state) => Fin.Succ((LoweringTarget)new LoweringTarget.Tabular(rel));
-    public override Fin<LoweringTarget> VisitTopNRelation(TopNRelation rel, Unit state) => Fin.Succ((LoweringTarget)new LoweringTarget.Tabular(rel));
-    public override Fin<LoweringTarget> VisitFetchRelation(FetchRelation rel, Unit state) => Fin.Succ((LoweringTarget)new LoweringTarget.Tabular(rel));
-    public override Fin<LoweringTarget> VisitConsistentPartitionWindowRelation(ConsistentPartitionWindowRelation rel, Unit state) => Fin.Succ((LoweringTarget)new LoweringTarget.Tabular(rel));
+    public override Fin<LoweringTarget> VisitProjectRelation(ProjectRelation rel, SetScope state) => Fin.Succ((LoweringTarget)new LoweringTarget.Tabular(rel));
+    public override Fin<LoweringTarget> VisitAggregateRelation(AggregateRelation rel, SetScope state) => Fin.Succ((LoweringTarget)new LoweringTarget.Tabular(rel));
+    public override Fin<LoweringTarget> VisitSortRelation(SortRelation rel, SetScope state) => Fin.Succ((LoweringTarget)new LoweringTarget.Tabular(rel));
+    public override Fin<LoweringTarget> VisitTopNRelation(TopNRelation rel, SetScope state) => Fin.Succ((LoweringTarget)new LoweringTarget.Tabular(rel));
+    public override Fin<LoweringTarget> VisitFetchRelation(FetchRelation rel, SetScope state) => Fin.Succ((LoweringTarget)new LoweringTarget.Tabular(rel));
+    public override Fin<LoweringTarget> VisitConsistentPartitionWindowRelation(ConsistentPartitionWindowRelation rel, SetScope state) => Fin.Succ((LoweringTarget)new LoweringTarget.Tabular(rel));
 
-    public override Fin<LoweringTarget> VisitWriteRelation(WriteRelation write, Unit state) =>
+    public override Fin<LoweringTarget> VisitWriteRelation(WriteRelation write, SetScope state) =>
         Fin.Fail<LoweringTarget>(new FederationFault.WriteRejected(write.NamedObject.ToString() ?? "<write>"));   // fail-closed: federation READS
 
-    public override Fin<LoweringTarget> VisitExchangeRelation(ExchangeRelation exchange, Unit state) =>
+    public override Fin<LoweringTarget> VisitExchangeRelation(ExchangeRelation exchange, SetScope state) =>
         Fin.Succ((LoweringTarget)new LoweringTarget.Tabular(exchange));
 
     // Whole-plan, buffer, exchange, and table-function relations retain tabular execution.
     // Explicit overrides reserve base throws for uncatalogued relation kinds.
-    public override Fin<LoweringTarget> VisitMergeJoinRelation(MergeJoinRelation rel, Unit state) => Fin.Succ((LoweringTarget)new LoweringTarget.Tabular(rel));
-    public override Fin<LoweringTarget> VisitReferenceRelation(ReferenceRelation rel, Unit state) => Fin.Succ((LoweringTarget)new LoweringTarget.Tabular(rel));
-    public override Fin<LoweringTarget> VisitTableFunctionRelation(TableFunctionRelation rel, Unit state) => Fin.Succ((LoweringTarget)new LoweringTarget.Tabular(rel));
-    public override Fin<LoweringTarget> VisitPlanRelation(PlanRelation rel, Unit state) => Fin.Succ((LoweringTarget)new LoweringTarget.Tabular(rel));
-    public override Fin<LoweringTarget> VisitNormalizationRelation(NormalizationRelation rel, Unit state) => Fin.Succ((LoweringTarget)new LoweringTarget.Tabular(rel));
-    public override Fin<LoweringTarget> VisitIterationReferenceReadRelation(IterationReferenceReadRelation rel, Unit state) => Fin.Succ((LoweringTarget)new LoweringTarget.Tabular(rel));
-    public override Fin<LoweringTarget> VisitBufferRelation(BufferRelation rel, Unit state) => Fin.Succ((LoweringTarget)new LoweringTarget.Tabular(rel));
-    public override Fin<LoweringTarget> VisitSubStreamRootRelation(SubStreamRootRelation rel, Unit state) => Fin.Succ((LoweringTarget)new LoweringTarget.Tabular(rel));
-    public override Fin<LoweringTarget> VisitPullExchangeReferenceRelation(PullExchangeReferenceRelation rel, Unit state) => Fin.Succ((LoweringTarget)new LoweringTarget.Tabular(rel));
-    public override Fin<LoweringTarget> VisitStandardOutputExchangeReferenceRelation(StandardOutputExchangeReferenceRelation rel, Unit state) => Fin.Succ((LoweringTarget)new LoweringTarget.Tabular(rel));
+    public override Fin<LoweringTarget> VisitMergeJoinRelation(MergeJoinRelation rel, SetScope state) => Fin.Succ((LoweringTarget)new LoweringTarget.Tabular(rel));
+    public override Fin<LoweringTarget> VisitReferenceRelation(ReferenceRelation rel, SetScope state) => Fin.Succ((LoweringTarget)new LoweringTarget.Tabular(rel));
+    public override Fin<LoweringTarget> VisitTableFunctionRelation(TableFunctionRelation rel, SetScope state) => Fin.Succ((LoweringTarget)new LoweringTarget.Tabular(rel));
+    public override Fin<LoweringTarget> VisitPlanRelation(PlanRelation rel, SetScope state) => Fin.Succ((LoweringTarget)new LoweringTarget.Tabular(rel));
+    public override Fin<LoweringTarget> VisitNormalizationRelation(NormalizationRelation rel, SetScope state) => Fin.Succ((LoweringTarget)new LoweringTarget.Tabular(rel));
+    public override Fin<LoweringTarget> VisitIterationReferenceReadRelation(IterationReferenceReadRelation rel, SetScope state) => Fin.Succ((LoweringTarget)new LoweringTarget.Tabular(rel));
+    public override Fin<LoweringTarget> VisitBufferRelation(BufferRelation rel, SetScope state) => Fin.Succ((LoweringTarget)new LoweringTarget.Tabular(rel));
+    public override Fin<LoweringTarget> VisitSubStreamRootRelation(SubStreamRootRelation rel, SetScope state) => Fin.Succ((LoweringTarget)new LoweringTarget.Tabular(rel));
+    public override Fin<LoweringTarget> VisitPullExchangeReferenceRelation(PullExchangeReferenceRelation rel, SetScope state) => Fin.Succ((LoweringTarget)new LoweringTarget.Tabular(rel));
+    public override Fin<LoweringTarget> VisitStandardOutputExchangeReferenceRelation(StandardOutputExchangeReferenceRelation rel, SetScope state) => Fin.Succ((LoweringTarget)new LoweringTarget.Tabular(rel));
 }
 
 // `SetLowering` composes admitted literal and predicate pushdown through catalogued Substrait functions.
@@ -344,14 +347,18 @@ public static class SetLowering {
     static bool KeySchema(IReadOnlyList<string> fields, int outputLength) =>
         outputLength == 1 && fields.Count == 1 && string.Equals(fields[0], "id", StringComparison.Ordinal);
 
-    // One-column string virtual tables lower to literal NodeId sets; other schemas remain tabular.
-    public static Fin<Seq<NodeId>> Keys(VirtualTableReadRelation literal) =>
-        toSeq(literal.Values.Expressions)
-            .Map(static row => row.Fields is [StringLiteral key, ..]
-                ? Try.lift(() => NodeId.Create(key.Value)).Run().MapFail(error => (Error)new FederationFault.SubstraitParse(error.Message))
-                : Fin.Fail<NodeId>(new FederationFault.SubstraitParse("<virtual-key>")))
-            .TraverseM(identity)
-            .As();
+    // One-column string virtual tables lower to literal key sets, qualified under the execution scope: a
+    // Substrait plan spells no model, so bare ids admit only when the scope names exactly ONE model — a
+    // multi-model scope over a bare-id literal is an ambiguity the lowering refuses rather than guesses.
+    public static Fin<Seq<SetKey>> Keys(VirtualTableReadRelation literal, SetScope scope) =>
+        scope.Models is [var model]
+            ? toSeq(literal.Values.Expressions)
+                .Map(row => row.Fields is [StringLiteral key, ..]
+                    ? Try.lift(() => new SetKey(model, NodeId.Create(key.Value))).Run().MapFail(error => (Error)new FederationFault.SubstraitParse(error.Message))
+                    : Fin.Fail<SetKey>(new FederationFault.SubstraitParse("<virtual-key>")))
+                .TraverseM(identity)
+                .As()
+            : Fin.Fail<Seq<SetKey>>(new FederationFault.SubstraitParse("<literal-model-ambiguous>"));
 
     // Equal-key inner semijoins lower to set intersection; every other join remains engine-owned.
     public static bool KeySemijoin(JoinRelation join) =>
@@ -439,7 +446,7 @@ public static class Federation {
     static IO<Fin<FederatedResult>> OneShot(FederationPlan plan, TimeCut cut, StalenessWatermark watermark, FederationPorts ports) =>
         IO.lift(() => Try.lift(() =>
                 plan.Ir.Relations is [Relation root, ..]
-                    ? new FederationLowering().Visit(root, unit)
+                    ? new FederationLowering().Visit(root, ports.Scope)
                     : Fin.Fail<LoweringTarget>(new FederationFault.SubstraitParse("<empty-plan>")))
             .Run()
             .MapFail(static error => (Error)new FederationFault.UnsupportedRelation(error.Message))   // the base-class NotImplementedException funnel
@@ -449,7 +456,7 @@ public static class Federation {
                 // Live sources always ride remote wire execution; only durable and signed sources use local keys.
                 keyed: k => plan.Source.IsLive
                     ? Engine(plan, cut, watermark, ports)
-                    : IO.pure(ElementSetAlgebra.Evaluate(k.Expr, ports.Resolve)
+                    : IO.pure(ElementSetAlgebra.Evaluate(k.Expr, ports.Scope, ports.Resolve)
                         .Map(keys => Stamp(plan, cut, watermark, keys, None, ports.Now()))),
                 tabular: t => Engine(plan, cut, watermark, ports)),
             Fail: fault => IO.pure(Fin<FederatedResult>.Fail(fault))));
@@ -545,7 +552,7 @@ public sealed class FederatedResult : IValidityEvidence {
 | [INDEX] | [POLICY]          | [VALUE]                                            | [BINDING]                                                    |
 | :-----: | :---------------- | :------------------------------------------------- | :----------------------------------------------------------- |
 |  [01]   | one entry         | `Execute(FederationPlan, Option<TimeCut>, ports)`  | router/lowerer over standing lanes; never a second engine    |
-|  [02]   | lowering form     | `RelationVisitor<Fin<LoweringTarget>, Unit>`       | total-by-throw; unknown relation → `UnsupportedRelation`     |
+|  [02]   | lowering form     | `RelationVisitor<Fin<LoweringTarget>, SetScope>`   | total-by-throw; unknown relation → `UnsupportedRelation`     |
 |  [03]   | key-selection arm | `SetExpr` via `lane#ELEMENT_SET_ALGEBRA`           | local non-live sources; unsupported set ops stay tabular     |
 |  [04]   | tabular arm       | `ColumnarProfile.Federation` + `AdbcQuery` doors   | `from_substrait(blob)` local; ext `SubstraitPlan`/`SqlQuery` |
 |  [05]   | write posture     | `WriteRelation` → `WriteRejected`                  | fail-closed; federation reads, the store rail writes         |
