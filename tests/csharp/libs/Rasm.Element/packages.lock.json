@@ -2,6 +2,15 @@
   "version": 2,
   "dependencies": {
     "net10.0": {
+      "Generator.Equals": {
+        "type": "Direct",
+        "requested": "[4.0.2, )",
+        "resolved": "4.0.2",
+        "contentHash": "mf980Z3zjjeevYM6b39QZw2VL9h032UBH524dCisWogt/JR6Miy5rfyYn6q2re7+ICGdAKEar2VcRJn79rNz2Q==",
+        "dependencies": {
+          "Generator.Equals.Runtime": "4.0.2"
+        }
+      },
       "JetBrains.Annotations": {
         "type": "Direct",
         "requested": "[2026.2.0, )",
@@ -86,6 +95,7 @@
           "CommunityToolkit.HighPerformance": "[8.4.2, )",
           "Csp.Contracts": "[1.0.0, )",
           "ExtendedNumerics.BigRational": "[3000.0.2.132, )",
+          "Generator.Equals": "[4.0.2, )",
           "JetBrains.Annotations": "[2026.2.0, )",
           "LanguageExt.Core": "[5.0.0-beta-77, )",
           "MIConvexHull": "[1.1.19.1019, )",
@@ -114,7 +124,6 @@
           "NodaTime.Serialization.Protobuf": "[2.0.2, )",
           "QuikGraph": "[2.5.0, )",
           "Rasm": "[1.0.0, )",
-          "Riok.Mapperly": "[4.3.1, )",
           "System.IO.Hashing": "[10.0.10, )",
           "Thinktecture.Runtime.Extensions": "[10.4.0, )",
           "Thinktecture.Runtime.Extensions.Json": "[10.4.0, )",
@@ -138,15 +147,6 @@
         "requested": "[3000.0.2.132, )",
         "resolved": "3000.0.2.132",
         "contentHash": "Hb5jQsseiLtRhk+O132hkq3ibO4/6v6WyPu714GwYtHje3HNWoItnaNy7DVhcA8wanhwku6sUk40R8/fBiX7tA=="
-      },
-      "Generator.Equals": {
-        "type": "CentralTransitive",
-        "requested": "[4.0.2, )",
-        "resolved": "4.0.2",
-        "contentHash": "mf980Z3zjjeevYM6b39QZw2VL9h032UBH524dCisWogt/JR6Miy5rfyYn6q2re7+ICGdAKEar2VcRJn79rNz2Q==",
-        "dependencies": {
-          "Generator.Equals.Runtime": "4.0.2"
-        }
       },
       "Google.Protobuf": {
         "type": "CentralTransitive",
@@ -193,12 +193,6 @@
         "requested": "[2.5.0, )",
         "resolved": "2.5.0",
         "contentHash": "sG+mrPpXwxlXknRK5VqWUGiOmDACa9X+3ftlkQIMgOZUqxVOQSe0+HIU9PTjwqazy0pqSf8MPDXYFGl0GYWcKw=="
-      },
-      "Riok.Mapperly": {
-        "type": "CentralTransitive",
-        "requested": "[4.3.1, )",
-        "resolved": "4.3.1",
-        "contentHash": "oSE+OVLHyiojrws0QVbQaAT2YKsYbyHqJXPdV7EhGseR/dYgeWS2x1T5qY5I4E+RJkJqMSG+FyZOq4SljWgJWQ=="
       },
       "Supercluster.KDTree.Net": {
         "type": "CentralTransitive",

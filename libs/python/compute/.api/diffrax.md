@@ -86,17 +86,17 @@
 
 [PUBLIC_TYPE_SCOPE]: step-size controllers and adjoints
 
-| [INDEX] | [SYMBOL]                     | [PACKAGE_ROLE]      | [CAPABILITY]                                       |
-| :-----: | :--------------------------- | :------------------ | :------------------------------------------------- |
-|  [01]   | `ConstantStepSize`           | fixed controller    | constant step size                                 |
-|  [02]   | `PIDController`              | adaptive controller | PID-based adaptive step size                       |
-|  [03]   | `ClipStepSizeController`     | wrapping controller | clips a wrapped controller's steps to a range      |
-|  [04]   | `StepTo`                     | fixed controller    | step to specified times                            |
-|  [05]   | `RecursiveCheckpointAdjoint` | adjoint             | memory-efficient recursive checkpointing (default) |
-|  [06]   | `DirectAdjoint`              | adjoint             | direct JAX autodiff through the solve              |
-|  [07]   | `BacksolveAdjoint`           | adjoint             | continuous adjoint (backsolve)                     |
-|  [08]   | `ImplicitAdjoint`            | adjoint             | implicit-function-theorem adjoint (steady-state)   |
-|  [09]   | `ForwardMode`                | adjoint             | forward-mode autodiff through the solve            |
+| [INDEX] | [SYMBOL]                     | [PACKAGE_ROLE]      | [CAPABILITY]                                        |
+| :-----: | :--------------------------- | :------------------ | :-------------------------------------------------- |
+|  [01]   | `ConstantStepSize`           | fixed controller    | constant step size                                  |
+|  [02]   | `PIDController`              | adaptive controller | PID-based adaptive step size                        |
+|  [03]   | `ClipStepSizeController`     | wrapping controller | forces `step_ts`/`jump_ts` steps + rejected revisit |
+|  [04]   | `StepTo`                     | fixed controller    | step to specified times                             |
+|  [05]   | `RecursiveCheckpointAdjoint` | adjoint             | memory-efficient recursive checkpointing (default)  |
+|  [06]   | `DirectAdjoint`              | adjoint             | direct JAX autodiff through the solve               |
+|  [07]   | `BacksolveAdjoint`           | adjoint             | continuous adjoint (backsolve)                      |
+|  [08]   | `ImplicitAdjoint`            | adjoint             | implicit-function-theorem adjoint (steady-state)    |
+|  [09]   | `ForwardMode`                | adjoint             | forward-mode autodiff through the solve             |
 
 [PUBLIC_TYPE_SCOPE]: solution, save, term, and event types
 

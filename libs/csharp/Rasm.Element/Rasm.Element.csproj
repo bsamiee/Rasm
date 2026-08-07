@@ -20,10 +20,9 @@
     </ItemGroup>
 
     <ItemGroup Label="Wire Transcription">
-        <PackageReference Include="Generator.Equals" />
         <PackageReference Include="Google.Protobuf" />
         <PackageReference Include="Grpc.Tools" PrivateAssets="all" />
-        <PackageReference Include="Riok.Mapperly" />
+        <PackageReference Include="Riok.Mapperly" PrivateAssets="all" />
         <PackageReference Include="Thinktecture.Runtime.Extensions.Json" />
     </ItemGroup>
 

@@ -18,20 +18,27 @@ data/
 │   ├── cost.py           # Cost ledger folding the receipt families into the priced tenant-attributed frame
 │   └── journal.py        # Ledger implementer landing runtime audit and meter facts across commit and scan
 ├── spatial/              # Vector and raster claims, the DuckDB-spatial engine, the DGG plane, STAC catalog, mesh exchange
-│   ├── geospatial.py     # Vector and raster geo claims over the VectorOp and RasterOp axes
+│   ├── geospatial.py     # Vector and raster geo claims over the VectorOp and RasterOp axes with the model CRS source
 │   ├── query.py          # DuckDB-spatial join, transform, and H3 engine on the shared session rail
 │   ├── grid.py           # GridSystem DGG plane and frame-native geometry algebra
 │   ├── catalog.py        # StacCatalog owner over search, item table, and asset-href egress
-│   └── mesh.py           # Mesh-file exchange owner over the backend axis and point-cloud row
+│   ├── mesh.py           # Mesh-file exchange owner over the backend axis and point-cloud row
+│   └── cube.py           # ZoneCube vector-data-cube owner over xvec geometry-indexed dimensions
 ├── gridded/              # Chunked N-D dense, virtual, and ragged tensor stores with the CF labelled-field store
 │   ├── store.py          # Dense chunked N-D tensor store over the TensorBackend engines and the bounded-memory cubed plan
 │   ├── virtual.py        # Sole manifest-cube owner over manifest write, registration, and the icechunk version-operation axis
 │   ├── ragged.py         # Ragged N-D store over awkward with a zero-copy Arrow bridge
-│   └── field.py          # CF field-dataset owner over the CF engines and grouped reductions
+│   ├── field.py          # CF field-dataset owner, the raw field-container read leg, and the ensemble corpus
+│   └── ensemble.py       # ScenarioTree owner over DataTree scenario hierarchies with group-wise folds
 ├── graph/                # Rustworkx graph payloads with a networkx codec lane and typed receipts
-│   └── graph.py          # Graph-payload owner over the run kernel and the community-detection split
+│   ├── graph.py          # Graph-payload owner over the run kernel, the community split, and the layer-topology decoder
+│   └── network.py        # FlowNetwork capacity-network owner over the networkx flow family
 └── impact/               # Material environmental impact: EPD ingest and LCA compute on one EN 15804 carrier
-    └── impact.py         # MaterialImpact owner folding the ImpactSource axis into one EN 15804 matrix
+    ├── impact.py         # MaterialImpact owner folding the ImpactSource axis into one EN 15804 matrix
+    ├── declaration.py    # Declaration-registry ingest minting the corpus declaration-record contract
+    ├── inventory.py      # Brightway project and LCI-ingestion custodian with the matrix-datapackage substrate
+    ├── solve.py          # MultiLCA shared-factorization batch and the contribution driver-mining axis
+    └── scenario.py       # ScenarioBuild prospective-background producer over the floor-gated premise transform
 ```
 
 ## [02]-[STRATA]
@@ -72,6 +79,7 @@ flowchart TB
     Spatial s1@-->|"[IMPORT]: QueryReceipt"| Columnar
     Spatial s2@-->|"[IMPORT]: ObjectEgress"| Egress
     Spatial s3@-->|"[IMPORT]: FieldVirtual"| Gridded
+    Spatial s29@-->|"[IMPORT]: FieldReceipt"| Gridded
     Gridded s4@-->|"[IMPORT]: ArrowCStream"| Interop
     Impact s5@-->|"[IMPORT]: FrameAdmission"| Contract
     Impact s6@-->|"[IMPORT]: QualityProfile"| Profile
@@ -111,7 +119,10 @@ flowchart TB
 - S1 `gridded` rides the interop `ArrowCStream` carrier for its ragged Arrow bridge; `virtual` mints the field `FieldReceipt` family in-folder.
 - S1 tensor `PlanReceipt` lowering crosses into the tabular cost ledger as wire data, never an import.
 - S1 `graph` — import-isolated, composing runtime alone; its `GraphResult.frame` node table crosses into columnar as wire data, never an import.
-- S2 `spatial` — apex consumer composing columnar, the object-egress receipt owner (`ObjectEgress`), and the gridded virtual plane (`VirtualReference`); its store operations cross from the runtime lane, never from `tabular`.
+- S1 `network` composes `graph` strictly downward inside the subfolder; the flow family adds no new stratum edge.
+- S1 `impact` siblings — `inventory`, `solve`, and `scenario` compose runtime alone and feed the carrier's cases, never a second matrix.
+- S2 `spatial` — apex consumer composing columnar, the object-egress receipt owner (`ObjectEgress`), and the gridded virtual plane (`VirtualReference`).
+- S2 `spatial` store operations cross from the runtime lane, never from `tabular`; `cube` egresses on the gridded `FieldReceipt` family.
 
 ## [03]-[SEAMS]
 
@@ -186,6 +197,7 @@ flowchart LR
     Geometry e25@-->|"[BOUNDARY]: arrow_bytes"| Tabular
     Profile e7@-->|"[SHAPE]: QualityProfile"| Artifacts
     Artifacts e8@-->|"[WIRE]: GeoJSON"| Geospatial
+    Geometry e17@-->|"[SHAPE]: GeoreferenceFact"| Geospatial
     Mesh e9@-->|"[SHAPE]: MeshPayload"| Geometry
     Mesh e15@-->|"[SHAPE]: PointRecordTable"| Geometry
     Geometry e16@-->|"[BOUNDARY]: Trimesh"| Mesh
@@ -208,19 +220,24 @@ flowchart LR
         Query[Query engine]
         Geospatial[Geospatial claims]
         Virtual[Manifest cube]
+        Field[Field plane]
         Impact[Material impact]
+        Graph[Graph payloads]
     end
     Persistence[(Rasm.Persistence)]
     Materials([Rasm.Materials])
     Compute([Rasm.Compute])
     Bim([Rasm.Bim])
+    Rhino([Rasm.Rhino])
     Compute e1@-->|"[SHAPE]: DoeDataset"| Tabular
+    Compute e10@-->|"[WIRE]: FieldContainer"| Field
     Geospatial e2@-->|"[SHAPE]: GeoArrow"| Compute
     Tabular e3@-->|"[CONTENT_KEY]: ContentKey"| Persistence
     Query e4@<-->|"[WIRE]: SubstraitPlan"| Persistence
     Virtual e5@-->|"[CONTENT_KEY]: ContentKey"| Persistence
     Impact e6@<-->|"[CONTENT_KEY]: ContentKey"| Persistence
     Bim e7@-->|"[WIRE]: GeoFeatureWire"| Geospatial
+    Rhino e11@-->|"[WIRE]: LayerTopologyFact"| Graph
     Persistence e8@-->|"[WIRE]: FlightTicket"| Query
     Impact e9@-->|"[WIRE]: DeclarationRecord"| Materials
 ```

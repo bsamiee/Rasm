@@ -2,6 +2,15 @@
   "version": 2,
   "dependencies": {
     "net10.0": {
+      "Generator.Equals": {
+        "type": "Direct",
+        "requested": "[4.0.2, )",
+        "resolved": "4.0.2",
+        "contentHash": "mf980Z3zjjeevYM6b39QZw2VL9h032UBH524dCisWogt/JR6Miy5rfyYn6q2re7+ICGdAKEar2VcRJn79rNz2Q==",
+        "dependencies": {
+          "Generator.Equals.Runtime": "4.0.2"
+        }
+      },
       "JetBrains.Annotations": {
         "type": "Direct",
         "requested": "[2026.2.0, )",
@@ -124,6 +133,11 @@
         "type": "Transitive",
         "resolved": "1.0.20.1",
         "contentHash": "pkiceEqJDQFHjbga3k/oPfTVX9g+GKJZ1VrkuiLhaymt9YNw1Dr7cX9hNuZuNaWcr9WD0moW55k4pMwzQ7JaZQ=="
+      },
+      "Magick.NET.Core": {
+        "type": "Transitive",
+        "resolved": "14.16.0",
+        "contentHash": "ddBX/Zb0sCsX4agqHdHeqUx+grfw8I7GFU+lgut3mtNl7roxbxemSQFGLIJXtzwPuAHxbaMtkXA+ijVl02EUhQ=="
       },
       "MessagePack.Annotations": {
         "type": "Transitive",
@@ -783,6 +797,7 @@
           "CommunityToolkit.HighPerformance": "[8.4.2, )",
           "Csp.Contracts": "[1.0.0, )",
           "ExtendedNumerics.BigRational": "[3000.0.2.132, )",
+          "Generator.Equals": "[4.0.2, )",
           "JetBrains.Annotations": "[2026.2.0, )",
           "LanguageExt.Core": "[5.0.0-beta-77, )",
           "MIConvexHull": "[1.1.19.1019, )",
@@ -814,6 +829,7 @@
           "FluentModbus": "[5.3.2, )",
           "FluentValidation": "[12.1.1, )",
           "FluentValidation.DependencyInjectionExtensions": "[12.1.1, )",
+          "Generator.Equals": "[4.0.2, )",
           "Grpc.AspNetCore": "[2.83.0, )",
           "Grpc.AspNetCore.HealthChecks": "[2.83.0, )",
           "Grpc.AspNetCore.Web": "[2.83.0, )",
@@ -919,7 +935,6 @@
           "NodaTime.Serialization.Protobuf": "[2.0.2, )",
           "QuikGraph": "[2.5.0, )",
           "Rasm": "[1.0.0, )",
-          "Riok.Mapperly": "[4.3.1, )",
           "System.IO.Hashing": "[10.0.10, )",
           "Thinktecture.Runtime.Extensions": "[10.4.0, )",
           "Thinktecture.Runtime.Extensions.Json": "[10.4.0, )",
@@ -931,8 +946,10 @@
         "dependencies": {
           "CommunityToolkit.HighPerformance": "[8.4.2, )",
           "Csp.Contracts": "[1.0.0, )",
+          "Generator.Equals": "[4.0.2, )",
           "JetBrains.Annotations": "[2026.2.0, )",
           "LanguageExt.Core": "[5.0.0-beta-77, )",
+          "Magick.NET-Q16-HDRI-AnyCPU": "[14.16.0, )",
           "MathNet.Numerics": "[6.0.0-beta2, )",
           "MessagePack": "[3.1.8, )",
           "Microsoft.Extensions.Logging.Abstractions": "[10.0.10, )",
@@ -1094,15 +1111,6 @@
           "Microsoft.Extensions.DependencyInjection.Abstractions": "2.1.0"
         }
       },
-      "Generator.Equals": {
-        "type": "CentralTransitive",
-        "requested": "[4.0.2, )",
-        "resolved": "4.0.2",
-        "contentHash": "mf980Z3zjjeevYM6b39QZw2VL9h032UBH524dCisWogt/JR6Miy5rfyYn6q2re7+ICGdAKEar2VcRJn79rNz2Q==",
-        "dependencies": {
-          "Generator.Equals.Runtime": "4.0.2"
-        }
-      },
       "Google.Protobuf": {
         "type": "CentralTransitive",
         "requested": "[3.35.1, )",
@@ -1166,6 +1174,15 @@
         "requested": "[2.83.0, )",
         "resolved": "2.83.0",
         "contentHash": "vK2Go/83W0v2Nn7tTP9fGrX4IjmOa93s3M0SZeFimU1vIIr2wL9yNJlIyK21y85SGm3++JncB8IF751cjoLHuQ=="
+      },
+      "Magick.NET-Q16-HDRI-AnyCPU": {
+        "type": "CentralTransitive",
+        "requested": "[14.16.0, )",
+        "resolved": "14.16.0",
+        "contentHash": "p3mwluwm5jWd6O6ny1KflPlsgct3K7fNL5JKrOAE69OSpQ7oGluc7kmPZWwN2oa4CDOg0xiYI1qS6dZbpNfxKw==",
+        "dependencies": {
+          "Magick.NET.Core": "14.16.0"
+        }
       },
       "MathNet.Numerics": {
         "type": "CentralTransitive",

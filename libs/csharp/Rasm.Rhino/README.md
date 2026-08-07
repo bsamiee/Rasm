@@ -139,5 +139,8 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 [GRAPH_ALGORITHM]:
 - `QuikGraph` — transient block-graph topology, reachability, and source-first ordering.
 
+[WIRE_CODEGEN]:
+- `Riok.Mapperly` — existing-target policy transcription onto host option objects; `Exchange/options` `PolicyMap` is the landed seat.
+
 [DEPENDENCY_FLOORS]:
 - `System.Drawing.Common` — compile-time GDI carriers crossing host bitmap, icon, printer, and screen seams.

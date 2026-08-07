@@ -194,6 +194,7 @@
     </PropertyGroup>
 
     <ItemGroup Label="Workspace Foundation Packages" Condition="'$(IsLocalCSharpAnalyzerProject)' != 'true'">
+        <PackageReference Include="Generator.Equals" Condition="'$(UseWorkspaceLibraries)' == 'true'" />
         <PackageReference Include="JetBrains.Annotations" Condition="'$(UsesThinktecture)' == 'true'" />
         <PackageReference Include="LanguageExt.Core" Condition="'$(UseWorkspaceLibraries)' == 'true'" />
         <PackageReference Include="Thinktecture.Runtime.Extensions" Condition="'$(UseWorkspaceLibraries)' == 'true'" />

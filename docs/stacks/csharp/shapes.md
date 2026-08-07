@@ -1,6 +1,8 @@
 # [CSHARP_SHAPES]
 
-Every concept takes exactly one owner, and five discriminants select it before any attribute is written: admission (raw material crossing a trust boundary), identity regime (key, structural, case, or reference), variant arity (one shape or N alternatives), payload timing (case data fixed at declaration or constructed per occurrence), and openness (closed vocabulary or foreign extension). That selection fixes where change detonates, what equality means, and which capabilities derive — every misplaced shape traces to one mis-answered discriminant. These same discriminants close the shape budget: an owner absorbs a sibling shape the moment they share an identity regime, an admission path, a payload timing, or a consumer, and a shape survives only on a genuinely distinct discriminant — the generated family, with its source-generated case families, delegate rows, and validation partials, absorbs what record and class spam scatters, so a flat record beside a generated owner that shares its discriminants is the deleted form, never a tolerated neighbor.
+Every concept takes exactly one owner, and five discriminants select it before any attribute is written: admission (raw material crossing a trust boundary), identity regime (key, structural, case, or reference), variant arity (one shape or N alternatives), payload timing (case data fixed at declaration or constructed per occurrence), and openness (closed vocabulary or foreign extension). That selection fixes where change detonates, what equality means, and which capabilities derive — every misplaced shape traces to one mis-answered discriminant.
+
+These same discriminants close the shape budget: an owner absorbs a sibling shape the moment they share an identity regime, an admission path, a payload timing, or a consumer, and a shape survives only on a genuinely distinct discriminant — the generated family, with its source-generated case families, delegate rows, and validation partials, absorbs what record and class spam scatters, so a flat record beside a generated owner that shares its discriminants is the deleted form, never a tolerated neighbor.
 
 ## [01]-[OWNER_CHOOSER]
 
@@ -44,16 +46,16 @@ When a concept matches several signatures, the most specific row wins.
 [CHANGE_FUNCTIONS]:
 - `PlaceGrowthCost(owner)`: send new union cases to exhaustive `Switch`, smart-enum items to constructors, complex members to factories, and key migrations to conversion and wire seams.
 - `TuneGrowthAbsorption(owner)`: let columns under `SwitchMapMethodsGeneration.None` absorb item growth; let generated `Switch` push additions to consumers.
-- `TightenInvariant(owner)`: treat narrower factories as data migration plus tests because compile signal is zero.
+- `TightenInvariant(owner)`: treat narrower factories as data migration with tests because compile signal is zero.
 
 [EXEMPTION_FUNCTIONS]:
-- `UseManualFamily(axis)`: hand-roll only for foreign case extension, interface-required owners, unliftable generic payloads, ad-hoc arity past five, or runtime-sourced vocabulary admitted into keyed owner plus frozen registry.
+- `UseManualFamily(axis)`: hand-roll only for foreign case extension, interface-required owners, unliftable generic payloads, ad-hoc arity past five, or runtime-sourced vocabulary admitted into a keyed owner with a frozen registry.
 - `ExtendForeignBase(vocabulary)`: keep generated vocabulary; thread key first and base parameters last; reject host base class as manual case-extension pressure.
 
 [COMPOSITION_FUNCTIONS]:
 - `ComposeOwners(graph)`: nest owners without revalidation; preserve admission, equality, comparer policy, default-safety, and totality; project wire shape through one object factory instead of flattening.
 - `StackIdentity(owner)`: keep structural, key, case, equality, and ordering regimes local; declare identity-without-order at the layer that owns it.
-- `KeyByGeneratedOwner(owner)`: use full generated-owner keying only across assembly boundaries; in same-compilation composition, carry raw key plus vocabulary owner and one two-hop admission expression.
+- `KeyByGeneratedOwner(owner)`: use full generated-owner keying only across assembly boundaries; in same-compilation composition, carry raw key, vocabulary owner, and one two-hop admission expression.
 
 ## [03]-[VALUE_OBJECTS]
 
@@ -123,10 +125,10 @@ public static class ShapeOps {
 ```
 
 [VALUE_TRAIT_AXES]:
-- Law: the LanguageExt `LanguageExt.Traits.Domain` value traits are the algebraic axis layer over generated admission, each a static-abstract self-constrained interface granting a fixed BCL operator-interface set the axis selects — `VectorSpace<TSelf,TScalar>` grants `IAdditionOperators<TSelf,TSelf,TSelf>`, `ISubtractionOperators<TSelf,TSelf,TSelf>`, scalar `IMultiplyOperators<TSelf,TScalar,TSelf>`/`IDivisionOperators<TSelf,TScalar,TSelf>`, and `IUnaryNegationOperators<TSelf,TSelf>`; `Amount<TSelf,TScalar>` is that fragment plus `IComparable<TSelf>` and `IComparisonOperators<TSelf,TSelf,bool>` ordering; `Locus<TSelf,TDist,TScalarDist>` is affine position over `where TDist : Amount<TDist,TScalarDist>`, granting `IAdditionOperators<TSelf,TDist,TSelf>`, `ISubtractionOperators<TSelf,TSelf,TDist>`, `IAdditiveIdentity<TSelf,TSelf>`, and negation but never `TSelf+TSelf`.
+- Law: the LanguageExt `LanguageExt.Traits.Domain` value traits are the algebraic axis layer over generated admission, each a static-abstract self-constrained interface granting a fixed BCL operator-interface set the axis selects — `VectorSpace<TSelf,TScalar>` grants `IAdditionOperators<TSelf,TSelf,TSelf>`, `ISubtractionOperators<TSelf,TSelf,TSelf>`, scalar `IMultiplyOperators<TSelf,TScalar,TSelf>`/`IDivisionOperators<TSelf,TScalar,TSelf>`, and `IUnaryNegationOperators<TSelf,TSelf>`; `Amount<TSelf,TScalar>` adds `IComparable<TSelf>` and `IComparisonOperators<TSelf,TSelf,bool>` ordering to that fragment; `Locus<TSelf,TDist,TScalarDist>` is affine position over `where TDist : Amount<TDist,TScalarDist>`, granting `IAdditionOperators<TSelf,TDist,TSelf>`, `ISubtractionOperators<TSelf,TSelf,TDist>`, `IAdditiveIdentity<TSelf,TSelf>`, and negation but never `TSelf+TSelf`.
 - Law: every axis inherits `DomainType<TSelf,TRepr>`, whose `static abstract Fin<TSelf> From(TRepr)` and instance `TRepr To()` are the trait's own admission and egress members — the generator emits neither (Thinktecture carries no LanguageExt reference), so the bridge is one expression each: `From` re-anchors the generated `Validate` so the trait's admission and the canonical `Validate` are one rule, not two, and `To()` returns the key the owner already holds; the inherited `static virtual FromUnsafe` rides `From().ThrowIfFail()` untouched. Re-validating inside `From` rather than delegating to `Validate` is the rejected second construction path.
 - Law: the bridge currency forces the fault owner — the default `Thinktecture.ValidationError` is not a LanguageExt `Error`, so `Fin.Fail` refuses it and `From` cannot type-check until `[ValidationError<Fault>]` makes the generated `Validate` return the `[FAULT_FAMILIES]` `Fault` (an `Expected` subtype); the value-trait axis layer therefore composes that one fault family as its admission currency, never a second error type minted for the bridge.
-- Law: position safety is two structural denials, not a guard — the `Locus` interface declares no `IAdditionOperators<TSelf,TSelf,TSelf>`, so position-plus-position resolves no operator, and the owner's `OperatorsGeneration.None` plus explicit `ConversionToKeyMemberType` deny the implicit key egress that otherwise folds two positions to scalar key arithmetic and re-admits; both denials are compile failures, neither a runtime check.
+- Law: position safety is two structural denials, not a guard — the `Locus` interface declares no `IAdditionOperators<TSelf,TSelf,TSelf>`, so `position + position` resolves no operator, and the owner's `OperatorsGeneration.None` and explicit `ConversionToKeyMemberType` deny the implicit key egress that otherwise folds two positions to scalar key arithmetic and re-admits; both denials are compile failures, neither a runtime check.
 - Law: an algorithm binds the weakest axis it consumes — a `VectorSpace` routine rejects a `Locus` position at the constraint because position is not in the vector-space fragment, ordered and affine reach are the cost of widening to `Amount` and `Locus`, and the unconsumed axis stays unreachable from the signature.
 
 ```csharp conceptual
@@ -307,21 +309,21 @@ public static class NodeOps {
 ```
 
 [GRAPH_FAMILY]:
-- Law: a domain graph is a property graph of two closed `[Union]` owners, never a per-relation class roster mirroring a foreign schema — the edge is one neutral verb `[Union]` over a small closed verb set (compose, assign, associate, connect, each carrying its own typed payload) plus exactly one `Generic(WireName, Relating, Related, Attributes)` passthrough case, so the foreign relationship taxonomy never leaks into the neutral owner and no foreign relation is dropped; N typed per-relation cases mirroring the foreign taxonomy is the `[03]-[COLLAPSE_SCAN]` foreign-taxonomy trigger, collapsed to this verb algebra.
+- Law: a domain graph is a property graph of two closed `[Union]` owners, never a per-relation class roster mirroring a foreign schema — the edge is one neutral verb `[Union]` over a small closed verb set (compose, assign, associate, connect, each carrying its own typed payload) and exactly one `Generic(WireName, Relating, Related, Attributes)` passthrough case, so the foreign relationship taxonomy never leaks into the neutral owner and no foreign relation is dropped; N typed per-relation cases mirroring the foreign taxonomy is the `[03]-[COLLAPSE_SCAN]` foreign-taxonomy trigger, collapsed to this verb algebra.
 - Law: the node is one keyed `[Union]` over the entity family — each case an entity kind, keyed in the working map by a neutral kernel id, and the foreign or wire id is a boundary attribute on the node, never the kernel key the map indexes.
 - Law: the consumer-facing aggregate is a derived fold over the reachable subgraph, never a second stored record beside the graph — "has every property" is the `Switch`-driven fold the read snapshot computes, so adding an edge verb or a node kind is one case with the aggregate breaking loudly at compile time.
-- Boundary: a class-root node or edge `[Union]` surrenders Thinktecture's record-root generated equality, so structural equality and the structured diff ride Generator.Equals `[Equatable]` — the one generated equality aspect for the shapes Thinktecture does not own — never a hand-written `Equals`/`GetHashCode`.
+- Boundary: Generator.Equals `[Equatable]` is the one generated equality aspect for the shapes Thinktecture does not own, and its trigger is the MEMBER axis, never the root kind alone — any owner holding a reference-equality collection member takes the `language.md` `[IMMUTABLE_CARRIER_SITE]` repair, the class-root node or edge `[Union]` that surrenders Thinktecture's record-root generated equality being one instance; `[Equatable]` declares per NESTED sealed case, never on the union root, whose attribute governs only root-declared members while case members silently reference-compare — never a hand-written `Equals`/`GetHashCode`.
 - Boundary: the two-phase working-versus-snapshot split, the memoized incidence index, traversal and topology, and the content-addressed graph id are the algorithm, system-API, and boundary pages' — this card owns only that the edge and node are two closed `[Union]` owners and that the verb set stays neutral with one `Generic` tail.
 
 ```csharp conceptual
 [Union]
-[Equatable]
 public abstract partial class Relation {
-    public sealed partial class Compose(FieldKey whole, FieldKey part) : Relation { public FieldKey Whole { get; } = whole; public FieldKey Part { get; } = part; }
-    public sealed partial class Assign(FieldKey subject, FieldKey definition) : Relation { public FieldKey Subject { get; } = subject; public FieldKey Definition { get; } = definition; }
-    public sealed partial class Associate(FieldKey owner, FieldKey associate, FieldValue role) : Relation { public FieldKey Owner { get; } = owner; public FieldKey Associated { get; } = associate; public FieldValue Role { get; } = role; }
-    public sealed partial class Connect(FieldKey from, FieldKey to, double weight) : Relation { public FieldKey From { get; } = from; public FieldKey To { get; } = to; public double Weight { get; } = weight; }
+    [Equatable] public sealed partial class Compose(FieldKey whole, FieldKey part) : Relation { public FieldKey Whole { get; } = whole; public FieldKey Part { get; } = part; }
+    [Equatable] public sealed partial class Assign(FieldKey subject, FieldKey definition) : Relation { public FieldKey Subject { get; } = subject; public FieldKey Definition { get; } = definition; }
+    [Equatable] public sealed partial class Associate(FieldKey owner, FieldKey associate, FieldValue role) : Relation { public FieldKey Owner { get; } = owner; public FieldKey Associated { get; } = associate; public FieldValue Role { get; } = role; }
+    [Equatable] public sealed partial class Connect(FieldKey from, FieldKey to, double weight) : Relation { public FieldKey From { get; } = from; public FieldKey To { get; } = to; public double Weight { get; } = weight; }
 
+    [Equatable]
     public sealed partial class Generic(string wireName, FieldKey relating, FieldKey related, ImmutableArray<KeyValuePair<string, string>> attributes) : Relation {
         public string WireName { get; } = wireName;
         public FieldKey Relating { get; } = relating;
@@ -331,11 +333,10 @@ public abstract partial class Relation {
 }
 
 [Union]
-[Equatable]
 public abstract partial class Entity {
-    public sealed partial class Occurrence(FieldKey key, FieldKey type) : Entity { public FieldKey Key { get; } = key; public FieldKey Type { get; } = type; }
-    public sealed partial class Aggregate(FieldKey key) : Entity { public FieldKey Key { get; } = key; }
-    public sealed partial class Property(FieldKey key, FieldValue value) : Entity { public FieldKey Key { get; } = key; public FieldValue Value { get; } = value; }
+    [Equatable] public sealed partial class Occurrence(FieldKey key, FieldKey type) : Entity { public FieldKey Key { get; } = key; public FieldKey Type { get; } = type; }
+    [Equatable] public sealed partial class Aggregate(FieldKey key) : Entity { public FieldKey Key { get; } = key; }
+    [Equatable] public sealed partial class Property(FieldKey key, FieldValue value) : Entity { public FieldKey Key { get; } = key; public FieldValue Value { get; } = value; }
 }
 
 public static class GraphOps {

@@ -31,7 +31,7 @@
 
 | [INDEX] | [FIELD]                      | [TYPE]      | [ROLE]                                                       |
 | :-----: | :--------------------------- | :---------- | :----------------------------------------------------------- |
-|  [01]   | `kind`                       | `str`       | `'loo'` / `'loo_subsample'` / `'loo_kfold'` discriminator    |
+|  [01]   | `kind`                       | `str`       | `'loo'` / `'loo_kfold'`; `loo_subsample` KEEPS `'loo'`       |
 |  [02]   | `elpd`                       | `float`     | expected log pointwise predictive density                    |
 |  [03]   | `se`                         | `float`     | standard error of `elpd`                                     |
 |  [04]   | `p`                          | `float`     | effective number of parameters                               |
@@ -41,7 +41,7 @@
 |  [08]   | `warning`                    | `bool`      | high-Pareto-k warning flag                                   |
 |  [09]   | `good_k`                     | `float`     | Pareto k reliability threshold (sample-size dependent)       |
 |  [10]   | `elpd_i`                     | `DataArray` | pointwise elpd when `pointwise=True`                         |
-|  [11]   | `pareto_k`                   | `DataArray` | per-observation Pareto k when `pointwise=True`               |
+|  [11]   | `pareto_k`                   | `DataArray` | per-obs Pareto k; subsampled row: NaN at unsampled rows      |
 |  [12]   | `approx_posterior`           | `bool`      | approximate-posterior LOO flag (`loo_approximate_posterior`) |
 |  [13]   | `elpd_loo_approx`            | `DataArray` | approximate-posterior LOO carrier                            |
 |  [14]   | `log_p`                      | `DataArray` | approximate-posterior LOO carrier                            |

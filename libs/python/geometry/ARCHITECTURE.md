@@ -152,9 +152,10 @@ flowchart LR
     Runtime e13@-->|"[PORT]: Kernel"| Scan
     Runtime e14@-->|"[PORT]: measured"| Graduation
     Runtime e15@-->|"[PORT]: Hooks"| Graduation
+    Scan e18@-->|"[SHAPE]: GeoreferenceFact"| Data
 ```
 
-Each collapsed edge stands for every contract between that sub-domain and that partner at the load-bearing kind — the streaming GLB transport, the IFC projection, and the payload shapes fold into the one labeled rail, per-contract wiring on the owning implementation pages. `GlbContentHash` spells from its Rasm.Element owner and `RepresentationContentHash` from its Rasm.Bim owner; geometry interior pages spell only the `ContentKey` mint beneath both. Scene facts cross one-way as GLB bytes the artifacts `SceneGrid.of_glb` admits; nothing returns.
+Each collapsed edge stands for every contract between that sub-domain and that partner at the load-bearing kind — the streaming GLB transport, the IFC projection, and the payload shapes fold into the one labeled rail, per-contract wiring on the owning implementation pages. `GlbContentHash` spells from its Rasm.Element owner and `RepresentationContentHash` from its Rasm.Bim owner; geometry interior pages spell only the `ContentKey` mint beneath both. Scene facts cross one-way as GLB bytes the artifacts `SceneGrid.of_glb` admits; nothing returns. `GeoreferenceFact` crosses one-way from the scan/IFC ingest side to the data geospatial plane, whose `reproject(frame, source=)` helmert prelude composes it — the geometry-side extraction and authoring rows ride the open `[GEOREF_BAND]` card, and the fact's field roster stays this producer's to declare.
 
 Both `arrow_bytes` edges name the data-owned crossing: `EvidenceFrame` and the energy `ResultFrame` are the geometry-side columnar carriers, each crossing as its declared column roster beside its sealed arrays, admitted by the data `tabular/columnar` `arrow_columns` entry and serialized through the `tabular/interop` `arrow_bytes` fold it feeds, so the data tier holds one admitting entry and one canonical byte fold and no geometry frame type crosses as a foreign shape.
 

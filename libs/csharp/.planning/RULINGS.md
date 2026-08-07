@@ -5,6 +5,7 @@
 ## [01]-[PACKAGES]
 
 - `Silk.NET.WebGPU` and its `Native.WGPU` train are branch substrate — the three-consumer census (`Rasm.AppUi` display rendering, `Rasm.Compute` tensor dispatch, `Rasm.Materials` bake backend) seats the catalogs at `libs/csharp/.api` under the `[04]-[STRUCTURE]` tier law, and each consumer composes the surface behind one narrow folder seam, `Raster/gpu.md` the sole Materials composer; the maintenance-mode train's successor-major swap therefore lands as one row edit per seam owner, never a consumer-wide sweep.
+- `Generator.Equals` is workspace-foundation substrate injected once at `Directory.Build.props` under `UseWorkspaceLibraries` and NEVER `PrivateAssets` — `Generator.Equals.Runtime` binds at runtime and generated comparers cross assemblies, so a per-folder row is a duplicate and a `PrivateAssets="all"` row strands every downstream consumer of a comparer; `Riok.Mapperly` stays a per-folder row under `PrivateAssets="all"` because its abstractions are `[Conditional]`-elided and nothing binds at runtime.
 
 ## [02]-[SHAPE]
 

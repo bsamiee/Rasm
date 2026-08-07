@@ -66,9 +66,10 @@ Relational operators `==`/`<=`/`>=`/`>>`/`<<` on `Expression` build `Constraint`
 |  [11]   | `Problem.is_dcp` / `is_dgp` / `is_dqcp` / `is_qp` -> bool | curvature-ruleset classification before solve                 |
 |  [12]   | `Problem.parameters` / `Problem.variables`                | enumerate leaves for sweep wiring                             |
 
-- [05]-[DUAL_VALUE]: an `SOC(t, X)` dual is the stacked `[t_dual, X_dual...]` (reshaped per-cone to `(num_cones, 1+dim(X))`); a `PSD` dual is the symmetric `Z` of the primal `(n, n)` shape — the `tr(Z·X)` slackness and `λ_min` feasibility reads consume these.
-- [06]-[ARGS]: `Constraint.args` is the universal operand list — `[lhs, rhs]` for `Inequality`/`Equality`, `[t, X]` for `SOC`, `[X]` for `PSD`, `[x, y, z]` for `ExpCone`; a cone row reads its primal through `constraint.args[i].value`.
+- [05]-[DUAL_VALUE]: an `SOC(t, X)` dual is the stacked `[t_dual, X_dual...]` (reshaped per-cone to `(num_cones, 1+dim(X))`); a `PSD` dual is the symmetric `Z` of the primal `(n, n)` shape — the `tr(Z·X)` slackness and `λ_min` feasibility reads consume these; a `PowCone3D` dual is the `[u, v, w]` LIST of three arrays mirroring `args = [x, y, z]` — `np.asarray` stacks it `(3, n)` — with `constraint.alpha.value` carrying the exponent row the dual-cone read scales by.
+- [06]-[ARGS]: `Constraint.args` is the universal operand list — `[lhs, rhs]` for `Inequality`/`Equality`, `[t, X]` for `SOC`, `[X]` for `PSD`, `[x, y, z]` for `ExpCone`/`PowCone3D`; a cone row reads its primal through `constraint.args[i].value`.
 - [07]-[EXPR]: `Inequality.expr` is the relational-only `lhs − rhs` residual (`<= 0` at feasibility), absent on `SOC`/`PSD`/`ExpCone`; a uniform `Constraint.expr.value` raises `AttributeError` on every cone row.
+- [08]-[CANON_BACKEND]: the default CPP canon backend on the estate's source-built distribution trips a fatal `ProblemData.hpp` assert on EVERY canonicalization — a process abort, not an exception — so each `solve` pins `canon_backend=cp.SCIPY_CANON_BACKEND`; retires on an upstream cp315 release wheel.
 
 [ENTRYPOINT_SCOPE]: convex atom library (`cp.<atom>`)
 - rail: convex optimization

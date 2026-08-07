@@ -6,7 +6,7 @@
 
 [SOLVERS]:
 - [01]-[RECEIPT](.planning/solvers/receipt.md): `SolverReceipt` every solve route folds its method-discriminated evidence onto.
-- [02]-[LINEAR](.planning/solvers/linear.md): `LinearIntent` route over dense, sparse, and eigen solves.
+- [02]-[LINEAR](.planning/solvers/linear.md): `LinearIntent` route over dense, sparse, and eigen solves beside the C#-paired sparse exchange containers.
 - [03]-[NONLINEAR](.planning/solvers/nonlinear.md): `NonlinearIntent` route over root, minimise, fixed-point, and least-squares solves.
 - [04]-[QUADRATURE](.planning/solvers/quadrature.md): `QuadratureIntent` route over quadrature, interpolation, and the weak-form FEM fold.
 - [05]-[DIFFERENTIAL](.planning/solvers/differential.md): `DifferentialIntent` route over adjoint-differentiable ODE, SDE, and CDE integration.
@@ -23,7 +23,7 @@
 - [12]-[STUDY](.planning/experiments/study.md): `Study` folding DOE sampling, SALib sensitivity, surrogate fitting, and the benchmark discriminant.
 - [13]-[HISTORY](.planning/experiments/history.md): `RunHistory` owner of content-keyed run persistence, partial resume, and comparison.
 - [14]-[INFERENCE](.planning/experiments/inference.md): `Inference` owner of gradient-MCMC posteriors with convergence diagnostics.
-- [15]-[MODEL](.planning/experiments/model.md): `ModelAsset` owner of classical-estimator validation, smoke inference, and ONNX export.
+- [15]-[MODEL](.planning/experiments/model.md): `ModelAsset` owner of classical-estimator validation, smoke inference, ONNX export, and the drift-envelope companion.
 
 [NUMERICS]:
 - [16]-[ARRAY](.planning/numerics/array.md): `ArrayPayload` admitting any backend array through namespace dispatch.
@@ -97,6 +97,9 @@ Domain-specific libraries admitted by this folder; versions centralize in the ro
 - `numpyro`
 - `nutpie`
 - `blackjax`
+
+[INTERCHANGE]:
+- `h5py` — HDF5 exchange containers for the C#-peer crossings: the sparse-operator archive pair and the drift-envelope writer.
 
 ## [03]-[SUBSTRATE_PACKAGES]
 

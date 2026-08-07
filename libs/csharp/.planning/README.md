@@ -29,6 +29,7 @@ Cross-folder substrate every C# package composes. Libraries emit telemetry throu
 - `Thinktecture.Runtime.Extensions`
 - `Thinktecture.Runtime.Extensions.Json`
 - `Thinktecture.Runtime.Extensions.MessagePack`
+- `Generator.Equals` — source-generated structural equality and member-level diff; runtime `Generator.Equals.Runtime`.
 - `JetBrains.Annotations`
 
 [TIME_IDENTITY]:
@@ -101,7 +102,6 @@ Cross-folder substrate every C# package composes. Libraries emit telemetry throu
 - `Microsoft.Extensions.AI` — provider-neutral chat, embedding, and tool-call contracts; runtime `Microsoft.Extensions.AI.Abstractions`.
 
 [WIRE_CODEGEN]:
-- `Generator.Equals` — source-generated structural equality and member-level diff; runtime `Generator.Equals.Runtime`.
 - `Google.Protobuf` — carries the `rasm.element.v1` graph wire messages.
 - `Grpc.AspNetCore` — gRPC server hosting for measured-execution endpoints.
 - `Grpc.Core.Api` — method descriptors, marshallers, and the per-call server context every hosted service binds.

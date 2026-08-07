@@ -12,6 +12,10 @@
         <PackageReference Include="QuikGraph" />
     </ItemGroup>
 
+    <ItemGroup Label="Boundary Transcription">
+        <PackageReference Include="Riok.Mapperly" PrivateAssets="all" />
+    </ItemGroup>
+
     <ItemGroup Label="Observability">
         <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
         <PackageReference Include="Microsoft.Extensions.Telemetry.Abstractions" />

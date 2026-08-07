@@ -2,6 +2,15 @@
   "version": 2,
   "dependencies": {
     "net10.0": {
+      "Generator.Equals": {
+        "type": "Direct",
+        "requested": "[4.0.2, )",
+        "resolved": "4.0.2",
+        "contentHash": "mf980Z3zjjeevYM6b39QZw2VL9h032UBH524dCisWogt/JR6Miy5rfyYn6q2re7+ICGdAKEar2VcRJn79rNz2Q==",
+        "dependencies": {
+          "Generator.Equals.Runtime": "4.0.2"
+        }
+      },
       "JetBrains.Annotations": {
         "type": "Direct",
         "requested": "[2026.2.0, )",
@@ -41,6 +50,91 @@
           "Thinktecture.Runtime.Extensions.Analyzers": "10.4.0",
           "Thinktecture.Runtime.Extensions.Refactorings": "10.4.0",
           "Thinktecture.Runtime.Extensions.SourceGenerator": "10.4.0"
+        }
+      },
+      "Aardvark.Base": {
+        "type": "Transitive",
+        "resolved": "5.3.20",
+        "contentHash": "iOn2Q5bEfh4ncbQKZ0q0z/RNYSliuq9jAxmDLZkRUzDoE/yxvIiyqO5H0UZHjIQ9xMIGW1FIDB0VtK5Vq+KTRA==",
+        "dependencies": {
+          "Aardvark.Base.Telemetry": "[5.3.20]",
+          "SingleFileExtractor.Core": "[2.2.1, 2.3.0)"
+        }
+      },
+      "Aardvark.Base.FSharp": {
+        "type": "Transitive",
+        "resolved": "5.3.20",
+        "contentHash": "ZvBzE67DznaInY/pWTLXO9FIp9fzhePb+lAkWPrDFtljpCR64JWEXJCjFul06IkKE96/7Qtavtjvai/Nb0+Wrw==",
+        "dependencies": {
+          "Aardvark.Base": "[5.3.20]",
+          "Aardvark.Base.TypeProviders": "[4.5.15, 4.6.0)",
+          "FSharp.Core": "8.0.100",
+          "FSharp.Data.Adaptive": "[1.2.15, 1.3.0)",
+          "FsPickler": "[5.3.2, 5.4.0)"
+        }
+      },
+      "Aardvark.Base.IO": {
+        "type": "Transitive",
+        "resolved": "5.3.20",
+        "contentHash": "aGHxPKg+ipfxMsYylsqTjXj9gJ3H2boFvoBE5aA1kO8rqkcijeEQPkqCgeYoQYUXwWvOq6qvvbGu/1wAMjALLg==",
+        "dependencies": {
+          "Aardvark.Base": "[5.3.20]",
+          "Aardvark.Base.Tensors": "[5.3.20]"
+        }
+      },
+      "Aardvark.Base.Telemetry": {
+        "type": "Transitive",
+        "resolved": "5.3.20",
+        "contentHash": "GX31499kegGVWEP1IyRBxDg7v8ZvXqNaf58vdrPg5dgUidmllkmRQO+z0Xe0Qg+wjtgBjp69r6BxEl1zBjrexg=="
+      },
+      "Aardvark.Base.Tensors": {
+        "type": "Transitive",
+        "resolved": "5.3.20",
+        "contentHash": "c14qad83SL0K/JfY/fsQeAtx0fudZoO080ZqJiQYrkIHyntQClSAPdv6axZQrajTCbAhsSGdi1AMM3LesvKKiQ==",
+        "dependencies": {
+          "Aardvark.Base": "[5.3.20]",
+          "Aardvark.Base.FSharp": "[5.3.20]",
+          "FSharp.Core": "8.0.100"
+        }
+      },
+      "Aardvark.Base.TypeProviders": {
+        "type": "Transitive",
+        "resolved": "4.5.15",
+        "contentHash": "+jywMuRkNb8bS3IWyPVE8EQv6SOz3voS1cE36OHNtl1G+vw7+m3yUZfTTWyF9zYT+A8lOCs4ZoQ3j+gFTl9U7A==",
+        "dependencies": {
+          "FSharp.Core": "4.2.3"
+        }
+      },
+      "Aardvark.Data.Durable": {
+        "type": "Transitive",
+        "resolved": "0.4.4",
+        "contentHash": "cyoBKa41hTsSLPIVbV1/z5oxowtTCEzUNf4AH9H0BHkIzLFRcqYB32F+fApLJeY0out0VJFA4dLbdSKlO5p3XQ=="
+      },
+      "Aardvark.Data.Durable.Codec": {
+        "type": "Transitive",
+        "resolved": "0.4.4",
+        "contentHash": "xXy9skbLu4gAFfDtkYfd+pJ7oZFm3p69LMwy5RUT/WtVG/uOwT+8dGpFNTRabR3oC5L73XTfSsg+FwW2WM3xuQ==",
+        "dependencies": {
+          "Aardvark.Base": "[5.3.0, 5.4.0)",
+          "Aardvark.Data.Durable": "[0.4.4]"
+        }
+      },
+      "Aardvark.Data.Points.Base": {
+        "type": "Transitive",
+        "resolved": "5.6.2",
+        "contentHash": "rwd/3pDEomAMtJMCuJ+bfCKKO63QRfxZrRRrCKHrUyNOoPPVfTRweI1u2kp3btT6Cmx8zOu8KaAwT6L/89OXAQ==",
+        "dependencies": {
+          "Aardvark.Data.Durable.Codec": "[0.4.4, 0.5.0)",
+          "Aardvark.Geometry.PointTree": "[5.6.2]",
+          "Uncodium.SimpleStore": "[3.0.30, 3.1.0)"
+        }
+      },
+      "Aardvark.Geometry.PointTree": {
+        "type": "Transitive",
+        "resolved": "5.6.2",
+        "contentHash": "xq8lLqOF36mqCR/uF3hxa7zBjmv3G+BOjluA1n+0cc5DxuC3smfqBX5uMrGE8KPc3GOgOwv2eV2J9xQH7RnUXQ==",
+        "dependencies": {
+          "Aardvark.Base.IO": "[5.3.20, 5.4.0)"
         }
       },
       "AMQPNetLite.Core": {
@@ -145,6 +239,14 @@
         "resolved": "2.0.0",
         "contentHash": "ngTqjYreDYNytG1W5d3ewHsw0ukmmrgV7EKnS4/40rXoYZGt07jrBvo+N+GxT49rcageUMUiprV0jYT4nwVBHQ=="
       },
+      "Crc32.NET": {
+        "type": "Transitive",
+        "resolved": "1.2.0",
+        "contentHash": "wNW/huzolu8MNKUnwCVKxjfAlCFpeI8AZVfF46iAWJ1+P6bTU1AZct7VAkDDEjgeeTJCVTkGZaD6jSd/fOiUkA==",
+        "dependencies": {
+          "NETStandard.Library": "2.0.0"
+        }
+      },
       "csFastFloat": {
         "type": "Transitive",
         "resolved": "4.1.6",
@@ -186,6 +288,27 @@
         "type": "Transitive",
         "resolved": "5.4.1",
         "contentHash": "nqMykMspK5cQd35Y8ulQzAujxCcCwZVUne32pC5xNpXqrbPCuKOPMWkKHJ3LveAZPm6dsVvump0TJ1SZ9RzfTQ=="
+      },
+      "FSharp.Core": {
+        "type": "Transitive",
+        "resolved": "8.0.100",
+        "contentHash": "ZOVZ/o+jI3ormTZOa28Wh0tSRoyle1f7lKFcUN61sPiXI7eDZu8eSveFybgTeyIEyW0ujjp31cp7GOglDgsNEg=="
+      },
+      "FSharp.Data.Adaptive": {
+        "type": "Transitive",
+        "resolved": "1.2.15",
+        "contentHash": "VfH2pi49631jjOlH/lM8vdc95BR159Z8WBLuBOeOsCzCpOVAEigbgfJkZ0I3mq9w1FCraOA/L+DkaQnjhAAgNA==",
+        "dependencies": {
+          "FSharp.Core": "4.7.0"
+        }
+      },
+      "FsPickler": {
+        "type": "Transitive",
+        "resolved": "5.3.2",
+        "contentHash": "LFtxXpQNor8az1ez3rN9oz2cqf/06i9yTrPyJ9R83qLEpFAU7Of0WL2hoSXzLHer4lh+6mO1NV4VQFiBzNRtjw==",
+        "dependencies": {
+          "FSharp.Core": "4.3.2"
+        }
       },
       "Generator.Equals.Runtime": {
         "type": "Transitive",
@@ -1060,6 +1183,11 @@
           "Microsoft.Extensions.AI.Abstractions": "9.8.0"
         }
       },
+      "Microsoft.NETCore.Platforms": {
+        "type": "Transitive",
+        "resolved": "1.1.0",
+        "contentHash": "kz0PEW2lhqygehI/d6XsPCQzD7ff7gUJaVGPVETX611eadGsA3A877GdSlU0LRVMCTH/+P3o2iDTak+S08V2+A=="
+      },
       "NATS.Extensions.Microsoft.DependencyInjection": {
         "type": "Transitive",
         "resolved": "3.1.0",
@@ -1068,6 +1196,14 @@
           "Microsoft.Extensions.Hosting.Abstractions": "8.0.0",
           "Microsoft.Extensions.Options": "8.0.2",
           "NATS.Client.Simplified": "3.1.0"
+        }
+      },
+      "NETStandard.Library": {
+        "type": "Transitive",
+        "resolved": "2.0.0",
+        "contentHash": "7jnbRU+L08FXKMxqUflxEXtVymWvNOrS8yHgu9s6EM8Anr6T/wIX4nZ08j/u3Asz+tCufp3YVwFSEvFTPYmBPA==",
+        "dependencies": {
+          "Microsoft.NETCore.Platforms": "1.1.0"
         }
       },
       "NetTopologySuite.IO.PostGis": {
@@ -1344,6 +1480,11 @@
           "Microsoft.Extensions.DependencyModel": "9.0.9"
         }
       },
+      "SingleFileExtractor.Core": {
+        "type": "Transitive",
+        "resolved": "2.2.1",
+        "contentHash": "1JGflHqLjbpIa0MNLQ+qqwz8NFEVeszeS5oypkrHvxjav3ygrngwsWypwRgI6WKIy+63Z2xl9QSNNJjRdl1B0A=="
+      },
       "SixLabors.Fonts": {
         "type": "Transitive",
         "resolved": "1.0.0",
@@ -1515,6 +1656,14 @@
           "NSec.Cryptography": "25.4.0"
         }
       },
+      "Uncodium.SimpleStore": {
+        "type": "Transitive",
+        "resolved": "3.0.30",
+        "contentHash": "e2gxgF8SvzlCQQlUijAYr71F1uV5cZpLWrdKovZqgQWv/uYHA17TPvdfQU1tOUKffi76vJwQhyaU+T1i5EoFRg==",
+        "dependencies": {
+          "Microsoft.Bcl.AsyncInterfaces": "6.0.0"
+        }
+      },
       "Weasel.Core": {
         "type": "Transitive",
         "resolved": "9.23.2",
@@ -1557,6 +1706,7 @@
           "CommunityToolkit.HighPerformance": "[8.4.2, )",
           "Csp.Contracts": "[1.0.0, )",
           "ExtendedNumerics.BigRational": "[3000.0.2.132, )",
+          "Generator.Equals": "[4.0.2, )",
           "JetBrains.Annotations": "[2026.2.0, )",
           "LanguageExt.Core": "[5.0.0-beta-77, )",
           "MIConvexHull": "[1.1.19.1019, )",
@@ -1588,6 +1738,7 @@
           "FluentModbus": "[5.3.2, )",
           "FluentValidation": "[12.1.1, )",
           "FluentValidation.DependencyInjectionExtensions": "[12.1.1, )",
+          "Generator.Equals": "[4.0.2, )",
           "Grpc.AspNetCore": "[2.83.0, )",
           "Grpc.AspNetCore.HealthChecks": "[2.83.0, )",
           "Grpc.AspNetCore.Web": "[2.83.0, )",
@@ -1697,6 +1848,7 @@
           "Google.OrTools": "[9.15.6755, )",
           "Google.Protobuf": "[3.35.1, )",
           "Grpc.AspNetCore": "[2.83.0, )",
+          "Grpc.Core.Api": "[2.83.0, )",
           "Grpc.Net.Client": "[2.83.0, )",
           "Grpc.Net.Client.Web": "[2.83.0, )",
           "Grpc.Net.Common": "[2.83.0, )",
@@ -1722,12 +1874,14 @@
           "NodaTime.Serialization.Protobuf": "[2.0.2, )",
           "PeterO.Numbers": "[1.8.2, )",
           "PollinationSDK": "[1.10.0, )",
+          "PureHDF": "[2.1.4, )",
+          "PureHDF.Filters.BZip2.SharpZipLib": "[2.1.4, )",
+          "PureHDF.Filters.Lzf": "[2.1.4, )",
           "QuikGraph": "[2.5.0, )",
           "Rasm": "[1.0.0, )",
           "Rasm.AppHost": "[1.0.0, )",
           "Rasm.Element": "[1.0.0, )",
           "Rasm.Persistence": "[1.0.0, )",
-          "Riok.Mapperly": "[4.3.1, )",
           "SharpGLTF.Core": "[1.0.6, )",
           "SharpGLTF.Ext.3DTiles": "[1.0.6, )",
           "SharpGLTF.Toolkit": "[1.0.6, )",
@@ -1754,7 +1908,6 @@
           "NodaTime.Serialization.Protobuf": "[2.0.2, )",
           "QuikGraph": "[2.5.0, )",
           "Rasm": "[1.0.0, )",
-          "Riok.Mapperly": "[4.3.1, )",
           "System.IO.Hashing": "[10.0.10, )",
           "Thinktecture.Runtime.Extensions": "[10.4.0, )",
           "Thinktecture.Runtime.Extensions.Json": "[10.4.0, )",
@@ -1766,6 +1919,7 @@
         "dependencies": {
           "AWSSDK.KeyManagementService": "[4.0.100.6, )",
           "AWSSDK.S3": "[4.0.101.4, )",
+          "Aardvark.Data.E57": "[5.6.2, )",
           "Apache.Arrow": "[23.0.0, )",
           "Apache.Arrow.Adbc": "[0.24.0, )",
           "Apache.Arrow.Adbc.Drivers.Apache": "[0.23.0, )",
@@ -1845,7 +1999,6 @@
           "RabbitMQ.Client": "[7.2.1, )",
           "Rasm": "[1.0.0, )",
           "Rasm.Element": "[1.0.0, )",
-          "Riok.Mapperly": "[4.3.1, )",
           "SQLitePCLRaw.bundle_e_sqlite3": "[3.0.5, )",
           "SQLitePCLRaw.bundle_e_sqlite3mc": "[2.1.11, )",
           "ScyllaDBCSharpDriver": "[3.22.0.4, )",
@@ -1860,10 +2013,23 @@
           "Thinktecture.Runtime.Extensions.EntityFrameworkCore10": "[10.4.0, )",
           "Thinktecture.Runtime.Extensions.Json": "[10.4.0, )",
           "Thinktecture.Runtime.Extensions.MessagePack": "[10.4.0, )",
+          "Unofficial.laszip.netstandard": "[5.6.2, )",
           "ZstdSharp.Port": "[0.8.8, )",
           "linq2db.EntityFrameworkCore": "[10.4.0, )",
           "pocketken.H3": "[4.5.0.1, )",
           "rocksdb": "[11.1.2.3412, )"
+        }
+      },
+      "Aardvark.Data.E57": {
+        "type": "CentralTransitive",
+        "requested": "[5.6.2, )",
+        "resolved": "5.6.2",
+        "contentHash": "NtT8llyyFPbUSVqcFX1Stl6nwptXgUUC3XAtD3+JYQKfusvgjUORb6LAQAQ9FbRca8u27rPfU8aGEjx65TJqQQ==",
+        "dependencies": {
+          "Aardvark.Base": "[5.3.20, 5.4.0)",
+          "Aardvark.Data.Points.Base": "[5.6.2]",
+          "Crc32.NET": "[1.2.0, 1.3.0)",
+          "FSharp.Core": "8.0.100"
         }
       },
       "Alimer.Bindings.MeshOptimizer": {
@@ -2382,15 +2548,6 @@
         "dependencies": {
           "FluentValidation": "12.1.1",
           "Microsoft.Extensions.DependencyInjection.Abstractions": "2.1.0"
-        }
-      },
-      "Generator.Equals": {
-        "type": "CentralTransitive",
-        "requested": "[4.0.2, )",
-        "resolved": "4.0.2",
-        "contentHash": "mf980Z3zjjeevYM6b39QZw2VL9h032UBH524dCisWogt/JR6Miy5rfyYn6q2re7+ICGdAKEar2VcRJn79rNz2Q==",
-        "dependencies": {
-          "Generator.Equals.Runtime": "4.0.2"
         }
       },
       "GeneticSharp": {
@@ -3939,6 +4096,31 @@
           "protobuf-net.Core": "3.2.52"
         }
       },
+      "PureHDF": {
+        "type": "CentralTransitive",
+        "requested": "[2.1.4, )",
+        "resolved": "2.1.4",
+        "contentHash": "S2K4vusdjl6tVkacX6JaSB7NtSLpOoLiNkIEl5nMQjrdxCgzUSVXFaf0UD7sk03w6U/UuQnrDuO9JpAUisQqgA=="
+      },
+      "PureHDF.Filters.BZip2.SharpZipLib": {
+        "type": "CentralTransitive",
+        "requested": "[2.1.4, )",
+        "resolved": "2.1.4",
+        "contentHash": "F/dGvw+84tFxa4j6rLAN1ICrL0K51r8DshuaZIUuY/klm/ohIbfDT/j+NkSi3J7khXoCErokFbndAJm4lvbYZg==",
+        "dependencies": {
+          "PureHDF": "2.1.4",
+          "SharpZipLib": "1.4.2"
+        }
+      },
+      "PureHDF.Filters.Lzf": {
+        "type": "CentralTransitive",
+        "requested": "[2.1.4, )",
+        "resolved": "2.1.4",
+        "contentHash": "Affr7/4OsUr26hcUx4vQHy2NiB7ep3epZRgEnT5okmEC/n4dIj/xcFmi0ltjDWQGTfrI9XNI+sD6Ck5fRiu9XQ==",
+        "dependencies": {
+          "PureHDF": "2.1.4"
+        }
+      },
       "Pyroscope": {
         "type": "CentralTransitive",
         "requested": "[1.4.0, )",
@@ -3979,12 +4161,6 @@
         "dependencies": {
           "System.Threading.RateLimiting": "8.0.0"
         }
-      },
-      "Riok.Mapperly": {
-        "type": "CentralTransitive",
-        "requested": "[4.3.1, )",
-        "resolved": "4.3.1",
-        "contentHash": "oSE+OVLHyiojrws0QVbQaAT2YKsYbyHqJXPdV7EhGseR/dYgeWS2x1T5qY5I4E+RJkJqMSG+FyZOq4SljWgJWQ=="
       },
       "RocksDB": {
         "type": "CentralTransitive",
@@ -4352,6 +4528,12 @@
         "requested": "[5.75.1, )",
         "resolved": "5.75.1",
         "contentHash": "k03hA739n11FDke7tcVHyk1YXRoWxYlkNGpNMCTX/gfwV8fbGq1oDoYHaMg0tCxhpv9l2BS6M9EsE7FcszVtSg=="
+      },
+      "Unofficial.laszip.netstandard": {
+        "type": "CentralTransitive",
+        "requested": "[5.6.2, )",
+        "resolved": "5.6.2",
+        "contentHash": "YekC90x1UoBelWv3KkJjJYeiSpRxq/FD/oWZQmlgpXT557SENA2pXjMzTxKlZRN4V3Wq3wSx7a+4TMutiG0wSw=="
       },
       "Velopack": {
         "type": "CentralTransitive",

@@ -145,8 +145,8 @@ flowchart LR
     AppHost <-->|"[WIRE]: DiscoveryResult"| PyRuntime
     Compute <-->|"[WIRE]: ComputeService"| PyGeometry
     Compute <-->|"[WIRE]: ProtoVocabulary"| PyRuntime
-    Compute <-->|"[GRADUATION]: GraduationEvidence"| PyCompute
-    PyData -->|"[SHAPE]: DoeDataset"| Compute
+    Compute -->|"[GRADUATION]: GraduationEvidence"| PyCompute
+    Compute -->|"[SHAPE]: DoeDataset"| PyData
     Persistence <-->|"[WIRE]: OpLogEntry"| PyRuntime
     PyArtifacts -->|"[CONTENT_KEY]: SignedArtifact"| Persistence
     Persistence <-->|"[WIRE]: SubstraitPlan"| PyData

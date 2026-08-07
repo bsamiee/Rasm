@@ -1,19 +1,20 @@
 # [CSHARP_LANGUAGE]
 
-C# 14 on `net10.0` is the active language surface, and this page is the language-form law: which declaration, member, pattern, construction, conversion, and literal form carries a concept before any generated owner, rail, or boundary is reached. Value lifecycle sheds by kind — generated-owner shape rides `shapes.md`, dispatch and arity ownership ride `surfaces-and-dispatch.md`, the result rail rides `rails-and-effects.md`, foreign admission rides `boundaries.md`, and BCL API replacement rides `system-apis.md`. A form-contract snippet composes those owners as settled material and demonstrates only the syntactic shape that precedes them.
+C# 14 on `net10.0` is the active language surface, and language-form law binds here: which declaration, member, pattern, construction, conversion, and literal form carries a concept before any generated owner, rail, or boundary. Value lifecycle sheds by kind — generated-owner shape to `shapes.md`, dispatch and arity to `surfaces-and-dispatch.md`, the result rail to `rails-and-effects.md`, foreign admission to `boundaries.md`, BCL API replacement to `system-apis.md`.
+
+Every form-contract snippet composes those owners as settled material and demonstrates only the syntactic shape preceding them.
 
 `Directory.Build.props` owns `TargetFramework`, `LangVersion`, `Nullable`, `ImplicitUsings`, and `CheckForOverflowUnderflow`; this page names those facts only where they change the form a source file may assume.
 
 ## [01]-[ACTIVE_SURFACE]
 
-[ACTIVE_SURFACE]:
 - Target framework: `net10.0`
 - Language version: `14.0` explicit; floating `latest`/`preview` is rejected so a form lands only when the pinned compiler owns it
 - Nullable: `enable` with warnings-as-errors, so a nullable annotation is a checked contract, never advisory
 - Implicit usings: `enable`; `LanguageExt.Prelude` enters `static`, so `Optional`, `guard`, `Some`, and `None` are unqualified
 - Overflow: `CheckForOverflowUnderflow` is on, so an unchecked numeric body is the deliberate `unchecked(...)` exception, and a key-math operator traps by default
 
-Treat source as modern C#, not a compatibility layer. Replace an overload family, a wrapper type, a backing-field accessor, or a guarded null-check the moment the active surface carries the concept in one form.
+Replace an overload family, a wrapper type, a backing-field accessor, or a guarded null-check the moment the active surface carries the concept in one form.
 
 ## [02]-[FORM_CHOOSER]
 
@@ -76,7 +77,9 @@ Each contract fixes the placement rule the chooser row cannot state. Form-contra
 - Reject: a static helper class with a receiver-first `this`-parameter method, a wrapper type that renames receiver behavior, an extension conversion operator (`implicit`/`explicit` is forbidden in an extension block, `CS9282`), a span-typed `extension` operator returning a stack-allocated `ReadOnlySpan<T>`/`Span<T>` collection expression (`CS9203` — the result escapes the receiver scope), and a member whose body admits, validates, or dispatches domain state — that graduates to the owning generated shape.
 - Boundary: the block adds receiver-local computation over an already-admitted value; closed-family dispatch, admission, and the operator algebra over a domain key live on the `shapes.md` owner the block composes, never inside the block.
 
-Form spotlight: one instance-member `extension<T>(ReadOnlySpan<T> source)` block and one operator-only `extension<T>(ReadOnlySpan<T>)` block attach a whole probe-and-compose surface to a `ref struct` the assembly cannot edit, each member a list or slice pattern over the receiver and the `|` operator rail-lifting the longer span's head — the deleted form is a `SpanExtensions.First<T>(this ReadOnlySpan<T>, ...)` helper class whose receiver-first parameter the block replaces with direct receiver reach, and a free `Longer(a, b)[0]` length-branch-then-index pair the operator collapses into one `Option<T>`. An operator over a span returns a value, never a `[.. head, .. tail]` collection expression, which cannot escape the receiver's stack scope; the family grows by one member inside the existing block, never a new static method beside it.
+Form spotlight: one instance-member `extension<T>(ReadOnlySpan<T> source)` block and one operator-only `extension<T>(ReadOnlySpan<T>)` block attach a probe-and-compose surface to a `ref struct` the assembly cannot edit — each member a list or slice pattern over the receiver, the `|` operator rail-lifting the longer span's head into one `Option<T>` — deleting the `SpanExtensions.First<T>(this ReadOnlySpan<T>, ...)` helper class and the free `Longer(a, b)[0]` length-branch-then-index pair.
+
+Each span operator returns a value — a `[.. head, .. tail]` result cannot escape the receiver's stack scope — and the family grows by one member inside the existing block, never a new static method beside it.
 
 ```csharp conceptual
 public static class SpanSurface {
@@ -104,7 +107,9 @@ public static class SpanSurface {
 - Reject: a sequential `if (x is P v)` ladder over one subject — pattern locals declare at enclosing-block scope, so two arms binding one name fail CS0128 and the ladder is a compile-error class, not a density preference — an `if`/`else` ladder, a statement switch for a value decision, an `as`-plus-null-check probe, a switch expression nested inside another's arm over discriminants available together — one tuple, property, or list pattern over the joint discriminant states the law in one level, and only an inner discriminant the outer arm's computation produces earns a sequenced second decision — a chained conditional (`a ? b : c ? d : e`) re-spelling a relational or property pattern ladder, a `when` guard carrying the structural narrowing a list, slice, relational, or property pattern already expresses, and a `_` arm hiding a missing case of a closed owner — the `_` over an open span shape is the documented exhaustiveness floor, never a swallowed case.
 - Boundary: closed-family ownership, generated dispatch, and case exhaustiveness belong to the `shapes.md` owner; this site owns the structural-pattern grammar that probes raw or open shapes before that owner reaches them.
 
-Form spotlight: one switch expression states a span's whole banding law — `[]` empty, head and tail property probes `[{ Rank: < 0 }, ..]` and `[.., { Rank: >= 9, Key: var key }]`, the single-element capture `[{ ... } only]`, and the cross-binding `when` that relates the bound head and tail no single pattern can — collapsing an `if`/`else` ladder over `marks.Length` and `marks[0].Rank` into one total expression; the sibling `Routed` shows constant-string and `['<', .. var body, '>']` slice patterns dispatching protocol text over a `char` span with no `ToString` allocation. Both prove the `_` floor sits over an open shape, not a closed owner whose missing case must break the build instead.
+Form spotlight: one switch expression states a span's whole banding law — `[]` empty, head and tail property probes `[{ Rank: < 0 }, ..]` and `[.., { Rank: >= 9, Key: var key }]`, the single-element capture `[{ ... } only]`, and the cross-binding `when` that relates the bound head and tail no single pattern can — collapsing an `if`/`else` ladder over `marks.Length` and `marks[0].Rank` into one total expression; the sibling `Routed` shows constant-string and `['<', .. var body, '>']` slice patterns dispatching protocol text over a `char` span with no `ToString` allocation.
+
+Both prove the `_` floor sits over an open shape, not a closed owner whose missing case must break the build instead.
 
 ```csharp conceptual
 public readonly record struct Mark(string Key, int Rank);
@@ -133,11 +138,15 @@ public static class MarkPolicy {
 
 [IMMUTABLE_CARRIER_SITE]:
 - Use when: an inert carrier needs identity, mandatory initialization, or a property-local invariant, and has no admission, vocabulary, or dispatch pressure that graduates it to a generated owner.
-- Accept: `record` and `readonly record struct` for structural identity; `required` plus `init` for mandatory members so a missing field is a construction-site compile error, not a runtime null; the `field` keyword to attach a one-property clamp without a named backing field; `with` for nondestructive update; `partial` members and constructors where a generator co-owns the type.
-- Reject: a manual backing field serving one accessor, constructor telescoping for mandatory members, a `Create`/`With`/copy-constructor factory beside `with`, an optional-parameter constructor that re-admits a value the `init` already gates, and a hand-written `Equals`/`GetHashCode` on inert data — structural equality is the record's and the content key is the `boundaries.md` byte-identity owner's.
+- Accept: `record` and `readonly record struct` for structural identity over scalar, string, and value-object members; `required` plus `init` for mandatory members so a missing field is a construction-site compile error, not a runtime null; the `field` keyword to attach a one-property clamp without a named backing field; `with` for nondestructive update; `partial` members and constructors where a generator co-owns the type.
+- Law: synthesized record equality runs `EqualityComparer<T>.Default` per member, so an `ImmutableArray<T>`, `T[]`, `FrozenDictionary<TKey, TValue>`, `FrozenSet<T>`, `Dictionary<TKey, TValue>`, `ImmutableDictionary<TKey, TValue>`, or `ReadOnlyMemory<T>` member compares by reference or buffer coordinates and voids the structural claim — the remedy is `[Equatable]` on the `partial` owner with the member's policy attribute (`[OrderedEquality]`, `[UnorderedEquality]`, `[SetEquality]`), never a hand-written pair; LanguageExt `Seq`/`Map`/`HashMap`/`Arr` members are already structural and take no attribute.
+- Reject: a manual backing field serving one accessor, constructor telescoping for mandatory members, a `Create`/`With`/copy-constructor factory beside `with`, an optional-parameter constructor that re-admits a value the `init` already gates, and a hand-written `Equals`/`GetHashCode` on inert data — equality is the record's or its `[Equatable]` repair's, and the content key is the `boundaries.md` byte-identity owner's.
+- Boundary: the three collection policies bind only `IEnumerable<T>` members, so the CARRIER is the decision — a `ReadOnlyMemory<T>` or rank-2 array member is unreachable and either swaps to an enumerable carrier or rides `[IgnoreEquality]` beside a `[DefaultEquality]` digest member; a multidimensional-array member under any equality policy NREs the whole generator, surfacing as warning `CS8785` that only `TreatWarningsAsErrors` makes fatal, so such a member is `[IgnoreEquality]` by law.
 - Boundary: the moment a carrier admits raw input, carries a closed vocabulary, or dispatches, it becomes a `[ValueObject]`, `[ComplexValueObject]`, `[SmartEnum]`, or `[Union]` chosen by `shapes.md` `OWNER_CHOOSER`; the `field` clamp here is a layout convenience over trusted data, not the admission factory that owner's `Validate` is.
 
-Form spotlight: a `readonly record struct Patch` and a `sealed record Profile` carry identity and a one-property `Weight` clamp through `init => field = int.Max(value, 0)` with no second field declared, and `Shifted` threads two coupled `with` updates in one expression — the deleted forms are a `_weight` backing field beside the accessor, a four-argument telescoping constructor for the `required` members, and a `Profile WithWeight(int)`/`WithWindow(Patch)` pair that `with` subsumes. This clamp guards a trusted in-process update; the instant `Weight` must reject raw external input with a typed fault, the struct graduates to a `[ValueObject<int>]` and the `field` accessor is deleted.
+Form spotlight: a `readonly record struct Patch` and a `sealed record Profile` carry identity and a one-property `Weight` clamp through `init => field = int.Max(value, 0)` with no second field declared, and `Shifted` threads two coupled `with` updates in one expression — the deleted forms are a `_weight` backing field beside the accessor, a four-argument telescoping constructor for the `required` members, and a `Profile WithWeight(int)`/`WithWindow(Patch)` pair that `with` subsumes.
+
+This clamp guards a trusted in-process update; the instant `Weight` must reject raw external input with a typed fault, the struct graduates to a `[ValueObject<int>]` and the `field` accessor is deleted.
 
 ```csharp conceptual
 public readonly record struct Patch(int Offset, int Length);
@@ -165,7 +174,9 @@ public sealed record Profile {
 - Reject: a `new[]` plus `Concat` chain, list-add ceremony, an overload family differing only by collection kind, and a manual `.AsSpan()` adapter the implicit conversion subsumes; the implicit conversion's own resolution hazard — a span overload now competing with an array overload — is the arity-collapse decision `surfaces-and-dispatch.md` owns, not re-derived here.
 - Boundary: arity, modality, overload-priority resolution, and the request-union dispatch that an absorbed call routes into are `surfaces-and-dispatch.md`'s; this site owns the literal, the index, and the C# 14 span-conversion forms that feed them, never the dispatch.
 
-Form spotlight: one `params ReadOnlySpan<int>` entrypoint collapses the empty, singular, and plural call into a stack-allocated buffer with no per-arity overload, the collection expression `[.. head, 0, .. tail]` fuses two spreads where a `head.Concat([0]).Concat(tail).ToArray()` chain allocated twice, the implicit `int[]`-to-`ReadOnlySpan<int>` conversion lets `body` reach the spread with no `.AsSpan()` adapter, and the `[^1]` initializer writes the last seat end-relative without a post-construction index loop. Arity is a property of the literal; the page never grows a `bool batch` knob beside the value.
+Form spotlight: one `params ReadOnlySpan<int>` entrypoint collapses the empty, singular, and plural call into a stack-allocated buffer with no per-arity overload, the collection expression `[.. head, 0, .. tail]` fuses two spreads where a `head.Concat([0]).Concat(tail).ToArray()` chain allocated twice, the implicit `int[]`-to-`ReadOnlySpan<int>` conversion lets `body` reach the spread with no `.AsSpan()` adapter, and the `[^1]` initializer writes the last seat end-relative without a post-construction index loop.
+
+Arity is a property of the literal; the page never grows a `bool batch` knob beside the value.
 
 ```csharp conceptual
 public sealed record Board {
@@ -198,7 +209,9 @@ public static class BoardOps {
 - Reject: a `ref struct` riding any generic carrier — a `ValueTuple`, `Fin`, `Option`, `Seq`, or delegate return containing a span-shaped value is CS0306 — so a pairing that must yield both a span view and a rail value exits the span through an `out` parameter or a statement seam while the rail carries the admissible half.
 - Boundary: this is the named statement exemption for the language type-system layer; the numeric route that consumes the kernel and the foreign memory the span borrows are `algorithms.md`'s and `boundaries.md`'s, never re-derived here.
 
-Form spotlight: a `ref struct PeakStep` implements `IStep<double>` so the contract binds with no box, its C# 14 instance `operator +=` folds each value into the `ref double` field in place where a static `operator +` returns a fresh value the loop discards, and `Frame.Fold` admits the step through an `allows ref struct` type parameter so one stack-only fold body runs without heap traffic — the `foreach` loop and the operator's two-statement body are the named statement exemption, confined to the kernel and never reached by domain flow, which receives the kernel's ordinary return value. Deleted form: a boxed `IStep<double>` argument and a heap `Func<double,double,double>` accumulator on a measured hot path.
+Form spotlight: a `ref struct PeakStep` implements `IStep<double>` so the contract binds with no box, its C# 14 instance `operator +=` folds each value into the `ref double` field in place where a static `operator +` returns a fresh value the loop discards, and `Frame.Fold` admits the step through an `allows ref struct` type parameter so one stack-only fold body runs without heap traffic — the `foreach` loop and the operator's two-statement body are the named statement exemption, confined to the kernel and never reached by domain flow, which receives the kernel's ordinary return value.
+
+Deleted form: a boxed `IStep<double>` argument and a heap `Func<double,double,double>` accumulator on a measured hot path.
 
 ```csharp conceptual
 public interface IStep<TState> {
@@ -235,7 +248,9 @@ public readonly ref struct Frame(ReadOnlySpan<double> values) {
 - Reject: an escape-laden `+` concatenation, `string.Format` with positional `{0}` holes for a local interpolation, a `StringBuilder` for a fixed-shape literal, and the `\x1b` magic literal where `\e` names the escape.
 - Boundary: UTF-8 wire constants (`u8`), span and `IFormattable` formatting, and grammar compilation are `system-apis.md`'s; a raw string literal does not process escapes, so a terminal sequence stays in a processed (non-raw) string and never inside the `"""..."""` fence.
 
-Form spotlight: a processed interpolated string carries the `\e` terminal escape — illegal in a raw literal, which emits the backslash verbatim — beside its `{weight,-8:F2}` alignment-plus-format hole, while the sibling `$$"""..."""` raw literal embeds JSON whose own single braces survive because the interpolation marker is doubled, its `{{int.Max(count, 0)}}` hole running full expression grammar with no quote juggling. Deleted forms: a `"[1m" + body + "[0m"` concatenation and a `string.Format("{{ \"key\": \"{0}\" }}", key)` whose escaped braces and positional holes the two literal forms replace.
+Form spotlight: a processed interpolated string carries the `\e` terminal escape — illegal in a raw literal, which emits the backslash verbatim — beside its `{weight,-8:F2}` alignment-plus-format hole, while the sibling `$$"""..."""` raw literal embeds JSON whose own single braces survive because the interpolation marker is doubled, its `{{int.Max(count, 0)}}` hole running full expression grammar with no quote juggling.
+
+Deleted forms: a `"[1m" + body + "[0m"` concatenation and a `string.Format("{{ \"key\": \"{0}\" }}", key)` whose escaped braces and positional holes the two literal forms replace.
 
 ```csharp conceptual
 public static class Manifest {
@@ -265,7 +280,7 @@ Run each test before keeping a local construct beside the language form that sub
 - Done when: the decision is one expression one dispatch level deep over the discriminants it holds, every arm binds with `var`, and a missing case of a closed owner breaks the build rather than falling to a `_` arm.
 
 [COPY_REPAIR]:
-- Smell: a `new[]` plus `Concat` chain, a list-add sequence, a manual `.AsSpan()` adapter, or a per-arity overload family composes a value the collection-expression and C# 14 span-conversion forms compose in one literal.
+- Smell: a `new[]` and `Concat` chain, a list-add sequence, a manual `.AsSpan()` adapter, or a per-arity overload family composes a value the collection-expression and C# 14 span-conversion forms compose in one literal.
 - Collapse: build the value with a collection expression and spread, absorb arity with one `params ReadOnlySpan<T>`, and let the implicit array-to-span conversion feed the span receiver.
 - Done when: composition is one bracketed literal, one signature serves every call arity, and no adapter overload survives the implicit conversion.
 

@@ -237,7 +237,7 @@ dependencies = [
     "epdx<1.0",                                     # [DATA]: EPDx environmental product declaration interchange; 1.x ships no mac wheel and a broken sdist
     "olca-ipc",                                     # [DATA]: openLCA IPC client for foreground/background LCA interchange
     "openepd",                                      # [DATA]: OpenEPD declarations and PCR material-impact payloads
-    "premise; python_version<'3.15'",               # [DATA]: prospective LCA scenario database transformer; sparse/unfold hard-require numba (no cp315)
+    "premise; python_version<'3.15'",               # [DATA]: prospective LCA scenario database transformer; llvmlite ships no cp315 wheel and its source build needs an LLVM dev package the scientific lane lacks — numba 0.66.0 itself resolves on cp315
     # --- [PLOTTING_VIZ]
     "altair",
     "great-tables",                                # [ARTIFACTS]: publication-quality display tables

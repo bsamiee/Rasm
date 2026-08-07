@@ -202,6 +202,7 @@ flowchart LR
         Plugin[Plugin binding]
     end
     Rasm([Rasm])
+    PyData([python:data])
     Rasm e1@-->|"[BOUNDARY]: ModelUnit + Context + AnalysisQuery + Placement + Requirement + Lease + HookPoint + InstrumentSpec + Dimension + PerceptualColor"| Document
     Rasm e2@-->|"[BOUNDARY]: VectorFrame"| Viewport
     Rasm e3@-->|"[BOUNDARY]: AnalysisQuery"| Commands
@@ -218,9 +219,10 @@ flowchart LR
     Rasm e13@-->|"[BOUNDARY]: Context"| Blocks
     Rasm e15@-->|"[BOUNDARY]: ModelUnit + ContentHash + Dimension + UnitInterval + PerceptualColor + EpsilonPolicy"| Exchange
     Rasm e16@-->|"[BOUNDARY]: Lease"| Plugin
+    Document e17@-->|"[WIRE]: LayerTopologyFact"| PyData
 ```
 
-Every kernel contract is a frozen-name value type the host binds and never re-mints — one `[BOUNDARY]` rail per consuming sub-domain, each carrying the exact member set its owner consumes. Document's rail carries the full set: `ModelUnit`, `Context`, `AnalysisQuery`/`Analyze`, `TransformSpec`/`Placement.Build`, `Requirement.ForKind`/`KindOf`, `Lease<T>`/`GeometryForm`, `HookModality`/`HookId`/`HookPoint`, `InstrumentSpec`/`TelemetryContributorPort`/`MeasureForm`, `PerceptualColor`, and `Dimension` with `AbsoluteTolerance`/`RelativeTolerance`/`AngleTolerance` — `AnalysisQuery` rides the Document, Commands, and Display rails, each end consuming it live — Display's `AnalysisOverlay` drives the registered false-colour mode off `Analyze.In(...).Run` at `Display/conduit#OVERLAYS`. `PerceptualColor` is the one colour crossing on every rail that carries it: a `System.Drawing.Color` admits at the boundary through `OfRgb` and leaves through `ToRgb`, never riding a public detached payload. Kernel source is host-neutral and consumes nothing back, so the strata-locked dependency is source-only by construction; the kernel seam registry mirrors each edge from its producing side.
+Every kernel contract is a frozen-name value type the host binds and never re-mints — one `[BOUNDARY]` rail per consuming sub-domain, each carrying the exact member set its owner consumes. Document's rail carries the full set: `ModelUnit`, `Context`, `AnalysisQuery`/`Analyze`, `TransformSpec`/`Placement.Build`, `Requirement.ForKind`/`KindOf`, `Lease<T>`/`GeometryForm`, `HookModality`/`HookId`/`HookPoint`, `InstrumentSpec`/`TelemetryContributorPort`/`MeasureForm`, `PerceptualColor`, and `Dimension` with `AbsoluteTolerance`/`RelativeTolerance`/`AngleTolerance` — `AnalysisQuery` rides the Document, Commands, and Display rails, each end consuming it live — Display's `AnalysisOverlay` drives the registered false-colour mode off `Analyze.In(...).Run` at `Display/conduit#OVERLAYS`. `PerceptualColor` is the one colour crossing on every rail that carries it: a `System.Drawing.Color` admits at the boundary through `OfRgb` and leaves through `ToRgb`, never riding a public detached payload. Kernel source is host-neutral and consumes nothing back, so the strata-locked dependency is source-only by construction; the kernel seam registry mirrors each edge from its producing side. One wire leaves the boundary outward: `Document/layers` emits `LayerTopologyFact` rows (`layer`/`name`/`parent`/`members`/`sort_index` beside override `layer`/`viewport`/`visible`) the `python:data` graph plane decodes at its `graph/graph#TOPOLOGY` fold — the schema pin rides the open cross-`libs/` card, and the python end re-proves field-for-field against it.
 
 ## [04]-[INTERNAL]
 

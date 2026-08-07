@@ -19,29 +19,7 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 Capability, Shape, Unlocks, and Anchors are required on every open card; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Ideas state higher-order concepts, never landing-grain tasks.
 -->
 
-[STUDY_DESIGN_FAMILIES]-[QUEUED]: classical experiment designs join the study spine as method rows.
-- Capability: factorial, fractional-factorial, Box-Behnken, central-composite, and Plackett-Burman design generation as `StudyMethod` rows whose `indices` fold returns `{}` — sampling-only members on the existing axis admitting the multi-output objective shape.
-- Shape: new method rows and their design folds on `libs/python/compute/.planning/experiments/study.md`, marginals resolved through the same per-axis parameterization the SALib channel reads.
-- Unlocks: response-surface and screening studies over solver routes; `RunHistory` comparison across design families under provably equal content keys.
-- Anchors: `experiments/study#STUDY` `StudyMethod` axis and sample-grid spine; the admitted root-manifest `pyDOE3` row.
-
-[CONVEX_BACKEND_FAMILY]-[QUEUED]: the conic backend axis completes and the power cone becomes a first-class constraint row.
-- Capability: `PowCone3D` membership joins the cone-constraint family, and SCS, HiGHS, and ProxSuite land as selectable solve-backend rows beside the Clarabel arm — every backend recovering the same primal/dual pair the KKT certificate grades, so backend choice never weakens the proof.
-- Shape: one cone row and the backend rows on `libs/python/compute/.planning/optimization/convex.md`, backend selection one policy value on the existing solve dispatch.
-- Unlocks: geometric-mean and power-utility programs; LP-heavy conic programs on HiGHS; real-time QP re-solves on ProxSuite under DPP warm starts.
-- Anchors: folder `cvxpy` catalog `PowCone3D`, multi-backend `solve`, and the `ARGS`/`DUAL_VALUE` recovery laws; `optimization/convex#CONVEX` dual-certificate fold; the admitted `scs` and `highspy` manifest rows; `proxsuite` through the admission lane.
-
-[DIFFERENTIAL_STIFF_POLICY]-[QUEUED]: the stiff route gains its implicit floor and bounded step control.
-- Capability: `ImplicitEuler` joins the solver table as the order-1 DIRK floor beneath the Kvaerno family, and `ClipStepSizeController` lands as a wrapping-controller policy row bounding any adaptive controller's steps to a range.
-- Shape: one solver row and one controller policy row on `libs/python/compute/.planning/solvers/differential.md`, both resolved off the gated `dfx` carrier like every sibling row.
-- Unlocks: robust integration of severely stiff problems where high-order SDIRK stages fail; step clamping across event-adjacent integration windows.
-- Anchors: folder `diffrax` catalog `ImplicitEuler` (implicit DIRK) and `ClipStepSizeController` (wrapping controller); the optimistix/lineax implicit-step seam the Kvaerno rows already thread.
-
-[INFERENCE_SCALE_SCORING]-[QUEUED]: posterior scoring stays tractable at large draw counts.
-- Capability: subsampled PSIS-LOO — `loo_subsample` with `update_subsample` refinement — as a scoring row beside the full `loo` fold, selected by draw-count policy so a large posterior grades predictive fit without the full pointwise matrix.
-- Shape: one scoring row and its policy threshold on `libs/python/compute/.planning/experiments/inference.md`; `ELPDData.kind` discriminates the subsampled result on read.
-- Unlocks: convergence-plus-fit graduation on posteriors whose full LOO cost is prohibitive.
-- Anchors: folder `arviz` catalog LOO family (`loo_subsample`/`update_subsample`, `ELPDData.kind`); `experiments/inference#BAYESIAN` residual table.
+(none)
 
 ## [02]-[CLOSED]
 
@@ -49,6 +27,10 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 [ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
+[STUDY_DESIGN_FAMILIES]-[COMPLETE]: landed via TASKLOG [DOE_DESIGN_ROWS] — four coded `StudyMethod` rows (`fractional`/`box_behnken`/`central_composite`/`plackett_burman`) on the shared `_unit`/`_box` bounds map with `indices` `{}`; the two-level factorial member folded into the existing `factorial` grid rather than a duplicate row, and the linear-onto-bounds law for every coded design landed at `RULINGS.md` `[02]`.
+[CONVEX_BACKEND_FAMILY]-[COMPLETE]: landed via TASKLOG [CONE_BACKEND_ROWS] — the `power` cone case and the CLARABEL/SCS/HIGHS `_BACKEND` rows under the one KKT certificate, plus the live-proved `SCIPY_CANON_BACKEND` pin; the ProxSuite arm is REFUTED at the interpreter floor (no cp315 wheel, `cmeel` build backend dies on py3.15), recorded at `RULINGS.md` `[01]` with its wheel re-open condition.
+[DIFFERENTIAL_STIFF_POLICY]-[COMPLETE]: landed via TASKLOG [STIFF_ROWS] — `IMPLICIT_EULER` as the adaptive order-1 A-B-L-stable DIRK floor and the clip triple; this card's `ClipStepSizeController` steps-to-a-range claim is REFUTED against source — the wrap owns forced step times, jump discontinuities, and SDE rejected-step revisits, while range bounding stays `dtmin`/`dtmax` on the PID row.
+[INFERENCE_SCALE_SCORING]-[COMPLETE]: landed via TASKLOG [LOO_SUBSAMPLE_ROW] — the `_score` fold behind the `loo_cells` budget with one `update_subsample` refinement; this card's `ELPDData.kind` discrimination claim is REFUTED live (`loo_subsample` keeps `kind == "loo"`), the typed `subsample_size`/`subsampling_se` pair discriminating instead.
 [MESH_GENERATION_ROUTE]-[COMPLETE]: landed as the `generate` arm on `MeshExchange` over the `GmshSource` boundary-input axis and the `SizeField` density axis on `libs/python/compute/.planning/solvers/mesh.md`, minting its `MeshField` through the SAME `_read` fold every inbound mesh crosses so groups, cell block, and content key derive identically; the card's "gmsh element types map onto `ElementKind`" clause is REFUTED and its opposite landed — routing extraction through the `.msh`/meshio round-trip is what keeps `CTOR` the one element vocabulary, where an element-type-integer table would mint a second, and the high-order promotion the card implied is unbuildable because `setOrder(2)` writes `triangle6`/`tetra10` blocks neither `cells_dict[CTOR[element].cell]` nor the affine `Mesh*1` constructors can take.
 [COMPUTE_HOOK_RAIL]-[COMPLETE]: landed as `COMPUTE_POINTS`/`SCOPE_DOMAIN` with the composition-scoped `registered`/`tapped` legs and the `_measures` projection on `libs/python/compute/.planning/graduation/observability.md`; the `rasm.compute.*` instrument rows and the `domain="compute"` roster row remain a runtime `runtime/observability/metrics#METRIC` ripple, proven at composition by the `registered` census gate.
 [SOLVE_RESOURCE_LEDGER]-[COMPLETE]: landed as `ResourceUsage` over the runtime `Cost` substrate bracket inside the `ledgered` hub weave on `libs/python/compute/.planning/graduation/observability.md`, banding cpu, rss, io, and switches with a settled-or-raised outcome; the band records a signed RSS delta — cross-platform `pmem` carries no peak field — superseding this card's peak-RSS claim.

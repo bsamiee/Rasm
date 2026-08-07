@@ -262,6 +262,15 @@
         "resolved": "2.1.333",
         "contentHash": "ph0Tqd6TIkSOr9Iixw+k6og1Y92UldfGLTxlDfj+FmdKtlG95qDX418TseY6gRcQVS9w+Tt2ye10RVM0kcGHmg=="
       },
+      "Generator.Equals": {
+        "type": "Direct",
+        "requested": "[4.0.2, )",
+        "resolved": "4.0.2",
+        "contentHash": "mf980Z3zjjeevYM6b39QZw2VL9h032UBH524dCisWogt/JR6Miy5rfyYn6q2re7+ICGdAKEar2VcRJn79rNz2Q==",
+        "dependencies": {
+          "Generator.Equals.Runtime": "4.0.2"
+        }
+      },
       "HanumanInstitute.LibMpv": {
         "type": "Direct",
         "requested": "[0.10.1, )",
@@ -3071,6 +3080,7 @@
           "CommunityToolkit.HighPerformance": "[8.4.2, )",
           "Csp.Contracts": "[1.0.0, )",
           "ExtendedNumerics.BigRational": "[3000.0.2.132, )",
+          "Generator.Equals": "[4.0.2, )",
           "JetBrains.Annotations": "[2026.2.0, )",
           "LanguageExt.Core": "[5.0.0-beta-77, )",
           "MIConvexHull": "[1.1.19.1019, )",
@@ -3102,6 +3112,7 @@
           "FluentModbus": "[5.3.2, )",
           "FluentValidation": "[12.1.1, )",
           "FluentValidation.DependencyInjectionExtensions": "[12.1.1, )",
+          "Generator.Equals": "[4.0.2, )",
           "Grpc.AspNetCore": "[2.83.0, )",
           "Grpc.AspNetCore.HealthChecks": "[2.83.0, )",
           "Grpc.AspNetCore.Web": "[2.83.0, )",
@@ -3245,7 +3256,6 @@
           "Rasm.AppHost": "[1.0.0, )",
           "Rasm.Element": "[1.0.0, )",
           "Rasm.Persistence": "[1.0.0, )",
-          "Riok.Mapperly": "[4.3.1, )",
           "SharpGLTF.Core": "[1.0.6, )",
           "SharpGLTF.Ext.3DTiles": "[1.0.6, )",
           "SharpGLTF.Toolkit": "[1.0.6, )",
@@ -3272,7 +3282,6 @@
           "NodaTime.Serialization.Protobuf": "[2.0.2, )",
           "QuikGraph": "[2.5.0, )",
           "Rasm": "[1.0.0, )",
-          "Riok.Mapperly": "[4.3.1, )",
           "System.IO.Hashing": "[10.0.10, )",
           "Thinktecture.Runtime.Extensions": "[10.4.0, )",
           "Thinktecture.Runtime.Extensions.Json": "[10.4.0, )",
@@ -3304,7 +3313,6 @@
           "Rasm.Element": "[1.0.0, )",
           "RectangleBinPack.CSharp": "[1.0.4, )",
           "Rhino3dm": "[8.32.0, )",
-          "Riok.Mapperly": "[4.3.1, )",
           "Robots": "[2.2.5, )",
           "System.IO.Hashing": "[10.0.10, )",
           "System.Numerics.Tensors": "[10.0.10, )",
@@ -3319,6 +3327,7 @@
         "dependencies": {
           "CommunityToolkit.HighPerformance": "[8.4.2, )",
           "Csp.Contracts": "[1.0.0, )",
+          "Generator.Equals": "[4.0.2, )",
           "JetBrains.Annotations": "[2026.2.0, )",
           "LanguageExt.Core": "[5.0.0-beta-77, )",
           "Magick.NET-Q16-HDRI-AnyCPU": "[14.16.0, )",
@@ -3440,7 +3449,6 @@
           "RabbitMQ.Client": "[7.2.1, )",
           "Rasm": "[1.0.0, )",
           "Rasm.Element": "[1.0.0, )",
-          "Riok.Mapperly": "[4.3.1, )",
           "SQLitePCLRaw.bundle_e_sqlite3": "[3.0.5, )",
           "SQLitePCLRaw.bundle_e_sqlite3mc": "[2.1.11, )",
           "ScyllaDBCSharpDriver": "[3.22.0.4, )",
@@ -3999,15 +4007,6 @@
         "dependencies": {
           "FluentValidation": "12.1.1",
           "Microsoft.Extensions.DependencyInjection.Abstractions": "2.1.0"
-        }
-      },
-      "Generator.Equals": {
-        "type": "CentralTransitive",
-        "requested": "[4.0.2, )",
-        "resolved": "4.0.2",
-        "contentHash": "mf980Z3zjjeevYM6b39QZw2VL9h032UBH524dCisWogt/JR6Miy5rfyYn6q2re7+ICGdAKEar2VcRJn79rNz2Q==",
-        "dependencies": {
-          "Generator.Equals.Runtime": "4.0.2"
         }
       },
       "GeneticSharp": {
@@ -5706,12 +5705,6 @@
         "requested": "[8.32.0, )",
         "resolved": "8.32.0",
         "contentHash": "kF5zO28WFRif4WqTLrUUIf4FyZbWb9vIeA8sPnZEvuesW6mJ9ukgky6qt+9/MOJ4Cf2RkhM/d9pg/vf/nwIxKw=="
-      },
-      "Riok.Mapperly": {
-        "type": "CentralTransitive",
-        "requested": "[4.3.1, )",
-        "resolved": "4.3.1",
-        "contentHash": "oSE+OVLHyiojrws0QVbQaAT2YKsYbyHqJXPdV7EhGseR/dYgeWS2x1T5qY5I4E+RJkJqMSG+FyZOq4SljWgJWQ=="
       },
       "Robots": {
         "type": "CentralTransitive",

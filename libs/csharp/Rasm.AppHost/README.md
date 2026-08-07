@@ -158,6 +158,7 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 - `LanguageExt.Core`
 - `Thinktecture.Runtime.Extensions`
 - `Thinktecture.Runtime.Extensions.Json`
+- `Generator.Equals` — `HostFingerprint` structural equality over its stamp map.
 - `JetBrains.Annotations`
 
 [TIME_IDENTITY]:

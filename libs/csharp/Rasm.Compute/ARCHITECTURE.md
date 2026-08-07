@@ -171,6 +171,7 @@ flowchart LR
     Model e35@-->|"[CONTENT_KEY]: ParityVerdict"| Persistence
     Model e27@<-->|"[CONTENT_KEY]: VectorCodebook"| Persistence
     Tensor e16@-->|"[CONTENT_KEY]: ShardPlan"| Persistence
+    Solver e43@-->|"[CONTENT_KEY]: ArtifactIndexRow"| Persistence
     Symbolic e14@-->|"[CONTENT_KEY]: CompiledExpr"| Persistence
     Analysis e13@-->|"[CONTENT_KEY]: AssessmentPayload"| Persistence
     Runtime e17@<-->|"[CONTENT_KEY]: InterchangeIdentity"| Persistence
@@ -245,6 +246,9 @@ flowchart LR
     Data e20@-->|"[SHAPE]: GeoArrow"| Runtime
     Runtime e14@-->|"[WIRE]: ReceiptEnvelopeWire"| Core
     Symbolic e16@<-->|"[WIRE]: QuantityFamily"| Core
+    Runtime e22@-->|"[WIRE]: FieldContainer"| Data
+    Compute e23@-->|"[WIRE]: GraduationEnvelope"| Model
+    Tensor e24@<-->|"[WIRE]: SparseExchange"| Compute
 ```
 
 ## [04]-[INTERNAL]
@@ -326,6 +330,8 @@ Seam graph carries which owner exchanges which shape; the load-bearing cross-bou
 - NATS Core pump drains `SubscribeAsync<byte[]>`; `BrokerChannels.Capture` admits samples as `ComputeIntent.SensorAdmit` on `WorkLane.CaptureIngest`.
 - MQTT's event-delivered receive loop bridges through one bounded channel onto that same stream, its ack riding a successful enqueue alone.
 - Parent adoption off that carrier is the kernel causal-frame band's; neither pump opens a span nor re-mints the pair.
+- `Runtime/codecs` owns the ONE HDF5 archive session; every composing cluster — solver history/modes/checkpoints, ensemble and response corpora, sparse and basis exchange, graduation and initializer ingest, gridded weather, the shared demands/modal artifact — reaches the library through it and never opens an `H5File` of its own.
+- Every archive artifact leaves content-addressed through `ArtifactIndexRow.Admit` on the Persistence blob lane — interchange egress under content keys, never a Compute-side file catalog, scan, or index; the Persistence retention owner classes the archive families on its own `ArtifactKind` rows.
 - `Runtime/codecs` builds every columnar `RecordBatch` Compute produces over the kernel encode.
 - Persistence `api-arrow` overlay carries IPC, LZ4/Zstd, ADBC, and Flight-SQL; its `Query/columnar` `Land` port redeems the batch.
 - Compute holds one core `Apache.Arrow` reference and opens no Flight listener.

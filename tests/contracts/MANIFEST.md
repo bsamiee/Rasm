@@ -4,34 +4,38 @@ Corpus entries bind each contract to its class: an `infrastructure` entry names 
 
 ## [01]-[LEDGER]
 
-| [INDEX] | [FIXTURE]               | [SEAM]                  | [CLASS]        | [PAYLOAD]                       | [PIN]      |
-| :-----: | :---------------------- | :---------------------- | :------------- | :------------------------------ | :--------- |
-|  [01]   | CANONICAL_BYTE_IDENTITY | `content-identity`      | infrastructure | `wire-bytes` + `digest`         | DESIGN-PIN |
-|  [02]   | MESH_ADJACENCY_GOLDEN   | `mesh-adjacency`        | domain         | `wire-bytes` + `digest`         | REAL       |
-|  [03]   | MATERIAL_LAYER_GOLDEN   | `material-layer`        | domain         | `wire-bytes` + `digest`         | DESIGN-PIN |
-|  [04]   | FAULT_TRIPLES           | `fault-triples`         | infrastructure | `wire-bytes` + `canonical-json` | DESIGN-PIN |
-|  [05]   | CRDT_OP_SET             | `crdt-op-set`           | infrastructure | `wire-bytes`                    | DESIGN-PIN |
-|  [06]   | GLB_BY_KEY              | `glb-by-key`            | domain         | `wire-bytes` + `digest`         | DESIGN-PIN |
-|  [07]   | HLC_TWO_HALF            | `hlc-two-half`          | infrastructure | `wire-bytes`                    | DESIGN-PIN |
-|  [08]   | IFC_WIRE                | `ifc-wire`              | domain         | `wire-bytes` + `digest`         | DESIGN-PIN |
-|  [09]   | DESCRIPTOR_DRIFT        | `descriptor-drift`      | infrastructure | `descriptor-set`                | DESIGN-PIN |
-|  [10]   | CONSUMPTION_PROFILE     | `consumption-profile`   | infrastructure | `canonical-json`                | DESIGN-PIN |
-|  [11]   | BACKEND_CONTRACT        | `backend-contract`      | infrastructure | `canonical-json` + `digest`     | DESIGN-PIN |
-|  [12]   | CAPABILITY_DESCRIPTOR   | `capability-descriptor` | domain         | `canonical-json` + `digest`     | DESIGN-PIN |
-|  [13]   | TELEMETRY_CONVENTION    | `telemetry-convention`  | infrastructure | `canonical-json` + `digest`     | DESIGN-PIN |
-|  [14]   | BENCHMARK_CLAIM         | `benchmark-claim`       | infrastructure | `wire-bytes`                    | DESIGN-PIN |
-|  [15]   | HOST_FINGERPRINT        | `host-fingerprint`      | infrastructure | `canonical-json` + `digest`     | DESIGN-PIN |
-|  [16]   | BOARD_PACK              | `board-pack`            | infrastructure | `canonical-json` + `digest`     | DESIGN-PIN |
-|  [17]   | TEXTURE_SET_BY_KEY      | `texture-set-by-key`    | domain         | `wire-bytes` + `digest`         | DESIGN-PIN |
-|  [18]   | ASSET_SET_MANIFEST      | `asset-set-manifest`    | domain         | `wire-bytes` + `digest`         | REAL       |
-|  [19]   | MATERIAL_WIRE           | `material-wire`         | domain         | `wire-bytes` + `digest`         | DESIGN-PIN |
-|  [20]   | SIGNED_ARTIFACT         | `signed-artifact`       | domain         | `wire-bytes` + `digest`         | DESIGN-PIN |
-|  [21]   | APPHOST_WIRE            | `apphost-wire`          | domain         | `canonical-json` + `digest`     | DESIGN-PIN |
-|  [22]   | APPUI_WIRE              | `appui-wire`            | domain         | `canonical-json` + `digest`     | DESIGN-PIN |
-|  [23]   | BIM_WIRE                | `bim-wire`              | domain         | `canonical-json` + `digest`     | DESIGN-PIN |
-|  [24]   | ELEMENT_WIRE            | `element-wire`          | domain         | `wire-bytes` + `digest`         | DESIGN-PIN |
-|  [25]   | ELEMENT_CORPUS          | `element-corpus`        | domain         | `wire-bytes` + `digest`         | DESIGN-PIN |
-|  [26]   | DECLARATION_RECORD      | `declaration-record`    | domain         | `canonical-json` + `digest`     | DESIGN-PIN |
+| [INDEX] | [FIXTURE]                 | [SEAM]                      | [CLASS]        | [PAYLOAD]                       | [PIN]      |
+| :-----: | :------------------------ | :-------------------------- | :------------- | :------------------------------ | :--------- |
+|  [01]   | CANONICAL_BYTE_IDENTITY   | `content-identity`          | infrastructure | `wire-bytes` + `digest`         | DESIGN-PIN |
+|  [02]   | MESH_ADJACENCY_GOLDEN     | `mesh-adjacency`            | domain         | `wire-bytes` + `digest`         | REAL       |
+|  [03]   | MATERIAL_LAYER_GOLDEN     | `material-layer`            | domain         | `wire-bytes` + `digest`         | DESIGN-PIN |
+|  [04]   | FAULT_TRIPLES             | `fault-triples`             | infrastructure | `wire-bytes` + `canonical-json` | DESIGN-PIN |
+|  [05]   | CRDT_OP_SET               | `crdt-op-set`               | infrastructure | `wire-bytes`                    | DESIGN-PIN |
+|  [06]   | GLB_BY_KEY                | `glb-by-key`                | domain         | `wire-bytes` + `digest`         | DESIGN-PIN |
+|  [07]   | HLC_TWO_HALF              | `hlc-two-half`              | infrastructure | `wire-bytes`                    | DESIGN-PIN |
+|  [08]   | IFC_WIRE                  | `ifc-wire`                  | domain         | `wire-bytes` + `digest`         | DESIGN-PIN |
+|  [09]   | DESCRIPTOR_DRIFT          | `descriptor-drift`          | infrastructure | `descriptor-set`                | DESIGN-PIN |
+|  [10]   | CONSUMPTION_PROFILE       | `consumption-profile`       | infrastructure | `canonical-json`                | DESIGN-PIN |
+|  [11]   | BACKEND_CONTRACT          | `backend-contract`          | infrastructure | `canonical-json` + `digest`     | DESIGN-PIN |
+|  [12]   | CAPABILITY_DESCRIPTOR     | `capability-descriptor`     | domain         | `canonical-json` + `digest`     | DESIGN-PIN |
+|  [13]   | TELEMETRY_CONVENTION      | `telemetry-convention`      | infrastructure | `canonical-json` + `digest`     | DESIGN-PIN |
+|  [14]   | BENCHMARK_CLAIM           | `benchmark-claim`           | infrastructure | `wire-bytes`                    | DESIGN-PIN |
+|  [15]   | HOST_FINGERPRINT          | `host-fingerprint`          | infrastructure | `canonical-json` + `digest`     | DESIGN-PIN |
+|  [16]   | BOARD_PACK                | `board-pack`                | infrastructure | `canonical-json` + `digest`     | DESIGN-PIN |
+|  [17]   | TEXTURE_SET_BY_KEY        | `texture-set-by-key`        | domain         | `wire-bytes` + `digest`         | DESIGN-PIN |
+|  [18]   | ASSET_SET_MANIFEST        | `asset-set-manifest`        | domain         | `wire-bytes` + `digest`         | REAL       |
+|  [19]   | MATERIAL_WIRE             | `material-wire`             | domain         | `wire-bytes` + `digest`         | DESIGN-PIN |
+|  [20]   | SIGNED_ARTIFACT           | `signed-artifact`           | domain         | `wire-bytes` + `digest`         | DESIGN-PIN |
+|  [21]   | APPHOST_WIRE              | `apphost-wire`              | domain         | `canonical-json` + `digest`     | DESIGN-PIN |
+|  [22]   | APPUI_WIRE                | `appui-wire`                | domain         | `canonical-json` + `digest`     | DESIGN-PIN |
+|  [23]   | BIM_WIRE                  | `bim-wire`                  | domain         | `canonical-json` + `digest`     | DESIGN-PIN |
+|  [24]   | ELEMENT_WIRE              | `element-wire`              | domain         | `wire-bytes` + `digest`         | DESIGN-PIN |
+|  [25]   | ELEMENT_CORPUS            | `element-corpus`            | domain         | `wire-bytes` + `digest`         | DESIGN-PIN |
+|  [26]   | DECLARATION_RECORD        | `declaration-record`        | domain         | `canonical-json` + `digest`     | DESIGN-PIN |
+|  [27]   | HDF5_FIELD_CONTAINER      | `hdf5-field-container`      | domain         | `wire-bytes` + `digest`         | DESIGN-PIN |
+|  [28]   | HDF5_GRADUATION_ENVELOPE  | `hdf5-graduation-envelope`  | domain         | `wire-bytes` + `digest`         | DESIGN-PIN |
+|  [29]   | SPARSE_EXCHANGE_CONTAINER | `sparse-exchange-container` | domain         | `wire-bytes` + `digest`         | DESIGN-PIN |
+|  [30]   | GRADUATION_EVIDENCE     | `graduation-evidence`   | domain         | `wire-bytes` + `digest`         | DESIGN-PIN |
 
 Two appearance entries — `[02.17]` and `[02.18]` — conform to one shared definition, [appearance-vocabulary.schema.json](appearance-vocabulary.schema.json): the channel roster with its per-channel transfer, neutral, unit, mip policy, and minting branches; the ingest alias table; the transfer, normal-convention, alpha-mode, container, pack, plane-format, mip-policy, and KTX2-payload vocabularies; the three hex spellings; the level-ordered plane address; the egress grammar; and the spherical-harmonic band order with its golden vectors. Neither seam restates a row of it, and a document-local re-spelling is the fork the shared definition forecloses.
 
@@ -335,6 +339,7 @@ Two appearance entries — `[02.17]` and `[02.18]` — conform to one shared def
 - Pin: DESIGN-PIN
 - Blocker: execution route absent, knowledge complete — no source tree exists to run `GraphForge.Mint` (`libs/.planning/ARCHITECTURE.md` `[05]-[PLANNING_LIFECYCLE]` authors source only when code is written), `tests/csharp/libs/Rasm.Element` is an `AssayTestShell` shell, and the DESIGN-PIN law forbids fabricated bytes; the four grade addresses pin when the corpus harness executes the settled forge.
 - Shape: whole-graph parity — each peer decodes a grade's wire bytes and re-derives its snapshot address, equality across the three runtimes proving canonical-bytes, sorting, and hash-seed agreement in one gate; producer-side `CorpusOp` witnesses prove op stability before any pin lands. Grade profiles and seeds are the producer's roster rows, so a forge or layout edit re-derives all four addresses and re-freezes the fixtures whole.
+- Regenerate when: any forge kernel, grade profile row, canonical-bytes layout, or wire message changes.
 
 ### [02.26]-[DECLARATION_RECORD]
 
@@ -347,4 +352,57 @@ Two appearance entries — `[02.17]` and `[02.18]` — conform to one shared def
 - Blocker: no frozen Ökobaudat sample declaration pins the byte-deriving input — the producer freezes one registry record per source row when the ingest lane executes; the DESIGN-PIN law forbids fabricated bytes.
 - Shape: one product declaration keyed to a material identity — issuer + registration the duplicate-check pair, declared unit admitted at its own functional unit, issue and expiry dates, and the per-indicator per-module impact map at declaration granularity (the frozen 13-indicator EN 15804+A2 roster over the 15-module EN 15978 roster) where KEY PRESENCE is the coverage census — an absent cell is undeclared absence, never a zero. Discriminating laws: a declared cell is a measured value with negative biogenic/avoided-burden carbon valid; the two resource fractions are optional scenario data, absent when undeclared; consumers band modules as their own seam requires (the C# leg sums declared cells onto its six-band `LifecycleStage` axis and constructs the full matrix only when every core indicator covers every band). The declaration semantic model is the python data branch's host-free ingestion capability; peers decode and re-author none.
 - Regenerate when: the indicator or module roster, the declared-unit vocabulary, or the canonical key order changes.
-- Regenerate when: any forge kernel, grade profile row, canonical-bytes layout, or wire message changes.
+
+### [02.27]-[HDF5_FIELD_CONTAINER]
+
+- Seam: `hdf5-field-container`
+- Class: domain
+- Producer: `csharp:Rasm.Compute/Runtime/codecs#FIELD_RESULT_CODEC` — `FieldCodec.Hdf5Encode` emitting the station×component chunk model as an HDF5 1.10 container over the `#HDF_ARCHIVE` cursor-guarded writer.
+- Consumers: `python:data/gridded/field#CONTAINER` reads the container on the h5py rail (`FieldContainer`, with the `phony_dims` labelled lift) and `python:data/gridded/virtual#MANIFEST` virtualizes it through the `hdf` parser arm; `csharp:Rasm.Compute/Runtime/codecs#FIELD_RESULT_CODEC` `Hdf5Decode` is the round-trip leg.
+- Payload: `wire-bytes` + `digest`
+- Pin: DESIGN-PIN
+- Blocker: the producer freezes no container vector — `Hdf5Encode` is a landed fence with no realized source, so no field corpus carries a byte-deriving instance on either branch.
+- Shape: one field crosses as ONE dataset at the `/field` path — this entry MINTS that layout, because today's convention let the dataset path double as a station label and two producers spelled it two ways — with the field extent leading and the trailing axis the COMPONENT axis of that one dataset; one-dataset-per-component is the refuted sibling layout, forking the chunk address every consumer computes. Chunks are station-outermost through the one `FieldCodec.Grid` derivation, so `Chunk(ordinal)` and a station-slab `HyperslabSelection` window resolve identically at both ends. Filters run Shuffle (id 2) then Deflate (id 1) — the h5py `compression='gzip', shuffle=True` pipeline — with C# WRITERS constrained to the `DeflateGrade` four-value set `{-1, 0, 1, 9}` while READERS accept any level a foreign producer wrote. Element bytes are little-endian ONLY: the managed rail refuses big-endian at open, so a big-endian corpus re-encodes upstream and never crosses. Writes are create-only and chunk-aligned in index order — no append, no in-place edit — so an accumulating series segments at its producer's cadence edge. Dimension-scale stance is PICKED here: the writer emits RAW HDF5 with NO dimension-scale datasets (netCDF semantics resolve above the rail on both branches), so python consumers read via h5py directly — or `phony_dims` under h5netcdf — and a writer-side coordinate-variable roster is growth this entry re-values, never a consumer workaround. VDS stance is PROVEN: an h5py-authored virtual container READS on the managed rail — `VirtualStorage` layout resolves whole and hyperslab reads across source boundaries, relative source paths resolve beside the containing file, and an unresolvable source region yields the declared fill value, never a fault — so a virtual container is a lawful read-side carrier of this entry, while C# writers never emit VDS because the write model carries no virtual layout, leaving virtual authorship on the h5py side. Field-container emission is the producer's domain capability, so peers decode the container and re-derive no layout.
+- Regenerate when: the dataset path or component-axis law, the `FieldCodec.Grid` derivation, the filter pipeline, or the create-only chunk law changes.
+
+### [02.28]-[HDF5_GRADUATION_ENVELOPE]
+
+- Seam: `hdf5-graduation-envelope`
+- Class: domain
+- Producer: `python:compute/experiments/model#ENVELOPE` — `GraduationEnvelope.fit`/`write` fitting reference bands from the training population and emitting the create-only h5py container.
+- Consumers: `csharp:Rasm.Compute/Model/identity#MODEL_IDENTITY` — `GraduationEnvelope.Admit(HdfHandle)` re-running every Wellformed gate on the read roster.
+- Payload: `wire-bytes` + `digest`
+- Pin: DESIGN-PIN
+- Blocker: no frozen envelope vector — the producer freezes one container when the fit lane executes; the DESIGN-PIN law forbids fabricated bytes.
+- Shape: one root `bands` group carrying the `evidence-key` attribute as the 32-hex `ContentKey` rendering parsed `NumberStyles.HexNumber`; one group per feature carrying the `kind` attribute (`numeric`/`categorical`); numeric bands the `edges` float64[k] and `mass` float64[k+1] datasets (both outer bins covered — the consumer's half-open bisection addresses them), categorical bands the vlen-string `categories` and float64 `mass` datasets. Admission gates hold at BOTH ends: finite strictly-increasing edges, mass length edges+1, strictly positive mass summing to one within 1e-9, non-blank unique features and categories, non-zero evidence key. Reference mass is fitted by the python producer at graduation and never at the consumer; the reverse JSON `GraduationEvidence` leg keeps its own container.
+- Regenerate when: the group/attribute roster, a band case, or a Wellformed gate changes.
+
+### [02.29]-[SPARSE_EXCHANGE_CONTAINER]
+
+- Seam: `sparse-exchange-container`
+- Class: domain
+- Producer: `csharp:Rasm.Compute/Tensor/factor#SPARSE_SOLVE` — `WriteArchive` emitting the scipy-convention group beside the `.mtx` `WriteExchange` leg.
+- Consumers: `python:compute/solvers/linear#EXCHANGE` reads and reproduces both containers; `ReadArchive`/`ReadExchange` are the C# return legs of the same correspondence.
+- Payload: `wire-bytes` + `digest`
+- Pin: DESIGN-PIN
+- Blocker: no frozen operator vector — no factorization corpus carries a byte-deriving instance on either branch.
+- Shape: two containers carry one portable sparse-operator correspondence. `.mtx` serves SuiteSparse interop (pattern symmetry only); its HDF5 sibling carries the scipy sparse group convention — `indptr`/`indices` int32, `values` float64, extents in the `shape` int64[2] attribute, `format` naming the major axis — and the reproduction metadata `.mtx` drops: `kind` (factor-kind key), `ordering` (CSparse `ColumnOrdering` ordinal), `fill` (symbolic fill), `frobenius`, `symmetric`, and the applied AMD `permutation` as its own int32 dataset. Int32 index width is exchange law: an operand whose nnz or pointer run exceeds int32 refuses at write. Both ends re-run the full admission gates (extent congruence, monotone pointer run, index bounds, finiteness) because both routes end at each side's one admission fold.
+- Regenerate when: the dataset/attribute roster, the int32 pin, or the admission gate set changes.
+
+### [02.30]-[GRADUATION_EVIDENCE]
+
+- Seam: `graduation-evidence`
+- Class: domain
+- Producer: `csharp:Rasm.Compute/Model/identity#GRADUATION_EVIDENCE` — `GraduationEvidence.Admit`/`Bundle` writing the canonical UTF-8 JSON payload under the CamelCase contract.
+- Consumers: `python:compute/graduation/codegen#STUB_CODEGEN` — `StubCodegen.emit` decoding the bundle onto `EvidenceBundle`/`OwnerDescriptor`/`FieldNode` (`rename="camel"`).
+- Payload: `wire-bytes` + `digest`
+- Pin: DESIGN-PIN
+- Blocker: no frozen bundle vector — the C# minter freezes one bundle beside its `BundleKey` when the mint lane executes.
+- Shape: `schemaVersion` `"1"`; `owners[]` of `{name, fields[]}`; `bundleKey` the bare 32-hex content-key render parsed `NumberStyles.HexNumber`, never a raw integer; the `kind` discriminator literals `scalar|array|nested|mapping|optional|union` and the `FieldScalar` rows `i32|i64|f64|bool|string|key|bytes|decimal` are the decode contract at both ends; the scalar leaf's payload property spells `"scalar"` because CamelCase would seat it on the `"kind"` discriminator STJ refuses to double-book.
+- Regenerate when: the kind literals, the scalar rows, the bundle columns, or `SchemaVersion` change.
+
+## [03]-[DEBT]
+
+Cross-branch flows the corpus observed crossing WITHOUT a binding entry; each row names the divergence and its resolution owner, and a row retires only by entry mint or recorded negative at both ends.
+
+- `DoeDataset` — declared at BOTH ends (`csharp:Rasm.Compute/Solver/sweep` emitting, `python:data` ingesting) with the branch maps carrying the seam edge, yet no entry binds the bytes; the flow meets at Arrow IPC, which both ends already speak, so the resolution is an Arrow-payload entry minted by the C# producer or a recorded negative declaring the crossing content-key-only — convention-aligned columns until then fork on first edit.

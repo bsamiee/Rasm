@@ -105,6 +105,16 @@
 |  [17]   | `aslinearoperator` \| `LinearOperator(shape, matvec)`             | operator algebra      | matrix-free operator construction        |
 |  [18]   | `expm_multiply` \| `onenormest` \| `matrix_power`                 | operator algebra      | action-only `exp(A)·B`, 1-norm estimate  |
 
+[ENTRYPOINT_SCOPE]: `scipy.io` Matrix Market exchange
+- `mmread(source, *, spmatrix=False)` returns a `coo_array`; the bare default returns the legacy `coo_matrix` and is never taken.
+- `mmwrite(target, a, comment, field, precision, symmetry='AUTO')` — `symmetry` accepts `general`/`symmetric`/`skew-symmetric`/`hermitian`.
+
+| [INDEX] | [SURFACE]                                     | [ENTRY_FAMILY] | [RESULT]                                             |
+| :-----: | :-------------------------------------------- | :------------- | :--------------------------------------------------- |
+|  [01]   | `io.mmread(source, *, spmatrix=False)`        | exchange read  | sparse `coo_array` from a `.mtx` source              |
+|  [02]   | `io.mmwrite(target, a, symmetry)`             | exchange write | `.mtx` emission with explicit symmetry               |
+|  [03]   | `io.mminfo(source)`                           | exchange probe | `(rows, cols, entries, format, field, symmetry)`     |
+
 [ENTRYPOINT_SCOPE]: `scipy.optimize` root-find and minimize
 - carry: local/least-squares/root `(fun, x0, method, jac, bounds, constraints)`, constraints via `Bounds`/`LinearConstraint`/`NonlinearConstraint`, results carry `OptimizeResult`.
 - global `(func, bounds)`; stochastic `differential_evolution`/`dual_annealing` take `rng` (`differential_evolution` adds `workers`, `polish`, `strategy`); `shgo`/`direct`/`brute` are deterministic.

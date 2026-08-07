@@ -63,6 +63,7 @@
 - `netcdf4`(`.api/netcdf4.md`): the peer CF engine; both bind `xarray.open_dataset(engine=...)`, and the netCDF-C quantization keys route to `netcdf4` alone.
 - `xarray`(`libs/python/.api/xarray.md`): `xarray.open_dataset(path, engine="h5netcdf", chunks="auto", decode_cf=True)` and `Dataset.to_netcdf(path, engine="h5netcdf", encoding=...)` are the `FieldEngine.H5NETCDF` open/write delegates, driving the `legacyapi` `Dataset` surface.
 - field-dataset owner: the `FieldEngine.H5NETCDF` row threads only the HDF5-shared compression band (`compression`/`compression_opts`/`shuffle`/`fletcher32`) to this engine via `FieldEncoding.for_vars(names, quantize=False)`, stripping the quantization keys by construction.
+- field-container owner: `FieldContainer.labelled` is the one `phony_dims="sort"` consumer — the corpus raw field container carries NO dimension scales by its entry's own pick, so the phony lift names axes `phony_dim_N`; the escape hatch stays rejected on the CF path.
 
 [LOCAL_ADMISSION]:
 - Open `File`/`legacyapi.Dataset` as a context manager (`with h5netcdf.File(...) as ds:`) so `close()` flushes on exit.

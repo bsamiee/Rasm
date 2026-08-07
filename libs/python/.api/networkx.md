@@ -108,14 +108,15 @@
 |  [15]   | traversal     | `dfs_tree(G, source=None, depth_limit=None)` / `bfs_tree(G, source, ...)`                           | tree graph         |
 |  [16]   | flow          | `maximum_flow(flowG, _s, _t, capacity='capacity', flow_func=None)`                                  | (value, flow dict) |
 |  [17]   | flow          | `min_cost_flow(G, ...)` / `network_simplex(G, ...)`                                                 | flow dict / cost   |
-|  [18]   | community     | `louvain_communities(G, weight='weight', resolution=1, threshold=1e-07, max_level=None, seed=None)` | list[set]          |
-|  [19]   | community     | `greedy_modularity_communities(G, weight=None, resolution=1, cutoff=1, best_n=None)`                | list[frozenset]    |
-|  [20]   | community     | `girvan_newman(G, most_valuable_edge=None)`                                                         | community iterator |
-|  [21]   | community     | `modularity(G, communities, ...)`                                                                   | float              |
-|  [22]   | isomorphism   | `is_isomorphic(G1, G2, node_match=None, edge_match=None)`                                           | bool               |
-|  [23]   | relabel       | `relabel_nodes(G, mapping, copy=True)` / `convert_node_labels_to_integers(G, ...)`                  | graph              |
-|  [24]   | set algebra   | `compose(G, H)` / `union(G, H)` / `disjoint_union(G, H)`                                            | graph              |
-|  [25]   | attributes    | `get_node_attributes(G, name)` / `set_node_attributes(G, values, name=None)`                        | dict / in-place    |
+|  [18]   | flow          | `minimum_cut(flowG, _s, _t, capacity='capacity')` / `max_flow_min_cost(G, s, t, capacity, weight)`  | (value, partition) |
+|  [19]   | community     | `louvain_communities(G, weight='weight', resolution=1, threshold=1e-07, max_level=None, seed=None)` | list[set]          |
+|  [20]   | community     | `greedy_modularity_communities(G, weight=None, resolution=1, cutoff=1, best_n=None)`                | list[frozenset]    |
+|  [21]   | community     | `girvan_newman(G, most_valuable_edge=None)`                                                         | community iterator |
+|  [22]   | community     | `modularity(G, communities, ...)`                                                                   | float              |
+|  [23]   | isomorphism   | `is_isomorphic(G1, G2, node_match=None, edge_match=None)`                                           | bool               |
+|  [24]   | relabel       | `relabel_nodes(G, mapping, copy=True)` / `convert_node_labels_to_integers(G, ...)`                  | graph              |
+|  [25]   | set algebra   | `compose(G, H)` / `union(G, H)` / `disjoint_union(G, H)`                                            | graph              |
+|  [26]   | attributes    | `get_node_attributes(G, name)` / `set_node_attributes(G, values, name=None)`                        | dict / in-place    |
 
 [ENTRYPOINT_SCOPE]: centrality algorithms
 - each returns a node-score dict

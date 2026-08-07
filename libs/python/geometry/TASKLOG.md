@@ -25,6 +25,7 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 - Shape: one extraction projection minting CRS, local-to-map transform, and true north on `libs/python/geometry/.planning/ifc/analysis.md`, and one authoring verb row minting and updating `IfcMapConversion`/`IfcProjectedCRS` on `libs/python/geometry/.planning/ifc/authoring.md`.
 - Unlocks: IDEAS.md [IFC_GEOREFERENCE] — scan-vs-model in shared map frames, geo-data planes consuming one geometry-minted georeference fact instead of re-deriving it.
 - Anchors: the pinned `util.geolocation` rows at `libs/python/geometry/.api/ifcopenshell.md` — `get_helmert_transformation_parameters` the one extraction seam over every coordinate-operation subtype, the `auto_*`/manual pairs, `get_crs`, and the north projections; the authoring verb table; idea `[IFC_GEOREFERENCE]`.
+- Ripple: `data` `[IFC_CRS_SOURCE]` — the consumer landed: `spatial/geospatial.md` `GeoreferenceFact` decodes crs/eastings/northings/orthogonal_height/x_axis_abscissa/x_axis_ordinate/scale/true_north, and this band's `[SHAPE]: GeoreferenceFact` seam edge mirrors onto the geometry `ARCHITECTURE.md` sibling map when the extraction lands.
 
 [NONRIGID_ARM]-[QUEUED]: land the non-rigid registration arm and the deformation split.
 - Capability: registration distinguishes construction deviation from structural deformation through a per-point deformation field.

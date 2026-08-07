@@ -111,6 +111,7 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 [FUNCTIONAL_CORE]:
 - `LanguageExt.Core`
 - `Thinktecture.Runtime.Extensions`
+- `Generator.Equals` — generated structural equality for carriers whose collection or memory members void synthesized record equality.
 - `JetBrains.Annotations`
 
 [TIME_IDENTITY]:

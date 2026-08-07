@@ -105,7 +105,7 @@ flowchart LR
     Runtime e4@<-->|"[WIRE]: ProtoVocabulary"| RasmCompute
     Runtime e3@<-->|"[WIRE]: OpLogEntry"| Persistence
     Compute e10@<-->|"[GRADUATION]: HandoffAxis"| RasmCompute
-    Data e7@-->|"[SHAPE]: DoeDataset"| RasmCompute
+    RasmCompute e7@-->|"[SHAPE]: DoeDataset"| Data
     Data e6@<-->|"[WIRE]: SubstraitPlan"| Persistence
     Data e8@-->|"[WIRE]: Environmental"| Materials
     Materials e16@-->|"[WIRE]: MaterialWire + TextureSetWire"| Runtime

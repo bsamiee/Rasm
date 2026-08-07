@@ -136,11 +136,10 @@
     </ItemGroup>
 
     <ItemGroup Label="Code Generation">
-        <PackageReference Include="Generator.Equals" />
         <PackageReference Include="MessagePack" />
         <PackageReference Include="MessagePackAnalyzer" PrivateAssets="all" />
         <PackageReference Include="QuikGraph" />
-        <PackageReference Include="Riok.Mapperly" />
+        <PackageReference Include="Riok.Mapperly" PrivateAssets="all" />
     </ItemGroup>
 
     <ItemGroup Label="Functional Core">

@@ -54,7 +54,7 @@ One intent rail admits every execution request once, a substrate axis routes it 
 - [35]-[RECEIPTS](.planning/Runtime/receipts.md): One `ComputeReceipt` fact union projecting instruments, benchmarks, hooks, cost, alerts.
 - [36]-[WIRE](.planning/Runtime/wire.md): Wire contract — proto vocabulary, evolution, and fault projection.
 - [37]-[TRANSPORT](.planning/Runtime/transport.md): Channel mechanics — transport rows, tuning, and the artifact-frame law.
-- [38]-[CODECS](.planning/Runtime/codecs.md): Field, result, and geometry-delta codecs and the tessellation bridge.
+- [38]-[CODECS](.planning/Runtime/codecs.md): Field, result, waveform-interchange, and geometry-delta codecs and the tessellation bridge.
 - [39]-[PAYLOAD](.planning/Runtime/payload.md): Residency-payload codec and the cluster-LOD chain.
 
 [ANALYSIS]:
@@ -96,7 +96,7 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 - `EC3` — openEPD REST service consumed hand-thin over `HttpClient`; no manifest row.
 
 [INTERCHANGE_TRANSPORT]:
-- `PureHDF` — managed HDF5 read and write: hyperslab field-array reads, chunked filtered writes, and the netCDF-4 corpora on the same path.
+- `PureHDF` — managed HDF5 behind the ONE `Runtime/codecs` archive owner: field containers, waveform corpora, solver history/modes/checkpoints, ensemble and response corpora, reverse-mode tape spill, sparse and basis exchange, graduation and initializer ingest, gridded weather — every consumer a composition over one session capsule.
 - `PureHDF.Filters.BZip2.SharpZipLib` — managed BZip2 codec registered on the HDF5 filter pipeline.
 - `PureHDF.Filters.Lzf` — managed LZF codec on the same pipeline; the accelerated native filter packages publish no osx RID.
 - `Microsoft.IO.RecyclableMemoryStream` — pooled-buffer stream behind the artifact frames and the tileset-manifest emit.
@@ -167,8 +167,8 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 - `Microsoft.Extensions.AI.Abstractions` — `IChatClient` abstraction the AppHost provider binds.
 
 [WIRE_CODEGEN]:
-- `Riok.Mapperly` — per-case proto↔domain transcription at the `Runtime/wire` boundary.
-- `Generator.Equals` — `[Equatable]` structural equality where a class-root wire shape surrenders record equality.
+- `Riok.Mapperly` — reader-free boundary transcription across the wire, receipts, progress, and EC3 boundaries; every mapping compiler-proof under `RequiredMappingStrategy.Both`.
+- `Generator.Equals` — `[Equatable]` structural equality where a class-root wire shape OR a collection-bearing record surrenders the compare (ImmutableArray, FrozenDictionary, rank-2 members), plus the `Inequalities` diff rails; union CASES only, never a `[Union]` root.
 - `Google.Protobuf`
 - `Grpc.Net.Client`
 - `Grpc.AspNetCore`

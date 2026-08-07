@@ -47,6 +47,7 @@ Every reopen predicate rides the license gate.
 - Deriving a colour that must MEET a stated contrast ratio is kernel work, never call-site work — `PerceptualColor.ToneFor` walks the tonal axis in a `ToneSweep` direction to the least extreme rung clearing the ratio and REFUSES where no tone clears it, so a consumer cannot ship the nearest miss as a readable pigment; the recurring move bisects `Tone` against `Contrast` beside a token generator, and re-litigation opens only if a caller needs a non-monotone ordering, which is the same evidence that would earn a comparator argument.
 - `AtomProjection.Rows`' identity fallthrough IS the whole-result row — an explicit self row earns its place only by adding admission, never by restating the mechanism.
 - `TenantContext.Key` is the one tenancy-discriminant read — every store, GUC, and series key folds that `Option`; a re-derived `Partitions ? Entry : absent` ternary is the deleted form.
+- `EncodedGeometry` equality excludes `Payload` under `[IgnoreEquality]`, keyed by `Witness.ContentHash` — the memory member compares by buffer coordinates, and an `ImmutableArray<byte>` carrier swap re-types the public residency seam every wrapper composes; reopens only if the witness digest stops rooting on packed content.
 
 ## [03]-[COLLAPSE]
 

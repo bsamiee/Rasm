@@ -178,6 +178,7 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 - `LanguageExt.Core`
 - `Thinktecture.Runtime.Extensions`
 - `Thinktecture.Runtime.Extensions.Json`
+- `Generator.Equals` — `Availability` and `ResolvedTheme` structural equality over frozen set and map members.
 - `JetBrains.Annotations`
 
 [TIME_IDENTITY]:

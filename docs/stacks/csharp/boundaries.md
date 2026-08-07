@@ -1,6 +1,6 @@
 # [BOUNDARIES]
 
-Foreign material crosses once: a boundary owner projects handles, sentinels, callbacks, thread-affine work, state cells, and protocol bytes into admitted values or typed rails, so everything the interior receives — values, receipts, policies, effects — is recoverable from declarations rather than from the foreign surface that produced it. Only the seam names a provider type, catches a provider exception, or holds a native lifetime; the interior is total over admitted owners, and every native crossing mints a closed fault family so the cause stays structurally addressable instead of flattening to one provider token.
+Foreign material crosses once: a boundary owner projects handles, sentinels, callbacks, thread-affine work, state cells, and protocol bytes into admitted values or typed rails, so everything the interior receives — values, receipts, policies, effects — is recoverable from declarations rather than from the foreign surface that produced it. Only the seam names a provider type, catches a provider exception, or holds a native lifetime; the interior is total over admitted owners, and every native crossing mints a closed fault family so the cause stays structurally addressable.
 
 ## [01]-[SEAM_CHOOSER]
 
@@ -290,7 +290,7 @@ public static class DrainBoundary {
 ```
 
 [MEMO_KEY]:
-- Law: a boundary memo key binds the foreign identity content alone cannot recover — a native handle's absolute path plus file length plus last-write stamp, a session token, or a capability fingerprint joins the content and policy axes into one composite key, so two payloads byte-identical yet sourced from distinct foreign owners never collide, and in-place file replacement invisible to a path-only cache is caught.
+- Law: a boundary memo key binds the foreign identity content alone cannot recover — a native handle's absolute path with file length and last-write stamp, a session token, or a capability fingerprint joins the content and policy axes into one composite key, so two payloads byte-identical yet sourced from distinct foreign owners never collide, and in-place file replacement invisible to a path-only cache is caught.
 - Law: a structural index or graph diff binds the discriminant content alone cannot recover — a node's path-vector or sibling ordinal joins the `BYTE_IDENTITY` content digest so two identical-content siblings under one parent key distinctly, the structural axis riding the same composite the foreign-identity axis does; the content digest is that one canonical byte-codec reused verbatim, never a second hashing path.
 - Boundary: the fixed-arity axis set rides a value tuple or `[ComplexValueObject]` composite key, a dynamic one a `FrozenDictionary`; the rooted graph id is a neutral kernel value while any foreign or wire id is a boundary attribute, never the kernel key.
 - Reject: a content-only, path-only, type-only, or option-partial cache dropping the foreign or structural axis; an order-sensitive tree keyed on content alone that collapses identical-content siblings and loses the move; a process-randomized `GetHashCode` persisted as stable identity.
@@ -316,6 +316,7 @@ public static class DrainBoundary {
 [CONVERTER_OWNER]:
 - Law: one `JsonConverter<T>` owns a closed wire family — read resolves the discriminant once and write emits it with the selected case — and the converter consumes exactly the value it owns, throwing `JsonException` for wire-shape rejection so token displacement, depth balance, and path evidence stay boundary facts.
 - Law: the converter owns only the irreducible work — discriminant resolution and a value transform no mapper can express — and delegates the name-only owner↔DTO correspondence to the generated `[Mapper]` it calls, so the read arm wraps the deserialized wire DTO through the generated inverse and the write arm projects the case through the generated forward, and no field assignment is hand-written on either leg.
+- Law: a compile-total `[Union]` crossing dispatches through its generated `Switch` composing the per-case generated mappers — `[MapDerivedType]` trades that exhaustiveness for a runtime type switch and serves only open class hierarchies sharing a base type, so a closed union rewritten onto it is the deleted form.
 - Exemption: the converter's reader statements and `JsonException` throw channel are the named platform-forced seam.
 - Reject: converter-per-case sprawl, case converters bypassing the family owner, sentinels returned from converters, unanchored interior exceptions, or a hand-written field-by-field projection where `[Mapper]` generates the rename.
 
@@ -366,7 +367,7 @@ public sealed class FrameConverter : JsonConverter<Frame> {
 - Law: semantic equality and byte equality are different contracts; raw octets are captured before parse, canonical octets are emitted once, and one encoder per byte-identity domain is a composition-time invariant asserted once, never chosen per site.
 - Law: signed numeric and timestamp fields survive only as raw token bytes — runtime normalization re-spells floats, trims timestamps, and re-kinds non-finite values.
 - Law: a 128-bit identity enters a hash frame as both canonical little-endian halves; converting it to an `Int64` seed truncates identity and manufactures deterministic collisions.
-- Law: a digest is a terminal projection, never an incremental state — deriving a full-state key from a prior key plus a delta requires a composable accumulator the content-address contract itself owns, and a digest-only shortcut cannot reconstruct the order-independent full-state address.
+- Law: a digest is a terminal projection, never an incremental state — deriving a full-state key from a prior key and a delta requires a composable accumulator the content-address contract itself owns, and a digest-only shortcut cannot reconstruct the order-independent full-state address.
 - Law: a parent-ancestry key folds as an ordered incremental hash over the sorted parent keys — an XOR or addition fold self-cancels duplicate identical-content parents and erases multiplicity, so two nodes with different dependency multisets key identically.
 - Exemption: the parse-probe `using` inside the admission kernel is the named platform-forced statement seam.
 - Boundary: receipts carry coordinates and hashes, never payload bytes.

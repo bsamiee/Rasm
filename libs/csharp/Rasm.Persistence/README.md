@@ -214,8 +214,8 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 - `Microsoft.Extensions.Telemetry.Abstractions` — pooled per-operation latency ledger the `Query/lane` read phases stamp; activation stays app-root.
 
 [WIRE_CODEGEN]:
-- `Riok.Mapperly` — generated seam-to-wire and columnar marshal.
-- `Generator.Equals` — generated structural equality and content-key preimage.
+- `Riok.Mapperly` — generated boundary transcription; `Store/schema` `CapabilityMap` is the landed projector.
+- `Generator.Equals` — generated structural equality; `Version/commits` payload-true CRDT state equality; content keys stay `XxHash128`.
 - `MessagePack` — the snapshot-axis codec profile: framed ingest, content-identity encoding, LZ4 posture.
 - `MessagePackAnalyzer` — build-only generator and `MsgPack###` gate behind the AOT resolver chain.
 - `Microsoft.AspNetCore.JsonPatch.SystemTextJson` — RFC 6902 document mutation over the STJ wire.
