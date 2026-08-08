@@ -6,7 +6,7 @@ Multi-domain graduation HUB of the Python branch — the tier-0 page every evide
 
 ## [01]-[INDEX]
 
-- [02]-[GRADUATION]: the receipt, the `HandoffAxis` union with the inherited geometry contract block, the two-stage `_admit`/`_clear` admission rail, and the producer registry.
+- [02]-[GRADUATION]: the receipt, the `HandoffAxis` union with the inherited geometry contract block, the two-stage `_admit`/`_clear` admission rail with its `graduates_async` durable trail over both verdicts, and the producer registry.
 - [03]-[EVIDENCE_WEAVE]: the shared `evidence_run` fold every compute evidence owner composes in place of page-local tracers and inline span opens.
 - [04]-[CROSS_OWNER]: the routing rules gating each axis to its managed owner.
 
@@ -15,10 +15,11 @@ Multi-domain graduation HUB of the Python branch — the tier-0 page every evide
 - Owner: `GraduationReceipt` — the source-package, axis, evidence-key, and residual-ledger carrier. Its axis case IS the subject — no parallel `subject: str` field races the discriminant; the `geometry` case carries its subject as DECODED WIRE DATA typed against the inherited `GEOMETRY_SUBJECTS` contract block, never a compute-authored type racing the geometry mint and never a `rasm.geometry` import — a geometry union change is a geometry ripple landing here as one row. No `bool` admitted flag rides the receipt because its existence IS the admission: a rejected handoff is an `Error` that never reaches `contribute`.
 - Cases: the `HandoffAxis` roster extends by sibling campaign, never by silent admit; the `convex_program` case carries the dual-certificate optimality proof distinct from the `solver` case's first-order convergence verdict; the `unit_law`/`uncertainty_law` cases cross as policy evidence only.
 - Producers: one self-wired `graduates()` producer per live case, each importing this hub downward — a case with no producer is dead vocabulary wearing a rail. `solver`: the `solvers/receipt#RECEIPT` `graduate` projection every solve owner feeds with its receipt or prepared ledger, its family ceiling row, and its key; `convex_program`: `optimization/convex#CONVEX`; `symbolic`: `analysis/symbolic#DERIVATION` under its own stability law; `array_layout`: `numerics/array#PAYLOAD` over the cross-backend bit-identity proof; `unit_law`: `numerics/quantity#QUANTITY`; `uncertainty_law`: `experiments/inference#BAYESIAN`; `model_asset`: `experiments/model#ASSET`; `artifact`: artifacts `core/receipt.md` (sibling-owned); `geometry`: decode-only. `numerics/statistics#STATISTICS` stays deliberately graduation-free by its own charter and `solvers/sensitivity#SENSITIVITY` stays disjoint from study DGSM — preserved boundaries, never gaps; composing the evidence weave is an observability import that breaches neither.
+- Law: every graduation admission reaches the `python:runtime/observability/journal#LEDGER` plane, and `graduates_async` is its ONE seat — the awaitable twin this pure fold mints over the band hop, since recording suspends and `graduates` opens no loop. BOTH verdicts record through one `_evidence` fold: `REGULATORY` at the admitted tee, because a cleared crossing is the record a C# consumer acts on years later, and `OPERATIONAL` at the refused tee, because a bar that held is incident-window evidence and never a seven-year hold. A plane carrying only the crossings that cleared answers "did anything try" with silence. The rails differ by arm and the difference is law: the admitted rail BINDS, so a crossing the plane refused never reads as graduated, while the refused rail rides BESIDE the fault, since replacing a caller's ceiling rejection with a plane fault hides the domain verdict it came for. Subjects stay empty — an evidence key names a computation, never a data subject — and no meter rides the leg, the crossing's cpu being the resource band's one charge. `EVIDENCE_DOMAIN` derives off this page's own scope spelling and is the one domain segment every compute audit verb carries.
 - Auto: every graduating family's DEFAULT ceiling is a governed policy row on that family's own carrier beside its route table, the hub's caller-supplied tighter row the override — an ad-hoc ceiling literal at a `graduates()` call site has no owner. Three failure concerns stay distinct on three fences: a refinement breach is an exception the `_admit` fence converts, a ceiling rejection is a pure domain `Error` and never a raise, and an emit-time raise is the weave's emit fence to convert.
 - Receipt: an admitted handoff is a `planned` wire proposal, never an emitted product receipt. Its fact floor is FENCE-PINNED SELF-DESCRIBING as the C# graduation gate's decode vocabulary — `FACT_FLOOR` and the residual ledger namespaced under `residual.`, so a ledger metric can never shadow a floor name — and the gate attributes and dedupes every crossing without free-form-map guessing; the evidence key renders through the canonical `ContentKey.hex` form the C# `InterchangeIdentity.Key` contract reads.
-- Growth: a new handoff kind is one `HandoffAxis` case, one `_subject` match arm, and its sibling-campaign producer; a new geometry subject is a geometry ripple landing one `GEOMETRY_SUBJECTS` row; a stricter admission bar is one tighter ceiling row the caller supplies; a new evidence owner is one `EvidenceScope` row; a new embedded composition is one `ScopeKey` the caller threads, never a sibling registry.
-- Boundary: no handoff record claims production readiness, a Python-only benchmark conclusion, or a C# source-shape claim absent from the C# owner planning. Compute-emitted geometry subjects do not exist — a second graduation direction is geometry's own closed ruling, so a compute re-graduation on the geometry axis requires a named consumer and a compute-owned axis case, never the geometry case.
+- Growth: a new handoff kind is one `HandoffAxis` case, one `_subject` match arm, and its sibling-campaign producer, its audit verb deriving with it; a newly audited admission column is one `_evidence` `Change` row; a new geometry subject is a geometry ripple landing one `GEOMETRY_SUBJECTS` row, re-proved by the `mirror_aligned` boot gate a composing root runs with geometry's own `SUBJECTS`/`WIRE_FIELDS`/`LINK_KIND` exports; a stricter admission bar is one tighter ceiling row the caller supplies; a new evidence owner is one `EvidenceScope` row; a new embedded composition is one `ScopeKey` the caller threads, never a sibling registry.
+- Boundary: no handoff record claims production readiness, a Python-only benchmark conclusion, or a C# source-shape claim absent from the C# owner planning. No ledger, custody, or retention window is minted here — the plane arrives bound at the composition root and this owner declares a `Retain` class alone. Compute-emitted geometry subjects do not exist — a second graduation direction is geometry's own closed ruling, so a compute re-graduation on the geometry axis requires a named consumer and a compute-owned axis case, never the geometry case.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
@@ -30,13 +31,14 @@ from typing import Annotated, Final, Literal, assert_never
 
 from beartype import beartype
 from beartype.vale import Is
-from expression import Error, Ok, case, tag, tagged_union
-from expression.collections import Map
+from expression import Error, Ok, Result, case, tag, tagged_union
+from expression.collections import Block, Map
 from msgspec import Struct, convert, json
 from opentelemetry import propagate, trace
 
 from rasm.runtime.faults import FAULT_CONF, BoundaryFault, RuntimeRail, boundary
 from rasm.runtime.identity import ContentKey
+from rasm.runtime.journal import Actor, Assigned, AuditFact, Change, Cleared, Fact, Journal, Party, Retain
 from rasm.runtime.receipts import DEFAULT_SCOPE, Receipt, Redaction, ScopeKey, measured
 
 lazy from rasm.compute.graduation.observability import ADMITTED, REJECTED, GraduationAdmitted, GraduationRejected, fired, ledgered  # lazy breaks the hub<->observability stratum cycle; proxies reify at first dispatch
@@ -119,12 +121,21 @@ GEOMETRY_SUBJECTS: Final[frozenset[str]] = frozenset((
     "thermal-comfort",
 ))
 
+# shared trace-join spelling both ends stamp on `rasm.link.kind`; geometry exports its own `LINK_KIND` and
+# `mirror_aligned` proves the two byte-equal at boot.
+LINK_KIND: Final[str] = "geometry-graduation"
+
 # fence-pinned SELF-DESCRIBING fact floor of every `planned` receipt — the C# graduation gate's
 # decode vocabulary; the cleared residual ledger rides beside the floor under `residual.`-prefixed
 # keys, so a metric name can never collide with a floor slot, and `phase` rides the triple.
 FACT_FLOOR: Final[tuple[str, ...]] = ("axis", "subject", "evidence_key", "residual_count")
 
 REDACTION: Final[Redaction] = Redaction(classified=Map.empty())  # hub-exported: compute evidence facts carry no secret field
+
+# the one domain segment every compute audit verb carries — the same `<domain>` the metric projection and the point
+# ids already record under — DERIVED off this page's own scope spelling rather than transcribed, so a root rename
+# cannot strand a durable verb under a segment no series answers, and every producer page reads this one export.
+EVIDENCE_DOMAIN: Final[str] = EvidenceScope.HANDOFF.value.split(".", 2)[1]
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -175,6 +186,26 @@ class GraduationReceipt(Struct, frozen=True):
 
         floor: SpanFacts = {"axis": axis.tag, "evidence_key": evidence_key.hex, "residual_count": len(measured)}
         return evidence_run(EvidenceScope.HANDOFF, f"graduate.{axis.tag}", rail, facts=floor, composition=composition)
+
+    @staticmethod
+    async def graduates_async(
+        source_package: str, axis: HandoffAxis, evidence_key: ContentKey, measured: dict[str, float], ceiling: dict[str, float],
+        upstream: Mapping[str, str] | None = None, composition: ScopeKey = DEFAULT_SCOPE,
+    ) -> RuntimeRail[GraduationReceipt]:
+        # the awaitable twin over the band hop, and the ONE seat where an admission reaches the durable plane.
+        # `graduates` is a pure fold over an already-measured ledger — it opens no loop and awaits nothing — so the
+        # trail cannot land inside it, recording being a suspending act. BOTH verdicts record: an admission plane
+        # carrying only the crossings that cleared answers "did anything try" with silence, and a refused graduation
+        # is exactly the crossing an audit reconstructs. The rails differ by arm and that difference is load-bearing
+        # — the admitted rail BINDS, because a crossing the plane could not record must not read as graduated, while
+        # the refused one rides BESIDE the fault, since replacing a caller's own ceiling rejection with a plane fault
+        # hides the domain verdict it came for.
+        match GraduationReceipt.graduates(source_package, axis, evidence_key, measured, ceiling, upstream, composition):
+            case Result(tag="ok") as cleared:
+                return (await Journal.record(_evidence(source_package, axis, cleared), scope=composition)).bind(lambda _landed: cleared)
+            case refused:
+                await Journal.record(_evidence(source_package, axis, refused), scope=composition)
+                return refused
 
     @staticmethod
     def geometry(source_package: str, payload: bytes | Mapping[str, object], composition: ScopeKey = DEFAULT_SCOPE) -> RuntimeRail[GraduationReceipt]:
@@ -269,6 +300,42 @@ class GraduationReceipt(Struct, frozen=True):
 _WIRE_KEY: Final[re.Pattern[str]] = re.compile(r"\A(?P<digest>[0-9a-f]{32}):(?P<fmt>[^:]+)\Z")
 
 
+def _evidence(source_package: str, axis: HandoffAxis, settled: RuntimeRail[GraduationReceipt]) -> Block[Fact]:
+    # ONE admission-trail fold over BOTH verdicts, so the two arms cannot drift into two vocabularies for one
+    # crossing: the verb, the actor, and the axis target are shared and only the retention, the subject source, and
+    # the diff differ. Retention is where the arms genuinely diverge — an ADMITTED crossing is the record a C#
+    # consumer acts on years later, so it holds REGULATORY, while a REFUSED one is the operational trail of a bar
+    # that held, worth reading back through an incident window and never worth a seven-year hold. The verb carries
+    # the package's one domain segment beside the axis its own union names, so a durable row greps against the
+    # series the taps already record. Subjects stay EMPTY by law: an evidence key names a computation, never a data
+    # subject, so indexing one would pull solve evidence into every portability export and every erasure sweep. No
+    # meter rides here — the crossing's cpu is the resource band's one COMPUTE charge.
+    match settled:
+        case Result(tag="ok", ok=receipt):
+            row: tuple[Retain, str, tuple[Change, ...]] = (
+                Retain.REGULATORY,
+                receipt.subject,
+                (
+                    Assigned(path="/evidence_key", next=receipt.evidence_key.hex),
+                    Assigned(path="/residual_count", next=str(len(receipt.residuals))),
+                ),
+            )
+        case Result(tag="error", error=fault):
+            row = (Retain.OPERATIONAL, GraduationReceipt._subject(axis), (Cleared(path="/admitted", prior=fault.boundary[1]),))
+        case _ as unreachable:
+            assert_never(unreachable)
+    retention, subject, change = row
+    return Block.singleton(
+        AuditFact(
+            action=f"{EVIDENCE_DOMAIN}.{axis.tag}",
+            actor=Party(kind=Actor.SERVICE, key=source_package),
+            target=Party(kind="axis", key=subject),
+            retention=retention,
+            change=change,
+        )
+    )
+
+
 def _linked(carrier: Mapping[str, str] | None) -> None:
     # consumer half of the co-shipped trace carrier: the installed global composite decodes trace context and baggage,
     # and the live consumer span folds its SpanContext as a Link — cross-producer click-through without a second
@@ -278,7 +345,25 @@ def _linked(carrier: Mapping[str, str] | None) -> None:
         return
     linked = trace.get_current_span(propagate.extract(carrier)).get_span_context()
     if linked.is_valid:
-        trace.get_current_span().add_link(linked, {"rasm.link.kind": "geometry-graduation"})
+        trace.get_current_span().add_link(linked, {"rasm.link.kind": LINK_KIND})
+
+
+# S4 boot gate over the hand-copied geometry mirror: a composition root composing BOTH branches feeds geometry's own
+# exports (`SUBJECTS`, `WIRE_FIELDS`, `LINK_KIND`) and compute imports nothing — the branch descriptor-drift-gate
+# pattern seated at the one tier where both ends are importable. Set equality catches the removed-or-renamed subject
+# `forbid_unknown_fields` never trips, the field census closes the rename-and-drop hole on `_GeometryWire`, and the
+# link spelling proves the trace join stamps one kind at both ends. Empty roster reads aligned; a root refuses boot
+# on any row, naming the drift instead of decoding past it.
+def mirror_aligned(subjects: Iterable[str], wire_fields: Iterable[str], link_kind: str) -> Block[str]:
+    theirs, fields = frozenset(subjects), frozenset(wire_fields)
+    mirror = frozenset(_GeometryWire.__struct_fields__)
+    return Block.of_seq((
+        *(f"subject-missing:{name}" for name in sorted(theirs - GEOMETRY_SUBJECTS)),
+        *(f"subject-retired:{name}" for name in sorted(GEOMETRY_SUBJECTS - theirs)),
+        *(f"field-missing:{name}" for name in sorted(fields - mirror)),
+        *(f"field-orphaned:{name}" for name in sorted(mirror - fields)),
+        *((f"link-kind:{link_kind}!={LINK_KIND}",) if link_kind != LINK_KIND else ()),
+    ))
 
 
 def _key(render: str) -> RuntimeRail[ContentKey]:

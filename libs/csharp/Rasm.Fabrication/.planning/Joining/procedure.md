@@ -325,7 +325,11 @@ public abstract partial record QualificationRule {
 // ONE compliance row. Verdict, variable identity, fault subject, scalar, and invariant evidence live on the single
 // declaration, and the demanded reading beside the admitted range is the whole payload — a per-modality case family
 // restated those six columns five times and grew a seventh case for welder standing that decomposes into two rows.
-public sealed record ComplianceRow(
+// [Equatable] completes the receipt's structured diff: ProcedureReceipt compares Rows under [OrderedEquality],
+// and a generated element comparer projects per-member Inequalities paths (Rows[3].Passed) an opaque
+// synthesized element cannot.
+[Equatable]
+public sealed partial record ComplianceRow(
     int Joint,
     QualificationSource Source,
     Option<VariableKey> Subject,
@@ -840,7 +844,8 @@ public sealed record HoldRelease(
     bool Attended,
     Option<NdtMethod> Method);
 
-public sealed record InspectionTestPlan(Seq<InspectionRequirement> Requirements, Seq<HoldPoint> Holds) {
+[Equatable]
+public sealed partial record InspectionTestPlan(Seq<InspectionRequirement> Requirements, Seq<HoldPoint> Holds) {
     public static InspectionTestPlan Of(InspectionPolicy policy, Seq<WeldDemand> demands) {
         Seq<(InspectionRequirement Requirement, Option<HoldKind> Hold, Option<WitnessParty> Party)> rows =
             demands.Bind(demand => policy.Derive(demand.Joint, demand.Inspection));
@@ -1028,7 +1033,8 @@ public sealed partial class ProcedureRequest {
         AdmissionSlots.Gate(holds, new FabricationFault.PolicyInadmissible(FabConcern.Joining, $"procedure-request:{locus}"));
 }
 
-public sealed record QualificationRecord(
+[Equatable]
+public sealed partial record QualificationRecord(
     QualificationSource Source,
     Option<int> Joint,
     [property: PersonalData] string Subject,

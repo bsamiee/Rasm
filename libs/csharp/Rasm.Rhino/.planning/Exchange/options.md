@@ -14,6 +14,7 @@
 - Law: a shared vocabulary is earned only by two or more host enums sharing one roster — `SubDForm` qualifies; a single-host enum rides its case field directly as boundary material, because a one-to-one `[SmartEnum]` mirror restates host truth.
 - Law: a dial field wraps the operations rail's `FieldOverride<T>` in `Option`, so an unstated field and a stated `Keep` both leave the baseline standing; `default` is `None` and never `Keep`, because the override is class-shaped and a defaulted field carries no case to dispatch.
 - Law: the CSV column set is the ONE row where the tune's baseline diverges from the host's own default, and it does so by design — column membership derives from the tune's grouping, ordering, and fidelity axes, so the layer, object-name, description, and user-string columns the host turns on by default appear only when an axis names them, while the measured mass-property columns the host leaves off appear whenever the fidelity is measured. A dial-free CSV write is therefore a policy-shaped table rather than the host's default table, and a caller wanting the host's own column set states `Columns` explicitly.
+- Law: `PolicyMap` generates the name-mirrored policy `Apply` seats as existing-target mappings under Source-side completeness, so a new `IgesIdentity`, `IgesSurfaceForm`, or `VdaHeader` member with no host slot breaks the build; `IgesFitPolicy` stays hand-seated because one shape fills the `Curve*` and `Surface*` host prefixes by slot.
 - Growth: a new cross-host vocabulary is one row set with one column per host enum; a new cluster is one sub-record with its `Apply`.
 - Boundary: each `Mint` block is a host-mutation capsule; object initialization and ordered `Iter`/`Apply` statements are the platform-forced statement exemption.
 
@@ -24,6 +25,7 @@ using Rasm.Numerics;
 using Rhino;
 using Rhino.FileIO;
 using Rhino.Geometry;
+using Riok.Mapperly.Abstractions;
 using System.Runtime.InteropServices;
 
 namespace Rasm.Rhino.Exchange;
@@ -213,6 +215,27 @@ public sealed record VdaHeader(
     string CompanyName = "",
     string ReceivingDepartment = "") {
     public static VdaHeader Standard { get; } = new();
+}
+
+// Existing-target transcription for the name-mirrored policy products: the host option object is the mapping
+// target, and Source-side completeness makes a new policy member with no host slot a build break — target
+// completeness stays off because sibling slots fill the host's remaining members. IgesFitPolicy stays
+// hand-seated in the IGES Mint: one shape fills the Curve* and Surface* host prefixes by SLOT, a
+// slot-dependent rename no single mapping expresses.
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Source)]
+internal static partial class PolicyMap {
+    public static partial void Apply(IgesIdentity identity, [MappingTarget] FileIgsWriteOptions host);
+
+    [MapProperty(nameof(IgesSurfaceForm.Surfaces), nameof(FileIgsWriteOptions.SurfaceType))]
+    [MapProperty(nameof(IgesSurfaceForm.PolySurfaces), nameof(FileIgsWriteOptions.PolySurfaceType))]
+    [MapProperty(nameof(IgesSurfaceForm.Solids), nameof(FileIgsWriteOptions.SolidType))]
+    [MapProperty(nameof(IgesSurfaceForm.Meshes), nameof(FileIgsWriteOptions.MeshType))]
+    [MapProperty(nameof(IgesSurfaceForm.SplitClosed), nameof(FileIgsWriteOptions.SplitClosedSurfaces))]
+    [MapProperty(nameof(IgesSurfaceForm.SplitBiPolar), nameof(FileIgsWriteOptions.SplitBiPolarSurfaces))]
+    [MapProperty(nameof(IgesSurfaceForm.ForceTrimmed), nameof(FileIgsWriteOptions.ForceTrimmedSurfaces))]
+    public static partial void Apply(IgesSurfaceForm surfaces, [MappingTarget] FileIgsWriteOptions host);
+
+    public static partial void Apply(VdaHeader header, [MappingTarget] FileVdaWriteOptions host);
 }
 ```
 
@@ -665,29 +688,21 @@ public abstract partial record FormatDial {
             IgesFitPolicy surfaceFit = SurfaceFit.IfNone(IgesFitPolicy.Standard);
             IgesSurfaceForm surfaces = Surfaces.IfNone(IgesSurfaceForm.Standard);
             FileIgsWriteOptions host = new() {
-                Author = identity.Author,
-                Organization = identity.Organization,
-                Sender = identity.Sender,
-                Receiver = identity.Receiver,
-                NotesInStartSection = identity.NotesInStartSection,
                 Units = Units.IfNone(UnitSystem.Millimeters),
                 Tolerance = Tolerance.IfNone(0.001),
                 IgesVersion = Version.IfNone(FileIgsWriteOptions.IgeswVersionMode.Igv52),
                 EolType = Eol.IfNone(FileIgsWriteOptions.EolMode.Crlf),
                 IgesStringType = Text.IfNone(FileIgsWriteOptions.IgesStringTypeMode.Unicode),
                 PointType = Points.IfNone(FileIgsWriteOptions.PointObjectsMode.PoSeparate),
-                CurveMaxDegree = curves.MaxDegree,
                 CompositeCurvesAsSingleBsplines = CompositeCurves.IfNone(false),
+                // IgesFitPolicy fills BY SLOT — one shape, two host member prefixes — so the seat stays hand-written.
+                CurveMaxDegree = curves.MaxDegree,
                 SimplifyCurves = curves.Simplify,
                 FitRationalCurves = curves.FitRational,
                 ClampCurveEndKnots = curves.ClampEndKnots,
                 UseParentLabelOnCurves = curves.UseParentLabel,
                 ForceBezierKnotsOnCurves = curves.ForceBezierKnots,
                 FlagDependentCurvesAs03 = curves.FlagDependentAs03,
-                SurfaceType = surfaces.Surfaces,
-                PolySurfaceType = surfaces.PolySurfaces,
-                SolidType = surfaces.Solids,
-                MeshType = surfaces.Meshes,
                 MaxSurfaceDegree = surfaceFit.MaxDegree,
                 SimplifySurfaces = surfaceFit.Simplify,
                 FitRationalSurfaces = surfaceFit.FitRational,
@@ -695,16 +710,14 @@ public abstract partial record FormatDial {
                 UseParentLabelOnSurfaces = surfaceFit.UseParentLabel,
                 ForceBezierKnotsOnSurfaces = surfaceFit.ForceBezierKnots,
                 FlagDependentSurfacesAs03 = surfaceFit.FlagDependentAs03,
-                SplitClosedSurfaces = surfaces.SplitClosed,
-                SplitBiPolarSurfaces = surfaces.SplitBiPolar,
-                ForceTrimmedSurfaces = surfaces.ForceTrimmed,
-                WriteNonPlanarUnitNormal = surfaces.WriteNonPlanarUnitNormal,
                 Scale = Scale.IfNone(1.0),
                 HideDependentObjects = HideDependentObjects.IfNone(false),
                 DoublesUseE = DoublesUseE.IfNone(false),
                 NoZerosInTSection = NoZerosInTSection.IfNone(false),
                 RenderColorAsIgesColor = RenderColorAsIgesColor.IfNone(false),
             };
+            PolicyMap.Apply(identity, host);
+            PolicyMap.Apply(surfaces, host);
             _ = Catia.Iter(pair => { host.CatiaVersion = pair.Version.Value; host.CatiaTolsize = pair.Tolsize; });
             return host;
         }
@@ -836,21 +849,9 @@ public abstract partial record FormatDial {
         Option<VdaHeader> Header = default,
         Option<bool> PointDeviationHairsAsMdi = default) : FormatDial(FileCodec.Vda, CodecPhase.Export) {
         internal FileVdaWriteOptions Mint() {
-            VdaHeader header = Header.IfNone(VdaHeader.Standard);
-            return new() {
-                SendingCompany = header.SendingCompany,
-                SendersName = header.SendersName,
-                TelephoneNumber = header.TelephoneNumber,
-                Address = header.Address,
-                ProjectName = header.ProjectName,
-                ObjectCode = header.ObjectCode,
-                Variant = header.Variant,
-                Confidentiality = header.Confidentiality,
-                DateEffective = header.DateEffective,
-                CompanyName = header.CompanyName,
-                ReceivingDepartment = header.ReceivingDepartment,
-                PointDeviationHairsAsMDI = PointDeviationHairsAsMdi.IfNone(false),
-            };
+            FileVdaWriteOptions host = new() { PointDeviationHairsAsMDI = PointDeviationHairsAsMdi.IfNone(false) };
+            PolicyMap.Apply(Header.IfNone(VdaHeader.Standard), host);
+            return host;
         }
     }
 

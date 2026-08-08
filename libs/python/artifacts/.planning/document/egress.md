@@ -13,7 +13,7 @@ Security-and-navigation finishing closes over an emitted PDF or Office container
 - Owner: `DocumentEgress` — one `Finisher.arm` per step resolved off `FINISHERS`, never an `if step ==` cascade or a worker-side `match`; `LicenseLane` is read once at the value in `_stepped`, never a per-call knob. `Finishing` bundles every trusted policy value object while `Extras` carries the untrusted material (stamp bytes, attachment payload, Office credentials) — the admission split is trust, not concern, so passwords never ride the untrusted payload and stamp bytes never ride a trusted default.
 - Entry: `of` admits untrusted material exactly once through the `EgressPayload` `TypedDict`, its `extra_items=str` band folding the format-discriminated Office credential axis into `Extras.credentials`, and rejects an under-supplied step through `_PREREQ` into `EgressFault.incomplete` before the fold runs — the interior is total over admitted owners and never re-validates; material the selected footing's arm cannot express (a needle-bearing REDACT, an active-content SANITIZE demand, an ENCRYPT request at all under `PERMISSIVE`) refuses through the `_LANE_GAPS` predicate table as `EgressFault.lane`, never a silent drop or a weakened seal. One polymorphic entry owns both the singular step and the chain: the `EgressStep | tuple[EgressStep, ...]` discriminant threads finished bytes step-to-step through one `reduce`, never a caller-orchestrated re-entry or a `mode` knob.
 - Auto: each arm returns a `FinishFact` merged onto the running owner through the `FinishFact.combined` monoid (`rails-and-effects.md` STATE_RECEIPTS) — terminal bytes and page count ride the newest fact, single-owner scalars (`encryption_r`, `outline_depth`) survive by right-or-left, additive counters sum — so a chain's earlier evidence never vanishes under a later step's default zeros and `contribute` reads the whole chain's facts without a second parse. `pypdf` is reserved for the structural OUTLINE/IMPOSE/NAVIGATE/FORMS arms and the gated SANITIZE/OPTIMIZE second passes it owns, never a parallel encryptor — qpdf authors every encryption strength through one `pikepdf.Encryption` leg, and ENCRYPT carries NO permissive alternate because the `pdf_oxide` seal omits the `/Perms` entry its own R6/V5 dictionary requires. Native packages bind as module-scope `lazy import` reified on first arm use; no native import lands on the core owner.
-- Receipt: `of` mints the node key ONCE over the canonical pre-fold input (steps, source, node, finishing, extras, footing) and STAMPS it as `key` on the owner, so keyed admission probes the warm seed before the fold runs and `receipt.slot == node.key` holds on both the async and the synchronous port. The mint is carried state rather than a derivation because the finishing fold `structs.replace`s `source` with each arm's output and `step` with the arm that ran: a key re-derived from a finished owner addresses the OUTPUT under the LAST step's name, so it can only answer a key no plan node minted. REWRITE's OCG-strip count and FORMS' baked-widget count ride the `overlays` slot — content-composition operations of the watermark-overlay family.
+- Receipt: `of` mints the node key ONCE over the canonical pre-fold input (steps, source, node, finishing, extras, footing) and STAMPS it as `key` on the owner, so keyed admission probes the warm seed before the fold runs and `receipt.slot == node.key` holds on both the async and the synchronous port. The mint is carried state rather than a derivation because the finishing fold `structs.replace`s `source` with each arm's output and `step` with the arm that ran: a key re-derived from a finished owner addresses the OUTPUT under the LAST step's name, so it can only answer a key no plan node minted. REWRITE's OCG-strip count and FORMS' baked-widget count ride the `overlays` slot — content-composition operations of the watermark-overlay family. `_emit` also awaits `Journal.record` over `receipt.evidence(*self._diff)`: a finish that encrypts, redacts, strips, or fills is a security control somebody later disputes, so the PDF-egress half lands `REGULATORY` under the minted case's own retention row and its diff carries the strip, layer-removal, and fill counters SEPARATELY — `Cleared` for a removal, `Assigned` for a fill — where the receipt's `overlays` slot fuses all four into the one comparable number a metric needs. The seat is that awaitable fold, since recording suspends and `contribute` is a synchronous projection.
 - Packages: `pikepdf` (MPL) owns the qpdf object model, encryption, composition, and save strategy; `pypdf` (BSD) the pure-Python structural arms and the `ObjectDeletionFlag` object pruner; `pymupdf` (AGPL) the richest REDACT burn-in with `search_for` needle match, flagged for supersession on the permissive lane; `pdf_oxide` (MIT/Apache) the permissive REDACT/SANITIZE arms and the STRIP running-content removal no other step owns, never an ENCRYPT arm; `msoffcrypto` the bidirectional Office confidentiality rail.
 - Growth: a new finishing step is one `EgressStep` row, one `Finisher` row, and one `_PREREQ` row when it needs material; a commercial-safe alternative is one `Finisher.permissive` arm, never a parallel license-keyed table; a new policy concern is one `Finishing` field carrying its own value object; a new receipt fact is one `FinishFact` field with its `combined` column, never a re-derivation off the bytes; an encryption strength is one `Strength` row with its `_STRENGTHS` cell; a document-wide strip class is one `PruneClass` member with one `_PRUNE` row; a deeper chain is one more step in the sequence the rail already folds.
 
@@ -39,6 +39,7 @@ from rasm.artifacts.core.receipt import ArtifactReceipt
 from rasm.artifacts.document.model import AnnotKind, AnnotationNode, DocumentNode, SectionNode, node_digest, walk
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import RuntimeRail, async_boundary
+from rasm.runtime.journal import Assigned, Change, Cleared, Journal
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.workers import Kernel, KernelTrait
 from rasm.runtime.receipts import OPEN, Receipt, receipted
@@ -528,10 +529,44 @@ class DocumentEgress(Struct, frozen=True):
 
     async def _emit(self, key: ContentKey, /) -> RuntimeRail[ArtifactReceipt]:
         # Terminal receipt threads the PRE-RUN key the closure captured, so receipt.slot == node.key.
-        return (await async_boundary(f"egress.{'+'.join(self.steps)}", self._finished)).map(lambda live: live._receipt(key))
+        settled = (await async_boundary(f"egress.{'+'.join(self.steps)}", self._finished)).map(lambda live: (live, live._receipt(key)))
+        match settled:
+            case Result(tag="ok", ok=(live, receipt)):
+                # a finish that encrypts, redacts, strips, or fills is a security control over a document somebody
+                # later disputes, so the durable fact lands at the ONE awaitable seat — the sync `contribute` cannot
+                # suspend and the journal write does — under whichever class the minted case's own `_RETENTION` row
+                # names, `REGULATORY` on the PDF egress half. The receipt's `overlays` slot SUMS the
+                # four composition counters into one comparable number, which is right for a metric and wrong for an
+                # audit, so the finer diff rides positionally: a regulator reading a redaction back needs the strip,
+                # the layer removal, and the form fill apart, and widening the case to carry them re-splits a signal
+                # the metric deliberately fused.
+                return (await Journal.record(receipt.evidence(*live._diff))).map(lambda _landed: receipt)
+            case refused:
+                return Error(refused.error)
+
+    @property
+    def _fact(self) -> FinishFact:
+        # the finished owner's evidence, or the untouched-source fact a chain that ran no arm still answers with.
+        return self.fact if self.fact is not None else FinishFact(data=self.source)
+
+    @property
+    def _diff(self) -> tuple[Change, ...]:
+        # removals depart and fills arrive, so the case each counter takes IS its direction: collapsing both onto
+        # `Assigned` leaves a stripped page and a filled field indistinguishable in the one record that must tell
+        # them apart. A zero counter names an operation that never ran and contributes no entry.
+        fact = self._fact
+        return tuple(
+            Cleared(path=f"/{name}", prior=str(count)) if departed else Assigned(path=f"/{name}", next=str(count))
+            for name, count, departed in (
+                ("content_stripped", fact.content_stripped, True),
+                ("layers_removed", fact.layers_removed, True),
+                ("fields_filled", fact.fields_filled, False),
+            )
+            if count
+        )
 
     def _receipt(self, key: ContentKey, /) -> ArtifactReceipt:
-        fact = self.fact if self.fact is not None else FinishFact(data=self.source)
+        fact = self._fact
         # office finish evidence survives the receipt boundary on the `finish.*` band — format, scheme, credential
         # kinds, and the verification verdict the FinishFact computed are facts, never projected away.
         finish = frozendict({

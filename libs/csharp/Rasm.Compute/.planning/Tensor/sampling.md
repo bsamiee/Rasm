@@ -11,20 +11,20 @@ Rasm.Compute owned-build numeric lane for quasi-Monte-Carlo sampling and scatter
 
 ## [02]-[OWNED_BUILDS]
 
-- Owner: `LowDiscrepancy` the seed-explicit state-serializable carrier folding `SequenceFamily` over its per-construction table (a `JoeKuo.Directions` matrix on the Sobol leg, a `HaltonBases` prime vector on the Halton leg), a per-draw counter, and a per-dimension `ShiftSeed` key vector; `Scramble` the `[SmartEnum<string>]` randomization policy carrying paired binary and digit delegates; `SequenceFamily` the `[Union]` family discriminant; `ReplicatePolicy` the replicate-count, confidence, net-quality, and discrepancy-sample gate; `ReplicateFamily` the RQMC estimate carrier; `JoeKuo` the direction-number recurrence and embedded primitive-polynomial owner; `HaltonBases` the demand-sieved prime owner.
+- Owner: `LowDiscrepancy` the seed-explicit state-serializable carrier folding `SequenceFamily` over its per-construction table (a `JoeKuo.Directions` matrix on the Sobol leg, a `HaltonBases` prime vector on the Halton leg), a per-draw counter, and a per-dimension `ShiftSeed` key vector; `Scramble` the `[SmartEnum<string>]` randomization policy carrying paired binary and digit delegates; `SequenceFamily` the `[Union]` family discriminant; `ReplicatePolicy` the replicate-count, confidence, net-quality, and discrepancy-sample gate; `ReplicateFamily` the RQMC estimate carrier; `JoeKuo` the direction-number recurrence over the embedded HDF5 primitive-polynomial resource; `HaltonBases` the demand-sieved prime owner.
 - Cases: `SequenceFamily` cases `Sobol`, `Halton` (stateless markers — each case is its generation law, no radix field exists to hold an incoherent value) and `Independent(ulong Stream)`; `Scramble` rows none, digital-shift, owen.
-- Auto: `Draw` folds the `SequenceFamily` case through the generated total `Switch`; `LatinHypercube` draws one joint Sobol net and rank-stratifies each dimension into one point per stratum; `Replicates` draws exactly `2^BlockExponent` points per replicate, rejects non-finite estimator output, folds the estimator through `OnlineStat`, and admits the Student bound and the Warnock figures through `ReplicatePolicy`.
+- Auto: `Draw` folds the `SequenceFamily` case through the generated total `Switch`; `LatinHypercube` draws one joint Sobol net and rank-stratifies each dimension into one point per stratum; `Replicates` draws exactly `2^BlockExponent` points per replicate, rejects non-finite estimator output, folds the estimator through `OnlineStat`, and admits the Student bound and the Warnock figures through `ReplicatePolicy`; the sink-bearing `Replicates` overload lands the response corpus through `Runtime/codecs#HDF_ARCHIVE` — one `[Replicates, 2^BlockExponent]` chunked dataset, one chunk per replicate written inside the fold (replicate ordinal IS the chunk ordinal, so the monotone cursor and the fold order agree by construction), the regenerating state (family, dimensions, seed, scramble, block exponent, replicate count) riding as attributes so the corpus re-derives from its attributes alone and serializes no generator state.
 - Receipt: `ReplicateFamily(Mean, CrossReplicateVariance, StudentBound, StarDiscrepancy, WorstProjection)` because a single equidistributed estimate carries no recoverable spread, and the net-quality fields make a gate reject on discrepancy rather than slow convergence.
-- Packages: MathNet.Numerics, Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm (project, `Deterministic` the ONE draw owner), BCL inbox
+- Packages: MathNet.Numerics, System.Numerics.Tensors, PureHDF (`H5File`, `H5Dataset<T>`, `NativeDataset.Read<T>(H5DatasetAccess, Span<T>, …)`, `HyperslabSelection`), Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm (project, `Deterministic` the ONE draw owner), BCL inbox
 - Growth: a new family is one `SequenceFamily` case with one `Fill*` kernel; a new scramble is one `Scramble` row; a new net-quality figure is one `ReplicateFamily` field with one kernel; zero new surface — a `SobolGenerator`/`HaltonGenerator`/`LatinHypercubeSampler` sibling family collapses onto the one `LowDiscrepancy` carrier.
 - Boundary — the Sobol leg owns the Joe-Kuo recurrence over the embedded primitive-polynomial set: an all-zero direction table collapses every point to the origin, and the unscaled-`m` recurrence omitting the per-term bit-scaling yields wrong direction numbers and a plausible-looking broken net; both are rejected.
 - Boundary — Halton reads its base per dimension from the `HaltonBases` prime table THIS generator holds (dimension 0 → 2) because a single shared base collapses every coordinate onto one radical-inverse sequence; that owner is separate from `JoeKuo` and its sieve is sized to the requested dimension count, so a Halton draw never forces the Sobol type initializer to load an embedded polynomial resource and sieve the Sobol dimension cap for a leg that touches no direction number; the family discriminant is the stateless case itself, and the deleted `Equidistributed(int Base)` numeric marker — which admitted arbitrary bases and silently routed every non-2 value to Halton — is the named incoherent-admission form, closed by the private constructor under `Sobol`/`Halton`/`Pseudo` factory-only minting.
 - Boundary — `Scramble` applies uniformly across both legs so `Scramble.None` genuinely disables the binary XOR and the base-`b` digit shift, never the hardcoded `(digit + shift) % radix` that shifts even under `None`; `owen` and its base-`b` linear-digit analog are the higher-quality randomization the `Growth` axis names, added as `Scramble` rows, never parallel samplers.
-- Boundary — every DRAW on this lane routes through the kernel `Domain/identity#CONTENT_KEY` `Deterministic` owner: the `Independent` stream reads `Unit(lanes: [stream, drawn, dimension], seed: shift)`, the per-dimension shift key reads `Stream(lanes: [d], seed)`, the Owen ladder brackets `ReverseBits`, the digit permutation keys on `Stream(lanes: [key, position])`, and an unscrambled Halton coordinate reads `RadicalInverse(index, radix)` — so no `SplitMix64` finalizer, bit-reversal, or shifted-XOR lane pack survives here. A shifted-XOR pack is worse than a duplicate mixer: `((ulong)key << 32) ^ position` collides `(key: 0, position: 5)` with `(key: 5, position: 0)`'s neighbours, the exact defect the lane fold exists to remove, so two positions of one Owen scramble share a permutation. `SequenceFamily` keeps the independent-versus-equidistributed split as its case axis, never a bool, because the per-coordinate constructions do not unify.
+- Boundary — every DRAW on this lane routes through the kernel `Domain/identity#CONTENT_KEY` `Deterministic` owner: the `Independent` stream reads `Unit(lanes: [stream, drawn, dimension], seed: shift)`, the per-dimension shift key reads `Stream(lanes: [d], seed)`, the Owen ladder brackets `ReverseBits`, the digit permutation keys on `Stream(lanes: [key, position])`, and an unscrambled Halton coordinate reads `RadicalInverse(index, radix)` — so no `SplitMix64` finalizer, bit-reversal, or shifted-XOR lane pack survives here. Shifted-XOR packs are worse than a duplicate mixer: `((ulong)key << 32) ^ position` collides `(key: 0, position: 5)` with `(key: 5, position: 0)`'s neighbours, the exact defect the lane fold exists to remove, so two positions of one Owen scramble share a permutation. `SequenceFamily` keeps the independent-versus-equidistributed split as its case axis, never a bool, because the per-coordinate constructions do not unify.
 - Boundary — the block exponent is accepted at the draw entrypoint because equidistribution holds only at power-of-base counts and non-power prefixes degrade discrepancy with no diagnostic; the generator is seed-explicit and state-serializable for checkpoint-resume, since thread-entropy and parallel block fill are non-deterministic regardless of seeding — the MathNet `IContinuousDistribution.Samples()` stateful stream and the `torch.manual_seed`/`torch.randn` device RNG are both named rejected draw sources on this lane for the same reason: neither serializes its state, so neither can resume a checkpointed campaign mid-stream.
 - Boundary — net-quality figures are the Warnock L2 star-discrepancy and worst-2D-projection discrepancy; full-dimensional uniformity does not exclude a degenerate 2-D projection.
 - Boundary — `Replicates` rejects `Scramble.None` over the Sobol/Halton legs: `Reseed` reaches those draws only through the scramble key, so an unscrambled equidistributed generator repeats one block per replicate and the cross-replicate variance certifies a false zero spread; the `Independent` leg replicates honestly under `None` because its counter key folds `ShiftSeed` regardless of scramble.
-- Boundary — Latin-hypercube rank-stratifies a JOINT low-discrepancy draw into one point per stratum per dimension; a per-axis 1-D sequence Cartesian-producted inflates the point count and destroys the joint low-discrepancy the variance reduction depends on, and is rejected; the embedded polynomial resource loads once behind the `JoeKuo` deferred cell at the first Sobol construction, a missing resource a fatal construction fault, and the Halton prime sieve grows once per high-water dimension count in its own owner.
+- Boundary — Latin-hypercube rank-stratifies a JOINT low-discrepancy draw into one point per stratum per dimension; a per-axis 1-D sequence Cartesian-producted inflates the point count and destroys the joint low-discrepancy the variance reduction depends on, and is rejected; the embedded Joe-Kuo table is an HDF5 resource read per Sobol construction through `Runtime/codecs#HDF_ARCHIVE` as a `Payload` source — `/degree` and `/coefficients` rank-1 runs and a `/seeds` rank-2 hyperslab covering exactly the requested dimensions — so a three-dimension Sobol decodes three rows where the retired ASCII form parsed the whole table behind a `Lazy`, a missing or corrupt resource is a typed construction refusal rather than a cached type-initialization throw, and both legs now share the demand-sized law the Halton prime sieve already held.
 
 ```csharp signature
 [SmartEnum<string>]
@@ -118,15 +118,24 @@ public abstract partial record ComputeReceipt {
 }
 
 // Factory-only construction makes a family/table mismatch unmintable: Sobol owns a Joe-Kuo direction table and
-// no bases, Halton owns its own prime bases and no directions, Independent owns neither. Each leg's table rides
-// the generator, so a draw never reaches an ambient roster the other leg's type initializer would build.
-public sealed record LowDiscrepancy {
+// no bases, Halton owns its own prime bases and no directions, Independent owns neither. Each leg's table
+// rides the generator, so a draw never reaches an ambient roster the other leg's type initializer would build.
+// `[Equatable]` delivers the checkpoint identity the seed-explicit, state-serializable charter demands: a resumed
+// generator proves equal to its checkpoint by VALUE. `DirectionNumbers` and `Bases` are IGNORED as derived state —
+// both are pure functions of (Family, Dimensions) via `JoeKuo.Directions`/`HaltonBases.Primes`, and `uint[,]` is
+// not `IEnumerable<T>` (a rank-2 member under an ordered attribute is a generator-killing defect, never a policy).
+// `ShiftSeed` carries independent state (`Reseed` advances it while `Seed` stands) and compares ordered.
+[Equatable]
+public sealed partial record LowDiscrepancy {
     public SequenceFamily Family { get; private init; }
     public Scramble Scramble { get; private init; }
     public int Dimensions { get; private init; }
     public int Seed { get; private init; }
+    [IgnoreEquality]
     public uint[,] DirectionNumbers { get; private init; }
+    [IgnoreEquality]
     public int[] Bases { get; private init; }
+    [OrderedEquality]
     public uint[] ShiftSeed { get; private init; }
     public long Drawn { get; private init; }
 
@@ -135,7 +144,8 @@ public sealed record LowDiscrepancy {
 
     public static Fin<LowDiscrepancy> Sobol(int dimensions, int seed, Scramble scramble) =>
         scramble is not null && dimensions >= 1 && dimensions <= JoeKuo.MaxDimensions
-            ? Fin.Succ(new LowDiscrepancy(new SequenceFamily.Sobol(), scramble, dimensions, seed, JoeKuo.Directions(dimensions), EmptyBases, ShiftFor(dimensions, seed), 0L))
+            ? JoeKuo.Directions(dimensions).Map(directions =>
+                new LowDiscrepancy(new SequenceFamily.Sobol(), scramble, dimensions, seed, directions, EmptyBases, ShiftFor(dimensions, seed), 0L))
             : Fin.Fail<LowDiscrepancy>(new ComputeFault.ModelRejected($"<sobol-dimension-bound:{dimensions}>"));
 
     // Per-dimension radix is the `d`-th prime this generator holds (dimension 0 -> 2); the case is a marker,
@@ -177,7 +187,34 @@ public sealed record LowDiscrepancy {
             ? Sobol(dimensions, seed, scramble).Map(generator => Stratify(generator.Net(count)))
             : Fin.Fail<double[][]>(new ComputeFault.ModelRejected($"<lhs-bound:dims={dimensions}:count={count}>"));
 
-    public static Fin<ReplicateFamily> Replicates(LowDiscrepancy generator, ReplicatePolicy policy, Func<ReadOnlyMemory<double>, double> estimator) {
+    public static Fin<ReplicateFamily> Replicates(LowDiscrepancy generator, ReplicatePolicy policy, Func<ReadOnlyMemory<double>, double> estimator) =>
+        Campaign(generator, policy, estimator, None);
+
+    // Sink-bearing overload: the same campaign fold, with each replicate's response vector landing as ONE chunk
+    // of the `[Replicates, 2^BlockExponent]` corpus dataset — the replicate ordinal is the chunk ordinal, so the
+    // writer's monotone cursor and the fold order agree by construction. The attributes carry the REGENERATING
+    // state; the corpus stores no serialized generator.
+    public static Fin<ReplicateFamily> Replicates(LowDiscrepancy generator, ReplicatePolicy policy, Func<ReadOnlyMemory<double>, double> estimator, Stream sink, HdfArchivePolicy archive) =>
+        // Admission runs BEFORE the writer opens: Begin truncates the sink, so a refused policy must never
+        // destroy a create-only target it will not fill.
+        Admit(generator, policy, estimator).Bind(_ => Try.lift<Fin<ReplicateFamily>>(() => {
+                int count = 1 << policy.BlockExponent;
+                H5Dataset<double[]> slot = new(fileDims: [(ulong)policy.Replicates, (ulong)count], chunks: [1u, (uint)count], datasetCreation: archive.Creation());
+                H5File graph = new() { ["responses"] = slot };
+                graph.Attributes["family"] = generator.Family.Key;
+                graph.Attributes["dimensions"] = generator.Dimensions;
+                graph.Attributes["seed"] = generator.Seed;
+                graph.Attributes["scramble"] = generator.Scramble.Key;
+                graph.Attributes["block-exponent"] = policy.BlockExponent;
+                graph.Attributes["replicates"] = policy.Replicates;
+                using HdfWriter session = HdfArchive.Begin(graph, sink, archive);
+                return Campaign(generator, policy, estimator, Some((Session: session, Slot: slot)));
+            })
+            .Run()
+            .MapFail(static error => (Error)new ComputeFault.ModelRejected($"<replicate-corpus:{error.Message}>"))
+            .Bind(identity));
+
+    static Fin<Unit> Admit(LowDiscrepancy generator, ReplicatePolicy policy, Func<ReadOnlyMemory<double>, double> estimator) {
         bool valid = generator is not null && policy is not null && estimator is not null
             && policy.BlockExponent is >= 1 and <= 24 && policy.Replicates >= 2
             && double.IsFinite(policy.Confidence) && policy.Confidence is > 0.0 and < 1.0
@@ -185,22 +222,28 @@ public sealed record LowDiscrepancy {
             && double.IsFinite(policy.MaxProjection) && policy.MaxProjection >= 0.0
             && policy.DiscrepancySample >= 2;
         if (!valid) {
-            return Fin.Fail<ReplicateFamily>(new ComputeFault.ModelRejected("<replicate-policy-invalid>"));
+            return Fin.Fail<Unit>(new ComputeFault.ModelRejected("<replicate-policy-invalid>"));
         }
 
         // Reseed randomizes Sobol/Halton only through the scramble key; `Scramble.None` draws byte-identical
         // replicate blocks, so cross-replicate variance and the Student bound collapse to a false zero.
-        if (generator.Scramble == Scramble.None && generator.Family is not SequenceFamily.Independent) {
-            return Fin.Fail<ReplicateFamily>(new ComputeFault.ModelRejected("<replicate-unscrambled-equidistributed>"));
-        }
+        return generator.Scramble == Scramble.None && generator.Family is not SequenceFamily.Independent
+            ? Fin.Fail<Unit>(new ComputeFault.ModelRejected("<replicate-unscrambled-equidistributed>"))
+            : Fin.Succ(unit);
+    }
 
-        return Try.lift<Fin<ReplicateFamily>>(() => {
+    static Fin<ReplicateFamily> Campaign(LowDiscrepancy generator, ReplicatePolicy policy, Func<ReadOnlyMemory<double>, double> estimator, Option<(HdfWriter Session, H5Dataset<double[]> Slot)> corpus) {
+        return Admit(generator, policy, estimator).Bind(_ => Try.lift<Fin<ReplicateFamily>>(() => {
                 int count = 1 << policy.BlockExponent;
                 return toSeq(Enumerable.Range(0, policy.Replicates))
-                    .Map(r => Block(generator.Reseed(r), count, policy.DiscrepancySample, estimator))
+                    .Map(r => Block(generator.Reseed(r), count, policy.DiscrepancySample, estimator)
+                        .Map(block => {
+                            corpus.IfSome(sink => sink.Session.WriteChunk(sink.Slot, block.Values, r, grid: [policy.Replicates, 1], chunkShape: [1u, (uint)count]));
+                            return block;
+                        }))
                     .Traverse(identity)
                     .Bind(blocks => {
-                        OnlineStat stat = blocks.Fold(OnlineStat.Empty, static (acc, block) => acc.Push(block.Mean));
+                        OnlineStat stat = blocks.Fold(OnlineStat.Empty, static (acc, block) => acc.Push(Mean(block.Values)));
                         double variance = stat.Variance(MomentNormalizer.Sample);
                         double bound = StudentT.InvCDF(0.0, 1.0, policy.Replicates - 1, 0.5 + policy.Confidence / 2.0) * Math.Sqrt(variance / policy.Replicates);
                         double star = blocks.Map(static block => block.Star).Max(0.0);
@@ -214,8 +257,11 @@ public sealed record LowDiscrepancy {
             })
             .Run()
             .MapFail(static error => (Error)new ComputeFault.ModelRejected($"<replicate-kernel:{error.Message}>"))
-            .Bind(identity);
+            .Bind(identity));
     }
+
+    static double Mean(double[] values) =>
+        toSeq(values).Fold(OnlineStat.Empty, static (acc, value) => acc.Push(value)).Mean;
 
     double[] SobolPoint() {
         double[] point = new double[Dimensions];
@@ -257,20 +303,19 @@ public sealed record LowDiscrepancy {
     LowDiscrepancy Reseed(int replicate) =>
         this with { ShiftSeed = ShiftFor(Dimensions, unchecked(Seed + replicate)), Drawn = 0L };
 
-    // The ESTIMATOR reads every drawn point — that mean is the campaign's whole purpose — while the two O(N²·d)
-    // net-quality kernels read the discrepancy subsample alone.
-    static Fin<(double Mean, double Star, double Projection)> Block(LowDiscrepancy generator, int count, int sample, Func<ReadOnlyMemory<double>, double> estimator) {
+    // ESTIMATOR law: every drawn point feeds the mean — the campaign's whole purpose — while the two O(N²·d)
+    // net-quality kernels read the discrepancy subsample alone. The per-point response VECTOR returns beside the
+    // figures so the corpus overload lands it as the replicate's chunk without a second estimator pass.
+    static Fin<(double[] Values, double Star, double Projection)> Block(LowDiscrepancy generator, int count, int sample, Func<ReadOnlyMemory<double>, double> estimator) {
         double[][] net = generator.Net(count);
-        Seq<double> values = toSeq(net).Map(point => estimator(point));
-        if (values.Exists(static value => !double.IsFinite(value))) {
-            return Fin.Fail<(double Mean, double Star, double Projection)>(new ComputeFault.ModelRejected("<replicate-estimator-nonfinite>"));
+        double[] values = new double[count];
+        for (int i = 0; i < count; i++) { values[i] = estimator(net[i]); }
+        if (!TensorPrimitives.IsFiniteAll(values)) {
+            return Fin.Fail<(double[] Values, double Star, double Projection)>(new ComputeFault.ModelRejected("<replicate-estimator-nonfinite>"));
         }
 
         double[][] gauged = Subsample(net, sample, generator.Seed);
-        return Fin.Succ((
-            Mean: values.Fold(OnlineStat.Empty, static (acc, value) => acc.Push(value)).Mean,
-            Star: StarDiscrepancyL2(gauged),
-            Projection: WorstProjection(gauged)));
+        return Fin.Succ((Values: values, Star: StarDiscrepancyL2(gauged), Projection: WorstProjection(gauged)));
     }
 
     // Partial Fisher-Yates prefix keyed on the SAME `Deterministic` lane every draw here crosses, so the estimate
@@ -405,30 +450,48 @@ public static class HaltonBases {
     }
 }
 
-// Owned Joe-Kuo recurrence reads embedded primitive-polynomial degrees, coefficients, and seeds, and runs once
-// per Sobol generator.
+// Owned Joe-Kuo recurrence over the embedded HDF5 resource — `/degree` int32[21201], `/coefficients`
+// uint32[21201], `/seeds` uint32[21201, 32] (seed rows zero-padded past their degree). The read is per Sobol
+// construction through the archive owner as a Payload source, hyperslabs covering exactly the requested
+// dimensions: a three-dimension generator decodes three rows where the retired ASCII form parsed the whole
+// table behind a `Lazy` whose missing-resource throw cached as a fatal type-initialization fault — here the
+// fault is a typed refusal per construction, the same demand-sized law `HaltonBases` holds.
 public static class JoeKuo {
     public const int MaxDimensions = 21_201;
     public const int Bits = 32;
 
-    // Deferred behind `Lazy`, because the embedded resource is the SOBOL leg's cost alone and a bare static
-    // field pays it at the first touch of any member on this type.
-    static readonly Lazy<(int Degree, uint Coefficients, uint[] Seeds)[]> Polynomials =
-        new(LoadPolynomials, LazyThreadSafetyMode.ExecutionAndPublication);
+    public static Fin<uint[,]> Directions(int dimensions) =>
+        Resource().Bind(bytes => HdfArchive.Open(new HdfSource.Payload(bytes), HdfArchivePolicy.Interchange))
+            .Bind(handle => Try.lift(() => {
+                    using (handle) {
+                        int rows = dimensions - 1;
+                        int[] degree = new int[rows];
+                        uint[] coefficients = new uint[rows];
+                        uint[] seeds = new uint[rows * Bits];
+                        if (rows > 0) {
+                            handle.Dataset("degree").Read<int>(handle.Access, degree.AsSpan(), new HyperslabSelection(0, (ulong)rows));
+                            handle.Dataset("coefficients").Read<uint>(handle.Access, coefficients.AsSpan(), new HyperslabSelection(0, (ulong)rows));
+                            handle.Dataset("seeds").Read<uint>(handle.Access, seeds.AsSpan(), new HyperslabSelection(2, [0UL, 0UL], [(ulong)rows, Bits]));
+                        }
+
+                        return Recur(dimensions, degree, coefficients, seeds);
+                    }
+                }).Run()
+                .MapFail(static error => (Error)new ComputeFault.ModelRejected($"<joe-kuo-resource:{error.Message}>")));
 
     // Canonical recurrence operates on scaled 32-bit directions: `v[k]=2^(31−k)` for dimension zero and the
     // primitive-polynomial XOR recurrence for higher dimensions; unscaled seeds yield a plausible broken net.
-    public static uint[,] Directions(int dimensions) {
-        (int Degree, uint Coefficients, uint[] Seeds)[] table = Polynomials.Value;
+    static uint[,] Recur(int dimensions, int[] degree, uint[] coefficients, uint[] seeds) {
         uint[,] v = new uint[dimensions, Bits];
         for (int k = 0; k < Bits; k++) { v[0, k] = 1u << (Bits - 1 - k); }
         for (int d = 1; d < dimensions; d++) {
-            (int degree, uint coefficients, uint[] seeds) = table[d - 1];
-            for (int i = 0; i < degree && i < Bits; i++) { v[d, i] = seeds[i] << (Bits - 1 - i); }
-            for (int j = degree; j < Bits; j++) {
-                uint value = v[d, j - degree] ^ (v[d, j - degree] >> degree);
-                for (int k = 1; k < degree; k++) {
-                    if (((coefficients >> (degree - 1 - k)) & 1u) != 0u) { value ^= v[d, j - k]; }
+            int order = degree[d - 1];
+            uint polynomial = coefficients[d - 1];
+            for (int i = 0; i < order && i < Bits; i++) { v[d, i] = seeds[(d - 1) * Bits + i] << (Bits - 1 - i); }
+            for (int j = order; j < Bits; j++) {
+                uint value = v[d, j - order] ^ (v[d, j - order] >> order);
+                for (int k = 1; k < order; k++) {
+                    if (((polynomial >> (order - 1 - k)) & 1u) != 0u) { value ^= v[d, j - k]; }
                 }
 
                 v[d, j] = value;
@@ -438,21 +501,17 @@ public static class JoeKuo {
         return v;
     }
 
-    // One record per dimension `d s a m_1 … m_s` — degree, the middle coefficient bits, and the seed direction
-    // integers; a missing resource is a fatal type-initialization fault (the deployment boundary).
-    static (int, uint, uint[])[] LoadPolynomials() {
-        using Stream stream = typeof(JoeKuo).Assembly.GetManifestResourceStream("Rasm.Compute.new-joe-kuo-6.21201.col")
-            ?? throw new InvalidOperationException("<joe-kuo-resource-missing>");
-        using StreamReader reader = new(stream);
-        return reader.ReadToEnd()
-            .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Skip(1)
-            .Select(static line => {
-                string[] f = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-                return (int.Parse(f[1]), uint.Parse(f[2]), f.Skip(3).Select(uint.Parse).ToArray());
-            })
-            .ToArray();
-    }
+    // Embedded resource bytes stage once per construction; the manifest stream is not a seekable file, so the
+    // Payload case is the one archive source that serves it.
+    static Fin<ReadOnlyMemory<byte>> Resource() =>
+        Try.lift(() => {
+                using Stream stream = typeof(JoeKuo).Assembly.GetManifestResourceStream("Rasm.Compute.new-joe-kuo-6.21201.h5")
+                    ?? throw new InvalidOperationException("<joe-kuo-resource-missing>");
+                using MemoryStream staged = new();
+                stream.CopyTo(staged);
+                return (ReadOnlyMemory<byte>)staged.ToArray();
+            }).Run()
+            .MapFail(static error => (Error)new ComputeFault.ModelRejected($"<joe-kuo-resource:{error.Message}>"));
 }
 ```
 
@@ -553,8 +612,8 @@ public static class Interpolant {
 public sealed record RbfDesign(Matrix<double> Matrix, int PolynomialTerms, int Centres);
 
 public sealed record RbfFit(Matrix<double> Centres, KernelKind Kernel, double Radius, int PolynomialOrder, Matrix<double> Weights, Matrix<double> PolynomialCoefficients) {
-    // The fitted field's point set is its CENTRES, and its stated family is the radial row that shaped them, so
-    // the same partial case carries both legs of this page. A fit runs no replicates and gauges no net, so all
+    // Fitted fields hold their point set as CENTRES, and their stated family is the radial row that shaped
+    // them, so one partial case carries both legs of this page. Fits run no replicates and gauge no net, so all
     // three RQMC columns report absence rather than a zero the leg never measured.
     public ComputeReceipt.Sampling Receipt(WorkLane lane, CorrelationId correlation, Duration elapsed) =>
         new(Family: Kernel.Key, Dimensions: Centres.ColumnCount, Points: Centres.RowCount,
@@ -663,10 +722,10 @@ public static class Scatter {
         toSeq(Enumerable.Range(0, exponents.Length)).Fold(1.0, (acc, k) => acc * Math.Pow(point[k], exponents[k]));
 
     // Bounded ODOMETER over exponent vectors under a running total ≤ the order cap: one mutable cursor advanced
-    // in place, each admitted vector copied out, carry rippling right-to-left so the enumeration order matches
-    // the lexicographic basis the design and evaluation blocks both index. The recursive comprehension it
-    // replaces nested one generator per dimension — a stack frame per axis and a full re-enumeration of every
-    // tail at each head — for a walk whose length is exactly the emitted term count.
+    // in place, each admitted vector copied out, carry rippling right-to-left so the enumeration order
+    // matches the lexicographic basis the design and evaluation blocks both index. The recursive comprehension
+    // it replaces nested one generator per dimension — a stack frame per axis and a full re-enumeration of
+    // every tail at each head — for a walk whose length is exactly the emitted term count.
     static IEnumerable<int[]> Compositions(int slots, int maxTotal) {
         if (slots <= 0) { yield return []; yield break; }
         int[] cursor = new int[slots];

@@ -28,12 +28,11 @@ runtime/
 │   ├── lanes.py        # Lane-policy task groups and the stage-plan DAG
 │   ├── workers.py      # Worker crossing: kind family, kernel value, warm pools, remote/device arms, the guest sandbox, the fenced lease, and supervision
 │   └── recipe.py       # Content-keyed recipe execution on the thread lane
-├── evidence/           # Content-addressing, the seed-parity corpus, and structural-surface evidence
-│   ├── identity.py     # Content identity and key implementing the shared digest contract
-│   ├── reproduction.py # Seed-reproduction corpus and its parity fold
-│   └── evidence.py     # Evidence union, catalogue member facts, and grammar registry
-└── clock/              # Logical time: the locally minted HLC stamp and the (origin, logical) element id
-    └── clock.py        # HLC stamp, element id, tenant, and causal frame
+└── evidence/           # Logical time, content-addressing, the seed-parity corpus, and structural-surface evidence
+    ├── clock.py        # HLC stamp, element id, tenant, and causal frame
+    ├── identity.py     # Content identity and key implementing the shared digest contract
+    ├── reproduction.py # Seed-reproduction corpus and its parity fold
+    └── evidence.py     # Evidence union, catalogue member facts, and grammar registry
 ```
 
 ## [02]-[STRATA]
@@ -110,16 +109,16 @@ flowchart TB
 ```
 
 - S0 `faults` — mints `BoundaryFault` and the `RuntimeRail` exactly once, importing no sibling; every module above returns through it.
-- S1–S3 identity strata — `clock` (`Hlc`/`ElementId`/`Tenant`), `identity` (`ContentKey`), and `shapes` (`PROTO_VOCABULARY`) sit directly on faults.
-- S1–S3 `receipts` composes identity; `logging` (`LogShip`), `metrics`, `reproduction` (`ParityReceipt`), and `evidence` fold through receipts.
-- S1–S3 `hooks` folds through the metrics spine it taps.
-- S4–S6 execution strata — `resilience` (the `RetryClass` policy table) composes metrics; `roots` (`ResourceRef`) and `admission` return through it.
-- S4–S6 `wire` (`CrdtOp`) sits on shapes and clock; `telemetry` gates on admission and carries the `logging`-owned ship policy.
-- S4–S6 `profiles` (`BenchmarkReceipt`/`JobRun`) drives the telemetry install beside the metrics spine.
-- S7–S9 composition strata — `serve` (`DiscoveryResult`/`CommandReceipt`) terminates the rail, wiring recipe, bundle, the wire codec, and the journal's install-start-drain lifecycle.
-- S7–S9 `workers` (`Kernel`) composes roots and boots its floors through profiles and telemetry; `lanes` (`StagePlan`) drives admission and workers.
-- S7–S9 `recipe` (`RecipeInterface`) composes lanes and roots; `bundle` (`SupportBundle`) folds install receipts, hook rings, and admitted context.
-- S7–S9 `journal` (`Fact`) stamps through clock, registers points on hooks, and reads its KEK through admission's secret boundary; its `Ledger` binds at composition, never by import.
+- S1-S3 identity strata — `clock` (`Hlc`/`ElementId`/`Tenant`), `identity` (`ContentKey`), and `shapes` (`PROTO_VOCABULARY`) sit directly on faults.
+- S1-S3 `receipts` composes identity; `logging` (`LogShip`), `metrics`, `reproduction` (`ParityReceipt`), and `evidence` fold through receipts.
+- S1-S3 `hooks` folds through the metrics spine it taps.
+- S4-S6 execution strata — `resilience` (the `RetryClass` policy table) composes metrics; `roots` (`ResourceRef`) and `admission` return through it.
+- S4-S6 `wire` (`CrdtOp`) sits on shapes and clock; `telemetry` gates on admission and carries the `logging`-owned ship policy.
+- S4-S6 `profiles` (`BenchmarkReceipt`/`JobRun`) drives the telemetry install beside the metrics spine.
+- S7-S9 composition strata — `serve` (`DiscoveryResult`/`CommandReceipt`) terminates the rail, wiring recipe, bundle, the wire codec, and the journal's install-start-drain lifecycle.
+- S7-S9 `workers` (`Kernel`) composes roots and boots its floors through profiles and telemetry; `lanes` (`StagePlan`) drives admission and workers.
+- S7-S9 `recipe` (`RecipeInterface`) composes lanes and roots; `bundle` (`SupportBundle`) folds install receipts, hook rings, and admitted context.
+- S7-S9 `journal` (`Fact`) stamps through clock, registers points on hooks, and reads its KEK through admission's secret boundary; its `Ledger` binds at composition, never by import.
 
 ## [03]-[SEAMS]
 
@@ -139,7 +138,6 @@ flowchart LR
         Admission[Admission]
         Transport[Transport]
         Observability[Observability]
-        Clock[Clock]
     end
     Rasm{{Rasm}}
     Element{{Rasm.Element}}
@@ -157,7 +155,7 @@ flowchart LR
     Persistence e9@<-->|"[CONTRACT]: BackendContract"| Admission
     Transport e6@<-->|"[WIRE]: DiscoveryResult"| AppHost
     Observability e7@<-->|"[TRANSPORT]: TraceContext"| AppHost
-    AppHost e8@<-->|"[WIRE]: HlcStampWire"| Clock
+    AppHost e8@<-->|"[WIRE]: HlcStampWire"| Evidence
 ```
 
 ```mermaid
@@ -211,7 +209,7 @@ flowchart LR
     Observability e26@-->|"[PORT]: Hooks"| Geometry
 ```
 
-Each fence's home roster holds only the sub-domains carrying a seam with that peer plane: `reliability` crosses no boundary, `clock` faces only the C# plane, `execution` only the Python plane. Frozen registry names spell from the counterpart's endpoint page; `ServerHost`/`CommandReceipt`, `PROTO_VOCABULARY`, `CrdtOp`, and `ContentKey` are this package's interior spellings behind the `DiscoveryResult`, `ProtoVocabulary`, `OpLogEntry`, and `ContentAddress` wires.
+Each fence's home roster holds only the sub-domains carrying a seam with that peer plane: `reliability` crosses no boundary, `execution` faces only the Python plane, and evidence's clock owner carries the one causal seam on the C# plane. Frozen registry names spell from the counterpart's endpoint page; `ServerHost`/`CommandReceipt`, `PROTO_VOCABULARY`, `CrdtOp`, and `ContentKey` are this package's interior spellings behind the `DiscoveryResult`, `ProtoVocabulary`, `OpLogEntry`, and `ContentAddress` wires.
 
 ## [04]-[BOUNDARIES]
 
@@ -247,6 +245,5 @@ Each sub-domain charter is the codemap comment; the boundary law below fixes the
 - Lane capacity projects from the admitted profile row.
 - `evidence` — keys identity through the Python implementation of the shared content-key contract.
 - Evidence catalogue and grammar surfaces emit what the `assay code` rail consumes.
-- `clock` — owns Python's `Hlc`/`ElementId`/`Tenant` spelling and proves its two-half encoding against the shared contract.
+- The clock owner mints Python's `Hlc`/`ElementId`/`Tenant` spelling and proves its two-half encoding against the shared contract.
 - Every stamp's physical half samples the admitted local clock; its element id is the `(origin, logical)` identity.
-- `wire` and `admission` alone consume the clock owner.

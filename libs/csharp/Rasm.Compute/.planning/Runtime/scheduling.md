@@ -1,6 +1,8 @@
 # [COMPUTE_RUNTIME]
 
-Rasm.Compute schedules every admitted intent through bounded `WorkLane` channel rows behind one `LaneRuntime` enqueue capsule: lane choice is an intent field, full-mode and backpressure are row data, drops emit a correlated `Backpressure` receipt, queue depth reads `ChannelReader.Count`, and solve-path dispatch structurally returns a `LaneHandle` instead of executing work. One `JobGraph` dependency-DAG scheduler layers speculative, preemptible, fair-share, accelerator-affinity, and spill-to-store orchestration bounded by the shared `CpuBudget`, keys every node on its admitted-intent and input-content digest so a re-run reconciles semantic changes and recomputes only the moved subgraph, and rolls subscribed node cells into one live parent `ProgressCell`.
+Rasm.Compute schedules every admitted intent through bounded `WorkLane` channel rows behind one `LaneRuntime` enqueue capsule: lane choice is an intent field, full-mode and backpressure are row data, drops emit a correlated `Backpressure` receipt, queue depth reads `ChannelReader.Count`, and solve-path dispatch structurally returns a `LaneHandle` instead of executing work.
+
+One `JobGraph` dependency-DAG scheduler layers speculative, preemptible, fair-share, accelerator-affinity, and spill-to-store orchestration bounded by the shared `CpuBudget`, keys every node on its admitted-intent and input-content digest so a re-run reconciles semantic changes and recomputes only the moved subgraph, and rolls subscribed node cells into one live parent `ProgressCell`.
 
 Clusters own the `WorkLane` axis, the work-item and handle shapes, the GH2 async-result ceiling, the `CpuBudget` record shared by lane, model, and tensor concurrency, and band-200 drain participation, composed over bounded System.Threading.Channels pipes, Thinktecture vocabulary, LanguageExt rails, NodaTime instants, and the AppHost drain, cancellation, clock, and schedule spine.
 
@@ -20,8 +22,8 @@ Clusters own the `WorkLane` axis, the work-item and handle shapes, the GH2 async
 - Auto: cadence-driven work (compute-model-warmup, scheduled equivalence sweeps) enters as `ScheduleEntry` rows whose `Work` delegate enqueues onto its declared lane — the schedule port owns when, lanes own throughput; the shedding arm alone receives the drop sink so every drop lands as a `Backpressure` receipt carrying the dropped item's correlation, never a silent loss; the queue-depth slot reads `ChannelReader<WorkItem>.Count` on the lane's reader at stamp time, never a hand-tracked counter; a parked write times through `WaitToWriteAsync`, which returns when capacity frees, so the park is measured exactly and a lane deadline cancels the WAIT rather than aborting a write already in flight.
 - Receipt: Backpressure — lane row, queue depth from `ChannelReader.Count`, wait elapsed measured across `WaitToWriteAsync` alone (timing `WriteAsync` conflates the park with the write and leaves cancellation no seam), or dropped-item correlation on a shedding lane — materialized at the sink edge on the package receipt union; a ranked row's ceiling refusal never reaches this receipt because it precedes execution, riding the typed `ComputeFault.LaneSaturated` onto `Refusal.Of` instead.
 - Packages: BCL inbox, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm.AppHost (project)
-- Growth: a new lane is one row at the spine roster and one `LaneProfile` row here — the keyed fold refuses the composition until both land, which is exactly the loud break a silently-unsized lane would not give; a genuinely new bound mechanism is one `LaneBound` case with its `Open` arm, and every consumer breaks loudly at that `Switch`; zero new surface.
-- Boundary: the `WorkLane` NAME is the spine's and `DrainQueue` stays its process-level altitude — one altitude per name, and this owner re-declaring the roster would close the S1-to-S3 cycle the branch acyclicity law forbids; the split is by what decides the column — the platform decides which lanes exist and how they rank against one another because it schedules the whole runtime spine across them, and this owner decides each lane's channel bound and reader budget because both are measured against the shared `CpuBudget` nothing above this stratum holds; lane choice is an intent field and the bound is row data, so a drop flag on another row is the deleted form; capture-ingest drops oldest because the latest geometry state wins, and its consumer is the DocumentService CaptureEvents client-stream; rank is the cross-lane precedence datum ordering drain steps and the intent's own `DeadlineAt` is the INTRA-lane one, read by the ranked arm's earliest-deadline-first comparer — per-item priority mutation after admission, a second lane minted to carry urgency, per-lane worker class hierarchies, and Dataflow lanes are the deleted patterns; the ranked arm is unbounded by construction so its `Ceiling` is where the writer refuses on the typed rail, and a shedding policy on that arm is unrepresentable because the case carries no slot for one; an external lane selector arriving as wire text admits through the spine roster's generated `WorkLane.Validate`/`TryGet` key seam, never a raw-string comparison against row keys.
+- Growth: a new lane is one row at the spine roster and one `LaneProfile` row here — the keyed fold refuses the composition until both land, the loud break a silently-unsized lane never gives; a genuinely new bound mechanism is one `LaneBound` case with its `Open` arm, and every consumer breaks loudly at that `Switch`; zero new surface.
+- Boundary: the `WorkLane` NAME is the spine's and `DrainQueue` stays its process-level altitude — one altitude per name, and this owner re-declaring the roster closes the S1-to-S3 cycle the branch acyclicity law forbids; the split is by what decides the column — the platform decides which lanes exist and how they rank against one another because it schedules the whole runtime spine across them, and this owner decides each lane's channel bound and reader budget because both are measured against the shared `CpuBudget` nothing above this stratum holds; lane choice is an intent field and the bound is row data, so a drop flag on another row is the deleted form; capture-ingest drops oldest because the latest geometry state wins, and its consumer is the DocumentService CaptureEvents client-stream; rank is the cross-lane precedence datum ordering drain steps and the intent's own `DeadlineAt` is the INTRA-lane one, read by the ranked arm's earliest-deadline-first comparer — per-item priority mutation after admission, a second lane minted to carry urgency, per-lane worker class hierarchies, and Dataflow lanes are the deleted patterns; the ranked arm is unbounded by construction so its `Ceiling` is where the writer refuses on the typed rail, and a shedding policy on that arm is unrepresentable because the case carries no slot for one; an external lane selector arriving as wire text admits through the spine roster's generated `WorkLane.Validate`/`TryGet` key seam, never a raw-string comparison against row keys.
 
 ```csharp signature
 // `Bound` is ONE closed payload family, never three loose columns. A capacity, a full-mode, and an admission
@@ -37,7 +39,7 @@ public abstract partial record LaneBound {
     public sealed record Parked(int Capacity) : LaneBound;
 
     // Bounded and receipted-loss: `Mode` is the drop policy and every drop lands a correlated `Backpressure`.
-    // The drop callback runs SYNCHRONOUSLY on the writing thread and OUTSIDE the channel lock, and the channel
+    // Drop callbacks run SYNCHRONOUSLY on the writing thread and OUTSIDE the channel lock, and the channel
     // machinery itself allocates nothing per drop — so the receipt-envelope-only cost is reachable, and the whole
     // drop cost is whatever the callback body allocates. Two obligations follow and both bind the sink the
     // composition closes over: it stays allocation-lean because nothing else on the path allocates, and it stays
@@ -92,7 +94,7 @@ public sealed record LaneProfile(LaneBound Bound, Func<CpuBudget, int> Fanout) {
     };
 }
 
-// The keyed fold IS the seam proof. Rows key on the spine's `WorkLane` and `Closed` reads that roster's own
+// This keyed fold IS the seam proof. Rows key on the spine's `WorkLane` and `Closed` reads that roster's own
 // generated `Items`, so a lane landing upstream with no profile here refuses BY NAME at composition — where a
 // `HashMap` indexer would instead throw at the first enqueue onto a lane nobody sized, in whatever process
 // first routed work to it. `LaneRuntime` takes the proven map rather than the roster, so no composition
@@ -251,7 +253,7 @@ flowchart LR
 - Receipt: Governor — cpu and memory percentages, the re-resolved `Workers`/`ReaderCeiling`/`PartitionCap`, the effective memory scale, and the spill-pressure flag, process-scoped and emitted only when an adjustment or spill transition lands, so a steady host stays silent.
 - Packages: BCL inbox, LanguageExt.Core, NodaTime, Rasm.AppHost (project)
 - Growth: one posture row per new host-profile row, one policy value per new concurrency axis, and one `GovernorPolicy` column per new pressure axis; zero new surface — a second scheduler, a `LoadShedder` sibling, or a governor mutating lane rows directly is the rejected form because every consumer already reads the one budget record.
-- Boundary: every concurrency axis derives from this record, but binding cadence stays honest: `JobGraph.Run` and `Optimizer.Optimize` read the governed value per invocation; `LaneRuntime`, the ORT global pool, and tensor partitions read it when their owning capsule constructs. AppHost rebuilds those capsules after a transition when live rebinding is required. Any `ParallelHelper.For` degree, a second `Partitioner`/`ParallelRunner` owner, or a `Parallel.For` partition sized off the host total rejects because `PartitionCap` owns tensor fan-out. Plugin rows reserve host cores for Rhino UI and solver threads; service rows own the machine. `ReaderCeiling` halves the worker pool because readers park on kernel and remote completions while the global pool carries arithmetic. `SpinControl` derives from `HostReserve`: co-tenanted hosts surrender ORT spin, while machine-owning service rows retain it. `processors` comes from the AppHost `PressurePolicy` container-limit grade when present, so one constraint re-caps every axis. Governance moves the effective reserve and memory scale — `Steer` widens reserve one `ReserveStep` at or above `ShedCpuPercent`, decays it toward the posture reserve at or below `RestoreCpuPercent`, and holds inside the CPU hysteresis band; memory enters spill posture at `SpillMemoryPercent`, holds that posture through the memory hysteresis band, and restores at or below `RestoreMemoryPercent`. `JobGraph` seals the scaled `MemoryBudgetBytes` onto each `JobRun`, so its runner receives the effective limit that triggers an earlier `JobSignal.Spilled`. Mid-wave budget stays stable; a running wave completes under its planned value, and the next invocation rebinds. `Total` is COMPOSITION-FROZEN — the governor moves the effective reserve and the memory scale and nothing else — because `Runtime/receipts#BENCHMARK_CLAIMS` `HostFingerprint.Effective` substitutes `Processors` with exactly this `Total`: a `Total` that moved mid-process would silently re-fingerprint the running host, and every claim measured under the prior figure would read stale against a machine that never changed.
+- Boundary: every concurrency axis derives from this record, but binding cadence stays honest: `JobGraph.Run` and `Optimizer.Optimize` read the governed value per invocation; `LaneRuntime`, the ORT global pool, and tensor partitions read it when their owning capsule constructs. AppHost rebuilds those capsules after a transition when live rebinding is required. Any `ParallelHelper.For` degree, a second `Partitioner`/`ParallelRunner` owner, or a `Parallel.For` partition sized off the host total rejects because `PartitionCap` owns tensor fan-out. Plugin rows reserve host cores for Rhino UI and solver threads; service rows own the machine. `ReaderCeiling` halves the worker pool because readers park on kernel and remote completions while the global pool carries arithmetic. `SpinControl` derives from `HostReserve`: co-tenanted hosts surrender ORT spin, while machine-owning service rows retain it. `processors` comes from the AppHost `PressurePolicy` container-limit grade when present, so one constraint re-caps every axis. Governance moves the effective reserve and memory scale — `Steer` widens reserve one `ReserveStep` at or above `ShedCpuPercent`, decays it toward the posture reserve at or below `RestoreCpuPercent`, and holds inside the CPU hysteresis band; memory enters spill posture at `SpillMemoryPercent`, holds that posture through the memory hysteresis band, and restores at or below `RestoreMemoryPercent`. `JobGraph` seals the scaled `MemoryBudgetBytes` onto each `JobRun`, so its runner receives the effective limit that triggers an earlier `JobSignal.Spilled`. Mid-wave budget stays stable; a running wave completes under its planned value, and the next invocation rebinds. `Total` is COMPOSITION-FROZEN — the governor moves the effective reserve and the memory scale and nothing else — because `Runtime/receipts#BENCHMARK_CLAIMS` `HostFingerprint.Effective` substitutes `Processors` with exactly this `Total`: a `Total` moving mid-process silently re-fingerprints the running host, and every claim measured under the prior figure reads stale against a machine that never changed.
 
 ```csharp signature
 public sealed record CpuBudget {
@@ -382,14 +384,14 @@ Each posture row supplies `hostReserve` per host-profile row at composition:
 
 ## [05]-[JOB_GRAPH]
 
-- Owner: `JobNode` the dependency-graph node keyed on its input content seed; `JobState` `[SmartEnum<string>]` the node-lifecycle rows with `Terminal`, `Resumable`, and `Phase` (the `Runtime/progress#PROGRESS_CELL` `ProgressPhase` projection) columns; `JobSignal` `[Union]` the per-node execution outcome the runner returns; `CheckpointPort` the spill-to-store persist/resume pair over the Persistence blob lane; `JobLedger` the orchestration result; `JobGraph` the batch-wave dependency scheduler driving speculative run-ahead, QoS-weighted fair-share and gang admission, accelerator-affinity ordering, and cooperative memory-spill bounded by the shared `CpuBudget`, executing each node through the injected `runner`, keying every node on the suite `XxHash128` input digest so a re-run recomputes only the moved subgraph, and folding one coarse per-node `ProgressCell` through `ProgressCell.Aggregate` into one rolled parent cell so the whole DAG surfaces a single live monotonic `ProgressMark`; `ShardFanout`/`ShardJob` the composition's shard-policy row and its placed-node pairing, and `ShardPartition` the fold turning a block-decomposed solve into per-shard nodes plus the one merge node they feed.
+- Owner: `JobNode` the dependency-graph node keyed on its input content seed; `JobState` `[SmartEnum<string>]` the node-lifecycle rows with `Terminal`, `Resumable`, and `Phase` (the `Runtime/progress#PROGRESS_CELL` `ProgressPhase` projection) columns; `JobSignal` `[Union]` the per-node execution outcome the runner returns; `CheckpointPort` the spill-to-store persist/resume pair over the Persistence blob lane; `JobLedger` the orchestration result; `JobGraph` the batch-wave dependency scheduler driving speculative run-ahead, QoS-weighted fair-share and gang admission, accelerator-affinity ordering, and cooperative memory-spill bounded by the shared `CpuBudget`, executing each node through the injected `runner`, keying every node on the suite `XxHash128` input digest so a re-run recomputes only the moved subgraph, and folding one coarse per-node `ProgressCell` through `ProgressCell.Aggregate` into one rolled parent cell so the whole DAG surfaces a single live monotonic `ProgressMark`; `ShardFanout`/`ShardJob` the composition's shard-policy row and its placed-node pairing, and `ShardPartition` the fold turning a block-decomposed solve into per-shard nodes and the one merge node they feed.
 - Cases: `JobState` rows pending · ready · running · speculative · preempted · spilled · completed · faulted; `JobSignal` cases completed · faulted · spilled.
 - Entry: `public (Option<ProgressCell> Progress, IO<Fin<JobLedger>> Ledger) Run(Seq<JobNode> nodes, CpuBudget budget, CorrelationId correlation, CancelScope scope, IClock clock, TimeProvider time)` — `Progress` is absent when no admitted node requested observation, while `Ledger` carries graph admission and execution; `GraphRejected`, `GraphCyclic`, and `GraphStalled` abort on the typed rail, and `Reconcile` mirrors the pair shape. `public static Fin<(Seq<ShardJob> Shards, JobNode Merge)> ShardPartition.Partition(AdmittedIntent intent, ShardPlan.Blocked plan, int rows, Seq<ComputeEndpoint> farm, FrozenDictionary<Uri, double> loads, NodeSelection placement, ShardFanout fanout, Func<int, int, ReadOnlyMemory<byte>> block)` derives the shard node set and its merge node from the plan's own block structure, ranking each shard's hop through `NodeSelection.Select`.
 - Auto: `Run` admits graph invariants before execution, then `Fill` repeatedly chooses the highest-ranked eligible gang unit against the evolving wave state, so launching an upstream node makes its speculative descendants eligible in the same wave; each unit admits all-or-none under the global and tenant shares, and an empty launch frontier with nonterminal nodes faults `GraphStalled` instead of recurring. Admission CONTRACTS each strong component into one gang over the acyclic quotient, so a mutually-dependent region schedules as a unit and only a mixed-tenant cycle — which cannot gang — survives as `GraphCyclic`; the acyclicity read and the source-degree order run over the one directed view rather than a hand-carried in-degree map. Wave admission holds a per-wave accelerator CLAIM set: admitting a unit claims every `AcceleratorAffinity` token its nodes name, and a later unit naming a held token defers WHOLE to the next wave while free slots remain, so co-launching two nodes onto one device is unrepresentable rather than merely unranked — a rank ordering alone only seats contenders adjacent and lets the slot budget launch them together; a token-free node claims nothing and is unrestricted, and `affinityRank` orders the units, resolving each key against the composition-owned device roster instead of treating every present key alike. Each launch carries its computed `NodeKey`; resume accepts only a checkpoint with the same node id and content key, and a runner-emitted mismatched checkpoint becomes `CheckpointRejected` before persistence. Each wave projects `JobState.Phase` onto subscribed cells, forks admitted runners, advances reports, and poisons fault cones. `ShardPartition.Partition` reads the `Tensor/factor#KERNEL_LOWERING` `ShardPlan.Blocked` `Tile` height as the block structure, mints one node per row block carrying that block's bytes, ranks each onto a farm hop through `NodeSelection.Select` with the shard ORDINAL as the rotation so the round-robin, load, and warm tiers all answer one call, and seats the resolved hop as the node's own affinity token; the merge node depends on every shard id, so the fault cone, the reconcile re-key, and the parent intent's `DeadlineAt` reach it with no rule of its own.
-- Receipt: shard evidence is the sibling's — `Runtime/receipts#RECEIPT_UNION` `Solve`/`Factorization` already carry `Shards`, `ShardNode`, and `Merged`, so a partitioned solve is auditable through the receipt each sub-solve already emits and this fold declares no evidence column. The graph itself emits no `ComputeReceipt` case of its own — each node's execution rides its lane's existing receipts (`Backpressure` and the substrate-lane facts the runner emits), and the `JobLedger` carries the graph-level fact: node count, the completed/faulted split, and the speculated/preempted/spilled tally with its measured checkpoint mass and elapsed; a `Sweep`/`JobReceipt` case on the per-execution receipt union — whose required `(Lane, Substrate)` spine no whole graph carries — is the rejected form, and the live DAG progress rides the rolled-up parent `ProgressCell` (a monotonic `ProgressMark`, not a receipt fact) orthogonal to the post-hoc `JobLedger` count.
-- Packages: QuikGraph (`AdjacencyGraph` over `SEdge<string>`, `IsDirectedAcyclicGraph`/`SourceFirstTopologicalSort` ordering, `StronglyConnectedComponents` labelling), BCL inbox, System.IO.Hashing, LanguageExt.Core, NodaTime, Rasm.AppHost (project), Rasm.Persistence (project)
+- Receipt: shard evidence is the sibling's — `Runtime/receipts#RECEIPT_UNION` `Solve`/`Factorization` already carry `Shards`, `ShardNode`, and `Merged`, so a partitioned solve is auditable through the receipt each sub-solve already emits and this fold declares no evidence column. `JobGraph` itself emits no `ComputeReceipt` case of its own — each node's execution rides its lane's existing receipts (`Backpressure` and the substrate-lane facts the runner emits), and the `JobLedger` carries the graph-level fact: node count, the completed/faulted split, and the speculated/preempted/spilled tally with its measured checkpoint mass and elapsed; a `Sweep`/`JobReceipt` case on the per-execution receipt union — whose required `(Lane, Substrate)` spine no whole graph carries — is the rejected form, and the live DAG progress rides the rolled-up parent `ProgressCell` (a monotonic `ProgressMark`, not a receipt fact) orthogonal to the post-hoc `JobLedger` count.
+- Packages: QuikGraph (`AdjacencyGraph` over `SEdge<string>`, `IsDirectedAcyclicGraph`/`SourceFirstTopologicalSort` ordering, `StronglyConnectedComponents` labelling), PureHDF (`HyperslabSelection`, `NativeDataset.Read<T>(H5DatasetAccess, Span<T>, …)` — the corpus-backed shard block provider), Generator.Equals (`[Equatable]`+`[UnorderedEquality]` — the GraphKeys one-walk reconcile diff), BCL inbox, System.IO.Hashing, LanguageExt.Core, NodaTime, Rasm.AppHost (project), Rasm.Persistence (project)
 - Growth: a new node lifecycle is one `JobState` row carrying its `Phase` column; a new scheduling policy is one column on `JobNode` the planning fold reads; the reactive recompute is the one `Reconcile` content-key diff over the existing edges; the transitive downstream closure is one `Closure` fixpoint shared by `MarkDirty` and `Poison`; a new device-contention axis is one more token an `AcceleratorAffinity` value spells, absorbed by the same wave claim set, never a second scheduler pass; a new shard-placement tier is one `Runtime/transport#TRANSPORT_AXIS` `NodeSelection` row the partition fold already calls, never a second ranking fold here; zero new surface — a `JobScheduler`/`WorkflowEngine`/`DagRunner`/`IncrementalEngine` sibling surface is the rejected form collapsed onto the one `JobGraph` over the shared `CpuBudget` and the injected runner.
-- Boundary: the job graph forks each node's injected `runner` and owns only dependency order; a node never also enters `LaneRuntime`. Graph admission rejects empty graphs, duplicate ids, missing or self dependencies, and mixed-tenant gangs before a runner executes, and contracts every remaining cycle rather than refusing it — a hand-carried Kahn queue or a hand-rolled strong-component walk beside the admitted graph algebra is the named reimplementation defect, and the pattern-graph decomposition of a sparse operator stays on the CSparse `SymbolicColumnStorage` rail, never round-tripped through a vertex-and-edge container. Fair-share reads the per-tenant `QosWeight` slice of `CpuBudget.Workers`; a gang admits as one unit, and a unit larger than every available slice faults through `GraphStalled`. Accelerator exclusivity is per WAVE and never per graph: the claim set is the wave's own accumulator and dies with it, so two nodes contending for one device cost two waves rather than a standing serialization, and a graph naming no token plans exactly as it did before the claim existed. `Preempted` means a preemptible node yielded before launch, while `Spilled` means its runner returned a content-keyed checkpoint; resume never accepts a checkpoint from another semantic node revision, and a deferred wave never demotes a resumable state — a spilled node's checkpoint survives deferral because `Spilled`/`Preempted` hold until launch. `NodeKey` hashes `AdmittedIntent.Digest`, input bytes, and ordered upstream keys, so changing the operation with identical bytes dirties the cone. `MarkDirty` intersects change ids with the live graph before closure, preventing a removed id from reappearing in state. `IClock` supplies semantic instants and `TimeProvider` supplies elapsed measurement; App-owned `ClockPolicy` stays at composition. A shard partition owns NO block arithmetic — `Tensor/factor#KERNEL_LOWERING` `ShardPlan.Blocked` owns the row-block structure and this fold reads its `Tile`, because a second block arithmetic here forks the row bounds a sub-solve dials against the ones the merge joins; a farm hop is an exclusive execution resource exactly as a device is, so placement seats the resolved endpoint on the node's own `AcceleratorAffinity` token and the wave claim set already forecloses two shards co-launching onto one node, a second placement-exclusion rule beside it the deleted form; `JobGraph` takes ONE runner, so the endpoint travels beside its node on `ShardJob` and the composition closes that runner over the pairing rather than this owner growing a per-node dispatch column.
+- Boundary: the job graph forks each node's injected `runner` and owns only dependency order; a node never also enters `LaneRuntime`. Graph admission rejects empty graphs, duplicate ids, missing or self dependencies, and mixed-tenant gangs before a runner executes, and contracts every remaining cycle rather than refusing it — a hand-carried Kahn queue or a hand-rolled strong-component walk beside the admitted graph algebra is the named reimplementation defect, and the pattern-graph decomposition of a sparse operator stays on the CSparse `SymbolicColumnStorage` rail, never round-tripped through a vertex-and-edge container. Fair-share reads the per-tenant `QosWeight` slice of `CpuBudget.Workers`; a gang admits as one unit, and a unit larger than every available slice faults through `GraphStalled`. Accelerator exclusivity is per WAVE and never per graph: the claim set is the wave's own accumulator and dies with it, so two nodes contending for one device cost two waves rather than a standing serialization, and a graph naming no token plans exactly as it did before the claim existed. `Preempted` means a preemptible node yielded before launch, while `Spilled` means its runner returned a content-keyed checkpoint; resume never accepts a checkpoint from another semantic node revision, and a deferred wave never demotes a resumable state — a spilled node's checkpoint survives deferral because `Spilled`/`Preempted` hold until launch. `NodeKey` hashes `AdmittedIntent.Digest`, input bytes, and ordered upstream keys, so changing the operation with identical bytes dirties the cone. `MarkDirty` consumes the ONE `GraphKeys.Diff` walk — the Added side seeds the dirty closure and the Removed-only side drops stale state, every moved id live by construction because it names a pair in the current map, so a removed id reappearing in state is unrepresentable rather than filtered. `IClock` supplies semantic instants and `TimeProvider` supplies elapsed measurement; App-owned `ClockPolicy` stays at composition. `ShardPartition` owns NO block arithmetic — `Tensor/factor#KERNEL_LOWERING` `ShardPlan.Blocked` owns the row-block structure and this fold reads its `Tile`, because a second block arithmetic here forks the row bounds a sub-solve dials against the ones the merge joins; a farm hop is an exclusive execution resource exactly as a device is, so placement seats the resolved endpoint on the node's own `AcceleratorAffinity` token and the wave claim set already forecloses two shards co-launching onto one node, a second placement-exclusion rule beside it the deleted form; `JobGraph` takes ONE runner, so the endpoint travels beside its node on `ShardJob` and the composition closes that runner over the pairing rather than this owner growing a per-node dispatch column. Archive reads and writes run as GRAPH NODES keyed by the corpus content key and the declared selection — one `NativeFile` per job, opened inside the node and disposed at its boundary (driver, chunk cache, and global-heap map all hang off it), so a long-lived handle crossing jobs is the rejected form and `ShardPartition.ArchiveBlocks` opens per call by construction.
 
 ```csharp signature
 [SmartEnum<string>]
@@ -535,9 +537,9 @@ public sealed class JobGraph(
         CpuBudget budget,
         TimeProvider time,
         HashMap<string, ProgressCell> cells) {
-        HashMap<string, UInt128> current = Keys(nodes);
-        Seq<string> moved = toSeq(current.Filter((id, key) => prior.Find(id).Map(was => was != key).IfNone(true)).Keys);
-        return Drive(nodes, budget, time, cells, time.GetTimestamp(), MarkDirty(nodes, priorStates, moved), current, default);
+        GraphKeys current = new(Keys(nodes));
+        (Seq<string> moved, Seq<string> removed) = current.Diff(new GraphKeys(prior));
+        return Drive(nodes, budget, time, cells, time.GetTimestamp(), MarkDirty(nodes, priorStates, moved, removed), current.Keys, default);
     }
 
     // Cell rank guards make every wave projection monotonic.
@@ -575,8 +577,8 @@ public sealed class JobGraph(
               select done;
     }
 
-    // Tenant shares derive from QoS weight; Fill observes each preceding launch AND its device claim while choosing
-    // the next unit. `affinityRank` orders the units against the composition's device roster, and the claim set —
+    // Tenant shares derive from QoS weight; Fill observes each preceding launch AND its device claim while choosing the
+    // next unit. `affinityRank` orders the units against the composition's device roster, and the claim set —
     // not the ordering — is what makes co-launch onto one device unrepresentable.
     private JobWave Plan(Seq<JobNode> nodes, HashMap<string, JobState> states, CpuBudget budget, HashMap<string, UInt128> keys) {
         Seq<JobNode> active = nodes.Filter(node => states.Find(node.Id).Map(static state => !state.Terminal).IfNone(false));
@@ -631,13 +633,13 @@ public sealed class JobGraph(
                     : run with { States = run.States.SetItem(node.Id, JobState.Ready) });
     }
 
-    // A gang is ONE launch decision, so its whole token set clears or the unit defers whole — a gang admitted
+    // One gang is one launch decision, so its whole token set clears or the unit defers whole — a gang admitted
     // half onto a free device and deferred for the rest deadlocks on its own contracted cycle. Members naming the
     // SAME token co-reside by construction: they are one mutually-dependent region, not two contenders.
     private static bool Free(Seq<JobNode> unit, LanguageExt.HashSet<string> claims) =>
         Tokens(unit).ForAll(token => !claims.Contains(token));
 
-    // A token-free node claims nothing, so `Choose` is the whole restriction: an unaffined node never competes.
+    // Token-free nodes claim nothing, so `Choose` is the whole restriction: an unaffined node never competes.
     private static Seq<string> Tokens(Seq<JobNode> unit) =>
         unit.Choose(static node => node.AcceleratorAffinity);
 
@@ -705,13 +707,14 @@ public sealed class JobGraph(
         Closure(nodes, toHashSet(states.Filter(static (_, state) => state == JobState.Faulted).Keys))
             .Fold(states, static (acc, id) => acc.SetItem(id, JobState.Faulted));
 
-    // Reconcile seeds live additions and removes stale state before dirty closure.
-    public static HashMap<string, JobState> MarkDirty(Seq<JobNode> nodes, HashMap<string, JobState> states, Seq<string> changed) {
-        LanguageExt.HashSet<string> live = toHashSet(nodes.Map(static node => node.Id));
+    // Reconcile consumes the ONE key diff: `removed` drops stale state, additions seed Pending, and the dirty
+    // closure grows from `moved` — every moved id is live by construction (it names a pair in the CURRENT map),
+    // so the retired live-filter guard is structural rather than a second walk that could disagree.
+    public static HashMap<string, JobState> MarkDirty(Seq<JobNode> nodes, HashMap<string, JobState> states, Seq<string> moved, Seq<string> removed) {
         HashMap<string, JobState> aligned = nodes.Fold(
-            states.Filter((id, _) => live.Contains(id)),
+            removed.Fold(states, static (acc, id) => acc.Remove(id)),
             static (acc, node) => acc.ContainsKey(node.Id) ? acc : acc.Add(node.Id, JobState.Pending));
-        return Closure(nodes, toHashSet(changed.Filter(live.Contains)))
+        return Closure(nodes, toHashSet(moved))
             .Fold(aligned, static (acc, id) => acc.SetItem(id, JobState.Pending));
     }
 
@@ -722,6 +725,26 @@ public sealed class JobGraph(
 
     public static HashMap<string, UInt128> Keys(Seq<JobNode> nodes) =>
         Topological(nodes).Fold(HashMap<string, UInt128>(), static (acc, node) => acc.Add(node.Id, node.NodeKey(acc)));
+
+    // One graph-generation identity: `[UnorderedEquality]` over the id→key pairs makes the reconcile diff ONE
+    // generated Inequalities walk — an added node, a removed node, and a moved key all surface as membership
+    // sentinels in one pass, replacing the moved-filter over `prior.Find` beside MarkDirty's separate
+    // live-filter alignment, two walks that could disagree about liveness.
+    [Equatable]
+    public sealed partial record GraphKeys([property: UnorderedEquality] HashMap<string, UInt128> Keys) {
+        // Moved keys surface as one Removed pair (prior) and one Added pair (current), so the Added side IS the
+        // dirty seed — additions and key moves alike — while Removed-only ids are the stale removals.
+        public (Seq<string> Moved, Seq<string> Removed) Diff(GraphKeys prior) {
+            Seq<Inequality> diff = toSeq(EqualityComparer.Default.Inequalities(prior, this));
+            MemberPathSegmentKind added = MemberPathSegment.Added().Kind;
+            MemberPathSegmentKind removed = MemberPathSegment.Removed().Kind;
+            Seq<string> gained = diff.Filter(row => row.Path.Segments[^1].Kind == added)
+                .Map(static row => ((KeyValuePair<string, UInt128>)row.Right!).Key);
+            Seq<string> lost = diff.Filter(row => row.Path.Segments[^1].Kind == removed)
+                .Map(static row => ((KeyValuePair<string, UInt128>)row.Left!).Key);
+            return (Moved: gained, Removed: lost.Filter(id => !gained.Exists(kept => StringComparer.Ordinal.Equals(kept, id))));
+        }
+    }
 
     // Every refusal detail leads a BOUNDED slug and carries its unbounded roster after it, so a fault reader keys
     // on the fixed-width head while the ids stay readable — a bare join makes the whole detail the discriminant.
@@ -821,24 +844,24 @@ public abstract partial record ComputeFault {
     // from every other lane's block.
     public sealed record LaneSaturated : ComputeFault { public LaneSaturated(string detail) : base(detail, 2224) { } }
 
-    // The keyed-fold refusal names every spine lane this owner sized no channel for, so a composition reads
+    // This keyed-fold refusal names every spine lane this owner sized no channel for, so a composition reads
     // which rows are missing rather than which enqueue happened to reach one first.
     public sealed record LaneUnprofiled : ComputeFault { public LaneUnprofiled(string detail) : base(detail, 2225) { } }
 }
 ```
 
 ```csharp signature
-// The composition's shard policy as ONE row, never a parameter tail at the fold: tenancy and QoS are the graph's
+// `ShardFanout` carries the composition's shard policy as ONE row, never a parameter tail at the fold: tenancy and QoS are the graph's
 // own admission columns the parent solve already carries, and the two byte limits are the per-node budgets the
 // governor's memory scale then folds through `CpuBudget.MemoryLimit` exactly as it does for every other node.
-// A non-positive budget refuses at `AdmitGraph` by name rather than at a gate re-spelled here.
+// Non-positive budgets refuse at `AdmitGraph` by name rather than at a gate re-spelled here.
 public sealed record ShardFanout(TenantId Tenant, long ShardMemoryBytes, long MergeMemoryBytes, int QosWeight = 1);
 
 // Placement travels BESIDE the node because `JobGraph` takes one runner: the composition closes that runner over
 // this pairing and dials each shard's own endpoint, so no per-node dispatch column enters `JobNode`.
 public readonly record struct ShardJob(JobNode Node, ComputeEndpoint Placement);
 
-// A solve too large for one host becomes job-graph NODES rather than a private fan-out, so every shard rides the
+// Solves too large for one host become job-graph NODES rather than a private fan-out, so every shard rides the
 // wave scheduler whole — content-key reconcile, fair share, spill, the fault cone — and the merge is a node like
 // any other. The block structure is READ, never re-derived: `Tensor/factor#KERNEL_LOWERING` `ShardPlan.Blocked`
 // owns the `Tile` row-block height that the sub-solve rpc already dials against.
@@ -860,7 +883,7 @@ public static class ShardPartition {
                 .Map(shards => (shards, Merge(intent, fanout, shards.Map(static shard => shard.Node.Id))))
             : Fin.Fail<(Seq<ShardJob>, JobNode)>(new ComputeFault.GraphRejected($"<shard-partition:{rows}:{plan.Tile}>"));
 
-    // The resolved hop seats as the node's OWN affinity token, so shard exclusivity is the wave claim set already
+    // Resolved hops seat as the node's OWN affinity token, so shard exclusivity is the wave claim set already
     // built — a farm hop is an exclusive execution resource exactly as a device is. `InputBytes` is this block's
     // own bytes, so `NodeKey` dirties one shard when one block moves and leaves its peers keyed as they were.
     static Fin<ShardJob> Placed(
@@ -885,7 +908,22 @@ public static class ShardPartition {
             endpoint));
     }
 
-    // The merge is a REAL node depending on every shard, never a post-fold: a faulted shard poisons it through the
+    // Corpus-backed block provider: each shard's row block reads as ONE rank-2 hyperslab
+    // `[start..start+height, cols]` off the operator archive, so the partition never stages the full operator.
+    // `ShardPlan.Blocked.Tile` stays the ONE block arithmetic — the kernel-lowering owner fixes start and height,
+    // this provider only spells the selection those bounds already name — and each call opens its OWN Path
+    // handle: one NativeFile per job, the archive node-key law, so parallel shards never share a driver.
+    public static Func<int, int, ReadOnlyMemory<byte>> ArchiveBlocks(string path, string dataset, int cols) =>
+        (start, height) => {
+            using HdfHandle archive = HdfArchive.Open(new HdfSource.Path(path), HdfArchivePolicy.Interchange).ThrowIfFail();
+            long count = (long)height * cols;
+            if (count > int.MaxValue) { throw new InvalidDataException($"<shard-block:{count}>"); }
+            double[] block = new double[(int)count];
+            archive.Dataset(dataset).Read<double>(archive.Access, block.AsSpan(), new HyperslabSelection(2, [(ulong)start, 0UL], [(ulong)height, (ulong)cols]));
+            return MemoryMarshal.AsBytes<double>(block.AsSpan()).ToArray();
+        };
+
+    // This merge is a REAL node depending on every shard, never a post-fold: a faulted shard poisons it through the
     // standing fault cone, a moved shard re-keys it through the ordered-upstream fold `NodeKey` already runs, and
     // it seals under the parent intent's own `DeadlineAt` rather than minting a second budget. It carries no
     // affinity token because the join runs local, and no input bytes because its whole identity is upstream.

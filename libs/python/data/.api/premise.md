@@ -9,7 +9,6 @@
 - module: `premise`
 - namespaces: `premise.{electricity, cement, steel, fuels, transport, heat, metals, battery, biomass, emissions}` — per-sector transformer modules dispatched by `NewDatabase.update()`
 - rail: epd-lca (prospective LCA background)
-
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the prospective-database builders

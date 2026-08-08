@@ -1,25 +1,27 @@
 # [COMPUTE_WIRE]
 
-Rasm.Compute owns the suite wire CONTRACT — what the wire SAYS, while `Runtime/transport` owns the channel MECHANICS (transport rows, channel tuning, call policy, artifact framing) and therefore how it MOVES. Proto files compile GrpcServices=Client in this package and GrpcServices=Server at app roots, one descriptor-diff evolution law gates every drift class behind a canonical XxHash128 projection-checksum, and one `FaultDetail` family carries every typed fault across the edge — the client-edge `WireFault` rail total over the `StatusCode` taxonomy with an in-band conflict decode arm, and the band-complete `FaultWire` projection whose `Bands` registry mirrors the `Runtime/admission#DISPATCH_SPINE` custody map so every `ComputeFault` case provably crosses as a `FaultDetail` row. The flagship `DocumentService`↔`DocumentTransaction` parity seam lands wire-complete here, so a transaction run in process and one run over the channel return the identical typed receipt and decode the same in-band conflict.
+Rasm.Compute owns the suite wire CONTRACT — what the wire SAYS, while `Runtime/transport` owns the channel MECHANICS (transport rows, channel tuning, call policy, artifact framing) and therefore how it MOVES. Proto files compile GrpcServices=Client in this package and GrpcServices=Server at app roots, and one descriptor-diff evolution law gates every drift class behind a canonical XxHash128 projection-checksum.
+
+One `FaultDetail` family carries every typed fault across the edge — the client-edge `WireFault` rail total over the `StatusCode` taxonomy with an in-band conflict decode arm, and the band-complete `FaultWire` projection whose `Bands` registry mirrors the `Runtime/admission#DISPATCH_SPINE` custody map so every `ComputeFault` case provably crosses as a `FaultDetail` row. `DocumentService`↔`DocumentTransaction` parity lands wire-complete here: an in-process transaction and a channel-crossing one return the identical typed receipt and decode the same in-band conflict.
 
 `GaussianSplatScan` is MINTED here — SPZ v4 and SOG v2 are stable versioned published law, so C# owns the reality-capture wire vocabulary — and the browser TS posture projects the whole suite wire as type-only contracts. Mapperly `[Mapper]`/`[MapDerivedType]` per-case transcription and Generator.Equals `[Equatable]` structural equality are the admitted proto↔domain boundary generators. Package spine: Google.Protobuf, Grpc.Tools, Grpc.Net.Client, NodaTime.Serialization.Protobuf, Riok.Mapperly, Generator.Equals, System.IO.Hashing, Thinktecture.Runtime.Extensions, LanguageExt.Core, and NodaTime.
 
 ## [01]-[INDEX]
 
-- [02]-[PROTO_VOCABULARY]: the contract-file header mint, the wire service roster, canonical geometry and support-bundle messages, the `DocumentService`↔`DocumentTransaction` parity seam, the polymorphic field-mask and `Any` envelopes, and the MINTED `GaussianSplatScan` frame.
+- [02]-[PROTO_VOCABULARY]: mints the contract-file header and the `GaussianSplatScan` frame, rosters the wire services, and carries canonical geometry and support-bundle messages, the `DocumentService`↔`DocumentTransaction` parity seam, and the polymorphic field-mask and `Any` envelopes.
 - [03]-[CONTRACT_EVOLUTION]: descriptor-diff drift law over field/rpc/oneof/enum/reserved/packed/nested surface behind one canonical projection-checksum gate, with parse hardening and the branch-interior stage-crossing slot mirror.
 - [04]-[FAULT_PROJECTION]: one `FaultDetail` family, the `StatusCode`→`WireFault` rail, and the band-complete `FaultWire` projection mirroring the admission custody map with an in-band conflict decode arm.
 - [05]-[TS_PROJECTION]: browser wire posture — fault and frame contracts, method shapes, the transaction-parity shape, field-mask read.
 
 ## [02]-[PROTO_VOCABULARY]
 
-- Owner: the service contracts and the canonical geometry and support-bundle message families declared in the remote-lane owner folder; `WireServices` — the channel-scoped generated-client capsule carrying one polymorphic `Mask` projection and the `Unpack` typed-fault projection; `WireDocument` — the flagship `DocumentService`↔`DocumentTransaction` parity surface folding budget, `Bounded` pre-check, `Classify`, and receipt emission into the canonical operation set field-for-field across in-process and cross-process.
+- Owner: the service contracts and the canonical geometry and support-bundle message families declared in the remote-lane owner folder; `WireServices` — the channel-scoped generated-client capsule carrying one polymorphic `Mask` projection and the `Unpack` typed-fault projection; `WireDocument` — the flagship `DocumentService`↔`DocumentTransaction` parity surface folding budget, `Bounded` pre-check, `Classify`, and receipt emission into the canonical operation set field-for-field across in-process and cross-process; `TransactionDraft`/`WireDocumentMapper` — the domain draft and its GENERATED transcription onto `TransactionRequest` under `RequiredMappingStrategy.Both` (NodaTime/protobuf statics registered whole, the get-only `RepeatedField` Ops filled through one existing-target `[UserMapping]`, no whole-source reader ever).
 - Cases: ComputeService, DocumentService, ControlService, Diagnostic, ArtifactSync, grpc.health.v1.Health — google/rpc/status.proto and grpc.health.v1 compile verbatim beside the owned files.
-- Law: the corpus-homed `rasm/channels.proto` header is the ONE mint of every fully-qualified wire name, and it is SINGLE-WRITER — `ContractGuard.Surface` keys every descriptor row on the package-qualified `FullName`, so `package rasm.compute.v1` is the token peers project their service spellings from (`python:geometry/mesh/serve` dials `rasm.compute.v1.ComputeService` and `rasm.compute.v1.ArtifactSync`, connect-es resolves the same names off the emitted descriptor set) and a peer transcribes the header rather than re-spelling it. `option csharp_namespace = "Rasm.Channels"` is the generated-type namespace every C# consumer binds, `Rasm.Materials/Raster/set` decoding `Rasm.Channels.AssetSetManifest` out of the same file. The `FaultWire.Package` const is a DIFFERENT axis — the kernel `TelemetrySource` key riding the `FaultDetail.package` column — so the two never fold into one spelling.
+- Law: `rasm/channels.proto` — the corpus-homed header — is the ONE mint of every fully-qualified wire name, and it is SINGLE-WRITER — `ContractGuard.Surface` keys every descriptor row on the package-qualified `FullName`, so `package rasm.compute.v1` is the token peers project their service spellings from (`python:geometry/mesh/serve` dials `rasm.compute.v1.ComputeService` and `rasm.compute.v1.ArtifactSync`, connect-es resolves the same names off the emitted descriptor set) and a peer transcribes the header rather than re-spelling it. `option csharp_namespace = "Rasm.Channels"` is the generated-type namespace every C# consumer binds, `Rasm.Materials/Raster/set` decoding `Rasm.Channels.AssetSetManifest` out of the same file. `FaultWire.Package` names a DIFFERENT axis — the kernel `TelemetrySource` key riding the `FaultDetail.package` column — so the two never fold into one spelling.
 - Law: `WireDocument` is the `DocumentService`↔`DocumentTransaction` parity owner — `ExecuteTransaction` carries the in-process `DocumentTransaction` verb set field-for-field through one budget-bounded, fault-classified, receipt-emitting forwarder, so the same canonical operation set, the same `TransactionReceipt`, and the same wire choreography produce the identical typed receipt whether the transaction runs through the in-process handler or across the channel; the dedup window equals the `DeadlineClass.HopTotal` allotment so the one retry owner's horizon gates the idempotency edge on both legs, the response mirrors the typed receipt through `WireDocument.Receipt`, and a non-exceptional in-band conflict decodes through `WireDocument.Conflict` reading the `TransactionReceipt.conflict=5` slot onto the typed `WireFault` rail with no parallel response DTO and no hand-rolled per-consumer projection.
-- Law: `GaussianSplatScan` is GROUNDED here — the SPZ v4 and SOG v2 binary specifications are stable, versioned, MIT-published law, so C# owns the wire vocabulary without waiting on a consumer. It rides the ArtifactSync `ArtifactFrame` byte seam as a STANDALONE artifact (NEVER a `GeometryPayload` oneof case — the oneof carries point_cloud/mesh/voxel only), reassembles via `FrameEdge.Reassemble<GaussianSplatScan>` under the whole-artifact `XxHash128` identity gate, and admits to the Compute `Rasm.Compute/Runtime/payload#RESIDENCY` `SplatScan`, whose member set (`FormatKey`/`Positions`/`Scales`/`Rotations`/`Harmonics`/`HarmonicDegree`/`SplatCount`/`Alphas` — the harmonic band leading with its DC triple, the alphas column the sigmoid-activated opacity appended additive-only) byte-mirrors these fields; Python `realitycapture` SPZ/SOG decode, the `xxhash` cp315 wheel, and the render-side consumer leaf `Rasm.AppUi/Render/reality#SPLAT_SOURCE` stay named sibling-branch facts.
+- Law: `GaussianSplatScan` is GROUNDED here — the SPZ v4 and SOG v2 binary specifications are stable, versioned, MIT-published law, so C# owns the wire vocabulary without waiting on a consumer. It rides the ArtifactSync `ArtifactFrame` byte seam as a STANDALONE artifact (NEVER a `GeometryPayload` oneof case — the oneof carries point_cloud/mesh/voxel only), reassembles via `FrameEdge.Reassemble<GaussianSplatScan>` under the whole-artifact `XxHash128` identity gate, and admits to the Compute `Rasm.Compute/Runtime/payload#RESIDENCY` `SplatScan`, whose member set (`FormatKey`/`Positions`/`Scales`/`Rotations`/`Harmonics`/`HarmonicDegree`/`SplatCount`/`Alphas` — the harmonic band leading with its DC triple, the alphas column the sigmoid-activated opacity appended additive-only) byte-mirrors these fields through the GENERATED `SplatMapper` both ways — a column appended on one shape alone fails that build, the drift class the alphas roster once shipped; Python `realitycapture` SPZ/SOG decode, the `xxhash` cp315 wheel, and the render-side consumer leaf `Rasm.AppUi/Render/reality#SPLAT_SOURCE` stay named sibling-branch facts.
 - Auto: Grpc.Tools compiles GrpcServices=Client at build with `PrivateAssets=all`, `Access=Internal` for package-internal generated types and `Access=Public` only where the contract crosses the package boundary; app roots compile the same files GrpcServices=Server and emit the descriptor set that feeds connect-es codegen and the manifest checksum. Producer descriptors regenerate `rasm.runtime._pb2.channels_pb2`; `SupportBundleRequest`, `SupportBundleReply`, and `Diagnostic/CaptureBundle` then bind the Python `PROTO_VOCABULARY` request and response rows without a hand-maintained twin.
-- Packages: Google.Protobuf, Grpc.Tools, Grpc.Net.Client, NodaTime.Serialization.Protobuf
+- Packages: Google.Protobuf, Grpc.Tools, Grpc.Net.Client, NodaTime, NodaTime.Serialization.Protobuf, Riok.Mapperly (`[Mapper]`, `[UseStaticMapper]`, `[UserMapping]`, `[NamedMapping]`, `[MapProperty(Use = …)]`), LanguageExt.Core, Thinktecture.Runtime.Extensions
 - Growth: one rpc row on an existing service or one numbered message field absorbs a new wire fact; the browser collaboration decomposition (server-stream down, unary chunked up) is designed-only growth of one rpc row per direction; zero new surface.
 - Boundary: temporal values cross as Timestamp and protobuf Duration through `ToTimestamp`/`ToProtobufDuration` outward and `ToInstant`/`ToNodaDuration` inward — BCL DateTime never sits between wire and rail; calendar-bearing capture and schedule facts cross as `Google.Type` commons through `ToDate`/`ToTimeOfDay`/`ToProtobufDayOfWeek` outward and `ToLocalDate`/`ToLocalTime`/`ToIsoDayOfWeek` inward, so a serialized date string never sits between wire and rail; FieldMask carries the read projection and the partial-update write leg through ONE `WireServices.Mask(params ReadOnlySpan<FieldRef>)` entrypoint whose `FieldRef` `[Union<int,string>]` ad-hoc union absorbs numbers, caller paths, and mixed literals in one spread — a `Number` resolves to its field-NAME path through `FieldMask.FromFieldNumbers<QueryResponse>` (never a free string path), a `Path` admits through the non-throwing `FieldMask.FromString` re-guarded by the load-bearing `FieldMask.IsValid(QueryResponse.Descriptor, mask)` gate, both halves `Union` and `Normalize` to canonical sorted-deduplicated form on `Fin<FieldMask>`, and the empty spread faults typed — so an unknown path or number faults at the edge rather than silently dropping or throwing past it — the same partial-read mask the web-fed Query feed consumes, never a per-tile request DTO or a second mask carrier; Any with TypeRegistry carries polymorphic artifact envelopes through `WireServices.Unpack` over `Any.TryUnpack<T>` keyed by `Any.Is(descriptor)` projecting the typed fault, while outbound packing rides `Any.Pack` directly at the one staging site (`FrameEdge.Transaction`) — a rename-forward `Pack` wrapper is the deleted form; Empty carries signals; `JsonFormatter` and `JsonParser` with the same TypeRegistry are the dashboard edge over the identical generated messages — a parallel web DTO family is the deleted form; `ExecuteTransaction` defends its idempotency edge by `Clone` on the dedup-window receipt rather than mutating the cached message in place — a shared-mutable cached message is the deleted form; `OriginalNameAttribute` reconciles a proto field name to its diverged C# name at the descriptor surface so the contract-evolution key reads the proto name, never the generated identifier; the proto geometry family is the single binary wire geometry, with NetTopologySuite as the store boundary projection, GeoJSON as the JSON projection, and RhinoCommon as the host projection; ArtifactSync carries the wire leg only — sync state, diffing, and transfer manifests are store mechanics; the gaussian-splat scan crosses this ArtifactSync wire as a STANDALONE `GaussianSplatScan` artifact riding the generic `ArtifactFrame` bytes, never a `GeometryPayload` oneof case (that oneof carries point_cloud/mesh/voxel only) and admitted to the `Rasm.Compute/Runtime/payload#RESIDENCY` `SplatScan`; the `Solve`/`Generate` rpcs carry the numeric-lane decomposition and generative-run legs field-for-field with no second request shape, and the `GraphDiff`/`SubtreeFetch` rpcs carry the content-key delta wire shape only — the set-difference computation is `Rasm.Persistence/Version/ledger#CHANGEFEED` (the `TransferSet` closure-minus-held fold over the `Closure` descendant content-key manifest), so Compute owns the wire frame and Persistence's ledger owns the diff algebra.
 
@@ -104,6 +106,54 @@ public static class WireDocument {
             _ => Fin.Fail<Option<WireFault>>(new WireFault.InvalidRequest("transaction-receipt-disposition")),
         };
 }
+
+// One domain-side draft feeds the flagship request: ops arrive ALREADY PACKED at the
+// FrameEdge.Transaction staging site, so no second Any.Pack site exists behind the mapper.
+public sealed record TransactionDraft(
+    ByteString IdempotencyKey, Seq<Any> Ops, ulong ExpectedEpoch, Instant HlcPhysical, ulong HlcLogical, CorrelationId Correlation);
+
+// Parity-seam boundary transcription is GENERATED under RequiredMappingStrategy.Both, so a request column added
+// at either end FAILS THE BUILD instead of crossing as a silent default. NO whole-source
+// [MapPropertyFromSource] reader ever lands here — one reader suppresses RMG020 for every source member of its
+// mapping. Temporal members cross through the registered NodaTime/protobuf static family; the get-only
+// RepeatedField Ops fills through the one existing-target [UserMapping]; verb-case DISPATCH stays the domain
+// union's own generated Switch — [MapDerivedType] serves only a shared-base oneof envelope, never a
+// Thinktecture [Union] re-spelled.
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Both)]
+[UseStaticMapper(typeof(NodaExtensions))]
+[UseStaticMapper(typeof(ProtobufExtensions))]
+public static partial class WireDocumentMapper {
+    [MapProperty(nameof(TransactionDraft.Correlation), nameof(TransactionRequest.Correlation), Use = nameof(CorrelationText))]
+    public static partial TransactionRequest ToWire(TransactionDraft draft);
+
+    // Get-only RepeatedField fill: AddRange copies the already-packed envelopes — the one sanctioned shape for
+    // a member the generated constructor path cannot assign.
+    [UserMapping]
+    private static void Ops(Seq<Any> source, RepeatedField<Any> target) => target.AddRange(source);
+
+    [NamedMapping("correlation-text")]
+    private static string CorrelationText(CorrelationId correlation) => correlation.ToString();
+}
+
+// This mapper GENERATES the splat frame's byte-mirror crossing both ways under Both, so a column appended on one shape
+// alone — exactly the alphas drift the roster once shipped — fails THIS build instead of surviving to the
+// SplatShapeValid admission gate; the codec pair owns the packed float↔ByteString lift, each direction copying
+// exactly once into an owned buffer (`UnsafeWrap` then avoids the second copy ByteString.CopyFrom would take).
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Both)]
+[UseStaticMapper(typeof(SplatCodec))]
+public static partial class SplatMapper {
+    public static partial SplatScan ToDomain(GaussianSplatScan wire);
+
+    public static partial GaussianSplatScan ToWire(SplatScan scan);
+}
+
+public static class SplatCodec {
+    public static ReadOnlyMemory<float> Planes(ByteString packed) =>
+        MemoryMarshal.Cast<byte, float>(packed.Span).ToArray();
+
+    public static ByteString Packed(ReadOnlyMemory<float> planes) =>
+        UnsafeByteOperations.UnsafeWrap(MemoryMarshal.AsBytes(planes.Span).ToArray());
+}
 ```
 
 ```proto signature
@@ -161,7 +211,7 @@ Each rpc carries one wire law:
 - [17]-[GRAPHDIFF]: content-key delta over two Closure hashes; the set-difference algebra is `Rasm.Persistence/Version/ledger#CHANGEFEED` (`TransferSet`/`Closure`), this carries the wire shape only
 - [18]-[SUBTREEFETCH]: partial-graph checkout streaming the content-addressed subtree the GraphDiff added-set names
 - [19]-[CAPTUREBUNDLE]: requested collector keys select the bounded diagnostic capture; an empty set selects every admitted collector, and the reply carries the archive content key, bytes, collected keys, and skipped keys
-- [20]-[TESSELLATE]: the two-hop companion tessellation bridge — `Runtime/codecs#TWO_HOP_TESSELLATION` owns the job build and outcome admission, the python geometry serve end implements the rpc and projects its fully-qualified name from this mint, and faults ride FaultDetail
+- [20]-[TESSELLATE]: bridges tessellation to the companion over two hops — `Runtime/codecs#TWO_HOP_TESSELLATION` owns the job build and outcome admission, the python geometry serve end implements the rpc and projects its fully-qualified name from this mint, and faults ride FaultDetail
 
 Each message carries its proto field set and wire role:
 
@@ -184,16 +234,16 @@ Each message carries its proto field set and wire role:
 - [17]-[GRAPHCHUNK]: `content_key=1 string; payload=2 bytes; ordinal=3 int64` — one content-addressed subtree node per frame
 - [18]-[SUPPORTBUNDLEREQUEST]: `collectors=1 repeated string` — requested diagnostic collector keys; empty selects every admitted collector
 - [19]-[SUPPORTBUNDLEREPLY]: `content_key=1 string; archive=2 bytes; collected=3 repeated string; skipped=4 repeated string` — content-addressed archive and the realized collector partition
-- [20]-[GAUSSIANSPLATSCAN]: `format_key=1 string; positions=2 bytes; scales=3 bytes; rotations=4 bytes; harmonics=5 bytes; harmonic_degree=6 int32; splat_count=7 int64` — reality-capture splat scan-buffer frame; packed buffers carry the spec accessor order, `harmonic_degree` the SH band 0–3, `splat_count` the per-buffer element count, `format_key` the `spz-v4`/`sog-v2` source discriminant
+- [20]-[GAUSSIANSPLATSCAN]: `format_key=1 string; positions=2 bytes; scales=3 bytes; rotations=4 bytes; harmonics=5 bytes; harmonic_degree=6 int32; splat_count=7 int64; alphas=8 bytes` — reality-capture splat frame; packed buffers carry the spec accessor order, `harmonic_degree` the SH band 0–3, `splat_count` the per-buffer element count, `alphas` the sigmoid-activated opacity column the `SplatScan` mirror gates on (`SplatShapeValid`), `format_key` the `spz-v4`/`sog-v2` source discriminant
 - [21]-[FAULTDETAIL]: `package=1 string; code=2 int32; case=3 string; message=4 string; evidence=5 map<string,string>; correlation=6 string; hlc_physical=7 google.protobuf.Timestamp; hlc_logical=8 uint64` — the one typed fault payload every trailer and in-band conflict slot carries
 
 ## [03]-[CONTRACT_EVOLUTION]
 
-- Owner: `ContractDrift` `[Union]` three-way drift classification; `ContractGuard` — descriptor surface fold over field/rpc/oneof/enum/reserved/packed shape recursing nested message and enum types, classifier delegate, descriptor publication path, proto-name reconciliation, canonical projection checksum, field-mask read guard; `ParseGuard` — inbound parse-hardening policy record carrying the size-gated buffer decode, the proto2 `ExtensionRegistry`, and the dynamic open-envelope admission; `StageCrossing` — the Compute-side reciprocal mirror of the branch-interior photo-to-PBR slot roster, folding through the same canonical projection.
+- Owner: `ContractDrift` `[Union]` three-way drift classification; `ContractGuard` — descriptor surface fold over field/rpc/oneof/enum/reserved/packed shape recursing nested message and enum types, classifier delegate, descriptor publication path, proto-name reconciliation, canonical projection checksum, field-mask read guard; `ParseGuard` — inbound parse-hardening policy record carrying the size-gated buffer decode, the proto2 `ExtensionRegistry`, and the dynamic open-envelope admission; `StageCrossing` — the Compute-side reciprocal mirror of the branch-interior photo-to-PBR slot roster, folding through the same canonical projection; `ContractSurface` the typed `[SetEquality]` surface carrier whose ONE generated Inequalities walk classifies drift (Added/Removed sentinels read through the factory `.Kind` projections, the checksum staying the XxHash128 fold); `StageRoster` the typed `[OrderedEquality]` roster carrier two generations diff by slot.
 - Cases: Identical, Additive (tolerated), Breaking (typed rejection carrying the missing or retyped surface rows).
 - Entry: `AdditiveOnly(Seq<ByteString> local, Func<string, Fin<Seq<ByteString>>> peerSetOf)` — the delegate `Discovery.Compatible` consumes; checksum equality or additive drift admits, breaking drift rejects on the hop fault rail. `StageCrossing.Probe()` proves both stage rosters against their own record arities at boot and `StageCrossing.Checksum(roster)` folds one roster to the digest the relaying root compares against the producing end's.
 - Law: the photo-to-PBR stage crossing is NOT a Compute wire and mints no codec here — `Rasm.Materials` SPECIFIES the request, `Model/inference#STAGE_EXECUTION` EXECUTES it, the branch strata forbid a project reference either way, so the app root relays the bytes and transcribes them into the lowered-primitive `StageRequest`/`StageResult` records Compute declares independently. What Compute OWES is the reciprocal mirror of the frozen slot roster — the same both-ends-checkable discipline the `[04]-[FAULT_PROJECTION]` band registry takes — so an appended column at one end alone fails a boot probe rather than misdecoding at its slot, and a relaying root refuses to transcribe a byte across a checksum disagreement.
-- Packages: Google.Protobuf, Thinktecture.Runtime.Extensions, LanguageExt.Core, System.IO.Hashing, Rasm.AppHost (project), BCL inbox
+- Packages: Google.Protobuf, Thinktecture.Runtime.Extensions, LanguageExt.Core, System.IO.Hashing, Generator.Equals (`[Equatable]`, `[SetEquality]`, `[OrderedEquality]`, `Inequalities` + the `MemberPathSegment.Added`/`Removed` sentinels), Rasm.AppHost (project), BCL inbox
 - Growth: a removed field becomes one reserved row carrying its number range — `message.ToProto().ReservedRange` projects each `Start`-`End` span into the surface set so numbers never return to use and a removed-then-reclaimed number classifies Breaking; one surface-projection row absorbs a new descriptor dimension — packed-encoding flip, nested-type retype, oneof-membership change; the host↔companion capability negotiation and per-node EP-option bag ride the `Struct`/`Value`/`ListValue` open-envelope column under the same additive-only contract — open within an additive-only contract, never a drift escape hatch; a new stage column is one `StageCrossing` slot row landing in the same change as its `Model/inference` record column, which the arity probe then forces; zero new surface.
 - Boundary: contract identity is the serialized descriptor set built through `FileDescriptor.BuildFromByteStrings` at startup; an empty descriptor set faults before hashing. `StageCrossing` carries slot ordinals and wire field names ALONE in its digest — the half the producing end reproduces from its own `[Key(n)]` roster — while the Compute column each slot lands on stays a `nameof` binding this side proves and never transmits, so a rename here breaks a build and never a peer. `ContractGuard.Checksum` folds the ordered `Surface(...)` set into one UTF-8 stream and applies `XxHash128.Hash`, so semantically identical generators agree without hashing unstable raw `SerializedData`. `AdditiveOnly` admits checksum equality and otherwise classifies the descriptor diff; checksum mismatch never admits alone. `Surface` recurses messages and enums and projects message and service declarations, field number, type, cardinality, map shape, packing, oneof membership, JSON name, reserved ranges, enum values, and RPC input, output, and streaming shape, so adding an empty declaration still changes identity. `UnknownFieldSet` retention stays at the generated-parser default. `ParseGuard.Read` checks `ReadOnlySequence<byte>.Length` before `MessageParser<T>.ParseFrom(ReadOnlySequence<byte>)`, and `ExtensionRegistry` resolves declared proto2 extensions at the same boundary.
 
@@ -234,15 +284,8 @@ public static class ContractGuard {
                 .Run()
                 .MapFail(static error => new ComputeFault.EquivalenceMiss($"<descriptor-build-rejected:{error.Message}>"));
 
-    public static ContractDrift Classify(Seq<FileDescriptor> local, Seq<FileDescriptor> peer) {
-        FrozenSet<string> required = Surface(local);
-        FrozenSet<string> offered = Surface(peer);
-        Seq<string> missing = toSeq(required.Except(offered));
-        Seq<string> added = toSeq(offered.Except(required));
-        return !missing.IsEmpty ? new ContractDrift.Breaking(missing)
-            : !added.IsEmpty ? new ContractDrift.Additive(added)
-            : new ContractDrift.Identical();
-    }
+    public static ContractDrift Classify(Seq<FileDescriptor> local, Seq<FileDescriptor> peer) =>
+        ContractSurface.Of(local).Classify(ContractSurface.Of(peer));
 
     public static Func<string, string, Fin<bool>> AdditiveOnly(Seq<ByteString> local, Func<string, Fin<Seq<ByteString>>> peerSetOf) =>
         (localChecksum, peerChecksum) =>
@@ -274,6 +317,30 @@ public static class ContractGuard {
     private static Seq<string> RpcSurface(FileDescriptor file) =>
         toSeq(file.Services).Bind(static service => Seq($"{service.FullName}:service")
             .Concat(toSeq(service.Methods).Map(method => $"{service.FullName}/{method.Name}:{method.InputType.FullName}->{method.OutputType.FullName}:{(method.IsClientStreaming ? "C" : "U")}{(method.IsServerStreaming ? "S" : "U")}")));
+
+    internal static FrozenSet<string> Rows(Seq<FileDescriptor> files) => Surface(files);
+}
+
+// Typed surface carrier: `[SetEquality]` over the canonical row set turns drift classification into ONE
+// generated Inequalities walk — the Added/Removed membership sentinels partition the diff, read through the
+// factory `.Kind` projections so a sentinel-case rename never diverges a transcription — replacing the
+// stringified FrozenSet Except pair that walked the sets twice. The projection CHECKSUM stays the XxHash128
+// fold over the ordered renders: content addressing never rides GetHashCode, whose set-member hash is a
+// constant zero by the generator's own law.
+[Equatable]
+public sealed partial record ContractSurface([property: SetEquality] FrozenSet<string> Rows) {
+    public static ContractSurface Of(Seq<FileDescriptor> files) => new(ContractGuard.Rows(files));
+
+    public ContractDrift Classify(ContractSurface peer) {
+        Seq<Inequality> diff = toSeq(EqualityComparer.Default.Inequalities(this, peer));
+        if (diff.IsEmpty) { return new ContractDrift.Identical(); }
+        MemberPathSegmentKind removed = MemberPathSegment.Removed().Kind;
+        MemberPathSegmentKind added = MemberPathSegment.Added().Kind;
+        // Locally-present, peer-absent rows are the BREAKING half; peer-only rows are additive.
+        Seq<string> missing = diff.Filter(row => row.Path.Segments[^1].Kind == removed).Map(static row => (string)row.Left!);
+        Seq<string> gained = diff.Filter(row => row.Path.Segments[^1].Kind == added).Map(static row => (string)row.Right!);
+        return !missing.IsEmpty ? new ContractDrift.Breaking(missing) : new ContractDrift.Additive(gained);
+    }
 }
 
 // Compute's end of the branch-interior photo-to-PBR crossing. No codec lands here: the specifying package owns the
@@ -283,11 +350,17 @@ public static class ContractGuard {
 // lands on through `nameof`, so a rename breaks a build, an appended column with no counterpart breaks `Probe`,
 // and the relaying root compares one digest per direction before it moves a byte. Mirroring the peer's
 // `[Key(n)]` annotations, its serializer, or its vocabularies here would re-mint the rosters that ruling forecloses.
+// Typed roster carrier: `[Equatable]` with the ordered row column makes two roster GENERATIONS diff through the
+// generated Inequalities — the moved slot is NAMED by its index — where a checksum mismatch alone localizes
+// nothing; the digest below stays the wire identity.
+[Equatable]
+public sealed partial record StageRoster([property: OrderedEquality] Seq<(int Slot, string Wire, string Column)> Rows);
+
 public static class StageCrossing {
     public const string RequestWire = "rasm.materials.stage-request.v1";
     public const string ResultWire = "rasm.materials.stage-result.v1";
 
-    public static readonly Seq<(int Slot, string Wire, string Column)> Request = Seq(
+    public static readonly StageRoster Request = new(Seq(
         (0, "stage", nameof(StageRequest.Stage)),
         (1, "modelCardId", nameof(StageRequest.ModelCardId)),
         (2, "licenseClass", nameof(StageRequest.License)),
@@ -305,9 +378,9 @@ public static class StageCrossing {
         (14, "precision", nameof(StageRequest.Precision)),
         (15, "seed", nameof(StageRequest.Seed)),
         (16, "op", nameof(StageRequest.Op)),
-        (17, "artefact", nameof(StageRequest.Artefact)));
+        (17, "artefact", nameof(StageRequest.Artefact))));
 
-    public static readonly Seq<(int Slot, string Wire, string Column)> Result = Seq(
+    public static readonly StageRoster Result = new(Seq(
         (0, "stage", nameof(StageResult.Stage)),
         (1, "modelCardId", nameof(StageResult.ModelCardId)),
         (2, "outputs", nameof(StageResult.Outputs)),
@@ -319,24 +392,24 @@ public static class StageCrossing {
         (8, "op", nameof(StageResult.Op)),
         (9, "artefact", nameof(StageResult.Artefact)),
         (10, "parityFresh", nameof(StageResult.ParityFresh)),
-        (11, "coverage", nameof(StageResult.Coverage)));
+        (11, "coverage", nameof(StageResult.Coverage))));
 
     // Slot ordinals and wire names ALONE fold, because that half the producing end reproduces from its own
     // roster; the Compute column stays a build-time binding. Ordering by slot makes the digest independent of
     // declaration order, so a re-sorted roster is not a contract change.
-    public static string Checksum(Seq<(int Slot, string Wire, string Column)> roster) =>
+    public static string Checksum(StageRoster roster) =>
         Convert.ToHexStringLower(XxHash128.Hash(Encoding.UTF8.GetBytes(
-            string.Join(';', toSeq(roster.OrderBy(static row => row.Slot)).Map(static row => $"{row.Slot}:{row.Wire}")))));
+            string.Join(';', toSeq(roster.Rows.OrderBy(static row => row.Slot)).Map(static row => $"{row.Slot}:{row.Wire}")))));
 
     // Record arity IS the proof: a wire column appended with no Compute column, a Compute column with no slot, or
     // a duplicated ordinal all fail here at boot, where a decoder trusting position fails at the texel.
     public static Fin<Unit> Probe() =>
-        Arity<StageRequest>() == Request.Count && Arity<StageResult>() == Result.Count
-        && Request.Map(static row => row.Slot).ToFrozenSet().Count == Request.Count
-        && Result.Map(static row => row.Slot).ToFrozenSet().Count == Result.Count
+        Arity<StageRequest>() == Request.Rows.Count && Arity<StageResult>() == Result.Rows.Count
+        && Request.Rows.Map(static row => row.Slot).ToFrozenSet().Count == Request.Rows.Count
+        && Result.Rows.Map(static row => row.Slot).ToFrozenSet().Count == Result.Rows.Count
             ? Fin.Succ(unit)
             : Fin.Fail<Unit>(ComputeFault.Create(
-                $"<stage-crossing-drift:{Arity<StageRequest>()}/{Request.Count}:{Arity<StageResult>()}/{Result.Count}>"));
+                $"<stage-crossing-drift:{Arity<StageRequest>()}/{Request.Rows.Count}:{Arity<StageResult>()}/{Result.Rows.Count}>"));
 
     static int Arity<T>() => typeof(T).GetConstructors().Single().GetParameters().Length;
 }
@@ -347,7 +420,7 @@ public static class StageCrossing {
 - Owner: `WireFault` is the client-edge typed rail for trailer and in-band `FaultDetail` values. `FaultWire` admits every `ComputeFault` against the mirrored core 2200–2212, symbolic 2213–2216, analysis 2217–2219, and scheduling 2220–2225 bands before packing.
 - Cases: `Cancelled`, `DeadlineExpired`, `Unreachable` (carrying the residual `StatusCode`), `InvalidRequest`, `NotFound`, `Conflict`, `PermissionDenied`, `Exhausted`, `Unauthenticated`, `Internal`, `OutOfRange`, `DataLoss`, `Unimplemented` — each arm derives `Expected` so the typed rail lifts into `Fin`/`Eff` with no bridge, and each carries its own code in the wire-fault sub-band 4520-4532 (distinct from the HopFault 4500 hop band); every typed wire-fault family — ComputeFault (band 2200), HopFault (band 4500), store faults at their app roots — packs into the same FaultDetail rows and the client decodes them back, while `Classify` lands the residual `StatusCode` taxonomy on these arms with no fallthrough but the structurally-non-fault `OK`/`Unknown` codes.
 - Entry: `Decode(RpcException error)` returns `Fin<Option<FaultDetail>>`, so malformed status detail bytes fault typed; `Decode(FaultDetail detail)` handles the in-band conflict; `Classify` projects residual `StatusCode` values through `StatusRail`.
-- Packages: Google.Protobuf, Grpc.Net.Client, LanguageExt.Core, Thinktecture.Runtime.Extensions
+- Packages: Google.Protobuf, Grpc.Net.Client, NodaTime.Serialization.Protobuf, Riok.Mapperly (`[Mapper]`, `[MapperIgnoreTarget]`, the additional-parameter Map(TSource, TContext) shape — the one FaultDetail construction), LanguageExt.Core, Thinktecture.Runtime.Extensions
 - Growth: a new `ComputeFault` case is one band row + one wire crossing in the SAME declaration motion — the uniform `FaultWire.Pack` already carries it and the band registry row (mirrored in the `admission.md` custody map) is the single edit, mirroring the receipts `[JsonDerivedType]` registry discipline; one evidence map row per new fault family; one `StatusRail` entry per residual code reclassification; the in-band `Decode(FaultDetail)` arm reads any new FaultDetail-bearing receipt slot onto the typed rail; zero new surface.
 - Boundary: a gRPC status code and string is never the terminal error shape — the server edge packs FaultDetail into `google.rpc.Status` details, the client edge unpacks back onto the typed rail from the trailer, and TS reconstructs the identical literal-discriminated union; the Conflict receipt is the retry-owner complement of this law and the flagship transaction-conflict path is its consumer — `WireFault.PackConflict` builds the FaultDetail the `TransactionReceipt.conflict` slot carries through the message body (not a trailer) and `WireFault.DecodeConflict(FaultDetail)` reads that conflict-only slot onto the typed `Conflict` arm, while trailer decoding stays on `Decode(RpcException)` — the non-exceptional in-band conflict and the exceptional trailer fault both terminate on the one typed rail; the `StatusCode` taxonomy is non-sequential by value (`OK=0`..`Unauthenticated=16`, `Aborted=10`, `Unavailable=14`, `OutOfRange=11`, `DataLoss=15`) so the fold keys by the numeric value through a `FrozenDictionary`, never by ordinal position — an ordinal-indexed table is the deleted form; every fault-bearing code resolves to a typed arm and `AlreadyExists`/`Aborted`/`FailedPrecondition` collapse onto the one `Conflict` arm, while the explicitly-mapped `Unavailable` and the unmapped success and indeterminate codes (`OK`, `Unknown`) resolve to `Unreachable` carrying the spelled code, so the rail is total over the `StatusCode` taxonomy without enumerating `OK` as a typed fault; the `WireFault` 4520–4532 sub-band is Compute's SECOND custody — distinct from the `ComputeFault` 2200 band and from the AppHost `HopFault` 4500 hop band — RECORDED beside the `Runtime/admission#DISPATCH_SPINE` custody map and PINNED as a reciprocal mirror row in the AppHost/AppUi/Persistence registries (AppHost re-bands `CoordinationFault` to 4540 around it), so cross-package band disjointness is checkable from BOTH ends and a foreign band change is a row edit on both ends, never prose; the Mapperly `[Mapper]`/`[MapDerivedType]` per-case transcription owns any `oneof`-envelope boundary where a case carries fields the protobuf runtime does not transcribe (the union's generated total `Switch` dispatches, Mapperly transcribes), and `[Equatable]` owns structural equality wherever a class-root wire shape surrenders the record-root compare — hand-written transcription or `Equals`/`GetHashCode` where the generator reaches is the deleted form.
 
@@ -388,10 +461,7 @@ public abstract partial record WireFault : Expected, IValidationError<WireFault>
         new Conflict($"{detail.Package}#{detail.Case}({detail.Code}): {detail.Message}");
 
     public static FaultDetail PackConflict(string package, Expected fault, CorrelationId correlation, (Instant Physical, ulong Logical) stamp) =>
-        new() {
-            Package = package, Code = fault.Code, Case = fault.GetType().Name, Message = fault.Message,
-            Correlation = correlation.ToString(), HlcPhysical = stamp.Physical.ToTimestamp(), HlcLogical = stamp.Logical,
-        };
+        FaultDetailMapper.Detail(fault, package, fault.GetType().Name, correlation.ToString(), stamp.Physical, stamp.Logical);
 
     private static readonly FrozenDictionary<StatusCode, Func<string, WireFault>> StatusRail =
         new Dictionary<StatusCode, Func<string, WireFault>> {
@@ -425,15 +495,25 @@ public static class FaultWire {
         (2200, 2212, "core"), (2213, 2216, "symbolic"), (2217, 2219, "analysis"), (2220, 2225, "scheduling"));
 
     public static Fin<FaultDetail> Pack(ComputeFault fault, CorrelationId correlation, (Instant Physical, ulong Logical) stamp) =>
-        Probe(fault.Code).Map(_ => new FaultDetail {
-            Package = Package, Code = fault.Code, Case = fault.GetType().Name, Message = fault.Message,
-            Correlation = correlation.ToString(), HlcPhysical = stamp.Physical.ToTimestamp(), HlcLogical = stamp.Logical,
-        });
+        Probe(fault.Code).Map(_ => FaultDetailMapper.Detail(fault, Package, fault.GetType().Name, correlation.ToString(), stamp.Physical, stamp.Logical));
 
     private static Fin<Unit> Probe(int code) =>
         Bands.Exists(band => code >= band.From && code <= band.To)
             ? Fin.Succ(unit)
             : ComputeFault.Create($"<fault-wire-outside-band:{code}>");
+}
+
+// ONE FaultDetail construction: the trailer pack and the in-band conflict pack were the same eight-member
+// initializer written twice, so a new FaultDetail column landed twice or silently once. The Map(TSource, TContext)
+// shape folds the fault beside its stamping context — each extra parameter maps its same-named target member —
+// and `Case` rides context because a GetType() read inside the mapping would be the whole-source reader the
+// RMG020 law bans; Evidence stays the arm-owned map no pack site fills.
+[Mapper]
+[UseStaticMapper(typeof(NodaExtensions))]
+[UseStaticMapper(typeof(ProtobufExtensions))]
+public static partial class FaultDetailMapper {
+    [MapperIgnoreTarget(nameof(FaultDetail.Evidence))]
+    public static partial FaultDetail Detail(Expected fault, string package, string @case, string correlation, Instant hlcPhysical, ulong hlcLogical);
 }
 ```
 
@@ -443,7 +523,7 @@ public static class FaultWire {
 - Law: the TS contract stays WHOLE on this page while the C# frame/channel mechanics (`FrameEdge`, `RemoteTransport`, `GrpcChannelPolicy`) live on `Runtime/transport#ARTIFACT_FRAMES`/`#TRANSPORT_AXIS` — `ArtifactFrameWire` and `TransportFramingWire` cite that frame law by PROSE ANCHOR, never a cross-split fence import.
 - Packages: BCL inbox
 - Growth: one method-shape row per new rpc and one field row per new evidence slot; zero new surface.
-- Boundary: connect-es v2 `createClient` over `createGrpcWebTransport` consumes the app-root-emitted descriptor set through protoc-gen-es v2 single-plugin codegen — `binary` format with genuine binary server-streaming over Fetch, so the `application/grpc-web-text` base64 mode never enters; unary resolves as await and server-stream consumes as for-await; client-stream and bidi are structurally absent in the browser, so `ArtifactSyncShape.sync` (bidi) and `DocumentServiceShape.captureEvents` (clientStream) are wire shapes the browser transport cannot dial — the `TransportFramingWire.grpcWeb` tuple lists only the two shapes the binary frame carries; the flagship `executeTransaction` is a browser-dialable unary so the web tier commits a document transaction over the same parity contract the in-process and UDS legs use, and `TransactionReceiptWire` reconstructs the typed receipt field-for-field with the `conflict` slot as the literal-discriminated `FaultDetailWire` the in-band decode reads; the query read carries a `fieldMask` string array so a viewport tile requests only its rendered columns through the same `WireServices.Mask` paths; coalesced progress cadence is observer-side policy, never a wire knob; compression is a transport-level negotiation, never a per-method TS knob — the `grpc-internal-encoding-request` header is server-honored and the browser client reads the response `grpc-encoding` without a per-call selector; `FaultDetailWire` reconstructs the typed rail as a literal-discriminated union keyed by `case`.
+- Boundary: connect-es v2 `createClient` over `createGrpcWebTransport` consumes the app-root-emitted descriptor set through protoc-gen-es v2 single-plugin codegen — `binary` format with genuine binary server-streaming over Fetch, so the `application/grpc-web-text` base64 mode never enters; unary resolves as await and server-stream consumes as for-await; client-stream and bidi are structurally absent in the browser, so `ArtifactSyncShape.sync` (bidi) and `DocumentServiceShape.captureEvents` (clientStream) are wire shapes the browser transport cannot dial — the `TransportFramingWire.grpcWeb` tuple lists only the two shapes the binary frame carries; the flagship `executeTransaction` is a browser-dialable unary so the web tier commits a document transaction over the same parity contract the in-process and UDS legs use, and `TransactionReceiptWire` reconstructs the typed receipt field-for-field with the `conflict` slot as the literal-discriminated `FaultDetailWire` the in-band decode reads; the query read carries a `fieldMask` string array so a viewport tile requests only its rendered columns through the same `WireServices.Mask` paths; coalesced progress cadence is observer-side policy, never a wire knob; compression is a transport-level negotiation, never a per-method TS knob — the `grpc-internal-encoding-request` header is server-honored and the browser client reads the response `grpc-encoding` without a per-call selector; `FaultDetailWire` reconstructs the typed rail as a literal-discriminated union keyed by `case`; the diff-rail carriers earn NO TS rows — `ContractSurface` and `StageRoster` never cross the wire, contract identity crosses as the emitted descriptor set connect-es codegen consumes and the TS branch gates through its own descriptor admission at `libs/typescript/core/.planning/interchange/invoke.md`, so a hand-mirrored drift-classifier interface would fork the codegen truth; the `GaussianSplatScan` frame likewise earns no row — it rides `ArtifactFrameWire` bytes, no browser leg decodes the message (the render-side decode consumer is `Rasm.AppUi/Render/reality#SPLAT_SOURCE`), and the browser's splat delivery is the `libs/typescript/core/.planning/interchange/frame.md` residency-ledger `gaussian-splat` fetch-plan row over producer payload encodings, never a proto decode.
 
 ```ts signature
 type StreamKind = "unary" | "serverStream" | "clientStream" | "bidi";
@@ -454,7 +534,7 @@ interface TransportCapabilityWire { http2: ["unary", "serverStream", "clientStre
 
 interface TransportFramingWire { http2: { mode: "binary"; carries: ["unary", "serverStream", "clientStream", "bidi"] }; grpcWeb: { mode: "binary"; mediaType: "application/grpc-web"; carries: ["unary", "serverStream"] }; }
 
-type ComputeServiceShape = { infer: MethodShape<"unary", "InferRequest", "InferResponse">; progress: MethodShape<"serverStream", "ProgressRequest", "ProgressUpdate">; capabilities: MethodShape<"unary", "Empty", "ComputeCapabilities">; solve: MethodShape<"unary", "SolveRequest", "SolveResponse">; generate: MethodShape<"serverStream", "GenerateRequest", "TokenChunk">; graphDiff: MethodShape<"unary", "GraphDiffRequest", "GraphDiffResponse">; subtreeFetch: MethodShape<"serverStream", "SubtreeFetchRequest", "GraphChunk">; };
+type ComputeServiceShape = { infer: MethodShape<"unary", "InferRequest", "InferResponse">; progress: MethodShape<"serverStream", "ProgressRequest", "ProgressUpdate">; capabilities: MethodShape<"unary", "Empty", "ComputeCapabilities">; solve: MethodShape<"unary", "SolveRequest", "SolveResponse">; generate: MethodShape<"serverStream", "GenerateRequest", "TokenChunk">; graphDiff: MethodShape<"unary", "GraphDiffRequest", "GraphDiffResponse">; subtreeFetch: MethodShape<"serverStream", "SubtreeFetchRequest", "GraphChunk">; tessellate: MethodShape<"unary", "TessellationJob", "TessellationOutcome">; };
 
 type DocumentServiceShape = { capabilities: MethodShape<"unary", "Empty", "DocumentCapabilities">; documentEvents: MethodShape<"serverStream", "WatchRequest", "DocumentEvent">; executeTransaction: MethodShape<"unary", "TransactionRequest", "TransactionReceipt">; query: MethodShape<"unary", "QueryRequest", "QueryResponse">; captureEvents: MethodShape<"clientStream", "CaptureFrame", "CaptureSummary">; };
 

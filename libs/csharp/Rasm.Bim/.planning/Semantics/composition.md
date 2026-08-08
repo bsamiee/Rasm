@@ -48,7 +48,7 @@ namespace Rasm.Bim.Semantics;
 // marks the carriers the GENERATED Row reaches; the junction and logical narrowings belong to those hand-written
 // folds alone (no seam constituent column carries a priority or a ventilation), so marking them declares a
 // generated consumer that does not exist.
-[Mapper]
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Both)]
 public static partial class MaterialShape {
     // PartName is the constituent's own IFC Name — the part it FORMS, a different axis from its function Category,
     // so two rows sharing one category stay addressable where the name-dropping fold collapsed them.

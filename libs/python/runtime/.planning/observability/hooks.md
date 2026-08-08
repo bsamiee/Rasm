@@ -11,16 +11,16 @@ This registry formalizes the standing contributor fold: `@receipted` remains the
 ## [02]-[HOOKS]
 
 - Owner: `HookPoint[P]` is the registered row — id, payload type, modality, replay bound — and `Hooks` the registry service holding the point table, subscriber table, and bounded replay buffers as immutable maps behind one `RLock`, each keyed first by the receipts-owned `ScopeKey` so two compositions embedding the runtime in one process partition point custody, subscriber fan-out, and replay windows structurally while the `DEFAULT_SCOPE` keyword default preserves the bare call shape. `register` is the one polymorphic claim over a point or a whole roster, refusing a duplicate id and a malformed id at composition through the `boundary` fence, so every live point spells `rasm.<pkg>.<domain>.<point>` and owns its id alone within its scope.
-- Cases: `Modality` is the closed dispatch vocabulary — `VETO` runs subscribers as a sequential sync transform-or-reject fold whose rail returns to the emitter; `OBSERVE` runs each subscriber as a fenced sync or async tap whose fault lands on the receipt stream while the emitter's value passes through untouched; `REPLAY` admits sync taps alone and buffers the last `buffer` payloads so attach drains the ring before forward observation. Callable instances and sync-declared callables returning awaitables follow the returned value's modality rather than their declaration shape.
+- Cases: `Modality` is the closed dispatch vocabulary — `VETO` runs subscribers as a sequential sync transform-or-reject fold whose rail returns to the emitter; `OBSERVE` runs each subscriber as a fenced sync or async tap whose fault lands on the receipt stream while the emitter's value passes through untouched; `REPLAY` admits sync taps alone and buffers the last `buffer` payloads so attach drains the ring before forward observation. Callable instances and sync-declared callables returning awaitables follow the returned value's modality rather than their declaration shape, and each arm admits its own return contract at the fence — a veto answering anything but the payload rail and an observe tap answering an awaitable a sync delivery cannot drive each refuse there rather than escaping the fold that consumes them. Every delivery carries the fired point id beside the payload, so one tap fanned across a roster names which point it is reading.
 - Law: `installed(owner, receipt, scope=...)` is the producer-install ledger and `installs(scope=...)` its total read; `points(scope=...)` is the membership probe over the point side, so a mounted roster carrying no install row names the leg that ran half.
 - Law: a producer's composition leg deposits its own receipt here, runtime importing no producer folder to type one.
 - Law: an empty roster IS the diagnosis — no producer leg ran, so every `fired` call took the unregistered-id path.
 - Law: a producer claims its whole point table in ONE gated transition — the roster arm swaps the table only past its last admitted row and reports every breach together, so a refusal leaves custody exactly as it stood and no retire verb is owed against a half-mount the claim cannot produce.
 - Entry: `register(points, scope=...)` and `subscribe(points, tap, scope=...)` fold arity off the request shape — one `HookPoint` or one point id serves that point, a `Block` serves the roster whole — so a producer claims and taps its point table at one grain and the roster-to-subscribe fold lives here rather than at every caller. Registration swaps one gated table; subscription unwinds instead, detaching every member it attached on the first refusal, because a REPLAY row's retained drain runs outside the registry gate and no swap can cover it. `fire(point_id, payload)` is one polymorphic emitter surface — `_delivery` admits the payload, updates any replay ring, and snapshots taps once before the registered modality selects the sync arm; the async mirror `fire_async` consumes the same delivery result and awaits awaitable taps. An unregistered id is a fault on the rail, never a silent drop.
-- Auto: each registry read-modify-write and snapshot runs under the free-threading gate; tap execution never runs under it — fire-path delivery runs after release, and REPLAY attach snapshots its ring under the gate then drains it outside through a tap-local replay/forward barrier that queues concurrent forward payloads and flushes them after the retained window, so no forward payload overtakes retained facts. Replay attach is transactional: a drain fault — a raising tap or the sync contract breached by a returned awaitable — detaches the tap before the fence rails the refusal, so a half-drained subscriber never stays attached. Subscriber isolation is the `boundary`/`async_boundary` fence per tap — async delivery awaits any awaitable result, sync delivery closes a closeable awaitable before railing its modality fault, and a raising observe tap becomes a `BoundaryFault` emitted as a `rejected` receipt under the point id and original `ScopeKey`; the emitter's rail stays `Ok`, and only a `VETO` subscriber can reject. A fire runs under whatever span is active, so span correlation rides the emitter's `measured` weave and no hook opens a span of its own.
+- Auto: each registry read-modify-write and snapshot runs under the free-threading gate; tap execution never runs under it — fire-path delivery runs after release, and REPLAY attach snapshots its ring under the gate then drains it outside through a tap-local replay/forward barrier that queues concurrent forward payloads and flushes them after the retained window, so no forward payload overtakes retained facts. Replay attach is transactional: a drain fault — a raising tap or the sync contract breached by a returned awaitable — detaches the tap before the fence rails the refusal, so a half-drained subscriber never stays attached. Subscriber isolation is the `boundary`/`async_boundary` fence per tap — async delivery awaits any awaitable result, sync delivery closes a closeable awaitable before railing its modality fault, a veto answering anything but a rail refuses on that same fence so the fold never carries a value without rail members into the next member's `bind`, and a raising observe tap becomes a `BoundaryFault` emitted as a `rejected` receipt under the point id and original `ScopeKey`; the emitter's rail stays `Ok`, and only a `VETO` subscriber can reject. A fire runs under whatever span is active, so span correlation rides the emitter's `measured` weave and no hook opens a span of its own.
 - Receipt: `tap_receipts(owner, scope=...)` and `tap_metrics(measures, domain, kind, scope=...)` are the built-in taps — one streams each payload as a scope-preserving `Receipt.of(owner, ("emitted", point_id, structs.asdict(payload)))` row, the other projects the payload's numeric measures onto the `Metrics.record` mapping arm under that same key — so metrics and log lines are projections of the same fired fact and cannot disagree with it; `replayed` projects every REPLAY point, including an empty ring, as bounded data for the bundle capsule, the same retained window a late subscriber drains.
 - Packages: `msgspec` (payload rows, `structs.asdict`), `expression` (`Block`/`Map`, the rail), runtime (`boundary`/`async_boundary`/`BoundaryFault`, `Signals`/`Receipt`/`OPEN`, `Metrics`), stdlib (`re`, `RLock`).
-- Growth: a new hook point is one `HookPoint` row registered at composition and a producer's whole table is one `Block` through the same entry, tapped through the same shape; a new payload field is one `Struct` field every tap reads through the same `asdict` projection; a new modality is one `Modality` member with one `fire` arm under `assert_never`; a new producer install is one `installed` deposit inside its own leg; a new composition is one `ScopeKey` value threaded through the `scope` keyword, never a sibling registry.
+- Growth: a new hook point is one `HookPoint` row registered at composition and a producer's whole table is one `Block` through the same entry, tapped through the same shape; a new payload field is one `Struct` field every tap reads through the same `asdict` projection; a new modality is one `Modality` member with one arm on each `fire` surface, the standing `assert_never` arm breaking every surface that lacks it; a new producer install is one `installed` deposit inside its own leg; a new composition is one `ScopeKey` value threaded through the `scope` keyword, never a sibling registry.
 - Boundary: the registry composes the receipts and metrics owners and adds no second egress — a subscriber that needs OTLP reaches it through the taps, and a library registers points while only the app root registers subscribers.
 
 ```python signature
@@ -30,7 +30,7 @@ from collections.abc import Awaitable, Callable, Mapping
 from enum import StrEnum
 from inspect import isawaitable, iscoroutinefunction
 from threading import Lock, RLock
-from typing import ClassVar, Final, overload
+from typing import ClassVar, Final, assert_never, overload
 
 from expression import Ok, Result
 from expression.collections import Block, Map
@@ -42,8 +42,12 @@ from rasm.runtime.receipts import DEFAULT_SCOPE, OPEN, Receipt, ScopeKey, Signal
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type Tap[P: Struct] = Callable[[P], object | Awaitable[object]]
-type Veto[P: Struct] = Callable[[P], RuntimeRail[P]]
+# every delivery carries the FIRED POINT beside its payload, because `subscribe` reaches roster grain: one tap fanned
+# across a producer's whole table would otherwise read every point's payload with nothing naming which fired, and the
+# built-in receipt tap would stamp one subject over the lot. The delivery site already holds the id, so carrying it is
+# free and its absence is what a subscriber cannot recover.
+type Tap[P: Struct] = Callable[[str, P], object | Awaitable[object]]
+type Veto[P: Struct] = Callable[[str, P], RuntimeRail[P]]
 
 
 class Modality(StrEnum):
@@ -54,8 +58,9 @@ class Modality(StrEnum):
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-# package-qualified point grammar; the same uniqueness law SCOPES holds for instrumentation scopes.
-HOOK_ID: Final[re.Pattern[str]] = re.compile(r"^rasm\.[a-z0-9_-]+\.[a-z0-9_-]+\.[a-z0-9_-]+$")
+# package-qualified point grammar; the same uniqueness law SCOPES holds for instrumentation scopes. Anchors are
+# `\A`/`\Z` so one spelling bounds the pattern under every match verb, exactly as the receipts-owned scope grammar does.
+HOOK_ID: Final[re.Pattern[str]] = re.compile(r"\Arasm\.[a-z0-9_-]+\.[a-z0-9_-]+\.[a-z0-9_-]+\Z")
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -81,12 +86,12 @@ class _ReplayAttach:
         self._pending: list[Struct] | None = []
         self._gate = Lock()
 
-    def __call__(self, payload: Struct) -> object:
+    def __call__(self, point_id: str, payload: Struct) -> object:
         with self._gate:  # Exemption: per-subscriber barrier — delivery serializes on the tap-local lock, never the registry gate
             if self._pending is not None:
                 self._pending.append(payload)
                 return None
-            return self._tap(payload)
+            return self._tap(point_id, payload)
 
     def opened(self, deliver: Callable[[Struct], object]) -> None:
         with self._gate:  # Exemption: flush completes under the barrier so no forward payload overtakes the queue
@@ -237,8 +242,8 @@ class Hooks:
             # An empty ring still opens the barrier so the forward contract starts clean.
             try:
                 for fact in retained:  # Exemption: un-fenced drain — a raise must reach the subscribe fence, detaching first
-                    cls._sync_tap(tap, fact)
-                barrier.opened(lambda fact: cls._sync_tap(tap, fact))
+                    cls._sync_tap(tap, point_id, fact)
+                barrier.opened(lambda fact: cls._sync_tap(tap, point_id, fact))
             except BaseException:
                 cls._detach(point_id, barrier, scope)
                 raise
@@ -274,8 +279,23 @@ class Hooks:
                 return Ok((row, taps))
 
     @staticmethod
-    def _vetoed[P: Struct](point_id: str, payload: P, taps: Block[Tap[Struct] | Veto[Struct]]) -> RuntimeRail[P]:
-        return taps.fold(lambda rail, veto: rail.bind(lambda live: boundary(point_id, lambda: veto(live)).bind(lambda r: r)), Ok(payload))
+    def _veto_tap(veto: Tap[Struct] | Veto[Struct], point_id: str, payload: Struct) -> RuntimeRail[Struct]:
+        # VETO admission, twin to `_sync_tap`'s below: a subscriber on a VETO point returns the payload
+        # RAIL, and `bind` over a raw return hands the fold a value carrying no rail members at all — the NEXT
+        # member's `bind` then raises outside every fence, straight into the emitter this registry exists to isolate.
+        # Refusing here converts the breach on the fence, so a malformed veto REJECTS the payload, the one reading a
+        # gate can safely take of a subscriber it could not run.
+        returned = veto(point_id, payload)
+        if isinstance(returned, Result):
+            return returned
+        raise TypeError(f"veto hook {point_id!r} must return the payload rail")
+
+    @classmethod
+    def _vetoed[P: Struct](cls, point_id: str, payload: P, taps: Block[Tap[Struct] | Veto[Struct]]) -> RuntimeRail[P]:
+        return taps.fold(
+            lambda rail, veto: rail.bind(lambda live: boundary(point_id, lambda: cls._veto_tap(veto, point_id, live)).bind(lambda r: r)),
+            Ok(payload),
+        )
 
     @classmethod
     def fire[P: Struct](cls, point_id: str, payload: P, *, scope: ScopeKey = DEFAULT_SCOPE) -> RuntimeRail[P]:
@@ -287,6 +307,10 @@ class Hooks:
             case Result(tag="ok", ok=(HookPoint(modality=Modality.OBSERVE | Modality.REPLAY), taps)):
                 taps.fold(lambda _, tap: cls._observed(point_id, tap, payload, scope), None)
                 return Ok(payload)
+            case Result(tag="ok", ok=(HookPoint(modality=unreachable), _)):
+                # `Modality` proves total HERE, so a new member earns its arm above or breaks at this one
+                # rather than falling through and handing a rail-typed caller `None` on the point it just fired.
+                assert_never(unreachable)
 
     @classmethod
     async def fire_async[P: Struct](cls, point_id: str, payload: P, *, scope: ScopeKey = DEFAULT_SCOPE) -> RuntimeRail[P]:
@@ -299,12 +323,14 @@ class Hooks:
                 for tap in taps:
                     # Exemption: the sequential tap walk is the async fence seam — each fault folds onto the receipt stream, never out.
                     async def awaited(tap: Tap[Struct] | Veto[Struct] = tap) -> object:
-                        returned = tap(payload)
+                        returned = tap(point_id, payload)
                         return await returned if isawaitable(returned) else returned
 
                     fenced = await async_boundary(point_id, awaited)
                     fenced.swap().map(lambda fault: cls._isolated(point_id, fault, scope))
                 return Ok(payload)
+            case Result(tag="ok", ok=(HookPoint(modality=unreachable), _)):
+                assert_never(unreachable)
 
     @classmethod
     def replayed(cls, *, scope: ScopeKey = DEFAULT_SCOPE) -> Map[str, Block[Struct]]:
@@ -321,15 +347,15 @@ class Hooks:
 
     @classmethod
     def _observed(cls, point_id: str, tap: Tap[Struct] | Veto[Struct], payload: Struct, scope: ScopeKey) -> None:
-        boundary(point_id, lambda: cls._sync_tap(tap, payload)).swap().map(lambda fault: cls._isolated(point_id, fault, scope))
+        boundary(point_id, lambda: cls._sync_tap(tap, point_id, payload)).swap().map(lambda fault: cls._isolated(point_id, fault, scope))
 
     @staticmethod
     def _declared_async(tap: object) -> bool:
         return iscoroutinefunction(tap) or iscoroutinefunction(getattr(tap, "__call__", None))
 
     @staticmethod
-    def _sync_tap(tap: Tap[Struct] | Veto[Struct], payload: Struct) -> object:
-        returned = tap(payload)
+    def _sync_tap(tap: Tap[Struct] | Veto[Struct], point_id: str, payload: Struct) -> object:
+        returned = tap(point_id, payload)
         if not isawaitable(returned):
             return returned
         close = getattr(returned, "close", None)
@@ -349,15 +375,21 @@ class Hooks:
 
     @staticmethod
     def tap_receipts(owner: str, *, scope: ScopeKey = DEFAULT_SCOPE) -> Tap[Struct]:
-        return lambda payload: Signals.emit(Receipt.of(owner, ("emitted", owner, dict(structs.asdict(payload)))), OPEN, scope=scope)
+        # Each line takes the fired point as its SUBJECT and the producer as its owner: one tap over a whole roster emits a
+        # distinguishable row per point, where repeating the owner into both slots collapses a producer's whole table
+        # onto one indistinguishable name and strands the reader with the payload as its only discriminant.
+        return lambda point_id, payload: Signals.emit(
+            Receipt.of(owner, ("emitted", point_id, dict(structs.asdict(payload)))), OPEN, scope=scope
+        )
 
     @staticmethod
     def tap_metrics(measures: Callable[[Struct], Mapping[str, float]], domain: str, kind: str, *, scope: ScopeKey = DEFAULT_SCOPE) -> Tap[Struct]:
         # `scope` is the composition the recorded series partition under — the SAME key the point registered and the
         # receipts tap emits under. Spent nowhere, every series a tapped producer records would carry the default
         # composition stamp while its receipts carried the embedded one, so the two evidence planes of one fired fact
-        # would disagree on who produced it.
-        return lambda payload: Metrics.record(measures(payload), domain=domain, kind=kind, scope=scope)
+        # would disagree on who produced it. `kind` stays the caller's rather than the fired point's: a roster fan
+        # measures one producing subject across its whole table, and the measure NAMES already separate the rows.
+        return lambda _point_id, payload: Metrics.record(measures(payload), domain=domain, kind=kind, scope=scope)
 ```
 
 ## [03]-[RESEARCH]

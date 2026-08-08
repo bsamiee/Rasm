@@ -152,8 +152,13 @@ class CompiledProbe(Struct, frozen=True):
 
     @staticmethod
     def _pruned(query: Query, kept: Option[frozenset[str]]) -> Query:
-        # `disable_capture` mutates in place ONCE at build — a pruned capture never allocates a node list at run time; the id table still enumerates it.
-        kept.map(lambda keep: Block.of_seq(query.capture_name(i) for i in range(query.capture_count)).filter(lambda cap: cap not in keep).map(query.disable_capture))
+        # `disable_capture` mutates in place ONCE at build — a pruned capture never allocates a node list at run
+        # time, while the id table still enumerates it.
+        kept.map(
+            lambda keep: Block.of_seq(query.capture_name(i) for i in range(query.capture_count))
+            .filter(lambda cap: cap not in keep)
+            .map(query.disable_capture)
+        )
         return query
 
 
@@ -164,7 +169,8 @@ GRAMMARS: Final[Map[Lang, Grammar]] = Map.of_seq(
     (lang, Grammar.of(lang, capsule))
     for lang, capsule in (("python", ts_py.language()), ("typescript", ts_ts.language_typescript()), ("tsx", ts_ts.language_tsx()))
 )
-# `locals` is the live partial-coverage column — TypeScript ships the source, Python does not — so the Map.filter-total compile is exercised, never just claimed.
+# `locals` is the live partial-coverage column — TypeScript ships the source, Python does not — so the
+# `Map.filter`-total compile is exercised, never just claimed.
 PROBE_SOURCES: Final[Map[Probe, Map[Lang, str]]] = Map.of_seq(
     (name, Map.of_seq(rows))
     for name, rows in (
@@ -174,7 +180,8 @@ PROBE_SOURCES: Final[Map[Probe, Map[Lang, str]]] = Map.of_seq(
         ("locals", (("typescript", ts_ts.LOCALS_QUERY), ("tsx", ts_ts.LOCALS_QUERY))),
     )
 )
-# binding emits only the bound name: the `@decl` whole-declaration span prunes at build, so the drift scan never materializes captures it only filters away.
+# binding emits only the bound name: the `@decl` whole-declaration span prunes at build, so the drift scan never
+# materializes captures it only filters away.
 PROBE_KEEP: Final[Map[Probe, frozenset[str]]] = Map.of_seq((("binding", frozenset((_CAPTURE_NAME,))),))
 PROBES: Final[Map[Probe, CompiledProbe]] = PROBE_SOURCES.map(
     lambda name, sources: CompiledProbe.of(name, sources, GRAMMARS, PROBE_KEEP.try_find(name))
@@ -189,6 +196,13 @@ _TRACER: Final[trace.Tracer] = scoped(trace.get_tracer, SCOPES[Scope.EVIDENCE])
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
+
+
+def _flattened[R](nested: Block[Block[R]]) -> Block[R]:
+    # the per-file rails come back one `Block` per source, and both dispositions join them the same way; the fold is
+    # named at module scope because a lambda bound to a local is the assigned-lambda form the gate rejects, and one
+    # named spelling keeps the ACCUMULATE and PARTITION arms from drifting to two joins.
+    return nested.collect(identity)
 
 
 class GrammarRegistry:
@@ -209,6 +223,8 @@ class GrammarRegistry:
         # `match_limit=budget` makes `did_exceed_match_limit` a LIVE truncation grade — on the default `0xFFFFFFFF` cap the `resource`
         # arm is dead and a match-explosion returns silently clipped captures as a clean `Ok`.
         cursor = QueryCursor(probed.queries[lang], match_limit=budget)
+        # Exemption: `QueryCursor` takes `match_limit` alone at construction, so depth and range scoping are
+        # post-build setters — the package's own imperative seam, and the one statement kernel this entry admits.
         if max_depth is not None:
             cursor.set_max_start_depth(max_depth)
         if byte_range is not None:
@@ -270,16 +286,15 @@ class GrammarRegistry:
     def scan[R](
         probe: Probe, corpus: Corpus, into: Into[R] = Evidence.of, *, by: Disposition = Disposition.ACCUMULATE, budget: int = _BUDGET
     ) -> RuntimeRail[Block[R]] | RuntimeRail[tuple[Block[R], Block[BoundaryFault]]]:
-        flatten: Callable[[Block[Block[R]]], Block[R]] = lambda nested: nested.collect(identity)
         covered = corpus.filter(lambda row: row[0] in PROBES[probe].queries)
         with _TRACER.start_as_current_span(_SPAN_SCAN) as scope:
             if scope.is_recording():
                 scope.set_attributes({"evidence.probe": probe, "evidence.corpus": len(corpus), "evidence.covered": len(covered)})
             rails = covered.map(lambda row: GrammarRegistry.run(row[0], row[1], probe, into, budget=budget))
             graded = (
-                traversed(rails, by=by).map(lambda split: (flatten(split[0]), split[1]))
+                traversed(rails, by=by).map(lambda split: (_flattened(split[0]), split[1]))
                 if by is Disposition.PARTITION
-                else traversed(rails, by=by).map(flatten)
+                else traversed(rails, by=by).map(_flattened)
             )
             scope.set_status(graded.map(lambda _ok: Status(StatusCode.OK)).default_with(lambda fault: Status(StatusCode.ERROR, fault.tag)))
             return graded

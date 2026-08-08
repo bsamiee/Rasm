@@ -1,8 +1,20 @@
 # [COMPUTE_OPTIMIZER]
 
-Rasm.Compute solver optimizer: one `Optimizer` design-space-search axis over a typed `DesignVariable`/`ActivationRule`/`ConstraintHandling`/`ObjectiveSense` problem, dispatching one polymorphic `Optimize` entry by `OptimizerKind` row to a per-family kernel that owns its iteration budget and adaptation state — NSGA multi-objective evolution over `GeneticSharp.GeneticAlgorithm`, CMA-ES rank-`μ`/rank-one covariance adaptation, Clerc-constriction PSO, Metropolis simulated annealing, Bayesian-GP acquisition, gradient-adjoint trust-region/Armijo descent, topology-SIMP optimality criteria, OR-Tools CP-SAT/MILP exact solving over the package's own `Domain` set algebra and ConstraintSolver vehicle routing, MathNet box-bounded and limited-memory quasi-Newton with derivative-free simplex refinement, `LowDiscrepancy.Sobol` multi-start restart, and robust-minimax/RBDO.
+Rasm.Compute solver optimizer: one `Optimizer` design-space-search axis over a typed `DesignVariable`/`ActivationRule`/`ConstraintHandling`/`ObjectiveSense` problem, dispatching one polymorphic `Optimize` entry by `OptimizerKind` row to a per-family kernel that owns its iteration budget and adaptation state.
 
-Owned surface: the `OptimizerKind`/`DesignVariable`/`ActivationRule`/`ObjectiveSense`/`ConstraintHandling`/`LineSearch`/`SmoothMinimizer`/`AcquisitionFunction`/`SurrogateKind`/`Orthogonalization` vocabulary, the `LinearModel`/`LinearRow`/`RoutingProblem`/`RoutingResult`/`RoutingPolicy`/`DesignProblem`/`DesignPoint`/`ParetoFront`/`OptimizerPolicy`/`SearchContext`/`ExactEvidence`/`ShadowPrice`/`BoundStream`/`KernelRun`/`OptimizationResult` carriers, the `Surrogate`/`OutputModel`/`RomBasis`/`GpModel`/`RbfModel`/`NeuralFieldModel` reduced-order models, and the `Optimizer` fold beside the `GeneticEngine`/`NsgaFitness` GeneticSharp capsule and the `RoutingSearch` lowering. `evaluate` is one `Func<DesignPoint, Fin<Seq<double>>>` returning the objective vector concatenated with the constraint vector, split by `problem.Objectives.Count` so `ConstraintHandling` stays reachable; full `Solver/contract#SOLVE_CONTRACT` evaluation and `Surrogate.Predict` both remain on `Fin`, and the surrogate result carries its bound as well. `Surrogate.Fused` is the fidelity axis ON that contract — an `Analysis` closed-form fold as the cheap leg, the full FEA/energy solve as the expensive leg, per-objective additive-correction surrogates fusing both under one `FidelityPolicy` budget over the `FidelityState` paired-evaluation correction — and the composed arrow IS the contract shape, so every `OptimizerKind` row searches it unchanged; the package holds BOTH fidelity tiers in one runtime, and the fusion converts that co-location into thousands of closed-form evaluations per tens of exact solves. Gradient-adjoint dispatches the closed `AdjointTape` union — the `Geometry` case chains `Tensor/dispatch#EQUIVALENCE_INTEROP` `SensitivityLaw.Chain` over the tapes lowered from `DesignProblem.DesignMesh`, the `Symbolic` case chains `Symbolic/lowering#SYMBOLIC_JACOBIAN` `SymbolicAdjoint.Chain` over one design-point-carrying `SymbolicTape` — under an objective-sense cotangent seed; GP-covariance Cholesky and marginal-likelihood ride `Tensor/blas#DENSE_ALGEBRA` `Cholesky<double>`, the reduced basis the `Orthogonalization` SVD/QR rows, and the neural field the `Model/inference#INFERENCE_MODES` `RunOps.Infer` OrtValue run keyed by the parametric-family `XxHash128` digest. Settled arrivals: the `ComputeReceipt` rail, `WorkLane`/`Substrate`/`AllocationClass`, `CorrelationId`, NodaTime `IClock` (the App-owned `ClockPolicy` stays at composition), the Thinktecture `ComparerAccessors.StringOrdinal` accessor, the `Rasm.Meshing` `MeshAdjointSnapshot` / `Rasm.Numerics` `DiscreteCalculus` DDG-adjoint surface, and the `GeometryTape` shape. `ParetoFront` crosses to Persistence content-keyed and `Surrogate` crosses to `Solver/clash#CLASH_AND_TWIN` as the digital-twin baseline.
+Kernel families: NSGA multi-objective evolution over `GeneticSharp.GeneticAlgorithm`, CMA-ES rank-`μ`/rank-one covariance adaptation, Clerc-constriction PSO, Metropolis simulated annealing, Bayesian-GP acquisition, gradient-adjoint trust-region/Armijo descent, topology-SIMP optimality criteria, OR-Tools CP-SAT/MILP exact solving over the package's own `Domain` set algebra and ConstraintSolver vehicle routing, MathNet box-bounded and limited-memory quasi-Newton with derivative-free simplex refinement, `LowDiscrepancy.Sobol` multi-start restart, and robust-minimax/RBDO.
+
+Owned surface: the `OptimizerKind`/`DesignVariable`/`ActivationRule`/`ObjectiveSense`/`ConstraintHandling`/`LineSearch`/`SmoothMinimizer`/`AcquisitionFunction`/`SurrogateKind`/`Orthogonalization` vocabulary, the `LinearModel`/`LinearRow`/`RoutingProblem`/`RoutingResult`/`RoutingPolicy`/`DesignProblem`/`DesignPoint`/`ParetoFront`/`OptimizerPolicy`/`SearchContext`/`ExactEvidence`/`ShadowPrice`/`BoundStream`/`KernelRun`/`OptimizationResult` carriers.
+
+`Surrogate`/`OutputModel`/`RomBasis`/`GpModel`/`RbfModel`/`NeuralFieldModel` are the reduced-order models, and the `Optimizer` fold rides beside the `GeneticEngine`/`NsgaFitness` GeneticSharp capsule and the `RoutingSearch` lowering. `evaluate` is one `Func<DesignPoint, Fin<Seq<double>>>` returning the objective vector concatenated with the constraint vector, split by `problem.Objectives.Count` so `ConstraintHandling` stays reachable; full `Solver/contract#SOLVE_CONTRACT` evaluation and `Surrogate.Predict` both remain on `Fin`, and the surrogate result carries its bound as well.
+
+`Surrogate.Fused` is the fidelity axis ON that contract — an `Analysis` closed-form fold as the cheap leg, the full FEA/energy solve as the expensive leg, per-objective additive-correction surrogates fusing both under one `FidelityPolicy` budget over the `FidelityState` paired-evaluation correction — and the composed arrow IS the contract shape, so every `OptimizerKind` row searches it unchanged; the package holds BOTH fidelity tiers in one runtime, and the fusion converts that co-location into thousands of closed-form evaluations per tens of exact solves.
+
+Gradient-adjoint dispatches the closed `AdjointTape` union — the `Geometry` case chains `Tensor/dispatch#EQUIVALENCE_INTEROP` `SensitivityLaw.Chain` over the tapes lowered from `DesignProblem.DesignMesh`, the `Symbolic` case chains `Symbolic/lowering#SYMBOLIC_JACOBIAN` `SymbolicAdjoint.Chain` over one design-point-carrying `SymbolicTape` — under an objective-sense cotangent seed.
+
+GP-covariance Cholesky and marginal-likelihood ride `Tensor/blas#DENSE_ALGEBRA` `Cholesky<double>`, the reduced basis the `Orthogonalization` SVD/QR rows, and the neural field the `Model/inference#INFERENCE_MODES` `RunOps.Infer` OrtValue run keyed by the parametric-family `XxHash128` digest.
+
+Settled arrivals: the `ComputeReceipt` rail, `WorkLane`/`Substrate`/`AllocationClass`, `CorrelationId`, NodaTime `IClock` (the App-owned `ClockPolicy` stays at composition), the Thinktecture `ComparerAccessors.StringOrdinal` accessor, the `Rasm.Meshing` `MeshAdjointSnapshot` / `Rasm.Numerics` `DiscreteCalculus` DDG-adjoint surface, and the `GeometryTape` shape. `ParetoFront` crosses to Persistence content-keyed and `Surrogate` crosses to `Solver/clash#CLASH_AND_TWIN` as the digital-twin baseline.
 
 ## [01]-[INDEX]
 
@@ -17,19 +29,19 @@ Owned surface: the `OptimizerKind`/`DesignVariable`/`ActivationRule`/`ObjectiveS
 - Entry: `public static Fin<OptimizationResult> Optimize(DesignProblem problem, OptimizerPolicy policy, CpuBudget budget, Func<DesignPoint, Fin<Seq<double>>> evaluate, SearchContext search, IClock clock)` — entry overwrites `policy.Parallelism` from `budget.Workers` before validation and dispatch, so no caller or ambient processor count can widen evaluation; `search` carries the cooperative stop and the optional observation cell as ONE capability argument, never a token tail. `Fin<T>` aborts on an invalid design space, policy, oracle output, or kernel state; `evaluate` returns exactly `Objectives.Count + Constraints` finite values with objectives first. One shared `Atom<(int Evals, int Hits)>` meters the full and surrogate oracles, and a surrogate hit is admitted only when its bound and output cardinality satisfy the problem contract.
 - Auto: `Optimize` dispatches each `OptimizerKind` row through one generated total `Switch` (`Invoke`) to its genuine kernel, invoked exactly once, so a NEW row breaks the dispatch at COMPILE time rather than faulting at runtime; `multi-start-global` re-enters the same dispatch for its inner row carrying the same `SearchContext`. Constraint handling is the `ConstraintHandling` row and the surrogate duality is a policy column gating cheap-versus-full evaluation with the surrogate-hit count metered honestly. Every stochastic kernel draws from the kernel `Deterministic.Source` keyed on `(OptimizerKind.Lane, …)` under `OptimizerPolicy.Seed`; the `nsga2` row also pins the package-global provider through `FastRandomRandomization.ResetSeed`, since assigning the provider alone leaves an entropy-seeded generator, and ranks each generation against a FROZEN snapshot so evaluation order never enters the fitness. Exact rows lower every coordinate SLOT through `DesignVariable.Admissible` and every row through its band set, reify each conditional axis as one literal, register one assumption literal per row, hint from the incoming front, seal `num_search_workers`/`SetNumThreads` from the same governed parallelism, and register the cooperative stop against the solve handle.
 - Receipt: the `Optimization` `ComputeReceipt` case carries the optimizer key, the kernel-reported generation count, the metered evaluated-point count, the metered surrogate-hit count, the front size, and the hypervolume indicator (the receipt's six audit slots); the reference box and its derived flag, the constraint-violation history, the trust-region radius, the exact-lane `ExactEvidence`, and the routing assignment ride the `OptimizationResult` carrier, and the per-evaluation surrogate error bound and GP marginal-likelihood ride the `Surrogate`/`GpModel` so a ROM/GP acceptance is auditable without a receipt slot the `Runtime/receipts#RECEIPT_UNION` owner does not declare.
-- Packages: MathNet.Numerics (the dense `Matrix<double>.Evd`/`Cholesky`/`Svd`/`QR` algebra, `Distributions.Normal` reliability/sampling, and the `BfgsBMinimizer`/`LimitedMemoryBfgsMinimizer`/`NelderMeadSimplex` smooth-local family behind the three refinement rows), GeneticSharp (the `GeneticAlgorithm` engine + chromosome/operator/executor catalog behind the `nsga2` row, its multi-objective `IFitness` this page's), cslsqp (source-vendored ISC span solver behind the `slsqp` row — vendored provenance, no manifest package row), Google.OrTools (CP-SAT `CpModel`/`CpSolver`/`SolutionCallback` + the `Google.OrTools.Util` `Domain` set algebra + LinearSolver `Solver` + the `Google.OrTools.ConstraintSolver` routing rail behind the `cp-sat`/`milp`/`routing` rows), System.Numerics.Tensors, Microsoft.ML.OnnxRuntime (the neural-field `OrtValue` run), Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm (project, the `MeshAdjointSnapshot`/`DiscreteCalculus` public surface for the DDG gradient-adjoint tape and `Deterministic.Source` as the one draw owner), Rasm.Persistence (project), BCL inbox
+- Packages: MathNet.Numerics (the dense `Matrix<double>.Evd`/`Cholesky`/`Svd`/`QR` algebra, `Distributions.Normal` reliability/sampling, and the `BfgsBMinimizer`/`LimitedMemoryBfgsMinimizer`/`NelderMeadSimplex` smooth-local family behind the three refinement rows), GeneticSharp (the `GeneticAlgorithm` engine + chromosome/operator/executor catalog behind the `nsga2` row, its multi-objective `IFitness` this page's), cslsqp (source-vendored ISC span solver behind the `slsqp` row — vendored provenance, no manifest package row), Google.OrTools (CP-SAT `CpModel`/`CpSolver`/`SolutionCallback` + the `Google.OrTools.Util` `Domain` set algebra + LinearSolver `Solver` + the `Google.OrTools.ConstraintSolver` routing rail behind the `cp-sat`/`milp`/`routing` rows), System.Numerics.Tensors, Microsoft.ML.OnnxRuntime (the neural-field `OrtValue` run), Generator.Equals (`[Equatable]` + `[OrderedEquality]` the generated `DesignPoint` structural identity every front set and genome memo keys on), Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm (project, the `MeshAdjointSnapshot`/`DiscreteCalculus` public surface for the DDG gradient-adjoint tape and `Deterministic.Source` as the one draw owner), Rasm.Persistence (project), BCL inbox
 - Growth: a new search algorithm is one `OptimizerKind` row carrying its own draw lane and one arm on the `Optimize` total `Switch` (`Invoke`) — a population-based row binds its own update rule (CMA-ES covariance, PSO velocity, SA Metropolis) or `GeneticEngine` for a genuine GA; a smooth-local row is one `SmoothMinimizer` row and one `Invoke` arm over the shared `Smooth` fold, never a fourth minimizer body; an exact OR-Tools row lowers the `LinearModel` to a `CpModel`/`Solver` or the `RoutingProblem` to a `RoutingModel`; a wrapping row composes the inner kernel through the same dispatch — and the generated `Switch` breaks at COMPILE time until the arm is added (never a runtime kind-miss); a variable case admitting a new shape of set is one `Admissible` arm and one `Malformed` arm the generated dispatch demands together, and a case occupying more than one coordinate is one `Width` arm the offset table then carries everywhere; a further exact-search measure is one `ExactEvidence` field read off the solve handle; a new genetic operator is one construction column on the `GeneticEngine.Evolve` assembly binding the `GeneticSharp` `ICrossover`/`IMutation` row, never a per-operator engine arm; a new variable kind is one `DesignVariable` case carrying its `AdjointOperator`; a new constraint discipline is one `ConstraintHandling` row; a new line-search/trust-region is one `LineSearch` row; a new acquisition is one `AcquisitionFunction` row; a new surrogate model is one `SurrogateKind` row and a `Fit` arm; a new ROM orthogonalization is one `Orthogonalization` row; a new fidelity tier or fusion posture (co-kriging over the delta GP, a three-tier cascade) is one `FidelityPolicy` column or one `FidelityState.Paired` refit arm on the SAME fused contract, never a second oracle shape; a new objective is one row on the `DesignProblem` objective set; zero new surface — an `Nsga2Engine`/`BayesianOptimizer`/`CmaEsSolver`/`ParticleSwarm`/`Annealer`/`TopologyOptimizer`/`CpSatSolver`/`MilpSolver`/`MultiStartRunner`/`VrpSolver` sibling family is collapsed onto the one `Optimize` total `Switch`, a `LinkedVariable`/`DerivedVariable` family onto `DesignVariable.Linked`, a `PenaltyHandler`/`FeasibilityHandler` family onto `ConstraintHandling`, a `QrReducer`/`GramSchmidtReducer`/`DeimReducer` family onto `Orthogonalization`, and a `SurrogateNet`/`FieldPredictor` sibling onto the `Surrogate.NeuralField` row.
 - Boundary: contract-uniform — `evaluate` is the single coupling point, so the search composes a full FEA solve or a railed `Surrogate.Predict` without a parallel surrogate-search path. Objective-vector-then-constraint-vector concatenation keeps the `ConstraintHandling` axis reachable; a permanently-empty constraint set silently disabling penalty/feasibility/augmented-Lagrangian handling is rejected. Typed variables make a bound violation a boundary fault, never a clamped silent repair, and variable-linking and conditional design spaces are rows on the same axis through `DesignProblem.Resolve`.
 - Boundary: a `DesignPoint` is the CONCATENATION of per-variable coordinate spans under one offset table, so a `Density` field of `Cells` elements is `Cells` design freedoms every kernel searches — the prior one-coordinate-per-variable shape left the topology field searchable only by the SIMP kernel, which expanded it privately while every other row optimized a single scalar for the whole field. Starts, boxes, unit maps, clamps, exact-lane variables, and genome genes all index through that table, so a new multi-slot case is one `Width` arm rather than a per-kernel expansion.
-- Boundary: FIVE genuine kernels — `nsga2` routes `GeneticEngine` over the admitted `GeneticSharp.GeneticAlgorithm` (package owns the GA machinery, page owns the fast non-dominated sort, the crowding comparator, and `ParetoFront`), while `cma-es`, `pso`, and `simulated-annealing` are distinct algorithms no admitted package owns, authored as in-package folds over the `Matrix<double>.Evd`/`Distributions.Normal` substrate; an operator-swap masquerade routing them through one `GeneticAlgorithm` with zero covariance/velocity/temperature state is rejected. NSGA-II fitness ranks against a SNAPSHOT frozen for the whole generation: ranking against a live archive makes a genome's fitness depend on how many peers happened to be scored first, which under a parallel executor is thread interleaving, so one seed produced a different search every run and the content-addressed front keyed a campaign nobody could re-derive. Reproducibility is the seeded provider AND the snapshot together, and the archive survives as archive alone. `bayesian-gp` FITS a `GpModel` from the running history each iteration and ranks candidates by the acquisition over the posterior; a loop that never fits the GP and ranks by a constant is rejected.
-- Boundary: gradient-adjoint dispatches `problem.AdjointTape` — the Geometry arm reads the VERIFIED two-argument `SensitivityLaw.Chain(tapes, seed)` overload (a phantom three-argument `Chain(tape, inputs, seed)` call is the API trap), the Symbolic arm re-points its `SymbolicTape` at the current origin before `SymbolicAdjoint.Chain` — and the cotangent seed carries the objective sense, so a maximize row descends the negated direction and two design states yield two symbolic gradients; `AdjointOperator` lowers `Continuous`→`Gradient` and `Density`→`CotangentLaplacian` at compile time, and an absent `DesignMesh` lowers an empty Geometry case so the descent is degenerate by construction (the absent-mesh case, never an absent operator). A gradient whose arity misses the design dimension REFUSES: zero-padding the tail descends the leading coordinates and freezes the rest, which is a silently reduced search wearing the full problem's name. The descent step is `OptimizerPolicy.StepLength`, its own column — reading a genetic mutation rate as a step length coupled two unrelated axes. `LineSearch` owns the line-search/trust-region; a fixed-step descent without step control is rejected. Topology-SIMP reads the genuine compliance sensitivity from that same adjoint route, iterates the density SPAN, and bisects the Lagrange multiplier to the volume constraint; a density update whose base ignores the structural sensitivity (a constant `−1/λ` power) is the deleted fake. Augmented-Lagrangian carries a LIVE multiplier advanced `λ ← max(0, λ + ρ·g)` each generation and read by `Penalize`; a `MultiplierUpdate` flag degenerating to static penalty is rejected.
-- Boundary: the surrogate is MULTI-OUTPUT — one `OutputModel` per contract output, objectives then constraints — so `Predict` answers the same vector shape the full oracle answers and the gated cardinality check is satisfiable; a single-output surrogate could never clear it, which made every surrogate hit structurally unreachable and the metered hit count permanently zero. The vector bound is the WIDEST per-output bound, because a surrogate is admissible only while every component it answers is inside the policy. ROM reduction is one `Orthogonalization` SmartEnum (QR/modified-Gram-Schmidt/DEIM/POD-SVD) over the snapshot matrix, and the DEIM row's interpolation indices are READ — the oblique projection recovers a full field from `Rank` sampled entries, which is the whole reason an interpolatory basis differs from an orthonormal one. Every surrogate drifting past its bound forces a full re-evaluation, the surrogate-hit count metered honestly through the shared `Atom`; a receipt slot that stays zero is rejected.
+- Boundary: FIVE genuine kernels — `nsga2` routes `GeneticEngine` over the admitted `GeneticSharp.GeneticAlgorithm` (package owns the GA machinery, page owns the fast non-dominated sort, the crowding comparator, and `ParetoFront`), while `cma-es`, `pso`, and `simulated-annealing` are distinct algorithms no admitted package owns, authored as in-package folds over the `Matrix<double>.Evd`/`Distributions.Normal` substrate; an operator-swap masquerade routing them through one `GeneticAlgorithm` with zero covariance/velocity/temperature state is rejected. NSGA-II fitness ranks against a SNAPSHOT frozen for the whole generation: ranking against a live archive makes a genome's fitness depend on how many peers happened to be scored first, which under a parallel executor is thread interleaving, so one seed produces a different search every run and the content-addressed front keys a campaign nobody re-derives. Reproducibility is the seeded provider AND the snapshot together, and the archive survives as archive alone. `bayesian-gp` FITS a `GpModel` from the running history each iteration and ranks candidates by the acquisition over the posterior; a loop that never fits the GP and ranks by a constant is rejected.
+- Boundary: gradient-adjoint dispatches `problem.AdjointTape` — the Geometry arm reads the VERIFIED two-argument `SensitivityLaw.Chain(tapes, seed)` overload (a phantom three-argument `Chain(tape, inputs, seed)` call is the API trap), the Symbolic arm re-points its `SymbolicTape` at the current origin before `SymbolicAdjoint.Chain` — and the cotangent seed carries the objective sense, so a maximize row descends the negated direction and two design states yield two symbolic gradients; `AdjointOperator` lowers `Continuous`→`Gradient` and `Density`→`CotangentLaplacian` at compile time, and an absent `DesignMesh` lowers an empty Geometry case so the descent is degenerate by construction (the absent-mesh case, never an absent operator). Gradients whose arity misses the design dimension REFUSE: zero-padding the tail descends the leading coordinates and freezes the rest, which is a silently reduced search wearing the full problem's name. `OptimizerPolicy.StepLength` owns the descent step as its own column — reading a genetic mutation rate as a step length couples two unrelated axes. `LineSearch` owns the line-search/trust-region; a fixed-step descent without step control is rejected. Topology-SIMP reads the genuine compliance sensitivity from that same adjoint route, iterates the density SPAN, and bisects the Lagrange multiplier to the volume constraint; a density update whose base ignores the structural sensitivity (a constant `−1/λ` power) is the deleted fake. Augmented-Lagrangian carries a LIVE multiplier advanced `λ ← max(0, λ + ρ·g)` each generation and read by `Penalize`; a `MultiplierUpdate` flag degenerating to static penalty is rejected.
+- Boundary: the surrogate is MULTI-OUTPUT — one `OutputModel` per contract output, objectives then constraints — so `Predict` answers the same vector shape the full oracle answers and the gated cardinality check is satisfiable; a single-output surrogate never clears it, leaving every surrogate hit structurally unreachable and the metered hit count zero. `Bound` takes the WIDEST per-output bound, because a surrogate is admissible only while every component it answers is inside the policy. ROM reduction is one `Orthogonalization` SmartEnum (QR/modified-Gram-Schmidt/DEIM/POD-SVD) over the snapshot matrix, and the DEIM row's interpolation indices are READ — the oblique projection recovers a full field from `Rank` sampled entries, which is the whole reason an interpolatory basis differs from an orthonormal one. Every surrogate drifting past its bound forces a full re-evaluation, the surrogate-hit count metered honestly through the shared `Atom`; a receipt slot that stays zero is rejected.
 - Boundary: `SurrogateKind` is the surrogate axis — the neural-field row threads the leased `Model/inference#INFERENCE_MODES` `(InferenceSession, RunOptions, CancelScope)` so `Predict` runs the coordinate-MLP/Fourier field through `RunOps.Infer` behind the same `Fin<(Seq<double> Values, double Bound)>` rail the fitted rows answer. Its weights are NOT fitted in this runtime: `Surrogate.Fit` refuses the row outright, and the trained asset arrives by content key through the `Model/identity#MODEL_IDENTITY` `ModelSource.Acquire` admission under its `GraduationEnvelope` evidence key, exported from `Solver/sweep#SWEEP_AND_BUDGET` as a `DoeDataset` corpus and returned by an external training environment this branch neither names nor constrains. `Surrogate.OfField` is the only mint, and a delegation to the linear trend under the neural-field name is the deleted form (C# owns only inference; an in-proc ORT-Training fit is rejected).
-- Boundary: `ParetoFront` is content-addressed onto the Persistence vector index and the exact bi-objective hypervolume is the staircase sweep (≥3-objective a Monte-Carlo estimate over the reference box, drawn on the run's own `(Lane, Seed)` so no literal seed survives on the page); a Lebesgue-box overcount double-counting dominated overlaps is rejected. The reference box is `OptimizerPolicy.Reference` where a campaign declares one and derived from the front's own worst objective per axis otherwise, with the derived flag on the result — a hypervolume against a derived box moves with the front, so two runs are comparable only when both declared the same reference and a reader must never have to assume which happened.
-- Boundary: exact `cp-sat`/`milp` lower the typed `DesignProblem.Exact` `LinearModel` to a genuine OR-Tools `CpModel`/`Solver` and fault `<exact-needs-linear-model>` when absent, because an exact solver cannot optimize the black-box FEA objective (a string-parsed or empty model is rejected); CP-SAT solves integer/boolean natively and discretizes continuous through `IntegerStep` under ONE declared coordinate system — coefficients, bounds, hints, and band edges scale through `DesignProblem.Scale` so the integer model preserves the physical `LinearModel` semantics, and the harvested assignment re-evaluates through the oracle in physical space — while MILP routes the integer part to SCIP and the continuous part through the linear backend with no discretization. The CP-SAT parameter text is a WIRE format and formats under the invariant culture; a comma-decimal locale renders a malformed deadline key the solver silently ignores.
-- Boundary: ADMISSIBLE SETS are the package's own `Domain` algebra, never a `(lower, upper)` pair: a variable lowers through `DesignVariable.Admissible` (a range, a holed categorical roster, or a linked singleton), a conditional axis unions the inactive value the resolve fold writes, and a row lowers through `AddLinearExpressionInDomain` over its flat band set — a contiguous range standing in for a conditional or disjoint set admits exactly the states the design rules forbid, so the solver returns an assignment the oracle then rewrites and the exact lane silently answers a different program than the one authored. The LinearSolver face is ONE interval per row and ONE range per variable, so THREE shapes refuse there by name pointing at cp-sat — a banded row, a holed categorical roster, and a conditional axis — rather than relaxing to a hull that admits the forbidden states.
+- Boundary: `ParetoFront` is content-addressed onto the Persistence vector index and the exact bi-objective hypervolume is the staircase sweep (≥3-objective a Monte-Carlo estimate over the reference box, drawn on the run's own `(Lane, Seed)` so no literal seed survives on the page); a Lebesgue-box overcount double-counting dominated overlaps is rejected. `OptimizerPolicy.Reference` supplies the reference box where a campaign declares one; otherwise it derives from the front's own worst objective per axis, with the derived flag on the result — a hypervolume against a derived box moves with the front, so two runs are comparable only when both declared the same reference and a reader must never have to assume which happened.
+- Boundary: exact `cp-sat`/`milp` lower the typed `DesignProblem.Exact` `LinearModel` to a genuine OR-Tools `CpModel`/`Solver` and fault `<exact-needs-linear-model>` when absent, because an exact solver cannot optimize the black-box FEA objective (a string-parsed or empty model is rejected); CP-SAT solves integer/boolean natively and discretizes continuous through `IntegerStep` under ONE declared coordinate system — coefficients, bounds, hints, and band edges scale through `DesignProblem.Scale` so the integer model preserves the physical `LinearModel` semantics, and the harvested assignment re-evaluates through the oracle in physical space — while MILP routes the integer part to SCIP and the continuous part through the linear backend with no discretization. CP-SAT parameter text formats as a WIRE format under the invariant culture; a comma-decimal locale renders a malformed deadline key the solver silently ignores.
+- Boundary: ADMISSIBLE SETS are the package's own `Domain` algebra, never a `(lower, upper)` pair: a variable lowers through `DesignVariable.Admissible` (a range, a holed categorical roster, or a linked singleton), a conditional axis unions the inactive value the resolve fold writes, and a row lowers through `AddLinearExpressionInDomain` over its flat band set — a contiguous range standing in for a conditional or disjoint set admits exactly the states the design rules forbid, so the solver returns an assignment the oracle then rewrites and the exact lane silently answers a different program than the one authored. `LinearSolver`'s face carries ONE interval per row and ONE range per variable, so THREE shapes refuse there by name pointing at cp-sat — a banded row, a holed categorical roster, and a conditional axis — rather than relaxing to a hull that admits the forbidden states.
 - Boundary: EXPLANATION is the exact lane's obligation, not a status token: each row reifies under its own assumption literal and an UNSATISFIABLE return names the conflicting rows through `SufficientAssumptionsForInfeasibility`, matching the law the sibling SMT page already holds on the identical capability. EVIDENCE publishes measured: the exact rows carry the engine's own branch or node count, its conflicts, its objective beside its bound, its dual prices and reduced costs, and its wall time — the literal `1` iteration count is a fabricated constant, and a `Feasible`-but-not-`Optimal` return without its bound is indistinguishable from a proven optimum on the receipt. OR-Tools native handles enter only through declared `IDisposable` roots (`CpSolver`/`Solver`/`RoutingModel`/`RoutingIndexManager`) released by `Dispose`; a hand-rolled branch-and-bound, simplex, or routing search beside the solver is rejected.
-- Boundary: SMOOTH-LOCAL rows bind the MathNet minimizer family behind one `Smooth` fold and one `SmoothMinimizer` row set; nonlinear LEAST SQUARES is deliberately not a row here because `Tensor/blas#LEVENBERG_MARQUARDT` is the package's one damped Gauss-Newton owner and a library-bound Levenberg-Marquardt beside it is the twin that owner forecloses. The vendored `cslsqp` gradient delegate returns an OWNED array: a span handed back from that callback points at the temporary its fallback materialized, which the native solver then reads after the frame is gone.
+- Boundary: SMOOTH-LOCAL rows bind the MathNet minimizer family behind one `Smooth` fold and one `SmoothMinimizer` row set; nonlinear LEAST SQUARES is deliberately not a row here because `Tensor/blas#LEVENBERG_MARQUARDT` is the package's one damped Gauss-Newton owner and a library-bound Levenberg-Marquardt beside it is the twin that owner forecloses. Vendored `cslsqp` gradient delegates return an OWNED array: a span handed back from that callback points at the temporary its fallback materialized, which the native solver then reads after the frame is gone.
 - Boundary: `multi-start-global` wraps any inner row (guarded against self-recursion) with a `LowDiscrepancy.Sobol` basin restart rather than a `System.Random` fill; every other stochastic kernel on the page — CMA sampling, PSO velocity, the annealing proposal, and the hypervolume estimator — draws from the kernel `Deterministic.Source` under `(OptimizerKind.Lane, …)`, so one policy seed yields independent per-row streams and a bare `new Random(seed)` has no site left. `robust-minimax` reads the `Solver/uncertainty#UNCERTAINTY_LANE` `RandomVariable` scenario set through the SAME `LowDiscrepancy.Sobol`+`RandomVariable.Quantile` inverse-transform the UQ lane uses, scores each candidate worst-case, and appends the reliability chance constraint `β_target − β ≤ 0` (`β = Normal.InvCDF(1 − pf)`) onto the `ConstraintHandling` axis so RBDO is a constraint row and the deep FORM/SORM/PCE stay the uncertainty lane's.
 - Boundary: parallel fitness evaluation binds under the governed budget — `Optimizer.Optimize` overwrites `OptimizerPolicy.Parallelism` from `CpuBudget.Workers`, and `ParallelTaskExecutor.MaxThreads` reads that sealed value. Admitted `TplPopulation(int, int, IChromosome)` takes the `Population` constructor whole and overrides `CreateInitialGeneration` alone, so every other population member reads unchanged; its `Parallel.For` genome mint exposes no `ParallelOptions` seat, so the initial generation is the ONE leg outside `CpuBudget.Workers` — a fan of `CreateNew` mints paid once at start rather than per generation, where the sealed budget binds the fitness evaluation the executor runs and a plain `Population` substituted to close that leg buys a serial start for nothing.
 
@@ -329,7 +341,7 @@ public abstract partial record DesignVariable {
     public double Lower =>
         Switch(continuous: static c => c.Lower, integer: static i => (double)i.Lower, categorical: static _ => 0.0, density: static _ => 0.0, linked: static l => l.Offset, symbolic: static s => s.Lower);
 
-    // The per-slot BOX extent, distinct from `Width`: every slot of a density field spans `[0,1]`, an integer axis
+    // `Extent` is the per-slot BOX extent, distinct from `Width`: every slot of a density field spans `[0,1]`, an integer axis
     // spans its range. `Lower + Extent` is the slot's upper bound wherever a kernel needs a box.
     public double Extent =>
         Switch(continuous: static c => c.Upper - c.Lower, integer: static i => (double)(i.Upper - i.Lower), categorical: static c => c.Choices.Count, density: static _ => 1.0, linked: static _ => 0.0, symbolic: static s => s.Upper - s.Lower);
@@ -467,7 +479,16 @@ public sealed record LinearRow(string Name, ImmutableArray<double> Coefficients,
 
 public sealed record LinearModel(ImmutableArray<double> Objective, Seq<LinearRow> Rows);
 
-public readonly record struct DesignPoint(ImmutableArray<double> Coordinates, ImmutableArray<double> Objectives, ImmutableArray<double> Constraints) {
+// Structural VALUE identity is generated, bit-exact, and total over the three coordinate blocks:
+// `ImmutableArray<double>` reference-compares under compiler record equality, so the front-membership set, the
+// genome memo, and every `Seq<DesignPoint>` containment read would silently miss re-materialized rows — the
+// generated comparer is the one equality, and a tolerance never enters (a screening grid deliberately places
+// distinct points close together).
+[Equatable]
+public readonly partial record struct DesignPoint(
+    [property: OrderedEquality] ImmutableArray<double> Coordinates,
+    [property: OrderedEquality] ImmutableArray<double> Objectives,
+    [property: OrderedEquality] ImmutableArray<double> Constraints) {
     public bool Dominates(DesignPoint other, ReadOnlySpan<double> senses) {
         bool better = false;
         for (int axis = 0; axis < Objectives.Length && axis < senses.Length; axis++) {
@@ -481,7 +502,7 @@ public readonly record struct DesignPoint(ImmutableArray<double> Coordinates, Im
     public bool Feasible => Constraints.IsDefaultOrEmpty || Constraints.All(static c => c <= 0.0);
     public double Violation => Constraints.IsDefaultOrEmpty ? 0.0 : Constraints.Sum(static c => Math.Max(0.0, c));
 
-    // The oracle's OUTPUT vector as one indexed read — objectives then constraints, the same concatenation the
+    // One indexed read serves the oracle's OUTPUT vector — objectives then constraints, the same concatenation the
     // contract defines — so a surrogate fits every output the contract carries rather than the first objective and a
     // count check no fit could ever satisfy.
     public int Outputs => (Objectives.IsDefaultOrEmpty ? 0 : Objectives.Length) + (Constraints.IsDefaultOrEmpty ? 0 : Constraints.Length);
@@ -517,14 +538,14 @@ public sealed record DesignProblem(
                     .Bind(v => v.AdjointOperator.Match(Some: op => Seq(new GeometryTape(op, mesh)), None: () => Seq<GeometryTape>()))
                 : Seq<GeometryTape>()));
 
-    // The routing model the `routing` row lowers, absent for every other row. It rides `init` beside the linear
+    // This slot carries the routing model the `routing` row lowers, absent for every other row. It rides `init` beside the linear
     // model rather than a ninth positional slot, because a routing campaign and a coefficient campaign declare
     // disjoint halves of the same problem and neither should have to name the other's absence.
     public Option<RoutingProblem> Routing { get; init; } = None;
 
     public ImmutableArray<double> Senses => [.. Objectives.Map(static o => o.Sign)];
 
-    // The OFFSET TABLE is built once and every kernel indexes through it: `Offsets[axis]` is where a variable's span
+    // One OFFSET TABLE builds once and every kernel indexes through it: `Offsets[axis]` is where a variable's span
     // starts and `Offsets[^1]` is the point's dimension. A `DesignPoint` is the concatenation of the per-variable
     // spans, so a `Density` field of 10⁴ cells is 10⁴ coordinates rather than one the SIMP kernel privately expanded
     // while every other kernel searched a single scalar for the whole field.
@@ -542,7 +563,7 @@ public sealed record DesignProblem(
     public ImmutableArray<double> UpperBounds => [.. Slots(static v => v.Lower + v.Extent)];
     public ImmutableArray<double> Centre => [.. Slots(static v => v.Clamp(v.Lower + 0.5 * v.Extent))];
 
-    // The per-slot projections every kernel start, box, and unit map reads — one fold over the offset table instead
+    // These per-slot projections feed every kernel start, box, and unit map — one fold over the offset table instead
     // of the `Variables.Map((v, axis) => …)` shape that silently assumed one slot per variable.
     Seq<double> Slots(Func<DesignVariable, double> read) =>
         Variables.Bind(v => toSeq(Enumerable.Repeat(read(v), v.Width)));
@@ -591,7 +612,7 @@ public sealed record DesignProblem(
                 whenBelow: r => r.Source < 0 || r.Source >= Variables.Count || !double.IsFinite(r.Threshold),
                 whenChoice: r => r.Source < 0 || r.Source >= Variables.Count || r.Choice < 0));
         bool objectives = Objectives.IsEmpty || Constraints < 0;
-        // The exact model is stated in SLOT coordinates, the same system the solver variables inhabit, so a density
+        // Exact models state in SLOT coordinates, the same system the solver variables inhabit, so a density
         // field contributes one coefficient per cell and never one coefficient standing in for the whole field.
         bool exact = Exact.Exists(model => model.Objective.Length != Dimension
             || model.Rows.Exists(row => row.Invalid(Dimension))
@@ -635,10 +656,10 @@ public sealed record OptimizerPolicy(
     double VolumeFraction,
     double PenaltyWeight,
     double TrustRadius,
-    // The descent STEP is its own policy: a mutation rate is a genetic-operator probability, and reading one as a
-    // gradient step length coupled two unrelated axes so that widening the mutation widened the descent.
+    // `StepLength` owns the descent STEP as its own policy: a mutation rate is a genetic-operator probability, and
+    // reading one as a gradient step length couples two unrelated axes — widening the mutation widens the descent.
     double StepLength,
-    // The hypervolume reference point, ABSENT where the campaign declares none — the fold then derives it from the
+    // `Reference` is the hypervolume reference point, ABSENT where the campaign declares none — the fold then derives it from the
     // front's own worst objective per axis and the result marks it derived, so a hypervolume compared across two
     // runs is never silently measured against two different boxes.
     Option<ImmutableArray<double>> Reference,
@@ -693,7 +714,7 @@ public sealed record ParetoFront(Seq<DesignPoint> Points, ImmutableArray<double>
             ? this
             : this with { Points = Points.Filter(p => !candidate.Dominates(p, Senses.AsSpan())).Add(candidate) };
 
-    // The estimator draw keys the SAME `(Lane, Seed)` pair every other stochastic step on the page keys, so a
+    // Estimator draws key the SAME `(Lane, Seed)` pair every other stochastic step on the page keys, so a
     // hypervolume is reproducible from the run's own policy and never from a literal only this method knew.
     public double Hypervolume(ReadOnlySpan<double> reference, long lane, int seed) {
         if (Points.IsEmpty) { return 0.0; }
@@ -793,7 +814,7 @@ public sealed record OptimizationResult(
     int Evaluations,
     int SurrogateHits,
     double Hypervolume,
-    // The reference box the indicator was measured against, and whether the fold derived it. A hypervolume without
+    // This pair carries the reference box the indicator measured against, and whether the fold derived it. A hypervolume without
     // its box is not comparable across runs, and the `Runtime/receipts#RECEIPT_UNION` `Optimization` case declares
     // six audit slots — so the box rides this carrier, the same way `ExactEvidence` does.
     ImmutableArray<double> Reference,
@@ -801,8 +822,8 @@ public sealed record OptimizationResult(
     Seq<double> ViolationHistory,
     double TrustRadius,
     Option<ExactEvidence> Exact,
-    // The routing assignment is a GRAPH answer, not a design point, so it rides its own slot beside the exact
-    // evidence rather than being flattened onto a front whose objective vector it does not have.
+    // Routing assignments are GRAPH answers, not design points, so they ride their own slot beside the exact
+    // evidence rather than being flattened onto a front whose objective vector they do not have.
     Option<RoutingResult> Routing,
     Instant At);
 
@@ -813,7 +834,7 @@ public sealed record RomBasis(Matrix<double> Modes, ImmutableArray<long> Interpo
     public ReadOnlyMemory<double> Lift(ReadOnlySpan<double> reduced) =>
         (Modes * Vector<double>.Build.DenseOfArray(reduced.ToArray())).ToArray().AsMemory();
 
-    // The DEIM read the `Interpolation` rows exist for: an oblique projection `U (PᵀU)⁻¹ Pᵀf` recovers the full
+    // This DEIM read is what the `Interpolation` rows exist for: an oblique projection `U (PᵀU)⁻¹ Pᵀf` recovers the full
     // field from `Rank` SAMPLED entries alone, which is the whole point of an interpolatory basis — a nonlinear term
     // evaluates at the interpolation rows and lifts, instead of at every degree of freedom. Absent for a
     // non-interpolatory basis, whose empty roster carries no sampling points to read.
@@ -861,7 +882,7 @@ public sealed record OutputModel(
     double ResidualRms,
     Option<GpModel> Gp,
     Option<RbfModel> Rbf) {
-    // The per-output posterior: the fitted GP or RBF where one was fitted, the linear trend otherwise. One body
+    // One per-output posterior answers here: the fitted GP or RBF where one was fitted, the linear trend otherwise. One body
     // serves every output, so the multi-output surrogate is a Seq of these rather than a parallel per-output family.
     public (double Mean, double Bound) Posterior(ReadOnlySpan<double> query) =>
         (Gp, Rbf) switch {
@@ -884,16 +905,16 @@ public sealed record OutputModel(
 
 // MULTI-OUTPUT by construction: one `OutputModel` per contract output — objectives then constraints — so `Predict`
 // answers the SAME vector shape the full oracle answers and the gated surrogate's cardinality check is satisfiable.
-// A single-output surrogate could never clear that check, so every surrogate hit was structurally unreachable and
-// the metered hit count was permanently zero.
+// Single-output surrogates never clear that check — every surrogate hit is then structurally unreachable and the
+// metered hit count stays zero.
 public sealed record Surrogate(
     SurrogateKind Kind,
     Seq<OutputModel> Outputs,
     Option<RomBasis> Reduction,
     Option<NeuralFieldModel> Field,
     Option<(InferenceSession Session, RunOptions Options, CancelScope Scope)> Lane) {
-    // The BOUND over a vector is the widest per-output bound: a surrogate is admissible only while every component
-    // it answers is inside the policy, and taking the mean would admit a vector whose constraint row is far outside.
+    // Vector BOUNDs take the widest per-output bound: a surrogate is admissible only while every component
+    // it answers is inside the policy, and taking the mean admits a vector whose constraint row is far outside.
     public Fin<(Seq<double> Values, double Bound)> Predict(DesignPoint point) =>
         (Field, Lane) switch {
             ({ IsSome: true, Case: NeuralFieldModel field }, { IsSome: true, Case: (InferenceSession session, RunOptions options, CancelScope scope) }) =>
@@ -924,8 +945,8 @@ public sealed record Surrogate(
 
     // Fits ONE model per contract output over the shared history. The neural-field row REFUSES: its weights are
     // trained outside this runtime and arrive by content key through the `Model/identity#MODEL_IDENTITY` admission,
-    // so `OfField` is its only mint and a delegation to the linear trend would answer a fit nobody asked for under
-    // the neural-field name.
+    // so `OfField` is its only mint and a delegation to the linear trend answers a fit nobody asked for under the
+    // neural-field name.
     public static Fin<Surrogate> Fit(SurrogateKind kind, Seq<DesignPoint> history, int outputs) =>
         kind == SurrogateKind.NeuralField
             ? Fin.Fail<Surrogate>(ComputeFault.Create("<surrogate-fit-external:neural-field>"))
@@ -1892,7 +1913,7 @@ public sealed class NsgaFitness : IFitness {
     private readonly Atom<ParetoFront> archive;
     private readonly Atom<double[]> multipliers;
     private readonly Atom<Option<Error>> fault = Atom<Option<Error>>(None);
-    private readonly Atom<HashMap<int, DesignPoint>> cache = Atom(HashMap<int, DesignPoint>());
+    private readonly Atom<HashMap<DesignPoint, DesignPoint>> cache = Atom(HashMap<DesignPoint, DesignPoint>());
     private Func<int> generation = static () => 0;
 
     // The frozen generation: its members, their fronts, and their crowding distances. `Number` is the generation the
@@ -1934,26 +1955,18 @@ public sealed class NsgaFitness : IFitness {
             },
             Fail: error => { fault.Swap(_ => Some(error)); return double.MinValue; });
 
-    // ONE oracle call per distinct genome per run: the cache keys on the genome's own value identity, so a genome an
-    // elitist reinsertion carries forward is never re-solved. A full FE evaluation is the expensive thing here.
+    // ONE oracle call per distinct genome per run: the memo keys on the coordinate-only `DesignPoint` — the exact
+    // value `Optimizer.Probe` constructs — under the generated structural equality, so a genome an elitist
+    // reinsertion carries forward is never re-solved and no hand-derived bucket key or hit-confirming re-compare
+    // exists. A full FE evaluation is the expensive thing here.
     Fin<DesignPoint> Probe(IChromosome chromosome) {
-        ImmutableArray<double> raw = DecodeRaw(problem, chromosome);
-        int key = Key(raw);
-        return cache.Value.Find(key).Filter(held => held.Coordinates.AsSpan().SequenceEqual(raw.AsSpan())).Match(
+        DesignPoint probe = new(DecodeRaw(problem, chromosome), [], []);
+        return cache.Value.Find(probe).Match(
             Some: Fin.Succ,
-            None: () => Optimizer.Probe(problem, evaluate, raw).Map(point => {
-                cache.Swap(held => held.AddOrUpdate(key, point));
+            None: () => Optimizer.Probe(problem, evaluate, probe.Coordinates).Map(point => {
+                cache.Swap(held => held.AddOrUpdate(probe, point));
                 return point;
             }));
-    }
-
-    // Coordinate VALUE key: the cache bucket alone, with the stored point's own coordinates confirming the hit, so a
-    // collision costs one re-solve and never a wrong answer. `ImmutableArray<double>` hashes by REFERENCE, which is
-    // why the key is computed rather than taken from the array.
-    static int Key(ImmutableArray<double> coordinates) {
-        HashCode hash = new();
-        foreach (double component in coordinates) { hash.Add(component); }
-        return hash.ToHashCode();
     }
 
     // Rotation is EDGE-triggered on the engine's generation counter: the first genome scored in a new generation
@@ -2031,7 +2044,7 @@ public sealed class NsgaFitness : IFitness {
 - Cases: a node carries an optional demand and an optional `(Open, Close)` time window; a vehicle carries its capacity and its start and end depot node; a dimension spec names the accumulated quantity, its per-vehicle capacity, and its slack. `RoutingSearchStatus.Types.Value` classifies the outcome — `NOT_SOLVED`, `FAIL`, and `FAIL_TIMEOUT` are typed faults, `SUCCESS` and its partial sibling carry the assignment.
 - Packages: Google.OrTools (the `Google.OrTools.ConstraintSolver` `RoutingIndexManager`/`RoutingModel`/`RoutingDimension`/`Assignment` rail beside the CP-SAT and LinearSolver rails already admitted)
 - Growth: a new accumulated quantity is one `RoutingDimensionSpec` row; a new per-node obligation (a pickup-delivery pair, an optional-visit penalty, a visit-type incompatibility) is one column on `RoutingNode` and one cataloged `RoutingModel` call in the lowering; a further engine measure is one field on `ExactEvidence`, the same carrier the CP-SAT and MILP rows publish; zero new surface — a `VrpSolver`/`TspSolver`/`CvrpSolver` sibling family collapses onto this one row.
-- Boundary: routing is a GRAPH program — nodes, arcs, and vehicles — so it lowers to the ConstraintSolver rail rather than to a coefficient matrix, and a routing problem forced through the `LinearModel` as a flattened assignment matrix is the rejected form. Cost is a typed `Func<int,int,long>` PER DIMENSION over caller node indices, and the manager owns the caller-index-to-solver-index mapping — a callback registered against raw solver indices reads a different graph than the one authored. Native handles enter through the declared `IDisposable` roots the OR-Tools circulation precedent already sets and release by `Dispose`. The result publishes its `ExactEvidence` beside the assignment so a routing solve is auditable on the same receipt slots the other two exact rails fill.
+- Boundary: routing is a GRAPH program — nodes, arcs, and vehicles — so it lowers to the ConstraintSolver rail rather than to a coefficient matrix, and a routing problem forced through the `LinearModel` as a flattened assignment matrix is the rejected form. Cost is a typed `Func<int,int,long>` PER DIMENSION over caller node indices, and the manager owns the caller-index-to-solver-index mapping — a callback registered against raw solver indices reads a different graph than the one authored. Native handles enter through the declared `IDisposable` roots the OR-Tools circulation precedent already sets and release by `Dispose`. `RoutingResult` publishes its `ExactEvidence` beside the assignment so a routing solve is auditable on the same receipt slots the other two exact rails fill.
 
 ```csharp signature
 // --- [TYPES] ----------------------------------------------------------------------------
@@ -2149,7 +2162,7 @@ public static class RoutingSearch {
 
 - Owner: `RoutingPolicy` the first-solution/metaheuristic/limit record the lowering builds its `RoutingSearchParameters` from.
 - Cases: `Canonical` is path-cheapest-arc construction, guided-local-search improvement, and a thirty-second limit — the OR-Tools reference pairing for a capacitated problem, where a cheap constructive route feeds a metaheuristic that can escape the local optimum it lands in.
-- Boundary: search behaviour is POLICY DATA, never call-site knobs — a caller that tunes the metaheuristic by passing enum values into the kernel forks the tuning across every call site and leaves the receipt unable to say which search ran. The policy rides `OptimizerPolicy` the same way `LineSearch` and `AcquisitionFunction` do, and the chosen strategy names land on the routing evidence so a slow solve is diagnosable from its own receipt.
+- Boundary: search behaviour is POLICY DATA, never call-site knobs — a caller that tunes the metaheuristic by passing enum values into the kernel forks the tuning across every call site and leaves the receipt unable to say which search ran. `RoutingPolicy` rides `OptimizerPolicy` the same way `LineSearch` and `AcquisitionFunction` do, and the chosen strategy names land on the routing evidence so a slow solve is diagnosable from its own receipt.
 
 ```csharp signature
 // --- [MODELS] ---------------------------------------------------------------------------

@@ -1,22 +1,22 @@
 # [COMPUTE_IDENTITY]
 
-Rasm.Compute model identity owns ONNX provenance and the content address every downstream cache key, receipt, and claim derives from. `ModelIdentity` carries the checksum, recursive `SlotShape` schema trees, the `Provenance` producer/domain/graph/description block, and the `CustomMetadata`/`Initializers` self-description channels; `ModelSource` folds five acquisition cases to one byte admission through `Acquire` and projects the receipt source string through `Origin`; `ModelFingerprint` owns the length-framed ordinal-keyvalue projection composed by the execution-provider axis; `GraduationEnvelope` owns serving-population drift admission and evaluation over the graduation evidence every offline-learned model crosses with; `GraduationEvidence` owns the reverse descriptor bundle that same seam carries back. Admission settles the model, input, initializer, drift, and descriptor contracts once.
+Rasm.Compute model identity owns ONNX provenance and the content address every downstream cache key, receipt, and claim derives from. `ModelIdentity` carries checksum, `SlotShape` schema trees, `Provenance`, and the `CustomMetadata`/`Initializers` self-description channels; `ModelSource` folds five acquisition cases to one byte admission; `ModelFingerprint` owns the execution-provider-composed fingerprint; `GraduationEnvelope` and `GraduationEvidence` own the graduation seam's forward drift admission and reverse descriptor bundle. Admission settles the model, input, initializer, drift, and descriptor contracts once.
 
-Identity derives from the model bytes through the kernel seed-zero `XxHash128` entry `Rasm.Domain.ContentHash.Of`, the workspace's one hasher — shared with the geometry `GeometryHash`, the seam `ContentAddress`, and the Persistence `ArtifactIndexRow`/`ModelResultIndex` spine — while `ModelFingerprint` rides `System.IO.Hashing` `XxHash3`; slot schema reads `Microsoft.ML.OnnxRuntime` `InferenceSession` metadata; `ModelLoad` rides the `ComputeReceipt` rail; the descriptor bundle rides `System.Text.Json` under the injected `JsonTypeInfo<GraduationEvidence>` contract. `NodaTime` `Instant`, the kernel `CorrelationId` and `ReceiptSinkPort` (`Rasm/Domain/telemetry#CAUSAL_FRAME`), the `Runtime/receipts#RECEIPT_UNION` spine and its `ComputeWireContext` Strict resolver, the `Runtime/admission#SUBSTRATE_AXIS` `Substrate` axis beside the spine `WorkLane` roster, and the Persistence `ArtifactIndexRow` arrive settled. `ModelIdentity`/`ModelFingerprint`/`Slot` cross to `Model/sessions#SESSION_CAPSULE`, `Model/providers#EP_AXIS`, `Model/inference#INFERENCE_MODES`, and `Model/generative#GENERATIVE_RUN` as settled vocabulary, `Checksum` is the deterministic cache and result-key seed `Model/inference#RESULT_CACHE` consumes, and `DriftVerdict.Breached` is the reuse-invalidation signal that same cache consumes as an `EquivalenceMiss` fault.
+Identity derives from the model bytes through the kernel seed-zero `XxHash128` entry `Rasm.Domain.ContentHash.Of`, the workspace's one hasher, while `ModelFingerprint` rides `System.IO.Hashing` `XxHash3`; slot schema reads `Microsoft.ML.OnnxRuntime` `InferenceSession` metadata; `ModelLoad` rides the `ComputeReceipt` rail; the descriptor bundle rides `System.Text.Json` under the injected `JsonTypeInfo<GraduationEvidence>` contract. `NodaTime` `Instant`, the kernel `CorrelationId` and `ReceiptSinkPort` (`Rasm/Domain/telemetry#CAUSAL_FRAME`), the `Runtime/receipts#RECEIPT_UNION` spine and its `ComputeWireContext` Strict resolver, the `Runtime/admission#SUBSTRATE_AXIS` `Substrate` axis beside the spine `WorkLane` roster, and the Persistence `ArtifactIndexRow` arrive settled. `ModelIdentity`/`ModelFingerprint`/`Slot` cross to `Model/sessions#SESSION_CAPSULE`, `Model/providers#EP_AXIS`, `Model/inference#INFERENCE_MODES`, and `Model/generative#GENERATIVE_RUN` as settled vocabulary, `Checksum` is the deterministic cache and result-key seed `Model/inference#RESULT_CACHE` consumes, and `DriftVerdict.Breached` is the reuse-invalidation signal that same cache consumes as an `EquivalenceMiss` fault.
 
 ## [01]-[INDEX]
 
 - [02]-[MODEL_IDENTITY]: checksum identity; five-case acquisition union with the byte-resolution fold; kind-discriminated schema snapshot with provenance; admission over input slots and overridable initializers; custom-metadata self-description; shared length-framed ordinal-keyvalue fingerprint; the graduation drift sentinel over its numeric and categorical band cases; `ModelLoad` receipt mint.
-- [03]-[GRADUATION_EVIDENCE]: the scalar-kind vocabulary and recursive `FieldNode` descriptor union with its locked kind literals, the owner-descriptor roster, and the bundle whose admission proves well-formedness, reference resolution, and an acyclic owner graph before its content-keyed bytes leave.
+- [03]-[GRADUATION_EVIDENCE]: scalar-kind vocabulary; recursive `FieldNode` descriptor union with locked kind literals; owner-descriptor roster; bundle admission proving well-formedness, reference resolution, and an acyclic owner graph before its content-keyed bytes leave.
 
 ## [02]-[MODEL_IDENTITY]
 
 - Owner: `ModelIdentity` identity record with nested `Slot` rows over recursive `SlotShape` tensor, sparse-tensor, sequence, map, and optional cases; `Provenance` owns the producer/domain/graph/description block and `CustomMetadata`/`Initializers` the self-description channels; `ModelSource` `[Union]` owns five acquisition cases whose `Acquire` fold resolves each through injected `SourceResolver` ports and whose `Origin` projects the receipt source class; `ModelFingerprint` owns the length-framed ordinal-keyvalue projection composed by `ExecutionProvider.ResultKey`; `GraduationEnvelope` owns the admitted per-feature `Band` roster and its `Observe` projection onto one reference/observed mass pair, `DriftStatistic` owns the score over that pair, `DriftPolicy` owns the statistic row beside its ordered thresholds and sampling floors, `FeatureSample` carries one serving window per feature, and `DriftReport` carries the per-feature verdict set with its headline and uncovered roster.
 - Cases: `ModelSource` cases `LocalFile`, `EmbeddedResource`, `PersistenceBlob`, `RemoteFetch`, `Buffer`; `SlotShape` cases `Tensor`, `SparseTensor`, `Sequence`, `Map`, `Optional`; `Band` and `FeatureSample` cases `Numeric`, `Categorical`; `DriftVerdict` cases `Stable`, `Drifting`, `Breached`; `DriftStatistic` rows `psi`.
-- Entry: `public static Fin<ModelIdentity> Snapshot(ModelSource source, ReadOnlySpan<byte> bytes, InferenceSession session, Instant at)` — metadata topology and model bytes admit together; identity derives from the bytes.
+- Entry: `public static Fin<ModelIdentity> Snapshot(ModelSource source, ReadOnlySpan<byte> bytes, InferenceSession session, Instant at)` — metadata topology and model bytes admit together; identity derives from the bytes. `GraduationEnvelope.Admit(HdfHandle)` is the FORWARD graduation ingest — one `Runtime/codecs#HDF_ARCHIVE` open per admission job reads the h5py-written `/bands/<feature>` roster (`kind` attribute selects the case, `edges`/`mass`/`categories` datasets read under declared selections, the evidence key an attribute, `LinkExists` proving the roster before any resolve) and re-enters the roster `Admit`, so every Wellformed gate reruns on read bands; the reverse JSON `GraduationEvidence` leg keeps its own container untouched.
 - Auto: `Snapshot` traverses input, output, and overridable-initializer metadata into recursive `SlotShape` trees; the three independent slot sets lift to K-kinded `Validation<Error>` legs, accumulate through tuple `Apply`, and rejoin `Fin<ModelIdentity>` once, so simultaneous schema faults survive one admission. Unknown ONNX kinds fault their slot instead of entering a dtype/default ghost. `Acquire` folds five source cases through `Try.lift(...).Run().Bind(identity)`; typed resolver faults survive while throwing file/resource boundaries become `ModelRejected`. `Accepts` requires every non-`Optional` input exactly once — dense and sparse leaves gate dtype, rank, and fixed extents, sequence/map slots conform by name and their payload proves structurally at run against the closed `Model/extension#EXTENSION_OPS` coverage, `Optional` unwraps to its element rule when bound and may be absent — and rejects unknown names, negative offered extents, and duplicates; `Initializer` applies the dense-tensor discriminant and exact-shape gate. `ModelFingerprint.Of` length-frames each ordinal key and value through one disposed incremental `XxHash3`. `GraduationEnvelope.Admit` rejects a blank or duplicated feature, a non-normalized mass vector, and — per case — non-finite or non-monotonic bin edges, a mis-sized mass vector, and a blank or duplicated category. `Drift` pairs each band with the serving window naming it, scores the COVERED pairs alone and names the rest, and `Band.Observe` projects each pair onto one reference/observed mass vector — a numeric window bisects every value onto its bin over the sorted edges, a categorical window tallies every label onto its category and routes each unrostered label to the appended unseen bucket — which `DriftPolicy.Statistic` then grades. Per-feature verdicts ACCUMULATE, so one undersized window refuses alone rather than hiding every other feature's score.
 - Receipt: `ModelLoad` — the `Runtime/receipts#RECEIPT_UNION` `ModelLoad(checksum, source, ep, version)` shape — is minted by `LoadReceipt` from this owner's `Key`, `Source.Origin`, and snapshotted `GraphVersion` with the loader's `ExecutionProvider`, correlation, work lane, substrate, and elapsed; emission rides the sink port at the composition edge. Every `Breached` drift verdict faults `ComputeFault.EquivalenceMiss` at the consuming lane — correctness gates reuse exactly as it gates session admission, and a fast stale surrogate is the worst reused object.
-- Packages: Microsoft.ML.OnnxRuntime, System.Numerics.Tensors, System.IO.Hashing, System.Text.Json, NodaTime, Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm (project, `Domain.ContentHash`), Rasm.AppHost (project), Rasm.Persistence (project)
+- Packages: Microsoft.ML.OnnxRuntime, System.Numerics.Tensors, System.IO.Hashing, System.Text.Json, PureHDF (`NativeGroup`, `IH5Object.Name`/`Attribute`/`Children`, `NativeDataset.Read<T>(H5DatasetAccess, Span<T>, …)`, `HyperslabSelection`), Generator.Equals (`[Equatable]`, `[OrderedEquality]`, `[UnorderedEquality]`, `[IgnoreEquality]`), NodaTime, Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm (project, `Domain.ContentHash`), Rasm.AppHost (project), Rasm.Persistence (project)
 - Growth: a new acquisition route is one `ModelSource` case with its `Acquire` arm and `Origin` projection; a new ONNX value kind is one `SlotShape` case and one `ShapeOf` arm; a new deployment-constant binding composes `Initializer`; a new self-description axis is one `Provenance` field; a new drift statistic is one `DriftStatistic` row scoring the same reference/observed mass pair, with the policy already carrying the row; a new feature kind is one `Band` case beside its `FeatureSample` case and one `Observe` arm.
 - Boundary: every downstream cache key, receipt, and claim derives from `Checksum`; `Checksum` composes the kernel seed-zero `ContentHash.Of(bytes)` owner shared with geometry, seam content addresses, and Persistence indexes. `Acquire` owns file and manifest-resource statement boundaries and brackets expected I/O faults into `ComputeFault.ModelRejected`; injected `SourceResolver` ports keep blob storage and HTTP transport outside this owner. `SlotShape` preserves the full recursive ONNX value topology: `SequenceMetadata.ElementMeta`, `OptionalMetadata.ElementMeta`, and `MapMetadata.KeyDataType`/`ValueMetadata` recurse until a dense or sparse tensor leaf. Sequence and map slots admit by NAME here because a slot describes a shape while a value carries one, and the value's structural gate is `Model/extension#EXTENSION_OPS` `Egress` — whose arm set is CLOSED over every `SlotShape` leaf this owner can snapshot, so a schema this admitter accepts has a reader at run and neither end carries a kind the other cannot. `Accepts` treats negative model dims as free axes but rejects negative offered extents and requires the complete non-`Optional` input set; `Initializer` requires an exact dense-tensor shape instead of accepting a different rank with the same element count. `CustomMetadata` mints no second identity because its bytes already participate in `Checksum`; `Initializers` remain deployment constants bound through `AddInitializer(string, OrtValue)`. `ModelLoad` carries derivable `ModelMetadata.Version` and takes its lane and substrate from the loader, because a background sweep's cold open and an interactive lease land on different lanes and the selection axis — not this owner — decides which substrate ran, so a hardwired pair publishes one lane's evidence for every load. `GraduationEnvelope` admits evidence-keyed normalized bands, scores a PARTIAL serving window rather than refusing it, and returns an evidence-bearing typed verdict per covered feature only after that feature's window crosses the policy sample floor — an uncovered band names itself on `DriftReport.Uncovered` and never folds into the headline, because a feature nobody sampled is a hole in the evidence rather than a stable one.
 
@@ -113,16 +113,21 @@ public abstract partial record SlotShape {
     public sealed record Optional(SlotShape Element) : SlotShape;
 }
 
-public sealed record ModelIdentity(
+// `[Equatable]` closes the latent trap: `CustomMetadata` is a FrozenDictionary record equality compares by
+// REFERENCE, so two snapshots of one model read unequal the moment the map is rebuilt. `Source` and
+// `AcquiredAt` are IGNORED so `Equals` agrees with `Key` — one model acquired twice by different routes IS one
+// identity — and `Inequalities` localizes which slot or metadata entry moved between two schema snapshots.
+[Equatable]
+public sealed partial record ModelIdentity(
     UInt128 Checksum,
     long GraphVersion,
-    Seq<ModelIdentity.Slot> Inputs,
-    Seq<ModelIdentity.Slot> Outputs,
-    Seq<ModelIdentity.Slot> Initializers,
-    FrozenDictionary<string, string> CustomMetadata,
+    [property: OrderedEquality] Seq<ModelIdentity.Slot> Inputs,
+    [property: OrderedEquality] Seq<ModelIdentity.Slot> Outputs,
+    [property: OrderedEquality] Seq<ModelIdentity.Slot> Initializers,
+    [property: UnorderedEquality] FrozenDictionary<string, string> CustomMetadata,
     ModelIdentity.Provenance Provenance,
-    ModelSource Source,
-    Instant AcquiredAt) {
+    [property: IgnoreEquality] ModelSource Source,
+    [property: IgnoreEquality] Instant AcquiredAt) {
     public sealed record Slot(string Name, SlotShape Shape);
 
     public sealed record Provenance(string Producer, string Domain, string GraphName, string Description, string GraphDescription);
@@ -271,8 +276,8 @@ public abstract partial record DriftVerdict(
 }
 
 // Per-feature verdicts, the worst as the headline every reuse gate reads, and the bands no serving window covered.
-// An uncovered feature never folds into the headline: it is a hole in the evidence, and reporting it as stable is
-// exactly how a drifting model keeps serving on the strength of a column nobody sampled.
+// `DriftReport` never folds an uncovered feature into the headline: it is a hole in the evidence, and reporting
+// it as stable is exactly how a drifting model keeps serving on the strength of a column nobody sampled.
 public sealed record DriftReport(DriftVerdict Worst, Seq<DriftVerdict> Features, Seq<string> Uncovered);
 
 [ComplexValueObject]
@@ -376,8 +381,8 @@ public sealed record GraduationEnvelope(UInt128 EvidenceKey, Seq<GraduationEnvel
                 [.. band.Mass, 0d], Normalize(observed, window.Labels.Count), window.Labels.Count));
         }
 
-        // A band whose case disagrees with its window's is a CALLER defect, never a numeric one: scoring a label
-        // roster against quantile cuts would answer a number for a comparison nothing performed.
+        // Band-case disagreement with the window is a CALLER defect, never a numeric one: scoring a label
+        // roster against quantile cuts answers a number for a comparison nothing performed.
         static Fin<Observation> Mismatched(string feature) =>
             Fin.Fail<Observation>(new ComputeFault.ModelRejected($"<drift-window-kind:{feature}>"));
 
@@ -405,6 +410,41 @@ public sealed record GraduationEnvelope(UInt128 EvidenceKey, Seq<GraduationEnvel
             new ComputeFault.ModelRejected($"<graduation-envelope:{evidenceKey:x32}>"))
         .ToFin()
         .Map(_ => new GraduationEnvelope(evidenceKey, bands));
+
+    // HDF5 ingest — the FORWARD graduation seam: the python companion fits reference bands at graduation and
+    // writes `/bands/<feature>` groups h5py-side (`kind` attribute selects the case; numeric carries `edges`
+    // float64[k] + `mass` float64[k+1], categorical carries `categories` string[] + `mass` float64[]); this arm
+    // reads them under declared selections into one `Admit` call, so every Wellformed gate reruns on the read
+    // roster. The reverse JSON GraduationEvidence leg keeps its own container — this arm re-containers NOTHING.
+    public static Fin<GraduationEnvelope> Admit(HdfHandle archive) =>
+        Try.lift(() => {
+                // Probe-first: `LinkExists` answers absence without faulting, so a corpus with no band roster
+                // refuses on its own slug rather than a group-resolve cast error.
+                if (!archive.Exists("bands")) { throw new InvalidDataException("<graduation-archive-roster>"); }
+                NativeGroup root = archive.Group("bands");
+                UInt128 evidenceKey = UInt128.Parse(
+                    root.Attribute("evidence-key").Read<string>(), NumberStyles.HexNumber, CultureInfo.InvariantCulture);
+                Seq<Band> bands = toSeq(root.Children()).Map(child => {
+                    string feature = child.Name;
+                    string kind = child.Attribute("kind").Read<string>();
+                    NativeDataset massSet = archive.Dataset($"bands/{feature}/mass");
+                    double[] mass = new double[checked((int)massSet.Space.Dimensions[0])];
+                    massSet.Read<double>(archive.Access, mass.AsSpan(), new HyperslabSelection(0, (ulong)mass.Length));
+                    if (StringComparer.Ordinal.Equals(kind, "numeric")) {
+                        NativeDataset edgeSet = archive.Dataset($"bands/{feature}/edges");
+                        double[] edges = new double[checked((int)edgeSet.Space.Dimensions[0])];
+                        edgeSet.Read<double>(archive.Access, edges.AsSpan(), new HyperslabSelection(0, (ulong)edges.Length));
+                        return (Band)new Band.Numeric(feature, toSeq(edges), toSeq(mass));
+                    }
+
+                    // String elements never span-read; the allocating overload is the sanctioned path here.
+                    string[] categories = archive.Dataset($"bands/{feature}/categories").Read<string[]>();
+                    return new Band.Categorical(feature, toSeq(categories), toSeq(mass));
+                });
+                return (EvidenceKey: evidenceKey, Bands: bands);
+            }).Run()
+            .MapFail(static error => (Error)new ComputeFault.ModelRejected($"<graduation-archive:{error.Message}>"))
+            .Bind(read => Admit(read.EvidenceKey, read.Bands));
 
     // Coverage is PARTIAL by design — a caller samples the features it observed — so the covered pairs score and the
     // rest are NAMED. Verdicts accumulate rather than short-circuit: a monadic fold stops at the first undersized
@@ -453,15 +493,15 @@ public sealed record GraduationEnvelope(UInt128 EvidenceKey, Seq<GraduationEnvel
 
 - Owner: `FieldScalar` `[SmartEnum<string>]` is the closed wire-primitive vocabulary; `FieldNode` `[Union]` is the recursive descriptor tree whose six cases carry every composite shape a C# owner projects, each nesting the root so depth growth stays case-owned; `OwnerDescriptor` names one owner and its ordered field roster; `GraduationEvidence` is the versioned bundle carrying the roster with the content key its own canonical projection mints.
 - Cases: `FieldNode` cases `Scalar` (one `FieldScalar` leaf), `Array` (one element node), `Nested` (one owner-name reference), `Mapping` (key and value nodes), `Optional` (one element node), `UnionCase` (a non-empty member roster); `FieldScalar` rows `i32`, `i64`, `f64`, `bool`, `string`, `key`, `bytes`, `decimal`.
-- Law: kind literals are the DECODE contract. The companion projector selects its leaf case on the `kind` discriminator alone, and the union generator emits no JSON support of any kind — no converter, no derived-type roster — so a case crossing without its `[JsonDerivedType]` row serializes as the abstract base, one empty object per case, with no decode refusal on either end. The roster is hand-declared on the union declaration and the literals are frozen: renaming a case is free, renaming a literal is a wire break.
+- Law: kind literals are the DECODE contract. Its companion projector selects each leaf case on the `kind` discriminator alone, and the union generator emits no JSON support of any kind — no converter, no derived-type roster — so a case crossing without its `[JsonDerivedType]` row serializes as the abstract base, one empty object per case, with no decode refusal on either end. Hand-declaration on the union declaration freezes the literals: renaming a case is free, renaming a literal is a wire break.
 - Law: the bundle is OFFLINE at rest and reaches no gRPC leg. It crosses as bytes the app root writes through the Persistence object lane exactly as a warm artifact does, so the `Runtime/wire#PROTO_VOCABULARY` descriptor set never grows a message for it and the `Runtime/wire#CONTRACT_EVOLUTION` additive-only guard has nothing to police here — a wire the channel never carries cannot drift a channel contract.
 - Law: admission proves what the far end can only fail on. `Nested.Ref` names a declared owner and the owner graph is ACYCLIC, because the projector builds each struct against already-registered siblings — an unresolved reference is an unbound name at class creation there and a back edge is a topological refusal, both after the bytes already shipped. `UnionCase.Members` is non-empty for the same reason: the projector's member fold reduces from its first element.
-- Entry: `public static Fin<GraduationEvidence> Admit(Seq<OwnerDescriptor> owners)` — the caller supplies the roster and the bundle mints its own `SchemaVersion` and `BundleKey`, so neither is a claim a caller can spell wrong. `public Fin<ReadOnlyMemory<byte>> Bundle(JsonTypeInfo<GraduationEvidence> contract)` writes the canonical UTF-8 payload under an injected contract.
+- Entry: `public static Fin<GraduationEvidence> Admit(Seq<OwnerDescriptor> owners)` — the caller supplies the roster and the bundle mints its own `SchemaVersion` and `BundleKey`, so neither is a claim a caller can spell wrong. `public Fin<ReadOnlyMemory<byte>> Bundle(JsonTypeInfo<GraduationEvidence> contract)` writes the canonical UTF-8 payload under an injected contract; on the wire `BundleKey` crosses as its bare 32-hex render (`$"{BundleKey:x32}"`, decoded `NumberStyles.HexNumber` — the estate content-key text law; a raw `UInt128` JSON number breaks double-precision consumers), and the scalar leaf's payload property pins `"scalar"` because CamelCase would seat it on the `"kind"` discriminator STJ refuses.
 - Auto: `Admit` refuses an empty roster, a blank or duplicated owner name, a blank or duplicated field name within one owner, an unsound node anywhere in a tree, an unresolvable `Nested.Ref`, and a cyclic owner graph proved by peeling every reference-free owner until either the graph empties or a pass settles nothing. `Render` is the one catamorphism over the tree: it feeds the length-framed preimage `ContentHash.Of` keys, so bundle identity and the shape it describes cannot disagree, and a field-order or scalar-row change re-keys the bundle the companion pins its round-trip against.
 - Receipt: none — the bundle is an artifact, not a measured run, and its content key is the identity the writing composition indexes it under.
-- Packages: System.Text.Json, System.IO.Hashing, Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm (project, `Domain.ContentHash`), BCL inbox
+- Packages: System.Text.Json, System.IO.Hashing, Generator.Equals (`[Equatable]` diff rail — `BundleKey` ignored as derived, the gate stays the content key), Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm (project, `Domain.ContentHash`), BCL inbox
 - Growth: a new wire primitive is one `FieldScalar` row the projector absorbs with one table row of its own; a new composite shape is one `FieldNode` case with its `[JsonDerivedType]` literal, one `Render` arm, one `Sound` arm, and one `Refs` arm; a new bundle column is one record field beside a `SchemaVersion` bump at both ends in one change.
-- Boundary: this owner mints descriptors and never decodes them — the projection back into typed stubs is the companion's, and nothing here imports a peer-runtime shape. Serialization rides the `Runtime/receipts#RECEIPT_UNION` `ComputeWireContext` Strict resolver through an INJECTED `JsonTypeInfo<GraduationEvidence>`, so the LanguageExt carrier factory that populates every `Seq<T>` column registers once at that owner and this page holds no serializer, no options handle, and no second context. `SchemaVersion` is a gate rather than a column a caller fills: a bundle outside the carried set rails at the companion's decode band, so minting one outside it here would ship bytes guaranteed to refuse. The seam is the branch `[GRADUATION]` edge and it is REVERSE-ONLY from this end — the forward leg is the companion's handoff axis, this leg is the evidence answering it, and neither end references the other's types.
+- Boundary: this owner mints descriptors and never decodes them — the projection back into typed stubs is the companion's, and nothing here imports a peer-runtime shape. Serialization rides the `Runtime/receipts#RECEIPT_UNION` `ComputeWireContext` Strict resolver through an INJECTED `JsonTypeInfo<GraduationEvidence>`, so the LanguageExt carrier factory that populates every `Seq<T>` column registers once at that owner and this page holds no serializer, no options handle, and no second context. `SchemaVersion` is a gate rather than a column a caller fills: a bundle outside the carried set rails at the companion's decode band, so minting one outside it here ships bytes guaranteed to refuse. Seam law: the branch `[GRADUATION]` edge runs REVERSE-ONLY from this end — the forward leg is the companion's handoff axis, this leg is the evidence answering it, and neither end references the other's types.
 
 ```csharp signature
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -495,7 +535,9 @@ public sealed partial class FieldScalar {
 [JsonDerivedType(typeof(Optional), "optional")]
 [JsonDerivedType(typeof(UnionCase), "union")]
 public abstract partial record FieldNode(string Name) {
-    public sealed record Scalar(string Name, FieldScalar Kind) : FieldNode(Name);
+    // "scalar" pins the payload property: CamelCase would seat `Kind` on the "kind" discriminator STJ refuses
+    // to double-book, and the python companion decodes the leaf under "scalar" beside the case literal.
+    public sealed record Scalar(string Name, [property: JsonPropertyName("scalar")] FieldScalar Kind) : FieldNode(Name);
 
     public sealed record Array(string Name, FieldNode Element) : FieldNode(Name);
 
@@ -540,9 +582,13 @@ public abstract partial record FieldNode(string Name) {
 
 public sealed record OwnerDescriptor(string Name, Seq<FieldNode> Fields);
 
-public sealed record GraduationEvidence(string SchemaVersion, Seq<OwnerDescriptor> Owners, UInt128 BundleKey) {
-    // The projector CARRIES exactly this version and rails on anything else rather than best-effort decoding a
-    // drifted shape, so a bundle minted outside it would ship bytes guaranteed to refuse.
+// `[Equatable]` is the DIFF rail: `BundleKey` stays the gate (content addressing is the framed XxHash128
+// projection, never GetHashCode) and is IGNORED as derived state, so `Inequalities` explains WHICH owner or
+// field moved when two bundles' keys disagree — a diff, never a second identity.
+[Equatable]
+public sealed partial record GraduationEvidence(string SchemaVersion, [property: OrderedEquality] Seq<OwnerDescriptor> Owners, [property: IgnoreEquality] UInt128 BundleKey) {
+    // Projectors CARRY exactly this version and rail on anything else rather than best-effort decoding a
+    // drifted shape, so a bundle minted outside it ships bytes guaranteed to refuse.
     public const string Schema = "1";
 
     public static Fin<GraduationEvidence> Admit(Seq<OwnerDescriptor> owners) =>

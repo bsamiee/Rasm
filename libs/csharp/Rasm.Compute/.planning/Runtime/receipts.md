@@ -2,19 +2,20 @@
 
 `ComputeReceipt` is the package's only fact vocabulary for measured execution: every operational view folds over that one stream, NodaTime-protobuf bridges own the temporal wire edge, fingerprint-gated claims decide every performance-motivated route, and the cost ledger and dashboard descriptor derive from that stream and the one spec roster — no second fact truth, no second panel truth.
 
-Kernel vocabulary arrives whole from the signal capsule — the causal frame (`TelemetrySource`, `CorrelationId`, `TenantContext`, `ReceiptEnvelope`, `ReceiptSinkPort`), the instrument mechanism (`TelemetryContributorPort`, `InstrumentSpec` over `InstrumentKind` x `MeasureForm`, `InstrumentSet`, `LevelCells`, `Buckets`, `TelemetryIdentity`), the trace band (`SpanBand`, `TraceScope`, `Op`), the SLO algebra (`Sli`, `Objective`, `SloSample`, `BurnRow`, `AlertSeverity`, `AlertSpec`, `PanelKind`, `PanelSpec`, `BoardPack`, `Slo`), the hook vocabulary (`HookPoint<TFact>`, `HookId`, `HookModality`, `HookRegistry`, `IsolatedFault`) — beside the AppHost `ScheduleEntry` and the settled Persistence benchmark and artifact-index contracts. Several cases declare elsewhere — `Assessment` on the `Analysis/assessment` spine, `Quadrature` and `Trajectory` on the `Tensor/quadrature` integration lane, `Sampling` on the `Tensor/sampling` low-discrepancy lane — each a `partial` its owning page seats on this union while its `[JsonDerivedType]` row and wire projection stay here, so `ComputeWireContext` round-trips the whole union through the one Strict resolver: polymorphic `kind` discriminator, Thinktecture key scalars, `Seq<string>` intact, `UnmappedMemberHandling.Disallow` refusing drift at the edge.
+Kernel vocabulary arrives whole from the signal capsule — the causal frame, the instrument mechanism, the trace band, the SLO algebra, and the hook vocabulary, each family's member roster owned at the capsule — beside the AppHost `ScheduleEntry` and the settled Persistence benchmark and artifact-index contracts.
+
+Several cases declare elsewhere — `Assessment` on the `Analysis/assessment` spine, `Quadrature` and `Trajectory` on the `Tensor/quadrature` integration lane, `Sampling` on the `Tensor/sampling` low-discrepancy lane — each a `partial` its owning page seats on this union while its `[JsonDerivedType]` row and wire projection stay here, so `ComputeWireContext` round-trips the whole union through the one Strict resolver: polymorphic `kind` discriminator, Thinktecture key scalars, `Seq<string>` intact, `UnmappedMemberHandling.Disallow` refusing drift at the edge.
 
 ## [01]-[INDEX]
 
 - [02]-[RECEIPT_UNION]: Fact union (inline cases beside the `Analysis/assessment` and `Tensor/quadrature` partials), its Strict-resolver round-trip context, the instrument roster, and sink-port emission.
 - [03]-[TELEMETRY_PROJECTION]: Receipt-to-instrument fan and the dispatch span spine over the kernel trace band.
 - [04]-[FOLD_PROJECTIONS]: Operational views derive as folds over the fact stream; content-keyed verdicts re-derive and diff under the determinism tag.
-- [05]-[WIRE_STAMPS]: NodaTime-protobuf bridges own the temporal wire edge.
-- [06]-[BENCHMARK_CLAIMS]: Fingerprint-gated claim rows decide performance routes.
-- [07]-[HOOK_POINTS]: Compute hook roster on the kernel hook capsule — veto, observe, and replay points with subscriber-fault isolation.
-- [08]-[TS_PROJECTION]: Receipt payload union, benchmark-claim, descriptor, and chargeback wire shapes.
-- [09]-[COST_LEDGER]: Substrate-rated cost pricing, tenant-partitioned ledger folds over the envelope-joined journal, and the content-keyed chargeback egress.
-- [10]-[DASHBOARD_DESCRIPTOR]: One kernel board pack over the instrument specs and the reliability objectives whose burn discipline, specs, and verdicts derive from the kernel SLO algebra.
+- [05]-[BENCHMARK_CLAIMS]: Fingerprint-gated claim rows decide performance routes.
+- [06]-[HOOK_POINTS]: Compute hook roster on the kernel hook capsule — veto, observe, and replay points with subscriber-fault isolation.
+- [07]-[TS_PROJECTION]: Receipt payload union, benchmark-claim, descriptor, and chargeback wire shapes.
+- [08]-[COST_LEDGER]: Substrate-rated cost pricing, tenant-partitioned ledger folds over the envelope-joined journal, and the content-keyed chargeback egress.
+- [09]-[DASHBOARD_DESCRIPTOR]: One kernel board pack over the instrument specs and the reliability objectives whose burn discipline, specs, and verdicts derive from the kernel SLO algebra.
 
 ## [02]-[RECEIPT_UNION]
 
@@ -23,9 +24,9 @@ Kernel vocabulary arrives whole from the signal capsule — the causal frame (`T
 - Entry: `public IO<ReceiptEnvelope> ReceiptSurface.Emit(ComputeReceipt fact)` — the surface binds sink, serializer, and mounted-instrument aspects once at composition; `IO` carries the sink effect and returns the envelope evidence.
 - Auto: wire kind derives from the polymorphic metadata pinned on the union; the HLC stamp and `SkewBound` derive inside `Send`, and `Emit` reads `TenantContext.Current` exactly once — the same tenant prices the fact through `ComputeInstrumentFan.Charge` and rides into `Send` so the envelope `Tenant` field partitions evidence by the kernel tenancy primitive; instrument rows register once at composition through `TelemetryContributorPort`, which carries the `[10]-[DASHBOARD_DESCRIPTOR]` pack beside them so the composing root proves board and objectives against the set it mounts and this folder ships no probe entry, `Emit` folds every typed fact through the `[03]-[TELEMETRY_PROJECTION]` fan before serialization, and the `[03]-[TELEMETRY_PROJECTION]` `ComputeTraces` spine opens the dispatch span through the kernel `SpanBand` at the admitted `Dispatch` scope so receipt correlation joins the OTel rail with zero call-site ceremony.
 - Receipt: union cases materialize at the sink edge only; hot-path capsules upstream stay allocation-free.
-- Packages: Thinktecture.Runtime.Extensions, Thinktecture.Runtime.Extensions.Json, LanguageExt.Core, NodaTime, Rasm (project, kernel signal capsule), Rasm.AppHost (project), BCL inbox
+- Packages: Thinktecture.Runtime.Extensions, Thinktecture.Runtime.Extensions.Json, Riok.Mapperly (`AllocationMapper` — the one generated evidence lowering under `RequiredMappingStrategy.Both`), LanguageExt.Core, NodaTime, Rasm (project, kernel signal capsule), Rasm.AppHost (project), BCL inbox
 - Growth: a new measured concern is one case row on `ComputeReceipt`, one `[JsonDerivedType]` row, one TS payload row, and one `[03]-[TELEMETRY_PROJECTION]` projection arm, zero new surface; a rail in another folder declares its case as a `partial` record on this owner (the `Analysis/assessment` `Assessment` case, the `Tensor/quadrature` `Quadrature`/`Trajectory` pair, the `Tensor/sampling` `Sampling` case) while this owning index keeps the `[JsonDerivedType]` registration and the TS payload row so the polymorphic registry stays single-sited — the `[JsonDerivedType]` roster is the ONE primary correspondence: `ReceiptSurface.Kinds` projects it from the context's polymorphism metadata, the TS `ComputeReceiptKind` union generates from `Kinds` during descriptor emit under the suite schema hash, and `ReceiptSurface.Probe` proves roster-versus-case bijection at boot, so a parallel receipt union, a second discriminator registry, or a hand-maintained TS mirror that can silently go stale is the deleted form; `Specs` is the SECOND primary correspondence — one kernel `InstrumentSpec` row per instrument carrying name, unit, description, kind, measurement form, bounds, and dimension slots, from which the mounted `InstrumentSet` and the `[10]-[DASHBOARD_DESCRIPTOR]` panel projection both derive, so a bucket boundary reachable only inside a bind delegate is the repaired facade and a second panel-truth roster is the deleted form; a folder-local spec record or instrument-kind vocabulary beside it re-mints the mechanism the capsule owns.
-- Boundary: receipts are HLC-correlated through the envelope and emit only through the sink-bound `ReceiptSurface`. `ReceiptScope.Execution` carries lane, substrate, allocation, and elapsed evidence, while `Process` carries only correlation and allocation; process facts never fabricate execution context or bypass the union. Every solver, statistical-learning, generative, residency, allocation, governance, and monitor-drift outcome rides this union. `Selection` projects ordered hops onto `SelectionDecision` and forced presence onto `SelectionMode`, avoiding parallel rosters and nullable policy. `Allocation` carries the complete `AllocationEvidence` projection, including typed `StagingEventKind`, requested/granted bytes, detail, allocator, reservation, and pool gauges. `Uncertainty` carries distribution moments, sensitivity indices, interactions, reliability search coordinates, the surrogate-fit calibration pair, and explicit null slots for every column a method does not estimate. `Factorization` optional wire evidence remains case-local, and both it and `Solve` carry the shard census — `Shards` (1 unsharded), `ShardNode` naming the farm node that ran THIS shard, `Merged` marking the one receipt folding shard results — the receipt counterpart of the `Runtime/wire#PROTO_VOCABULARY` `SolveRequest.shard_tile` column the row-block sub-solve dials. `Refusal` is the interior gate's evidence — process-scoped because a refusal precedes execution, minted from the typed `ComputeFault` itself so the reason is the fault's own slug rather than a hand-typed literal, and never a substitute for the rail: the fault still travels, the receipt is what makes it readable. The `<slug:payload>` detail grammar is a RAISING-SITE obligation, not a fold arm — every `ComputeFault` message leads with a bracketed bounded slug, so a detail without one is a defect at the raiser and lands here as a whole-message reason no panel can group. Spine values serialize as Thinktecture key scalars and format without runtime format strings.
+- Boundary: receipts are HLC-correlated through the envelope and emit only through the sink-bound `ReceiptSurface`. `ReceiptScope.Execution` carries lane, substrate, allocation, and elapsed evidence, while `Process` carries only correlation and allocation; process facts never fabricate execution context or bypass the union. Every solver, statistical-learning, generative, residency, allocation, governance, and monitor-drift outcome rides this union. `Selection` projects ordered hops onto `SelectionDecision` and forced presence onto `SelectionMode`, avoiding parallel rosters and nullable policy. `Allocation` carries the complete `AllocationEvidence` projection, including typed `StagingEventKind`, requested/granted bytes, detail, allocator, reservation, and pool gauges. `Uncertainty` carries distribution moments, sensitivity indices, interactions, reliability search coordinates, the surrogate-fit calibration pair, and explicit null slots for every column a method does not estimate. `Factorization` optional wire evidence remains case-local, and both it and `Solve` carry the shard census — `Shards` (1 unsharded), `ShardNode` naming the farm node that ran THIS shard, `Merged` marking the one receipt folding shard results — the receipt counterpart of the `Runtime/wire#PROTO_VOCABULARY` `SolveRequest.shard_tile` column the row-block sub-solve dials. `Refusal` is the interior gate's evidence — process-scoped because a refusal precedes execution, minted from the typed `ComputeFault` itself so the reason is the fault's own slug rather than a hand-typed literal, and never a substitute for the rail: the fault still travels, the receipt is what makes it readable. Detail grammar `<slug:payload>` binds at the RAISING SITE, not a fold arm — every `ComputeFault` message leads with a bracketed bounded slug, so a detail without one is a defect at the raiser and lands here as a whole-message reason no panel can group. Spine values serialize as Thinktecture key scalars and format without runtime format strings.
 
 ```csharp signature
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -175,18 +176,12 @@ public abstract partial record ComputeReceipt : ISpanFormattable, IUtf8SpanForma
         long? NativeReservedBytes,
         long? SmallPoolFreeBytes,
         long? LargePoolFreeBytes) : ComputeReceipt {
+        // GENERATED lowering: the hand fold this replaces spelled the same Option Match eight times, and a ninth
+        // evidence column compiled clean while the receipt silently dropped it — RequiredMappingStrategy.Both now
+        // fails that build. Scope stamps through the post-`with`, never a whole-source [MapPropertyFromSource]
+        // reader, so RMG020 keeps its source-side force.
         public static Allocation Of(AllocationEvidence evidence) =>
-            new(
-                evidence.Kind,
-                evidence.RequestedBytes,
-                evidence.GrantedBytes,
-                evidence.Detail.Match(Some: static value => value, None: static () => null),
-                evidence.NativeAllocator.Match(Some: static value => value, None: static () => null),
-                evidence.NativeReservedBytes.Match<long?>(Some: static value => value, None: static () => null),
-                evidence.SmallPoolFreeBytes.Match<long?>(Some: static value => value, None: static () => null),
-                evidence.LargePoolFreeBytes.Match<long?>(Some: static value => value, None: static () => null)) {
-                Scope = new ReceiptScope.Process(evidence.Correlation, evidence.Class),
-            };
+            AllocationMapper.Lower(evidence) with { Scope = new ReceiptScope.Process(evidence.Correlation, evidence.Class) };
     }
 
     public sealed record Copy(OrtResidency Gate, long Bytes, string Device) : ComputeReceipt;
@@ -198,6 +193,24 @@ public abstract partial record ComputeReceipt : ISpanFormattable, IUtf8SpanForma
     public sealed record Backpressure(int QueueDepth, Duration Waited, string? Dropped) : ComputeReceipt;
 
     public sealed record Drain(int Drained, int Faulted, int Refused) : ComputeReceipt;
+
+    // Option→nullable converters lift absence ONCE; Correlation and Class are consumed by the Scope stamp at the
+    // call site, so they are declared-ignored source inventory rather than silently unmapped members.
+    [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Both)]
+    [UseStaticMapper(typeof(OptionCodec))]
+    public static partial class AllocationMapper {
+        [MapProperty(nameof(AllocationEvidence.Kind), nameof(Allocation.Event))]
+        [MapperIgnoreSource(nameof(AllocationEvidence.Correlation))]
+        [MapperIgnoreSource(nameof(AllocationEvidence.Class))]
+        [MapperIgnoreTarget(nameof(Allocation.Scope))]
+        public static partial Allocation Lower(AllocationEvidence evidence);
+    }
+
+    public static class OptionCodec {
+        public static string? Text(Option<string> value) => value.Match<string?>(Some: static v => v, None: static () => null);
+
+        public static long? Count(Option<long> value) => value.Match<long?>(Some: static v => v, None: static () => null);
+    }
 
     public sealed record Conflict(string Subject, string Evidence) : ComputeReceipt;
 
@@ -245,7 +258,7 @@ public abstract partial record ComputeReceipt : ISpanFormattable, IUtf8SpanForma
 
     public sealed record Discretization(string Algorithm, string Element, long Nodes, long Elements, int BoundaryLayers, int RefineLevel, double WorstQuality, string Metric) : ComputeReceipt;
 
-    // A sharded run emits one receipt per shard plus the merge receipt that folds them, so the shard columns are
+    // Sharded runs emit one receipt per shard and the merge receipt that folds them, so the shard columns are
     // what separates the two populations: `Shards` is the run's shard count (1 unsharded), `ShardNode` is the farm
     // node that ran THIS shard and stays null on the merge and on every unsharded solve, and `Merged` marks the
     // fold alone. Without the discriminant a sharded solve counts its own parts as independent solves and every
@@ -620,7 +633,7 @@ public static class ComputeInstrumentFan {
                     ? s.Write(ReceiptSurface.QuadratureSkips, (long)q.Skipped)
                     : Fin.Succ(unit),
                 trajectory: static (s, t) => Traced(s, t),
-                // A sampling fact carries campaign diagnostics — a net's discrepancy pair, a fit's centre count —
+                // Sampling facts carry campaign diagnostics — a net's discrepancy pair, a fit's centre count —
                 // and no fleet aggregate: neither figure is comparable across families or dimensions, so a meter
                 // over either exports one series mixing incomparable populations. The `ReceiptsEmitted` kind
                 // counter already carries the run census, and the diagnostics stay payload columns a replay reads.
@@ -888,67 +901,13 @@ public static class ReceiptReplay {
 }
 ```
 
-## [05]-[WIRE_STAMPS]
-
-- Owner: `WireStamps` — the NodaTime-protobuf bridge family is the only temporal crossing between the receipt rail and the proto wire, spanning the well-known `Timestamp`/`Duration` edge and the `Google.Type` calendar-date and time-of-day edge.
-- Entry: `public Timestamp WirePhysical` — the envelope's HLC physical stamp projected onto the well-known wire type.
-- Packages: NodaTime.Serialization.Protobuf, Google.Protobuf, NodaTime, Rasm (kernel signal capsule)
-- Growth: a new temporal wire field is one extension row over the bridge family, zero new surface.
-- Boundary: BCL `DateTime` never appears between wire and rail; pre-epoch instants and out-of-window durations are boundary faults the call edge projects onto the typed rail, and an invalid time-of-day or out-of-range day-of-week is the same boundary fault on the calendar edge; the desktop and the web dashboard consume the identical receipt stream — envelope JSON and the proto contracts are two encodings of one stream — and `SkewBound` surfaces in the evidence view with zero configuration; a sweep occurrence's calendar date, time-of-day, and day-of-week cross as `Google.Type.Date`/`TimeOfDay`/`DayOfWeek` so a dashboard groups runs by calendar day and weekday without re-deriving the instant, and `ToBase64` projects a frame or artifact checksum onto a text-safe field for the evidence view without a second hashing pass.
-
-```csharp signature
-public static class WireStamps {
-    extension(ReceiptEnvelope envelope) {
-        public Timestamp WirePhysical => envelope.Physical.ToTimestamp();
-
-        public Google.Protobuf.WellKnownTypes.Duration WireSkew => envelope.SkewBound.ToProtobufDuration();
-    }
-
-    extension(LocalDate date) {
-        public Google.Type.Date WireDate => date.ToDate();
-    }
-
-    extension(LocalTime time) {
-        public Google.Type.TimeOfDay WireTimeOfDay => time.ToTimeOfDay();
-    }
-
-    extension(IsoDayOfWeek day) {
-        public Google.Type.DayOfWeek WireDayOfWeek => day.ToProtobufDayOfWeek();
-    }
-
-    extension(ByteString checksum) {
-        public string Base64 => checksum.ToBase64();
-    }
-
-    extension(Timestamp wire) {
-        public Instant Rail => wire.ToInstant();
-    }
-
-    extension(Google.Protobuf.WellKnownTypes.Duration wire) {
-        public Duration Rail => wire.ToNodaDuration();
-    }
-
-    extension(Google.Type.Date wire) {
-        public LocalDate RailDate => wire.ToLocalDate();
-    }
-
-    extension(Google.Type.TimeOfDay wire) {
-        public LocalTime RailTime => wire.ToLocalTime();
-    }
-
-    extension(Google.Type.DayOfWeek wire) {
-        public IsoDayOfWeek RailDayOfWeek => wire.ToIsoDayOfWeek();
-    }
-}
-```
-
-## [06]-[BENCHMARK_CLAIMS]
+## [05]-[BENCHMARK_CLAIMS]
 
 - Owner: `BenchmarkInput`, `BenchmarkClaim`, `ProfileArtifact` — the admitted tensor-shape/stride/density class, measured claim row bound to the Persistence `BenchmarkFamily` and admitted `CacheToken`, and the typed profile-evidence family; a claim is data, never prose. Gating them is `Rasm.AppHost/Runtime/determinism#DETERMINISM_KERNEL` `HostFingerprint`, the effective-host identity COMPOSED here as the claim's `host` column through this package's legal reference and extended with the two members only this domain decides — never re-declared.
 - Entry: `public Option<BenchmarkRow> Claim(ModelResultIndex index, Seq<BenchmarkRow> rows)` — delegates fingerprint and recency admission to the Persistence `ModelResultIndex.Claim` owner (its horizon and clock are closed inside the index; no call shape can omit or replace them); `None` is the fall-through to the static cost rank on the substrate row. `public Option<Duration> Forecast(ModelResultIndex index, Seq<BenchmarkClaim> claims, Substrate substrate, long payloadBytes)` is the ONE duration-forecast query — it narrows the claims to the substrate row and the `BandOf` payload band, hands the survivors' minted rows to that same `Claim` gate, and answers the winner's `Median`; `Runtime/admission#SUBSTRATE_AXIS` `SelectionContext.Forecast` binds it and re-derives no half of it.
-- Auto: `BenchmarkInput.Admit` validates payload size, dtype, shape, strides, batch, and density, derives rank and contiguity, and classifies the payload band. `Key` includes the family, admitted case token, full input class, route, provider, and tolerance class, so claim admission refuses a zero-init case token — the struct value object's admission-bypassing ghost — beside the family check before identity forms. `Persist` delegates the durable mint to `BenchmarkFamily.Claim`, carrying operations, corpus, artifact key, timing, allocation, fingerprint, and timestamp without a parallel constructor; `Stale` compares the full effective fingerprint render, including the container-limited processor count `HostFingerprint.Effective` substitutes for the spine mint's ambient host count. `Sweep` registers the equivalence cadence row on `WorkLane.Benchmark`.
+- Auto: `BenchmarkInput.Admit` validates payload size, dtype, shape, strides, batch, and density, derives rank and contiguity, and classifies the payload band. `Key` includes the family, admitted case token, full input class, route, provider, and tolerance class, so claim admission refuses a zero-init case token — the struct value object's admission-bypassing ghost — beside the family check before identity forms. `Persist` delegates the durable mint to `BenchmarkFamily.Claim`, carrying operations, corpus, artifact key, timing, allocation, fingerprint, and timestamp without a parallel constructor; `Stale` compares the effective fingerprint through the spine record's generated structural equality, including the container-limited processor count `HostFingerprint.Effective` substitutes for the spine mint's ambient host count. `Sweep` registers the equivalence cadence row on `WorkLane.Benchmark`.
 - Receipt: every sweep run emits `TensorRun`/`ModelRun` receipts beside the persisted row; artifacts — chrome-trace profiles, BenchmarkDotNet exports, EP-context caches — admit as content-keyed `ArtifactIndexRow`s on the blob lane and ride the claim as typed `ProfileArtifact` cases, each carrying the same `ContentAddress` the index row holds so evidence joins its blob in one hop; the `ChromeTrace` case carries the `InferenceSession.ProfilingStartTimeNs` epoch beside it so a trace viewer aligns receipt-relative timestamps without re-opening the session.
-- Packages: BenchmarkDotNet, NodaTime, LanguageExt.Core, Rasm.AppHost (project — the declared `HostFingerprint` this claim composes), Rasm.Persistence (project), BCL inbox
+- Packages: BenchmarkDotNet, NodaTime, Generator.Equals (`[Equatable]`+`[OrderedEquality]`/`[IgnoreEquality]` — the BenchmarkInput diff rail; `HostFingerprint.EqualityComparer` read off the spine declaration), LanguageExt.Core, Rasm.AppHost (project — the declared `HostFingerprint` this claim composes), Rasm.Persistence (project), BCL inbox
 - Growth: a new performance surface is one claim row; a new claim dimension is one column on `BenchmarkClaim`; a new host dimension is one column at the AppHost declaration, never a Compute-side mirror; zero new surface.
 - Boundary: SIMD routes, compression, partitioning, DATAS values, and numeric-provider ranks bind only behind a winning claim whose full fingerprint and input class match. `Provider` carries the numeric-lane key while `Substrate` remains the execution discriminant. `Stamps` includes the provider determinism tag, admitted package versions, device identity, and runtime posture; every mint on this page goes through `HostFingerprint.Effective` so `Processors` carries `CpuBudget.Total`, never the ambient host count the spine's own `Current` reads under a container limit. Shape, strides, batch, density, route, and tolerance participate in identity, preventing a contiguous micro-vector claim from winning for a strided batched tensor. Samples, warmups, mean, deviation, median, and P95 remain claim evidence while Persistence owns recency. `ProfileArtifact` is the ONE profile-evidence vocabulary — `ChromeTrace` from the inference `EndProfiling` run, `BenchmarkExport` from a BenchmarkDotNet exporter, `EpContext` from the session fleet compile — replacing the loose path-string columns on `ModelRun` and `Artifacts` alike; identity is the `ContentAddress` the blob index mints, never the on-disk path, so a moved or re-materialized file cannot fork evidence, and continuous profiles join by span identity through the `[03]-[TELEMETRY_PROJECTION]` trace correlation law, never as a fourth artifact case.
 
@@ -979,11 +938,11 @@ public static class HostClaims {
     extension(HostFingerprint host) {
         public Option<BenchmarkRow> Claim(ModelResultIndex index, Seq<BenchmarkRow> rows) => index.Claim(rows, host.ToString());
 
-        // The ONE duration-forecast query, and the member `Runtime/admission#SUBSTRATE_AXIS` binds onto
-        // `SelectionContext.Forecast`. Narrowing lands HERE because substrate and payload band live on the CLAIM —
-        // the durable row key carries family, case, and route alone — while fingerprint match and recency stay
-        // closed inside `ModelResultIndex.Claim`, so neither gate is re-implemented on the selection side. A claim
-        // whose mint refuses drops out rather than forecasting off a row persistence would never hold.
+        // One duration-forecast query, and the member `Runtime/admission#SUBSTRATE_AXIS` binds onto
+        // `SelectionContext.Forecast`. Narrowing lands HERE because substrate and payload band live on the CLAIM — the
+        // durable row key carries family, case, and route alone — while fingerprint match and recency stay
+        // closed inside `ModelResultIndex.Claim`, so neither gate is re-implemented on the selection side. Claims
+        // whose mint refuses drop out rather than forecasting off a row persistence would never hold.
         public Option<Duration> Forecast(ModelResultIndex index, Seq<BenchmarkClaim> claims, Substrate substrate, long payloadBytes) =>
             host.Claim(index, Banded(claims, substrate, BenchmarkClaim.BandOf(payloadBytes))).Map(static row => row.Median);
     }
@@ -1000,7 +959,11 @@ public static class HostClaims {
             .Choose(static claim => claim.Persist().ToOption());
 }
 
-public sealed record BenchmarkInput {
+// `[Equatable]` is the claim-input DIFF rail: two admitted input classes compare member-wise and Inequalities
+// names the axis that moved between two claim generations; the derived Rank/Contiguous projections are IGNORED
+// so no member compares twice. `Key()` stays the identity spelling — the comparer never keys a store.
+[Equatable]
+public sealed partial record BenchmarkInput {
     private BenchmarkInput(long payloadBytes, string band, string dtype, Seq<long> shape, Seq<long> strides, int batch, double density) {
         PayloadBytes = payloadBytes;
         Band = band;
@@ -1014,11 +977,15 @@ public sealed record BenchmarkInput {
     public long PayloadBytes { get; }
     public string Band { get; }
     public string Dtype { get; }
+    [OrderedEquality]
     public Seq<long> Shape { get; }
+    [OrderedEquality]
     public Seq<long> Strides { get; }
     public int Batch { get; }
     public double Density { get; }
+    [IgnoreEquality]
     public int Rank => Shape.Count;
+    [IgnoreEquality]
     public bool Contiguous => ContiguousShape(Shape, Strides);
 
     public static Fin<BenchmarkInput> Admit(long payloadBytes, string dtype, Seq<long> shape, Seq<long> strides, int batch, double density) {
@@ -1183,17 +1150,19 @@ public sealed record BenchmarkClaim {
     public string Key() => string.Create(CultureInfo.InvariantCulture,
         $"{Family.Key}|{(string)Case}|{Input.Key()}|{Substrate.Key}|{Route}|{Provider}|{ToleranceClass}");
 
-    // The family owns the durable mint and its refusals, so the rail is the family's own — a claim admitted here
+    // This family owns the durable mint and its refusals, so the rail is the family's own — a claim admitted here
     // can still fail the row invariants persistence holds, and swallowing that leaves a forecast reading a row
     // no store would accept.
     public Fin<BenchmarkRow> Persist() => Family.Claim(
         Case, Route, Median, P95, AllocatedBytes, Operations, Corpus, ArtifactKey, Fingerprint.ToString(), At);
 
-    public bool Stale(HostFingerprint current) => !StringComparer.Ordinal.Equals(Fingerprint.ToString(), current.ToString());
+    // Generated comparer read: the spine declaration carries [Equatable] with its unordered Stamps roster, so
+    // staleness is one structural compare and Digest comparisons stay their own axis.
+    public bool Stale(HostFingerprint current) => !HostFingerprint.EqualityComparer.Default.Equals(Fingerprint, current);
 }
 ```
 
-## [07]-[HOOK_POINTS]
+## [06]-[HOOK_POINTS]
 
 - Owner: `ComputeHookRail` — the five-point compute hook roster on the kernel hook capsule, one typed `HookPoint<TFact>` per point, declared once and mounted into the one `HookRegistry` at composition; `ConvergenceMark` — the solve-iteration evidence struct the replay point buffers.
 - Cases: `Admit` `rasm.compute.runtime.admit` (Veto over `AdmittedIntent` — policy transform-or-reject before `Plan`) · `Dispatch` `rasm.compute.runtime.dispatch` (Observe over `SelectionReceipt` — substrate-keyed tap beside the `[03]-[TELEMETRY_PROJECTION]` dispatch span) · `Iteration` `rasm.compute.solve.iteration` (Replay over `ConvergenceMark`, depth 256 — a late UI subscriber drains the recent convergence window) · `Writeback` `rasm.compute.assessment.writeback` (Veto over `GraphDelta` — gate before the caller applies the assessment delta) · `Control` `rasm.compute.twin.control` (Veto over `TwinVerdict` — gate before the control suggestion crosses to the AppHost write-back as `ExternalValue`).
@@ -1241,7 +1210,7 @@ public sealed record ComputeHookRail(
 }
 ```
 
-## [08]-[TS_PROJECTION]
+## [07]-[TS_PROJECTION]
 
 - Owner: `ComputeReceiptKind`, `ComputeReceiptSpineWire`, `ComputeReceiptWire`, `ComputeReceiptEnvelopeWire`, `ProfileArtifactWire`, `BenchmarkClaimWire`, `ComputePanelWire`, `AlertSpecWire`, `CostVectorWire`, `ChargebackDatasetWire` — the receipt payload union, profile-evidence union, claim document with its subject union and band, descriptor rows, and chargeback rows as the dashboard and the composing app root consume them. `BenchmarkClaimWire.host` binds the AppHost-minted `HostFingerprintWire` (`tests/contracts/MANIFEST.md` `[02.15]-[HOST_FINGERPRINT]`) by import, never a mirrored declaration.
 - Packages: BCL inbox
@@ -1394,18 +1363,26 @@ interface ChargebackRowWire { tenant: TenantContextWire; route: string | null; v
 interface ChargebackDatasetWire { windowStart: string; windowEnd: string; rows: ChargebackRowWire[]; contentKey: string; }
 ```
 
-## [09]-[COST_LEDGER]
+## [08]-[COST_LEDGER]
 
 - Owner: `CostPolicy` — the composition-admitted rate table pricing every measured fact; `CostVector` — the decomposed cost monoid; `ChargebackRow`/`ChargebackDataset` — the tenant-partitioned billing egress; the `[04]-[FOLD_PROJECTIONS]` journal folds and the `[03]-[TELEMETRY_PROJECTION]` `Charge` write consume this owner, so pricing has exactly one truth.
 - Entry: `public static Fin<CostPolicy> CostPolicy.Admit(Seq<(Substrate Row, double SecondRate)> rates, double tokenRate, double stagedByteRate, double remoteNodeSecondRate)` — rates enter once at the composition root as external policy, admission proving `Substrate.Items` coverage exactly once per row and finite non-negative rates; `ChargebackDataset.Of(Instant windowStart, Instant windowEnd, Seq<(TenantContext Tenant, ComputeReceipt Fact)> journal, CostPolicy costs)` folds the envelope-joined journal into ordered per-`(tenant, route)` rows and mints the content key.
 - Auto: `Price` folds one typed fact through the generated total `Switch`, so a new receipt case decides its cost axes at compile time or returns `CostVector.Zero` explicitly — elapsed seconds price by the scope substrate's rate, generated tokens by the token rate, granted staging bytes by the byte rate, and remote wall seconds by the node-second rate; the base elapsed term derives from the `Option` spine, so a process-scoped fact prices only its declared axes and fabricates no route.
 - Receipt: none new — the ledger is a projection of the standing fact stream; `ChargebackDataset` rows are the billing truth and the `rasm.compute.cost.units` histogram is the lossy channel beside them.
-- Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, System.IO.Hashing, Rasm (kernel signal capsule), BCL inbox
+- Packages: Thinktecture.Runtime.Extensions, Generator.Equals (`[Equatable]`+`[PrecisionEquality]` — the CostVector billing diff), LanguageExt.Core, NodaTime, System.IO.Hashing, Rasm (kernel signal capsule), BCL inbox
 - Growth: a new cost axis is one `CostVector` field, one `CostPolicy` rate column, and the priced arms it touches — every untouched arm breaks loudly; a new rate posture is one admitted policy value at composition; zero new surface.
 - Boundary: no rate literal lives in the package — `Admit` is the only mint and the composition root supplies the rows; the dataset content key folds window, tenant slug, route, vector lanes, and fact counts through the one `XxHash128` identity path so a re-derived dataset over identical evidence re-keys identically; grouping composes the BCL `AggregateBy` keyed fold, ordering is ordinal by slug then route so the key is order-stable; the envelope `Tenant` that `TenantContext.Stamp` promotes onto every registered mirror store is the same partition this ledger folds — the estate baggage-attribution law (`libs` `[COST_ATTRIBUTION_BAGGAGE]`) consumes this dataset, and a second attribution stream beside the receipt rail is the rejected form; the content-keyed `ChargebackDataset` projects columnar for the billing lake through the one `ArrowBatch.Chargeback` owner — the same `RecordBatch` construction path `Solver/sweep` `DoeDataset` folds — never a second columnar encoder.
 
 ```csharp signature
-public readonly record struct CostVector(double ElapsedUnits, double TokenUnits, double ByteUnits, double RemoteUnits) {
+// `[Equatable]`+`[PrecisionEquality]` is the billing DIFF rail: two chargeback folds compare banded at the
+// accumulation noise floor and Inequalities names the axis that moved. Every member is precision-banded, so
+// GetHashCode covers nothing — a CostVector is NEVER a dictionary key; it rides HashMap VALUES alone.
+[Equatable]
+public readonly partial record struct CostVector(
+    [property: PrecisionEquality(1e-9)] double ElapsedUnits,
+    [property: PrecisionEquality(1e-9)] double TokenUnits,
+    [property: PrecisionEquality(1e-9)] double ByteUnits,
+    [property: PrecisionEquality(1e-9)] double RemoteUnits) {
     public static readonly CostVector Zero = new(0d, 0d, 0d, 0d);
 
     public double Total => ElapsedUnits + TokenUnits + ByteUnits + RemoteUnits;
@@ -1490,9 +1467,9 @@ public sealed record CostPolicy {
             drift: static (_, _) => CostVector.Zero,
             assessment: static (_, _) => CostVector.Zero,
             // Both integration legs are managed CPU folds, so the substrate-rated elapsed prefix prices them whole
-            // and neither carries a token, staged-byte, or remote-node charge of its own. A sampling campaign is
-            // the same shape: its point count is a workload figure, never a billed unit, so pricing a draw beside
-            // the elapsed prefix would charge one run twice on the one axis its substrate rate already covers.
+            // and neither carries a token, staged-byte, or remote-node charge of its own. Sampling campaigns share the
+            // shape: the point count is a workload figure, never a billed unit, so pricing a draw beside the
+            // elapsed prefix charges one run twice on the one axis its substrate rate already covers.
             quadrature: static (_, _) => CostVector.Zero,
             trajectory: static (_, _) => CostVector.Zero,
             sampling: static (_, _) => CostVector.Zero);
@@ -1520,7 +1497,7 @@ public sealed record ChargebackDataset(Instant WindowStart, Instant WindowEnd, S
 }
 ```
 
-## [10]-[DASHBOARD_DESCRIPTOR]
+## [09]-[DASHBOARD_DESCRIPTOR]
 
 - Owner: `FactSelector`, `ComputeObjective`, `PanelRow`, `ComputeDescriptors` — the typed dashboard-and-alert contribution the composing app root encodes into provisioned boards and rule groups; data rows, never rendered JSON, and never a deploy-plane import. Indicator shapes, the burn table, severity routing, the verdict fold, the alert spec, and both descriptor carriers — `PanelSpec` and `BoardPack` — are the kernel SLO algebra composed whole, so `PanelRow` projects the pack outward and mints no second panel truth.
 - Entry: `ComputeDescriptors.Board` — the kernel `BoardPack` carrying one `PanelSpec` per `[02]-[RECEIPT_UNION]` `InstrumentSpec` beside every objective; `ComputeDescriptors.Panels` — the wire projection of that pack, each row carrying its title, break keys, widget, unit, and bucket edges; `ComputeDescriptors.Alerts` — the pack's compilation-ready specs; `ComputeObjective.Verdict` — the in-process burn verdict over a windowed fact slice. Admission is the kernel pack's whole and reaches the composing root on `[02]-[RECEIPT_UNION]`'s contributor port, so this owner exposes no probe entry.
@@ -1632,7 +1609,7 @@ public static class ComputeDescriptors {
 }
 ```
 
-## [11]-[RESEARCH]
+## [10]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.

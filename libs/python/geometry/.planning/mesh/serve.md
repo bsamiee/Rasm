@@ -6,7 +6,7 @@ Geometry authors NO wire vocabulary: `TessellationRequest`/`TessellationReceipt`
 
 ## [01]-[INDEX]
 
-- [02]-[SERVE]: geometry servicer composition root — the graduation install gate, one route roster serving both `mount` and the companion entry, request decode, daemon drive, receipt-floor answer, the bounded parked ring with its durable read-through, the 64 KiB `ArtifactFrame` fold, and the daemon-entry `(Ledger, Custody)` binding.
+- [02]-[SERVE]: geometry servicer composition root — the graduation install gate, one route roster serving both `mount` and the companion entry, request decode, daemon drive, receipt-floor answer, the bounded parked ring with its durable read-through, the 64 KiB `ArtifactFrame` fold, the per-route request charge, and the daemon-entry `(Ledger, Custody)` binding.
 
 ## [02]-[SERVE]
 
@@ -17,11 +17,12 @@ Geometry authors NO wire vocabulary: `TessellationRequest`/`TessellationReceipt`
 - Law: the parked ring is BOUNDED by one `SERVED_DEPTH` policy value on the folder's only process-lifetime servicer — an unbounded index grows its resident set monotonically with every distinct model ever tessellated, since a serve process outlives every drain — so `_park` folds admissions and evictions in one pass over an insertion-ordered log and the ring holds the most recent `SERVED_DEPTH` artifacts, a `Sync` past the horizon answering the same typed wire fault an unknown id answers.
 - Law: the caller-dialed deadline is SPENT here. The host admits it off the call's remaining time onto `RuntimeContext`, and `_tessellate` threads `context.budget` into the drive so the daemon carries it onto each unit's kernel and the lane folds it against its own standing bound — an abandonment on the calling side stops the tessellation instead of paying it out, and the lane's contained trip still answers the partial as a `rejected` receipt. A handler reading the request alone is the unbounded leg the admitted budget exists to close, and a serve-side cancel scope is the ruled-out shape because it strips the drain of the receipt the lane owes.
 - Law: `mount` proves the graduation install BEFORE it registers a route — `registered(composition)` runs the charter census and mounts the pulse points under the servicer's own composition key, so a divergent charter row or a colliding pulse id refuses at admission with typed evidence rather than killing the first record of a live served call; the install rail binds the route registration, never runs beside it.
+- Law: both served routes charge one `Resource.REQUEST` `MeterFact` at their handler settle, surfaced by the route they answered — the billing evidence that resource exists for, and the reason a route surface is spelled once and read by the weave operation, the bench subject, and the meter alike. The charge lands on the refusal too, since a fault still consumed the served slot a consumer's call occupied and billing successes alone hands every consumer free retries; a modality refused before the route is served occupies no slot and carries none. The meter rail BINDS into the verdict: an armed plane that cannot record a request means this deployment cannot account for what it just served, so the route refuses rather than answering unbilled. `_ledger`'s `Nothing` is the lawful unjournalled daemon — the runtime boot installs no plane and the three-state intake law makes every `Journal.record` on this page a no-op costing one map read, which is why the unjournalled composition needs no second code path anywhere in this folder.
 - Law: `bench` rides the graduation `bench_seam` fold over the whole `_tessellate` entry — decode, daemon drive, receipt floor, the real tessellation seam the C# rail pays — under subject `rasm.geometry.mesh.serve.tessellate`; latency and throughput rows land beside the per-call evidence-duration histogram with zero instrument rows, and graduation's `bench_terminal` wraps the fold in the runtime `JobRun.bounded` envelope for a process-terminal run.
-- Entry: `mount` is the runtime `Entrypoint` fold's install step, so lifecycle — bind, credentials, health, graceful drain — stays runtime-owned and geometry contributes only rows; `_tessellate` returns through the graduation weave seeded `EvidenceScope.MESH_SERVE`, its span nested INTERNAL under the host interceptor's SERVER span, so serve latency is the geometry evidence-duration row and pool depth stays the lane spine's own gauges. Every weave, install, and bench call threads the servicer's composition `ScopeKey`, so an embedded host's evidence and charter series partition from the process root's.
+- Entry: `mount` is the runtime `Entrypoint` fold's install step, so lifecycle — bind, credentials, health, graceful drain — stays runtime-owned and geometry contributes only rows; `_tessellate` returns through the graduation weave seeded `EvidenceScope.MESH_SERVE`, its span nested INTERNAL under the host interceptor's SERVER span, so serve latency is the geometry evidence-duration row and pool depth stays the lane spine's own gauges. Every weave, install, bench, request-meter, per-request daemon, and companion-entry call threads the servicer's composition `ScopeKey`, so an embedded host's evidence, charter series, capability registry, and capsule captures all partition from the process root's on one key.
 - Receipt: serve emits nothing of its own — the `@receipted` harvest reads the daemon's accumulated `contribute` stream once per drive, so the chain carries every tessellation fact exactly once; serve mints no graduation subject, since the daemon's product is wire geometry, not evidence.
 - Packages: the daemon, cad, and graduation-weave vocabulary from geometry, the wire shapes, serve entry, store lane, and journal custody from runtime, the `FactJournal` `Ledger` implementer and its `DatasetRef` from data, `msgspec.to_builtins`, `zlib.crc32`, and `expression` per the fence imports.
-- Growth: a new framed artifact class is the runtime registry's one row pair and one `sync`-style producer here; a per-element streaming fan is one `create_memory_object_stream` composition over the same `_frames` fold; a deeper hold is one `SERVED_DEPTH` value, never a second index; a new served method is one `routes()` row both entries inherit; a second custody posture is one `Custody` instance at `_ledger`, zero entry edits.
+- Growth: a new served method is one route surface constant, one `routes()` row, and one `_served` charge at its handler settle; a new framed artifact class is the runtime registry's one row pair and one `sync`-style producer here; a per-element streaming fan is one `create_memory_object_stream` composition over the same `_frames` fold; a deeper hold is one `SERVED_DEPTH` value, never a second index; a new served method is one `routes()` row both entries inherit; a second custody posture is one `Custody` instance at `_ledger`, zero entry edits.
 - Boundary: the C# `Rasm.Compute/Runtime` owns the `ComputeService`/`ArtifactSync` proto contract both ends compile; the daemon owns the tessellation cache, the kernel, the durable spill, and the `spill_path` layout this leg reads; `mesh/cad#BRIDGE` owns the `GlbArtifact` carrier and its wire-key mint; the runtime entry owns daemon lifecycle whole, so no drain stage, supervision charge, or CLI command is authored here.
 
 ```python signature
@@ -41,13 +42,13 @@ from rasm.geometry.mesh.cad import CANONICAL_TESSELLATION, BridgeFormat, GlbArti
 from rasm.geometry.mesh.daemon import SpillKind, TessellationDaemon, TessellationResult, TessellationSource, spill_path
 from rasm.runtime.admission import RuntimeContext, SecretBoundary
 from rasm.runtime.faults import BoundaryFault, RuntimeRail
-from rasm.runtime.journal import Custody, Ledger
+from rasm.runtime.journal import Custody, Journal, Ledger, MeterFact, Resource
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.profiles import BenchmarkReceipt
 from rasm.runtime.receipts import DEFAULT_SCOPE, OPEN, Receipt, ScopeKey, receipted
 from rasm.runtime.roots import ObjectStoreLane, StoreOp
 from rasm.runtime.serve import Route, RouteArity, ServerHost, companion_app
-from rasm.runtime.shapes import ArtifactFrame, TessellationReceipt, TessellationRequest
+from rasm.runtime.shapes import ArtifactFrame, TessellationReceipt, TessellationRequest, WireMethod, WireService
 
 if TYPE_CHECKING:  # the cyclopts `App` is the runtime entry's own return shape; geometry annotates it and imports no CLI surface
     from cyclopts import App
@@ -61,7 +62,25 @@ FRAME_EDGE: Final[int] = 64 * 1024
 # than by tessellation history, and a `Sync` past the horizon answers the unknown-artifact wire fault.
 SERVED_DEPTH: Final[int] = 64
 
+# the two served route surfaces, spelled ONCE and read by the weave operation, the bench subject, and the request
+# meter alike, so a billing row and the method it charges for can never drift into two names for one route.
+TESSELLATE_ROUTE: Final[str] = "tessellate"
+SYNC_ROUTE: Final[str] = "sync"
+
 # --- [OPERATIONS] -----------------------------------------------------------------------
+
+
+async def _served[T](route: str, composition: ScopeKey, settled: "RuntimeRail[T]") -> "RuntimeRail[T]":
+    # the billing evidence `Resource.REQUEST` exists for: ONE unit per served call at the handler's settle, surfaced
+    # by the route it answered. The charge lands on the refusal too — a fault still consumed the served slot the
+    # consumer's call occupied, and billing successes alone hands every consumer free retries on every fault. The
+    # meter rail BINDS into the verdict: an armed plane that cannot record the request means this deployment cannot
+    # account for what it just served, so the route refuses rather than answering unbilled. `_ledger`'s `Nothing`
+    # installs no plane at all, and the three-state intake law makes every record here a lawful no-op costing one
+    # map read, which is why the unjournalled companion needs no second code path.
+    return (await Journal.record(MeterFact(resource=Resource.REQUEST, quantity=1, surface=route), scope=composition)).bind(
+        lambda _landed: settled
+    )
 
 
 def _policy(request: TessellationRequest) -> TessellationPolicy:
@@ -161,16 +180,16 @@ class GeometryServe:
         # method the C# rail cannot find.
         return Block.of_seq([
             Route(
-                service="rasm.compute.v1.ComputeService",
-                method="Tessellate",
+                service=WireService.COMPUTE,
+                method=WireMethod.TESSELLATE,
                 descriptor="tessellate",
                 request="tessellate",
                 response="tessellation_receipt",
                 handler=self._tessellate,
             ),
             Route(
-                service="rasm.compute.v1.ArtifactSync",
-                method="Sync",
+                service=WireService.ARTIFACT_SYNC,
+                method=WireMethod.SYNC,
                 descriptor="artifact_sync",
                 request="artifact_frame",
                 response="artifact_frame",
@@ -194,8 +213,11 @@ class GeometryServe:
         # unjournalled, and a companion that means to journal binds the pair HERE, which is the only place that
         # knows which datasets and which KEK boundary this deployment owns. Drains and charges stay empty because
         # the lane owns its own pool teardown and this folder supervises no child of its own — a row asserting one
-        # would name a drain stage nothing drains.
-        return _ledger(evidence).map(lambda bound: companion_app(self.routes(), ledger=bound))
+        # would name a drain stage nothing drains. The servicer's own `composition` threads in, so the entry's
+        # capability-invoke registry and capsule captures partition on the SAME key the ledger binding, the install
+        # gate, the weave, and every request meter already stamp — one scope across every custody surface, where a
+        # default here would strand an embedded host's daemon evidence in the process root's.
+        return _ledger(evidence).map(lambda bound: companion_app(self.routes(), ledger=bound, composition=self._composition))
 
     async def _tessellate(self, request: TessellationRequest, context: RuntimeContext) -> "RuntimeRail[TessellationReceipt]":
         # decode -> drive -> harvest -> answer; the head result answers the floor while every result parks for the sync leg.
@@ -205,16 +227,22 @@ class GeometryServe:
             case Result(tag="ok", ok=source):
                 rail = await evidence_run(
                     EvidenceScope.MESH_SERVE,
-                    "tessellate",
+                    TESSELLATE_ROUTE,
                     partial(self._drive, source, _policy(request), context.budget),
                     composition=self._composition,
                 )
-                return rail.bind(
-                    lambda results: results.try_head()
-                    .map(lambda head: Ok(_receipt(head)))
-                    .default_value(Error(BoundaryFault(wire=("serve.tessellate.empty", 0))))
+                return await _served(
+                    TESSELLATE_ROUTE,
+                    self._composition,
+                    rail.bind(
+                        lambda results: results.try_head()
+                        .map(lambda head: Ok(_receipt(head)))
+                        .default_value(Error(BoundaryFault(wire=("serve.tessellate.empty", 0))))
+                    ),
                 )
             case Result(tag="error") as refused:
+                # a modality the registry never declared is refused BEFORE the route is served, so it occupies no
+                # served slot and carries no charge.
                 return refused
 
     async def _drive(
@@ -229,7 +257,11 @@ class GeometryServe:
         # a sharpened echo mints a per-request daemon over the same lane so the cache keys stay policy-distinct —
         # never a mutated shared daemon — inheriting the SAME durable tier, since a spill under a tier the
         # request-scoped daemon never saw would leave that policy's artifacts undurable.
-        daemon = self._daemon if mesher == CANONICAL_TESSELLATION else TessellationDaemon(self._lane, mesher, store=self._store)
+        daemon = (
+            self._daemon
+            if mesher == CANONICAL_TESSELLATION
+            else TessellationDaemon(self._lane, mesher, store=self._store, composition=self._composition)
+        )
         rail = await daemon.tessellate(source, budget=budget)
         self._harvest(daemon)
         return rail.map(self._park)
@@ -253,7 +285,9 @@ class GeometryServe:
 
     async def _sync(self, request: ArtifactFrame, context: RuntimeContext) -> "RuntimeRail[Block[ArtifactFrame]]":
         # bidi leg: each inbound frame names the artifact_id it wants; the parked GLB folds back as its framed rows.
-        return await self.sync(request.artifact_id)
+        # The charge seats HERE rather than on `sync`, so an in-process caller reaching the ring directly is not
+        # billed for a request no consumer made — a served slot is what `Resource.REQUEST` prices.
+        return await _served(SYNC_ROUTE, self._composition, await self.sync(request.artifact_id))
 
     async def sync(self, artifact_id: bytes) -> "RuntimeRail[Block[ArtifactFrame]]":
         # ring first, durable tier second, typed wire fault last. A key past the ring horizon is NOT necessarily an
@@ -283,7 +317,7 @@ class GeometryServe:
         # macro-bench over the real tessellation entry — _tessellate whole: decode, daemon drive, receipt floor — the
         # same seam the C# rail pays; the canonical daemon stays warm across rounds, so the cache tier prices in.
         return bench_seam(
-            bench_subject(EvidenceScope.MESH_SERVE, "tessellate"),
+            bench_subject(EvidenceScope.MESH_SERVE, TESSELLATE_ROUTE),
             partial(self._tessellate, request, context),
             rounds=rounds,
             warmup=warmup,

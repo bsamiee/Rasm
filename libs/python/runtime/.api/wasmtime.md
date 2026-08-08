@@ -1,6 +1,6 @@
 # [PY_RUNTIME_API_WASMTIME]
 
-`wasmtime` embeds the Wasmtime runtime behind a ctypes-loaded shared library; runtime's `WorkerKind.WASM` guest sandbox consumes one slice (`workers.md`). One epoch-armed `Engine` per interpreter compiles each module once; every call instantiates fresh against a limit-bounded `Store`, exchanging bytes over the `GUEST_ABI` exports with zero imports. Epoch deadline is the kill mechanism: a daemon pacer increments the engine-global epoch against each store's relative tick budget, so a guest dies mid-kernel at wall clock. Fuel metering, WASI, and the component model sit outside runtime scope.
+`wasmtime` embeds the Wasmtime runtime behind a ctypes-loaded shared library; runtime's `WorkerKind.WASM` guest sandbox consumes one slice (`workers.md`). Caller bytes validate host-side before anything else; one epoch-armed `Engine` per interpreter then compiles each module once, and every call instantiates fresh against a limit-bounded `Store`, exchanging bytes over the `GUEST_ABI` exports with zero imports. Epoch deadline is the kill mechanism: a daemon pacer increments the engine-global epoch against each store's relative tick budget, so a guest dies mid-kernel at wall clock. Fuel metering, WASI, and the component model sit outside runtime scope.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -37,6 +37,7 @@
 
 [ENTRYPOINT_SCOPE]: engine, compilation, and per-call isolation
 - `Config` setters are write-only; `set_epoch_deadline` takes ticks relative to the engine's current epoch, so concurrent stores under one heartbeat stay isolated, and `set_limits` negative arguments leave a bound unset.
+- `Module.validate(engine, wasm)` is a classmethod returning `None`: it parses and refuses, never compiling and never yielding a module — malformed bytes raise `WasmtimeError`, a non-`bytes | bytearray` argument raises `TypeError`. The engine it takes is a parse context alone, so a bare `Engine()` with no config serves it.
 
 | [INDEX] | [SURFACE]                                                               | [SHAPE]  | [CAPABILITY]                                  |
 | :-----: | :---------------------------------------------------------------------- | :------- | :-------------------------------------------- |
@@ -55,21 +56,22 @@
 [TOPOLOGY]:
 - engine law: one epoch-armed `Engine` per interpreter; the daemon pacer increments the engine-global epoch every `EPOCH_TICK` while per-store deadlines stay relative ticks, so one heartbeat serves every concurrent guest and none kills another. Engine and compiled-module memos resolve as a PAIR under one gate — concurrent first guests on the thread arm are the ordinary case, a bare memo re-enters its body on a concurrent first miss, and a store on one engine instantiating a module compiled on another refuses.
 - compile law: `Module(engine, payload)` compiles once per module bytes and instantiation stays per call, so the per-call cost is instantiation alone and guest state never leaks across kernels.
+- admission law: caller-controlled bytes pass `Module.validate` HOST-side before any worker sees them, so a malformed module refuses on a typed rail at parse cost rather than surfacing worker-side as an instantiation `WasmtimeError` indistinguishable from a genuine guest trap. Validation runs on its own throwaway engine and arms no epoch, keeping the memoized run engine untouched by a payload it may refuse.
 - isolation law: `Instance(store, module, [])` constructs with zero imports, so a guest owns no ambient capability by construction; `store.set_limits(memory_size=GUEST_MEMORY)` bounds linear memory and refuses growth past the ceiling.
 - abi law: request and reply cross as bytes over the `GUEST_ABI` exports — `alloc(store, len)` reserves guest memory, `memory.write` lands the request, `run(store, ptr, len)` returns one packed `i64` (`(ptr << 32) | len`), and `memory.read` copies the reply out before the store drops.
 - scope law: fuel metering (`consume_fuel`/`set_fuel`), WASI (`WasiConfig`/`Linker.define_wasi`), the component model, `SharedMemory`, serialization (`Module.serialize`/`deserialize`), and the cranelift tuning surface stay unconsumed.
 
 [STACKING]:
-- `execution/workers`(`runtime/.planning/execution/workers.md`): the primary owner — `Shipping.GUEST` carries the wasm module as `Kernel.payload` under a digest-label `name`, `_guest` resolves it, and the `KernelTrait.SANDBOXED` row maps onto `WorkerKind.WASM` with `retry=Nothing` (a trap is deterministic, never retried); `KIND_POLICY[WASM]` reads `fidelity=False`, so the guest crosses no pickle seam.
+- `execution/workers`(`runtime/.planning/execution/workers.md`): the primary owner — `Shipping.GUEST` carries the wasm module as `Kernel.payload` under a digest-label `name`, the `admitted` gate runs `Module.validate` host-side onto a typed `config` fault, `_guest` resolves the payload behind one `WasmtimeError` fence spanning compile, instantiate, and call, and the `KernelTrait.SANDBOXED` row maps onto `WorkerKind.WASM` with `retry=Nothing` (a trap is deterministic, never retried); `KIND_POLICY[WASM]` reads `fidelity=False`, so the guest crosses no pickle seam.
 - `execution/lanes`(`runtime/.planning/execution/lanes.md`): the `_ISOLATION` WASM row rides `anyio.to_thread.run_sync` under `THREAD_BAND`, and the guest's epoch deadline is its own in-process kill, so a `SANDBOXED` kernel rides the thread arm and never re-routes to the pebble pool for wall-clock enforcement.
 - `reliability/faults`(`runtime/.planning/reliability/faults.md`): the epoch kill's `TimeoutError` lands the `deadline` `CLASSIFY` row and a guest trap's `WasmtimeError` falls to the catch-all `boundary` case keeping the trap message, so no wasmtime-specific row is owed.
 
 [LOCAL_ADMISSION]:
 - wasmtime is the branch's sole guest-sandbox owner; a second WASM runtime, a subprocess-per-guest scheme, or an `exec`-based plugin sandbox is the deleted form.
-- guest modules reach the crossing only as `Kernel.of(wasm_bytes)`; no page constructs an `Engine`, `Store`, or `Instance` beside the workers arm.
+- guest modules reach the crossing only as `Kernel.of(wasm_bytes)`; no page constructs an `Engine`, `Store`, or `Instance` beside the workers arm, whose admission gate is the one place a second, config-free engine exists and it compiles nothing.
 
 [RAIL_LAW]:
 - Package: `wasmtime`
 - Owns: in-process WASM guest execution — the epoch-armed engine, per-call store isolation with memory limits, once-per-bytes compilation, zero-import instantiation, and the byte-exchange ABI over exports
-- Accept: `Kernel.of(wasm_bytes)` as the sole ingress, the `GUEST_ABI` export triple, `set_epoch_deadline` relative ticks under the one pacer, `set_limits(memory_size=)` ceilings, `except WasmtimeError` with elapsed-budget discrimination
-- Reject: WASI or host imports on a guest, fuel metering beside the epoch kill, a per-call `Engine` or `Module` compile, an unserialized engine/module memo pair, `Trap` caught where `WasmtimeError` is the raise, a second sandbox runtime, and guest state carried across calls through a reused `Store`
+- Accept: `Kernel.of(wasm_bytes)` as the sole ingress, `Module.validate` on a throwaway engine as the host-side admission gate, the `GUEST_ABI` export triple, `set_epoch_deadline` relative ticks under the one pacer, `set_limits(memory_size=)` ceilings, `except WasmtimeError` spanning compile, instantiate, and call with elapsed-budget discrimination
+- Reject: WASI or host imports on a guest, fuel metering beside the epoch kill, a per-call `Module` compile or a second RUN engine beside the memoized one, an unserialized engine/module memo pair, unvalidated caller bytes reaching a worker, `Trap` caught where `WasmtimeError` is the raise, a second sandbox runtime, and guest state carried across calls through a reused `Store`

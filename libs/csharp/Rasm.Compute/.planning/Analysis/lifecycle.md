@@ -1,27 +1,27 @@
 # [COMPUTE_LIFECYCLE]
 
-Rasm.Compute lifecycle runner owns the `Discipline.Environmental` and `Discipline.Cost` arms of the assessment rail — the EN 15978 embodied-carbon takeoff and the supply/install/lifecycle cost rollup. Each folds the `Analysis/aggregator` (`AggregateEnvironmental`/`AggregateCost`) over the seam `MaterialComposition` read directly from the concrete `Rasm.Element` `ElementGraph`, distributing each ply's per-module GWP and per-unit cost by the element's baked `Qto_*BaseQuantities` takeoff. Where a ply carries no baked EN 15978 declaration, the async `EnrichCarbon` ingress resolves one from the EC3 / openEPD REST service through a fallback ladder — the freshest valid product `Epd` in the ply's own category, then the category `StatisticsDto` conservative-estimate line — basis-tagged from the EPD `declared_unit` onto the seam `MaterialPropertySet.Environmental` and applied as a `GraphDelta` before the pure-sync `RunCarbon`, so a fully-declared model needs no network call.
+Rasm.Compute lifecycle runner owns the `Discipline.Environmental` and `Discipline.Cost` arms of the assessment rail — the EN 15978 embodied-carbon takeoff and the supply/install/lifecycle cost rollup. Each folds the `Analysis/aggregator` (`AggregateEnvironmental`/`AggregateCost`) over the seam `MaterialComposition`, distributing each ply's per-module GWP and per-unit cost by the element's baked `Qto_*BaseQuantities` takeoff; where a ply carries no baked EN 15978 declaration, the async `EnrichCarbon` ingress resolves one from the EC3 / openEPD REST service through the fallback ladder, applied as a `GraphDelta` before the pure-sync `RunCarbon`.
 
-One hand-thin EC3 client rides a typed `HttpClient` and a source-generated `System.Text.Json` context: only the GET read surface is exposed, every read returns `Fin<T>` (a non-2xx, decode failure, or missing `impacts[method].gwp` mints a `ComputeFault`, never an exception in domain flow), and a success payload caches in `HybridCache` keyed by `XxHash128(kind, omf, page|method)` so a token-metered endpoint is never re-hit — a transient fault is never cached. GWP stays a raw kgCO2e domain scalar — CO2-equivalence is a domain basis, not an SI dimension — carried as a dimensionless `MeasureValue` with the `kgCO2e` label, never forced through `UnitsNet.Mass` nor the abbreviation-resolving `MeasureValue.Of`. Each runner returns one `AssessmentResult` fact stream the `Analysis/assessment` spine writes back, the governing ratio the whole-life carbon (or in-place cost) against a target. Construction SCHEDULING and 4D cost-loading stay in `Rasm.Bim` (MPXJ) — this is the embodied material takeoff only, the cost arm bracketed to the aggregator fold and the fact emit.
+One hand-thin EC3 client rides a typed `HttpClient` under the success-only content-key cache, and each runner returns one `AssessmentResult` fact stream the `Analysis/assessment` spine writes back, the governing ratio the whole-life carbon (or in-place cost) against a target.
 
 ## [01]-[INDEX]
 
-- [02]-[EC3_BOUNDARY]: the `EpdQuery`→`EpdDeclaration` resolver contract and `Ec3Service` the openEPD adapter satisfying it under a success-only content-key cache and the raw-kgCO2e GWP discipline.
+- [02]-[EC3_BOUNDARY]: `EpdQuery`→`EpdDeclaration` the resolver contract and `Ec3Service` the openEPD adapter satisfying it under a success-only content-key cache and the raw-kgCO2e GWP discipline.
 - [03]-[CARBON_RUNNER]: `RunCarbon` the pure-sync EN 15978 takeoff and `EnrichCarbon` the async EC3 ingress resolving each undeclared ply through the fallback ladder.
 - [04]-[COST_RUNNER]: `RunCost` the supply/install/lifecycle rollup over the composition, guarded to the requested `Currency`.
 
 ## [02]-[EC3_BOUNDARY]
 
-- Owner: `EpdQuery` the closed request `[Union]` (`Products`/`Document`/`Generic`) and `EpdDeclaration`/`DeclaredAmount` the provider-neutral answer, together the `Func<EpdQuery, Task<Fin<Seq<EpdDeclaration>>>>` resolver contract every carbon fold takes; `Ec3Service` the openEPD ADAPTER satisfying it; the openEPD wire-type family (`Epd`/`ScopeSet`/`Measurement`/`StatisticsDto`/`Envelope<T>`/`Amount`); the success-only `XxHash128` content-key cache; the `LciaMethod` `[SmartEnum<string>]` impact-method selector with its citation `Key` and wire `WireKey` columns; the `CarbonQuery` request input the `AssessmentRequest.Carbon` case carries.
+- Owner: `EpdQuery` the closed request `[Union]` (`Products`/`Document`/`Generic`) and `EpdDeclaration`/`DeclaredAmount` the provider-neutral answer, together the `Func<EpdQuery, Task<Fin<Seq<EpdDeclaration>>>>` resolver contract every carbon fold takes; `Ec3Service` the openEPD ADAPTER satisfying it; `Ec3Wire` the Mapperly wire→neutral mapper (the generated `Candidate` partial under `RequiredMappingStrategy.Both` beside the `[UserMapping]` `Substitution` fan-out) with `EpdCodec` its `[NamedMapping]` converter roster registered whole through `[UseStaticMapper]`; the openEPD wire-type family (`Epd`/`ScopeSet`/`Measurement`/`StatisticsDto`/`Envelope<T>`/`Amount`); the success-only `XxHash128` content-key cache; the `LciaMethod` `[SmartEnum<string>]` impact-method selector with its citation `Key` and wire `WireKey` columns; the `CarbonQuery` request input the `AssessmentRequest.Carbon` case carries.
 - Entry: `Ec3Service.Resolve(EpdQuery query)` → `Task<Fin<Seq<EpdDeclaration>>>` is the adapter's ONE read, its generated total `Switch` binding the category page search, the by-identity document, and the category statistic onto three GET-only legs. `408`/`429`/`5xx` responses classify as transient `FailureKind.Timeout`; deterministic client responses classify as `FailureKind.Input`; transport and cancellation exceptions lower onto typed endpoint/timeout faults.
 - Auto: the three legs share ONE polymorphic `Cached<T>` fold parameterized by the decode shape (`Unwrap<T>` for the `{payload, meta}` envelope, `Bare<T>` for the by-identity document) — no parallel `GetEnvelope`/`GetBare` pair; the cache stores the SUCCESS DTO ONLY (`Epd[]`/`StatisticsDto`/`Epd`, never a `Fin` or a `Seq`), the factory throwing the boundary fault so `HybridCache.GetOrCreateAsync` writes nothing on a failure and a transient `429`/`5xx` never poisons a content-key; the cache slot is `XxHash128.HashToUInt128` over the `(kind, omf, page|method|uuid)` string, every entry held under one `HybridCacheEntryOptions` policy (a days-scale distributed `Expiration` matching the provider's EPD revision cadence, an hour-scale `LocalCacheExpiration` re-validating L1 across redeploys) and tagged `ec3` + `ec3:<kind>` so a category recall is one tag eviction; the AppHost-owned resilience handler honors `429` + `Retry-After` as the backoff floor. Every module a declaration carries bands onto the seam `LifecycleStage` roster through ONE generated projection keyed by stage row, so the wire's fifteen `[JsonPropertyName]` members map by data rather than by a hand-summed fixed-slot literal.
-- Packages: `System.Net.Http` (typed client + `ReadFromJsonAsync(Type, JsonSerializerContext)`), `System.Text.Json` (source-generated context, AOT-safe), `System.IO.Hashing` (`XxHash128.HashToUInt128`), Microsoft.Extensions.Caching.Hybrid (`HybridCache.GetOrCreateAsync` stateful overload), Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime (`Instant`), Rasm.Element (project — `LifecycleStage` the banding projection is generated over), BCL inbox; no NuGet SDK to pin (REST integration).
-- Growth: a new LCIA method is one `LciaMethod` row carrying its citation and wire spellings; a new decoded openEPD member is one source-gen context property plus one banding entry; a new lifecycle module is one seam `LifecycleStage` row with one banding entry here; a SECOND carbon provider is one type satisfying the resolver contract with zero edit to the folds — the boundary widens by row and by adapter, never by a second HTTP client and never a per-endpoint cache path.
-- Boundary: the carbon folds take the RESOLVER, never this class — an assessment that names its provider cannot be run against a second catalogue, a fixture, or a cached corpus without editing the fold, and the concrete client is exactly what a test then has to fake through HTTP. Only the GET read surface is consumed (Rasm is a carbon consumer, never a publisher), and the openEPD wire family stays adapter-local: `Epd`/`ScopeSet`/`Amount` never cross the resolver contract, `EpdDeclaration` carrying the per-stage vector, the two basis witnesses, the expiry, and the citation the folds actually read. GWP `Measurement.Mean` is kgCO2e per declared unit and is not a `UnitsNet` quantity — it crosses interior signatures as a raw `double` and lands as a dimensionless `MeasureValue` labeled `kgCO2e` through `DomainMeasure`, never `UnitsNet.Mass` and never the abbreviation-resolving `MeasureValue.Of` (which rejects `kgCO2e`). `LciaMethod` carries its wire spelling as its OWN column (the `Model/providers#EP_AXIS` `WireKey` precedent): the citation a report renders and the token `impacts[method]` and `lcia_method=` are keyed by are two facts, and one string serving both makes a renamed citation silently miss every impact lookup. The vocabulary is CLOSED and absence rides `Option` at the read — an `Unknown` sentinel row is a member of a closed family that names no method, and it resolves against no wire key while type-checking everywhere. Hyphenated LCIA scope keys (`A1A2A3`, `B1`…`B7`, `C1`…`C4`) require `[JsonPropertyName]` aliases; the `fields` query mask trims each leg to its own projection, so a category page carries candidate identity and basis alone and the winner's impacts are fetched once by identity rather than for every row the page returned; a failed read is the explicit `Fin.Fail` the caller surfaces, never a cached failure re-served as success.
+- Packages: `System.Net.Http` (typed client + `ReadFromJsonAsync(Type, JsonSerializerContext)`), `System.Text.Json` (source-generated context, AOT-safe), `System.IO.Hashing` (`XxHash128.HashToUInt128`), Microsoft.Extensions.Caching.Hybrid (`HybridCache.GetOrCreateAsync` stateful overload), Riok.Mapperly (`[Mapper]`, `[MapProperty(Use = …)]`, `[MapValue]`, `[UserMapping]`, `[NamedMapping]`, `[UseStaticMapper]`, `[MapperIgnoreSource]` — the reader-free wire lowering), Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime (`Instant`), Rasm.Element (project — `LifecycleStage` the banding projection is generated over), BCL inbox; no NuGet SDK to pin (REST integration).
+- Growth: a new LCIA method is one `LciaMethod` row carrying its citation and wire spellings; a new decoded openEPD member is one source-gen context property and one banding entry; a new lifecycle module is one seam `LifecycleStage` row with one banding entry here; a SECOND carbon provider is one type satisfying the resolver contract with zero edit to the folds — the boundary widens by row and by adapter, never by a second HTTP client and never a per-endpoint cache path.
+- Boundary: the carbon folds take the RESOLVER, never this class — an assessment that names its provider cannot be run against a second catalogue, a fixture, or a cached corpus without editing the fold, and the concrete client is exactly what a test then has to fake through HTTP. Only the GET read surface is consumed (Rasm is a carbon consumer, never a publisher), and the openEPD wire family stays adapter-local: `Epd`/`ScopeSet`/`Amount` never cross the resolver contract, `EpdDeclaration` carrying the per-stage vector, the two basis witnesses, the expiry, and the citation the folds read. GWP `Measurement.Mean` is kgCO2e per declared unit and is not a `UnitsNet` quantity — it crosses interior signatures as a raw `double` and lands as a dimensionless `MeasureValue` labeled `kgCO2e` through `DomainMeasure`, never `UnitsNet.Mass` and never the abbreviation-resolving `MeasureValue.Of` (which rejects `kgCO2e`). `LciaMethod` carries its wire spelling as its OWN column (the `Model/providers#EP_AXIS` `WireKey` precedent): the citation a report renders and the token `impacts[method]` and `lcia_method=` are keyed by are two facts, and one string serving both makes a renamed citation silently miss every impact lookup. `LciaMethod` stays CLOSED and absence rides `Option` at the read — an `Unknown` sentinel row is a member of a closed family that names no method, and it resolves against no wire key while type-checking everywhere. Hyphenated LCIA scope keys (`A1A2A3`, `B1`…`B7`, `C1`…`C4`) require `[JsonPropertyName]` aliases; the `fields` query mask trims each leg to its own projection, so a category page carries candidate identity and basis alone and the winner's impacts are fetched once by identity rather than for every row the page returned; a failed read is the explicit `Fin.Fail` the caller surfaces, never a cached failure re-served as success.
 
 ```csharp signature
 // --- [TYPES] -------------------------------------------------------------------------------
-// The Key is the CITATION a report renders; WireKey is the token `impacts[method]` and `lcia_method=` are keyed by. One
+// Key carries the CITATION a report renders; WireKey the token `impacts[method]` and `lcia_method=` are keyed by. One
 // string serving both makes a renamed citation silently miss every impact lookup, so each row declares its own crossing
 // spelling exactly as the EP axis does. The family is CLOSED — absence rides Option at the read site, never a sentinel
 // row that names no method, resolves against no wire key, and type-checks everywhere.
@@ -42,11 +42,11 @@ public sealed partial class LciaMethod {
 public abstract partial record EpdQuery {
     private EpdQuery() { }
 
-    // A category page of CANDIDATES — identity, expiry, and basis alone, no impacts.
+    // Products reads a category page of CANDIDATES — identity, expiry, and basis alone, no impacts.
     public sealed record Products(string Omf, LciaMethod Method, int Page) : EpdQuery;
-    // The winning candidate's full declaration, fetched once by identity rather than for every row the page returned.
+    // Document fetches the winning candidate's full declaration once by identity rather than per page row.
     public sealed record Document(string Uuid, LciaMethod Method) : EpdQuery;
-    // The category substitution line a ply with no fresh product declaration falls back to.
+    // Generic reads the category substitution line a ply with no fresh product declaration falls back to.
     public sealed record Generic(string Omf, LciaMethod Method) : EpdQuery;
 }
 
@@ -141,8 +141,8 @@ public sealed record StatisticsDto(
     [property: JsonPropertyName("declared_unit")] Amount? DeclaredUnit);
 
 // --- [SERVICES] ----------------------------------------------------------------------------
-// The openEPD ADAPTER: it satisfies the resolver contract and owns every wire spelling behind it, so the carbon folds
-// name a delegate and this class is one binding at the composition root.
+// Ec3Service is the openEPD ADAPTER: it satisfies the resolver contract and owns every wire spelling behind it, so the
+// carbon folds name a delegate and this class is one binding at the composition root.
 public sealed class Ec3Service(HttpClient http, HybridCache cache, JsonSerializerContext json) {
     // Candidate search reads one page wide: a single token charge surfaces enough category rows for the freshness pick,
     // never a per-ply multi-page crawl.
@@ -160,33 +160,19 @@ public sealed class Ec3Service(HttpClient http, HybridCache cache, JsonSerialize
         products: async p => (await Cached<Epd[]>($"search:{p.Omf}:{p.Method.WireKey}:{p.Page}",
                 $"/v2/epds/search?omf={Uri.EscapeDataString(p.Omf)}&page_number={p.Page}&page_size={SearchPageSize}&fields={CandidateFields}",
                 Unwrap<Epd[]>))
-            .Map(static rows => toSeq(rows).Map(static row => Candidate(row))),
+            .Map(static rows => toSeq(rows).Map(static row => Ec3Wire.Candidate(row))),
         document: async d => (await Cached<Epd>($"epd:{d.Uuid}:{d.Method.WireKey}",
                 $"/epds/{Uri.EscapeDataString(d.Uuid)}?fields={DocumentFields}", Bare<Epd>))
             .Map(row => Declared(row, d.Method)),
         generic: async g => (await Cached<StatisticsDto>($"stat:{g.Omf}:{g.Method.WireKey}",
                 $"/v2/epds/statistics?omf={Uri.EscapeDataString(g.Omf)}&lcia_method={Uri.EscapeDataString(g.Method.WireKey)}",
                 Unwrap<StatisticsDto>))
-            .Map(static stats => Substitution(stats)));
+            .Map(static stats => Ec3Wire.Substitution(stats)));
 
-    // Wire -> neutral, one lowering per leg. A candidate carries no vector; a document carries the method's vector when
-    // the declaration holds one and NONE otherwise, so the fold rails on an unusable winner instead of reading zeros.
-    static EpdDeclaration Candidate(Epd row) =>
-        new("epd", row.Id ?? "", Optional(row.ValidUntil), Declared(row.DeclaredUnit), Declared(row.KgPerDeclaredUnit), None);
-
+    // Document lowering keeps the sanctioned post-`with` for the method-selected vector — never a
+    // [MapPropertyFromSource] whole-source reader, whose presence would suppress RMG020 for the whole mapping.
     static Seq<EpdDeclaration> Declared(Epd row, LciaMethod method) =>
-        Seq(Candidate(row) with { StageGwp = row.Gwp(method).Map(static scope => scope.ToStageVector()) });
-
-    // A category statistic resolves A1-A3 alone (its conservative estimate is a cradle-to-gate substitution value) and
-    // carries no kg_per_declared_unit, so a mass-based category grounds through its declared_unit or not at all.
-    static Seq<EpdDeclaration> Substitution(StatisticsDto stats) {
-        double[] product = new double[LifecycleStage.Count];
-        product[LifecycleStage.A1A3.Index] = stats.ConservativeEstimate;
-        return Seq(new EpdDeclaration("ec3-statistics", "conservative", None, Declared(stats.DeclaredUnit), None, Some(product)));
-    }
-
-    static Option<DeclaredAmount> Declared(Amount? amount) =>
-        amount is { Qty: { } qty } ? Some(new DeclaredAmount(qty, amount.Unit ?? "")) : None;
+        Seq(Ec3Wire.Candidate(row) with { StageGwp = row.Gwp(method).Map(static scope => scope.ToStageVector()) });
 
     // Entry lifetime follows EPD revision cadence rather than session duration, so the
     // distributed entry holds for days while the in-process L1 re-validates hourly against redeploys; the kind-and-omf
@@ -234,6 +220,47 @@ public sealed class Ec3Service(HttpClient http, HybridCache cache, JsonSerialize
     // Fin.Fail at the one catch so a failed read never caches and never escapes as a raw exception.
     sealed class Ec3Boundary(Error fault) : Exception { public Error Fault { get; } = fault; }
 }
+
+// Wire -> neutral lowering is COMPILER-PROOF: `Candidate` generates member-by-member under
+// RequiredMappingStrategy.Both, so an EpdDeclaration column added later FAILS THE BUILD instead of silently
+// carrying a default — the hand initializer this replaces compiled clean with a new column absent. The mapping
+// is READER-FREE, so RMG020 keeps its source-side force and the [MapperIgnoreSource] roster below is compiler
+// inventory, not authored prose; LOC stays ~flat — the gain is the compiler, not the line count.
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Both)]
+[UseStaticMapper(typeof(EpdCodec))]
+public static partial class Ec3Wire {
+    // Candidate rows carry identity and basis ONLY — the provider tag and the absent vector are [MapValue]
+    // constants, and the Impacts matrix is the one source member the candidate projection deliberately drops.
+    [MapProperty(nameof(Epd.Id), nameof(EpdDeclaration.Reference), Use = nameof(EpdCodec.Reference))]
+    [MapValue(nameof(EpdDeclaration.Source), "epd")]
+    [MapValue(nameof(EpdDeclaration.StageGwp), Use = nameof(EpdCodec.NoVector))]
+    [MapperIgnoreSource(nameof(Epd.Impacts))]
+    public static partial EpdDeclaration Candidate(Epd row);
+
+    // Category statistics resolve A1-A3 alone (the conservative estimate is a cradle-to-gate substitution
+    // value) and carry no kg_per_declared_unit — a stage-vector fan-out no member mapping spells, so this leg
+    // stays the admitted [UserMapping] hand fold beside the generated sibling.
+    [UserMapping]
+    public static Seq<EpdDeclaration> Substitution(StatisticsDto stats) {
+        double[] product = new double[LifecycleStage.Count];
+        product[LifecycleStage.A1A3.Index] = stats.ConservativeEstimate;
+        return Seq(new EpdDeclaration("ec3-statistics", "conservative", None, EpdCodec.Declared(stats.DeclaredUnit), None, Some(product)));
+    }
+}
+
+// [NamedMapping] converters own every wire-shape lift, registered whole through [UseStaticMapper] so the
+// nullable Instant and Amount members cross with no per-member configuration.
+public static class EpdCodec {
+    [NamedMapping("reference")]
+    public static string Reference(string? id) => id ?? "";
+
+    public static Option<Instant> Lifted(Instant? at) => Optional(at);
+
+    public static Option<DeclaredAmount> Declared(Amount? amount) =>
+        amount is { Qty: { } qty } ? Some(new DeclaredAmount(qty, amount.Unit ?? "")) : None;
+
+    public static Option<double[]> NoVector() => None;
+}
 ```
 
 ## [03]-[CARBON_RUNNER]
@@ -243,7 +270,7 @@ public sealed class Ec3Service(HttpClient http, HybridCache cache, JsonSerialize
 - Auto: `RunCarbon` resolves each ply's seam properties through one `Func<MaterialId, Fin<Seq<MaterialPropertySet>>>` resolver keyed on the composition's native `MaterialId` (never a graph `NodeId`), and the per-element area + volume through `TakeoffOf`, so a baked and a catalogue-resolved declaration fold identically. `EnrichCarbon` enumerates the undeclared ply materials (the `MaterialId` set lacking the `Environmental` case, not the element's directly-associated material), resolves each through the three-rung ladder — the category page's freshest non-expired candidate, that winner's own document, then the category substitution line — `Normalize`s the declaration's stage vector to per-one-unit of its native basis and tags that `MeasurementBasis`, embeds the carbon-only per-stage GwpTotal row into the full seam `(ImpactCategory × LifecycleStage)` matrix through `CarbonMatrix` (un-declared indicator rows zeroed, the partial-EPD invariant), and accumulates one monoid `GraphDelta` the composition root applies (an unresolvable-basis ply is skipped, not mis-scaled). Assessment stays a pure-sync graph read because every network call lives behind the explicit `EnrichCarbon` resolver, never inside the fold.
 - Packages: LanguageExt.Core (`Fin`/`Seq`/`Option`/`Map`), Rasm.Element (project — `ElementGraph`, `MaterialComposition`, `MaterialPropertySet`/`OfEnvironmental`/`PropertyEvidence`, `MaterialPropertyAccess.Environmental`, `ImpactCategory`/`LifecycleStage`, `MeasurementBasis`, `MaterialId`, `NodeId`, `Node.Material`/`Node.QuantitySet`, `Relationship.Assign`/`AssignKind`, `GraphDelta.Put`, `MeasureValue.Of`/`MeasureValue.Si`, `Dimension.VolumeDim`/`Dimension.AreaDim`/`Dimension.MassDim`, `Provenance`), UnitsNet (via `MeasureValue.Of` — the declared-unit abbreviation -> SI dimension/scalar coercion the basis tagging rides), Rasm (kernel `Op`), the `Analysis/aggregator` `AssemblyAggregator`/`ElementQuantity`/`PlyQuantity`, NodaTime (`Instant`), BCL inbox (`ImmutableArray<double>` the seam impact-matrix store the ingress builds).
 - Growth: a new lifecycle module is one seam `LifecycleStage` row (the `StageGwp` vector, the `ScopeSet` banding entry, and the aggregator fold widen by data); a biogenic-carbon credit or a circularity index is one fact over the same aggregation, never a parallel carbon owner; a richer selection (lowest-GWP, spec-matched) is one refinement of `Freshest`; a second carbon catalogue is one resolver binding.
-- Boundary: the fold takes the RESOLVER — `Func<EpdQuery, Task<Fin<Seq<EpdDeclaration>>>>` — not a named service, so the ladder is provider-neutral by construction and a fixture, a second catalogue, or a cached corpus substitutes at the composition root; naming the concrete client here made the ladder untestable without an HTTP fake and unusable against any other provider. The PRIMARY GWP is the local `AggregateEnvironmental` over each ply's baked `Environmental` — the catalogue is the FALLBACK the async `EnrichCarbon` resolves, applied as a `GraphDelta` before the sync `RunCarbon`, so a fully-declared model needs no network call; the takeoff reads the baked `Qto_*BaseQuantities` (`TakeoffOf`) so a target with no base quantity rails `AssessmentInputMissing` rather than a silent zero takeoff; the GWP/intensity stay raw kgCO2e through `DomainMeasure` (dimensionless `MeasureValue` + label), never `UnitsNet.Mass`; `EnrichCarbon` splits failure by kind — a DETERMINISTIC data absence (no fresh declaration, a declared unit with no resolvable dimension such as a bare-count row lacking its kg-per-unit witness, a missing method GWP) skips the ply so `RunCarbon` rails the still-undeclared ply at its own fold, never defaulting a sentinel carbon or admitting a mis-scaled figure (a per-m² or per-kg declaration folds correctly under its tagged `MeasurementBasis` rather than being dropped), while a TRANSPORT/timeout fault aborts the enrichment rail (a partial delta masks the outage a retry still resolves); the runner reads the CONCRETE graph (above the seam), the write-back the `Analysis/assessment` spine's content-keyed `Node.Assessment`.
+- Boundary: the fold takes the RESOLVER — `Func<EpdQuery, Task<Fin<Seq<EpdDeclaration>>>>` — not a named service, so the ladder is provider-neutral by construction and a fixture, a second catalogue, or a cached corpus substitutes at the composition root; naming the concrete client here made the ladder untestable without an HTTP fake and unusable against any other provider. `AggregateEnvironmental` over each ply's baked `Environmental` mints the PRIMARY GWP — the catalogue is the FALLBACK the async `EnrichCarbon` resolves, applied as a `GraphDelta` before the sync `RunCarbon`, so a fully-declared model needs no network call; the takeoff reads the baked `Qto_*BaseQuantities` (`TakeoffOf`) so a target with no base quantity rails `AssessmentInputMissing` rather than a silent zero takeoff; the GWP/intensity stay raw kgCO2e through `DomainMeasure` (dimensionless `MeasureValue` + label), never `UnitsNet.Mass`; `EnrichCarbon` splits failure by kind — a DETERMINISTIC data absence (no fresh declaration, a declared unit with no resolvable dimension such as a bare-count row lacking its kg-per-unit witness, a missing method GWP) skips the ply so `RunCarbon` rails the still-undeclared ply at its own fold, never defaulting a sentinel carbon or admitting a mis-scaled figure (a per-m² or per-kg declaration folds correctly under its tagged `MeasurementBasis` rather than being dropped), while a TRANSPORT/timeout fault aborts the enrichment rail (a partial delta masks the outage a retry still resolves); the runner reads the CONCRETE graph (above the seam), the write-back the `Analysis/assessment` spine's content-keyed `Node.Assessment`.
 
 ```csharp signature
 // --- [OPERATIONS] --------------------------------------------------------------------------
@@ -325,7 +352,7 @@ public static partial class LifecycleAssessment {
                 : Fallback(epds, omf, query.Method, key));
     }
 
-    // The winner's document carries the impacts its candidate row omitted. A document that still resolves no vector for
+    // Winner's document carries the impacts its candidate row omitted; a document that still resolves no vector for
     // this method is deterministic absence, so it descends to the substitution line rather than railing the ply.
     static async Task<Fin<MaterialPropertySet>> Document(
         Func<EpdQuery, Task<Fin<Seq<EpdDeclaration>>>> epds, EpdDeclaration winner, LciaMethod method, string omf, Op key) {
@@ -441,12 +468,12 @@ public static class LifecycleGraphReads {
 - Entry: `public static Fin<AssessmentResult> RunCost(ElementGraph graph, AssessmentRequest.Cost request, IClock clock)` folds `AssemblyAggregator.AggregateCost` over each target's `MaterialComposition` and baked `TakeoffOf`, guards currency, emits `supply-total`/`install-total`/`in-place-total` facts, and ratios the in-place total against the resolved budget.
 - Packages: LanguageExt.Core, Rasm.Element (project — `ElementGraph`, `MaterialComposition`, `MaterialPropertySet.Cost`, `Currency`, `MaterialId`, `NodeId`, `MeasureValue`, `Dimension`, `Provenance`), the `Analysis/aggregator` `AssemblyAggregator`/`ElementQuantity`/`PlyQuantity`, the Compute-owned `TakeoffOf`, BCL inbox.
 - Growth: a maintenance-cost-over-service-life sum or a circularity-cost credit is one fold over the same composition; the cost rail spans all composition cases (a single material or a profile member has a unit supply/install cost); a new acceptance modality is one `AssessmentRequest.Cost` budget column with one `CostBudget` arm.
-- Boundary: this is the embodied MATERIAL-cost takeoff only — construction SCHEDULING, resource-leveling, and 4D cost-loading stay in `Rasm.Bim` (MPXJ), never re-derived here; the `request.Currency` is load-bearing — the aggregated cost is guarded to it (a material priced in a different `Currency` rails, since the fold carries no exchange rate), so the request currency is a real validation target, never a decorative field; the per-ply quantity derives from the seam `Cost.Basis` against the baked `TakeoffOf` (or a `PlyQuantity` override); a material with no `Cost` case rails `AssessmentInputMissing`. The governing ratio is REAL where the caller states a budget: `BudgetTotal` is the absolute cap on the target set's in-place cost, `BudgetPerArea` the rate against the same takeoff area the aggregator distributes cost by, the absolute column winning where both ride. A stated budget makes the verdict a genuine `Satisfied`/`Marginal`/`Exceeded` band; only a request carrying NEITHER column projects `double.NaN` → `NotApplicable` (the informational rating, never a `0.0`-ratio `Satisfied` falsely asserting a budget pass) — the same no-target convention the energy and carbon runners hold, now a stated absence rather than a permanent one. Budgets are `decimal` because money is exact and a binary double silently re-rounds every currency figure it touches; the ratio widens once at the divide, where the operands are already a measured total.
+- Boundary: this is the embodied MATERIAL-cost takeoff only — construction SCHEDULING, resource-leveling, and 4D cost-loading stay in `Rasm.Bim` (MPXJ), never re-derived here; the `request.Currency` is load-bearing — the aggregated cost is guarded to it (a material priced in a different `Currency` rails, since the fold carries no exchange rate), so the request currency is a real validation target, never a decorative field; the per-ply quantity derives from the seam `Cost.Basis` against the baked `TakeoffOf` (or a `PlyQuantity` override); a material with no `Cost` case rails `AssessmentInputMissing`. Where the caller states a budget the governing ratio is REAL and the verdict a genuine `Satisfied`/`Marginal`/`Exceeded` band: `BudgetTotal` is the absolute cap on the target set's in-place cost, `BudgetPerArea` the rate against the same takeoff area the aggregator distributes cost by, the absolute column winning where both ride; only a request carrying NEITHER column projects `double.NaN` → `NotApplicable` (the informational rating, never a `0.0`-ratio `Satisfied` falsely asserting a budget pass) — the same no-target convention the energy and carbon runners hold, now a stated absence rather than a permanent one. Budgets are `decimal` because money is exact and a binary double silently re-rounds every currency figure it touches; the ratio widens once at the divide, where the operands are already a measured total.
 
 ```csharp signature
 // --- [OPERATIONS] --------------------------------------------------------------------------
 public static partial class LifecycleAssessment {
-    // The fold threads the in-place total and the takeoff area beside the facts, because both budget columns ratio
+    // RunCost threads the in-place total and the takeoff area beside the facts, because both budget columns ratio
     // against a set-wide quantity a per-element fact stream cannot recover after the fact.
     public static Fin<AssessmentResult> RunCost(ElementGraph graph, AssessmentRequest.Cost request, IClock clock) =>
         request.Targets.Fold(

@@ -288,9 +288,15 @@ POLICY: Final[Map[RetryClass, Policy]] = Map.of_seq([
     # secret-derivation band: the keystore lock and file-mount hiccups match by class, while the three cloud
     # providers' transport transients match by dotted spelling — NONE of them subclasses OSError (probed: the
     # google, hvac, and azure families all stop at Exception), so a class-only target left every cloud transient
-    # failing on its first RPC error while three catalogs read as retried. Permanent file-tier refusals a retry
-    # cannot clear refuse rather than burn attempts; CredentialUnavailableError stays OUT — absent material never
-    # heals inside a retry window.
+    # failing on its first RPC error while three catalogs read as retried. Each family's rows are enumerated at the
+    # narrowest transient arm, never at a shared base: hvac's taxonomy is FLAT (every status derives straight from
+    # `VaultError`, so no base exists to name), and google's `ServerError` base would drag `MethodNotImplemented`
+    # and `DataLoss` — neither of which a retry window clears — into the target with it. `TooManyRequests` carries
+    # google's throttle arm and `ResourceExhausted` with it through the MRO; the azure throttle is NOT here, since
+    # azure-core spells a 429 as a bare `HttpResponseError` carrying `status_code` and no name to match. The azure
+    # timeout arms need no row either — `ServiceRequestTimeoutError`/`ServiceResponseTimeoutError` subclass the two
+    # spelled here. Permanent file-tier refusals a retry cannot clear refuse rather than burn attempts;
+    # CredentialUnavailableError stays OUT — absent material never heals inside a retry window.
     (
         RetryClass.SECRET,
         Policy(
@@ -302,6 +308,7 @@ POLICY: Final[Map[RetryClass, Policy]] = Map.of_seq([
                 "google.api_core.exceptions.ServiceUnavailable",
                 "google.api_core.exceptions.DeadlineExceeded",
                 "google.api_core.exceptions.InternalServerError",
+                "google.api_core.exceptions.TooManyRequests",
                 "hvac.exceptions.VaultDown",
                 "hvac.exceptions.BadGateway",
                 "hvac.exceptions.InternalServerError",
@@ -329,7 +336,11 @@ POLICY: Final[Map[RetryClass, Policy]] = Map.of_seq([
             attempts=3,
             timeout=120.0,
             # loky's TerminatedWorkerError subclasses the stdlib BrokenProcessPool, so the stdlib spelling covers both names via the MRO
-            target=_transient("loky.process_executor.TerminatedWorkerError", "concurrent.futures.process.BrokenProcessPool", "pebble.common.types.ProcessExpired"),
+            target=_transient(
+                "loky.process_executor.TerminatedWorkerError",
+                "concurrent.futures.process.BrokenProcessPool",
+                "pebble.common.types.ProcessExpired",
+            ),
             wait_initial=0.5,
         ),
     ),
@@ -345,7 +356,15 @@ POLICY: Final[Map[RetryClass, Policy]] = Map.of_seq([
         ),
     ),
     # compas RPC bring-up, name-matched (compas is gated dark); the long timeout covers the ping-loop bring-up.
-    (RetryClass.RPC, Policy(attempts=3, timeout=120.0, target=_transient("compas.rpc.errors.RPCServerError", "compas.rpc.errors.RPCClientError"), wait_initial=0.5)),
+    (
+        RetryClass.RPC,
+        Policy(
+            attempts=3,
+            timeout=120.0,
+            target=_transient("compas.rpc.errors.RPCServerError", "compas.rpc.errors.RPCClientError"),
+            wait_initial=0.5,
+        ),
+    ),
     # lakehouse commit-conflict transients, name-matched; `wait_initial` lets a competing commit land before the re-read.
     (
         RetryClass.LAKE_COMMIT,
@@ -353,14 +372,26 @@ POLICY: Final[Map[RetryClass, Policy]] = Map.of_seq([
             attempts=4,
             timeout=60.0,
             # deltalake's CommitFailedError is a pyo3 class whose __module__ is the Rust "_internal" module — its verified spelling
-            target=_transient("_internal.CommitFailedError", "pyiceberg.exceptions.CommitFailedException", "pyiceberg.exceptions.CommitStateUnknownException"),
+            target=_transient(
+                "_internal.CommitFailedError",
+                "pyiceberg.exceptions.CommitFailedException",
+                "pyiceberg.exceptions.CommitStateUnknownException",
+            ),
             wait_initial=0.2,
         ),
     ),
     # ADBC/Flight SQL transport stalls, status-discriminated so a permanent driver fault never retries.
     (RetryClass.REMOTE_DB, Policy(attempts=3, timeout=30.0, target=_adbc_transient(ConnectionError, TimeoutError), wait_initial=0.2)),
     # daft's Rust-backed transient base plus the stdlib pair; `wait_max` widens for a long scan without inflating attempts.
-    (RetryClass.STREAMING, Policy(attempts=3, timeout=120.0, target=_transient("daft.exceptions.DaftTransientError", TimeoutError, ConnectionError), wait_max=30.0)),
+    (
+        RetryClass.STREAMING,
+        Policy(
+            attempts=3,
+            timeout=120.0,
+            target=_transient("daft.exceptions.DaftTransientError", TimeoutError, ConnectionError),
+            wait_max=30.0,
+        ),
+    ),
 ])
 
 

@@ -2,13 +2,13 @@
 
 `Profiles` pushes continuous CPU profiles beside the OTLP rails and links them to traces: the pyroscope push agent streams samples to the profile store, and `PyroscopeSpanProcessor` stamps every root span with `pyroscope.profile.id` so a trace click-through lands on its flame graph. This page also owns the whole benchmark tier — the macro-latency and throughput evidence the request-duration histogram cannot carry, the threshold and verdict grading over it, and the estate's one external-tool provision roster the host floor of a graded subject resolves through — plus the offline-job envelope draining a short-lived process before it exits. Measurement and grading seat together because every stratum reaches this tier and none reaches a peer's, so a grader anywhere else is unreachable by the folders that measure.
 
-Install custody is two-tier — per-composition `ProfilesReceipt`s key by the receipts-owned `ScopeKey` (a same-scope re-install returns `REENTRANT`, a later composition `ADOPTED`) while the imported `latched` guards the one process push agent, `pyroscope.configure` being process-global — and rides the `execution/admission#CONTEXT` `emit_otel` gate, sequenced after `observability/telemetry#TELEMETRY` so the span processor attaches to the registered SDK provider. `SignalProfile` and the flush-then-shutdown drain arrive settled from the telemetry owner, `SCHEMA_URL` from the `reliability/faults#FAULT` scope coordinate one tier below it; `Metrics.record` from `observability/metrics#METRIC`; `Receipt`/`Signals` from `observability/receipts#RECEIPT`. Job identity is hand-built, no detector carrying job semantics; delta temporality arrives from the telemetry owner's exporter pin, so the job lane sets no launcher variable of its own.
+Install custody is two-tier — per-composition `ProfilesReceipt`s key by the receipts-owned `ScopeKey` (a same-scope re-install returns `REENTRANT`, a later composition `ADOPTED`) while the imported `latched` guards the one process push agent, `pyroscope.configure` being process-global — and rides the `execution/admission#CONTEXT` `emit_otel` gate, sequenced after `observability/telemetry#TELEMETRY` so the span processor attaches to the registered SDK provider. `SignalProfile` and the flush-then-shutdown drain arrive settled from the telemetry owner, `SCHEMA_URL` from the `reliability/faults#FAULT` scope coordinate one tier below it; `LogShip`/`LogPipeline.configure` from `observability/logging#PIPELINE`; `Metrics.record` from `observability/metrics#METRIC`; `Receipt`/`Signals` from `observability/receipts#RECEIPT`. Job identity is hand-built, no detector carrying job semantics; delta temporality arrives from the telemetry owner's exporter pin, so the job lane sets no launcher variable of its own.
 
 ## [01]-[INDEX]
 
 - [02]-[PROFILES]: scope-keyed, profile-gated pyroscope push install beside the span-profile link.
 - [03]-[BENCH]: benchmark-receipt family, the threshold/verdict grading half over the estate tool roster, and their instrument projections.
-- [04]-[JOB]: offline-job envelope — hand-built resource, high-interval safety net, and the flush-then-shutdown boundary.
+- [04]-[JOB]: offline-job envelope — hand-built resource, one `ship` value arming both halves of the log egress, high-interval safety net, and the flush-then-shutdown boundary.
 
 ## [02]-[PROFILES]
 
@@ -47,6 +47,7 @@ from pyroscope.otel import PyroscopeSpanProcessor
 
 from rasm.runtime.admission import RuntimeContext
 from rasm.runtime.faults import SCHEMA_URL, SCOPES, BoundaryFault, Disposition, RuntimeRail, Scope, boundary, latched, traversed
+from rasm.runtime.logging import LogPipeline, LogShip
 from rasm.runtime.metrics import Dimension, Metrics
 from rasm.runtime.receipts import OPEN, DEFAULT_SCOPE, Receipt, ScopeKey, Signals
 from rasm.runtime.telemetry import NAMESPACE, SignalProfile, Telemetry
@@ -436,11 +437,11 @@ def _windowed(
 
 ## [04]-[JOB]
 
-- Owner: `JobRun.bounded` is the offline-job envelope — install with the hand-built job resource and the high-interval `JOB_SIGNAL_PROFILE`, enroll `Metrics` against that provider, run the body under the `boundary` fence, then drive the telemetry drain so every buffered signal exports before exit. Its drain is the settled telemetry flush-then-shutdown accumulate fold; a body fault outranks a drain fault, and a drain fault surfaces on a clean body.
+- Owner: `JobRun.bounded` is the offline-job envelope — arm the log chain, install with the hand-built job resource and the high-interval `JOB_SIGNAL_PROFILE`, enroll `Metrics` against that provider, run the body under the `boundary` fence, then drive the telemetry drain so every buffered signal exports before exit. One `ship` value reaches both halves of the log egress, so the envelope never stands up a `LoggerProvider` no chain row projects onto and a failed job's lines reach the wire beside its spans. Its drain is the settled telemetry flush-then-shutdown accumulate fold; a body fault outranks a drain fault, and a drain fault surfaces on a clean body.
 - Auto: `job_resource` hand-builds identity — `service.name` off `SCOPES[Scope.SERVICE]`, a per-run `service.instance.id`, `job.id`/`run.id` as the job axes — because no auto-detector carries job semantics, and two runs of one job binary must key distinct instances. `JOB_SIGNAL_PROFILE` sets a high export interval so the periodic timer is the safety net and the boundary flush is the egress.
 - Cases: delta temporality arrives from the telemetry owner's `WIRE_TEMPORALITY` pin at the exporter, which the reader applies by instrument family and which supersedes `OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE` for every family the estate rules — so this envelope sets no launcher variable, each flush self-contains, and a knob here re-decides what the branch already pinned. Both non-monotonic sum families stay cumulative under that same ruling and orphan their last window at exit, which is what makes the boundary flush the egress and the periodic timer the safety net.
-- Growth: a new job axis is one attribute in `job_resource`; a new lane geometry is one `JOB_SIGNAL_PROFILE` field value.
-- Boundary: the envelope threads one admitted `RuntimeContext` into `Telemetry.install`/`shutdown` beside `Metrics.install` and constructs no provider of its own, so the job lane gates emission on the axis value every daemon path reads; long-lived daemons keep the profile-keyed `SIGNAL_PROFILE` rows and never ride this envelope.
+- Growth: a new job axis is one attribute in `job_resource`; a new lane geometry is one `JOB_SIGNAL_PROFILE` field value; a new egress arm is the `ship` value the caller threads, reaching chain and provider from that one argument.
+- Boundary: the envelope threads one admitted `RuntimeContext` into `Telemetry.install`/`shutdown` beside `LogPipeline.configure` and `Metrics.install` and constructs no provider, processor, or chain row of its own, so the job lane gates emission on the axis value every daemon path reads; long-lived daemons keep the profile-keyed `SIGNAL_PROFILE` rows and never ride this envelope.
 
 ```python signature
 # high interval = the timer is the safety net; the boundary force_flush is the real egress for a short-lived process.
@@ -459,11 +460,19 @@ def job_resource(job_id: str, run_id: str) -> Resource:
 
 class JobRun:
     @staticmethod
-    def bounded[T](ctx: RuntimeContext, endpoint: str, job_id: str, run_id: str, body: Callable[[], T]) -> RuntimeRail[T]:
+    def bounded[T](
+        ctx: RuntimeContext, endpoint: str, job_id: str, run_id: str, body: Callable[[], T], *, ship: LogShip = LogShip.OTLP_CONSOLE
+    ) -> RuntimeRail[T]:
+        # ONE `ship` value arms both halves of the log egress and the envelope threads it to both: the chain half seats
+        # its wire rows here and the provider half registers the `LoggerProvider` the drain below flushes. Installing
+        # the provider alone stands up a batch processor no row ever projects onto, so a job would export a whole
+        # trace and metric plane beside a log plane carrying not one record — the one signal a failed job is read
+        # from. Configuring FIRST is what makes the envelope's own install and body faults reach that plane.
+        LogPipeline.configure(ship=ship)
         # Install receipts carry the EFFECTIVE geometry, so the budget threads off the receipt rather than off the
         # requested row: a scope adopting a standing pipeline enrolls against the ceiling that pipeline fixed, and an
         # unthreaded `install()` silently discards every non-default `cardinality_budget` a profile carries.
-        installed = Telemetry.install(ctx, endpoint, resource=job_resource(job_id, run_id), signal_profile=JOB_SIGNAL_PROFILE)
+        installed = Telemetry.install(ctx, endpoint, resource=job_resource(job_id, run_id), signal_profile=JOB_SIGNAL_PROFILE, ship=ship)
         Metrics.install(budget=installed.signal_profile.cardinality_budget)
         outcome = boundary(f"job.{job_id}", body)
         drained = Telemetry.shutdown()  # flush-then-shutdown per provider, ACCUMULATE — runs on the fault arm too

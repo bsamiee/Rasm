@@ -11,8 +11,8 @@ Cpu-tensor vocabulary uses `Tensor<T>` as its only tensor owner, `TensorDtype` a
 
 - Owner: `TensorDtype`
 - Cases: float32, float64, float16, bfloat16, complex128, int8, int16, int32, int64, uint8, uint16, uint32, uint64, bool, string
-- Entry: `Admit(TensorElementType)` aborts on an unmapped element; `Promote(TensorDtype, TensorDtype)` derives mixed arithmetic from each row's numeric, integral, signedness, storage, precision, and exponent-range columns, including signed/unsigned widening, float/complex escalation, and the range gate that promotes a bfloat16-float16 pair to float32 rather than truncating exponent range, without a named pair roster. A mixed-sign integral pair demanding one bit past the widest integral row exhausts the integer ladder and promotes to float64 — the deliberate lossy widening numpy semantics fix, carrying both magnitudes at 53-bit precision rather than refusing a promotion every caller then works around. Quantization admission proves scalar, axis, block, vector-cardinality, and zero-point invariants against the tensor shape. `OrtByteSpan` converts native bytes without negative, alignment, or width truncation.
-- Packages: System.Numerics.Tensors, Microsoft.ML.OnnxRuntime, CommunityToolkit.HighPerformance, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
+- Entry: `Admit(TensorElementType)` aborts on an unmapped element; `Admit(IH5DataType)` is the archive admission arm — `Runtime/codecs#HDF_ARCHIVE` reads bind a dtype row from `H5DataTypeClass` and byte size before any buffer sizes, `FloatingPoint`×`Size` and `FixedPoint`×`IsSigned`×`Size` projecting onto the landed rows, `String` binding the model-boundary text row, every other class refusing typed — the interface face carries no byte-order member, so endian divergence refuses at the archive read as `<hdf5-byte-order:…>`, never here; `Promote(TensorDtype, TensorDtype)` derives mixed arithmetic from each row's numeric, integral, signedness, storage, precision, and exponent-range columns, including signed/unsigned widening, float/complex escalation, and the range gate that promotes a bfloat16-float16 pair to float32 rather than truncating exponent range, without a named pair roster. `Promote` widens a mixed-sign integral pair demanding one bit past the widest integral row to float64 — the deliberate lossy widening numpy semantics fix, carrying both magnitudes at 53-bit precision rather than refusing a promotion every caller then works around. Quantization admission proves scalar, axis, block, vector-cardinality, and zero-point invariants against the tensor shape. `OrtByteSpan` converts native bytes without negative, alignment, or width truncation.
+- Packages: System.Numerics.Tensors, Microsoft.ML.OnnxRuntime, CommunityToolkit.HighPerformance, PureHDF (`IH5DataType.Class`/`Size`/`FixedPoint.IsSigned`, `H5DataTypeClass`), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
 - Growth: a new element mapping is one `TensorDtype` row carrying byte-width, quantization, numeric-domain, storage, precision, and exponent-range columns; admission and mixed promotion derive from `Items`, so no pair table grows.
 - Boundary: `Tensor<T>`, `TensorSpan<T>`, `ReadOnlyTensorSpan<T>`, `TensorShape`, and `TensorDimensionSpan<T>` are the only tensor shapes — package-local tensor wrappers and a TensorService are the deleted forms; `Tensor.CreateFromArray`, `CreateFromMemory`, `CreateFromSequence`, and `CreateFromDiagonal` are phantom spellings — `Tensor.Create`, `CreateFromShape`, and `CreateFromShapeUninitialized` are the factory surface, and zero-copy admission rides `TensorSpan<T>` constructors over spans and `Tensor.Create` over rented `MemoryOwner<T>` arrays through `DangerousGetArray`; `TensorMarshal.CreateTensorSpan` is the write-polarity native bridge over ref-rooted foreign memory and `TensorMarshal.CreateReadOnlyTensorSpan` the read-polarity bridge admitting pooled-plane and model-output buffers whose lifetime the caller owns, with `TensorMarshal.GetReference` and `Tensor<T>.GetPinnableReference` as ref roots; one generic kernel serves each operation family. `Width` carries CLR byte width and `OrtElementBytes` the ONNX C-data stride, so `GetTensorSizeInBytes` converts through the dtype row, never `sizeof(T)`; `OrtByteSpan` rejects negative, non-integral, and `int`-overflowing element counts before any destination slice. `Complex128` carries `System.Numerics.Complex`, while `complex64` has no BCL carrier and never admits to a span; native FP8, `Int4`/`UInt4`, and `Float4E2M1` types do not exist in managed `TensorElementType` and remain inadmissible. Quantized rows compose subtract-zero-point then multiply-scale dequantization and inverse round-add-`ConvertSaturating` quantization, broadcasting by per-tensor, per-axis, or blocked granularity. `QuantizationPolicy.Admit` receives the tensor shape, accumulates independent scalar and structural gates through tuple `Apply`, proves the axis exists, requires vector count equal to the axis extent or blocked group count, and exits once to `Fin`; no kernel revalidates metadata. Chunked contiguous frames stage through `StreamGrant.ContiguousFrame`; the string row admits only at the model boundary through `OrtValue.CreateTensorWithEmptyStrings` then `CreateFromStringTensor`.
 
@@ -77,8 +77,13 @@ public sealed partial class TensorDtype {
 public abstract partial record QuantizationPolicy {
     private QuantizationPolicy() { }
     public sealed record PerTensor(double Scale, int ZeroPoint) : QuantizationPolicy;
-    public sealed record PerAxis(int Axis, ImmutableArray<double> Scales, ImmutableArray<int> ZeroPoints) : QuantizationPolicy;
-    public sealed record Blocked(int Axis, int BlockSize, ImmutableArray<double> Scales, ImmutableArray<int> ZeroPoints) : QuantizationPolicy;
+    // Case records carry `[Equatable]` (never the `[Union]` root — Thinktecture owns root equality, and a root
+    // attribute draws TTRESG106 while leaving case members reference-compared): a quantization policy is a value
+    // that keys tensor and session caches, and `ImmutableArray` members otherwise compare by reference.
+    [Equatable]
+    public sealed partial record PerAxis(int Axis, [property: OrderedEquality] ImmutableArray<double> Scales, [property: OrderedEquality] ImmutableArray<int> ZeroPoints) : QuantizationPolicy;
+    [Equatable]
+    public sealed partial record Blocked(int Axis, int BlockSize, [property: OrderedEquality] ImmutableArray<double> Scales, [property: OrderedEquality] ImmutableArray<int> ZeroPoints) : QuantizationPolicy;
 
     public Fin<QuantizationPolicy> Admit(TensorDtype row, ReadOnlyMemory<long> shape) =>
         row.ZeroPointDomain.Match(
@@ -190,6 +195,31 @@ public static class TensorVocabulary {
             .FirstOrDefault();
         return integer is not null ? Fin.Succ(integer) : Fin.Succ(TensorDtype.Float64);
     }
+
+    // Archive admission: class + byte size (+ signedness) project onto the landed rows, so an HDF5 read binds a
+    // dtype row before any buffer sizes. `IH5DataType` exposes no byte order — a divergent-endian element refuses
+    // at the HdfArchive read as `<hdf5-byte-order:…>`, never at this map.
+    public static Fin<TensorDtype> Admit(IH5DataType type) => type.Class switch {
+        H5DataTypeClass.FloatingPoint => type.Size switch {
+            2 => Fin.Succ(TensorDtype.Float16),
+            4 => Fin.Succ(TensorDtype.Float32),
+            8 => Fin.Succ(TensorDtype.Float64),
+            _ => TensorFault.Fail<TensorDtype>("hdf5-float-width", type.Size.ToString(CultureInfo.InvariantCulture)),
+        },
+        H5DataTypeClass.FixedPoint => (type.FixedPoint.IsSigned, type.Size) switch {
+            (true, 1) => Fin.Succ(TensorDtype.Int8),
+            (true, 2) => Fin.Succ(TensorDtype.Int16),
+            (true, 4) => Fin.Succ(TensorDtype.Int32),
+            (true, 8) => Fin.Succ(TensorDtype.Int64),
+            (false, 1) => Fin.Succ(TensorDtype.UInt8),
+            (false, 2) => Fin.Succ(TensorDtype.UInt16),
+            (false, 4) => Fin.Succ(TensorDtype.UInt32),
+            (false, 8) => Fin.Succ(TensorDtype.UInt64),
+            _ => TensorFault.Fail<TensorDtype>("hdf5-integer-width", type.Size.ToString(CultureInfo.InvariantCulture)),
+        },
+        H5DataTypeClass.String => Fin.Succ(TensorDtype.Utf8Text),
+        _ => TensorFault.Fail<TensorDtype>("hdf5-dtype", type.Class.ToString()),
+    };
 
     public static Fin<TensorDtype> Admit(TensorElementType element, Option<QuantizationPolicy> quantization, ReadOnlyMemory<long> shape) =>
         Admit(element).Bind(row => quantization.Match(

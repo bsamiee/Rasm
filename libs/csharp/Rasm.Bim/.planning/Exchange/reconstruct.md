@@ -1,8 +1,14 @@
 # [BIM_RECONSTRUCTION]
 
-`ReconstructionProjector : IElementProjection` lowers a kernel-segmented point cloud into a seam `Rasm.Element/Graph/delta#GRAPH_DELTA` `GraphDelta` of `Rasm.Element/Graph/element#ELEMENT_GRAPH` `Node.Object` occurrence nodes, each carrying a typed `Pset_Reconstruction` bag bound by a neutral `Rasm.Element/Relations/relation#EDGE_ALGEBRA` `Relationship.Assign` edge, with the `LasIngest` LAS/LAZ decode front. Reconstruction is a PRIMARY projector, scan-source twin of the `Projection/semantic#SEMANTIC_PROJECTOR` IFC projector: it MINTS neutral rooted element identity through `NodeId.Rooted()` and records a deterministic IFC `GlobalId` as its 1:1 `ExternalId`, hashed from the `ReconstructionKey` run identity so a re-run at identical fit parameters dedups against its prior pass through the `Review/diff#MODEL_DIFF` federation diff.
+`ReconstructionProjector : IElementProjection` lowers a kernel-segmented point cloud into a seam `Rasm.Element/Graph/delta#GRAPH_DELTA` `GraphDelta` of `Rasm.Element/Graph/element#ELEMENT_GRAPH` `Node.Object` occurrence nodes, each carrying a typed `Pset_Reconstruction` bag bound by a neutral `Rasm.Element/Relations/relation#EDGE_ALGEBRA` `Relationship.Assign` edge, with the `LasIngest` LAS/LAZ decode front.
 
-Reconstruction is BIM-semantics-only and CONSUME-BY-REFERENCE: `Themis.Las`/`Unofficial.laszip.netstandard` own the LAS/LAZ decode, the kernel owns registration and fit (`Rasm/Processing/register#REGISTRATION` cloud-ICP places the capture in the kernel frame, `Rasm/Processing/segment#SEGMENTATION` partitions it into `SegmentedCloud` rows bounded by the `csharp:ROBUST_ARRANGEMENT_SUBSTRATE` exact-arithmetic arrangement), and the geometry content key is the kernel `Rasm.Domain.ContentHash` seed-zero `XxHash128` the seam `Rasm.Element/Projection/address#CONTENT_ADDRESS` `ContentAddress` wraps over the `Rasm.Element/Projection/address#CANONICAL_WRITER` `CanonicalWriter` projection, never the upper-stratum `Rasm.Compute` interchange owner. Fitted primitives are HOST-NEUTRAL: `Node.Object` references ALL geometry by `RepresentationContentHash` content key only (`Body`/`FootPrint`/`Axis`, EACH a kernel `XxHash128` over the `CanonicalWriter` projection of its `Vector3` coordinates), so a `Rasm.Compute` runner resolves the analytical axis/footprint one-hop, never an inline coordinate field on the seam node (no `Node.Object.BoundaryPolygon`/`Axis` member exists) and never a RhinoCommon `Brep`/`Mesh`.
+Reconstruction is a PRIMARY projector, scan-source twin of the `Projection/semantic#SEMANTIC_PROJECTOR` IFC projector: it MINTS neutral rooted element identity through `NodeId.Rooted()` and records a deterministic IFC `GlobalId` as its 1:1 `ExternalId`, hashed from the `ReconstructionKey` run identity so a re-run at identical fit parameters dedups against its prior pass through the `Review/diff#MODEL_DIFF` federation diff.
+
+Reconstruction is BIM-semantics-only and CONSUME-BY-REFERENCE: `Themis.Las`/`Unofficial.laszip.netstandard` own the LAS/LAZ decode, the kernel owns registration and fit (`Rasm/Processing/register#REGISTRATION` cloud-ICP places the capture in the kernel frame, `Rasm/Processing/segment#SEGMENTATION` partitions it into `SegmentedCloud` rows bounded by the `csharp:ROBUST_ARRANGEMENT_SUBSTRATE` exact-arithmetic arrangement).
+
+Geometry content keys are the kernel `Rasm.Domain.ContentHash` seed-zero `XxHash128` the seam `Rasm.Element/Projection/address#CONTENT_ADDRESS` `ContentAddress` wraps over the `Rasm.Element/Projection/address#CANONICAL_WRITER` `CanonicalWriter` projection, never the upper-stratum `Rasm.Compute` interchange owner.
+
+Fitted primitives are HOST-NEUTRAL — `Node.Object` references ALL geometry by `RepresentationContentHash` content key only (`Body`/`FootPrint`/`Axis`, EACH a kernel `XxHash128` over the `CanonicalWriter` projection of its `Vector3` coordinates), so a `Rasm.Compute` runner resolves the analytical axis/footprint one-hop, never an inline coordinate field on the seam node (no `Node.Object.BoundaryPolygon`/`Axis` member exists) and never a RhinoCommon `Brep`/`Mesh`.
 
 ## [01]-[INDEX]
 
@@ -131,8 +137,8 @@ public readonly record struct ReconstructionContext(
     // 45-degree-pitched roof.
     double UprightCosine => Math.Sqrt(1.0 - (VerticalCosineLimit * VerticalCosineLimit));
 
-    // A planar patch's surface orientation: a vertical NORMAL is a horizontal surface (slab), a horizontal normal a
-    // vertical surface (wall). Distinct from a swept solid's axis orientation, whose vertical/horizontal mapping inverts.
+    // Surface orientation of a planar patch: a vertical NORMAL is a horizontal surface (slab), a horizontal normal a
+    // vertical surface (wall) — distinct from a swept solid's axis orientation, whose vertical/horizontal mapping inverts.
     public FitOrientation OrientationOfNormal(Vector3 normal) {
         double vertical = Math.Abs(Vector3.Dot(normal.Unit, Vector3.UnitZ));
         return vertical >= UprightCosine      ? FitOrientation.Horizontal
@@ -140,7 +146,7 @@ public readonly record struct ReconstructionContext(
             : FitOrientation.Inclined;
     }
 
-    // A swept solid's axis orientation: a vertical AXIS is a vertical member (column), a horizontal axis a horizontal
+    // Axis orientation of a swept solid: a vertical AXIS is a vertical member (column), a horizontal axis a horizontal
     // member (beam) — the inverse of the surface-normal mapping, so a vertical-axis cylinder classifies Column, not Beam.
     public FitOrientation OrientationOfAxis(Vector3 axis) {
         double vertical = Math.Abs(Vector3.Dot(axis.Unit, Vector3.UnitZ));
@@ -290,7 +296,7 @@ public readonly record struct ReconstructionPrimitive(
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
-// The reconstruction cluster's own row names. Three consumers spell them — this fold authors the bag, the
+// Reconstruction owns its bag row names here. Three consumers spell them — this fold authors the bag, the
 // Planning/progress review read selects on them, and a federation diff joins on them — so the token is a STATIC
 // on the cluster that owns the bag rather than a literal re-typed at each read, where a rename at one end reads
 // downstream as an absent row rather than as a break.
@@ -308,8 +314,8 @@ public static class ElementClassifier {
     // structural pile. Making the axis mandatory forced the ordinary building lanes to be re-declared under an
     // Architecture key they never discriminated on, so a segment biased into any other domain missed a wall, a
     // slab, a column, and a beam that were never domain-specific at all. Predefined tokens are members of the
-    // Model/elements#IFC_CLASS valid sets, admitted at the egress gate, and the shape-independent site classes ride
-    // the BiasOf Pin tier rather than table rows. A row whose Ifc4x3 infrastructure/geotechnical class the older
+    // Model/elements#IFC_CLASS valid sets, admitted at the egress gate, and the shape-independent site classes ride the
+    // BiasOf Pin tier rather than table rows. A row whose Ifc4x3 infrastructure/geotechnical class the older
     // target schema cannot carry faults class-out-of-schema at AdmitPredefined (not recon-shape-miss).
     static readonly Map<(PrimitiveShape Shape, Option<IfcDomain> Domain, FitOrientation Orientation), (IfcClass Class, string Predefined, SizeBand Band)> Table =
         Map(
@@ -447,7 +453,7 @@ public sealed class ReconstructionProjector(Seq<SegmentedCloud> segments, Recons
 
 - Owner: `LasCloud` the decoded point carrier — position set (each `Position` a `MathNet.Numerics.LinearAlgebra.Vector<double>` the kernel registration and Compute dense-LA substrate consume without a re-wrap), the per-point ASPRS `Classifications` the segmentation reduces to the `[02]-[RECONSTRUCTION]` `SegmentedCloud.DominantClass` hint, the unit-normalized `Colors` lane a colour-bearing point format carries, and the header receipt facts (`ClassHistogram`, `CountsByReturn`, extrema, integer-grid `Scale`/`Offset`, `PointFormat`, CRS WKT, `CaptureLineage`, count, `Instant`); `CloudLevel` one decimated detail band over that carrier — retained indices, measured point count, meshopt cull sphere, per-level content key; `LasCompression` the `[SmartEnum<string>]` discriminant; `LasIngest` the dual-engine decode fold decoding raw `.las`/`.laz` bytes into the `LasCloud` the kernel registration/segmentation consume AND drawing that carrier's progressive-detail pyramid — `Themis.Las` owns the uncompressed codec, `Unofficial.laszip.netstandard` the compressed codec, `Alimer.Bindings.MeshOptimizer` the point decimation and the sphere bound, the kernel owns the fit; this owner re-mints none.
 - Entry: `LasIngest.Decode(ReadOnlyMemory<byte> bytes, Instant at, Op key)` dispatches on `LasCompression.Sniff` (the offset-104 public-header byte whose high bit marks LASzip compression), routing the uncompressed leg through `ReadLas` and the compressed leg through `ReadLaz`; `LasIngest.Pyramid(LasCloud cloud, InterchangePolicy policy, Op key)` draws the detail bands over the `format#FORMAT_AXIS`-neighbouring `export#EXPORT_RAIL` `InterchangePolicy.LodRatios` schedule the mesh pyramid reads, weighting the draw by the `AttributeWeights` `base_color` row so a facade capture keeps its material boundaries; `Fin<T>` traps a malformed header, an unreadable archive, or a degenerate decimation into `Model/faults#FAULT_BAND` `BimFault.CodecReject` lifted BARE through the `Try.lift` funnel, and a capture whose point count exceeds the int-domain decimator into `BimFault.CapabilityMiss` before any narrowing, the `Op`-keyed case IS the `Error`, never a `.ToError()` hop.
-- Auto: `Sniff` selects the engine from the compression marker WITHOUT a full open; `ReadLas` streams the `Themis.Las` `LasReader` over one temp path (byte admission is path-bound — the one shipped `AsyncStreamHandler` is path-constructed), and `ReadLaz` folds the `laszip` decoder over the in-memory stream gating each non-zero C-API status through `Check`; both mask the classification format-correctly (formats 0-5 strip the flag bits `& 0x1F`, formats 6-10 keep the full class byte), fill the `Colors` lane on the colour-bearing formats alone (2/3/5/7/8/10, the 16-bit channel unit-normalized; every other format keeps the typed EMPTY lane rather than a black cloud a colour-weighted draw would read as uniform), read the header receipt facts and the record-`2112` OGC WKT CRS, and assemble one `LasCloud` whose lineage is the kernel `XxHash128` over the raw bytes through the seam `CanonicalWriter` and whose `ClassHistogram` folds in one dense-array pass; `Pyramid` stages the float32 position lane ONCE (meshopt is a float kernel, the carrier a MathNet double the registration consumes) and folds each ratio through `Meshopt.SimplifyPoints`, keeping the RETAINED source indices rather than a copied point set and computing each band's `Meshopt.ComputeSphereBounds` cull sphere over the retained points alone, each level content-keyed off the cloud lineage so the tile pyramid addresses a capture's bands exactly as it addresses a mesh's; the per-point ASPRS classes feed the kernel segmentation reducing them to the per-segment modal `DominantClass`, and the CRS WKT feeds the app's `Header.Reference` `GeoReference` (`Semantics/georeference#GEO_PROJECTION` `ProjNET` leg) so a georeferenced capture lands in the canonical kernel frame.
+- Auto: `Sniff` selects the engine from the compression marker WITHOUT a full open; `ReadLas` streams the `Themis.Las` `LasReader` over one temp path (byte admission is path-bound — the one shipped `AsyncStreamHandler` is path-constructed), and `ReadLaz` folds the `laszip` decoder over the in-memory stream gating each non-zero C-API status through `Check`; both mask the classification format-correctly (formats 0-5 strip the flag bits `& 0x1F`, formats 6-10 keep the full class byte), fill the `Colors` lane on the colour-bearing formats alone (2/3/5/7/8/10, the 16-bit channel unit-normalized; every other format keeps the typed EMPTY lane rather than a black cloud a colour-weighted draw reads as uniform), read the header receipt facts and the record-`2112` OGC WKT CRS, and assemble one `LasCloud` whose lineage is the kernel `XxHash128` over the raw bytes through the seam `CanonicalWriter` and whose `ClassHistogram` folds in one dense-array pass; `Pyramid` stages the float32 position lane ONCE (meshopt is a float kernel, the carrier a MathNet double the registration consumes) and folds each ratio through `Meshopt.SimplifyPoints`, keeping the RETAINED source indices rather than a copied point set and computing each band's `Meshopt.ComputeSphereBounds` cull sphere over the retained points alone, each level content-keyed off the cloud lineage so the tile pyramid addresses a capture's bands exactly as it addresses a mesh's; the per-point ASPRS classes feed the kernel segmentation reducing them to the per-segment modal `DominantClass`, and the CRS WKT feeds the app's `Header.Reference` `GeoReference` (`Semantics/georeference#GEO_PROJECTION` `ProjNET` leg) so a georeferenced capture lands in the canonical kernel frame.
 - Receipt: `LasCloud` is the decoded scan evidence — point/per-return counts, the `ClassHistogram` computed from the decoded class bytes (evidence the header cannot forge), header extrema and quantization, point-data-record format, colour-lane occupancy, and CRS WKT presence; the `CaptureLineage` over the source bytes joins the reconstructed model back to its capture — the `Pset_Reconstruction` `SourceCloud` row publishes THAT key, so the `Review/diff#MODEL_DIFF` federation diff and reality-capture playback re-fetch the exact LAS/LAZ through a join that closes, where the parameter-derived run key opens one nothing answers. `CloudLevel` is the per-band draw evidence — the MEASURED retained count (never the requested target, which the decimator may undershoot on a sparse capture), the cull sphere a client selects on, and the content key it streams by.
 - Packages: `Themis.Las` (the MIT pure-managed uncompressed ASPRS LAS reader over `MathNet.Numerics`), `Unofficial.laszip.netstandard` (the LGPL-2.1 separate-assembly pure-managed LASzip codec — `.laz` arithmetic decode, selective-channel decompression, the `.lax` spatial-index bbox query), `Alimer.Bindings.MeshOptimizer` (the colour-weighted point decimation and the sphere bound), `Rasm.Element` (the seam `Projection/address#CANONICAL_WRITER` `CanonicalWriter`), `Rasm` (the kernel `Domain.ContentHash`), Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime.
 - Growth: a new ASPRS point data record format is one `Themis.Las` `PointTypeMap` row (formats 0-10 share one reader, never a per-format reader family); a compression state is one `LasCompression` row dispatched by `Sniff`; a per-point facet (intensity, return index, GPS time, NIR) is one column the `LasPoint` facet set already carries, the `LasCloud.PointFormat` receipt column announcing which facets a capture holds without a re-decode; a new detail band is one ratio on the shared `InterchangePolicy.LodRatios` column and a new decimation weight one `AttributeWeights` row, both the same policy the mesh pyramid reads — never a cloud-local schedule; a tiled ingest enters through the `laszip` `.lax` `inside_rectangle` windowed path when an index exists; never a re-minted point-cloud decoder, never a hand-rolled point decimator, and never a second hashing scheme over the LAS/LAZ bytes.
@@ -491,9 +497,9 @@ public sealed partial class LasCompression {
         bytes.Length > 104 && (bytes[104] & 0x80) != 0 ? Compressed : Uncompressed;
 }
 
-// The bbox query rectangle a windowed ingest reads inside. Plan coordinates alone: the `.lax` index the
-// compressed leg exploits is a 2D spatial index, so a vertical bound would be a filter the index cannot serve
-// and the two engines would diverge on what the same window meant.
+// Bbox query rectangle a windowed ingest reads inside — plan coordinates alone: the `.lax` index the compressed
+// leg exploits is a 2D spatial index, so a vertical bound is a filter the index cannot serve and the two engines
+// diverge on what the same window means.
 public readonly record struct CloudWindow(double MinX, double MinY, double MaxX, double MaxY) {
     public bool Holds(double x, double y) => x >= MinX && x <= MaxX && y >= MinY && y <= MaxY;
 }
@@ -529,7 +535,7 @@ public static class LasIngest {
     // ASPRS point-data-record formats 2/3/5/7/8/10 carry the RGB channel; every other format has none.
     static bool Colored(byte pointFormat) => pointFormat is 2 or 3 or 5 or 7 or 8 or 10;
 
-    // The optional WINDOW is the bbox push-down: with a built `.lax` index the compressed leg decodes only the
+    // Optional WINDOW is the bbox push-down: with a built `.lax` index the compressed leg decodes only the
     // points inside the rectangle, and the uncompressed leg — which has no index to exploit — applies the same
     // rectangle as it reads, so ONE window argument means one thing on both engines and a caller never has to know
     // which one served it. This is the FGB Packed-R-tree filter posture the vector ingest already holds, projected
@@ -539,8 +545,7 @@ public static class LasIngest {
             ? Trap(codec, key, () => ReadLaz(bytes, window, at))
             : Trap(codec, key, () => ReadLas(bytes, window, at));
 
-    // The codec leg is a SUBJECT on the one roster row, so both engines grep under one fixed prefix where the
-    // retired form built `<codec>-decode` at runtime and owned no prefix at all.
+    // Codec legs are SUBJECTS on the one roster row, so both engines grep under one fixed prefix.
     static Fin<LasCloud> Trap(LasCompression codec, Op key, Func<LasCloud> read) =>
         Try.lift(read).Run().MapFail(error => (Error)Detail.CodecDecode.At(key, codec.Key, error.Message));
 
@@ -565,9 +570,8 @@ public static class LasIngest {
     // shared attribute roster by canonical channel, so a capture with no colour lane AND a roster with no row
     // both fall to an unweighted spatial draw — the same "a channel with no row is unweighted" law the mesh
     // pyramid's attribute lanes hold.
-    // The staged lane, its colour partner, and the point count travel as ONE carrier: three parallel parameters
-    // let a caller hand a colour span whose length disagreed with the position count, and the decimator read the
-    // mismatch as a shorter cloud rather than as the defect it was.
+    // Staged lane, colour partner, and point count travel as ONE carrier, so a colour span whose length disagrees
+    // with the position count is unrepresentable rather than read as a shorter cloud.
     readonly record struct CloudStage(float[] Positions, ReadOnlyMemory<float> Colors, float Weight, int Count);
 
     static Seq<CloudLevel> Levels(LasCloud cloud, InterchangePolicy policy, int count) {
@@ -674,10 +678,9 @@ public static class LasIngest {
         using MemoryStream stream = MemoryMarshal.TryGetArray(bytes, out ArraySegment<byte> segment)
             ? new(segment.Array!, segment.Offset, segment.Count, writable: false)
             : new(bytes.ToArray(), writable: false);
-        // Release brackets ACQUISITION: the create and the open are the acquisition, so both Checks run OUTSIDE
-        // the try and close_reader releases only a reader that actually opened. The retired form put the open
-        // inside the try, so a malformed archive whose open faulted still ran close_reader on a reader that was
-        // never acquired — a native call against an uninitialised codec.
+        // Release brackets ACQUISITION: the create and the open are the acquisition, so both Checks run OUTSIDE the
+        // try and close_reader releases only a reader that actually opened — an open inside the try runs
+        // close_reader against a never-acquired reader, a native call on an uninitialised codec.
         laszip codec = laszip.create();
         Check(codec, codec.decompress_selective(LASZIP_DECOMPRESS_SELECTIVE.CHANNEL_RETURNS_XY | LASZIP_DECOMPRESS_SELECTIVE.Z | LASZIP_DECOMPRESS_SELECTIVE.CLASSIFICATION | LASZIP_DECOMPRESS_SELECTIVE.RGB));
         Check(codec, codec.open_reader_stream(stream, out _, leaveOpen: true));
@@ -718,9 +721,9 @@ public static class LasIngest {
             ulong[] byReturn = h.extended_number_of_point_records > 0
                 ? h.extended_number_of_points_by_return
                 : Array.ConvertAll(h.number_of_points_by_return, static c => (ulong)c);
-            // The receipt counts the points this decode LANDED, never the header's total: a windowed read that
-            // reported the header count described a cloud the carrier does not hold, and every ratio the pyramid
-            // then drew was a fraction of a number that was not there.
+            // Receipts count the points this decode LANDED, never the header's total: a windowed read reporting the
+            // header count describes a cloud the carrier does not hold, and every ratio the pyramid then draws is
+            // a fraction of a number that is not there.
             return Assemble(bytes, positions, classes, colors, crs, (ulong)read, byReturn,
                 new Vector3(h.min_x, h.min_y, h.min_z), new Vector3(h.max_x, h.max_y, h.max_z),
                 new Vector3(h.x_scale_factor, h.y_scale_factor, h.z_scale_factor),
@@ -729,7 +732,7 @@ public static class LasIngest {
         } finally { codec.close_reader(); }
     }
 
-    // The `.lax` path in the package's own order: prove an index exists, set the rectangle, then arm the
+    // `.lax` exploitation runs in the package's own order: prove an index exists, set the rectangle, then arm the
     // exploitation. An absent index or an empty rectangle answers false and the caller reads the whole archive —
     // a windowed read armed over no index decodes nothing and reports success.
     static bool Windowed(laszip codec, CloudWindow window) {

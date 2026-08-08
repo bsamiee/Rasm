@@ -2,11 +2,12 @@
 
 Linear-algebra routes of the one numeric solver. `LinearIntent` discriminates dense systems, sparse systems by scheme (direct/factored/Krylov/least-squares), eigen-and-spectral problems, and an autodifferentiable `lineax` operator tier unifying every solve over one general linear operator. One `LinearMap` value object carries a dense array, an admitted `scipy.sparse` container, or a matrix-free `matvec`, with one `MatrixStructure` policy value — the single structure axis every route reads and every backend projects once. Two bounded values retire boolean knobs: `SolveShape` (`SQUARE`/`LEAST_SQUARES`/`MIN_NORM`) selects the solve-vs-least-squares arm across all three backends, and `SpectralMode` (`EIGENPAIRS`/`SPECTRUM`) the eigen-vs-singular arm; tuning literals ride one `LinearPolicy`.
 
-Reused axes and seams a rebuild composes without re-derivation: `SolverReceipt` and the shared enum-verdict `verdict` fold home to `solvers/receipt#RECEIPT` (`SolveStatus` is folded inside the receipt factories, never imported here), and `_CEILING` is the family default ceiling a solver-axis crossing composes at that page's `graduate` projection beside the receipt-projected ledger. `sparse_receipt` is a PUBLIC cross-module contract `solvers/quadrature#QUADRATURE` composes by name for its FEM arm. Gated `lineax` tiers ride the x64 float64 contract every sibling JAX route carries — `solvers/nonlinear#NONLINEAR`, `solvers/differential#DIFFERENTIAL`, `solvers/sensitivity#SENSITIVITY` — and its batched sweep runs the identical per-row residual contraction and worst-code verdict reduce those siblings run, since `lineax.RESULTS` shares their `equinox.Enumeration` base. Isolation is policy data on `_TRAIT`: the gated route declares `HOSTILE` (the x64 flag is process-global native state concurrent in-process solves corrupt) and the scipy bodies `RELEASING`, the runtime `Kernel` crossing deriving band and worker-death retry from the trait row; emission rides the hub `evidence_run` weave for span, fence, and receipt harvest — compute mints zero limiters and no solve retry.
+Reused axes and seams a rebuild composes without re-derivation: `SolverReceipt` and the shared enum-verdict `verdict` fold home to `solvers/receipt#RECEIPT` (`SolveStatus` is folded inside the receipt factories, never imported here), and `_CEILING` is the family default ceiling a solver-axis crossing composes at that page's `graduate` projection beside the receipt-projected ledger. `sparse_receipt` is a PUBLIC cross-module contract `solvers/quadrature#QUADRATURE` composes by name for its FEM arm. Gated `lineax` tiers ride the x64 float64 contract every sibling JAX route carries — `solvers/nonlinear#NONLINEAR`, `solvers/differential#DIFFERENTIAL`, `solvers/sensitivity#SENSITIVITY` — and its batched sweep runs the identical per-row residual contraction and worst-code verdict reduce those siblings run, since `lineax.RESULTS` shares their `equinox.Enumeration` base. Isolation is policy data on `_TRAIT`: the gated route declares `HOSTILE` (the x64 flag is process-global native state concurrent in-process solves corrupt) and the scipy bodies `RELEASING`, the runtime `Kernel` crossing deriving band and worker-death retry from the trait row; emission rides the hub `evidence_run` weave for span, fence, and receipt harvest — compute mints zero limiters and no solve retry. The `[03]-[EXCHANGE]` sparse containers mirror the C# `Tensor/factor#SPARSE_SOLVE` exchange convention as hand-copied wire law, so a layout edit there lands its ripple here in the same change.
 
 ## [01]-[INDEX]
 
 - [02]-[LINEAR]: dense/sparse/eigen/operator routes on one `LinearIntent` reading one `LinearMap` operand and one `MatrixStructure` axis, the gated `lineax` tier folded into `LinearEngine`.
+- [03]-[EXCHANGE]: the two-container sparse exchange with the C# factor lane — `.mtx` over `scipy.io` and the scipy-convention HDF5 group over `h5py` — on one `SparseExchange` owner, its write twins landing the operational audit and storage charge.
 
 ## [02]-[LINEAR]
 
@@ -575,7 +576,182 @@ def _operator_receipt(m: LinearMap, b: np.ndarray, shape: SolveShape, policy: Li
     )
 ```
 
-## [03]-[RESEARCH]
+## [03]-[EXCHANGE]
+
+- Owner: `SparseExchange` — the two-container correspondence with `csharp:Rasm.Compute/Tensor/factor#SPARSE_SOLVE` `ReadArchive`/`WriteArchive`, hand-copied as a deliberate non-import mirror per estate law: `.mtx` through `scipy.io` is the SuiteSparse interop surface, and the scipy-convention HDF5 group (`indptr`/`indices` int32, `values` float64, `permutation` int32, `shape`/`format` group attributes) carries the `kind`/`ordering`/`fill`/`frobenius`/`symmetric` reproduction metadata `.mtx` drops. Both containers read and write here because the C# lane landed both directions of each: a reproduction artifact from a failed C# factorization re-factors python-side under its recorded policy, and a python-authored operand crosses back through the same two doors.
+- Cases: `ExchangeMeta` types the archive's metadata attributes; `ordering` carries the CSparse `ColumnOrdering` ordinal the producer wrote (`0` Natural, `1` MinimumDegreeAtPlusA, `2` MinimumDegreeStS, `3` MinimumDegreeAtA — decompile-proven declaration order) and `permc` projects it onto the `splu` `permc_spec` vocabulary, `MinimumDegreeStS` landing on `COLAMD` as the closest scipy ordering with the divergence stated here rather than hidden.
+- Entry: `read_mtx`/`write_mtx` and `read_archive`/`write_archive` are the four legs of one owner, each write answering the container's byte extent; every inbound leg re-runs `_admit` — extent congruence, monotone pointer run, index bounds, one vectorized finiteness pass — because both routes end at admission exactly as both C# routes end at `Ingest`.
+- Law: both write legs carry the `composition` custody key and an awaitable twin — `write_mtx_async`/`write_archive_async` over the one `_written` half — because the sync bodies are pure `h5py`/`scipy.io` calls opening no loop while recording suspends. Each twin lands one `OPERATIONAL` `AuditFact` naming the destination beside a `STORAGE` `MeterFact` over the bytes written, through one `_evidence` fold so the two containers cannot drift into two vocabularies for one crossing; the container token rides the diff rather than the verb, since both legs write the same kind of thing to two encodings. `OPERATIONAL` is earned: a sparse operand is a reproduction artifact re-derivable from the factorization that produced it. The record rail BINDS into the verdict, and a refused write records nothing since there is no artifact to name. Reads land no evidence — an exchange plane recording each `read_mtx` prices the read path for rows no reconstruction ever reads.
+- Auto: `.mtx` symmetry writes off the operand's `MatrixStructure` (`SYMMETRIC`/`SPD` emit `symmetry="symmetric"`), mirroring the C# rule that the flag reads off the factor row and never a caller knob; reads lift `mminfo` symmetry onto the structure axis so a symmetric corpus reaches the symmetric drivers without re-derivation.
+- Output: reads land a `LinearMap.SparseMat` the `[02]-[LINEAR]` routes consume directly — the exchange is solver currency, never a gridded field, so no gridded-plane page owns any of this.
+- Packages: `scipy` (`io.mmread`/`io.mmwrite`/`io.mminfo`, `sparse.csr_array`/`csc_array`, `sparse.linalg.norm`); `h5py` (module-top; `File`, `create_group`/`create_dataset`, attribute IO) under the compute-tier `.api/h5py.md` admission.
+- Growth: a new archive attribute is one `ExchangeMeta` field with its wire spelling; a new container format is one read/write leg pair with its awaitable twin over the shared `_written` half and one container token, never a sibling exchange surface; zero new knob on the solve routes.
+- Boundary: no ledger, custody, or retention window is minted here — the plane arrives bound at the composition root and this owner declares a `Retain` class alone. The int32 index pin is the exchange law — the C# reader declares int32 dataset reads, so an operand whose `nnz` or pointer length exceeds int32 refuses typed at write rather than emitting a container the peer mis-reads; the group convention layout is the C# fence's law and this mirror re-derives none of it; factorization policy is recorded evidence — python re-factors through its own `SparseScheme` under the projected ordering and never claims byte-identical factors.
+
+```python signature
+# composes the [02]-[LINEAR] prelude; `h5py` imports module-top beside it.
+import h5py
+import scipy.io as sio
+import scipy.sparse as sp
+from expression import Error, Result
+from expression.collections import Block
+
+from rasm.compute.graduation.handoff import EVIDENCE_DOMAIN
+from rasm.runtime.faults import boundary
+from rasm.runtime.journal import Actor, Assigned, AuditFact, Fact, Journal, MeterFact, Party, Resource, Retain
+from rasm.runtime.roots import ResourceRef
+
+_INT32_CEIL: Final[int] = 2**31 - 1
+
+# CSparse `ColumnOrdering` ordinal -> scipy `permc_spec`; `MinimumDegreeStS` (AMD on A'A, dense rows dropped)
+# has no exact scipy twin, so it lands on COLAMD — the closest column ordering — as recorded divergence.
+_PERMC: Final[Map[int, str]] = Map.of_seq([(0, "NATURAL"), (1, "MMD_AT_PLUS_A"), (2, "COLAMD"), (3, "MMD_ATA")])
+
+# `.mtx` symmetry token -> structure axis; every non-symmetric token lands GENERAL because the structure
+# vocabulary carries no skew/hermitian member and a wrong SPD guess mis-routes the Cholesky driver.
+_MM_STRUCTURE: Final[Map[str, MatrixStructure]] = Map.of_seq([("symmetric", MatrixStructure.SYMMETRIC)])
+
+
+def _evidence(container: str, ref: "ResourceRef", written: int) -> "Block[Fact]":
+    # ONE exchange-write trail both containers reach, so the `.mtx` leg and the archive leg cannot drift into two
+    # vocabularies for one crossing. `OPERATIONAL` is the class: a sparse operand is a reproduction artifact
+    # re-derivable from the factorization that produced it, so the trail answers which container this process wrote
+    # and when — an incident-window question, never a seven-year hold. The container token rides the diff rather
+    # than the verb, since both legs write the same KIND of thing to two encodings, and the meter carries the bytes
+    # landed keyed on the destination the audit target already names.
+    audited = AuditFact(
+        action=f"{EVIDENCE_DOMAIN}.exchange",
+        actor=Party(kind=Actor.SERVICE, key=EvidenceScope.LINEAR.value),
+        target=Party(kind="artifact", key=str(ref.path)),
+        retention=Retain.OPERATIONAL,
+        change=(Assigned(path="/container", next=container),),
+    )
+    return Block.of_seq((audited, MeterFact(resource=Resource.STORAGE, quantity=written, surface=str(ref.path))))
+
+
+async def _written(container: str, ref: "ResourceRef", settled: "RuntimeRail[int]", composition: ScopeKey) -> "RuntimeRail[int]":
+    # the awaitable half both write twins share: the sync legs are pure `h5py`/`scipy.io` calls that open no loop,
+    # and recording suspends, so the trail lands HERE. The record rail BINDS into the verdict — a container the
+    # plane could not account for must not read as written — and an unjournalled composition folds to the lawful
+    # no-op at one map read. A refused write records nothing, since there is no artifact to name.
+    match settled:
+        case Result(tag="ok", ok=written):
+            return (await Journal.record(_evidence(container, ref, written), scope=composition)).map(lambda _landed: written)
+        case refused:
+            return Error(refused.error)
+
+
+class ExchangeMeta(Struct, frozen=True):
+    kind: str
+    ordering: int
+    fill: int
+    frobenius: float
+    symmetric: bool
+
+    @property
+    def permc(self) -> str:
+        return _PERMC.try_find(self.ordering).default_value("COLAMD")
+
+
+class SparseExchange:
+    @staticmethod
+    def read_mtx(ref: "ResourceRef") -> "RuntimeRail[LinearMap]":
+        def read() -> LinearMap:
+            rows, cols, _, _, _, symmetry = sio.mminfo(str(ref.path))
+            operand = sp.csr_array(sio.mmread(str(ref.path), spmatrix=False))  # coo -> csr once at the boundary
+            structure = _MM_STRUCTURE.try_find(symmetry).default_value(MatrixStructure.GENERAL)
+            return LinearMap.SparseMat(_admit(operand, (int(rows), int(cols))), structure)
+
+        return boundary("exchange.read_mtx", read)
+
+    @staticmethod
+    def write_mtx(ref: "ResourceRef", m: LinearMap) -> "RuntimeRail[int]":
+        # symmetry off the structure axis, never a caller knob — the C# write binds the same rule to its factor row.
+        # The byte extent returns rather than `None`: the storage charge and any caller reconciling the artifact both
+        # need what actually landed, and a writer answering nothing forces a second stat at every consumer.
+        symmetry = "symmetric" if m.structure in (MatrixStructure.SYMMETRIC, MatrixStructure.SPD) else "general"
+
+        def write() -> int:
+            sio.mmwrite(str(ref.path), sp.coo_array(m.matrix()), symmetry=symmetry)
+            return ref.path.stat().st_size
+
+        return boundary("exchange.write_mtx", write)
+
+    @staticmethod
+    async def write_mtx_async(ref: "ResourceRef", m: LinearMap, *, composition: ScopeKey = DEFAULT_SCOPE) -> "RuntimeRail[int]":
+        return await _written("mtx", ref, SparseExchange.write_mtx(ref, m), composition)
+
+    @staticmethod
+    def read_archive(ref: "ResourceRef", group: str = "A") -> "RuntimeRail[tuple[LinearMap, ExchangeMeta, np.ndarray]]":
+        def read() -> tuple[LinearMap, ExchangeMeta, np.ndarray]:
+            with h5py.File(str(ref.path), "r") as file:
+                node = file[group]
+                shape = tuple(int(extent) for extent in node.attrs["shape"])
+                ctor = sp.csr_array if str(node.attrs["format"]) == "csr" else sp.csc_array
+                operand = ctor((node["values"][:], node["indices"][:], node["indptr"][:]), shape=shape)
+                meta = ExchangeMeta(
+                    kind=str(node.attrs["kind"]),
+                    ordering=int(node.attrs["ordering"]),
+                    fill=int(node.attrs["fill"]),
+                    frobenius=float(node.attrs["frobenius"]),
+                    symmetric=bool(node.attrs["symmetric"]),
+                )
+                permutation = node["permutation"][:] if "permutation" in node else np.arange(shape[1], dtype=np.int32)
+            structure = MatrixStructure.SYMMETRIC if meta.symmetric else MatrixStructure.GENERAL
+            return LinearMap.SparseMat(_admit(operand, shape), structure), meta, permutation
+
+        return boundary("exchange.read_archive", read)
+
+    @staticmethod
+    def write_archive(ref: "ResourceRef", m: LinearMap, meta: ExchangeMeta, permutation: np.ndarray, group: str = "A") -> "RuntimeRail[int]":
+        # the byte extent returns for the same reason `write_mtx`'s does: the storage charge reads what landed.
+        def write() -> int:
+            operand = sp.csc_array(m.matrix())  # the C# lane's CSC is the archive's major axis
+            if operand.nnz > _INT32_CEIL or operand.indptr.size > _INT32_CEIL:
+                # int32 pin: the peer reader declares int32 dataset reads, so an over-ceiling operand cannot cross.
+                raise OverflowError(f"exchange int32 ceiling: nnz={operand.nnz}")
+            with h5py.File(str(ref.path), "x") as file:  # create-only, matching the peer's create-only session
+                node = file.create_group(group)
+                node.create_dataset("indptr", data=operand.indptr.astype(np.int32))
+                node.create_dataset("indices", data=operand.indices.astype(np.int32))
+                node.create_dataset("values", data=operand.data.astype("<f8"))
+                node.create_dataset("permutation", data=np.asarray(permutation, dtype=np.int32))
+                node.attrs["shape"] = np.asarray(operand.shape, dtype=np.int64)
+                node.attrs["format"] = "csc"
+                node.attrs["kind"] = meta.kind
+                node.attrs["ordering"] = np.int32(meta.ordering)
+                node.attrs["fill"] = np.int32(meta.fill)
+                node.attrs["frobenius"] = np.float64(meta.frobenius)
+                node.attrs["symmetric"] = np.bool_(meta.symmetric)
+            # read past the close, so the extent names a flushed container rather than an open handle's buffer.
+            return ref.path.stat().st_size
+
+        return boundary("exchange.write_archive", write)
+
+    @staticmethod
+    async def write_archive_async(
+        ref: "ResourceRef", m: LinearMap, meta: ExchangeMeta, permutation: np.ndarray, group: str = "A", *, composition: ScopeKey = DEFAULT_SCOPE
+    ) -> "RuntimeRail[int]":
+        return await _written("archive", ref, SparseExchange.write_archive(ref, m, meta, permutation, group), composition)
+
+
+def _admit(operand: object, shape: tuple[int, int]) -> object:
+    # one admission fold both containers end at, mirroring the C# `Ingest` gates: extent congruence, the
+    # monotone pointer run, index bounds, and one vectorized finiteness pass over the values.
+    if tuple(operand.shape) != shape:
+        raise ValueError(f"exchange extents: {operand.shape} != {shape}")
+    pointers, indices = operand.indptr, operand.indices
+    minor = operand.shape[1] if operand.format == "csr" else operand.shape[0]
+    if pointers[0] != 0 or pointers[-1] != operand.nnz or (np.diff(pointers) < 0).any():
+        raise ValueError("exchange pointer run: non-monotone indptr")
+    if indices.size and (indices.max() >= minor or indices.min() < 0):
+        raise ValueError("exchange index bounds")
+    if not np.isfinite(operand.data).all():
+        raise ValueError("exchange values: non-finite entry")
+    return operand
+```
+
+## [04]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.

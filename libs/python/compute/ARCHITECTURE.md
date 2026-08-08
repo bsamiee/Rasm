@@ -130,6 +130,9 @@ flowchart LR
     Runtime e9@-->|"[BOUNDARY]: ResourceRef"| Experiments
     Data e10@-->|"[SHAPE]: FrameAdmission"| Experiments
     Experiments e17@-->|"[PROJECTION]: BenchmarkReceipt"| Runtime
+    Graduation e20@-->|"[SHAPE]: Fact"| Runtime
+    Experiments e21@-->|"[SHAPE]: Fact"| Runtime
+    Solvers e22@-->|"[SHAPE]: Fact"| Runtime
     Runtime e11@-->|"[PORT]: Kernel"| Solvers
     Runtime e12@-->|"[PORT]: measured"| Graduation
     Runtime e16@-->|"[PORT]: Hooks"| Graduation
@@ -139,6 +142,8 @@ flowchart LR
 ```
 
 `ContentIdentity` keys ride beneath the `ParityReceipt` parity seam, the graduation reverse leg carries `EvidenceBundle` — C#-spelled `GraduationEvidence`, an offline artifact `codegen` decodes — and `UncertainQuantity` is the interior owner beneath the C#-spelled `QuantityFamily` wire; the forward model crossing also carries the `experiments/model#ENVELOPE` drift-envelope container the C# identity gate ingests, and `solvers/linear#EXCHANGE` pairs the sparse-operator containers with the C# factor lane; each collapsed edge stands for every contract between the two owners at that kind, with the per-contract wiring on the owning implementation pages.
+
+The `[SHAPE]: Fact` edges carry the durable half: every leg admitting, writing, or consuming a countable population records through the runtime `Journal` writer, whose `Ledger` a composition root binds and this package never implements. Producing legs are awaitable by law, so a synchronous entrypoint reaches the plane through its own twin. `Resource.COMPUTE` charges once per dispatch at the resource band's async close, and the three edges carry the admission, movement, and evaluation evidence their own folds own.
 
 ## [04]-[INTERNAL]
 

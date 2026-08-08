@@ -68,7 +68,7 @@
 |  [08]   | `Process.num_fds()` (POSIX)                  | instance | open file-descriptor count                             |
 |  [09]   | `Process.io_counters() -> pio` (gated)       | instance | read/write counts + bytes                              |
 |  [10]   | `Process.open_files() -> list[popenfile]`    | instance | open regular files                                     |
-|  [11]   | `Process.net_connections(kind='inet')`       | instance | open sockets for this process                          |
+|  [11]   | `Process.net_connections(kind='inet')`       | instance | `list[pconn]` of open sockets for this process         |
 |  [12]   | `Process.threads() -> list[pthread]` (gated) | instance | per-thread CPU times                                   |
 |  [13]   | `Process.environ()` (gated)                  | instance | process environment dict                               |
 
@@ -119,11 +119,13 @@
 - `with proc.oneshot():` runs the internal collector once and caches its multi-valued result; fold every multi-attribute read of one process into one block. `process_iter(attrs=[...])` is the system-wide analogue, pre-fetching listed attributes once per process and supplying `ad_value` for `AccessDenied` fields.
 - `cpu_percent(interval=None)` returns 0.0 on the first call; a positive `interval` blocks and samples, two `None` calls yield a non-blocking delta — same contract for module-level `cpu_percent`/`cpu_times_percent`.
 - named-tuple returns read by field name, never positional index — `pmem`/`pfullmem`/`scputimes`/`svmem` field sets are OS-specific: macOS `pmem(rss, vms, pfaults, pageins)` with `pfullmem` adding `uss`, Linux `pfullmem` adding `uss, pss, swap`, Windows `pmem` carrying `peak_wset`/`pagefile`.
+- socket returns split by scope: `Process.net_connections` yields `pconn(fd, family, type, laddr, raddr, status)` and the module-level `net_connections` yields `sconn`, the same fields plus `pid`. `laddr`/`raddr` are `addr(ip, port)` on the INET families and a bare path string on `unix`; `status` is a `CONN_*` constant, forced to `CONN_NONE` off stream sockets. `kind` selects one of `all`, `inet`, `inet4`, `inet6`, `tcp`, `tcp4`, `tcp6`, `udp`, `udp4`, `udp6`, `unix`.
+- `oneshot` caches the platform collector alone — the kinfo/taskinfo pair behind rss, cpu times, ctx switches, threads, and identity — so a socket, fd, or open-files read inside the block still takes its own syscall, and folding one into the block buys batching that is not there.
 - a `(gated)` row binds only where the platform layer defines it: a gated module function is absent from `__all__`, an unbound `Process` method raises `AttributeError` — guard every gated use with `hasattr`. macOS (`_psosx`) omits `cpu_freq` and the `sensors_*` family; `getloadavg` resolves through `os.getloadavg`.
 
 [STACKING]:
 - `opentelemetry-sdk`(`.api/opentelemetry-sdk.md`): a `oneshot` reading feeds OTel observable gauges/counters — `proc.memory_info().rss` and `proc.cpu_percent()` register through the API `Meter`, shape through an SDK `View`, and ship via the OTLP exporter; read inside one `oneshot` so the gauge callback costs one collection. psutil is the source, the SDK owns temporality and aggregation.
-- `loky`(`.api/loky.md`): `cpu_count(only_physical_cores=True)` reads the physical-core count through psutil to size the pool; `Supervisor` weighs each arm's OWN named pids (`WorkerPool.pids()`, total across arms) under one `oneshot()` per worker with `memory_info().rss` against the `SupervisionPolicy` ceiling, off the loop under the supervisor's own band — no process-tree walk and no complement — rolling the cooperative arm on a breach.
+- `loky`(`.api/loky.md`): `cpu_count(only_physical_cores=True)` reads the physical-core count through psutil to size the pool; `Supervisor` weighs each arm's OWN named pids (`WorkerPool.pids()`, total across arms) off the loop under the supervisor's own band — no process-tree walk and no complement — batching `memory_info().rss` with `num_ctx_switches().involuntary` in one `oneshot()` and taking `net_connections()` on its own fenced syscall outside it, each column against its `SupervisionPolicy` ceiling, rolling the cooperative arm on a breach. Every column fences separately and stays optional, so an `AccessDenied` socket table reads as unmeasured rather than as a healthy worker.
 - `pebble`(`.api/pebble.md`): the same total-pids probe weighs the terminal (pebble) arm — its pids read off `worker_manager.workers` — rolling on a `DEGRADED` breach and retiring-then-respawning on `DEAD`; psutil is the live-ceiling arm, `max_tasks` recycling the fixed-cadence arm.
 - within-lib: the named-tuple reading is the boundary value carrier — map field names to canonical metric attribute keys at the edge, never thread a raw tuple through domain code.
 
@@ -135,5 +137,5 @@
 [RAIL_LAW]:
 - Package: `psutil`
 - Owns: process metrics and lifecycle control, system CPU/memory/disk/network/sensor metrics, process iteration and waiting, the `oneshot` batch path
-- Accept: `Process` + `oneshot`/`as_dict`, `process_iter(attrs=...)`, `cpu_percent`, `virtual_memory`, `disk_usage`, `net_io_counters`, `hasattr`-guarded platform-gated functions
-- Reject: direct `/proc` parsing or platform syscall wrappers where psutil owns the metric, per-attribute reads outside `oneshot`, positional indexing of OS-specific named tuples, unguarded gated calls on macOS
+- Accept: `Process` + `oneshot`/`as_dict`, `process_iter(attrs=...)`, `cpu_percent`, `virtual_memory`, `disk_usage`, `net_io_counters`, `net_connections` read by `pconn`/`sconn` field name, `Popen.wait(timeout=)` for a bounded reap, `hasattr`-guarded platform-gated functions
+- Reject: direct `/proc` parsing or platform syscall wrappers where psutil owns the metric, per-attribute reads outside `oneshot`, un-batched members folded inside `oneshot` as though it batched them, positional indexing of OS-specific named tuples, unguarded gated calls on macOS

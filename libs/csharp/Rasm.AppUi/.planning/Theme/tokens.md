@@ -368,18 +368,22 @@ public abstract partial record TokenRow {
     public sealed record Rank(TokenKey Key, int Value) : TokenRow;
 }
 
-public sealed record ResolvedTheme(
+// Equality is generated: the seven token maps are FrozenDictionary members the synthesized record form compares
+// by reference, so an identical regeneration read as a change; Palette is the mutable Avalonia resource object
+// REBUILT from Seed on every resolve, so it leaves equality rather than voiding it.
+[Equatable]
+public sealed partial record ResolvedTheme(
     ThemeVariantRow Variant,
     DensityRow Density,
     AppearanceSeed Seed,
-    FrozenDictionary<TokenKey, Color> Paints,
-    FrozenDictionary<TokenKey, double> Metrics,
-    FrozenDictionary<TokenKey, TextStyleRow> Types,
-    FrozenDictionary<TokenKey, BoxShadows> Depths,
-    FrozenDictionary<TokenKey, MaterialValue> Materials,
-    FrozenDictionary<TokenKey, Duration> Spans,
-    FrozenDictionary<TokenKey, int> Ranks,
-    ColorPaletteResources Palette) {
+    [property: UnorderedEquality] FrozenDictionary<TokenKey, Color> Paints,
+    [property: UnorderedEquality] FrozenDictionary<TokenKey, double> Metrics,
+    [property: UnorderedEquality] FrozenDictionary<TokenKey, TextStyleRow> Types,
+    [property: UnorderedEquality] FrozenDictionary<TokenKey, BoxShadows> Depths,
+    [property: UnorderedEquality] FrozenDictionary<TokenKey, MaterialValue> Materials,
+    [property: UnorderedEquality] FrozenDictionary<TokenKey, Duration> Spans,
+    [property: UnorderedEquality] FrozenDictionary<TokenKey, int> Ranks,
+    [property: IgnoreEquality] ColorPaletteResources Palette) {
     public Color Accent => Seed.Accent;
 
     public Option<Color> Paint(PaintRole role, int rung = 0) =>
@@ -1657,10 +1661,16 @@ public sealed class ThemeCell(
             .Filter(key => !previous.TryGetValue(key, out T? before) || !next.TryGetValue(key, out T? after) || !EqualityComparer<T>.Default.Equals(before, after))
             .OrderBy(static key => key.Value, StringComparer.Ordinal));
 
+    // Diff gates the no-op on the record's generated equality — an identical regeneration answers
+    // `previous.Equals(next)` and skips the fan whole; Changed survives per key because the receipt names WHICH
+    // tokens moved, a question the whole-record comparer cannot answer. Types rides the fan like every sibling map.
     static Seq<TokenKey> Diff(ResolvedTheme previous, ResolvedTheme next) =>
-        Changed(previous.Paints, next.Paints) + Changed(previous.Metrics, next.Metrics)
-            + Changed(previous.Depths, next.Depths) + Changed(previous.Materials, next.Materials)
-            + Changed(previous.Spans, next.Spans) + Changed(previous.Ranks, next.Ranks);
+        previous.Equals(next)
+            ? Seq<TokenKey>()
+            : Changed(previous.Paints, next.Paints) + Changed(previous.Metrics, next.Metrics)
+                + Changed(previous.Types, next.Types) + Changed(previous.Depths, next.Depths)
+                + Changed(previous.Materials, next.Materials) + Changed(previous.Spans, next.Spans)
+                + Changed(previous.Ranks, next.Ranks);
 }
 
 public static class ThemeRail {

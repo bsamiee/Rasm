@@ -13,7 +13,7 @@ Rasm.Compute solver discretization: one volumetric `MeshKernel` owner generating
 - Entry: `public static Fin<DiscreteMesh> Discretize(BoundaryShell boundary, MeshPolicy policy, IClock clock)` — `BoundaryShell.Validate` rejects malformed buffers, invalid indices, degenerate triangles, open edges, and inconsistent winding before generation; `MeshPolicy.Validate` rejects incoherent strategy/element and numeric policy values; `ShellIndex.Of` then builds the one inclusion index every core probes, and `Fin<T>` aborts on generation failure, on a measured hanging-node set no mortar column carries, or on an element failing the metric's directional quality threshold through `MeshMetric.Admits`; `Refine(DiscreteMesh, MeshPolicy, ReadOnlySpan<double> cellError, IClock)` re-meshes the Dörfler-marked cell set by the keyless `RefineKind` `H` (red subdivision), `P` (order elevation), or `Hp` (graded) axis returning the adapted mesh and the carried error estimator; `Quality(DiscreteMesh, MeshMetric)` reads the per-element metric once; `ElementClass.Sample((double, double, double) natural, ReadOnlySpan<double> nodalXyz)` is the isoparametric evaluation the assembly consumes and `ShapeGrad` is its gradient projection.
 - Auto: `Discretize` builds ONE `ShellIndex` and routes the `MeshStrategy` core by the algorithm row — a closed manifold solid routes the Bowyer-Watson `Delaunay` tetrahedralization over the boundary surface nodes with the `PointSource` interior seeds, a feature-graded fill routes the `Octree` hex recursion under origin-relative double-precision welding, a sweepable prism routes `Sweep` extrusion of the constrained 2-D Delaunay footprint section into one prism per section triangle per layer, and a floor-walled domain routes `Inflation` prism layers offset along PER-NODE averaged wall normals under first-layer thickness × growth ratio; every core filters cells by the indexed `Encloses` parity ray and packs the `DiscreteMesh` whose conformity the build MEASURED; `Sample` evaluates the `ShapeFamily` arm — Polynomial reads the lazily-memoized per-class Vandermonde coefficient matrix `(N_i = Σ_m C[m,i]·P_m(ξ))` and its monomial derivatives, Reduced reads the explicit serendipity corner/midside formulas, Pyramid the rational apex basis — then maps reference derivatives through the inline `dim×dim` Jacobian inverse to physical `∂N/∂x` and the determinant; `Refine` reads the per-cell error estimator and marks the cells whose estimator exceeds the policy fraction by the Dörfler bulk criterion, then either red-subdivides (h) the marked set expanded to its edge-conforming closure — any cell sharing a split edge joins the set to a fixpoint unless the mortar column carries the hanging node — or globally order-elevates (p) the element order — the marked set drives the hp routing decision while a uniform-order mesh elevates wholesale — through the shared edge-midpoint map so the interior stays conforming and a hanging node rides the mortar column only when the policy sets it; `Quality` folds the requested `MeshMetric` over the element set through the element class's `Metric` delegate, never a per-call recompute.
 - Receipt: the `Discretization` `ComputeReceipt` case carries the algorithm key, element-class key, node and element counts, the boundary-layer count, the worst-element quality scalar, the chosen metric key, and elapsed; `Refine` stamps the refinement level, the marked-cell count, the marking fraction, and the post-refine error estimator on the same case so an adaptive sweep is one receipt chain by correlation.
-- Packages: Rasm (project), MathNet.Numerics, CommunityToolkit.HighPerformance, System.Numerics.Tensors, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
+- Packages: Rasm (project), MathNet.Numerics, CommunityToolkit.HighPerformance, System.Numerics.Tensors, PureHDF (`H5File` graph assignment and `H5Dataset(object, chunks:, fileDims:)` behind `DiscreteMesh.Archive` — filter policy and write mechanics stay the `Runtime/codecs#HDF_ARCHIVE` owner's), Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
 - Growth: a new element topology is one `ElementClass` row carrying its `ShapeFamily`, reference-node table, monomial space, corner/edge/face tables, and its `(ReferenceElement, IntegrationOrder)` pair; a new generation strategy is one `MeshAlgorithm` row carrying its `MeshStrategy`/`PointSource`/base-element columns and its core; a new quality measure is one `MeshMetric` row carrying its per-element delegate; a new field rank is one `FieldSpace` rank row; a higher-order Gauss rule is one entry on the kernel `ReferenceElement` ladder and lifts every element declaring that order with zero edits here; zero new surface.
 - Boundary: the mesher is the volumetric discretization owner the FEA/CFD solve consumes — the boundary triangulation enters as the `BoundaryShell` triangle soup the host `Mesh.CreateFromBrep(brep, MeshingParameters)` tessellation produces — wrapped through the `Rasm.Meshing` `MeshSpace.Of(Mesh, Context)` owner (the `Brep` coerced via the `Rasm` `Domain` `GeometryRequest.BrepForm` owner) and flattened to the `Vertices`/`Triangles` soup at the boundary through `DuplicateNative().Vertices.ToFloatArray()` and `DuplicateNative().Faces.ToIntArray(asTriangles: true)` — and the inclusion test is the owned ray-cast, so this kernel never re-derives a surface mesher and never leaks a host geometry type into a solve signature.
 - Boundary: inclusion is ONE `ShellIndex` per `Discretize`, threaded to every core: the shell is immutable across a generation while seeding, octree recursion, and section rasterization each drive millions of probes, so a per-probe scan over the whole triangle soup makes generation quadratic in the boundary it meshes. `BoundaryShell.Validate` proves the soup closed, manifold, and consistently wound before the index builds, which is what makes an odd crossing count interiority rather than a heuristic. `ShellIndex` stays this page's owner by query shape, never package availability — the `Solver/clash#CLASH_AND_TWIN` `AccelerationStructure` answers boolean occlusion over admitted host-typed scenes while generation needs a parity-crossing COUNT over its own shell facets, and widening the clash surface to serve one sibling's interior couples two lanes the strata keep separate; the two-owner split mirrors the folder's standing two-funnel adjudications.
@@ -391,6 +391,12 @@ public sealed record FieldSpace(FieldStation Station, int Rank, int Components, 
             : Fin.Fail<FieldSpace>(new ComputeFault.ModelRejected($"<field-station-key:{station}>"));
 
     public long Cardinality => Count * Components;
+
+    // Container layout is a PROJECTION of the one `Runtime/codecs` station-outermost grid derivation — every
+    // FieldSpace-shaped producer (solve history, ensemble store, field encode) reads its file dims and chunk grid
+    // here, so a second chunk-grid arithmetic beside `FieldCodec.Grid` never forks the address a consumer computes.
+    public (ulong[] FileDims, uint[] Chunks) Layout(int targetChunkElements = FieldCodec.ChunkElementTarget) =>
+        FieldCodec.Grid([checked((int)Count)], Components, targetChunkElements);
 }
 
 public sealed record BoundaryShell(ReadOnlyMemory<float> Vertices, ReadOnlyMemory<int> Triangles, Aabb Bounds) {
@@ -613,6 +619,29 @@ public sealed record DiscreteMesh(
     Option<double> ErrorEstimate,
     Instant At) {
     public FieldSpace FieldOf(FieldStation station, int rank, int dim) => new(station, rank, Components(rank, dim), station.Count(this));
+
+    // Mesh archive: nodes and connectivity as two plain datasets with the election evidence as attributes — one
+    // create-only container per mesh, keyed by the caller off the owning problem's content key, so a sweep reuses
+    // one discretization across thousands of variants without re-meshing and a transient or modal archive's
+    // `H5ObjectReference` resolves its geometry without a second decode. Whole-graph `Write` (never a deferred
+    // session): both datasets are single-shot and the archive law's chunk machinery buys nothing at mesh scale.
+    public Fin<Unit> Archive(Stream sink, HdfArchivePolicy policy) =>
+        Try.lift(() => {
+            H5File graph = new() {
+                // A filtered dataset MUST be chunked — the filter pipeline applies per chunk — so both datasets chunk on a
+                // bounded row block rather than riding an unchunked contiguous layout the filters cannot touch.
+                ["nodes"] = new H5Dataset(Nodes.ToArray(), chunks: [(uint)Math.Min(NodeCount, 1 << 16), 3U], fileDims: [(ulong)NodeCount, 3UL], datasetCreation: policy.Creation()),
+                ["connectivity"] = new H5Dataset(Connectivity.ToArray(), chunks: [(uint)Math.Min(ElementCount, 1 << 16), (uint)Element.Nodes], fileDims: [(ulong)ElementCount, (ulong)Element.Nodes], datasetCreation: policy.Creation()),
+            };
+            graph.Attributes["element"] = Element.Key;
+            graph.Attributes["algorithm"] = Algorithm.Key;
+            graph.Attributes["metric"] = Metric.Key;
+            graph.Attributes["worst-quality"] = WorstQuality;
+            graph.Attributes["refine-level"] = RefineLevel;
+            ErrorEstimate.Iter(estimate => graph.Attributes["error-estimate"] = estimate);
+            graph.Write(sink);
+            return unit;
+        }).Run().MapFail(static error => (Error)new ComputeFault.ModelRejected($"<mesh-archive:{error.Message}>"));
 
     public ReadOnlyTensorSpan<float> NodeTensor =>
         TensorMarshal.CreateReadOnlyTensorSpan(ref MemoryMarshal.GetReference(Nodes.Span), Nodes.Length, [(nint)NodeCount, 3], [], pinned: false);

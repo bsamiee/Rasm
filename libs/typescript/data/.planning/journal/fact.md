@@ -18,7 +18,7 @@ Journal append is the system of record — a missing metric point is a dashboard
 - Growth: a new evidence kind is one `Change` case with its arm in consumers' folds; a new metered resource is one `_resources` row with its rating rate row; a new fact stream is one more tagged member of the union — the table, the rail, and the grooming inherit it.
 - Law: diff evidence is the closed `Change` family — `Assigned { path, next }`, `Shifted { path, prior, next }`, `Cleared { path, prior }` — with `path` a JSON-pointer-shaped brand; a free-form details bag is the rejected shape because policy cannot fold what it cannot type.
 - Law: the audit `action` brand is the dotted verb path — pattern-refined at the field so the vocabulary stays greppable and dashboard-groupable without a central verb registry; attribute NAMES live on the observability convention owner, the fact SHAPE lives here, and the drain's own fan is what makes the verb groupable on a series rather than on a log search alone.
-- Law: the metered `_RESOURCES` roster is a CROSS-BRANCH vocabulary the python journal owner (`libs/python/runtime/.planning/observability/journal.md` `Resource`) transcribes row for row, so a fifth resource lands as one row in BOTH spellings beside its rate row — a runtime-local addition forks the vocabulary the peer prices against and strands a billing window that folds one branch's rows against the other's rates.
+- Law: the metered `_RESOURCES` roster is a CROSS-BRANCH vocabulary the python journal owner (`libs/python/runtime/.planning/observability/journal.md` `Resource`) transcribes row for row, so a further resource lands as one row in BOTH spellings beside its rate row — a runtime-local addition forks the vocabulary the peer prices against and strands a billing window that folds one branch's rows against the other's rates.
 - Law: metric-egress tenancy diverges from that peer BY DESIGN and the divergence is stated at both ends — this branch prices the tenant tag per resource on the `tenantTag` column, since the roster is small and each resource's tenant cardinality is its own fact, while the python owner's drain projects OUTSIDE any producer's context and its attribute fold reads tenancy from baggage, so that branch's journal series carry no tenant dimension at all and resolve tenancy on the row alone; the journal row carries tenancy identically on both, so only the lossy metric projection differs.
 - Law: retention is `Retain.Class` — an audit fact references the class its policy demands (`regulatory` for compliance evidence, `operational` for routine trails), a meter fact is `regulatory` by constitution because it is billing truth; the retain grooming enforces the windows, this family only carries the key.
 - Law: erasure rides the subject pair, never the diff family — an identifying value seals under the subject's data key and lands in `sealed` while `subject` carries the custody coordinate, so destroying that key redacts the identifier and leaves the verb, the actor class, the target, and the instant queryable; a subject spelled into a `Change` value survives erasure in plaintext, which is the defect this pair forecloses.
@@ -34,10 +34,11 @@ import { SealedEnvelope } from "@rasm/ts/security"
 import { Retain } from "./retain.ts"
 
 const _ACTORS = ["user", "service", "system"] as const
-const _RESOURCES = ["compute", "request", "storage", "token"] as const
+const _RESOURCES = ["compute", "record", "request", "storage", "token"] as const
 
 const _resources = {
   compute: { tenantTag: false, unit: "ms" },
+  record: { tenantTag: true, unit: "count" },
   request: { tenantTag: true, unit: "count" },
   storage: { tenantTag: false, unit: "byte" },
   token: { tenantTag: true, unit: "count" },

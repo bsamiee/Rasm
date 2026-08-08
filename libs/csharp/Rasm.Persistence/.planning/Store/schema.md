@@ -170,6 +170,7 @@ public abstract partial record ContractFault : Expected, IValidationError<Contra
 - Law: source-generated `System.Text.Json` writes a scalar-and-array wire shape with no dictionary-order ambiguity.
 - Law: kernel `ContentHash.Of` mints the `UInt128` generation key; no cryptographic or language-local digest competes.
 - Law: `JsonSchemaExporter` derives the JSON Schema from the same source-generated contract used for serialization.
+- Law: `CapabilityContract`→`CapabilityWire` is generated `[Mapper]` transcription — the `Rank.Key`/`Restart.Key` SmartEnum keys flatten under `[MapProperty]` — while `ArtifactWire` keeps its hand copyist because provider dedup-and-order is a value transform no mapper expresses.
 - Entry: callers supply admitted artifacts, and framework-native compilation produces each artifact's canonical content bytes.
 
 ```csharp signature
@@ -227,7 +228,7 @@ public static class ContractComposition {
             [.. capabilities
                 .Select(CapabilityContract.From)
                 .OrderBy(static row => row.Key, StringComparer.Ordinal)
-                .Select(Wire)]));
+                .Select(CapabilityMap.Wire)]));
 
     // Polyglot merge unions branch contributions by artifact key under the one ordinal order every mint path
     // shares, then re-projects so the merged generation mints over the merged canonical bytes. Two branches
@@ -346,13 +347,16 @@ public static class ContractComposition {
             .Distinct(StringComparer.Ordinal)
             .Order(StringComparer.Ordinal)]);
 
-    static CapabilityWire Wire(CapabilityContract row) => new(
-        row.Key,
-        row.Lane,
-        row.Requirement,
-        row.RequirementValue,
-        row.Rank.Key,
-        row.Restart.Key);
+}
+
+// Pure rename-and-flatten crossing, so the projection is generated: the SmartEnum keys flatten under
+// [MapProperty] paths, and the strategy pin keeps every unmapped member a build break. ArtifactWire keeps its
+// hand copyist above — provider dedup-and-order is a value transform no mapper expresses.
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Both)]
+internal static partial class CapabilityMap {
+    [MapProperty("Rank.Key", nameof(CapabilityWire.FailureRank))]
+    [MapProperty("Restart.Key", nameof(CapabilityWire.RestartClass))]
+    public static partial CapabilityWire Wire(CapabilityContract row);
 }
 ```
 

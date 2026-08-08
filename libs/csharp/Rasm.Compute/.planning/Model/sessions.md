@@ -1,6 +1,6 @@
 # [COMPUTE_SESSIONS]
 
-`ModelSessions` shares one `InferenceSession` per policy-complete `ResidentKey`, one device-keyed warm artifact, and one allocator lease map. A fleet roster keyed on the profile-stripped identity owns the capped registered shape buckets and their measured warm evidence; the capsule serializes lifecycle, binds every cold load to a cancellation latch, and admits every warm artifact through `AdmitContext`.
+`ModelSessions` shares one `InferenceSession` per policy-complete `ResidentKey`, one device-keyed warm artifact, and one allocator lease map. Its fleet roster, keyed on the profile-stripped identity, owns the capped registered shape buckets and their measured warm evidence; the capsule serializes lifecycle, binds every cold load to a cancellation latch, and admits every warm artifact through `AdmitContext`.
 
 `SessionPolicy`, `ResidentKey`, and `ModelSessions` own boot, lease, open, allocation, warmup, eviction, drain, and compilation. ONNX Runtime supplies session and allocator surfaces; `CpuBudget`, `CancelScope`, receipt ports, identity fingerprints, provider policy with its `WarmForm` axis, and `BoundFlow` arrive settled.
 
@@ -13,15 +13,15 @@
 - Owner: `SessionPolicy` lifecycle record with its `SessionRows` fingerprint projection; `ResidentKey` the policy-complete resident identity (`Checksum` + the `ModelFingerprint.Of` fold over every construction-behavior column) beside its profile-stripped `Warm` projection; `PlannedLoad` the options-plus-latch load capsule; `WarmSite` one cold open's warm decision (artifact key, path, admissibility, optimization level); `ModelSessions` capsule owning the `Gate`-serialized OrtEnv boot with its token-gated blob leg, the resident-session map (each `Resident` carries `ExecutionProvider`, its warm key, and warm-start `Option<ArtifactIndexRow>`), the fleet `WarmRoster` map keyed on that warm key, the shared-device-allocator lease map, the selected `SessionPlacement` readback, the single form-aware `ContextKey` warm identity, the single `AdmitContext` warm-artifact owner, the single `Faulted` native-fault classifier, and the warmup, idle-eviction, drain, and sweep rows.
 - Law: warm-up is PER BUCKET. ORT plans its memory pattern per executed shape, so one warm pulse at one representative shape leaves every other shape a cold first run, and a caller that tiles against fixed buckets runs exactly the shapes it declared. Consumers REGISTER each bucket they will run, capped by `SessionPolicy.WarmBuckets` so a per-request extent never grows an unbounded warm set, and the sweep then pulses every registered bucket on the resident's own session.
 - Law: every WARM identity strips profiling and session identity does not. `SessionRows` keeps the `profiling` column because the flag changes the session ORT builds, so two residents cannot alias; but the bucket roster, the partition census, and the warm artifact are properties of the OPTIMIZED GRAPH and its EP set, which profiling moves not at all. `ResidentKey.Warm` therefore re-derives the fingerprint over a profile-cleared policy, and the roster map, `Warm`, `Partitions`, `ContextKey`, and the fleet `Compile` all key there — so the one profiling lease that reads a graph's partition census publishes evidence every production resident reads, and one compiled context serves both. Keying them to the full identity strands each measurement inside the lease that took it, leaves the production resident reading an absent count forever, and re-compiles a context the fleet already owns.
-- Law: rosters OUTLIVE residents. A partition census belongs to the graph rather than to a session, so eviction drops the session and keeps the roster: a re-leased resident reads back the measurement the fleet already paid for, and the map bounds at the model-and-policy product the fleet actually opens rather than at the residency cap. `Drain` clears it whole because that is process teardown, not eviction.
+- Law: rosters OUTLIVE residents. Eviction drops the session and keeps the roster because the partition census belongs to the graph, never the session: a re-leased resident reads back the measurement the fleet already paid for, and the map bounds at the model-and-policy product the fleet opens rather than at the residency cap. `Drain` clears it whole because that is process teardown, not eviction.
 - Law: each bucket carries the evidence its own pulse MEASURED — graph partition count, pulse duration, warm instant — and nothing else. `WarmEvidence` replaces `Unit` on the pulse return because the caller that ran the shape is the only surface observing how the graph partitioned for it; an unmeasured column stays `None` and a consumer needing it refuses rather than reading a zero as an observation. Buckets only ever seat a shape someone will RUN: seeding admits a fully static model signature and nothing else, and a registration re-binding a seated key to a different shape refuses instead of keeping the first shape under the second consumer's name.
 - Law: COLD opens build native state outside `Gate`. Session construction runs graph optimization and provider compilation, so serializing it behind the one lock stalls every lease of every other model for the duration; two threads racing one cold key both build, `Publish` seats the first, and the loser disposes its own build and leases the seated resident — one redundant build instead of a serialized fleet, and never two live sessions forking one warm roster.
 - Law: that same cold build is CANCELLABLE. `SetLoadCancellationFlag` registered off the lease's own `CancelScope` is the load-time counterpart to the run-side `Terminate` latch, so a deadline bounds the load it precedes rather than only the run that follows it, a shutting-down host aborts the cold opens a `SweepRow` stacked instead of paying every one, and a cancelled first pass stops re-paying the full compile. `Faulted` then classifies by provenance — a fired deadline is `DeadlineExpired`, another cancellation is `Cancelled` — because a latch-aborted load raises the same `OnnxRuntimeException` a genuine rejection does, and reporting a cancelled load as `ModelRejected` sends a retry policy after a model that was never wrong.
-- Law: the warm form decides what a cold open LOADS, and the managed hit loads BY PATH. `WarmForm.EpContext` leaves the source bytes and the policy's optimization level alone and reads its blob through the bound `ep.context_*` keys; `WarmForm.OptimizedGraph` opens the artifact ITSELF at `ORT_DISABLE_ALL` through the path-taking `InferenceSession(string, SessionOptions, PrePackedWeightsContainer)` constructor, so ORT memory-maps a graph that runs to hundreds of megabytes and the process pays no managed copy of it — reading that file into an array and handing the array over costs one full read AND one full copy of bytes ORT maps anyway, which is most of the cost the form exists to remove. Model bytes materialize to a `byte[]` exactly ONCE per open or compile, at the single native hand-off that demands an array. A mapped graph that will not construct answers MISS by re-siting at the policy's own level, so a file deleted between the existence probe and the open, or truncated by a crashed writer, costs one cold optimization rather than a refused lease.
-- Entry: `public static Fin<SessionLease> Lease(ModelIdentity model, ReadOnlyMemory<byte> bytes, ExecutionProvider ep, SessionPolicy policy, string artifactDir, CancelScope scope, IClock clock)` aborts on rejected admission; every lease carries the resident's own stored warm row — a hit reports the artifact its resident opened against rather than reporting none, because warm-start evidence is a property of the SESSION and a consumer that leased a warmed resident otherwise reads a cold one — and `SessionLease.Dispose` stamps release time and decrements the resident hold exactly once. `WarmStartAdmissible` dispatches on the provider row's own `WarmForm` — the EP-context arm reads the compiled artifact's embedded compat info while the managed and engine-cache arms read presence against a runtime-keyed artifact name — so an incompatible, stale, or absent warm artifact degrades to a fresh session without one. `SessionLease` CARRIES both identities, so `public static Fin<Unit> Warm(ResidentKey warm, string bucket, long[] shape)` and `public static Option<int> Partitions(ResidentKey warm, string bucket)` reach the fleet roster off the handle a consumer already holds rather than re-deriving it from model, provider, and policy.
+- Law: the warm form decides what a cold open LOADS, and the managed hit loads BY PATH. `WarmForm.EpContext` leaves the source bytes and the policy's optimization level alone and reads its blob through the bound `ep.context_*` keys; `WarmForm.OptimizedGraph` opens the artifact ITSELF at `ORT_DISABLE_ALL` through the path-taking `InferenceSession(string, SessionOptions, PrePackedWeightsContainer)` constructor, so ORT memory-maps a graph that runs to hundreds of megabytes and the process pays no managed copy of it — reading that file into an array and handing the array over costs one full read AND one full copy of bytes ORT maps anyway, which is most of the cost the form exists to remove. Model bytes materialize to a `byte[]` exactly ONCE per open or compile, at the single native hand-off that demands an array. Construction failure over a mapped graph answers MISS by re-siting at the policy's own level, so a file deleted between the existence probe and the open, or truncated by a crashed writer, costs one cold optimization rather than a refused lease.
+- Entry: `public static Fin<SessionLease> Lease(ModelIdentity model, ReadOnlyMemory<byte> bytes, ExecutionProvider ep, SessionPolicy policy, string artifactDir, CancelScope scope, IClock clock)` aborts on rejected admission; every lease carries the resident's own stored warm row — a hit reports the artifact its resident opened against rather than reporting none, because warm-start evidence is a property of the SESSION and a consumer that leased a warmed resident otherwise reads a cold one — and `SessionLease.Dispose` stamps release time and decrements the resident hold exactly once. `WarmStartAdmissible` dispatches on the provider row's own `WarmForm` — the EP-context arm reads the compiled artifact's embedded compat info while the managed and engine-cache arms read presence against a runtime-keyed artifact name — so an incompatible, stale, or absent warm artifact degrades to a fresh session without one. `SessionLease` CARRIES both identities, so `public static Fin<Unit> Warm(ResidentKey warm, string bucket, long[] shape)` and `public static Option<int> Partitions(ResidentKey warm, string bucket)` reach the fleet roster off the handle a consumer already holds rather than re-deriving it from model, provider, and policy. `SessionPolicy.Pack(HdfHandle, ModelIdentity)` loads the HDF5 initializer pack through `Runtime/codecs#HDF_ARCHIVE` — the `/initializers` group's children ARE the roster, each child's dtype row admitting through `TensorVocabulary.Admit(IH5DataType)` and its extents through `Space.Dimensions`, the content key hashed over the staging span BEFORE `TensorBridge.Ingress`, and the minted value re-proving through `ModelIdentity.Initializer` before any session options carry it.
 - Auto: `Boot` binds the blob leg under `Gate` TOKEN-GATED — a second boot passing the same leg is idempotent and one passing a different leg refuses typed, because every admitted context row names an artifact this leg wrote and a silent rebind re-homes every later write while every earlier row keeps pointing at the first store. `CustomOpLibrary.Admit` content-keys each native asset before it enters `SessionPolicy`; `Admit` re-hashes the model bytes and every custom-op asset, rejects nonpositive capacity/durations, invalid or duplicate free dimensions and initializers, zero initializer content identities, duplicate custom-op paths, and every initializer that misses the model's exact tensor schema before `Lease` or `Compile` reaches native state. `Options` then folds the site's optimization level, free dimensions, initializers, execution, memory, profiling, device policy, provider registration, the row's own `BindWarm` warm-state write, custom ops, and finally the load-cancellation registration once for both open and fleet compile, returning the `PlannedLoad` capsule that owns both halves. `ResidentKey.Of(model, ep, policy)` joins checksum with the `ModelFingerprint.Of` fold over every construction-behavior column, including each initializer and custom-op content key, so equal paths or names carrying different bytes cannot alias one resident or compiled context, while `ResidentKey.Warm` re-folds that same projection over a profile-cleared policy for every roster and artifact identity. `DeviceFingerprint` folds the EP, hardware, and provider metadata tables into context and allocator identity too. `Placement` zips ordered input names with `GetEpDeviceForInputs` and `GetMemoryInfosForInputs`, zips output names with `GetMemoryInfosForOutputs`, and rejects any native cardinality mismatch before returning provider/memory evidence. `Lease` increments `Resident.Leases` under `Gate`; `SessionLease.Dispose` decrements once through `Interlocked.Exchange`; `Unload` removes only zero-lease residents older than its threshold; `Drain` releases shared allocators only after no resident remains. `Warmup` acquires temporary leases over its snapshot, expands each resident against its own bucket roster, and releases every lease in `finally`, so a sweep cannot dispose a pulsed session; the bucket fold ACCUMULATES rather than short-circuits, so one unwarmable shape refuses alone instead of leaving every later bucket and every later resident cold on a schedule refusing at the same point each sweep; each pulse's measured evidence folds back onto its bucket row under `Gate` before the receipt mints, so evidence and receipt cannot disagree. `Site` derives the warm decision once — the form's own artifact key, its admissibility, and the bytes and level the session takes — and `Open` then admits through the single `AdmitContext` owner under the same `ContextKey(ResidentKey, device, WarmForm)` the fleet `Compile` writes, publishing on the side of the miss its form sits on: an EP-context open indexes the blob it bound, a managed open indexes the graph its construction wrote. `Compile` refuses a row whose warm form compiles no partition and forces its own site to a miss, so a fleet sweep never reads the file it is about to overwrite. `StaticShape` reads the first `SlotShape.Tensor` and answers only when every dimension is fixed, so `Seed` lands a first bucket for a model whose signature already names one shape and lands NOTHING for a model carrying a free dimension — a dynamic dim collapsed to `1` mints a shape no consumer runs and a downsampling graph refuses outright.
 - Receipt: `Warmup` returns `Fin<Seq<(ComputeReceipt.Warmup, Option<ArtifactIndexRow>)>>`, preserving any pulse fault and carrying one checksum, provider, BUCKET KEY, and warm-start row per warmed bucket — the receipt's shape column carries the bucket spelling the registering consumer used, so a fleet reading warm facts and a stage reading its own bucket name the same string and no receipt case widens; `DrainRow` emits one `ComputeReceipt.Drain(Drained, 0, 0)` on `DrainBand.Compute`, where `Drained` is the unloaded-session count and the capsule owns no admission queue. Both carry `ReceiptScope.Execution(Substrate.Onnx, WorkLane.Background, AllocationClass.NativeOrt)` and drain emission crosses the sink-bound `ReceiptSurface` under one `CorrelationId`.
-- Packages: Microsoft.ML.OnnxRuntime, System.IO.Hashing, LanguageExt.Core, NodaTime, Rasm (project, `Domain.ContentHash`), Rasm.AppHost (project), Rasm.Persistence (project), BCL inbox
+- Packages: Microsoft.ML.OnnxRuntime, System.IO.Hashing, PureHDF (`IH5Object.Name`/`Children`, `NativeDataset.Type`/`Space.Dimensions`, `NativeDataset.Read<T>(H5DatasetAccess, Span<T>, …)`, `HyperslabSelection`), Generator.Equals (`[Equatable]`, `[OrderedEquality]`, `[IgnoreEquality]`), LanguageExt.Core, NodaTime, Rasm (project, `Domain.ContentHash`), Rasm.AppHost (project), Rasm.Persistence (project), BCL inbox
 - Growth: a lifecycle change is one `SessionPolicy` value; a new construction-behavior column is one `SessionRows` row that automatically re-keys residency and — unless it is trace-only, which `ResidentKey.Warm` clears — the warm artifacts too; a further warm-start mechanism is one `Model/providers#EP_AXIS` `WarmForm` row whose suffix and runtime-keying columns this derivation already reads, never a second load path here; a further load-time bound is one more registration on the existing `PlannedLoad`, never a second cancellation owner; the warm-start and the fleet compile both admit through the single `AdmitContext` owner over the single `ContextKey` derivation, never a second cache, artifact owner, or filename scheme; the fleet-shared context is one `Compile` member publishing a `ContextKey(ResidentKey, device, WarmForm)`-keyed `ArtifactIndexRow` through the same blob-lane owner, never a second EP-cache; a warmup or drain fact is one existing `ComputeReceipt.Warmup`/`Drain` case through the one `ReceiptSurface`, never a parallel receipt owner; a new warm strategy is the injected `pulse`, never a second warm surface, and a further shape to warm is one `Warm` registration on the existing roster; a further measured warm fact is one `WarmEvidence` column folded onto the bucket row, never a second evidence owner; a quantized session is `SessionPolicy.Precision` set to `Int8`/`Int4` OVER settled pre-quantized model bytes — the row is execution posture (`QuantizedGraph` evidence, MatMulNBits accuracy floor, accumulation), never a graph transform, and the quantized graph carries its own checksum identity — flowing through the existing `Options` rail with residency and context reuse re-keyed by the same `SessionRows` fold, never a quantization-specific owner; a sequential-versus-parallel posture is the `SessionPolicy.Execution` column folded into `options.ExecutionMode`, never a second session owner.
 - Boundary: `ModelSessions` is the `CAPSULE_OWNER`. ORT sessions are thread-safe for concurrent `Run`, so all lanes share one `InferenceSession` per `ResidentKey`; `SessionLease` is the only lifetime handed to a run. `Gate` serializes boot — including the token-gated blob-leg bind, a static every context admission reads — beside resident acquire/publish/release/eviction, every warm-roster registration and observation, and shared allocator create/release; native session and context CONSTRUCTION stays outside it, which is the whole reason a cold open can lose a race and dispose its own build. Immutable maps replace retry-capable `Atom.Swap` mutation, so no capture or native effect can replay. `PlannedLoad` is transient and disposes after `InferenceSession` or `OrtModelCompilationOptions` consumes its options, releasing the load latch first so the token can never reach freed native state; `PrePackedWeightsContainer` alone spans sessions. `DisablePerSessionThreads` binds every session to the global pool `Boot` derives from `CpuBudget`. Warm artifacts — compiled `ep.context_*` blobs and managed optimized graphs alike — and profiles land WRITE-BLOB-FIRST: the Boot-bound Persistence object-store leg persists the bytes, and only durable residence publishes the `ArtifactIndexRow.Admit(kind, key, bytes, classification, at, sourceKey)` row — an unbound leg or a failed write publishes no row, so a dangling index cannot name unavailable content; retention derives from `ArtifactKind.Retention`, and each warm artifact projects under its model checksum. `ContextKey(ResidentKey, device, WarmForm)` is the sole warm identity for lookup, compilation, admission, and transport, and it takes the PROFILE-STRIPPED key: it cannot alias sessions whose provider options or construction policy differ, it deliberately DOES alias a profiling session with the production one that shares its graph, the form's suffix keeps the two mechanisms' artifacts distinct inside one derivation, and the runtime version enters only for the form carrying no compat info of its own — so a managed graph another ORT wrote misses its key instead of loading under a runtime that never produced it. `Placement` closes autoEP selection and I/O memory residency with post-construction evidence. Shared allocators release only after all resident leases drain; `Unload` never disposes a session under an active run.
 
@@ -75,6 +75,48 @@ public sealed record SessionPolicy(
         new("initializers", string.Join(';', Initializers.OrderBy(static slot => slot.Name, StringComparer.Ordinal).Select(static slot => $"{slot.Name}={slot.ContentKey:x32}"))));
 
     public sealed record Initializer(string Name, OrtValue Value, UInt128 ContentKey);
+
+    // HDF5 initializer PACK over Runtime/codecs#HDF_ARCHIVE: the `/initializers` group's CHILDREN are the roster
+    // — no manifest dataset exists to drift beside it — each child one deployment constant.
+    public static Fin<Seq<Initializer>> Pack(HdfHandle archive, ModelIdentity model) =>
+        Try.lift(() => {
+                if (!archive.Exists("initializers")) { throw new InvalidDataException("<initializer-pack-roster>"); }
+                return toSeq(archive.Group("initializers").Children()).Map(static child => child.Name);
+            }).Run()
+            .MapFail(static error => (Error)new ComputeFault.ModelRejected($"<initializer-pack:{error.Message}>"))
+            .Bind(names => names.Traverse(name => Packed(archive, model, name).ToValidation()).As().ToFin());
+
+    // Dtype and shape gate off the ARCHIVE's own metadata — `TensorVocabulary.Admit(IH5DataType)` binds the row,
+    // `Space.Dimensions` the extents — and the minted value re-proves through `ModelIdentity.Initializer`, so a
+    // pack whose constant disagrees with the model's slot refuses before any session options carry it.
+    static Fin<Initializer> Packed(HdfHandle archive, ModelIdentity model, string name) =>
+        Try.lift<Fin<Initializer>>(() => {
+                NativeDataset dataset = archive.Dataset($"initializers/{name}");
+                long[] shape = [.. dataset.Space.Dimensions.Select(static dim => checked((long)dim))];
+                return TensorVocabulary.Admit(dataset.Type).Bind(row =>
+                    (row.Element switch {
+                        TensorElementType.Float => Staged<float>(archive, dataset, shape),
+                        TensorElementType.Double => Staged<double>(archive, dataset, shape),
+                        TensorElementType.Int32 => Staged<int>(archive, dataset, shape),
+                        TensorElementType.Int64 => Staged<long>(archive, dataset, shape),
+                        _ => Fin.Fail<(OrtValue Value, UInt128 Key)>(new ComputeFault.ModelRejected($"<initializer-pack-dtype:{name}:{row.Key}>")),
+                    })
+                    .Bind(staged => model.Initializer(name, staged.Value)
+                        .Map(gated => new Initializer(gated.Name, gated.Value, staged.Key))));
+            }).Run()
+            .MapFail(static error => (Error)new ComputeFault.ModelRejected($"<initializer-pack:{name}:{error.Message}>"))
+            .Bind(identity);
+
+    // Content-key hashing reads the STAGING span BEFORE `TensorBridge.Ingress`, so the key names the bytes the
+    // OrtValue was built from and a device re-read can never re-key a constant already resident.
+    static Fin<(OrtValue Value, UInt128 Key)> Staged<T>(HdfHandle archive, NativeDataset dataset, long[] shape) where T : unmanaged {
+        long count = shape.Aggregate(1L, static (acc, dim) => acc * dim);
+        T[] staging = new T[checked((int)count)];
+        ulong[] dims = [.. shape.Select(static dim => (ulong)dim)];
+        dataset.Read<T>(archive.Access, staging.AsSpan(), new HyperslabSelection(shape.Length, new ulong[shape.Length], dims));
+        UInt128 key = ContentHash.Of(MemoryMarshal.AsBytes<T>(staging.AsSpan()));
+        return TensorBridge.Ingress(staging, shape).Map(value => (Value: value, Key: key));
+    }
 
     public sealed record CustomOpLibrary {
         CustomOpLibrary(string path, UInt128 contentKey) => (Path, ContentKey) = (path, contentKey);
@@ -135,9 +177,9 @@ public static class ModelSessions {
         Seq<(string Name, string Memory)> Outputs);
 
     // Leases CARRY both identities: `Key` releases the session it holds, `Warm` reaches the fleet roster a bucket
-    // registration and a partition read both key on. A holder unable to name either re-derives it from model,
-    // provider, and policy — a second derivation of an identity this capsule already computed, and the one place
-    // the two silently diverge.
+    // registration and a partition read both key on. Withholding either forces the holder to re-derive it from
+    // model, provider, and policy — a second derivation of an identity this capsule already computed, and the
+    // one place the two silently diverge.
     public sealed class SessionLease : IDisposable {
         readonly IClock clock;
         int released;
@@ -166,9 +208,15 @@ public static class ModelSessions {
 
     // One registered shape and everything measured about it. Key is the CONSUMER's spelling — a tile bucket edge, a
     // sequence length — never a re-derivation of the tensor dims, so the surface that registers and the surface that
-    // reads back name one string.
-    public readonly record struct WarmBucket(
-        string Key, long[] Shape, Option<int> Partitions, Option<Duration> Elapsed, Option<Instant> WarmedAt);
+    // reads back name one string. `[Equatable]` compares REGISTRATION identity alone: `Shape` orders element-wise
+    // (a long[] member is reference-compared under record-struct equality) and every measured column is IGNORED,
+    // so a repeat registration proves idempotence by VALUE and never resets what its last pulse measured.
+    [Equatable]
+    public readonly partial record struct WarmBucket(
+        string Key, [property: OrderedEquality] long[] Shape,
+        [property: IgnoreEquality] Option<int> Partitions,
+        [property: IgnoreEquality] Option<Duration> Elapsed,
+        [property: IgnoreEquality] Option<Instant> WarmedAt);
 
     sealed record Resident(
         InferenceSession Session, ExecutionProvider Ep, ResidentKey Warm,
@@ -232,7 +280,7 @@ public static class ModelSessions {
             .Map(opened => Publish(key, warm, model, ep, policy, opened.Session, opened.WarmStart, clock));
     }
 
-    // A hit reports the resident's OWN warm row: warm-start evidence is a property of the session, so answering
+    // Hits report the resident's OWN warm row: warm-start evidence is a property of the session, so answering
     // `None` told every consumer after the first that it had leased a cold session and left a fleet reading warm
     // facts off the one lease that happened to open the artifact.
     static Option<SessionLease> Acquire(ResidentKey key, IClock clock) {
@@ -310,7 +358,9 @@ public static class ModelSessions {
                 return Fin.Fail<Unit>(new ComputeFault.ModelRejected($"<warm-bucket-shape:{bucket}>"));
             }
             if (roster.Buckets.Find(bucket).Case is WarmBucket seated) {
-                return seated.Shape.AsSpan().SequenceEqual(shape)
+                // Generated comparer reads registration identity (Key + ordered Shape) and ignores the measured
+                // columns, so idempotence is one value comparison rather than a hand-rolled SequenceEqual.
+                return WarmBucket.EqualityComparer.Default.Equals(seated, new WarmBucket(bucket, shape, None, None, None))
                     ? Fin.Succ(unit)
                     : Fin.Fail<Unit>(new ComputeFault.ModelRejected($"<warm-bucket-conflict:{bucket}>"));
             }
@@ -486,8 +536,8 @@ public static class ModelSessions {
         }
     }
 
-    // The site names WHERE the artifact sits and at what level the session opens; it carries no bytes, because the
-    // managed hit reads its graph by path and every other arm reads the caller's own source memory.
+    // `WarmSite` names WHERE the artifact sits and at what level the session opens; it carries no bytes because
+    // managed hits read the graph by path and every other arm reads the caller's own source memory.
     static WarmSite Site(ResidentKey key, ExecutionProvider ep, SessionPolicy policy, string artifactDir, Seq<OrtEpDevice> devices) =>
         ContextKey(key, devices.Head, ep.Warm) switch {
             var artifactKey => Path.Combine(artifactDir, artifactKey) switch {
@@ -527,7 +577,7 @@ public static class ModelSessions {
     static Fin<(InferenceSession Session, Option<ArtifactIndexRow> WarmStart)> OpenAdmitted(ResidentKey warm, ReadOnlyMemory<byte> bytes, ExecutionProvider ep, SessionPolicy policy, WarmSite site, CancelScope scope, IClock clock, PlannedLoad load) {
         using (load) {
             try {
-                // A managed warm HIT opens BY PATH so ORT memory-maps the optimized graph; every other arm hands
+                // Managed warm HITs open BY PATH so ORT memory-maps the optimized graph; every other arm hands
                 // native the source array. That array is the ONE materialization of the model on this leg, forced
                 // by the constructor's own signature and paid nowhere earlier in the chain. The engine-cache arm
                 // opens the SOURCE too: its EP reads its own cache directory during construction, so the model this
@@ -644,10 +694,10 @@ public static class ModelSessions {
 
     static Fin<T> Fault<T>(CancelScope scope, Exception error) => Fin.Fail<T>(Faulted(scope, error));
 
-    // The artifact read is BRACKETED rather than fenced behind an existence probe: a `let` binding running
-    // `File.ReadAllBytes` inside the query throws straight through the `Option` rail on a file deleted, truncated, or
-    // permission-refused between the probe and the read, and an existence test beside it is a second spelling of one
-    // law that still loses that race. Absence, unreadability, and a refused blob write are ONE answer here — MISS —
+    // Bracketing owns the artifact read — no existence probe fences it: a `let` binding running
+    // `File.ReadAllBytes` inside the query throws straight through the `Option` rail on a file deleted, truncated,
+    // or permission-refused at read time, and an existence test beside it is a second spelling of one law that
+    // still loses that race. Absence, unreadability, and a refused blob write are ONE answer here — MISS —
     // because a warm artifact nothing could index is exactly a cold open, never a lease refusal.
     static Option<ArtifactIndexRow> AdmitContext(WarmSite site, ResidentKey resident, SessionPolicy policy, Instant at) =>
         from store in BlobStore

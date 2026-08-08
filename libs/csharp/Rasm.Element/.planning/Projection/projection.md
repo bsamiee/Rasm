@@ -306,6 +306,8 @@ public readonly record struct MeshInstance(int Block, Matrix4x4 Transform);
 // reason MaterialComposition's impact matrix is: the immutable owner forbids the post-admission aliasing a memory
 // over a caller-held array admits AND is IEnumerable<long>, which is what [OrderedEquality] requires — a
 // ReadOnlyMemory member cannot carry the attribute at all, so the sequence semantics were unreachable on it.
+// Lanes needs no policy attribute: the kernel owner Rasm/Drawing/pack#ENCODING makes EncodedGeometry [Equatable]
+// with Payload excluded and keyed by Witness.ContentHash, so the default member comparison here is structural.
 [Equatable]
 public sealed partial record ImportedGeometry(
     [property: StringEquality(StringComparison.Ordinal)] string FormatKey,

@@ -60,6 +60,8 @@
 
 [ENTRYPOINT_SCOPE]: settings construction and source order
 - `BaseSettings()` runs the resolved source chain at instantiation; per-instance kwargs `_env_file`, `_env_prefix`, `_env_nested_delimiter`, `_secrets_dir`, `_cli_parse_args` redirect a source without subclassing.
+- `NestedSecretsSettingsSource(file_secret_settings, secrets_dir=None, secrets_dir_missing=None, secrets_dir_max_size=None, secrets_case_sensitive=None, secrets_prefix=None, secrets_nested_delimiter=None, secrets_nested_subdir=None, case_sensitive=None, env_prefix=None)` derives from `EnvSettingsSource` and takes the existing flat secrets source as its first positional argument, WRAPPING it: the rung it replaces still serves flat `<dir>/<field>` files while `secrets_nested_subdir=True` adds the `<dir>/<model>/<field>` tree over the same directory.
+- Each `None` knob falls back to `SettingsConfigDict` — `secrets_dir` reading the WRAPPED source's resolved directory first, so a per-instance `_secrets_dir` survives only when the source instance is passed and is dropped when the settings class is passed in its place; `secrets_prefix` falls back to `env_prefix`, so both layouts carry the prefixed name; `secrets_nested_subdir` and an explicit `secrets_nested_delimiter` are mutually exclusive and raise `SettingsError` together, while a `model_config` `env_nested_delimiter` composes with the subdir tree unrefused.
 
 | [INDEX] | [SURFACE]                                                                      | [SHAPE]      | [CAPABILITY]                    |
 | :-----: | :----------------------------------------------------------------------------- | :----------- | :------------------------------ |

@@ -1277,7 +1277,7 @@ public sealed partial class ProcessDistribution {
     // The row's family SEEDED by the caller's own stream. A pre-built shared instance cannot serve a simulation
     // whose receipt publishes a replay seed — every draw would come off a stream nobody can reproduce, and a
     // parallel trial fold would race one generator. The caller holds the instance across its trial run.
-    [IgnoreEquality]
+    // SmartEnum key equality already governs the type, so no member equality attribute has anything to exclude.
     public Func<Random, IContinuousDistribution> Seeded { get; }
 
     // The STANDARDIZED deviate the term scales: each arm centres and normalizes its own support, so a draw is

@@ -126,18 +126,19 @@ public sealed partial class CardinalPoint {
 
 // --- [MODELS] -----------------------------------------------------------------------------
 // The occurrence material usage the Associate edge carries — the per-occurrence geometric binding the type-level
-// MaterialComposition set does not carry. CLASS-root [Union] + [Equatable] (the [GRAPH_FAMILY] form) so Associate.Usage
-// is drillable: a changed OffsetFromReferenceLine surfaces as Edges[i].Usage.<member> in the 3-way merge, never a
-// whole-edge replacement.
+// MaterialComposition set does not carry. CLASS-root [Union] with [Equatable] seated PER NESTED CASE (the
+// [GRAPH_FAMILY] form — a root seat leaves case members reference-comparing) so a changed OffsetFromReferenceLine
+// flips the case's generated equality and the 3-way merge localizes it through the CASE comparer after
+// discrimination, never a whole-edge replacement lost to reference identity.
 [Union]
-[Equatable]
 public abstract partial class MaterialUsage {
  private MaterialUsage() { }
 
- public sealed partial class None : MaterialUsage;
+ [Equatable] public sealed partial class None : MaterialUsage;
 
  // The occurrence layer-set placement carries generated direction/sense rows and optional length measures. Absence is
  // Option, never NaN; SI normalization and finiteness stay the MeasureValue invariant.
+ [Equatable]
  public sealed partial class LayerSet : MaterialUsage {
   private LayerSet(LayerSetDirection direction, DirectionSense sense, Option<MeasureValue> offsetFromReferenceLine, Option<MeasureValue> referenceExtent) =>
    (Direction, Sense, OffsetFromReferenceLine, ReferenceExtent) = (direction, sense, offsetFromReferenceLine, referenceExtent);
@@ -155,6 +156,7 @@ public abstract partial class MaterialUsage {
  }
 
  // The profile occurrence usage admits the optional cardinal grid and optional length extent through their owners.
+ [Equatable]
  public sealed partial class ProfileSet : MaterialUsage {
   public Option<CardinalPoint> CardinalPoint { get; }
   public Option<MeasureValue> ReferenceExtent { get; }
@@ -193,13 +195,13 @@ public abstract partial class MaterialUsage {
 
 public readonly record struct RelationshipParticipant(NodeId Node, string Role, Option<int> Ordinal);
 
-// A CLASS-root [Union] (the [GRAPH_FAMILY] form): a class root surrenders Thinktecture's record-generated equality,
-// so structural equality AND the member-level diff ride Generator.Equals [Equatable] — never stacked on a record root.
-// LOAD-BEARING: the ElementGraph [OrderedEquality] edge walk drills into a changed edge only when the edge type is
-// itself [Equatable], so the Persistence 3-way StructuralMerge localizes to Edges[i].<member> (a changed
-// Associate.Usage, a [UnorderedEquality] Generic.Attributes delta), not whole-edge replacement.
+// Relationship declares a CLASS-root [Union] (the [GRAPH_FAMILY] form): a class root surrenders Thinktecture's
+// record-generated equality, so structural equality AND the member-level diff ride Generator.Equals [Equatable] seated PER NESTED CASE — a
+// root seat is the compile-proven silent form whose case members reference-compare. Every EqualityComparer
+// <Relationship>.Default fold reads the case's generated Equals override, and the Persistence 3-way
+// StructuralMerge localizes a changed edge (an Associate.Usage, a [UnorderedEquality] Generic.Attributes delta)
+// through the CASE comparer after discrimination, never a whole-edge replacement lost to reference identity.
 [Union]
-[Equatable]
 public abstract partial class Relationship {
  // The Members memo is seeded HERE because an edge is immutable and every incidence build, DropNode cascade, and
  // Touches probe reads that set — a Generic edge's recursive attribute walk re-derived per probe is exactly the cost
@@ -209,15 +211,15 @@ public abstract partial class Relationship {
 
  [IgnoreEquality] private readonly Lazy<Seq<NodeId>> members;
 
- public sealed partial class Compose(NodeId whole, NodeId part, ComposeKind subKind, Option<int> ordinal = default) : Relationship { public NodeId Whole { get; } = whole; public NodeId Part { get; } = part; public ComposeKind SubKind { get; } = subKind; public Option<int> Ordinal { get; } = ordinal; }
- public sealed partial class Assign(NodeId subject, NodeId definition, AssignKind subKind) : Relationship { public NodeId Subject { get; } = subject; public NodeId Definition { get; } = definition; public AssignKind SubKind { get; } = subKind; }
- public sealed partial class Associate(NodeId subject, NodeId resource, MaterialUsage usage) : Relationship { public NodeId Subject { get; } = subject; public NodeId Resource { get; } = resource; public MaterialUsage Usage { get; } = usage; }
+ [Equatable] public sealed partial class Compose(NodeId whole, NodeId part, ComposeKind subKind, Option<int> ordinal = default) : Relationship { public NodeId Whole { get; } = whole; public NodeId Part { get; } = part; public ComposeKind SubKind { get; } = subKind; public Option<int> Ordinal { get; } = ordinal; }
+ [Equatable] public sealed partial class Assign(NodeId subject, NodeId definition, AssignKind subKind) : Relationship { public NodeId Subject { get; } = subject; public NodeId Definition { get; } = definition; public AssignKind SubKind { get; } = subKind; }
+ [Equatable] public sealed partial class Associate(NodeId subject, NodeId resource, MaterialUsage usage) : Relationship { public NodeId Subject { get; } = subject; public NodeId Resource { get; } = resource; public MaterialUsage Usage { get; } = usage; }
  // Interface is the OPTIONAL content-keyed connection-interface geometry (IfcConnectionGeometry / the space-boundary
  // surface an energy model runs on) — a blob-store key resolved through the Graph/element#NODE_MODEL
  // GeometrySource.ResolveFootprint leg, NEVER a NodeId (it rides no Members/DirectedPairs/Remap) and never inline coordinates.
- public sealed partial class Connect(NodeId from, NodeId to, ConnectKind subKind, Option<NodeId> realizing, Option<UInt128> interfaceKey = default) : Relationship { public NodeId From { get; } = from; public NodeId To { get; } = to; public ConnectKind SubKind { get; } = subKind; public Option<NodeId> Realizing { get; } = realizing; public Option<UInt128> Interface { get; } = interfaceKey; }
- public sealed partial class Void(NodeId host, NodeId feature, VoidKind subKind) : Relationship { public NodeId Host { get; } = host; public NodeId Feature { get; } = feature; public VoidKind SubKind { get; } = subKind; }
- public sealed partial class Generic(string wireName, NodeId source, NodeId target, Map<PropertyName, PropertyValue> attributes, Seq<RelationshipParticipant> participants = default) : Relationship { public string WireName { get; } = wireName; public NodeId Source { get; } = source; public NodeId Target { get; } = target; [UnorderedEquality] public Map<PropertyName, PropertyValue> Attributes { get; } = attributes; [OrderedEquality] public Seq<RelationshipParticipant> Participants { get; } = participants; }
+ [Equatable] public sealed partial class Connect(NodeId from, NodeId to, ConnectKind subKind, Option<NodeId> realizing, Option<UInt128> interfaceKey = default) : Relationship { public NodeId From { get; } = from; public NodeId To { get; } = to; public ConnectKind SubKind { get; } = subKind; public Option<NodeId> Realizing { get; } = realizing; public Option<UInt128> Interface { get; } = interfaceKey; }
+ [Equatable] public sealed partial class Void(NodeId host, NodeId feature, VoidKind subKind) : Relationship { public NodeId Host { get; } = host; public NodeId Feature { get; } = feature; public VoidKind SubKind { get; } = subKind; }
+ [Equatable] public sealed partial class Generic(string wireName, NodeId source, NodeId target, Map<PropertyName, PropertyValue> attributes, Seq<RelationshipParticipant> participants = default) : Relationship { public string WireName { get; } = wireName; public NodeId Source { get; } = source; public NodeId Target { get; } = target; [UnorderedEquality] public Map<PropertyName, PropertyValue> Attributes { get; } = attributes; [OrderedEquality] public Seq<RelationshipParticipant> Participants { get; } = participants; }
 
  // The ONE primary case walk (DERIVED_LOGIC): each case's relating/related pair PLUS the Connect realizing
  // intermediary (None elsewhere) — Endpoints/Relating/Related/Members/DirectedPairs/Touches all DERIVE from this

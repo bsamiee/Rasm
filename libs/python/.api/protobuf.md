@@ -121,16 +121,18 @@
 
 [ENTRYPOINT_SCOPE]: registries and dynamic message classes
 
-| [INDEX] | [SURFACE]                                                           | [SHAPE]  | [CAPABILITY]                                |
-| :-----: | :------------------------------------------------------------------ | :------- | :------------------------------------------ |
-|  [01]   | `descriptor_pool.Default() -> DescriptorPool`                       | static   | process-wide default pool                   |
-|  [02]   | `DescriptorPool.FindMessageTypeByName(full_name) -> Descriptor`     | instance | resolve a registered message schema         |
-|  [03]   | `DescriptorPool.FindFileByName(file_name) -> FileDescriptor`        | instance | resolve a registered `.proto` file          |
-|  [04]   | `DescriptorPool.AddSerializedFile(serialized_pb) -> FileDescriptor` | instance | register a `FileDescriptorProto` at runtime |
-|  [05]   | `symbol_database.Default() -> SymbolDatabase`                       | static   | default symbol resolver                     |
-|  [06]   | `SymbolDatabase.GetSymbol(full_name) -> type[Message]`              | instance | resolve a generated class by full name      |
-|  [07]   | `message_factory.GetMessageClass(descriptor) -> type[Message]`      | static   | message class for a runtime `Descriptor`    |
-|  [08]   | `message_factory.GetMessageClassesForFiles(files, pool) -> dict`    | static   | all message classes across given files      |
+| [INDEX] | [SURFACE]                                                             | [SHAPE]  | [CAPABILITY]                                   |
+| :-----: | :-------------------------------------------------------------------- | :------- | :--------------------------------------------- |
+|  [01]   | `descriptor_pool.Default() -> DescriptorPool`                         | static   | process-wide default pool                      |
+|  [02]   | `DescriptorPool.FindMessageTypeByName(full_name) -> Descriptor`       | instance | resolve a registered message schema            |
+|  [03]   | `DescriptorPool.FindFileByName(file_name) -> FileDescriptor`          | instance | resolve a registered `.proto` file             |
+|  [04]   | `DescriptorPool.FindServiceByName(full_name) -> ServiceDescriptor`    | instance | resolve a registered service; raises on a miss |
+|  [05]   | `ServiceDescriptor.methods_by_name -> Mapping[str, MethodDescriptor]` | instance | rpc roster keyed by compiled method name       |
+|  [06]   | `DescriptorPool.AddSerializedFile(serialized_pb) -> FileDescriptor`   | instance | register a `FileDescriptorProto` at runtime    |
+|  [07]   | `symbol_database.Default() -> SymbolDatabase`                         | static   | default symbol resolver                        |
+|  [08]   | `SymbolDatabase.GetSymbol(full_name) -> type[Message]`                | instance | resolve a generated class by full name         |
+|  [09]   | `message_factory.GetMessageClass(descriptor) -> type[Message]`        | static   | message class for a runtime `Descriptor`       |
+|  [10]   | `message_factory.GetMessageClassesForFiles(files, pool) -> dict`      | static   | all message classes across given files         |
 
 [ENTRYPOINT_SCOPE]: well-known type operations
 

@@ -18,24 +18,26 @@ Discovered collections encode as a `stac-geoparquet` columnar Arrow `RecordBatch
 - Auto: the `params` fold is the union law — a bbox+datetime+cloud-cover+order query is one `search`, never four; `Surface.of_queries` flips to `collection_search` exactly when a `FreeText` case is present, the one boolean-free routing read, never a `search_by_<axis>` family. `ItemSearch` is lazy so `matched()` reads the API total without materializing every page, and `sign` over the lazy handle is the one canonical materialize-plus-sign — never the deprecated `get_all_items`, never a `next`-link follow loop, never a materialize-then-re-sign two-pass. `min(msft:expiry)` over the signed items reports the token-validity horizon as EVIDENCE alone: the bound credential provider owns refresh inside the store handle, so a fan-out outliving that window re-signs transparently rather than failing mid-read against a horizon this owner could only report and never renew. `pystac-client`/`pystac`/`planetary-computer` and both `obstore.auth` providers import function-local per the boundary-scope import policy; the runtime rails ride module-level.
 - Receipt: one `StacDiscovery` carries the signed `ItemCollection`, the matched item-id tuple and `matched()` count, the href count, the `msft:expiry` horizon, the resolved `url`, and the `ContentKey`; `contribute()` yields one emitted-phase `Receipt.of("catalog", ...)` spelling the `domain`/`kind`/`key` lifted columns beside the `rasm.catalog.items` measure it records, the counts native scalars, never a parallel result-versus-receipt pair.
 - Packages: `pystac-client` (the keyword-only `Client.search`/`collection_search`, `ItemSearch.{item_collection,matched,url_with_parameters}` the `ITEM` row reads, `CollectionSearch.collection_list` the `COLLECTION` row reads), `pystac` (`ItemCollection`/`Item`/`Asset`, the `msft:expiry` token horizon), `planetary-computer` (`sign` the `singledispatch` over the lazy `ItemSearch`, `sign_inplace` the `modifier=` callable, `set_subscription_key`), `obstore` (`auth.planetary_computer.PlanetaryComputerAsyncCredentialProvider` and `auth.earthdata.NasaEarthdataAsyncCredentialProvider`, the two providers that own token refresh inside the store rather than beside it), runtime (`RuntimeRail`/`ContentIdentity`/`ContentKey`/`Receipt`/`Metrics`/`Provider`/`RetryClass`/`guarded`/`on_thread`).
+- Law: the subscription key is composition-bound on BOTH halves — the byte-read half rides each `Signing`'s own obstore provider, and the href-rewrite half rides the one process slot `planetary_computer.sign` reads behind the `_bind_subscription` compare-and-refuse latch, so two same-process apps with divergent keys collide at the factory as a typed `subscription-key-collision` refusal instead of the second app silently re-signing the first's hrefs; the factory therefore answers the rail, exactly like every admission that can refuse.
 - Growth: a new search modality is one `StacQuery` case with its key on the owning surface's `accepts` set; a new href-rewrite scheme is one `SignScheme` member with its `SchemeRow`; a new credential estate is one `Signing` factory binding its own obstore provider with no `SignScheme` member at all; a new discovery surface is one `Surface` member with its `SurfaceRow` whose `accepts` names the method's admissible keywords; zero new surface.
 - Boundary: composes the runtime credential and resilience owners, never a second STAC paging loop, CQL2 compiler, SAS token fetch, conformance negotiator, or retry/backoff loop; no live UI, no durable catalog store. A `search_by_<axis>` method family, a `cap`-keyword ternary fork where the `SurfaceRow` carries the name, a blind `**params` splat onto `collection_search` where `accepts` filters the rejected keyword, a `signing.sign(...) if surface is ITEM else ...` branch where `materialize` routes, and a hand-opened `boundary` re-spelling the retry/span/lift the `guarded` envelope fuses are rejected.
 
 ```python signature
+import threading
 from collections.abc import Callable
 from enum import StrEnum
 from functools import cache, reduce
 from types import ModuleType
 from typing import TYPE_CHECKING, Final, Literal, assert_never
 
-from expression import case, tag, tagged_union
+from expression import Error, Ok, case, tag, tagged_union
 from expression.collections import Map
 from msgspec import Struct, field
 from opentelemetry import trace
 from opentelemetry.trace import SpanKind
 
 from rasm.runtime.identity import ContentIdentity, ContentKey
-from rasm.runtime.faults import RuntimeRail, scoped
+from rasm.runtime.faults import BoundaryFault, RuntimeRail, scoped
 from rasm.runtime.lanes import on_thread
 from rasm.runtime.metrics import Metrics
 from rasm.runtime.receipts import Receipt
@@ -68,6 +70,27 @@ def _pc() -> ModuleType:
     import planetary_computer  # ruff:ignore[import-outside-top-level]
 
     return planetary_computer
+
+
+_PC_LOCK: Final = threading.Lock()
+_PC_BOUND: list[str] = []
+
+
+def _bind_subscription(key: str) -> "RuntimeRail[None]":
+    # the href-rewrite half has ONE process slot — `planetary_computer.sign` reads the module global and carries no
+    # per-call slot — so the latch is compare-and-refuse under a composition-time lock: the first composition binds
+    # the key, an identical re-bind is a no-op, and a DIVERGENT key refuses typed, because a silent overwrite
+    # re-signs the first app's hrefs under the second app's subscription.
+    with _PC_LOCK:
+        match _PC_BOUND:
+            case []:
+                _pc().set_subscription_key(key)
+                _PC_BOUND.append(key)
+                return Ok(None)
+            case [bound] if bound == key:
+                return Ok(None)
+            case _:
+                return Error(BoundaryFault(config=("catalog.signing", "subscription-key-collision")))
 
 
 class SchemeRow(Struct, frozen=True):
@@ -135,14 +158,18 @@ class Signing(Struct, frozen=True):
         return Signing(headers=headers, timeout=timeout)
 
     @staticmethod
-    def planetary_computer(subscription_key: str | None = None, headers: Headers | None = None, timeout: float | None = None) -> "Signing":
+    def planetary_computer(
+        subscription_key: str | None = None, headers: Headers | None = None, timeout: float | None = None
+    ) -> "RuntimeRail[Signing]":
         # `planetary_computer.sign` resolves its subscription key off the module global and carries no per-call slot,
-        # so the href-rewrite half binds once there while the byte-read half takes the key on its own composition-bound
-        # provider — the split is the package's, not a choice, and the provider never reads that global.
-        if subscription_key is not None:
-            _pc().set_subscription_key(subscription_key)
-        return Signing(
-            headers=headers or {}, timeout=timeout, scheme=SignScheme.PLANETARY_COMPUTER, credentials=_pc_credentials(subscription_key)
+        # so the href-rewrite half rides the ONE process slot behind `_bind_subscription`'s compare-and-refuse latch
+        # while the byte-read half takes the key on its own composition-bound provider — two compositions with
+        # distinct keys collide at the latch as a typed refusal, never as app B silently re-signing app A's hrefs.
+        bound = _bind_subscription(subscription_key) if subscription_key is not None else Ok(None)
+        return bound.map(
+            lambda _none: Signing(
+                headers=headers or {}, timeout=timeout, scheme=SignScheme.PLANETARY_COMPUTER, credentials=_pc_credentials(subscription_key)
+            )
         )
 
     @staticmethod

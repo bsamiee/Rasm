@@ -1,14 +1,16 @@
 # [PY_DATA_FIELD]
 
-The CF-conventioned labelled N-D field owner, narrowed to the CF plane: `FieldDataset` reads and writes CF-metadata field cubes over the `FieldEngine` axis, `FieldSelection` owns CF-aware selection and flox-vectorized grouped/binned/resampled reduction and grouped cumulative scan as one closed axis, and `FieldReceipt` folds the content-keyed egress. This is the labelled-field counterpart of the dense `gridded/store#STORE` chunk-grid — a distinct owner, never a second labelled-array store inside `store` — and the byte-range virtual-datacube concern lives whole on `gridded/virtual#VIRTUAL`, so this page is the pure CF owner.
+The labelled and raw field-plane owner: `FieldDataset` reads and writes CF-metadata field cubes over the `FieldEngine` axis, `FieldSelection` owns CF-aware selection and flox-vectorized grouped/binned/resampled reduction and grouped cumulative scan as one closed axis, `FieldReceipt` folds the content-keyed egress, `FieldContainer` is the read leg for the corpus-minted raw field container the C# codec emits, and `EnsembleCorpus` is the replicate-chunked ensemble container for python UQ campaigns. The CF plane and the raw-container plane stay two owners on one page because they share the receipt family and nothing else — the container is raw HDF5 with NO dimension scales by the corpus entry's own pick, so it never routes through `FieldEngine`. This is the labelled-field counterpart of the dense `gridded/store#STORE` chunk-grid — a distinct owner, never a second labelled-array store inside `store` — and the byte-range virtual-datacube concern lives whole on `gridded/virtual#VIRTUAL`.
 
-Import gating is tri-state: `xarray` is banned-module-level, so every call binds function-local under `# ruff:ignore[import-outside-top-level]`; `netcdf4` is an ungated Forge source build importing module-top; `flox` binds its lowering function-local because `flox.xarray` touches the banned `xarray`, and only the `numba`/`numbagg` `ReductionEngine` rows stay gated on the numba cp315 activation. Egress materializes to the content-keyed `pyarrow`/Zarr surfaces `tabular/columnar#SCAN` and `gridded/store#STORE` speak, and the absorbed virtual owner mints this same `FieldReceipt` family downward — one receipt family for the labelled plane.
+Import gating is tri-state: `xarray` is banned-module-level, so every call binds function-local under `# ruff:ignore[import-outside-top-level]`; `netcdf4` is an ungated Forge source build importing module-top, and `h5py` is ungated module-top for the raw-container plane; `flox` binds its lowering function-local because `flox.xarray` touches the banned `xarray`, and only the `numba`/`numbagg` `ReductionEngine` rows stay gated on the numba cp315 activation. Egress materializes to the content-keyed `pyarrow`/Zarr surfaces `tabular/columnar#SCAN` and `gridded/store#STORE` speak, and the absorbed virtual owner mints this same `FieldReceipt` family downward — one receipt family for the labelled plane.
 
 ## [01]-[INDEX]
 
 - [02]-[FIELD]: the `FieldDataset` owner over the `FieldEngine` axis — one CF open/read/write entrypoint.
 - [03]-[SELECT]: the `FieldSelection` selection/reduction/scan axis threaded by one `ReductionPolicy` through one lowering per kernel.
 - [04]-[EGRESS]: the `FieldReceipt` content-keyed `pyarrow`/Zarr egress fold.
+- [05]-[CONTAINER]: the `FieldContainer` read leg over the `tests/contracts/MANIFEST.md` `[02.27]` raw field-container layout.
+- [06]-[ENSEMBLE]: the `EnsembleCorpus` replicate-chunked design-beside-responses container with regenerating-state attributes.
 
 ## [02]-[FIELD]
 
@@ -394,7 +396,9 @@ if TYPE_CHECKING:
 
 
 # the egress-source tags beside the real `FieldEngine` members: the receipt engine slot stays a closed family.
-type EgressTag = Literal["virtual", "arrow"]
+# `ensemble` partitions the `[06]-[ENSEMBLE]` container writes apart from the CF engines on the one receipt column,
+# `tree` the `gridded/ensemble#ENSEMBLE` scenario-tree store writes, and `cube` the `spatial/cube#CUBE` vector-cube writes.
+type EgressTag = Literal["virtual", "arrow", "ensemble", "tree", "cube"]
 
 
 class FieldReceipt(Struct, frozen=True):
@@ -459,7 +463,220 @@ def _arrow_receipt(table: "pa.Table", dims: tuple[str, ...], variables: int, pay
     )
 ```
 
-## [05]-[RESEARCH]
+## [05]-[CONTAINER]
+
+- Owner: `FieldContainer` — the native read leg for the C#-emitted raw field container under the `tests/contracts/MANIFEST.md` `[02.27]-[HDF5_FIELD_CONTAINER]` mint: one dataset at the `/field` path, field extent leading with the trailing COMPONENT axis, station-outermost chunks from the one `FieldCodec.Grid` derivation, Shuffle (id 2) then Deflate (id 1), little-endian float elements, create-only. The producer anchor is `csharp:Rasm.Compute/Runtime/codecs#FIELD_RESULT_CODEC` `Hdf5Encode`; this owner decodes the container and re-derives no layout, so a layout question resolves at the corpus entry, never here.
+- Cases: `ContainerMeta` is the typed projection of the producer's attribute roster — `format-key`/`residence`/`bits`/`bound`/`max-residual` wire spellings mapped once at the edge onto canonical snake fields — beside the container-bytes `ContentKey`, the digest half of the corpus `wire-bytes + digest` payload; `residence` is the closed `exact`/`quantized` pair because the producer's `predicted` case refuses HDF5 egress at its own fence.
+- Entry: `FieldContainer.open` probes the `/field` dataset before any resolve and refuses typed on an absent roster, refuses a big-endian element dtype at open — the corpus re-encodes upstream and never crosses — and refuses an attribute the roster names but the container omits; `window` reads one station slab, `read` the whole cube, `labelled` the phony-dims lift.
+- Auto: station slabs are chunk-aligned by construction — the `Grid` derivation chunks the station axis at 1, so ANY station range lands on chunk boundaries and the h5py slice IS the producer's `HyperslabSelection` window; readers accept any deflate level a foreign producer wrote while the C# writer holds its own four-value grade set.
+- Receipt: reads emit no receipt — the receipt family folds at egress, and this owner has no write half; the container's `ContentKey` pairs the read against the producer's minted artifact identity instead.
+- Growth: a new producer attribute is one `ContainerMeta` field with its wire spelling in `_META`; a second dataset path is corpus-entry growth re-valued at `[02.27]`, never a reader knob; zero new surface.
+- Boundary: no write leg — field-container emission is the producer's domain capability by the corpus entry, so a python-authored container is the rejected form; no dimension scales are read or expected (netCDF semantics resolve above the rail on both branches), so the CF `FieldEngine` axis never routes here and `labelled` lifts through `phony_dims` alone; the byte-range virtual consumption of the same container rides `gridded/virtual#MANIFEST`'s hdf parser arm unchanged.
+
+```python signature
+from typing import TYPE_CHECKING, Final, Literal
+
+import h5py
+import numpy as np
+from beartype import beartype
+from expression import Result
+from msgspec import Struct
+
+from rasm.runtime.identity import ContentIdentity, ContentKey
+from rasm.runtime.faults import FAULT_CONF, RuntimeRail, boundary
+from rasm.runtime.roots import ResourceRef
+
+if TYPE_CHECKING:
+    import xarray as xr
+
+
+type Residence = Literal["exact", "quantized"]
+
+_FIELD_PATH: Final[str] = "field"
+# wire attribute spellings -> canonical field names, mapped ONCE at this edge; the roster is the producer's
+# whole attribute set, so an absent key is a truncated container, never an optional fact.
+_META: Final[tuple[tuple[str, str], ...]] = (
+    ("format-key", "format_key"),
+    ("residence", "residence"),
+    ("bits", "bits"),
+    ("bound", "bound"),
+    ("max-residual", "max_residual"),
+)
+
+
+class ContainerMeta(Struct, frozen=True):
+    format_key: str
+    residence: Residence
+    bits: int
+    bound: float
+    max_residual: float
+    content_key: ContentKey
+
+
+class FieldContainer(Struct, frozen=True):
+    ref: ResourceRef
+    meta: ContainerMeta
+    shape: tuple[int, ...]
+    chunks: tuple[int, ...]
+
+    @property
+    def stations(self) -> int:
+        return self.shape[0]
+
+    @property
+    def components(self) -> int:
+        # trailing axis IS the component axis of the one dataset — one-dataset-per-component is the corpus
+        # entry's refuted sibling layout, so a component read is a trailing-axis slice, never a path lookup.
+        return self.shape[-1]
+
+    @classmethod
+    @beartype(conf=FAULT_CONF)
+    def open(cls, ref: ResourceRef) -> "RuntimeRail[FieldContainer]":
+        return boundary("container.open", lambda: _open(ref))
+
+    def window(self, stations: slice) -> "RuntimeRail[np.ndarray]":
+        # station-outermost chunks at extent 1 make every station slab chunk-aligned; the h5py slice is the
+        # exact counterpart of the producer's station-slab `HyperslabSelection`, so both ends resolve one address.
+        return boundary("container.window", lambda: _slab(self.ref, stations))
+
+    def read(self) -> "RuntimeRail[np.ndarray]":
+        return boundary("container.read", lambda: _slab(self.ref, slice(None)))
+
+    def labelled(self) -> "RuntimeRail[xr.Dataset]":
+        # phony-dims lift for labelled consumers: the container carries NO dimension scales by the corpus pick,
+        # so h5netcdf names axes `phony_dim_N` under `phony_dims="sort"` — a coordinate roster is corpus-entry
+        # growth re-valued at `[02.27]`, never a consumer workaround minted here.
+        def lift() -> "xr.Dataset":
+            import xarray as xr  # ruff:ignore[import-outside-top-level]
+
+            return xr.open_dataset(str(self.ref.path), engine="h5netcdf", phony_dims="sort")
+
+        return boundary("container.labelled", lift)
+
+
+def _open(ref: ResourceRef) -> FieldContainer:
+    source = ref.path.read_bytes()
+    with h5py.File(str(ref.path), "r") as file:
+        if _FIELD_PATH not in file:
+            raise KeyError(f"container roster: no /{_FIELD_PATH} dataset")
+        dataset = file[_FIELD_PATH]
+        if dataset.dtype.byteorder == ">":
+            raise TypeError(f"container endianness: {dataset.dtype.str} is big-endian")
+        absent = tuple(wire for wire, _ in _META if wire not in dataset.attrs)
+        if absent:
+            raise KeyError(f"container attributes: {absent}")
+        raw = {field: dataset.attrs[wire] for wire, field in _META}
+        shape, chunks = tuple(dataset.shape), tuple(dataset.chunks or dataset.shape)
+    # key is matched off the rail inside the already-fenced body, so a hash `Error` re-raises onto the fence
+    # rather than masking the identity behind a fabricated key.
+    match ContentIdentity.of("field.container", source):
+        case Result(tag="ok", ok=key):
+            pass
+        case Result(tag="error", error=fault):
+            raise RuntimeError(fault)
+    residence = str(raw["residence"])
+    if residence not in ("exact", "quantized"):  # closed pair by producer law — `predicted` refuses HDF5 egress at its own fence
+        raise ValueError(f"container residence: {residence}")
+    meta = ContainerMeta(
+        format_key=str(raw["format_key"]),
+        residence=residence,
+        bits=int(raw["bits"]),
+        bound=float(raw["bound"]),
+        max_residual=float(raw["max_residual"]),
+        content_key=key,
+    )
+    return FieldContainer(ref=ref, meta=meta, shape=shape, chunks=chunks)
+
+
+def _slab(ref: ResourceRef, stations: slice) -> np.ndarray:
+    with h5py.File(str(ref.path), "r") as file:
+        return file[_FIELD_PATH][stations]
+```
+
+## [06]-[ENSEMBLE]
+
+- Owner: `EnsembleCorpus` — the design-matrix-beside-responses ensemble container for python UQ and surrogate campaigns, a gridded citizen on this branch's own merit citing no cross-branch corpus: `/design` carries the sample-by-factor float64 matrix, each `/responses/<name>` dataset chunks one replicate per chunk so a campaign appends and slices at replicate grain, and the root attributes carry the REGENERATING sampler state — engine name, seed, sample count, factor roster — so a resumed campaign re-derives its sampler from attributes and never unpickles state.
+- Cases: `EnsembleMeta` is the attribute projection; the factor roster rides a vlen-string dataset-independent attribute so the design columns stay self-describing without dimension scales, matching the plane's raw-container stance.
+- Entry: `EnsembleCorpus.create` is create-only in the plane's own law — mode `x`, shuffle+deflate on every chunked dataset, one call landing design, responses, and attributes whole; `open` reads the meta and shapes; `replicate` slices one replicate slab across every response.
+- Receipt: `create` mints the page's one `FieldReceipt` with `engine="ensemble"`, content-keyed over the written container bytes — one receipt family for the labelled plane, the corpus entry's container excluded by its no-write law.
+- Growth: a new response family is one dataset row under `/responses`; a new sampler fact is one `EnsembleMeta` field with its attribute spelling; zero new surface.
+- Boundary: design generation is compute's (`SALib`/`pyDOE3` at the study spine) — this owner is the container residence alone, admitting a design any sampler produced; no C# consumer exists and none is claimed, so no corpus entry binds this layout.
+
+```python signature
+from collections.abc import Mapping
+
+# composes the [05]-[CONTAINER] prelude: h5py/np module-top, ContentIdentity, boundary, ResourceRef, FieldReceipt from [04].
+
+
+class EnsembleMeta(Struct, frozen=True):
+    engine: str
+    seed: int
+    samples: int
+    factors: tuple[str, ...]
+
+
+class EnsembleCorpus(Struct, frozen=True):
+    ref: ResourceRef
+    meta: EnsembleMeta
+    responses: tuple[str, ...]
+
+    @classmethod
+    @beartype(conf=FAULT_CONF)
+    def create(
+        cls, ref: ResourceRef, meta: EnsembleMeta, design: np.ndarray, responses: Mapping[str, np.ndarray]
+    ) -> "RuntimeRail[tuple[EnsembleCorpus, FieldReceipt]]":
+        return boundary("ensemble.create", lambda: _create(ref, meta, design, responses)).bind(lambda railed: railed)
+
+    @classmethod
+    @beartype(conf=FAULT_CONF)
+    def open(cls, ref: ResourceRef) -> "RuntimeRail[EnsembleCorpus]":
+        return boundary("ensemble.open", lambda: _open_ensemble(ref))
+
+    def replicate(self, ordinal: int) -> "RuntimeRail[dict[str, np.ndarray]]":
+        # replicate-per-chunk layout makes the ordinal slab one chunk per response — resume and UQ folds
+        # address replicates without reading the campaign whole.
+        def slab() -> dict[str, np.ndarray]:
+            with h5py.File(str(self.ref.path), "r") as file:
+                return {name: file[f"responses/{name}"][ordinal] for name in self.responses}
+
+        return boundary("ensemble.replicate", slab)
+
+
+def _create(
+    ref: ResourceRef, meta: EnsembleMeta, design: np.ndarray, responses: Mapping[str, np.ndarray]
+) -> "RuntimeRail[tuple[EnsembleCorpus, FieldReceipt]]":
+    with h5py.File(str(ref.path), "x") as file:  # create-only: the plane's no-append, no-edit law
+        file.create_dataset("design", data=np.asarray(design, dtype="<f8"), compression="gzip", shuffle=True)
+        group = file.create_group("responses")
+        for name, values in responses.items():
+            stack = np.asarray(values, dtype="<f8")
+            group.create_dataset(name, data=stack, chunks=(1, *stack.shape[1:]), compression="gzip", shuffle=True)
+        file.attrs["engine"] = meta.engine
+        file.attrs["seed"] = meta.seed
+        file.attrs["samples"] = meta.samples
+        file.attrs.create("factors", data=list(meta.factors), dtype=h5py.string_dtype(encoding="utf-8"))
+    source = ref.path.read_bytes()
+    corpus = EnsembleCorpus(ref=ref, meta=meta, responses=tuple(sorted(responses)))
+    return ContentIdentity.of("field.ensemble", source).map(
+        lambda key: (
+            corpus,
+            FieldReceipt(engine="ensemble", dims=("sample", "factor"), variables=len(corpus.responses), bytes_stored=len(source), content_key=key),
+        )
+    )
+
+
+def _open_ensemble(ref: ResourceRef) -> EnsembleCorpus:
+    with h5py.File(str(ref.path), "r") as file:
+        meta = EnsembleMeta(
+            engine=str(file.attrs["engine"]),
+            seed=int(file.attrs["seed"]),
+            samples=int(file.attrs["samples"]),
+            factors=tuple(str(name) for name in file.attrs["factors"]),
+        )
+        return EnsembleCorpus(ref=ref, meta=meta, responses=tuple(sorted(file["responses"])))
+```
+
+## [07]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.

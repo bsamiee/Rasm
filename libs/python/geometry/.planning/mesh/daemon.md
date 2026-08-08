@@ -6,7 +6,7 @@ Every source enters `LanePolicy.drain` as a SOURCE-keyed `Admit` whose `ContentK
 
 ## [01]-[INDEX]
 
-- [02]-[DAEMON]: tessellation-source ADT over the SOURCE-keyed lane cache, the durable object-store spill and its read-through, and the offloaded IFC/CAD kernels, returning `RuntimeRail[Block[TessellationResult]]` with drain-on-harvest receipts on `contribute`.
+- [02]-[DAEMON]: tessellation-source ADT over the SOURCE-keyed lane cache, the durable object-store spill with its read-through and its operational audit-and-storage evidence, and the offloaded IFC/CAD kernels, returning `RuntimeRail[Block[TessellationResult]]` with drain-on-harvest receipts on `contribute`.
 
 ## [02]-[DAEMON]
 
@@ -16,10 +16,11 @@ Every source enters `LanePolicy.drain` as a SOURCE-keyed `Admit` whose `ContentK
 - Law: the durable tier is a content-addressed SPILL, never an authority — two write-once objects per unit under one `spill_path` derivation, the GLB octets keyed by the artifact's own wire key and a `SpillHeader` keyed by the policy-folded cache key resolving onto it, because `ArtifactSync` holds a wire key and asks for octets while a cold daemon holds a source and a policy and asks which artifact they produced. `create` is the put mode: an object already under a content-addressed key holds those same octets, so an overwrite buys a race with a fleet peer and nothing else; the header lands only past a cleared artifact write, so no reader resolves a pointer onto octets that are not there. The read-through runs AHEAD of the kernel and its every failure mode folds to absence — the cost of a store miss is a tessellation nobody skipped, where a rail there would be a tessellation nobody GOT because a store was briefly unreachable — and the refusal still lands as a `rejected` receipt so an outage reads as evidence rather than as a daemon that quietly stopped replaying. The re-mint over returned octets is the PROOF the store answered what the header names, so a corrupted object refuses by name instead of replaying under an identity it does not hash to. `SpillOutcome` rides the crossing's own receipt row, since a second receipt family would leave a reader joining two streams to answer one question, and `_phase` derives replay provenance across both reuse tiers at ONE site.
 - Entry: `tessellate` RETURNS the results — the flagship egress the `mesh/serve` servicer streams; receipts stay on `contribute`, and a partial failure rides the stream as a `rejected` row, never a silent drop and never a fluent `self` stranding the GLB in the cache. Its `budget` keyword is the caller's dialed deadline the served leg carries in: it rides each unit's `Kernel.deadline`, so the lane's own tighter-bound fold governs the offload and this page spells no second narrowing, an abandoned call railing `deadline` on its unit and landing a `rejected` receipt instead of paying out a tessellation nobody reads. The budget stays out of the cache seed — a deadline shifts no output byte, and folding it would key one tessellation per dialed bound.
 - Auto: `num_threads` binds from `LanePolicy.capacity` so the iterator's intra-kernel parallelism and the lane's slot allocator share one capacity, never a hardcoded literal.
+- Law: the spill's write-once put is the page's ONE durable-evidence seat on the `python:runtime/observability/journal#LEDGER` plane — one `OPERATIONAL` `AuditFact` naming the artifact path beside a `STORAGE` `MeterFact` over the octets stored — recorded at the async put that owns the write and only past a cleared pair, so a refused write and a replay each record nothing rather than claiming an object no reader finds. An evidence-plane refusal takes this page's one refusal vocabulary: it lands as a `rejected` receipt exactly as a store refusal does, never a rail, because the artifact is live either way and railing here fails a tessellation that succeeded. The subject index stays empty by law — a GLB names a model, never a data subject — so no tessellation enters a portability export or an erasure sweep.
 - Receipt: the daemon mints no `GeometrySubject` — the C# `IfcSemanticModel` projects the IFC graph in-process, and the downstream `mesh/repair#MESH`/`scan/reconstruction#RECONSTRUCTION` owners graduate the conditioned solid.
-- Packages: `ifcopenshell` (`file.from_string`, `geom.settings`/`iterator`/`serializers.gltf`/`serializer_settings`), the `mesh/cad#BRIDGE` bridge surface, `msgspec` (the one deterministic `SpillHeader` codec pair), and the runtime identity/lane/fault/receipt/store rails per the fence imports; the kernel crosses as `Kernel.of(kernel, KernelTrait.HOSTILE)` — the native OCCT body rides the warm process pool, its trait row supplying the `WORKER` worker-death retry at the offload leg.
-- Growth: a new tessellation knob is one `TessellationPolicy` field folded into both the `geom.settings()` bind and the cache seed; a new CAD source is one `BridgeFormat` row reached through the existing `cad` case; a new source modality is one `TessellationSource` case and one `_dispatch` arm and its module-level kernel; a new semantic field is one `SemanticHeader` field; a new durable object class is one `SpillKind` row reaching both ends through `spill_path`, and a new durable-tier state one `SpillOutcome` member the existing receipt row already carries.
-- Boundary: the store lane arrives BUILT at composition and no page-local handle, scheme roster, credential, or retry row is minted here; the durable tier never gates correctness, so a refused read or a refused write leaves a live artifact and a receipt row rather than a rail.
+- Packages: `ifcopenshell` (`file.from_string`, `geom.settings`/`iterator`/`serializers.gltf`/`serializer_settings`), the `mesh/cad#BRIDGE` bridge surface, `msgspec` (the one deterministic `SpillHeader` codec pair), and the runtime identity/lane/fault/receipt/store/journal rails per the fence imports; the kernel crosses as `Kernel.of(kernel, KernelTrait.HOSTILE)` — the native OCCT body rides the warm process pool, its trait row supplying the `WORKER` worker-death retry at the offload leg.
+- Growth: a new tessellation knob is one `TessellationPolicy` field folded into both the `geom.settings()` bind and the cache seed; a new CAD source is one `BridgeFormat` row reached through the existing `cad` case; a new source modality is one `TessellationSource` case and one `_dispatch` arm and its module-level kernel; a new semantic field is one `SemanticHeader` field; a new durable object class is one `SpillKind` row reaching both ends through `spill_path`, and a new durable-tier state one `SpillOutcome` member the existing receipt row already carries; a newly audited spill column is one `_evidence` `Change` row.
+- Boundary: the store lane arrives BUILT at composition and no page-local handle, scheme roster, credential, or retry row is minted here, the evidence plane and its key custody arriving the same way and this owner declaring a `Retain` class alone; the durable tier never gates correctness, so a refused read, a refused write, or a refused evidence append leaves a live artifact and a receipt row rather than a rail.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -36,12 +37,13 @@ from msgspec import Struct
 from msgspec import json as msgjson
 from msgspec.structs import replace
 
-from rasm.geometry.graduation import GeometryPulse, PulseBeat
+from rasm.geometry.graduation import EVIDENCE_DOMAIN, GeometryPulse, PulseBeat
 from rasm.geometry.mesh.cad import CANONICAL_TESSELLATION, BridgeFormat, GlbArtifact, StepBridge, TessellationPolicy
 from rasm.runtime.faults import BoundaryFault, RuntimeRail, boundary
 from rasm.runtime.identity import ContentIdentity, ContentKey, IdentitySource
+from rasm.runtime.journal import Actor, Assigned, AuditFact, Fact, Journal, MeterFact, Party, Resource, Retain
 from rasm.runtime.lanes import Admit, LanePolicy, PulseFact, pulsed
-from rasm.runtime.receipts import Phase, Receipt
+from rasm.runtime.receipts import DEFAULT_SCOPE, Phase, Receipt, ScopeKey
 from rasm.runtime.roots import ObjectStoreLane, StoreOp
 from rasm.runtime.workers import Kernel, KernelTrait
 
@@ -85,6 +87,10 @@ class SemanticHeader(Struct, frozen=True, gc=False):
     schema: str = ""
     project: str = ""
 
+
+# this owner's one name, serving the receipt label and the durable audit actor alike, so a rename cannot leave a
+# receipt stream and an evidence-plane actor column under two spellings.
+OWNER: Final[str] = "rasm.geometry.mesh.daemon"
 
 # a B-rep model holds no IFC schema.
 SEMANTIC_EMPTY: Final[SemanticHeader] = SemanticHeader()
@@ -132,7 +138,7 @@ class TessellationResult(Struct, frozen=True, gc=False):
 
     def fact(self, source: SourceTag) -> Receipt:
         return Receipt.of(
-            "rasm.geometry.mesh.daemon",
+            OWNER,
             (
                 self.replay,
                 source,
@@ -169,6 +175,26 @@ def _proven(key: ContentKey, header: SpillHeader, glb: GlbArtifact) -> RuntimeRa
         if glb.wire_key.hex == header.wire_key
         else Error(BoundaryFault(resource=(spill_path(SpillKind.SOURCE, key), f"wire-key:{header.wire_key}!={glb.wire_key.hex}")))
     )
+
+
+def _evidence(result: TessellationResult, artifact: str) -> "Block[Fact]":
+    # the durable half of a spill, minted off the SETTLED outcome so only a LANDED pair records: an audit line for a
+    # put the store refused names an object no reader will ever find, and a REPLAYED unit wrote nothing at all.
+    # `OPERATIONAL` is the class — a content-addressed artifact cache is routine infrastructure trail, never the
+    # disposal evidence a regulator reads back — and the meter carries the octets this put actually stored, keyed on
+    # the same `spill_path` address both spill ends derive, so a replay charges nothing. The subject index stays
+    # EMPTY by law: a GLB names a model, never a data subject, so forging one would pull tessellated geometry into
+    # every portability export and every erasure the shredder runs.
+    if result.spill is not SpillOutcome.LANDED:
+        return Block.empty()
+    audited = AuditFact(
+        action=f"{EVIDENCE_DOMAIN}.spill",
+        actor=Party(kind=Actor.SERVICE, key=OWNER),
+        target=Party(kind="object", key=artifact),
+        retention=Retain.OPERATIONAL,
+        change=(Assigned(path="/wire_key", next=result.glb.wire_key.hex), Assigned(path="/source_key", next=result.content_key.hex)),
+    )
+    return Block.of_seq((audited, MeterFact(resource=Resource.STORAGE, quantity=len(result.glb.bytes), surface=artifact)))
 
 
 def _phase(result: TessellationResult, warm: Map[ContentKey, TessellationResult], key: ContentKey) -> TessellationResult:
@@ -252,10 +278,18 @@ def _dispatch(source: TessellationSource) -> tuple[TessellateKernel, tuple[bytes
 
 class TessellationDaemon:  # structural ReceiptContributor conformance — no subclass
     def __init__(
-        self, lane: LanePolicy, mesher: TessellationPolicy = CANONICAL_TESSELLATION, *, store: "Option[ObjectStoreLane]" = Nothing
+        self,
+        lane: LanePolicy,
+        mesher: TessellationPolicy = CANONICAL_TESSELLATION,
+        *,
+        store: "Option[ObjectStoreLane]" = Nothing,
+        composition: ScopeKey = DEFAULT_SCOPE,
     ) -> None:
         self._lane = lane
         self._mesher = mesher
+        # the custody key the spill's durable evidence records under, the same one the servicer threads into its
+        # install gate and its weave, so an embedded composition's facts partition from the process root's.
+        self._composition = composition
         self._receipts: Block[Receipt] = Block.empty()
         self._cache: Map[ContentKey, TessellationResult] = Map.empty()
         # the durable second tier arrives BUILT, as a composition parameter: store identity, credentials, retry
@@ -370,7 +404,14 @@ class TessellationDaemon:  # structural ReceiptContributor conformance — no su
                     else landed
                 )
                 sealed.swap().map(self._noted)
-                return replace(result, spill=SpillOutcome.LANDED if sealed.is_ok() else SpillOutcome.REFUSED)
+                # the durable trail lands HERE, the async fold that owns the write: one operational audit line plus
+                # the storage charge over the octets actually stored, and only past a cleared pair. An evidence-plane
+                # refusal takes the page's ONE refusal vocabulary rather than a rail of its own — the artifact is
+                # live either way, exactly as a store refusal leaves it, and a rail here would fail a tessellation
+                # that succeeded. An unjournalled composition folds to the lawful no-op at one map read.
+                spilled = replace(result, spill=SpillOutcome.LANDED if sealed.is_ok() else SpillOutcome.REFUSED)
+                (await Journal.record(_evidence(spilled, artifact), scope=self._composition)).swap().map(self._noted)
+                return spilled
             case _:
                 return result
 
@@ -379,7 +420,7 @@ class TessellationDaemon:  # structural ReceiptContributor conformance — no su
         # the receipt stream where an operator reads a store outage, instead of failing a tessellation that
         # succeeded or vanishing into a daemon that silently pays full cost forever. The `rejected` projection is
         # the same one an admission fault takes, so the page carries ONE refusal vocabulary.
-        self._receipts = self._receipts.append(Block.singleton(Receipt.of("rasm.geometry.mesh.daemon", fault)))
+        self._receipts = self._receipts.append(Block.singleton(Receipt.of(OWNER, fault)))
 
     # a PRE-drain key projects `admitted`, an absent key `emitted`; every fault projects the `rejected` case.
     def _fold(
@@ -389,7 +430,7 @@ class TessellationDaemon:  # structural ReceiptContributor conformance — no su
         faults: Block[BoundaryFault],
     ) -> None:
         facts = admitted.choose(lambda a: self._cache.try_find(a[0]).map(lambda r: _phase(r, warm, a[0]).fact(a[1])))
-        self._receipts = self._receipts.append(facts).append(faults.map(lambda f: Receipt.of("rasm.geometry.mesh.daemon", f)))
+        self._receipts = self._receipts.append(facts).append(faults.map(lambda f: Receipt.of(OWNER, f)))
 
     def contribute(self) -> Iterable[Receipt]:
         # drain-on-harvest: the snapshot-and-clear swap keeps a re-harvest from re-sending historical evidence.

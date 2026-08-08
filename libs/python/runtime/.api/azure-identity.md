@@ -1,6 +1,6 @@
 # [PY_RUNTIME_API_AZURE_IDENTITY]
 
-`azure-identity` mints the `TokenCredential` every Azure data-plane client authenticates through — the credential-chain owner behind the Azure Key Vault `SecretTier.cloud` arm. The runtime composes exactly one member on the resolve path: `DefaultAzureCredential`, whose chain resolves ambient workload identity (environment, workload identity federation, managed identity, shared cache, CLI) inside its own construction, which is what lets the admission boundary hold "no rasm code reads `os.environ` after admission" while the SDK's own credential legs read theirs.
+`azure-identity` mints the `TokenCredential` every Azure data-plane client authenticates through — the credential-chain owner behind the Azure Key Vault `SecretTier.cloud` arm. Runtime composition binds exactly one member on the resolve path: `DefaultAzureCredential`, whose chain resolves ambient workload identity (environment, workload identity federation, managed identity, shared cache, CLI) inside its own construction, which is what lets the admission boundary hold "no rasm code reads `os.environ` after admission" while the SDK's own credential legs read theirs.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -10,7 +10,7 @@
 - owner: `runtime`
 - rail: settings/secrets — the `TokenCredential` leg of the `SECRET_LADDER` cloud rung's Azure arm
 - depends: `azure-core` (the `TokenCredential`/`AccessToken` protocol shapes), `msal`/`msal-extensions` (the token broker underneath)
-- capability: ambient credential-chain resolution (`DefaultAzureCredential`), single-leg credentials (managed identity, workload identity federation, environment, CLI, certificate/secret service principals), an explicit `ChainedTokenCredential` composer, and the typed unavailability family
+- capability: ambient credential-chain resolution (`DefaultAzureCredential`), single-leg credentials (managed identity, workload identity federation, environment, CLI, certificate/secret service principals), an explicit `ChainedTokenCredential` composer, the `close()`/context-manager release seam every leg's transport rides, and the typed unavailability family
 
 ## [02]-[CREDENTIALS]
 
@@ -25,20 +25,24 @@
 |  [05]   | `get_token(*scopes, claims, tenant_id, enable_cae)`                 | protocol  | `azure-core` `TokenCredential` read every client calls |
 |  [06]   | `CredentialUnavailableError`                                        | exception | empty leg; subclasses `ClientAuthenticationError`      |
 |  [07]   | `ClientAuthenticationError` (`azure.core.exceptions`)               | exception | material present, authentication refused               |
+|  [08]   | `close()`                                                           | release   | retires each constructed leg's transport session       |
+|  [09]   | `__enter__` / `__exit__`                                            | bracket   | `__enter__` yields the inner `ChainedTokenCredential`  |
+|  [10]   | `aio` twin `__aenter__` / `await close()`                           | bracket   | async-chain release seam                               |
 
 ## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- the credential IS the injection value: a data-plane client (`SecretClient(vault_url, credential)`) and the pydantic-settings `AzureKeyVaultSettingsSource(settings_cls, url=, credential=)` both take the `TokenCredential`, never a pre-built client — the credential is the one seam the two legs share.
+- `TokenCredential` IS the injection value both legs take: a data-plane client (`SecretClient(vault_url, credential)`) and the pydantic-settings `AzureKeyVaultSettingsSource(settings_cls, url=, credential=)` each accept the credential and never a pre-built client, so the credential is the one seam the two legs share.
 - `DefaultAzureCredential` resolves its chain lazily at the first `get_token`, and an exhausted chain raises `CredentialUnavailableError` (a `ClientAuthenticationError` subclass), so one `except ClientAuthenticationError` arm covers both the no-material and the refused-material states at the fault seam; neither subclasses `OSError` — the retry row that rides the resolve names the Azure transport transients (`ServiceRequestError`/`ServiceResponseError` families) by dotted spelling.
 - credential state binds per composition, never process-global — `libs/python/.planning/RULINGS.md` `[05]-[PROCESS]` — so the ladder constructs the credential beside the client per read arm and memoizes neither.
+- release law: `DefaultAzureCredential` carries `close()` and the context-manager pair, so per-resolve construction brackets BOTH handles under one `with` — a credential constructed inline as the client's argument has no name to close, and every managed-identity and CLI leg it built keeps its own transport session alive past the read that needed it.
 
 [STACKING]:
-- `azure-keyvault-secrets`(`.api/azure-keyvault-secrets.md`): the one consuming client — `execution/admission#ADMISSION` `CloudVault.read`'s Azure arm constructs `SecretClient(vault_url, DefaultAzureCredential())` per resolve; the declared-field twin injects the same credential into `AzureKeyVaultSettingsSource`.
+- `azure-keyvault-secrets`(`.api/azure-keyvault-secrets.md`): the one consuming client — `execution/admission#SETTINGS` `CloudVault.read`'s Azure arm names the credential and brackets both handles per resolve (`with DefaultAzureCredential() as credential, SecretClient(vault_url, credential) as client:`), so the chain's transport dies with the read that built it; the declared-field twin injects the same credential into `AzureKeyVaultSettingsSource`, where the source's own lifetime holds it.
 - `reliability/resilience`(`runtime/.planning/reliability/resilience.md`): the `RetryClass.SECRET` row carries the Azure transport transients by module-qualified spelling at the BASE tier; `CredentialUnavailableError` is NOT transient — absent material never heals inside a retry window.
 
 [RAIL_LAW]:
 - Package: `azure-identity`
-- Owns: Azure credential-chain resolution, the single-leg credential ctors, the explicit chain composer, and the typed unavailability family
-- Accept: `DefaultAzureCredential` as the ladder's ambient chain; a single-leg ctor where a deployment pins one identity; the credential handed to `SecretClient`/`AzureKeyVaultSettingsSource` as the shared seam value
-- Reject: a process-global memoized credential (per-composition binding rules it), a hand-rolled token acquisition over `msal` where the chain owns it, `CredentialUnavailableError` in a retry target, and a pre-built `SecretClient` injected where the settings source takes the credential
+- Owns: Azure credential-chain resolution, the single-leg credential ctors, the explicit chain composer, the credential release seam, and the typed unavailability family
+- Accept: `DefaultAzureCredential` as the ladder's ambient chain; a single-leg ctor where a deployment pins one identity; the credential handed to `SecretClient`/`AzureKeyVaultSettingsSource` as the shared seam value; a named per-resolve credential bracketed under the same `with` as the client it authenticates
+- Reject: a process-global memoized credential (per-composition binding rules it), an unnamed credential constructed inline as the client's argument where nothing can close it, a hand-rolled token acquisition over `msal` where the chain owns it, `CredentialUnavailableError` in a retry target, and a pre-built `SecretClient` injected where the settings source takes the credential

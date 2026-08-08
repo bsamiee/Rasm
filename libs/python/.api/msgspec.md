@@ -164,7 +164,7 @@ Constructor signatures the table abbreviates as `...`; the numeric and non-numer
 - Wire models are `Struct` subclasses; field constraints ride `Annotated[T, Meta(...)]`, and `gc=False` marks leaf structs holding only non-container fields.
 - `msgspec.convert` coerces unvalidated dicts/objects into typed `Struct` at boundary intake — `from_attributes=True` ingests ORM/attribute objects, `dec_hook` reconstructs custom scalars.
 - `DecodeError`/`ValidationError`/`EncodeError` catch only at I/O boundaries and map to domain error types; `ValidationError` carries the JSON-pointer path of the offending field and is terminal, never retried.
-- runtime wire shapes mint once in `transport/shapes` with `frozen=True` the default, `structs.force_setattr` reserved for the decode-time post-init hook; the `runtime/clock/clock#CLOCK` `Hlc`/`ElementId` leaf cells carry `gc=False`, and `runtime/reliability/faults#FAULT` `boundary` lifts a caught fault to a `BoundaryFault` once at egress.
+- runtime wire shapes mint once in `transport/shapes` with `frozen=True` the default, `structs.force_setattr` reserved for the decode-time post-init hook; the `runtime/evidence/clock#CLOCK` `Hlc`/`ElementId` leaf cells carry `gc=False`, and `runtime/reliability/faults#FAULT` `boundary` lifts a caught fault to a `BoundaryFault` once at egress.
 - `json.schema`/`json.schema_components` emit JSON Schema from `Struct` types for OpenAPI/contract surfaces, `schema_hook` covering custom-typed fields.
 
 [RAIL_LAW]:

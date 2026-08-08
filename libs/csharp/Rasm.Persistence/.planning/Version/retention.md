@@ -214,6 +214,16 @@ public sealed partial class ArtifactKind {
     // bytes, so cache-classing it is evidence loss and the row is Blob.
     public static readonly ArtifactKind TextureSet = new("texture-set", RetentionClass.Cache, CacheTier.ArtifactBlob);
     public static readonly ArtifactKind TextureAcquired = new("texture-acquired", RetentionClass.Blob, CacheTier.ArtifactBlob);
+    // HDF5 archive families off the Compute Runtime/codecs archive owner, admitted content-key-only through
+    // ArtifactIndexRow like every artifact here. Provenance decides the class: an INGESTED corpus (weather grid,
+    // reference bands, Joe-Kuo class resources, external sparse exchange) is bytes no fold reproduces — Blob;
+    // a SOLVER-EMITTED history, modal basis, mesh container, ensemble, or checkpoint re-derives from its
+    // content-keyed inputs at compute cost — Cache; the graduation envelope and the initializer pack are
+    // acquired evidence a retired producer cannot re-mint — Blob.
+    public static readonly ArtifactKind ArchiveCorpus = new("archive-corpus", RetentionClass.Blob, CacheTier.ArtifactBlob);
+    public static readonly ArtifactKind ArchiveSolve = new("archive-solve", RetentionClass.Cache, CacheTier.ArtifactBlob);
+    public static readonly ArtifactKind GraduationEnvelope = new("graduation-envelope", RetentionClass.Blob, CacheTier.ArtifactBlob);
+    public static readonly ArtifactKind InitializerPack = new("initializer-pack", RetentionClass.Blob, CacheTier.ModelResult);
     // Fabrication egress families: keys mirror the Rasm.Fabrication EgressKind rows verbatim; federation is
     // content-key-only — no Fabrication type crosses this page.
     public static readonly ArtifactKind CutProgram = new("cutprogram", RetentionClass.Cache, CacheTier.ModelResult);

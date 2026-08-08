@@ -1,8 +1,12 @@
 # [BIM_WIRE]
 
-`IfcWire` is the cross-runtime IFC interchange wire: one content-keyed artifact carrying an `Rasm.Element/Graph/element#ELEMENT_GRAPH` `ElementGraph` re-authored to the IFC serializations GeometryGym emits through the Bim-internal `Projection/egress#IFC_EGRESS` `SemanticProjector.Emit`, stamped with the seam `Rasm.Element/Projection/address#CONTENT_ADDRESS` `ContentAddress.OfGraph` so EVERY IFC serialization of one model shares one identity, and re-admitted through `IfcWire.Admit` — the `Exchange/import#IMPORT_RAIL` `BimIo.ImportIfc` schema-sniffed decode, `SemanticProjector.Project`, then `Rasm.Element/Projection/projection#PROJECTION_CONTRACT` `ProjectionAssembly.Assemble` under the `Projection/semantic#GRAPH_LEGALITY` `IfcLegality` constraint. `Rasm.Bim` owns GeometryGym alone, so the IFC bytes ARE the BIM wire: the `python:geometry/ifc-companion` ifcopenshell peer and the TypeScript web peer decode the same serialization Bim emits, never re-minting a parallel BIM shape.
+`IfcWire` is the cross-runtime IFC interchange wire: one content-keyed artifact carrying an `Rasm.Element/Graph/element#ELEMENT_GRAPH` `ElementGraph` re-authored to the IFC serializations GeometryGym emits through the Bim-internal `Projection/egress#IFC_EGRESS` `SemanticProjector.Emit`, stamped with the seam `Rasm.Element/Projection/address#CONTENT_ADDRESS` `ContentAddress.OfGraph` so EVERY IFC serialization of one model shares one identity, and re-admitted through `IfcWire.Admit`.
 
-Seam-graph interchange stays out of Bim: the `ElementGraph`/`GraphDelta` snapshot (`json-stj`/`cbor`/`messagepack` with the op-log change stream) is `Rasm.Persistence/Element/codec#CODEC_AXIS` `SnapshotCodec`'s and Version owner, and the gRPC service descriptor is an APP-PLATFORM transport concern — this page owns ONLY the IFC interchange wire. A generic-model STJ serializer and a gRPC descriptor inside an AEC-domain package are strata leaks, so the retired `BimModel`/`BimElement` snapshot wire, its `[SmartEnum]` `BimWireFace`, and the `BimWireContext` source-generated `JsonSerializerContext` are GONE; "one model, many faces" survives DISTRIBUTED by stratum, never consolidated in Bim. `IfcWire` is HOST-FREE — no RhinoCommon type, no host-bound geometry, only IFC bytes and the content-key the `Rasm.Compute/Runtime/codecs#CONTENT_ADDRESSING` geometry-blob store and the seam graph share — and deserialization is admission, faulting at the boundary so a malformed wire payload never mints a half-built graph.
+`Rasm.Bim` owns GeometryGym alone, so the IFC bytes ARE the BIM wire: the `python:geometry/ifc-companion` ifcopenshell peer and the TypeScript web peer decode the same serialization Bim emits, never re-minting a parallel BIM shape.
+
+Seam-graph interchange stays out of Bim: the `ElementGraph`/`GraphDelta` snapshot (`json-stj`/`cbor`/`messagepack` with the op-log change stream) is `Rasm.Persistence/Element/codec#CODEC_AXIS` `SnapshotCodec`'s and Version owner, and the gRPC service descriptor is an APP-PLATFORM transport concern — this page owns ONLY the IFC interchange wire. Generic-model STJ serializers and gRPC descriptors inside an AEC-domain package are strata leaks; "one model, many faces" survives DISTRIBUTED by stratum, never consolidated in Bim.
+
+`IfcWire` is HOST-FREE — no RhinoCommon type, no host-bound geometry, only IFC bytes and the content-key the `Rasm.Compute/Runtime/codecs#CONTENT_ADDRESSING` geometry-blob store and the seam graph share — and deserialization is admission, faulting at the boundary so a malformed wire payload never mints a half-built graph.
 
 ## [01]-[INDEX]
 
@@ -116,7 +120,7 @@ public sealed record IfcWire(
 // cross-runtime byte-equality claim is the deleted form: GeometryGym, ifcopenshell, and web serializers emit
 // divergent byte layouts for one graph, so the byte golden NEVER crosses runtimes — only the GraphKey does.
 public sealed record WireParity(string Corpus, ContentAddress GraphKey, UInt128 GoldenBytes, long ByteCount) {
-    // The byte golden mints through the ONE kernel seed-zero `ContentHash` the semantic key already rides — the
+    // Byte goldens mint through the ONE kernel seed-zero `ContentHash` the semantic key already rides — the
     // two are different QUESTIONS (semantic parity across runtimes, host-local byte determinism) over one hasher,
     // so a second digest scheme beside it forks the content space this package's ruling seals to one.
     public static WireParity Of(string corpus, IfcWire wire) =>

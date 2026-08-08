@@ -11,10 +11,11 @@ Runs ride the `EvidenceScope.STUDY` weave — span, `boundary` fence, beartype g
 ## [02]-[STUDY]
 
 - Owner: `Study` — DOE sampling, global sensitivity, and surrogate fitting are cases on one owner; the benchmark concern is the live `MeasurementMode` discriminant folded into `Measured`, never a parallel benchmark owner; `RunHistory` rides the same spine for persistence and resume.
-- Cases: the union's keyword constructor is the one construction surface, no sibling factory family; the eight SALib analyzers are one routed sampler body and one routed analyzer body over `SALIB_ROUTES`, the per-method knobs folded from the case payload through `_salib_args`; one seed policy crosses sampler, analyzer, content identity, receipt, and evidence.
+- Cases: the union's keyword constructor is the one construction surface, no sibling factory family; the eight SALib analyzers are one routed sampler body and one routed analyzer body over `SALIB_ROUTES`, the per-method knobs folded from the case payload through `_salib_args`; one seed policy crosses sampler, analyzer, content identity, receipt, and evidence. Classical coded designs — fractional-factorial by resolution, Box-Behnken, central-composite, folded Plackett-Burman — are sampling-only members whose `indices` return `{}` and whose `design` folds ride one `_coded` match through the shared `_unit`/`_box` map: coded levels normalize by the design's own extreme (a circumscribed CCD's axial overshoot lands on the bounds) and map LINEARLY onto each axis's `bounds`, the same box map the `factorial` grid takes, because a coded design is box-geometric and the marginal ppf's 0/1 tails are unbounded.
 - Entry: `Study.run` is one polymorphic entry discriminating by input shape — an `Objective` runs the sampled evaluation, a contract-gated DOE frame grades a pre-measured cohort — never a second entry; the caller's composition `ScopeKey` threads onto the weave so an embedded composition's lifecycle facts key to it, defaulted so the root call shape stays scope-free.
 - Output: `Measured` carries the responses, the wallclock, and the `Option[float]` batch-versus-serial speedup that is `Nothing` for a bare row objective — never a fabricated ratio over the identical per-row work timed twice; the `surrogate` row reads the honest cross-validated `R^2` while the `polynomial` row's in-sample `R^2` is the cheap univariate screening diagnostic. `StudyReceipt.benched` projects the held wallclock onto the runtime bench fabric under the receipt's content-keyed subject — `BenchmarkReceipt.of` consumes the measurement the run already paid for, a SPEEDUP run recovers its serial baseline as the sibling `.serial` duration series, `RESULT`'s zero elapsed suppresses the contribution, and distinct objectives never merge into one method-only benchmark series.
-- Growth: a new input marginal is one `AxisDist` member with one `rescale` arm and one `bounds` arm; a new SALib analyzer is one `StudyMethod` case and one `SALIB_ROUTES` row, no new body; a new `qmc` engine or numpy floor is one arm on `_qmc`/`design`; a new surrogate estimator is one `SurrogateKind` member and one `SURROGATE_CLASS` row; a new measurement is one `MeasurementMode` member reading the shared `Measured` fold; a new bench statistic is one runtime `BenchmarkReceipt` field under the bench growth law, reached with zero study edits.
+- Law: the async `run` fold charges one `Resource.RECORD` `MeterFact` over the evaluation surface — design cells times response arity, off the CLEARED receipt, surfaced by the study method — because that fold is the nearest async owner of a count the HOSTILE kernel produced and binds no plane for. A refused study evaluated nothing and bills nothing. The resource already names its series at the journal owner, so no metric row is minted beside the receipt fan.
+- Growth: a new input marginal is one `AxisDist` member with one `rescale` arm and one `bounds` arm; a new SALib analyzer is one `StudyMethod` case and one `SALIB_ROUTES` row, no new body; a new `qmc` engine or numpy floor is one arm on `_qmc`/`design`; a new classical coded design is one `StudyMethod` case and one `_coded` arm reaching the shared `_unit`/`_box` map; a new surrogate estimator is one `SurrogateKind` member and one `SURROGATE_CLASS` row; a new measurement is one `MeasurementMode` member reading the shared `Measured` fold; a new bench statistic is one runtime `BenchmarkReceipt` field under the bench growth law, reached with zero study edits.
 
 ```python signature
 import time
@@ -35,6 +36,7 @@ from rasm.data.tabular.contract import FrameAdmission
 from rasm.data.tabular.interop import Backend, FieldShape, FrameInterop
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import BoundaryFault, FAULT_CONF, RuntimeRail, boundary
+from rasm.runtime.journal import Journal, MeterFact, Resource
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.profiles import BenchMode, BenchmarkReceipt
 from rasm.runtime.receipts import DEFAULT_SCOPE, Receipt, ScopeKey
@@ -52,6 +54,7 @@ lazy from SALib.analyze import sobol as sobol_analysis
 lazy from SALib.sample import fast_sampler, finite_diff, latin
 lazy from SALib.sample import morris as morris_sampling
 lazy from SALib.sample import sobol as sobol_sampling
+lazy from pyDOE3 import bbdesign, ccdesign, fold, fracfact_by_res, pbdesign
 lazy from scipy import stats
 lazy from scipy.stats import qmc
 lazy from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor
@@ -146,6 +149,17 @@ class MeasurementMode(StrEnum):
                 assert_never(unreachable)
 
 
+class CcAlpha(StrEnum):
+    ORTHOGONAL = "orthogonal"  # axial distance preserving block orthogonality
+    ROTATABLE = "rotatable"  # axial distance giving constant prediction variance on spheres
+
+
+class CcFace(StrEnum):
+    CIRCUMSCRIBED = "circumscribed"  # axial points OUTSIDE the cube (|coded| > 1); the box map absorbs the overshoot
+    INSCRIBED = "inscribed"  # cube shrunk so axial points sit on the bounds
+    FACED = "faced"  # axial points on the cube faces
+
+
 class SurrogateKind(StrEnum):
     GRADIENT_BOOST = "gradient_boost"  # ensemble.GradientBoostingRegressor
     RANDOM_FOREST = "random_forest"  # ensemble.RandomForestRegressor
@@ -236,6 +250,10 @@ class StudyMethod:
     tag: Literal[
         "lhs",
         "factorial",
+        "fractional",
+        "box_behnken",
+        "central_composite",
+        "plackett_burman",
         "sobol",
         "halton",
         "morris_screen",
@@ -251,6 +269,10 @@ class StudyMethod:
     ] = tag()
     lhs: int = case()
     factorial: tuple[int, ...] = case()
+    fractional: int = case()  # minimum-aberration resolution; `fracfact_by_res` raises `design not possible` onto the fence
+    box_behnken: int = case()  # center-point count; pyDOE3 asserts >= 3 factors onto the fence
+    central_composite: tuple[tuple[int, int], CcAlpha, CcFace] = case()  # (factorial-block, axial-block) centers
+    plackett_burman: bool = case()  # True appends the sign-reversed `fold` mirror, decoupling main effects
     sobol: int = case()
     halton: int = case()
     morris_screen: tuple[int, int] = case()
@@ -273,7 +295,9 @@ class StudyMethod:
             case StudyMethod(tag="factorial", factorial=levels):
                 grids = np.meshgrid(*[np.linspace(0.0, 1.0, k) for k in levels], indexing="ij")
                 unit = np.stack([g.reshape(-1) for g in grids], axis=1)
-                return np.stack([ax.rescale(unit[:, j]) for j, ax in enumerate(axes)], axis=1)
+                return StudyMethod._box(axes, unit)
+            case StudyMethod(tag="fractional" | "box_behnken" | "central_composite" | "plackett_burman"):
+                return StudyMethod._box(axes, StudyMethod._unit(self._coded(len(axes))))
             case StudyMethod(tag="morris_screen" | "sobol_indices" | "fast" | "rbd_fast" | "delta" | "pawn" | "dgsm" | "hdmr" as t):
                 n, sample_kwargs, _ = self._salib_args()
                 return StudyMethod._spec(axes).sample(SALIB_ROUTES[t].sampler(), n, seed=seed, **sample_kwargs).samples
@@ -301,7 +325,7 @@ class StudyMethod:
                 return {ax.name: StudyMethod._axis_r2(design[:, j], responses, degree) for j, ax in enumerate(axes)}
             case StudyMethod(tag="surrogate", surrogate=kind):
                 return {"cv_r2": StudyMethod._surrogate_cv(kind, design, responses)}
-            case StudyMethod(tag="lhs" | "factorial" | "sobol" | "halton"):
+            case StudyMethod(tag="lhs" | "factorial" | "fractional" | "box_behnken" | "central_composite" | "plackett_burman" | "sobol" | "halton"):
                 return {}
             case _ as unreachable:
                 assert_never(unreachable)
@@ -334,6 +358,38 @@ class StudyMethod:
                 assert_never(unreachable)
         # one rescale path across the qmc and factorial floors — `qmc.scale` is not a second uniform-only scaling surface.
         return np.stack([ax.rescale(unit[:, j]) for j, ax in enumerate(axes)], axis=1)
+
+    # classical coded designs: pyDOE3 emits run-by-factor level matrices in its own coded coordinates. Deterministic
+    # constructions, so the seed reaches none of them; row counts derive from the factor count and payload alone.
+    def _coded(self, n: int) -> np.ndarray:
+        match self:
+            case StudyMethod(tag="fractional", fractional=resolution):
+                return fracfact_by_res(n, resolution)
+            case StudyMethod(tag="box_behnken", box_behnken=center):
+                return bbdesign(n, center=center)
+            case StudyMethod(tag="central_composite", central_composite=((cube, axial), alpha, face)):
+                return ccdesign(n, center=(cube, axial), alpha=alpha.value, face=face.value)
+            case StudyMethod(tag="plackett_burman", plackett_burman=folded):
+                coded = pbdesign(n)
+                return fold(coded) if folded else coded
+            case _ as unreachable:
+                assert_never(unreachable)
+
+    # normalize a coded matrix onto [0, 1] by its own global extreme, so a circumscribed CCD's |coded| > 1 axial
+    # points land ON the axis bounds and every cube point lands inside them.
+    @staticmethod
+    def _unit(coded: np.ndarray) -> np.ndarray:
+        extreme = max(1.0, float(np.abs(coded).max()))
+        return (coded + extreme) / (2.0 * extreme)
+
+    # classical designs are box-geometric: levels place on the support box by construction, so the fold maps
+    # linearly onto each axis's `bounds` — never through the marginal ppf, whose 0/1 tails are unbounded (a NORM
+    # axis would place corner runs at ±inf).
+    @staticmethod
+    def _box(axes: tuple[ParamAxis, ...], unit: np.ndarray) -> np.ndarray:
+        lo = np.asarray([ax.bounds[0] for ax in axes], dtype=float)
+        hi = np.asarray([ax.bounds[1] for ax in axes], dtype=float)
+        return lo + unit * (hi - lo)
 
     @staticmethod
     def _spec(axes: tuple[ParamAxis, ...]) -> "ProblemSpec":
@@ -475,6 +531,15 @@ class StudyReceipt(Struct, frozen=True):
         )
 
 
+def _metered(method: str, receipt: StudyReceipt) -> MeterFact:
+    # `Resource.RECORD` prices the EVALUATION surface a study consumed — every design cell times its response arity,
+    # the same product the receipt's own census carries — so a wide multi-output objective bills the work it did
+    # rather than the row count a single-output run would show. The resource already names `Series.TALLY` at the
+    # journal owner, so this charge mints no metric row beside the receipt fan the contributor already emits, and
+    # the surface is the study method, the one axis a cost fold cuts a study estate on.
+    return MeterFact(resource=Resource.RECORD, quantity=receipt.design_cells * receipt.response_width, surface=method)
+
+
 # --- [SERVICES] -------------------------------------------------------------------------
 
 
@@ -505,7 +570,14 @@ class Study(Struct, frozen=True):
                     )
 
         facts = {"method": self.method.tag, "mode": self.mode.value, "axes": len(self.axes), "seed": seed}
-        return await evidence_run(EvidenceScope.STUDY, f"study.{self.method.tag}", dispatch, facts=facts, composition=composition)
+        settled = await evidence_run(EvidenceScope.STUDY, f"study.{self.method.tag}", dispatch, facts=facts, composition=composition)
+        # this fold is the nearest async owner of the evaluation count — the kernel that produced it binds no plane
+        # — so the charge lands here, off the CLEARED receipt: a refused study evaluated nothing to bill.
+        match settled:
+            case Result(tag="ok", ok=receipt):
+                return (await Journal.record(_metered(self.method.tag, receipt), scope=composition)).map(lambda _landed: receipt)
+            case refused:
+                return Error(refused.error)
 
     def _admit_frame(self, frame: object) -> "RuntimeRail[tuple[np.ndarray, np.ndarray]]":
         # gate proves one Float64 column per `ParamAxis` plus the `response` column, and the decoded design matrix + response

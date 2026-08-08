@@ -2,11 +2,12 @@
 
 Classical-ML model-asset export, validation, and graduation owner: `ModelAsset` exports a fitted scikit-learn estimator graph to ONNX through `skl2onnx.to_onnx`, structurally checks it through `onnx`, runs it through an `onnxruntime.InferenceSession`, and folds every check into a typed evidence ledger that graduates on the `model_asset` `HandoffAxis` case. Authoring or training a neural model is out of charter.
 
-Input and output are both parameterized: `ExportSource` discriminates the `to_onnx` source shapes and `ValidationCheck.run` folds each case to a `ValidationEvidence` carrier holding only the slots its kind names. `onnx` is core; `onnxruntime`, `skl2onnx`, and `scikit-learn` gate on the worker lane. This run rides the `EvidenceScope.MODEL` weave — span, `boundary` fence, beartype guard, fenced harvest of the manifest contributor.
+Input and output are both parameterized: `ExportSource` discriminates the `to_onnx` source shapes and `ValidationCheck.run` folds each case to a `ValidationEvidence` carrier holding only the slots its kind names. `onnx` is core; `onnxruntime`, `skl2onnx`, and `scikit-learn` gate on the worker lane; `h5py` imports module-top for the envelope container. This run rides the `EvidenceScope.MODEL` weave — span, `boundary` fence, beartype guard, fenced harvest of the manifest contributor. `[03]-[ENVELOPE]` seats the drift-envelope companion here because only this owner holds the training columns the bands fit from; its container layout is the C# ingest fence's law, hand-copied.
 
 ## [01]-[INDEX]
 
 - [02]-[ASSET]: the sklearn-to-ONNX export over `ExportSource`, the `ValidationCheck` fold to `ValidationEvidence` verdicts, and the graduation rail on one `ModelAsset` owner.
+- [03]-[ENVELOPE]: the drift-envelope companion — reference bands fitted from the training population and written as the HDF5 container the C# admission gate ingests, its `write_async` twin the crossing's one movement record.
 
 ## [02]-[ASSET]
 
@@ -28,9 +29,10 @@ from expression.collections import Block, Map
 from msgspec import Struct
 from upath import UPath
 
-from rasm.compute.graduation.handoff import EvidenceScope, GraduationReceipt, HandoffAxis, evidence_run
+from rasm.compute.graduation.handoff import EVIDENCE_DOMAIN, EvidenceScope, GraduationReceipt, HandoffAxis, evidence_run
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import FAULT_CONF, RuntimeRail, boundary
+from rasm.runtime.journal import Actor, Assigned, AuditFact, Fact, Journal, MeterFact, Party, Resource, Retain
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.receipts import DEFAULT_SCOPE, Receipt, ScopeKey
 from rasm.runtime.roots import ResourceRef
@@ -366,7 +368,158 @@ class ModelAsset(Struct, frozen=True):  # holds a `ResourceRef` and a providers 
         return self._load_and_run(self.ref.path, source)
 ```
 
-## [03]-[RESEARCH]
+## [03]-[ENVELOPE]
+
+- Owner: `GraduationEnvelope` — the serving-population drift companion this owner fits at graduation and ships beside the ONNX artifact: `ReferenceBand` is the numeric-or-categorical band union, `fit` derives each feature's band from the training columns only this owner holds, and `write` emits the container `csharp:Rasm.Compute/Model/identity#MODEL_IDENTITY` `GraduationEnvelope.Admit(HdfHandle)` ingests — the consuming anchor whose layout this writer hand-copies as a deliberate non-import mirror per estate law, so a layout question resolves at that ingest fence and never re-derives here. The reverse JSON `EvidenceBundle` leg stays whole on `graduation/codegen#STUB_CODEGEN`, untouched.
+- Cases: layout is the ingest fence's law transcribed — one root `bands` group carrying the `evidence-key` attribute as the 32-hex `ContentKey` rendering the C# parses `NumberStyles.HexNumber`; one group per feature carrying the `kind` attribute (`numeric`/`categorical`); numeric bands the `edges` float64[k] and `mass` float64[k+1] datasets, categorical bands the vlen-string `categories` and float64 `mass` datasets.
+- Auto: `fit` mirrors every `Wellformed` gate BEFORE bytes land, so a container this writer emits never fails the peer's admission — finite strictly-increasing edges, mass length `edges + 1`, every mass strictly positive and summing to one within `1e-9`, non-blank unique features and categories, a non-zero evidence key. Numeric edges are interior training quantiles, so the k+1 mass vector covers BOTH outer bins the peer's half-open bisection addresses; `_edges` drops any edge bounding an empty bin until every bin holds mass, because duplicated quantiles over ties otherwise mint a zero-mass bin the peer's normalization gate refuses.
+- Entry: `GraduationEnvelope.fit(evidence_key, numeric, categorical)` folds the training columns into admitted bands or a typed refusal; `write(ref)` is create-only h5py, one call landing roster, attributes, and datasets whole and answering the container's byte extent; `write_async(ref)` is its awaitable twin.
+- Law: `write_async` is the ONE durable seat and the crossing's only movement evidence — one `REGULATORY` `AuditFact` naming the destination beside a `STORAGE` `MeterFact` over the bytes landed. It is an awaitable twin because this owner carries no weave and `write` is synchronous whole while recording suspends; without the line, a reference population leaves for the peer's admission gate and neither branch records that it moved. `REGULATORY` is earned rather than inherited: a drift envelope is the population a served model is graded against for as long as that model serves. The record rail BINDS, so a container the plane refused never reads as written.
+- Receipt: the envelope is a crossing artifact, not hub evidence — it graduates nothing itself; the `model_asset` axis crossing on `[02]-[ASSET]` stays the one graduation leg, and the envelope's container `ContentKey` pairs the artifact with that crossing's evidence key.
+- Growth: a new band case is one `ReferenceBand` case with its `kind` literal, landed at the ingest fence FIRST because the reader's `Switch` is the layout law; a new fit policy is one parameter on `fit`; a newly audited container column is one `_evidence` `Change` row; zero new surface.
+- Boundary: reference mass is fitted HERE and never at the peer — the C# comment pins that division; the statistic, thresholds, and sampling floors are `DriftPolicy` rows at the consumer, so no policy value crosses in the container; `h5py` composes under the compute-tier `.api/h5py.md` admission.
+
+```python signature
+# composes the [02]-[ASSET] prelude; `h5py` imports module-top beside it.
+import h5py
+from collections.abc import Mapping
+
+_MASS_TOL: Final[float] = 1e-9  # the ingest fence's own normalization tolerance, transcribed
+_BINS: Final[int] = 10  # default interior-quantile count; a caller's k overrides at `fit`
+
+
+@tagged_union(frozen=True)
+class ReferenceBand:
+    tag: Literal["numeric", "categorical"] = tag()
+    numeric: tuple[str, tuple[float, ...], tuple[float, ...]] = case()
+    categorical: tuple[str, tuple[str, ...], tuple[float, ...]] = case()
+
+    @property
+    def feature(self) -> str:
+        match self:
+            case ReferenceBand(tag="numeric", numeric=(name, _, _)) | ReferenceBand(tag="categorical", categorical=(name, _, _)):
+                return name
+            case _ as unreachable:
+                assert_never(unreachable)
+
+    def wellformed(self) -> bool:
+        # transcription of the peer `Band.Wellformed`, minus the roster-uniqueness half `fit` owns.
+        match self:
+            case ReferenceBand(tag="numeric", numeric=(name, edges, mass)):
+                increasing = all(isfinite(e) for e in edges) and all(a < b for a, b in zip(edges, edges[1:], strict=False))
+                return bool(name.strip()) and len(mass) == len(edges) + 1 and increasing and _normalized(mass)
+            case ReferenceBand(tag="categorical", categorical=(name, categories, mass)):
+                labelled = bool(categories) and len(categories) == len(mass) and all(c.strip() for c in categories)
+                return bool(name.strip()) and labelled and len(set(categories)) == len(categories) and _normalized(mass)
+            case _ as unreachable:
+                assert_never(unreachable)
+
+
+def _normalized(mass: tuple[float, ...]) -> bool:
+    return all(isfinite(m) and m > 0.0 for m in mass) and abs(sum(mass) - 1.0) <= _MASS_TOL
+
+
+def _evidence(envelope: "GraduationEnvelope", ref: ResourceRef, written: int) -> Block[Fact]:
+    # the crossing's only movement record: this container leaves the process for the C# ingest fence, and the
+    # envelope graduates nothing itself, so no hub receipt names it and no span brackets it. `REGULATORY` is the
+    # class — a drift envelope is the reference population a served model is graded against for as long as that
+    # model serves, so its arrival is evidence read back years later. The meter carries the bytes the writer
+    # actually landed, keyed on the same destination the audit target names, so one row answers what moved and where.
+    audited = AuditFact(
+        action=f"{EVIDENCE_DOMAIN}.envelope",
+        actor=Party(kind=Actor.SERVICE, key=EvidenceScope.MODEL.value),
+        target=Party(kind="artifact", key=str(ref.path)),
+        retention=Retain.REGULATORY,
+        change=(
+            Assigned(path="/evidence_key", next=envelope.evidence_key.hex),
+            Assigned(path="/bands", next=str(len(envelope.bands))),
+        ),
+    )
+    return Block.of_seq((audited, MeterFact(resource=Resource.STORAGE, quantity=written, surface=str(ref.path))))
+
+
+def _edges(values: np.ndarray, bins: int) -> np.ndarray:
+    # interior quantiles deduped, then any edge bounding an empty bin drops until every bin holds mass —
+    # ties in the training column otherwise mint a zero-mass bin the peer's `Normalized` gate refuses.
+    edges = np.unique(np.quantile(values, np.linspace(0.0, 1.0, bins + 1)[1:-1]))
+    while edges.size:
+        counts, _ = np.histogram(values, bins=np.concatenate(([-np.inf], edges, [np.inf])))
+        if (counts > 0).all():
+            return edges
+        edges = np.delete(edges, max(int(np.argmin(counts)) - 1, 0))
+    return edges
+
+
+class GraduationEnvelope(Struct, frozen=True):
+    evidence_key: ContentKey
+    bands: tuple[ReferenceBand, ...]
+
+    @classmethod
+    @beartype(conf=FAULT_CONF)
+    def fit(
+        cls, evidence_key: ContentKey, numeric: Mapping[str, np.ndarray], categorical: Mapping[str, np.ndarray], *, bins: int = _BINS
+    ) -> "RuntimeRail[GraduationEnvelope]":
+        def build() -> GraduationEnvelope:
+            rows: list[ReferenceBand] = []
+            for name, column in numeric.items():
+                values = np.asarray(column, dtype=float)
+                if not np.isfinite(values).all():
+                    raise ValueError(f"envelope column {name}: non-finite training value")
+                edges = _edges(values, bins)
+                counts, _ = np.histogram(values, bins=np.concatenate(([-np.inf], edges, [np.inf])))
+                rows.append(ReferenceBand(numeric=(name, tuple(map(float, edges)), tuple(counts / values.size))))
+            for name, column in categorical.items():
+                labels, tallies = np.unique(np.asarray(column, dtype=str), return_counts=True)
+                rows.append(ReferenceBand(categorical=(name, tuple(map(str, labels)), tuple(tallies / tallies.sum()))))
+            features = [row.feature for row in rows]
+            admitted = rows and len(set(features)) == len(features) and all(row.wellformed() for row in rows)
+            if not admitted:
+                raise ValueError(f"envelope admission: features={features}")
+            return cls(evidence_key=evidence_key, bands=tuple(rows))
+
+        return boundary("envelope.fit", build)
+
+    def write(self, ref: ResourceRef) -> "RuntimeRail[int]":
+        # create-only h5py mirror of the ingest fence's read: root `bands` group, `evidence-key` hex attribute,
+        # per-feature `kind` beside its case datasets — float64 exact, categories vlen-string. The byte extent
+        # returns rather than `None`: the storage charge and any caller reconciling the artifact both need what
+        # actually landed, and a writer answering nothing forces a second stat at every consumer.
+        def emit() -> int:
+            with h5py.File(str(ref.path), "x") as file:
+                root = file.create_group("bands")
+                root.attrs["evidence-key"] = self.evidence_key.hex
+                for band in self.bands:
+                    node = root.create_group(band.feature)
+                    match band:
+                        case ReferenceBand(tag="numeric", numeric=(_, edges, mass)):
+                            node.attrs["kind"] = "numeric"
+                            node.create_dataset("edges", data=np.asarray(edges, dtype="<f8"))
+                            node.create_dataset("mass", data=np.asarray(mass, dtype="<f8"))
+                        case ReferenceBand(tag="categorical", categorical=(_, categories, mass)):
+                            node.attrs["kind"] = "categorical"
+                            node.create_dataset("categories", data=list(categories), dtype=h5py.string_dtype(encoding="utf-8"))
+                            node.create_dataset("mass", data=np.asarray(mass, dtype="<f8"))
+                        case _ as unreachable:
+                            assert_never(unreachable)
+            # read past the close, so the extent names a flushed container rather than an open handle's buffer.
+            return ref.path.stat().st_size
+
+        return boundary("envelope.write", emit)
+
+    async def write_async(self, ref: ResourceRef, *, composition: ScopeKey = DEFAULT_SCOPE) -> "RuntimeRail[int]":
+        # the awaitable twin over the band hop, and the ONLY movement evidence this crossing carries: the envelope
+        # graduates nothing, so no weave brackets it and no hub receipt names it, while `write` is synchronous whole
+        # and recording suspends. Without this line neither branch records that a reference population left this
+        # process for the peer's admission gate. The record rail BINDS: a container the plane could not account for
+        # must not read as written, and an unjournalled composition folds to the lawful no-op at one map read.
+        match self.write(ref):
+            case Result(tag="ok", ok=written):
+                return (await Journal.record(_evidence(self, ref, written), scope=composition)).map(lambda _landed: written)
+            case refused:
+                return Error(refused.error)
+```
+
+## [04]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.

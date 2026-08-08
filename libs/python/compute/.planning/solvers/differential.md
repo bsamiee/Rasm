@@ -11,7 +11,7 @@ This solve is adjoint-differentiable, so a parametric study reads sensitivities 
 ## [02]-[DIFFERENTIAL]
 
 - Owner: `DifferentialIntent` — `Ode`/`Sde`/`Cde` cases on the one solver over `diffrax.diffeqsolve`. Solver class, Levy-area level, term-shape, Brownian-path generator, and the step/adjoint/save/event policy are orthogonal table and policy selections; the single `match intent` in `_terms` binds the `(terms, residual)` pair and is the only equation-shaped branch, every other axis a data cell. Policy rows carry every remaining variation — steady-state target, contact crossing, step-clamped stiff march, order-1 fixed-step Milstein solve, Langevin sampler, and memory-checkpointed reverse-mode adjoint alike — never branches.
-- Cases: four orthogonal tables own selection. `_SOLVER` maps each `OdeSolver`/`SdeSolver` member to its diffrax class — total, no hardcoded `Tsit5()`, no dead solver. `_LEVY` keys each strong-order/Langevin solver to the Levy-area level its path must supply (`_LEVY_CLASS` resolves it into `levy_area=`) and doubles as the SDE adaptivity witness: an order-1 solver is absent from `_LEVY`, carries no error estimate, and so `_forced_pid` floors it to `ConstantStepSize` and arms no event — a mis-paired path and an adaptive controller on a fixed-step solver are both unrepresentable. `_LANGEVIN` membership selects the `UnderdampedLangevin*Term` pair over a `(x, v)` state keyed by `gamma`/`langevin_u`, where the plain SDE family builds `MultiTerm(ODETerm, ControlTerm)` — one cell, never a fourth case. `BrownianPath` selects the generator, floored to the reproducible `VirtualBrownianTree` under `AdjointMode.BACKSOLVE` — a backsolve adjoint reconstructs the path at backward time-points the forward-only `UnsafeBrownianPath` cannot supply, so `(UNSAFE, BACKSOLVE)` is unsatisfiable by construction, never a solve-time fault.
+- Cases: four orthogonal tables own selection. `_SOLVER` maps each `OdeSolver`/`SdeSolver` member to its diffrax class — total, no hardcoded `Tsit5()`, no dead solver; `IMPLICIT_EULER` is the order-1 A-B-L-stable DIRK floor beneath the Kvaerno/KenCarp SDIRK ladder, adaptive through its embedded order-2 Heun estimate, its Chord root-find riding the same optimistix/lineax implicit-step seam. `step_ts`/`jump_ts`/`rejected_revisit` wrap the PID controller in `ClipStepSizeController` — forced exact step times, known-discontinuity stepping, and the SDE rejected-step revisit that keeps noncommutative-noise Levy distributions honest; the wrap admits adaptive controllers alone, so the triple stays inert on the fixed-step path and a dt RANGE bound stays `dtmin`/`dtmax` on the PID row, never the clip wrap. `_LEVY` keys each strong-order/Langevin solver to the Levy-area level its path must supply (`_LEVY_CLASS` resolves it into `levy_area=`) and doubles as the SDE adaptivity witness: an order-1 solver is absent from `_LEVY`, carries no error estimate, and so `_forced_pid` floors it to `ConstantStepSize` and arms no event — a mis-paired path and an adaptive controller on a fixed-step solver are both unrepresentable. `_LANGEVIN` membership selects the `UnderdampedLangevin*Term` pair over a `(x, v)` state keyed by `gamma`/`langevin_u`, where the plain SDE family builds `MultiTerm(ODETerm, ControlTerm)` — one cell, never a fourth case. `BrownianPath` selects the generator, floored to the reproducible `VirtualBrownianTree` under `AdjointMode.BACKSOLVE` — a backsolve adjoint reconstructs the path at backward time-points the forward-only `UnsafeBrownianPath` cannot supply, so `(UNSAFE, BACKSOLVE)` is unsatisfiable by construction, never a solve-time fault.
 - Entry: `DifferentialIntent.solve(lane)` composes `lane.offload(Kernel.of(_dispatch, KernelTrait.HOSTILE), self)` under `evidence_run`; isolation, band, and worker-death retry derive at the runtime `Kernel` crossing owner from the trait row. `_diffrax_receipt` runs one `diffeqsolve(..., throw=False)` — the load-bearing knob: the `True` default raises on any non-`successful` result, which the `boundary` `catch=Exception` then converts to a `BoundaryFault` that dead-codes the status fold, so `throw=False` keeps a `max_steps_reached`/`event_occurred`/`dt_min_reached` solve a first-class verdict. When jaxlib is absent the ODE case falls to `_euler_floor` (fixed-step explicit-Euler over numpy on the policy's `init_steps` grid, `result=None`, residual-vs-tolerance adjudicates); the SDE/CDE/Langevin cases hold no floor because the gated integrator IS the capability.
 - Auto: `AdjointMode` selects the differentiable solve — checkpoint/backsolve/implicit/direct reverse modes for the few-outputs/many-parameters regime, `ForwardMode` for the many-outputs/few-parameters and batched-sweep regime. `IntegratePolicy.batched` reads `y0`'s leading axis as an initial-state sweep mapped through `filter_vmap` under `AdjointMode.FORWARD` inside the compiled solve; the receipt folds the per-row residual to its `jnp.max` worst and the per-row result to the worst-case termination, never a Python loop. `SaveKind.DENSE` backs a non-`None` `Solution.interpolation` the sensitivity route resamples through the adjoint while the receipt carries only the terminal verdict.
 - Receipt: `SolverReceipt.Iterative` folds the worst residual, step count, `rtol`, and the mapped `RESULTS` member name as adjudicated status. Every residual is the one `engine.tree_norm` per-leaf sum-of-squares total over a structured terminal pytree — the ODE steady-state field `‖f(t1, y_T)‖`, the SDE/CDE/Langevin terminal state, the Langevin `(x, v)` pair — where a bare `jnp.linalg.norm` assumes a single array leaf and breaks a multi-leaf state. `SolveEngine.verdict` recovers the member name off the `Solution.result._value` code (an `EnumerationItem` carries no `.name`) through the receipt-owned shared fold; the batched path reduces per-row `_value` codes by `jnp.max`, not `RESULTS.promote` (inheritance-widening, not a vmap combine).
@@ -80,6 +80,7 @@ class OdeSolver(StrEnum):
     TSIT5 = "tsit5"
     DOPRI5 = "dopri5"
     DOPRI8 = "dopri8"
+    IMPLICIT_EULER = "implicit_euler"  # order-1 A-B-L-stable SDIRK floor; embedded order-2 Heun error estimate keeps it adaptive
     KENCARP3 = "kencarp3"
     KENCARP4 = "kencarp4"
     KENCARP5 = "kencarp5"
@@ -153,6 +154,9 @@ class IntegratePolicy(Struct, frozen=True):
     atol: float = 1e-8
     dtmin: float | None = None  # PIDController lower step clamp; None lets the controller pick freely
     dtmax: float | None = None  # PIDController upper step clamp for a stiff long-horizon march
+    step_ts: tuple[float, ...] | None = None  # forced exact step times; read only on the adaptive path
+    jump_ts: tuple[float, ...] | None = None  # known vector-field discontinuities the clip wrap steps around; adaptive path only
+    rejected_revisit: int | None = None  # max CONSECUTIVE rejected-step revisits — noncommutative-noise SDE Levy correctness; adaptive path only
     init_steps: int = 1000  # grid count seeding dt0=(t1-t0)/init_steps, never a buried literal
     max_steps: int = 4096  # diffeqsolve step budget; raised past the default for stiff long horizons
     noise_dim: int | None = None  # Brownian width; None couples noise to y0's last dim for diagonal noise
@@ -288,9 +292,16 @@ class SolveEngine:
         adaptive_capable = tag != "sde" or solver in _LEVY
         return adaptive_capable and (policy.event is not EventKind.NONE or policy.step is StepKind.PID)
 
+    # ClipStepSizeController wraps ADAPTIVE controllers alone (ValueError otherwise), so the clip triple
+    # reads only on the PID path — a fixed-step solve already owns its grid and the fields stay inert there.
     def controller(self, tag: str, solver: OdeSolver | SdeSolver, policy: IntegratePolicy) -> object:
         if self._forced_pid(tag, solver, policy):
-            return self.dfx.PIDController(rtol=policy.rtol, atol=policy.atol, dtmin=policy.dtmin, dtmax=policy.dtmax)
+            pid = self.dfx.PIDController(rtol=policy.rtol, atol=policy.atol, dtmin=policy.dtmin, dtmax=policy.dtmax)
+            if policy.step_ts is None and policy.jump_ts is None and policy.rejected_revisit is None:
+                return pid
+            return self.dfx.ClipStepSizeController(
+                pid, step_ts=policy.step_ts, jump_ts=policy.jump_ts, store_rejected_steps=policy.rejected_revisit
+            )
         return self.dfx.ConstantStepSize()
 
     def event(self, tag: str, solver: OdeSolver | SdeSolver, policy: IntegratePolicy) -> object | None:
@@ -307,6 +318,7 @@ def _SOLVER(dfx: object) -> Map[OdeSolver | SdeSolver, Callable[[], object]]:
         (OdeSolver.TSIT5, dfx.Tsit5),
         (OdeSolver.DOPRI5, dfx.Dopri5),
         (OdeSolver.DOPRI8, dfx.Dopri8),
+        (OdeSolver.IMPLICIT_EULER, dfx.ImplicitEuler),
         (OdeSolver.KENCARP3, dfx.KenCarp3),
         (OdeSolver.KENCARP4, dfx.KenCarp4),
         (OdeSolver.KENCARP5, dfx.KenCarp5),

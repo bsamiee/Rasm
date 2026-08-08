@@ -11,13 +11,13 @@ Two injected ports carry the policy: the content-addressed `ITessellationStore` 
 
 ## [02]-[TESSELLATION_BRIDGE]
 
-- Owner: `TessellationRequest` crosses imported geometry to the IfcOpenShell companion and re-imports its GLB through the `import#IMPORT_RAIL` glTF path; `TessellationOutcome` the typed receipt, `ITessellationStore`/`ITessellationCompanion` the injected ports the app-platform binds, `TessellationScope`/`TessellationSettings`/`TessellationOrigin` the request vocabulary. This bridge owns the cache-before-cross-and-store-before-return POLICY plus the managed half of its governance (the boundary token reads); companion transport and durable GLB residence are bound port implementations carrying BCL `CancellationToken` currency, never types this AEC-DOMAIN owner mints. In-flight progress is absent from both port contracts because the two-hop transport publishes no progress channel — the sink would have no feeder.
+- Owner: `TessellationRequest` crosses imported geometry to the IfcOpenShell companion and re-imports its GLB through the `import#IMPORT_RAIL` glTF path; `TessellationOutcome` the typed receipt, `ITessellationStore`/`ITessellationCompanion` the injected ports the app-platform binds, `TessellationScope`/`TessellationSettings`/`TessellationOrigin` the request vocabulary. This bridge owns the cache-before-cross-and-store-before-return POLICY and the managed half of its governance (the boundary token reads); companion transport and durable GLB residence are bound port implementations carrying BCL `CancellationToken` currency, never types this AEC-DOMAIN owner mints. In-flight progress is absent from both port contracts because the two-hop transport publishes no progress channel — a sink there has no feeder.
 - Entry: `Plan` gates on `source.TessellationRequiresCompanion` and mints the dual-key request, defaulting `settings`/`scope` to `TessellationSettings.Canonical`/`TessellationScope.Whole` so the whole-model canonical case is one call; `Resolve` reads the content-addressed store by the request's `Address` BEFORE the companion cross — a hit re-imports the cached GLB (`TessellationOrigin.Cached`, no round-trip), a miss crosses the companion over `Rasm.Compute/Runtime/transport#TRANSPORT_AXIS`, stores the fresh GLB write-blob-first, and re-imports it (`TessellationOrigin.Tessellated`).
 - Auto: dual keys separate concerns. `SourceKey` is the PURE, tolerance-independent source identity — the cross-projection join the GLB row and the IFC-semantic-graph row of one source share, holding whatever deflection a tessellation runs at. `ContentKey` folds that `SourceKey` with every GLB-affecting dimension (the `InterchangePolicy` deflection/tolerance/angle and the order-stable `TessellationSettings`/`TessellationScope` config), so two tessellations differing only in a weld flag, a deflection, or an element filter never collide on the store address while source identity stays pure. `Address` is the `Energy/exchange#ENERGY_EXCHANGE` `ArtifactKey` value object minted off the `ContentKey` and the `InterchangeFormat.Glb` row — the ONE object-plane grammar owner, so the store address a lookup, a store write, and the receipt carry is admitted rather than rendered here; `Plan` reads the `format#FORMAT_AXIS` `TessellationRequiresCompanion` column so a managed format never crosses.
 - Receipt: the in-flight fraction is the COMPANION's alone — it runs the work out of process — and this owner publishes none rather than fabricating a stage ratio for a store lookup, while the token is read at every boundary the policy owns so an abandoned request never pays for the next long leg. `TessellationOutcome` is typed tessellation evidence on the `Fin<T>` rail, never a generic `IReceipt`/ledger. One outcome shape surfaces both a cached reuse and a fresh cross, so a caller reads `TessellationOrigin` from the receipt rather than a side channel. Receipt columns carry coordinates, counts, and hashes — never payload bytes, the GLB riding the `ITessellationStore` port. Mesh-evidence columns read the tessellation yield without traversing the payload or the store.
 - Packages: LanguageExt.Core, NodaTime, Thinktecture.Runtime.Extensions, Rasm, Rasm.Element
 - Growth: a new tessellation parameter is one column on `TessellationSettings` folded into `ContentKey` and one `ifcopenshell.geom.settings` key the companion maps; a new scope modality is one `TessellationScope` case with one `--include`/`--exclude` mapping; a new companion-evaluated source format is one `InterchangeFormat` row carrying `TessellationRequiresCompanion=true` on `format#FORMAT_AXIS`. Each extension is a row, case, or column on an existing owner, never a second bridge or in-process tessellator.
-- Boundary: this companion bridge is the single imported-geometry-to-GLB path — GeometryGym (the IFC semantic graph) and the in-process `import#IMPORT_RAIL` `StepReader` carry no tessellation kernel, no in-process arm64 solid evaluator is admitted, and `IfcConvert`/ifcopenshell stays the permanent default because the only .NET web-ifc binding is Windows C++/CLI. Both content keys derive from the kernel `ContentHash` and the seam `Projection/address#CANONICAL_WRITER`, so this AEC-DOMAIN owner mints no `Rasm.Compute.InterchangeIdentity` call, keeping the content-identity strata sealed. `SourceKey` is the cross-projection join the app-platform `Rasm.Persistence/Store` artifact-index projection owns, so the IFC semantic graph and the tessellated geometry stay two projections of one content-keyed source. A store fault degrades to `BimFault.CodecReject` — the same arm `faults#FAULT_BAND` gives the bSDD service-unreachable degrade, never a sixth arm — and a companion-unreachable cross or a non-companion source format to `BimFault.CapabilityMiss`. `import#IMPORT_RAIL` `FrameNormalization` coerces the glTF-canonical Y-up GLB to the kernel Z-up frame by the `InterchangeFormat.Glb` row, so this page mints no frame transform. This bridge reaches the `python:geometry/ifc-companion` IfcOpenShell package only through Compute's companion rpc, which owns the `ifcopenshell.geom.settings` argument mapping, the `IfcConvert` filter grammar, and the GLB stream-back; the `step-iso10303` and `iges-ansi` source formats ride that same companion, so a companion-evaluated format is one `format#FORMAT_AXIS` row.
+- Boundary: this companion bridge is the single imported-geometry-to-GLB path — GeometryGym (the IFC semantic graph) and the in-process `import#IMPORT_RAIL` `StepReader` carry no tessellation kernel, no in-process arm64 solid evaluator is admitted, and `IfcConvert`/ifcopenshell stays the permanent default because the only .NET web-ifc binding is Windows C++/CLI. Both content keys derive from the kernel `ContentHash` and the seam `Projection/address#CANONICAL_WRITER`, so this AEC-DOMAIN owner mints no `Rasm.Compute.InterchangeIdentity` call, keeping the content-identity strata sealed. `SourceKey` is the cross-projection join the app-platform `Rasm.Persistence/Store` artifact-index projection owns, so the IFC semantic graph and the tessellated geometry stay two projections of one content-keyed source. Store faults degrade to `BimFault.CodecReject` — the same arm `faults#FAULT_BAND` gives the bSDD service-unreachable degrade, never a sixth arm — and a companion-unreachable cross or a non-companion source format to `BimFault.CapabilityMiss`. `import#IMPORT_RAIL` `FrameNormalization` coerces the glTF-canonical Y-up GLB to the kernel Z-up frame by the `InterchangeFormat.Glb` row, so this page mints no frame transform. This bridge reaches the `python:geometry/ifc-companion` IfcOpenShell package only through Compute's companion rpc, which owns the `ifcopenshell.geom.settings` argument mapping, the `IfcConvert` filter grammar, and the GLB stream-back; the `step-iso10303` and `iges-ansi` source formats ride that same companion, so a companion-evaluated format is one `format#FORMAT_AXIS` row.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
@@ -144,7 +144,7 @@ public sealed record TessellationRequest(
         return new(sourceKey, Fold(sourceKey, policy, settings, scope), source, sourceBytes, policy, settings, scope);
     }
 
-    // The store address is MINTED through the grammar owner off the two facts it IS, so this bridge holds no
+    // Store addresses MINT through the grammar owner off the two facts each IS, so this bridge holds no
     // separator position, hex width, or format token of its own and a grammar change lands in exactly one place.
     public ArtifactKey Address => ArtifactKey.Of(ContentKey, InterchangeFormat.Glb);
 
@@ -158,10 +158,10 @@ public sealed record TessellationRequest(
     // Governance rides the PORT CONTRACT in BCL currency — the token is a `System` type the binding implementation
     // already speaks, so the out-of-process companion carries it into its own transport without this AEC-DOMAIN
     // owner minting a cancellation type of its own. The managed half is the token read AT each boundary the policy
-    // owns — before the cross, before the store write, before the re-import — so an abandoned request stops before
-    // the next long leg instead of paying for a GLB nobody will read. Abandonment lowers the kernel `Rasm.Domain`
+    // owns — before the cross, before the store write, before the re-import — so an abandoned request stops before the
+    // next long leg instead of paying for a GLB nobody will read. Abandonment lowers the kernel `Rasm.Domain`
     // `Fault.Cancelled`, the branch's one cancellation spelling.
-    // The contract carries NO progress sink. The companion is the only party that can measure an in-flight fraction,
+    // This contract carries NO progress sink: the companion is the only party that can measure an in-flight fraction,
     // it DOES measure one, and that fraction already has a home that is not this rail: the tessellating daemon beats
     // its own graduation pulse onto the companion's observability tap under that lane's lossy-drop law, while the
     // two-hop rpc this cross rides (`Rasm.Compute/Runtime/transport#TRANSPORT_AXIS`) publishes no progress channel in
@@ -178,7 +178,7 @@ public sealed record TessellationRequest(
             .Bind(_ => store.Lookup(Address).MapFail(error => (Error)Detail.GlbStoreUnreachable.At(key, error.Message)))
             .Bind(hit => hit.Match(
                 Some: glb => Live(cancel).Bind(_ => Reenter(glb, TessellationOrigin.Cached, clock, time, at, mark, key)),
-                // The store write is the RELEASE half of the cross's bracket, so it runs on the ABANDONMENT path
+                // Store writes are the RELEASE half of the cross's bracket, so they run on the ABANDONMENT path
                 // too: a caller who walked away still paid for the companion round trip, and discarding the GLB
                 // there makes the next Resolve pay it again. Cancellation is read AFTER the write, so an abandoned
                 // request lands its cache and then stops — the retired form gated the write behind a token read and
@@ -203,14 +203,14 @@ public sealed record TessellationRequest(
                     geometry.VertexCount, geometry.TriangleCount, glb.Length, origin, time.GetElapsedTime(mark).ToDuration(), at))
                 : Fin.Fail<TessellationOutcome>(new GeometryFault.DegenerateInput(Kind.Mesh, None, Detail.Of(Detail.TessellationDegenerate, Address.Value)).ToError()));
 
-    // A re-imported GLB is degenerate when empty, when its arena fails its own validity claim, or when a position
+    // Re-imported GLBs are degenerate when empty, when the arena fails its own validity claim, or when a position
     // carries a non-finite coordinate; all three lower the kernel GeometryFault on the shared rail rather than
     // minting a hollow mesh — the boundary-validation scan is the named statement exemption. The arena's IsValid
     // already proves descriptor/payload agreement and a lossless witness, so this guard adds only the finiteness
     // check IsValid does not make, reading the position lane through its typed view rather than a raw span.
     static bool Sound(ImportedGeometry geometry) {
         if (geometry is not { VertexCount: > 0, TriangleCount: > 0 } || !geometry.Lanes.IsValid) { return false; }
-        // The position lane reads through the Descriptors/Channel pair every sibling page composes — the arena's
+        // Position lanes read through the Descriptors/Channel pair every sibling page composes — the arena's
         // one addressed read — rather than a View<T> projection no other consumer on this branch spells.
         return geometry.Lanes.Descriptors.Find(static d => d.Channel == EncodingChannel.Position).Match(
             Some: descriptor => {
@@ -243,7 +243,7 @@ public interface ITessellationStore {
     Fin<Unit> Store(ArtifactKey address, ReadOnlyMemory<byte> glb);
 }
 
-// The cross carries its governance on the contract in BCL currency: the token its transport threads, and nothing
+// Crosses carry their governance on the contract in BCL currency: the token the transport threads, and nothing
 // else. A Bim-minted lane or cancellation type crossing here is the AEC-DOMAIN leak the port exists to foreclose,
 // and an `IProgress<double>` beside the token is the SINK WITH NO FEEDER the port equally forecloses — the
 // companion runs out of process behind a transport carrying no progress channel, so the contract declares
@@ -256,12 +256,12 @@ public interface ITessellationCompanion {
 ## [03]-[EXPLICIT_TESSELLATION]
 
 - Owner: `BimIo.ImportIfcTessellation` the in-process decode of the ALREADY-TESSELLATED IFC representation family — `IfcTriangulatedFaceSet` and `IfcPolygonalFaceSet` over their shared `IfcCartesianPointList3D` coordinate store — onto the seam `Rasm.Element/Projection/projection#INTERCHANGE_CARRIER` `ImportedGeometry`, contributing an `EncodingChannel.Uv` lane from the face set's OWN `HasTextures` texture map and an `EncodingChannel.ColorRgba` lane from its OWN `HasColours` map exactly when it declares one — an untextured or unpainted face set contributes no lane, never an empty column; the colour read composes the `Semantics/appearance#APPEARANCE_PROJECTION` `IndexedColour` value that owns both directions of the per-face radiometry, so this walk declares no colour shape and mints no accessor; `ExplicitTessellation` the split product pairing that geometry with the `GlobalId` residue the companion still owns.
-- Entry: `BimIo.ImportIfcTessellation(DatabaseIfc db, IClock clock, Op key)` returns `Fin<ExplicitTessellation>`, walking the live graph once and partitioning every product's representation items into the explicitly-tessellated set this page decodes and the evaluated set the `TESSELLATION_BRIDGE` crosses; the caller hands `ExplicitTessellation.Deferred` straight to `TessellationScope.Elements` so `Plan` narrows the companion cross to exactly the products that need an evaluator. A malformed index run — a corner past the coordinate count, a texture-coordinate index past the vertex list, a colour ordinal past the palette, a colour run shorter than the face count — rails `Model/faults#FAULT_BAND` `BimFault.ModelRejected` off `key`, lifted BARE (band 2600 IS the `Expected` `Code`, no `.ToError()` hop), so every bound belongs to the one `Try.lift` envelope and no read carries a guard of its own.
+- Entry: `BimIo.ImportIfcTessellation(DatabaseIfc db, IClock clock, Op key)` returns `Fin<ExplicitTessellation>`, walking the live graph once and partitioning every product's representation items into the explicitly-tessellated set this page decodes and the evaluated set the `TESSELLATION_BRIDGE` crosses; the caller hands `ExplicitTessellation.Deferred` straight to `TessellationScope.Elements` so `Plan` narrows the companion cross to exactly the products that need an evaluator. Malformed index runs — a corner past the coordinate count, a texture-coordinate index past the vertex list, a colour ordinal past the palette, a colour run shorter than the face count — rail `Model/faults#FAULT_BAND` `BimFault.ModelRejected` off `key`, lifted BARE (band 2600 IS the `Expected` `Code`, no `.ToError()` hop), so every bound belongs to the one `Try.lift` envelope and no read carries a guard of its own.
 - Auto: `IfcTessellatedFaceSet` IS explicit mesh data — coordinates, corner indices, optional authored normals, an optional texture-coordinate list, and an optional per-face colour map — so evaluating it needs no solid kernel and crossing it to the companion is a round trip that COSTS a whole transport hop and DESTROYS both the IFC-native UV set and the radiometry, neither of which any glTF the companion returns carries. `HasTextures` is a SET of `IfcIndexedTextureMap`, each pairing a `TexCoords` `IfcTextureVertexList` with the `Maps` list naming WHICH `IfcSurfaceTexture` rows that parameterization serves, so the decode joins the UV set to the appearance roster by texture identity rather than by position. `HasColours` is a SINGLE `IfcIndexedColourMap` binding a palette, a one-based index run with one entry per FACE, and one `Opacity` the schema applies to every face alike, `NaN` reading as fully opaque; the `IndexedColour` value owns that read whole — unit-valued triples lowered to scene-linear through the appearance projector's own sRGB EOTF, so an IFC vertex colour and an IFC base colour reach a consumer in ONE space and this walk applies no transfer of its own. Both index forms address CORNERS where the coordinate store addresses VERTICES — the triangulated subtype's `TexCoordIndex` triples are per-triangle, the polygonal subtype's `TexCoordIndices` per-face, and the colour run per-face — so ONE gather decision owns them: a face set declaring either emits one vertex per corner, a face set declaring neither keeps the packed per-coordinate emit, and the per-coordinate texture-vertex form lands through the same gather at either length. Broadcasting a per-face colour or a per-corner UV onto a shared coordinate is the deleted form: the last face to write wins, which bleeds colour across a material boundary and tears the UV at every seam, and both defects render without a diagnostic.
 - Receipt: `ExplicitTessellation` carries the decoded `ImportedGeometry`, the decoded product count, and the deferred `GlobalId` set — the split evidence a composition reads to know how much of a model needed an evaluator at all, and the reason a texture-bearing or colour-bearing IFC now round-trips its parameterization and its radiometry when the companion path cannot.
 - Packages: GeometryGymIFC_Core (`IfcTessellatedFaceSet`/`IfcTextureVertexList`/`IfcIndexedTriangleTextureMap` — the triangulated UV-index payload reached through the `Semantics/appearance#APPEARANCE_PROJECTION` `IfcInternals` capsule under that catalog's `[INTERNAL_ACCESS_LAW]`; the polygonal `IfcTextureCoordinateIndices` row is PUBLIC (`TexCoordIndex` + the face's own `HasTexCoords` slot) and needs no capsule, as does the `IfcTextureCoordinate.Maps` bound-texture list the identity read composes; the colour payload crosses through that page's `IndexedColour`), Rasm.Element, Rasm (`EncodingChannel`), NodaTime, LanguageExt.Core
 - Growth: a new tessellated subtype is one arm on the total representation-item dispatch; a new attribute lane is one `MeshChunk.Attributes` entry the SAME walk fills, the seam carrier already declaring both `EncodingChannel.Uv` and `EncodingChannel.ColorRgba`; a corner-indexed presentation payload beyond these joins the existing unweld discriminant rather than adding a second emit path, and an n-gon's arity is absorbed by the ONE `Fan` owner before `Slot` so every fan projection stays three-cornered; never a second IFC mesh decoder and never an in-process evaluator for a swept, BREP, or voided-face item.
-- Boundary: `ImportIfcTessellation` decodes EXPLICIT indexed meshes and nothing else — an `IfcExtrudedAreaSolid`, an `IfcAdvancedBrep`, or any item requiring a solid kernel routes to `[02]-[TESSELLATION_BRIDGE]` unchanged, so the "no in-process arm64 solid evaluator" law is untouched and `TessellationRequiresCompanion` keeps its meaning. Reading a UV coordinate list or a colour palette is neither a codec nor a texel resample, so the `Rasm.Bim` "CLASSIFIES and CARRIES texture payloads and decodes none" ruling holds whole; the internal-payload reach is the `Semantics/appearance#APPEARANCE_PROJECTION` `IfcInternals` capsule and the colour shape is that page's `IndexedColour`, so this page declares neither — a presentation item seats on the presentation owner and `ARCHITECTURE.md` `[02]-[STRATA]` puts `Exchange` above `Semantics`, so composing them here is the downward edge the acyclic law admits while the reverse seating inverts the strata AND forks the palette fold into an ingest copy and an egress copy; one capsule pinned to one manifest version is the whole of this branch's `internal` GeometryGym surface and a second copy beside it forks the version pin. The decoded geometry lands the SAME `ImportedGeometry` the managed arms produce (via the `import#IMPORT_RAIL` pool builder), so no second carrier exists; frame normalization does not apply because IFC coordinates are already in the model frame the seam header declares. The texture PAYLOAD stays the `Semantics/appearance#APPEARANCE_PROJECTION` roster's — this owner carries only the coordinate set and the texture identity it binds to, so the two halves meet at the app-root edge exactly where the roster already crosses.
+- Boundary: `ImportIfcTessellation` decodes EXPLICIT indexed meshes and nothing else — an `IfcExtrudedAreaSolid`, an `IfcAdvancedBrep`, or any item requiring a solid kernel routes to `[02]-[TESSELLATION_BRIDGE]` unchanged, so the "no in-process arm64 solid evaluator" law is untouched and `TessellationRequiresCompanion` keeps its meaning. Reading a UV coordinate list or a colour palette is neither a codec nor a texel resample, so the `Rasm.Bim` "CLASSIFIES and CARRIES texture payloads and decodes none" ruling holds whole; the internal-payload reach is the `Semantics/appearance#APPEARANCE_PROJECTION` `IfcInternals` capsule and the colour shape is that page's `IndexedColour`, so this page declares neither — a presentation item seats on the presentation owner and `ARCHITECTURE.md` `[02]-[STRATA]` puts `Exchange` above `Semantics`, so composing them here is the downward edge the acyclic law admits while the reverse seating inverts the strata AND forks the palette fold into an ingest copy and an egress copy; one capsule pinned to one manifest version is the whole of this branch's `internal` GeometryGym surface and a second copy beside it forks the version pin. Decoded geometry lands the SAME `ImportedGeometry` the managed arms produce (via the `import#IMPORT_RAIL` pool builder), so no second carrier exists; frame normalization does not apply because IFC coordinates are already in the model frame the seam header declares. Texture PAYLOAD stays the `Semantics/appearance#APPEARANCE_PROJECTION` roster's — this owner carries only the coordinate set and the texture identity it binds to, so the two halves meet at the app-root edge exactly where the roster already crosses.
 
 ```csharp signature
 // Split product: what decoded here, and what still needs the evaluator. Deferred is a GlobalId set precisely so
@@ -284,7 +284,7 @@ public static partial class BimIo {
     // and the companion IS the triangulator, so fanning around a hole here would seal the void shut and render
     // wrong. The clock is the caller's injected IClock — the carrier's At feeds a content key, so an ambient
     // SystemClock read here would break replay determinism.
-    // The pool builder owns pinned native-sized buffers, so it is BRACKETED here exactly as every import arm
+    // Pool builders own pinned native-sized buffers, so this one is BRACKETED here exactly as every import arm
     // brackets its own — the walk is the named boundary-statement exemption, the custody is not.
     static ExplicitTessellation Partition(DatabaseIfc db, IClock clock, Op key) {
         using var soup = new MeshSoup();
@@ -306,7 +306,7 @@ public static partial class BimIo {
             });
             decoded++;
         }
-        // The bound texture identities ride BESIDE the geometry: a landed Uv lane is only half the fact a consumer
+        // Bound texture identities ride BESIDE the geometry: a landed Uv lane is only half the fact a consumer
         // needs, because the export binder must know WHICH texture the coordinates parameterize before it can set a
         // ChannelImage.CoordinateSet. Emitting the lane alone left that correspondence unowned at the composing edge.
         return new ExplicitTessellation(
@@ -317,8 +317,8 @@ public static partial class BimIo {
         faceSet is not IfcPolygonalFaceSet poly || poly.Faces.All(static face => face is not IfcIndexedPolygonalFaceWithVoids);
 
     // Coordinates are the packed IfcCartesianPointList3D store shared by both subtypes; the corner run is the
-    // subtype's own index list, fan-triangulated for the polygonal case, each emitted triangle carrying the ordinal of
-    // the SOURCE face it came from. The GATHER is this walk's one shape decision, and it is forced by the two
+    // subtype's own index list, fan-triangulated for the polygonal case, each emitted triangle carrying the ordinal of the
+    // SOURCE face it came from. GATHER is this walk's one shape decision, and it is forced by the two
     // CORNER-indexed presentation payloads IFC binds to a face set — the per-face colour run and the per-triangle UV
     // index triples: either present emits ONE VERTEX PER CORNER, because broadcasting a per-face colour or a
     // per-corner UV onto a coordinate two faces share hands that vertex whichever face writes last, a colour bleed
@@ -337,7 +337,7 @@ public static partial class BimIo {
         // read, so an index-bearing set whose vertex list failed the arity check UNWELDED every corner and then
         // landed no lane at all — paying the emit cost of a parameterization it had already refused.
         Option<UvPlan> uv = Uv(faceSet, mesh.Corner.Length / 3, points.Count);
-        // A corner-addressed payload — per-face colour, an INDEXED UV plan, or a NormalIndex re-index — forces the
+        // Corner-addressed payloads — per-face colour, an INDEXED UV plan, or a NormalIndex re-index — force the
         // one-vertex-per-corner emit; broadcasting any of the three onto a shared coordinate is the last-write-wins
         // defect the gather discriminant exists to foreclose. A per-COORDINATE plan needs no unweld.
         bool unweld = colour.IsSome || normalRun.IsSome || uv.Exists(static plan => plan.Indexed);
@@ -348,7 +348,7 @@ public static partial class BimIo {
         for (int v = 0; v < gather.Length; v++) {
             int source = (int)gather[v];
             (vertices[v * 3], vertices[(v * 3) + 1], vertices[(v * 3) + 2]) = points[source];
-            // A NormalIndex-bearing set addresses normals by CORNER (v/3 the triangle, v%3 the corner, one-based);
+            // NormalIndex-bearing sets address normals by CORNER (v/3 the triangle, v%3 the corner, one-based);
             // an index-free authored set parallels the coordinate store; absence takes the seam's up-normal case.
             (normals[v * 3], normals[(v * 3) + 1], normals[(v * 3) + 2]) = normalRun.Match(
                 Some: run => authored.Map(store => store[Slot(run[v / 3], v % 3) - 1]),
@@ -362,7 +362,7 @@ public static partial class BimIo {
             uv.Bind(static plan => plan.Texture));
     }
 
-    // The resolved parameterization: its index run (EMPTY for the per-coordinate form), the vertex list it samples,
+    // UvPlan is the resolved parameterization: its index run (EMPTY for the per-coordinate form), the vertex list it samples,
     // and the texture identity the map binds. Indexed is the unweld discriminant, so one value carries both facts
     // and neither can be decided without the other.
     readonly record struct UvPlan(Seq<(int A, int B, int C)> Index, Seq<(double U, double V)> List, Option<string> Texture) {
@@ -376,8 +376,8 @@ public static partial class BimIo {
     // Painted lowers the per-FACE colour onto the per-vertex ColorRgba lane: emitted vertex v belongs to triangle v/3,
     // that triangle names its source face, and IndexedColour.Rgba resolves that face's palette row plus the map's
     // single Opacity into the four channels. The value owns the whole transfer — its palette is already scene-linear
-    // and already unit-interval — so this walk scales nothing, and the /255 the byte-valued PLY arm needs is exactly
-    // the defect here.
+    // and already unit-interval — so this walk scales nothing, and the /255 the byte-valued PLY arm needs is exactly the
+    // defect here.
     static float[] Painted(IndexedColour colour, int[] faces, int vertexCount) {
         var lane = new float[vertexCount * 4];
         for (int v = 0; v < vertexCount; v++) {
@@ -404,7 +404,7 @@ public static partial class BimIo {
                 .Map(list => new UvPlan(
                     Index(faceSet, map),
                     toSeq(list.TexCoordsList).Map(static uv => (U: uv.Item1, V: uv.Item2)),
-                    // The bound identity is the map's OWN public Maps list — the IfcSurfaceTexture rows this
+                    // Bound identity is the map's OWN public Maps list — the IfcSurfaceTexture rows this
                     // parameterization serves — read as the StepId the appearance roster's SurfaceTexture.Of already
                     // carries for exactly this join, so the two halves meet at the app-root edge on one key. The
                     // capsule reaches internal members alone and Maps is public, so no accessor exists here.
@@ -415,8 +415,8 @@ public static partial class BimIo {
 
     static Seq<(int A, int B, int C)> Index(IfcTessellatedFaceSet faceSet, IfcIndexedTextureMap map) => (faceSet, map) switch {
         (IfcTriangulatedFaceSet, IfcIndexedTriangleTextureMap triangle) => IfcInternals.TexCoordRun(triangle),
-        // All-or-nothing by the applicative Traverse: one face without a UV row makes the whole run EMPTY — which
-        // the arity gate then reads as the per-coordinate form and refuses — never a zero-triple standing in.
+        // All-or-nothing by the applicative Traverse: one face without a UV row makes the whole run EMPTY — which the
+        // arity gate then reads as the per-coordinate form and refuses — never a zero-triple standing in.
         (IfcPolygonalFaceSet poly, _) => Fan(poly)
             .Traverse(static tri => Optional(tri.Face.HasTexCoords)
                 .Map(row => (A: row.TexCoordIndex[tri.I0], B: row.TexCoordIndex[tri.I1], C: row.TexCoordIndex[tri.I2])))
@@ -441,7 +441,7 @@ public static partial class BimIo {
     // every read site, and the shape a quad or n-gon index list widens through.
     static int Slot((int A, int B, int C) triple, int corner) => corner switch { 0 => triple.A, 1 => triple.B, _ => triple.C };
 
-    // The point payload discriminates ONCE: IfcTessellatedFaceSet.Coordinates is typed to the abstract
+    // Point payloads discriminate ONCE: IfcTessellatedFaceSet.Coordinates is typed to the abstract
     // IfcCartesianPointList base, the 3D subtype carries CoordList (List<Tuple<double,double,double>>, one tuple
     // per point), and a 2D list is a curve-set payload no face-set body legally carries — it yields the empty
     // store the arity gates downstream refuse.
@@ -450,7 +450,7 @@ public static partial class BimIo {
             ? list.CoordList.ConvertAll(static p => ((float)p.Item1, (float)p.Item2, (float)p.Item3))
             : [];
 
-    // The authored per-COORDINATE (or, with NormalIndex, corner-addressed) normal store — the triangulated
+    // Authored per-COORDINATE (or, with NormalIndex, corner-addressed) normal store — the triangulated
     // subtype's own get-only List<Tuple<double,double,double>>; the polygonal subtype declares none.
     static Option<System.Collections.Generic.IReadOnlyList<(float X, float Y, float Z)>> Normals(IfcTessellatedFaceSet faceSet) =>
         faceSet is IfcTriangulatedFaceSet { Normals.Count: > 0 } tri
@@ -458,14 +458,14 @@ public static partial class BimIo {
                 tri.Normals.ConvertAll(static n => ((float)n.Item1, (float)n.Item2, (float)n.Item3)))
             : None;
 
-    // The optional per-triangle corner re-index for authored normals (List<Tuple<int,int,int>>, one-based) —
+    // Optional per-triangle corner re-index for authored normals (List<Tuple<int,int,int>>, one-based) —
     // present forces the unweld gather exactly as the colour and UV runs do.
     static Option<Seq<(int A, int B, int C)>> NormalIndex(IfcTessellatedFaceSet faceSet) =>
         faceSet is IfcTriangulatedFaceSet { NormalIndex.Count: > 0 } tri
             ? Some(toSeq(tri.NormalIndex).Map(static t => (A: t.Item1, B: t.Item2, C: t.Item3)))
             : None;
 
-    // The corner run and its per-emitted-triangle source-face ordinals. The triangulated subtype's CoordIndex is
+    // Corner run and its per-emitted-triangle source-face ordinals: the triangulated subtype's CoordIndex is
     // a one-based per-triangle triple run (Face[t] = t); the polygonal subtype fans through the ONE Fan owner
     // (the polygon ordinal repeated across its fan). BOTH subtypes carry an optional PnIndex indirection — the
     // triangulated a List<int>, the polygonal GeometryGym's own LIST<int> — and every index resolves through it

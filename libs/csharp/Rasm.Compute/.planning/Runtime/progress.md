@@ -236,7 +236,7 @@ public sealed class ProgressCell {
 
 - Owner: `ProgressSeams` extension fold over `ProgressCell` — one member per observation seam, each binding one cadence row to one observer shape.
 - Entry: `public PhaseSubscription Observe(UiSchedulerPort scheduler, Action<ProgressMark> render)` — the returned detacher composite disposes LIFO.
-- Packages: LanguageExt.Core, BCL inbox
+- Packages: Riok.Mapperly (`ProgressUpdateMapper` under `RequiredMappingStrategy.Both`; the SmartEnum key crossing via `StaticConvertMethods`), NodaTime.Serialization.Protobuf, LanguageExt.Core, BCL inbox
 - Growth: one seam member binding a cadence row to one observer shape; zero new surface.
 - Boundary: every seam body runs on the PRODUCER's thread — the `Change` fan is synchronous, so a native solver worker, a companion pump, or a lane task carries each observer to completion before its own `Advance` returns; AppUi presentation therefore marshals through the port delegate so no Compute type touches a UI thread, `Instrument` writes through thread-safe meter handles, and a seam that blocks or fans out is the deleted form the `HANDOFF_DRAIN` channel owns. `Stream` feeds the ComputeService server-stream at app roots, and every seam returns `IO<Unit>` into `ProgressCell.Subscribe`; a readback consumer polling `Latest` for a terminal mark composes its own cadence as one more `SubscriptionPolicy` value on the spine's carrier — cadence growth is a spine row, never a seam member here, and the in-flight ceiling it reads against is `Runtime/scheduling#SOLVE_GUARD`-owned; the proto phase enum generates from `ProgressPhase.Keys`, so a second wire vocabulary is the named defect. Aggregate parents use these identical seams because their rolled value is a `ProgressMark`. Receipts materialize only at the sink edge. `Instrument` writes the two `rasm.compute.progress.*` rows through the `Runtime/receipts` mounted `InstrumentSet` — the marks counter per delivered mark, the cadence histogram per consecutive-mark interval, both tagged by phase — so progress telemetry is one more subscriber under the identical cadence gate and the cell never touches a meter; the prior-mark register reads before it swaps and advances only once both writes land, so no instrument write runs inside the CAS body and a refused row never becomes observable history, and the writer returns the kernel rail so that refusal raises on the subscription's own error channel rather than vanishing at the seam.
 
@@ -273,6 +273,21 @@ public static class ProgressSeams {
                 None: () => Fin.Succ(unit)))
             .Map(_ => ignore(prior.Swap(_ => Some(mark))));
     }
+}
+
+// The wire transcription is GENERATED: a mark lowers onto the ProgressUpdate frame under
+// RequiredMappingStrategy.Both, so a new capsule field with no wire member fails the build — the mirror the
+// Growth law demands is compiler-held. The phase crosses by its GENERATED KEY: StaticConvertMethods resolves
+// the SmartEnum's own static Get inbound and the conversion operator outbound, so the proto enum stays
+// generated from ProgressPhase.Keys and no hand mirror exists.
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Both)]
+[UseStaticMapper(typeof(NodaExtensions))]
+public static partial class ProgressUpdateMapper {
+    [MapProperty(nameof(ProgressMark.Correlation), nameof(ProgressUpdate.Correlation), Use = nameof(CorrelationText))]
+    public static partial ProgressUpdate ToWire(ProgressMark mark);
+
+    [NamedMapping("correlation-text")]
+    private static string CorrelationText(CorrelationId correlation) => correlation.ToString();
 }
 ```
 

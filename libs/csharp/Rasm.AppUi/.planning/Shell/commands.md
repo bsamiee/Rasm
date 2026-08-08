@@ -26,7 +26,7 @@ Rasm.AppUi runs one command rail: a single `CommandIntent` row table is the only
 ```csharp signature
 // --- [MODELS] ---------------------------------------------------------------------------
 
-public sealed record CommandIntent(
+public sealed partial record CommandIntent(
     string Key,
     CommandScope Scope,
     Seq<Capability> Requires,
@@ -55,8 +55,11 @@ public sealed record CommandIntent(
     // alone is not the fact — `DegradationLevel.Full` retains `Capability.HostDocument` on every healthy
     // process, so a level-only gate admitted every host-targeting verb against a standalone shell that
     // owns no document, and no health rule can ever fire for a mount shape that was never unhealthy.
-    public readonly record struct Availability(
-        DegradationLevel Level, FrozenSet<Capability> Reach, bool Valid, SelectionSnapshot Selection, bool Busy) {
+    // Equality is generated: Reach is a FrozenSet the synthesized form compares by reference, so an identical
+    // availability re-emission read as a change and the gate's distinct fold never settled.
+    [Equatable]
+    public readonly partial record struct Availability(
+        DegradationLevel Level, [property: UnorderedEquality] FrozenSet<Capability> Reach, bool Valid, SelectionSnapshot Selection, bool Busy) {
         public bool Permits(Capability capability) => Level.Permits(capability) && Reach.Contains(capability);
     }
 

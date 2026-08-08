@@ -477,7 +477,7 @@ public sealed partial record BsddClass(
 // two Ref overloads discriminate on the wire shape (a ClassReference carries its Uri required, a HierarchyItem
 // optional), and the one Text carrier absorbs every nullable wire string. Everything on this page that carries a Fin —
 // ValueKindOf, StatusOf, RelationOf, BoundsOf, DimensionOf — stays hand-written: Mapperly transcribes shape, never a lane.
-[Mapper]
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Both)]
 public static partial class BsddWire {
     public static partial BsddRef Ref(BsddClassResponse.ClassReference reference);
     public static partial BsddRef Ref(BsddClassResponse.HierarchyItem item);

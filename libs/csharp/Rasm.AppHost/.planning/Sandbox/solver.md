@@ -60,6 +60,9 @@ public static class KindContracts {
     public static readonly KindContract Optimizer = new(SolverKind.Optimizer, PackKind.Field, PackKind.Field, EffectClass.Pure, Streaming: true);
     public static readonly KindContract CamPostprocessor = new(SolverKind.CamPostprocessor, PackKind.MeshPatch, PackKind.Toolpath, EffectClass.Write, Streaming: false);
     public static readonly KindContract MaterialModel = new(SolverKind.MaterialModel, PackKind.Field, PackKind.Field, EffectClass.Pure, Streaming: false);
+    // Streaming stays FALSE for field codecs even under archive-corpus reads: the corpus-scale loop lives at the
+    // host's job-graph node, which mints its own cell off the admitted intent, while a codec plugin decodes ONE
+    // bounded chunk per call — widening here would grant every trivial codec a cell for a loop it never owns.
     public static readonly KindContract FieldCodec = new(SolverKind.FieldCodec, PackKind.Field, PackKind.Field, EffectClass.Pure, Streaming: false);
     public static readonly KindContract GenerativeCodec = new(SolverKind.GenerativeCodec, PackKind.Field, PackKind.MeshPatch, EffectClass.External, Streaming: true);
 

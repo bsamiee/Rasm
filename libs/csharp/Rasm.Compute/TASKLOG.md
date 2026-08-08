@@ -20,7 +20,11 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic included; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Tasks state landing-grain work decomposing an idea.
 -->
 
-(none)
+[TESSELLATE_WIRE_SPELLING]-[QUEUED]: the tessellate rpc's message pair carries one spelling across every surface that binds it.
+- Capability: one wire vocabulary for the companion tessellation rpc — today three surfaces disagree on the request/response message names, and the proto header can declare only one pair, so two of the three dial or serve a message that will never resolve.
+- Shape: the `Runtime/wire.md` `[02]` service-roster row `[20]` and the `ComputeServiceShape` ts projection spell `TessellationJob → TessellationOutcome`, while `python:runtime/transport/shapes#REGISTRY_AND_DRIFT` `PROTO_VOCABULARY` binds `channels_pb2.TessellationRequest`/`TessellationReceipt` and `python:geometry/mesh/serve` serves that pair on `rasm.compute.v1.ComputeService/Tessellate`; the header owner decides the one pair and the losing surfaces re-spell in the same pass, the python `aligned`/service census then proving it at boot.
+- Unlocks: the cross-language tessellation dial survives its first realized codegen — today's fork dies at the descriptor pool, not at a dead dial mid-session.
+- Anchors: `Runtime/wire#PROTO_VOCABULARY` as the corpus-homed header owner; `Runtime/codecs.md` `TessellationJob` (the domain job deliberately named APART from Bim's `Exchange/tessellation#TESSELLATION_BRIDGE` `TessellationRequest` — the wire-message question is separate from that naming split); `tests/contracts/rasm/channels.proto` carrying the appearance family only today, so no landed proto arbitrates yet.
 
 ## [02]-[CLOSED]
 

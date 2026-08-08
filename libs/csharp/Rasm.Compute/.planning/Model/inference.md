@@ -14,12 +14,12 @@
 ## [02]-[INFERENCE_MODES]
 
 - Owner: `RunOps` folds every run mode over the shared session; `RunInput` admits one operand polymorphically on carrier shape through the `Tensor/residency#ORT_BRIDGE` `TensorBridge.Ingress` carriers; `PlannedRun` owns the `RunOptions` + `Terminate`-latch registration pair; a `BoundFlow` capsule composes the shared-arena device-resident hot path; `BatchGate` the bounded-window cross-request coalescer over one shared session.
-- Cases: `Infer` single run; `InferBound` bound batch over a populated `OrtIoBinding` with an optional name-zip arm; `BoundFlow` the arena-allocated device-resident steady state; `Chunked` streaming windows over a `RecyclableMemoryStream.GetReadOnlySequence` view; `Embed` mean/CLS/last/max-pool text-to-vector; `Classify` softmax top-`k` over the interchange `PointScan` encoding; `ClashScore` scalar clash false-positive scoring over a `ClashPair` feature vector; `InferTensor` the `System.Numerics.Tensors` carrier bridge; `WarmPulse` the profile-and-read fold answering a bucket's partition census; `BatchGate.Submit` the coalesced single-row shape; `InferTiled` the fixed-bucket mosaic over a plane exceeding every admitted shape (`[03]-[TILED_INFERENCE]`). Native async `RunAsync` is the rejected spelling — it demands pre-allocated output `OrtValue`s and completes on a native callback outside the lane scope, so the lane seam owns the thread hop.
+- Cases: `Infer` single run; `InferBound` bound batch over a populated `OrtIoBinding` with an optional name-zip arm; `BoundFlow` the arena-allocated device-resident steady state; `Chunked` streaming windows over a `RecyclableMemoryStream.GetReadOnlySequence` view OR an index-keyed `WindowFill` span-filler provider (an HDF5 response corpus fills each window with one hyperslab read; PureHDF appears on no Compute signature — the filler delegate is the seam); `Embed` mean/CLS/last/max-pool text-to-vector; `Classify` softmax top-`k` over the interchange `PointScan` encoding; `ClashScore` scalar clash false-positive scoring over a `ClashPair` feature vector; `InferTensor` the `System.Numerics.Tensors` carrier bridge; `WarmPulse` the profile-and-read fold answering a bucket's partition census; `BatchGate.Submit` the coalesced single-row shape; `InferTiled` the fixed-bucket mosaic over a plane exceeding every admitted shape (`[03]-[TILED_INFERENCE]`). Native async `RunAsync` is the rejected spelling — it demands pre-allocated output `OrtValue`s and completes on a native callback outside the lane scope, so the lane seam owns the thread hop.
 - Entry: `public Fin<T> Infer<T>(RunOptions options, CancelScope scope, Seq<(string Name, OrtValue Value)> inputs, Seq<string> outputs, Func<IDisposableReadOnlyCollection<OrtValue>, Fin<T>> project)` — the projection runs inside the native-result bracket, and the bracket CONSUMES the admitted inputs: one run is one deterministic release for both native legs, so a repeated same-shape loop rides `BoundFlow`, never re-admitted one-shot inputs.
 - Auto: `Plan` folds the `RunConfig` row table into `AddRunConfigEntry` and returns a `PlannedRun` capsule pairing the `RunOptions` with the `Terminate`-latch `CancellationTokenRegistration` off the linked `CancelScope` — the registration disposes with the capsule, so a latch firing into a disposed `RunOptions` is structurally impossible and a bare `Token.Register` whose registration nobody owns is the named use-after-free; `ModelSessions.Faulted` is the single fault oracle for the whole model rail — it classifies by scope provenance into `DeadlineExpired`/`Cancelled` and lifts a non-cancellation native fault to `ModelRejected`, never a raw `Error.New` leaking an unclassified native exception, and it is the capsule's because the load latch it also serves sits below this page; a run-side copy lets one expiring deadline report two faults depending on whether it landed on the lease or the run. Shape reads bind the tensor's own `GetTensorTypeAndShape()` columns — `Shape` for an axis, `ElementCount` for a total — never re-multiplied dimensions. `RunInput` composes the `TensorBridge.Ingress` overloads (the sole dense `OrtValue` C-data factory owner) over the open unmanaged `T`; ONNX-owned strings and preconstructed sparse `OrtValue`s ride distinct cases, with sparse ownership transferring only after `IsSparseTensor` proves the carrier. `Pooling` carries each reduction as its delegate-backed row, and `Embed` admits only an unbatched hidden-state tensor, so a multi-row output never collapses unrelated embeddings into one vector. `Classify` selects each row's top-`k` through a class-stable bounded `PriorityQueue` min-heap (`O(width·log k)`, never a full-taxonomy `Array.Sort`) and materializes per row through an explicit span walk — no `ReadOnlySpan<float>` captured into a lambda, the named kernel exemption. `BatchGate` snapshots each admitted row, caps queued mass at `BatchPolicy.MaxPending`, and packs rows arriving within `MaxDelay` up to `MaxRows` into one bound execution using the injected `TimeProvider` — the bound input stays shaped `[MaxRows, rowWidth]`, a partial window zero-pads its tail rows, and fan-out returns only the submitted rows, because rows are independent under a feed-forward per-row model and a variable-shape rebind per window is the rejected form; per-call ORT dispatch overhead dominates small-tensor inference, so the screening loops the charter names ride one packed run per window instead of thousands of singletons.
 - Law: the `Terminate` latch lands at ORT node boundaries, so the cancellation grain is the largest SCHEDULED unit — measured at the pin: a 224-node CPU graph at ~2.9 s wall answers a mid-run latch in 7-10 ms (`OnnxRuntimeException [ErrorCode:Fail] Exiting due to terminate flag being set to true`), while the SAME graph fused into one CoreML MLProgram partition runs to completion through a latch set at 60% of its ~420 ms wall, because a fused partition exposes no interior boundary the latch can land on. Deadline enforcement on an accelerator row therefore budgets the largest fused partition's wall time — the `partitionCount` assertion is what keeps that budget bounded — and a deadline poll finer than node latency buys nothing on the floor row.
 - Receipt: `ModelRun` carries model checksum, EP, run mode, batch, the `OrtValue.GetTensorSizeInBytes` output footprint as `PeakBytes`, the `GetTensorMemoryInfo` allocator name as `ArenaAllocator`, and the optional `Runtime/receipts#BENCHMARK_CLAIMS` `ProfileArtifact.ChromeTrace` profile evidence — content-keyed by the admitted `ArtifactIndexRow`'s `ContentAddress` and stamped with the `InferenceSession.ProfilingStartTimeNs` epoch, never a loose path string; profiling artifacts land as `ArtifactKind.OnnxProfile` rows. Every `BatchGate` window emits ONE `ModelRun` whose `BatchSize` is the window's submitted row count (zero-padded tail rows never count) — per-submitter receipt fan-out is the rejected form.
-- Packages: Microsoft.ML.OnnxRuntime, System.Numerics.Tensors, System.Text.Json, LanguageExt.Core, NodaTime, Rasm.AppHost (project), Rasm.Persistence (project)
+- Packages: Microsoft.ML.OnnxRuntime, System.Numerics.Tensors, System.Text.Json, LanguageExt.Core, NodaTime, Rasm.AppHost (project), Rasm.Persistence (project), BCL inbox (`System.Runtime.InteropServices.MemoryMarshal` — the provider staging view)
 - Growth: a new run shape is one payload case; a new measured warm fact is one column on the session capsule's `WarmEvidence` filled by one more read inside `WarmPulse`, never a second pulse surface; a new run-config posture is one `RunConfig` row with its `AddRunConfigEntry` pairs and `OrtAllocatorType` arena column; a new pooling shape is one delegate-backed `Pooling` row; a wider classifier candidate set is the `Classify` `top` arity; a batching posture is one `BatchPolicy` value, never a second coalescer; a `ZipMap` sequence-of-maps classifier reads through the `Model/extension#EXTENSION_OPS` `Egress`→`OpOutput.Sequence` reader, never a parallel arm on `Classify` (whose softmax owns the numeric-logit shape only); a BIM point-cloud→element classifier, symbol recognizer, or clash scorer is one more `Classify`/`ClashScore` run over the shared session — consuming the interchange `PointScan` encoding and the `Solver/clash#CLASH_AND_TWIN` `ClashPair` vector — never a BIM-specific service; a tensor-lane handoff already holding a `Tensor<T>` is one `InferTensor` run with zero managed copy; an input plane larger than the session's admitted shape is one `[03]-[TILED_INFERENCE]` `TilePlan` over this same `BoundFlow`, never a free-dimension override that re-plans memory on every extent.
 - Boundary: `RunOps` extends `Model/sessions#SESSION_CAPSULE` with bracketed native disposal. `CreateTensorValueFromMemory` binds rented staging without a copy; input ownership transfers at the run, and `Bracket` disposes every admitted input beside the result collection. The bracket's ACQUIRE leg is rail-shaped: the `Tensor/residency#ORT_BRIDGE` bound flow already answers `Fin`, so its refusal rides straight in while direct session calls lift through `Fin.Succ` and the catch arms classify their throws exactly as before — a bare thunk beside a rail-shaped source would force a typed refusal back through an exception just to reach the classifier that would then re-derive it. `InferBound` calls the `OrtValue`-only `RunWithBoundResults` member directly; its named arm zips `GetOutputNames()` against that same collection and never materializes `DisposableNamedOnnxValue`. Every projection proves a nonempty output collection before `First()`. `BoundFlow` binds input and sink from `ModelSessions.SharedAllocator`, and `Pulse` writes through the mutable native span without staging. `Chunked` copies each `ReadOnlySequence<byte>` window into the bound value and emits one terminal `StreamSegment`. `Embed` derives its final axis from output shape and L2-normalizes the pooled vector; `Classify` derives class width, proves row divisibility, and uses bounded top-`k`; `BatchGate` proves packed output cardinality before fan-out. `Profile` admits its artifact through `ArtifactIndexRow.Admit(kind, key, bytes, classification, at, sourceKey)`, grouping the trace under the profiled model checksum, and mints the typed `ProfileArtifact.ChromeTrace` evidence from the admitted row's `ContentAddress` and the `ProfilingStartTimeNs` epoch in the same pass — the index row is custody, the union case is receipt evidence, one identity joining both — while handing the trace BYTES out beside them so a reader wanting the events back takes what admission already read instead of re-reading a file whose path it would need separately; retention derives from `ArtifactKind.Retention`; the admitted trace is a BARE JSON event array — never a `traceEvents`-wrapped object — whose measured node-event key roster the `Profile` member states as fence law, and the `Model/sessions#SESSION_CAPSULE` options fold sets `ProfileOutputPathPrefix` BEFORE `EnableProfiling` because the setter reads the prefix at flip time and discards a later assignment silently. `WarmPulse` composes that pair into the session capsule's injected warm-pulse shape: the caller supplies the bound run for its own bucket, because only the surface that built the flow knows this model's input roster, and the fold owns closing profiling, admitting the trace, and reading the census — `JsonDocument.Parse` over caller-owned memory, `EnumerateArray` over the events, `TryGetProperty` by UTF-8 key on every read, and the document disposed inside the fold so no `JsonElement` view outlives its pooled rental.
 
@@ -235,6 +235,23 @@ public static partial class RunOps {
                 .TraverseM(index => loop.Pulse(options, scope, windows.Slice(index * frameBytes, frameBytes), project)).As();
         }
 
+        public delegate Fin<Unit> WindowFill(int index, Span<float> window);
+
+        // PROVIDER shape for corpus-backed streaming: `fill` lands window `index` into the reused staging span —
+        // an HDF5 response corpus fills it with one hyperslab read — so a screening corpus streams without a
+        // materialized sequence, and PureHDF appears on no Compute signature: the filler delegate IS the seam.
+        public Fin<Seq<T>> Chunked<T>(RunOptions options, CancelScope scope, BoundFlow loop, int frames, int windowFloats, WindowFill fill, Func<IDisposableReadOnlyCollection<OrtValue>, Fin<T>> project) {
+            if (frames <= 0 || windowFloats <= 0 || (long)windowFloats * sizeof(float) > int.MaxValue) {
+                return Fin.Fail<Seq<T>>(new ComputeFault.ModelRejected($"<chunk-shape:{frames}:{windowFloats}>"));
+            }
+
+            byte[] staging = new byte[windowFloats * sizeof(float)];
+            return toSeq(Enumerable.Range(0, frames))
+                .TraverseM(index => fill(index, MemoryMarshal.Cast<byte, float>(staging))
+                    .Bind(_ => loop.Pulse(options, scope, new ReadOnlySequence<byte>(staging), project)))
+                .As();
+        }
+
         public Fin<float[]> Embed(RunOptions options, CancelScope scope, Seq<(string Name, OrtValue Value)> inputs, string output, Pooling pooling) =>
             session.Infer(options, scope, inputs, Seq(output), results => {
                 if (results.Count is 0) { return Fin.Fail<float[]>(new ComputeFault.ModelRejected("<embed-output-missing>")); }
@@ -445,19 +462,20 @@ public sealed class BatchGate : IAsyncDisposable {
 
 ## [03]-[TILED_INFERENCE]
 
-- Owner: `TilePlan` `[ComplexValueObject]` owns the whole tiling — source extent, source channels, the ordered `TileProduct` roster binding each product to its graph tensor and lane, bucket edge, overlap, scale, and the three row families that generate the space: `PadMode` folds an out-of-range index back onto the plane, `TileBlend` shapes the overlap taper, and `TileLayout` carries the gather, scatter, and normalize kernel triple for one tensor layout; `TilePlan` itself owns the layout-free weight accumulation every field shares and the `TileTensor` derivation that folds the roster into the session's own output cardinality. `RunOps.InferTiled` is the fold; `TileMosaic` is the assembled field set and grade set with its measured coverage floor.
+- Owner: `TilePlan` `[ComplexValueObject]` owns the whole tiling — source extent, source channels, the ordered `TileProduct` roster binding each product to its graph tensor and lane, bucket edge, overlap, scale, and the three row families that generate the space: `PadMode` folds an out-of-range index back onto the plane, `TileBlend` shapes the overlap taper, and `TileLayout` carries the gather, scatter, normalize, and filler-consuming stack kernel rows for one tensor layout; `TilePlan` itself owns the layout-free weight accumulation every field shares and the `TileTensor` derivation that folds the roster into the session's own output cardinality. `RunOps.InferTiled` is the fold; `TileMosaic` is the assembled field set and grade set with its measured coverage floor.
 - Cases: `TileProduct.Plane` a field across the tile and `TileProduct.Measure` a grade over it; `PadMode.Reflect`; `TileBlend` rows `Hann`, `Linear`, `Smoothstep`; `TileLayout` rows `Planar` (`NCHW`) and `Interleaved` (`NHWC`).
 - Law: tiles are FIXED-SHAPE. Dynamic input extents re-partition the graph and defeat memory-pattern reuse on every call, so the bound input holds one bucket shape for the whole mosaic and the plane adapts to the bucket rather than the session adapting to the plane. Grids count the first tile whole and step the remainder by the stride, so an extent equal to its bucket is exactly one tile; stepping the whole extent against the stride emits a trailing tile carrying no new texels.
 - Law: ONE grid carries EVERY product. Appearance estimators emit base colour, normal, and roughness from a single forward pass, so `TilePlan.Products` scatters all three out of the same tile run and a mosaic costs the grid rather than the grid times the plane count — folding per output re-infers the whole image once for each plane the model already produced.
 - Law: a product binds to a TENSOR and a LANE, never to a position. A PACKED export names one tensor for several products, so `TilePlan.Tensors` folds the roster into the distinct tensors in first-appearance order — the order `InferenceSession.OutputNames` carries — and each row takes the channel offset its earlier lanes on that tensor leave. The run then resolves a TENSOR by position and slices each lane out of it, so a graph emitting roughness beside metalness in one `material` tensor lands two planes where a one-tensor-one-product assumption lands the first tensor's bytes twice. Result cardinality proves against the TENSOR count rather than the roster width, and a lane whose element count disagrees with its tensor's declared channel sum refuses.
 - Law: a MEASURE is rank-0 and grades ONE tile. A grade owns no arena, no taper, and no accumulation — the lane read IS the value — so a graded tensor's element count is its lane count rather than the tile area, and every lane on one tensor shares one modality. Aggregating N tile grades into one number mints a statistic no model measured and no score row declares a direction for, so a roster carrying a measure admits exactly one window and a source extent past its bucket refuses at the plan, where the specifying end's own bucket roster is what declares a scorer's admissible extent.
+- Law: a plane budget past the arena ceiling spills INTERNALLY through `Runtime/codecs#HDF_ARCHIVE` as a stride-aligned rolling band — band `r`'s texels seal once tile row `r+1` has scattered (admission already bounds overlap below half a bucket edge, so no later tile reaches back past one row), the writer lags the scatter cursor ONE tile row, each sealed band normalizes against its own weight rows BEFORE the chunk lands, and the monotone band ordinal is the chunk-once law. PureHDF appears on no Compute signature and the spilled product still crosses `StagePorts.Write` as bytes, so the spill changes no seam.
 - Law: reassembly is OVERLAP-ADD, never last-writer-wins. Each produced tile scatters through its taper weights into its product's accumulation plane, one shared weight plane accumulates the taper mass, and one divide per product closes the mosaic — so an overlap band carries the weighted mean of both estimates rather than a hard seam, and a blend row whose profile does not sum to unity still reconstructs exactly because the divide normalizes what accumulated instead of trusting the profile. `TilePlan.Accumulate` owns that weight plane as pure geometry — one taper mass per texel, free of layout and product — so it runs once per window whatever the roster's width.
 - Law: taper applies only where a tile MEETS a neighbour. Four per-axis ramps index by the window's edge mask, so a tile touching the plane border keeps unit weight there; tapering against that border divides the outermost texels by a weight no neighbour ever completes and fades the plane's own edge.
 - Entry: `public Fin<TileMosaic> InferTiled(RunOptions options, CancelScope scope, TilePlan plan, ReadOnlyMemory<float> source)` on `BoundFlow` — one entry for the whole mosaic, because a per-tile entrypoint pushes the grid, the padding, the taper, and the coverage proof onto every caller; `source` is `ReadOnlyMemory` rather than a span so the scatter closure the run bracket invokes holds the arenas it writes.
 - Auto: `TilePlan` derives grid, stride, output extent, bucket key, and the bound input and per-tensor output shapes from its own columns, so a caller states extents and a bucket and never a coordinate — and the binder that seats the flow reads the same shapes the fold runs. Admission rejects a nonpositive extent or channel count, an empty roster, a duplicated role key or duplicated `(Tensor, Lane)` pair, a tensor mixing field lanes with grade lanes, a multi-window grid under a graded roster, an overlap at or past half the shorter bucket edge, and any field whose output element count passes `Array.MaxLength`. It does NOT restate which pad row is legal: the row family is the general tiling vocabulary and the frozen wire pins `reflect` at `StageRequest.Admit`, the boundary that carries it. Gathering stages each tile through the pad row, taking the contiguous row copy whenever the row lies wholly inside the plane and folding per texel only at an edge. Scattering accumulates through `TensorPrimitives.Multiply`/`Add`/`MultiplyAdd` over the per-row weight vector, so reassembly vectorizes rather than walking texels. Coverage proves from the MEASURED weight floor — `TensorPrimitives.Min` over the weight plane — and a floor at or below zero refuses rather than dividing a texel no tile reached. Closing the mosaic partitions by ITEM: `ParallelHelper.ForEach` over an `IRefAction<TilePlane>` hands each worker its own plane where the corpus's index-partitioned `For` rows hand it a slot number, and the products are independent by construction — each divides its own arena by the one shared weight plane and reads nothing another writes.
 - Receipt: a mosaic reports as one `ComputeReceipt.ModelRun` whose mode is the tiled key and whose `BatchSize` is `TileMosaic.Tiles`, the count inferred; per-tile and per-product receipt fan-out are the rejected forms for the same reason a `BatchGate` window emits one — the grid ran once.
-- Packages: Microsoft.ML.OnnxRuntime, System.Numerics.Tensors, CommunityToolkit.HighPerformance, Thinktecture.Runtime.Extensions, LanguageExt.Core
-- Growth: a new seam profile is one `TileBlend` row with its ramp; a new tensor layout is one `TileLayout` row carrying its own gather, scatter, and normalize kernels — never a layout flag branching inside the fold; a model emitting another plane is one more `TileProduct.Plane` row naming its own tensor at lane zero, a model PACKING another plane into a tensor it already names is one more row at that tensor's next lane, and a model grading its input is one `TileProduct.Measure` row — no surface moves for any of the three; a stage that up-samples is the `Scale` column, which threads every field grid without a caller recomputing anything; a pad posture beyond reflection is one `PadMode` row whose `Fold` may answer a negative index for a texel no source covers, which the gather rows already clear.
+- Packages: Microsoft.ML.OnnxRuntime, System.Numerics.Tensors, CommunityToolkit.HighPerformance, PureHDF (`H5Dataset<T>` — the internal band spill slots), Thinktecture.Runtime.Extensions, LanguageExt.Core
+- Growth: a new seam profile is one `TileBlend` row with its ramp; a new tensor layout is one `TileLayout` row carrying its own gather, scatter, normalize, and stack kernels — never a layout flag branching inside the fold; a model emitting another plane is one more `TileProduct.Plane` row naming its own tensor at lane zero, a model PACKING another plane into a tensor it already names is one more row at that tensor's next lane, and a model grading its input is one `TileProduct.Measure` row — no surface moves for any of the three; a stage that up-samples is the `Scale` column, which threads every field grid without a caller recomputing anything; a pad posture beyond reflection is one `PadMode` row whose `Fold` may answer a negative index for a texel no source covers, which the gather rows already clear.
 - Boundary: `InferTiled` composes the `Model/sessions#SESSION_CAPSULE` shared-arena `BoundFlow` and NEVER opens a session — the flow's bound input is the bucket and its bound outputs are the tensor roster, so a mosaic and its session warm-up name the same shapes by construction. Tiles run sequentially through the one bound input because the binding holds a single device-resident staging value; intra-tile parallelism belongs to the session's own thread pool, and the only fold this page partitions itself is the per-product normalize, which touches no binding at all. Every arena is a pooled `MemoryOwner<float>` released on the fold's exit, and the mosaic transfers one accumulation rental per product to the caller, so a failed pulse disposes every plane before the fault leaves.
 
 ```csharp signature
@@ -527,9 +545,18 @@ public delegate void TileScatter(
 
 public delegate void TileNormalize(Span<float> plane, ReadOnlySpan<float> weight, int channels);
 
+// Index-keyed span filler — the provider seam shape RunOps.Chunked's WindowFill proved: the resolver answers a
+// plane's extent and a filler bound to that blob, the caller owns the destination, and plane bytes land where
+// they are consumed. An archive-resident plane (the mosaic spill's product re-entering a chained stage) fills by
+// hyperslab straight into the span, so a spilled producer plane re-enters the next stage without rehydrating
+// whole — and the filler is a delegate, so PureHDF stays on no Compute signature.
+public delegate Fin<Unit> PlaneFill(Span<float> destination);
+
 // Channel-axis stacking for a multi-input stage: one source plane lands at its channel offset inside the one bound
 // tensor, in the layout's own placement — a second bound value per input would drift from the warmed bucket shape.
-public delegate void TileStack(ReadOnlySpan<float> plane, Span<float> stacked, int channels, int offset, int total, int texels);
+// The stack row consumes the FILLER, never a materialized plane, so each row owns its own landing discipline and
+// the double copy dies where placement is contiguous.
+public delegate Fin<Unit> TileStack(PlaneFill fill, Span<float> stacked, int channels, int offset, int total, int texels);
 
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -684,14 +711,21 @@ public sealed partial class TileLayout {
     }
 
     // Planar stacking is a whole-plane copy at the channel offset; the source plane is already channel-major.
-    static void PlanarStack(ReadOnlySpan<float> plane, Span<float> stacked, int channels, int offset, int total, int texels) =>
-        plane.CopyTo(stacked.Slice(offset * texels, channels * texels));
+    // Planar placement IS a contiguous slice, so the filler lands the plane directly in the stacked buffer —
+    // the double copy the materialized-plane read paid dies structurally on this row.
+    static Fin<Unit> PlanarStack(PlaneFill fill, Span<float> stacked, int channels, int offset, int total, int texels) =>
+        fill(stacked.Slice(offset * texels, channels * texels));
 
-    // Interleaved stacking seats each texel's channel run at its offset inside the widened texel stride.
-    static void InterleavedStack(ReadOnlySpan<float> plane, Span<float> stacked, int channels, int offset, int total, int texels) {
+    // Interleaved placement seats each texel's channel run inside the widened texel stride, so the filler lands
+    // in a transient scratch and one interleave pass places it — one placement copy, no retained plane.
+    static Fin<Unit> InterleavedStack(PlaneFill fill, Span<float> stacked, int channels, int offset, int total, int texels) {
+        float[] scratch = new float[channels * texels];
+        if (fill(scratch).Case is Error missed) { return Fin.Fail<Unit>(missed); }
+        ReadOnlySpan<float> plane = scratch;
         for (int texel = 0; texel < texels; texel++) {
             plane.Slice(texel * channels, channels).CopyTo(stacked.Slice((texel * total) + offset, channels));
         }
+        return Fin.Succ(Unit.Default);
     }
 }
 
@@ -898,6 +932,18 @@ public readonly record struct TileAdmission(Seq<int> Edges, int MinOverlap, int 
 // than copied beside it, so the binding the fold scattered under is the binding the writer publishes under.
 public sealed record TilePlane(TileProduct.Plane Product, MemoryOwner<float> Plane);
 
+// INTERNAL spill for a mosaic past the arena ceiling — PureHDF appears on no Compute signature, and the spilled
+// product still crosses StagePorts.Write as bytes. Bands are stride-aligned tile rows; band r seals once tile
+// row r+1 has scattered (overlap is admitted below half a bucket edge, so no later tile reaches band r), the
+// writer lagging the scatter cursor one tile row. Seal takes the band already NORMALIZED against its weight
+// rows, so the spill holds finished texels and the close runs no second pass.
+sealed class TileSpill(HdfWriter session, H5Dataset<float[]>[] slots, int bandRows, int bandWidth, int gridRows) : IDisposable {
+    internal void Seal(int product, int band, float[] normalized) =>
+        session.WriteChunk(slots[product], normalized, band, grid: [gridRows, 1], chunkShape: [(uint)bandRows, (uint)bandWidth]);
+
+    public void Dispose() => session.Dispose();
+}
+
 // One graded product. A grade owns no arena, so it travels by value and its release is nothing.
 public readonly record struct TileGrade(string Role, float Value);
 
@@ -1020,7 +1066,7 @@ public static partial class RunOps {
 
 ## [04]-[STAGE_EXECUTION]
 
-- Owner: `StageRun` folds a dependency-ordered request sequence into results; `StageRequest`/`StageInput`/`StageOutput`/`StageScore`/`StageResult` transcribe the frozen wire records and `StageProduct` carries one grid's own field set beside its grade set; `LicenseClass` enforces the grant vocabulary; `ResidualBand` carries the card's parity envelope and `LatentInput`/`LatentDraw` its declared and synthesized seed tensor; `PlaneStack` folds the channel sum once and memoizes the stacked bound tensor per layout row across every lease one stage takes; `ParityVerdict` carries one measured residual beside the instant it was measured at; `StagePorts` carries the plane read, plane write, output-description, session-open, and parity-custody legs the app root binds.
+- Owner: `StageRun` folds a dependency-ordered request sequence into results; `StageRequest`/`StageInput`/`StageOutput`/`StageScore`/`StageResult` transcribe the frozen wire records and `StageProduct` carries one grid's own field set beside its grade set; `LicenseClass` enforces the grant vocabulary; `ResidualBand` carries the card's parity envelope and `LatentInput`/`LatentDraw` its declared and synthesized seed tensor; `PlaneStack` folds the channel sum once and memoizes the stacked bound tensor per layout row across every lease one stage takes; `ParityVerdict` carries one measured residual beside the instant it was measured at; `StagePorts` carries the filler-shaped plane read (`PlaneSource` — declared extent plus the index-keyed `PlaneFill` span filler), plane write, output-description, session-open, and parity-custody legs the app root binds.
 - Law: EVERY input row binds or the request refuses. Frozen-wire records carry one `StageInput` row per consumed product in the card's own binding order, and the executor resolves them ALL — a chained row against its producer's held output, an empty-stage row against its blob key — then STACKS the planes along the channel axis in that order into the one bound tensor, the session's own `InputMetadata` channel width proving the sum. Head-taking that silently drops `inputs[1..]` runs the `svbrdf` card without the photograph its estimator consumes, and nothing rails.
 - Law: a chained input RE-ENTERS through the port and never bypasses it. Producer planes leave through `StagePorts.Write` at the transfer and format `Describe` chose, and only the host knows whether that crossing is lossless, so binding a retained float plane in place of the bytes the wire published runs one plan two numeric ways depending on whether the fold still holds the producer's rental — same request, same seed, different answer. Device-resident handoff is unreachable here for a second and independent reason: `InferTiled` overlap-adds every field into pooled HOST planes and `TileMosaic` owns those rentals, so no producer `OrtValue` survives a grid for a consumer to bind, and this fold reaches no `SessionPlacement` readback to compare residency with. Device-to-device copies belong where a bound output stays resident — one `Tensor/residency#ORT_BRIDGE` relay over a `BoundFlow` pair — never on this fold.
 - Law: Materials SPECIFIES and Compute EXECUTES. Stage, model-card, and role identities cross as OPAQUE KEYS and this end dispatches on none of them, so admitting a model, a stage, or an intermediate at the specifying end moves no surface here; a mirrored stage roster makes every new model a Compute edit and breaks the row-growth law the wire exists to hold.
@@ -1044,7 +1090,7 @@ public static partial class RunOps {
 - Receipt: each executed stage emits one `ComputeReceipt.ModelRun` with the tiled mode key and the mosaic's tile count as `BatchSize` — one grid ran, so one receipt mints whatever the roster's width; the stage-level evidence rides `StageResult` across the wire, never a second receipt case, because the specifying end owns the admission that reads it.
 - Packages: Microsoft.ML.OnnxRuntime, System.Numerics.Tensors, Thinktecture.Runtime.Extensions, LanguageExt.Core
 - Growth: a new stage column is one record field here landing in the same change as its `Runtime/wire#CONTRACT_EVOLUTION` `StageCrossing` slot row, whose arity probe then forces the pair; a new grant posture is one `LicenseClass` row; a further parity axis is one term folded into `ParityKey`, which re-keys both the process memo and the durable row in one edit because they read one derivation; a new wire column is one record field transcribed from the frozen roster at both ends in one change; a further execution backend is one `Model/providers#EP_AXIS` row declaring one `WireKey`, never a translation table here and never a second stage owner; a stage emitting more products is more `TileProduct` rows the lease reports, a stage PACKING two products into one tensor is one more row at that tensor's next lane, a stage GRADING its input is one `TileProduct.Measure` row landing on `StageResult.Scores`, and a stage CONSUMING more products is one more wire input row widening the channel stack — no surface move on any of them.
-- Boundary: `StagePorts` is the ONLY route to a plane and the only route to durable parity custody. Compute holds no blob store, no artifact index, no codec, and no channel vocabulary — it reads and writes float planes and parity verdicts through injected legs the app root binds against the Persistence object and artifact lanes, exactly as `Model/sessions#SESSION_CAPSULE` binds its warm-artifact leg; the parity legs carry no rail outward because the root that owns the artifact write also owns the evidence cell its refusal parks on, and a read answering nothing degrades to the cold measurement the process memo already prices. Provider and precision spellings resolve at `Model/providers#EP_AXIS`, whose rows carry their own wire keys, so this record holds no translation table and a roster landing there crosses without an edit here. `StageSession` carries the model-derived facts a request cannot know — the tensor-and-lane binding roster, the tensor layout, the blend profile, the warm evidence, the bound input's own channel width, the card's parity band, and the latent the graph declares — and its `Flow` leg takes the built plan and the synthesized draw, so the bound shapes, the bound draw, and the fold's shapes have one source and the root binds bytes rather than re-deriving a distribution. This wire mints no `tests/contracts/MANIFEST.md` entry — it never leaves the C# runtime.
+- Boundary: `StagePorts` is the ONLY route to a plane and the only route to durable parity custody. Compute holds no blob store, no artifact index, no codec, and no channel vocabulary — it reads and writes float planes and parity verdicts through injected legs the app root binds against the Persistence object and artifact lanes, exactly as `Model/sessions#SESSION_CAPSULE` binds its warm-artifact leg; the read leg is the index-keyed span filler and the change is Compute-local by construction — the port is Compute-declared, the strata forbid a reference either way, and the filler is a delegate the ROOT binds (a blob copy, or a `Runtime/codecs#HDF_ARCHIVE` hyperslab fill for the mosaic spill's archive-resident product), so an archive-resident chained input re-enters without rehydrating whole and no PureHDF member lands on a Compute signature; the parity legs carry no rail outward because the root that owns the artifact write also owns the evidence cell its refusal parks on, and a read answering nothing degrades to the cold measurement the process memo already prices. Provider and precision spellings resolve at `Model/providers#EP_AXIS`, whose rows carry their own wire keys, so this record holds no translation table and a roster landing there crosses without an edit here. `StageSession` carries the model-derived facts a request cannot know — the tensor-and-lane binding roster, the tensor layout, the blend profile, the warm evidence, the bound input's own channel width, the card's parity band, and the latent the graph declares — and its `Flow` leg takes the built plan and the synthesized draw, so the bound shapes, the bound draw, and the fold's shapes have one source and the root binds bytes rather than re-deriving a distribution. This wire mints no `tests/contracts/MANIFEST.md` entry — it never leaves the C# runtime.
 
 ```csharp signature
 // --- [TYPES] -------------------------------------------------------------------------------
@@ -1255,31 +1301,39 @@ public sealed record LatentDraw(string Tensor, long[] Shape, ReadOnlyMemory<floa
 // per-lease stack re-traversed the whole plane sequence four times for one stage. The memo keys on the layout row
 // itself because layout is the only property of a lease the placement reads.
 public sealed class PlaneStack {
-    private readonly Seq<(ReadOnlyMemory<float> Plane, int Width, int Height, int Channels)> planes;
+    private readonly Seq<PlaneSource> sources;
     private readonly Dictionary<TileLayout, ReadOnlyMemory<float>> stacked = new();
     private readonly int texels;
 
-    private PlaneStack(Seq<(ReadOnlyMemory<float> Plane, int Width, int Height, int Channels)> planes, int channels, int texels) =>
-        (this.planes, Channels, this.texels) = (planes, channels, texels);
+    private PlaneStack(Seq<PlaneSource> sources, int channels, int texels) =>
+        (this.sources, Channels, this.texels) = (sources, channels, texels);
 
     public int Channels { get; }
 
-    public static PlaneStack Of(Seq<(ReadOnlyMemory<float> Plane, int Width, int Height, int Channels)> planes, StageRequest request) =>
-        new(planes, planes.Sum(static plane => plane.Channels), request.InputWidth * request.InputHeight);
+    public static PlaneStack Of(Seq<PlaneSource> sources, StageRequest request) =>
+        new(sources, sources.Sum(static source => source.Channels), request.InputWidth * request.InputHeight);
 
-    // Single-plane stages ARE their own bound tensor, so the one-row case allocates nothing and skips the memo.
-    public ReadOnlyMemory<float> For(TileLayout layout) {
-        if (planes.Count is 1) { return planes[0].Plane; }
-        if (stacked.TryGetValue(layout, out ReadOnlyMemory<float> held)) { return held; }
+    // Single-source stages fill the bound tensor DIRECTLY — one buffer, one fill, layout-independent, exactly the
+    // one materialization the byte read used to pay, now landing where it is consumed (and archive-fillable).
+    // Multi-source stages hand each filler to the layout's own stack row, so a planar plane lands in its
+    // contiguous slice with no intermediate and every distinct layout stacks at most once. A fill failure rides
+    // the rail out — a torn memo entry is unrepresentable because seating happens only after every fill lands.
+    public Fin<ReadOnlyMemory<float>> For(TileLayout layout) {
+        if (stacked.TryGetValue(layout, out ReadOnlyMemory<float> held)) { return Fin.Succ(held); }
         float[] buffer = new float[(long)Channels * texels];
-        int offset = 0;
-        foreach ((ReadOnlyMemory<float> plane, int _, int __, int channels) in planes) {
-            layout.Stack(plane.Span, buffer, channels, offset, Channels, texels);
-            offset += channels;
+        if (sources.Count is 1) {
+            if (sources[0].Fill(buffer).Case is Error alone) { return Fin.Fail<ReadOnlyMemory<float>>(alone); }
+        }
+        else {
+            int offset = 0;
+            foreach (PlaneSource source in sources) {
+                if (layout.Stack(source.Fill, buffer, source.Channels, offset, Channels, texels).Case is Error placed) { return Fin.Fail<ReadOnlyMemory<float>>(placed); }
+                offset += source.Channels;
+            }
         }
 
         stacked[layout] = buffer;
-        return buffer;
+        return Fin.Succ<ReadOnlyMemory<float>>(buffer);
     }
 }
 
@@ -1328,13 +1382,20 @@ public sealed record ParityPort(
     public static readonly Duration CanonicalHorizon = Duration.FromDays(30);
 }
 
+// The plane read answers extent AND filler in ONE resolution: a separate stat leg would let two answers about
+// one blob disagree, and a materializing byte read is the double copy the filler seam deletes.
+public sealed record PlaneSource(int Width, int Height, int Channels, PlaneFill Fill);
+
 // Every plane crosses as a content address the host resolves; Compute holds no store, no codec, and no vocabulary.
+// `Read` resolves a key to its declared extent and an index-keyed `PlaneFill` — the filler fills a caller-owned
+// span, so plane bytes land where they are consumed and the app root binds an archive-resident plane (the mosaic
+// spill's product) to a hyperslab fill without rehydrating whole; the port itself still names no PureHDF member.
 // `Lease` takes the resolved precision because a posture admitted at the wire and dropped before the session is a
 // column the receipt then reports without anything having executed it. `Describe` takes the ROSTER ROW rather than a
 // role string: the specifying end declares transfer and format per `(tensor, lane)` binding, so a packed export's two
 // products describe apart and a role alone could not tell the port which binding it was answering for.
 public sealed record StagePorts(
-    Func<string, Fin<(ReadOnlyMemory<float> Plane, int Width, int Height, int Channels)>> Read,
+    Func<string, Fin<PlaneSource>> Read,
     Func<ReadOnlyMemory<float>, int, int, int, Fin<string>> Write,
     Func<StageRequest, TileProduct, Fin<(string Transfer, string Format)>> Describe,
     Func<StageRequest, ExecutionProvider, ModelPrecision, Fin<StageSession>> Lease,
@@ -1402,8 +1463,9 @@ public static class StageRun {
                        .As()
                        .ToFin()
                // Chained rows already proved their extents against their PRODUCERS at resolution; this guard
-               // proves every plane's BYTES against the request's declaration — the whole gate for a source plane
-               // no stage made, and the congruence every stacked row must share.
+               // proves every source's DECLARED extent against the request's declaration — the whole gate for a
+               // source plane no stage made, and the congruence every stacked row must share; the bytes themselves
+               // prove at fill, where the filler's own destination length is the arithmetic witness.
                from __ in planes
                        .Traverse(plane => guard(
                                plane.Width == request.InputWidth && plane.Height == request.InputHeight,
@@ -1510,7 +1572,8 @@ public static class StageRun {
                           $"<stage-seed-unbindable:{request.Stage}:{request.Seed}>")),
                       _ => Fin.Succ(unit),
                   }
-                  from emitted in Emit(request, ports, session, plan, stack.For(session.Layout), options, scope)
+                  from source in stack.For(session.Layout)
+                  from emitted in Emit(request, ports, session, plan, source, options, scope)
                   select Some(new StageProduct(
                       emitted.Products, emitted.Scores, partitions, emitted.Coverage, emitted.Tiles, session.Artefact)));
 
@@ -1609,8 +1672,10 @@ public static class StageRun {
                 ? Fin.Succ((held, false))
                 : Leased(request, ports, selected, precision, stack.Channels, (candidate, plan) =>
                     Leased(request, ports, ExecutionProvider.Floor, ModelPrecision.Full, stack.Channels, (reference, truthPlan) =>
-                        from fast in Probe(candidate, plan, request.Seed, stack.For(candidate.Layout), options, scope)
-                        from truth in Probe(reference, truthPlan, request.Seed, stack.For(reference.Layout), options, scope)
+                        from fastSource in stack.For(candidate.Layout)
+                        from fast in Probe(candidate, plan, request.Seed, fastSource, options, scope)
+                        from truthSource in stack.For(reference.Layout)
+                        from truth in Probe(reference, truthPlan, request.Seed, truthSource, options, scope)
                         from delta in Residual(fast, truth)
                         select (Remember(at.Key, new ParityVerdict(delta, at.Now), ports.Parity), true))),
         };

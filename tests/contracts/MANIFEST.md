@@ -35,7 +35,7 @@ Corpus entries bind each contract to its class: an `infrastructure` entry names 
 |  [27]   | HDF5_FIELD_CONTAINER      | `hdf5-field-container`      | domain         | `wire-bytes` + `digest`         | DESIGN-PIN |
 |  [28]   | HDF5_GRADUATION_ENVELOPE  | `hdf5-graduation-envelope`  | domain         | `wire-bytes` + `digest`         | DESIGN-PIN |
 |  [29]   | SPARSE_EXCHANGE_CONTAINER | `sparse-exchange-container` | domain         | `wire-bytes` + `digest`         | DESIGN-PIN |
-|  [30]   | GRADUATION_EVIDENCE     | `graduation-evidence`   | domain         | `wire-bytes` + `digest`         | DESIGN-PIN |
+|  [30]   | GRADUATION_EVIDENCE       | `graduation-evidence`       | domain         | `wire-bytes` + `digest`         | DESIGN-PIN |
 
 Two appearance entries — `[02.17]` and `[02.18]` — conform to one shared definition, [appearance-vocabulary.schema.json](appearance-vocabulary.schema.json): the channel roster with its per-channel transfer, neutral, unit, mip policy, and minting branches; the ingest alias table; the transfer, normal-convention, alpha-mode, container, pack, plane-format, mip-policy, and KTX2-payload vocabularies; the three hex spellings; the level-ordered plane address; the egress grammar; and the spherical-harmonic band order with its golden vectors. Neither seam restates a row of it, and a document-local re-spelling is the fork the shared definition forecloses.
 
@@ -117,7 +117,7 @@ Two appearance entries — `[02.17]` and `[02.18]` — conform to one shared def
 
 - Seam: `hlc-two-half`
 - Class: infrastructure
-- Minters: `csharp:Rasm/Domain/telemetry#CAUSAL_FRAME`; `python:runtime/clock/clock#CLOCK`; `typescript:core/value/clock#TWO_HALF_LAYOUT`
+- Minters: `csharp:Rasm/Domain/telemetry#CAUSAL_FRAME`; `python:runtime/evidence/clock#CLOCK`; `typescript:core/value/clock#TWO_HALF_LAYOUT`
 - Consumers: `python:runtime/transport/serve#SERVE` decodes the halves with `tenant`; `python:runtime/evidence/reproduction#SEED_REPRODUCTION` reproduces every mint in the parity suite.
 - Payload: `wire-bytes`
 - Pin: DESIGN-PIN

@@ -20,6 +20,13 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic included; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Tasks state landing-grain work decomposing an idea.
 -->
 
+[JOURNAL_SEAT_COMPLETION]-[QUEUED]: every artifact kind's emit leg records the durable fact its retention row already prices.
+- Capability: journal-evidence completeness over the kind roster — the `core/receipt#RECEIPT` `evidence` builder and `_RETENTION` table are TOTAL over `_CASES`, while record seats land only on the eight producer pages the evidence-plane pass owned, so a kind emitting through any other page produces a priced retention class with no recorded fact behind it.
+- Shape: one `await Journal.record(receipt.evidence(...), ...)` at each remaining owner's async `_emit`-class fold — the metadata, spec, schedule, drawing, cad, chart, dashboard, scene, table, preview, color, bundle, introspection, pdf, report, document, office, and diagram emit legs — each composing the one builder, never a local fact construction.
+- Unlocks: the branch evidence plane answers settlement and audit over the WHOLE artifact roster, so the `_RETENTION` totality gate prices no class a producer never records.
+- Anchors: the landed `evidence`/`_RETENTION`/`_METERED` owners at `core/receipt#RECEIPT`; the sync-producer and worker-callback rulings at `RULINGS.md`; the landed seats on transmittal, register, egress, texture set, container, conformance, credential, and plan as the idiom reference.
+- Ripple: `runtime` `[EVIDENCE_PLANE_PRODUCERS]` — follows.
+
 [MARK_SEQUENCE_FAN]-[QUEUED]: a QR structured-append sequence emits one mark per member, never one corrupted document.
 - Capability: multi-symbol scan sequences become first-class fan products — every member its own addressed artifact — replacing the typed refusal that holds the seam.
 - Shape: `libs/python/artifacts/.planning/graphic/marks/encode.md` `_segno` with `Mark.emit`/`Mark._emit` — either a plan node whose work yields N receipts, or a `libs/python/artifacts/.planning/graphic/vector/region.md` composition assembling the members onto one sheet before the receipt fold.

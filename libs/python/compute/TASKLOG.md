@@ -20,7 +20,11 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic included; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Tasks state landing-grain work decomposing an idea.
 -->
 
-(none)
+[STUDY_EVALUATED_CELLS]-[QUEUED]: a resumed study charges only the rows it evaluated.
+- Capability: honest RECORD metering under resume — `StudyReceipt` separates the whole-grid census from the rows a run actually evaluated, so a resume charges its own work instead of re-billing the cached prefix the original run already charged.
+- Shape: one `evaluated_cells` slot on `StudyReceipt` at `libs/python/compute/.planning/experiments/study.md`, filled by the run fold from the non-cached admission count, with `experiments/history.md` `resume` metering `Resource.RECORD` off that slot.
+- Unlocks: resume paths join the RECORD settlement without double-billing, closing the one metered gap the evidence-plane pass left open.
+- Anchors: the landed RECORD meter at `experiments/study#STUDY`; the resume fold at `experiments/history#HISTORY`; `Resource.RECORD` at `python:runtime/observability/journal#FACT`.
 
 ## [02]-[CLOSED]
 

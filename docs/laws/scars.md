@@ -34,6 +34,7 @@ Regression-proven law with no other owner: each scar carries standing law, and i
 - Boundary: `libs/.planning/RULINGS.md` `[02]-[SHAPE]` owns the diagnostic-plane UNMEASURED shape, and this scar binds every other construction.
 - Boundary: Cross-language wires convict the producer — a zero-filled required slot strands the peer's absence arm while both ends read correct.
 - Boundary: A structurally-zero slot states why at its site, so a sweep tells structural from fabricated zeros without re-deriving the domain.
+- Boundary: Platform-gated counter projections OMIT the absent key, and process-constant counter binding spells that omission platform absence alone.
 
 [STRATA_TWIN]:
 - Law: Concepts two strata peers both spell home at the lowest stratum every consumer reaches, seated before either peer declares them.

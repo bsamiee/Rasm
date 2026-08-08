@@ -82,7 +82,7 @@
 [LOCAL_ADMISSION]:
 - Accept `UPath(...).fs`, `url_to_fs`, and `filesystem` as the branch construction and registration surfaces.
 - Accept `fs.open`, `cat_file`, `cat_ranges`, `info`, and async mirrors where the owning page names a byte/read-range rail.
-- Accept `FSMap`, transactions, and generic transfer only behind an owner declaring mutable mapping, atomic write, or bulk sync.
+- Accept `FSMap`, transactions, `open_files`/`open_local`, and generic transfer only behind an owner declaring mutable mapping, atomic write, multi-file staging, or bulk sync — each is a SYNC single-use context whose internal fan runs on the backend's own concurrency, outside whatever bound the calling owner accounts for, so an owner holding a concurrency budget composes its own fan over the single-path surface instead.
 - Data declines these at its boundary: egress atomicity is `obstore` conditional write or a table-format commit, chunk-range reads ride `obstore.get_range`/`get_ranges` or a native reader, mutable chunk stores are `zarr`/`tensorstore`/`icechunk`, and bulk movement is content-keyed `obstore` put.
 - Reject per-scheme `os`/cloud-client branching, inline credentials, direct construction of cloud extra drivers in folder code, blocking reads on an event loop, and wrapper-renames of filesystem operations.
 

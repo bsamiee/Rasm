@@ -174,10 +174,16 @@ CLASSIFY: Final[Block[ClassifyRow]] = Block.of_seq([
         lambda subject, cause: BoundaryFault(resource=(subject, type(cause).__name__)),
     ),
     (
+        # every anyio resource death spells itself: `ConnectionFailed` alone subclasses `OSError`, so the trailing
+        # builtin covers none of its siblings and an unlisted spelling falls to the catch-all, where `str(cause)` erases
+        # the type the whole row exists to keep. `BusyResourceError` is the CUSTODY arm — `transport/roots#RESOURCE`'s
+        # `ResourceGuard` rails an overlapping second puller through it — so dropping it classifies a real
+        # single-consumer breach as an unclassified boundary fault that no `recoverable` membership reaches.
         (
             anyio.BrokenWorkerProcess,
             anyio.BrokenWorkerInterpreter,
             anyio.BrokenResourceError,
+            anyio.BusyResourceError,
             anyio.ClosedResourceError,
             anyio.ConnectionFailed,
             OSError,
@@ -224,14 +230,18 @@ SCOPES: Final[Map[Scope, str]] = Map.of_seq([
 # release identity, so an uninstalled run still mints a versioned, schema-pinned coordinate a backend joins against
 # its installed siblings and the segment itself reports which was read; a plausible release number spelled as the miss
 # is the deleted form, because it forges provenance the process never had.
-# module-scope bound logger: `structlog.get_logger()` is a lazy proxy resolving the configured chain at first bind,
-# so this tier carries the PACKAGE and never the `observability/logging` module the import rail seats above it.
-_LOG: Final = structlog.get_logger()
-
 SCHEMA_URL: Final[str] = Schemas.V1_43_0.value
 DISTRIBUTION: Final[str] = "workspace-foundation-python"
 SOURCE_VERSION: Final[str] = "0+source"
 SCOPE_VERSION: Final[str] = next((dist.version for dist in distributions() if dist.metadata["Name"] == DISTRIBUTION), SOURCE_VERSION)
+
+
+# --- [SERVICES] --------------------------------------------------------------------------
+
+# module-scope bound logger — a dependency-backed runtime handle, never an immutable anchor: `structlog.get_logger()`
+# is a lazy proxy resolving the configured chain at first bind, so this tier carries the PACKAGE and never the
+# `observability/logging` module the import rail seats above it.
+_LOG: Final = structlog.get_logger()
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------

@@ -7,7 +7,7 @@ Every content key is canonical bytes per the folder key-law — sorted per-varia
 ## [01]-[INDEX]
 
 - [02]-[MANIFEST]: the absorbed `FieldVirtual` byte-range virtual-datacube owner — the `VirtualParser` seam, the `h5py` native path, the `CFDtype` seam, the canonical manifest wire keying the `FieldReceipt`.
-- [03]-[VIRTUAL]: the `VirtualReference` icechunk owner — the `VersionOp` request axis over one `apply` dispatch, the `IceStorage` scheme table, the `ConflictSolver` auto-rebase commit, the Merkle-keyed `VirtualReceipt`.
+- [03]-[VIRTUAL]: the `VirtualReference` icechunk owner — the `VersionOp` request axis over one `apply` dispatch and its awaitable twin, the `IceStorage` scheme table, the `ConflictSolver` auto-rebase commit, the Merkle-keyed `VirtualReceipt`.
 
 ## [02]-[MANIFEST]
 
@@ -17,7 +17,7 @@ Every content key is canonical bytes per the folder key-law — sorted per-varia
 - Receipt: the census folds EVERY `ManifestArray`-backed variable — the `hasattr(var.data, "manifest")` guard skips eagerly-materialized `loadable_variables` slots, never a first-variable-only read that undercounts a multi-variable cube; the `engine="virtual"` stamp is the invariant the icechunk registration path asserts as the provable `Literal["virtual"]`.
 - Packages: `virtualizarr` and `h5py` import module-top (both ungated); `check_enum_dtype` returns only the values map, so the `inspect` inverse re-supplies the `"u1"` base.
 - Growth: a new source format is one `VirtualParser` case carrying that parser's constructor payload; a new export target one `ManifestWrite` case; a new CF special type one `CFDtype` case; zero new surface.
-- Boundary: this page is the one virtualizarr home — no manifest owner survives on `gridded/field`; composes the `gridded/field#EGRESS` `FieldReceipt` family downward and the `gridded/store#STORE` Zarr egress, never re-minting either; a data-copying ingest where virtual reference applies is the rejected form.
+- Boundary: this page is the one virtualizarr home — no manifest owner survives on `gridded/field`; composes the `gridded/field#EGRESS` `FieldReceipt` family downward and the `gridded/store#STORE` Zarr egress, never re-minting either; a data-copying ingest where virtual reference applies is the rejected form. The `tests/contracts/MANIFEST.md` `[02.27]` raw field container virtualizes through the existing `hdf` parser arm with zero new case — the parser names the scale-less axes phony, so the entry's byte-range consumption is already this cluster's.
 
 ```python signature
 from typing import TYPE_CHECKING, Final, Literal, assert_never
@@ -367,7 +367,8 @@ def _native_file(
 ## [03]-[VIRTUAL]
 
 - Owner: `VirtualReference` — one frozen owner; the destination `IceStorage` backend is recovered per call from the `ResourceRef` scheme rather than stored, the virtual-chunk credential map threads once at the `open_or_create(authorize_virtual_chunk_access=)` lifecycle keyword rather than per `set_virtual_ref` call, and the version modality rides the `VersionOp` case the `apply` entrypoint takes rather than a stored write field.
-- Entry: `run` returns `RuntimeRail[VirtualOutcome]` — the verbs produce genuinely irreducible outcomes no fold collapses to one shape, so the named union is what the caller `match`es, never a bare `object` erasure; `apply` fences the raising `icechunk` calls in one boundary and `.bind`s away the doubled rail.
+- Entry: `run` returns `RuntimeRail[VirtualOutcome]` — the verbs produce genuinely irreducible outcomes no fold collapses to one shape, so the named union is what the caller `match`es, never a bare `object` erasure; `apply` fences the raising `icechunk` calls in one boundary and `.bind`s away the doubled rail, and `apply_async` is its awaitable twin over one `on_thread` band hop — a blocking repository call never runs inline on a caller's loop, and it is the one seat this owner lands durable evidence from, since recording suspends by law where a synchronous entry cannot.
+- Law: the committing outcome lands durable evidence on the `python:runtime/observability/journal#LEDGER` plane — one operational `AuditFact` carrying the snapshot and branch arrival as a typed diff, plus a `STORAGE` `MeterFact` over the bytes this commit made addressable. It identifies itself by the receipt shape it alone answers rather than a re-derived tag, and the read verbs evidence nothing because they mutate nothing. Referenced bytes are the storage fact precisely because a manifest copies none of them, which is also why the live series meters the reference COUNT instead — the two report different quantities of one commit by design, and neither re-mints the other.
 - Auto: a concurrent branch write auto-rebases at commit through `session.commit(rebase_with=)` under the supplied `ConflictSolver`, never a serialized retry loop; the content key materializes the snapshot-identity and registered-location component keys first, then Merkle-folds the resolved pair — the materialized-component idiom — never a nested rail the fold cannot key.
 - Receipt: the Merkle fold spans snapshot identity AND registered-location census, so a snapshot rewrite preserving the locations and a relocation preserving the snapshot id are distinct keys; the census tuple materializes once and feeds both the count and the location key, never a double walk of the lazy iterator. The `stamp`/`diff`/`reclaim`/`checkout` cases emit no `VirtualReceipt` — the typed receipt fold is the `aggregate` case alone, and the `VirtualEngine` discriminant rides the receipt subject so the cube-versus-native path survives onto the log line.
 - Packages: `_REPOSITORY` is the one `RepositoryConfig` every `open_or_create` binds — the repository's Rust-core store I/O is the one leg the runtime `store_handle` envelope cannot reach, so its `StorageRetriesSettings`/`StorageTimeoutSettings` derive from the branch `STORE_RETRIES`/`STORE_TIMEOUT` constants rather than running provider defaults beside a manifest walk that carries them, and `ManifestSplittingConfig`/`ManifestPreloadConfig` shard and bound the ref table one session open otherwise pays whole. Its `split_sizes` is a SEQUENCE of `(node-condition, sequence-of-(dim-condition, size))` pairs, never the mapping its shape reads as. The icechunk S3-family storage rows carry `from_env=` credential resolution — the `azure` `account` and `r2` `account_id` secondary identities resolve from the environment under `from_env=True`, never an `r.root` aliased onto two identity slots; `containers_credentials` values are the `AnyCredential` factory-return union, never a raw token tuple.
@@ -378,15 +379,17 @@ def _native_file(
 from typing import TYPE_CHECKING, Final, Literal, assert_never
 
 import icechunk as ic
-from expression import Ok, case, tag, tagged_union
-from expression.collections import Map
+from expression import Error, Ok, Result, case, tag, tagged_union
+from expression.collections import Block, Map
 from icechunk import VirtualChunkSpec
 from msgspec import Struct
 
-from rasm.runtime.faults import RuntimeRail, boundary, railed, scoped
+from rasm.runtime.faults import RuntimeRail, async_boundary, boundary, railed, scoped
 from rasm.runtime.identity import ContentIdentity, ContentKey
+from rasm.runtime.journal import Actor, Assigned, AuditFact, Fact, Journal, MeterFact, Party, Resource, Retain
+from rasm.runtime.lanes import on_thread
 from rasm.runtime.metrics import Metrics
-from rasm.runtime.receipts import Receipt
+from rasm.runtime.receipts import DEFAULT_SCOPE, Receipt, ScopeKey
 from rasm.runtime.roots import STORE_RETRIES, STORE_TIMEOUT, ResourceRef
 
 if TYPE_CHECKING:
@@ -400,6 +403,12 @@ if TYPE_CHECKING:
 type CommitMeta = dict[str, str]
 type ContainerAuth = "tuple[tuple[str, AnyCredential], ...]"
 type VirtualEngine = Literal["virtual", "native"]
+
+# this owner's metric segment and receipt owner label, spelled once. It shares a SPELLING with the `virtual` member
+# of `VirtualEngine` and nothing else: the engine names which registration path built a cube, this names the
+# partition and series every commit here reports under, and a reader conflating them mistakes a native-slab commit
+# for one under a foreign owner.
+DOMAIN: Final[str] = "virtual"
 type VirtualOutcome = "VirtualReceipt | str | Diff | set[str] | GCSummary | xr.Dataset"
 
 # chunk-refs per manifest shard, a DECLARED tuning a deployment reads and a tuning pass edits, never a measurement:
@@ -542,7 +551,7 @@ class VersionOp:
                     snapshot = session.commit("virtual-reference", metadata=meta, rebase_with=solver)
                     snapshot_key = yield from ContentIdentity.of("virtual.snapshot", snapshot.encode())
                     refs_key = yield from ContentIdentity.of("virtual.refs", "\n".join(refs).encode())
-                    content_key = yield from ContentIdentity.of("virtual", (snapshot_key, refs_key))
+                    content_key = yield from ContentIdentity.of(DOMAIN, (snapshot_key, refs_key))
                     return VirtualReceipt(
                         sources=len(spec.sources),
                         dims=dims,
@@ -590,14 +599,14 @@ class VirtualReceipt(Struct, frozen=True):
         # lands in the `virtual` partition a predicate prunes and rejoins the live series its twin emitted. The
         # metered quantity is REFERENCES rather than referenced bytes: a manifest copies nothing, so its own volume
         # is the count of byte ranges it addressed, and the bytes column stays receipt evidence the cost fold prices.
-        Metrics.record({"rasm.virtual.references": float(self.chunk_refs)}, domain="virtual", kind=self.engine)
+        Metrics.record({"rasm.virtual.references": float(self.chunk_refs)}, domain=DOMAIN, kind=self.engine)
         yield Receipt.of(
-            "virtual",
+            DOMAIN,
             (
                 "emitted",
                 self.engine,
                 {
-                    "domain": "virtual",
+                    "domain": DOMAIN,
                     "kind": self.engine,
                     "key": self.content_key.hex,
                     "sources": self.sources,
@@ -622,13 +631,52 @@ class VirtualReference(Struct, frozen=True):
     # budget, or its inline-chunk threshold replaces the whole `RepositoryConfig` rather than growing a knob tail
     # here, and every axis this page does not decide keeps icechunk's own default rather than a re-asserted number.
     config: "RepositoryConfig" = _REPOSITORY
+    # the composition this owner's evidence and signals partition under, taken exactly as every sibling data owner
+    # takes it, so an embedded composition's commits never land under its host's scope.
+    scope: ScopeKey = DEFAULT_SCOPE
 
     def apply(self, op: VersionOp) -> "RuntimeRail[VirtualOutcome]":
         # snapshot commit/diff/reclaim run store I/O against the icechunk repository — spanned per verb, the branch a dimension.
-        with _TRACER.start_as_current_span(f"virtual.{op.tag}", attributes={"rasm.virtual.branch": self.branch}):
+        with _TRACER.start_as_current_span(f"{DOMAIN}.{op.tag}", attributes={"rasm.virtual.branch": self.branch}):
             return boundary(
-                f"virtual.{op.tag}", lambda: op.run(IceStorage.for_ref(self.ref).repository(self.containers, self.config), self)
+                f"{DOMAIN}.{op.tag}", lambda: op.run(IceStorage.for_ref(self.ref).repository(self.containers, self.config), self)
             ).bind(lambda rail: rail)
+
+    async def apply_async(self, op: VersionOp) -> "RuntimeRail[VirtualOutcome]":
+        # the awaitable twin the sibling `tabular/lakehouse#LAKEHOUSE` and `tabular/egress#EGRESS` owners already
+        # split off one body, over one `on_thread` band hop: every verb below is a blocking native repository call,
+        # so an async composition reaching `apply` stalls its loop for a whole commit. It is also the ONE seat this
+        # owner lands durable evidence from, because recording SUSPENDS by the never-shed law and no synchronous
+        # entry can. The record rail binds into the verdict, so an armed evidence plane refusing a commit fact
+        # surfaces here and a composition that installed none folds to the lawful no-op.
+        railed = await async_boundary(f"{DOMAIN}.{op.tag}", lambda: on_thread(self.apply, op))
+        match railed.bind(lambda rail: rail):
+            case Result(tag="ok", ok=outcome):
+                return (await Journal.record(_evidence(self, outcome), scope=self.scope)).map(lambda _landed: outcome)
+            case refused:
+                return Error(refused.error)
+
+
+def _evidence(spec: VirtualReference, outcome: VirtualOutcome) -> "Block[Fact]":
+    # only the COMMITTING outcome carries durable evidence, and it identifies itself by the receipt shape it alone
+    # answers — a tag test would re-derive a discriminant the outcome already is, and the read verbs (`diff`,
+    # `checkout`) mutate nothing to evidence. The meter carries REFERENCED bytes: a manifest copies nothing, so the
+    # volume this commit made addressable is the storage fact, exactly as the live series meters its reference
+    # count rather than those bytes. The verb spells `<domain>.<operation>` under the runtime producer grammar.
+    if not isinstance(outcome, VirtualReceipt):
+        return Block.empty()
+    audited = AuditFact(
+        action=f"{DOMAIN}.aggregate",
+        actor=Party(kind=Actor.SERVICE, key=DOMAIN),
+        target=Party(kind="repository", key=str(spec.ref.path)),
+        retention=Retain.OPERATIONAL,
+        change=(
+            Assigned(path="/snapshot", next=outcome.snapshot_id),
+            Assigned(path="/branch", next=outcome.branch),
+        ),
+    )
+    metered = MeterFact(resource=Resource.STORAGE, quantity=outcome.bytes_referenced, surface=str(spec.ref.path))
+    return Block.of_seq((audited, metered) if outcome.bytes_referenced else (audited,))
 ```
 
 ```mermaid

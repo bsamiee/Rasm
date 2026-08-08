@@ -1,20 +1,20 @@
 # [PY_COMPUTE_CONVEX]
 
-Dual-certificate proof of global optimality the first-order design loop and the discrete math program structurally cannot furnish — the convex analogue of the certified-enclosure ladder in `numerics/interval#ENCLOSURE`. `ConvexProgram` discriminates the cone family a disciplined-convex model lands in, compiled to standard conic form and solved through the Clarabel interior-point backend that returns the primal optimum and the per-constraint dual multipliers; the full KKT triple is the proof object, so `certified` gates the complementary-slackness gap AND both feasibility residuals within `_TOL`, never the gap alone. Like `optimization/program#PROGRAM`, the convex solve IS `cvxpy` over the conic backend, so a run without the package returns `Error(Import)` rather than an uncertified estimate.
+Dual-certificate proof of global optimality the first-order design loop and the discrete math program structurally cannot furnish — the convex analogue of the certified-enclosure ladder in `numerics/interval#ENCLOSURE`. `ConvexProgram` discriminates the cone family a disciplined-convex model lands in, compiled to standard conic form and solved through the selected `Backend` row — Clarabel interior-point the default, SCS the first-order operator-splitting arm, HiGHS the LP/QP simplex arm — each returning the primal optimum and the per-constraint dual multipliers cvxpy normalizes, so backend choice never weakens the proof; the full KKT triple is the proof object, so `certified` gates the complementary-slackness gap AND both feasibility residuals within `_TOL`, never the gap alone. Like `optimization/program#PROGRAM`, the convex solve IS `cvxpy` over the conic backend, so a run without the package returns `Error(Import)` rather than an uncertified estimate.
 
 `ConvexReceipt` stays a distinct typed receipt and never folds into the `OutcomeReceipt` the `design`/`program` siblings share — the KKT certificate is the proof object the first-order convergence and feasibility verdicts carry no field for. Its coherence with `solvers/receipt#RECEIPT` is the status vocabulary alone: the cvxpy status constants fold into the one `SolveStatus` enum through the `_CONVEX_STATUS` boundary table. Certified optimum graduates on the dedicated `convex_program` `HandoffAxis` case at `graduation/handoff#GRADUATION`, a distinct admission from the `solver` axis the design/program verdicts cross on.
 
 ## [01]-[INDEX]
 
-- [02]-[CONVEX]: five cone families on one `ConvexProgram` owner over the `_CONE_ROWS`/`_CONE_KKT` tables, folding one content-keyed `ConvexReceipt` KKT certificate per `ParamBind` row.
+- [02]-[CONVEX]: six cone families and three solve backends on one `ConvexProgram` owner over the `_CONE_ROWS`/`_CONE_KKT`/`_BACKEND` tables, folding one content-keyed `ConvexReceipt` KKT certificate per `ParamBind` row.
 
 ## [02]-[CONVEX]
 
-- Owner: `ConvexProgram` — the discriminant is the cone structure, so the differentiable design loop, the discrete math program, and the certified convex program are sibling owners on one sub-domain, never a duplicated optimizer surface; every case ends with one uniform `Policy` slot bound through the `policy` total `match self` or-pattern, never a `getattr(self, self.tag)[-1]` reflection whose `object` residual escapes the exhaustive match; factories are `@classmethod`-plus-`Self`, never a `@staticmethod` over a forward-ref. Five cone families differ by two `ConeRow` closures and one `psd` flag, four `ConeKKT` closures keyed on the constraint's cone family, and the one `Fields` typed projection every case lands in — table and closure rows, never parallel `match` bodies, so `_assemble` and the evidence fold read fixed attributes and reduce with no shape-probe `if`.
-- Cases: `Problem.is_dcp()` adjudicates curvature BEFORE the solve, and a genuinely indefinite quadratic form fails it — never a silent `cp.psd_wrap` coercion that forces a PSD lift; the semidefinite case carries PSD membership as an explicit `X >> 0` cone row because a `PSD=True` leaf attribute hides the matrix dual `Z` behind the variable domain where `Constraint.dual_value` cannot reach it; the one `cp.Parameter` leaf sits on the inequality `rhs` — the sole DPP-legal parametrizable buffer, a `Parameter` in the form matrix or constraint matrix breaks the DPP ruleset — so a sweep warm-re-solves the one compiled `Problem`, never a rebuild.
+- Owner: `ConvexProgram` — the discriminant is the cone structure, so the differentiable design loop, the discrete math program, and the certified convex program are sibling owners on one sub-domain, never a duplicated optimizer surface; every case ends with one uniform `Policy` slot bound through the `policy` total `match self` or-pattern, never a `getattr(self, self.tag)[-1]` reflection whose `object` residual escapes the exhaustive match; factories are `@classmethod`-plus-`Self`, never a `@staticmethod` over a forward-ref. Six cone families differ by two `ConeRow` closures and one `psd` flag, four `ConeKKT` closures keyed on the constraint's cone family — the residual and primal closures take the constraint beside the dual/expr because cone PARAMETERS (`PowCone3D.alpha`) live on the constraint object, never in the stacked value — and the one `Fields` typed projection every case lands in — table and closure rows, never parallel `match` bodies, so `_assemble` and the evidence fold read fixed attributes and reduce with no shape-probe `if`.
+- Cases: `Problem.is_dcp()` adjudicates curvature BEFORE the solve, and a genuinely indefinite quadratic form fails it — never a silent `cp.psd_wrap` coercion that forces a PSD lift; the semidefinite case carries PSD membership as an explicit `X >> 0` cone row because a `PSD=True` leaf attribute hides the matrix dual `Z` behind the variable domain where `Constraint.dual_value` cannot reach it; the one `cp.Parameter` leaf sits on the inequality `rhs` — the sole DPP-legal parametrizable buffer, a `Parameter` in the form matrix or constraint matrix breaks the DPP ruleset — so a sweep warm-re-solves the one compiled `Problem`, never a rebuild. `power` rows `PowCone3D(aₓ@x, a_y@x, a_z@x, α)` membership per term — its dual is the `[u, v, w]` triple mirroring `args = [x, y, z]` (`np.asarray` stacks it `(3, n)`), inner-product slackness cancels per triple, and dual-cone membership scales `u/α`, `v/(1−α)` before the same weighted-geometric-mean gap the primal reads unscaled. `_BACKEND` rows declare each backend's covered cone families beside its cvxpy selector — HiGHS covers `linear`/`quadratic` alone and cvxpy refuses its conic hand-off with a `SolverError` at selection — so an uncovered `(backend, cone)` pair folds the uncertified sweep at admission, cardinality preserved, never a raise mid-sweep. Every solve pins `canon_backend=cp.SCIPY_CANON_BACKEND`: the floor's source-built CPP canon extension trips a fatal `ProblemData.hpp` assert on every canonicalization — a process abort no rail catches — and the SciPy path canonicalizes every family clean.
 - Entry: a missing backend or a DCP-rejected model folds one uncertified receipt per `ParamBind` row, so the tuple cardinality always matches the bind table; the certificate folds exactly the catalogued cvxpy quantities — `Constraint.dual_value` and the per-cone primal read off `Constraint.args` — never a backend-internal residual the `solve` path does not surface.
-- Packages: `clarabel` is admitted only through the `solver=cp.CLARABEL` selector, never a direct `DefaultSolver`/`get_problem_data` assembly this owner re-derives; `gc=False` rides only the scalar-leaf carriers (`ConvexEvidence`, `ConvexReceipt`) while the container/closure carriers (`Policy`, `Fields`, `ConeRow`, `ConeKKT`) stay GC-tracked; problem data admits as `numerics/array#PAYLOAD` payloads keying through the same `ContentIdentity` seed.
-- Growth: a new cone family is one `ConvexProgram` case with one `_CONE_ROWS` row, one `_CONE_KKT` row, and one `_cone` arm; a new solve-policy axis is one `Policy` field rather than a sixth positional slot threaded through five factories; a new diagnostic is one `ConvexEvidence` slot reaching the facts map with no second edit; a new cvxpy status constant is one `_CONVEX_STATUS` row.
+- Packages: `clarabel`, `scs`, and `highspy` are admitted only through their `solver=` selectors off the `_BACKEND` row, never a direct `DefaultSolver`/`get_problem_data` assembly this owner re-derives; `gc=False` rides only the scalar-leaf carriers (`ConvexEvidence`, `ConvexReceipt`) while the container/closure carriers (`Policy`, `Fields`, `ConeRow`, `ConeKKT`) stay GC-tracked; problem data admits as `numerics/array#PAYLOAD` payloads keying through the same `ContentIdentity` seed.
+- Growth: a new cone family is one `ConvexProgram` case with one `_CONE_ROWS` row, one `_CONE_KKT` row, and one `_cone` arm; a new solve backend is one `Backend` member and one `_BACKEND` row naming its selector and covered cone families; a new solve-policy axis is one `Policy` field rather than a positional slot threaded through six factories; a new diagnostic is one `ConvexEvidence` slot reaching the facts map with no second edit; a new cvxpy status constant is one `_CONVEX_STATUS` row.
 
 ```python signature
 from collections.abc import Callable, Iterable
@@ -43,13 +43,20 @@ type ConeObjective = Callable[[object, "Fields", object], object]  # `(Variable,
 type ConeRows = Callable[[object, "Fields", object], tuple[object, ...]]  # `(Variable, Fields, cp)` -> extra cone-constraint rows
 type ConeExpr = Callable[[object], np.ndarray | None]  # `(Constraint) -> stacked primal value` off `args`, None if unsolved
 type ConeSlack = Callable[[np.ndarray, np.ndarray], float]  # `(dual, expr) -> |⟨λ, g⟩|` complementary slackness
-type ConeResidual = Callable[[np.ndarray], float]  # `(dual) -> dist(λ, K*)` dual-cone-membership violation
-type ConePrimal = Callable[[np.ndarray], float]  # `(expr) -> dist(g, K)` primal-cone-membership violation
+type ConeResidual = Callable[[np.ndarray, object], float]  # `(dual, Constraint) -> dist(λ, K*)`; parameterized cones read alpha off the row
+type ConePrimal = Callable[[np.ndarray, object], float]  # `(expr, Constraint) -> dist(g, K)` primal-cone-membership violation
+type PowTerm = tuple[np.ndarray, np.ndarray, np.ndarray, float]  # (a_x, a_y, a_z, alpha): PowCone3D(a_x@x, a_y@x, a_z@x, alpha)
 
 
 class Sense(StrEnum):
     MIN = "minimize"
     MAX = "maximize"
+
+
+class Backend(StrEnum):
+    CLARABEL = "clarabel"
+    SCS = "scs"
+    HIGHS = "highs"
 
 
 # --- [CONSTANTS] ---------------------------------------------------------------------------
@@ -76,6 +83,7 @@ _CONVEX_STATUS: Map[str, SolveStatus] = Map.of_seq([
 class Policy(Struct, frozen=True):  # GC-tracked: `binds` is a container (tuple of Map of ndarray)
     sense: Sense = Sense.MIN
     binds: ParamBind = _NO_BIND
+    backend: Backend = Backend.CLARABEL  # certificate grading is backend-neutral; `_BACKEND` gates cone coverage at admission
 
 
 class ConvexEvidence(Struct, frozen=True, gc=False):
@@ -119,22 +127,38 @@ class ConvexReceipt(Struct, frozen=True, gc=False):
 
 @tagged_union(frozen=True)
 class ConvexProgram:
-    tag: Literal["linear", "quadratic", "second_order", "exponential", "semidefinite"] = tag()
+    tag: Literal["linear", "quadratic", "second_order", "exponential", "power", "semidefinite"] = tag()
     linear: tuple[np.ndarray, np.ndarray, np.ndarray, Policy] = case()
     quadratic: tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, Policy] = case()
     second_order: tuple[np.ndarray, tuple[tuple[np.ndarray, float], ...], np.ndarray, np.ndarray, Policy] = case()
     exponential: tuple[np.ndarray, tuple[tuple[np.ndarray, float], ...], np.ndarray, np.ndarray, Policy] = case()
+    power: tuple[np.ndarray, tuple[PowTerm, ...], np.ndarray, np.ndarray, Policy] = case()
     semidefinite: tuple[np.ndarray, np.ndarray, np.ndarray, Policy] = case()
 
     @classmethod
-    def Linear(cls, c: np.ndarray, a_ub: np.ndarray, b_ub: np.ndarray, sense: Sense = Sense.MIN, params: ParamBind = _NO_BIND) -> Self:
-        return cls(linear=(c, a_ub, b_ub, Policy(sense, params)))
+    def Linear(
+        cls,
+        c: np.ndarray,
+        a_ub: np.ndarray,
+        b_ub: np.ndarray,
+        sense: Sense = Sense.MIN,
+        params: ParamBind = _NO_BIND,
+        backend: Backend = Backend.CLARABEL,
+    ) -> Self:
+        return cls(linear=(c, a_ub, b_ub, Policy(sense, params, backend)))
 
     @classmethod
     def Quadratic(
-        cls, p: np.ndarray, q: np.ndarray, a_ub: np.ndarray, b_ub: np.ndarray, sense: Sense = Sense.MIN, params: ParamBind = _NO_BIND
+        cls,
+        p: np.ndarray,
+        q: np.ndarray,
+        a_ub: np.ndarray,
+        b_ub: np.ndarray,
+        sense: Sense = Sense.MIN,
+        params: ParamBind = _NO_BIND,
+        backend: Backend = Backend.CLARABEL,
     ) -> Self:
-        return cls(quadratic=(p, q, a_ub, b_ub, Policy(sense, params)))
+        return cls(quadratic=(p, q, a_ub, b_ub, Policy(sense, params, backend)))
 
     @classmethod
     def SecondOrder(
@@ -145,8 +169,9 @@ class ConvexProgram:
         b_ub: np.ndarray,
         sense: Sense = Sense.MIN,
         params: ParamBind = _NO_BIND,
+        backend: Backend = Backend.CLARABEL,
     ) -> Self:
-        return cls(second_order=(c, soc_terms, a_ub, b_ub, Policy(sense, params)))
+        return cls(second_order=(c, soc_terms, a_ub, b_ub, Policy(sense, params, backend)))
 
     @classmethod
     def Exponential(
@@ -157,12 +182,34 @@ class ConvexProgram:
         b_ub: np.ndarray,
         sense: Sense = Sense.MIN,
         params: ParamBind = _NO_BIND,
+        backend: Backend = Backend.CLARABEL,
     ) -> Self:
-        return cls(exponential=(c, exp_terms, a_ub, b_ub, Policy(sense, params)))
+        return cls(exponential=(c, exp_terms, a_ub, b_ub, Policy(sense, params, backend)))
 
     @classmethod
-    def Semidefinite(cls, c_mat: np.ndarray, a_ub: np.ndarray, b_ub: np.ndarray, sense: Sense = Sense.MIN, params: ParamBind = _NO_BIND) -> Self:
-        return cls(semidefinite=(c_mat, a_ub, b_ub, Policy(sense, params)))
+    def Power(
+        cls,
+        c: np.ndarray,
+        pow_terms: tuple[PowTerm, ...],
+        a_ub: np.ndarray,
+        b_ub: np.ndarray,
+        sense: Sense = Sense.MIN,
+        params: ParamBind = _NO_BIND,
+        backend: Backend = Backend.CLARABEL,
+    ) -> Self:
+        return cls(power=(c, pow_terms, a_ub, b_ub, Policy(sense, params, backend)))
+
+    @classmethod
+    def Semidefinite(
+        cls,
+        c_mat: np.ndarray,
+        a_ub: np.ndarray,
+        b_ub: np.ndarray,
+        sense: Sense = Sense.MIN,
+        params: ParamBind = _NO_BIND,
+        backend: Backend = Backend.CLARABEL,
+    ) -> Self:
+        return cls(semidefinite=(c_mat, a_ub, b_ub, Policy(sense, params, backend)))
 
     @property
     def policy(self) -> Policy:
@@ -172,6 +219,7 @@ class ConvexProgram:
                 | ConvexProgram(tag="quadratic", quadratic=(*_, Policy() as policy))
                 | ConvexProgram(tag="second_order", second_order=(*_, Policy() as policy))
                 | ConvexProgram(tag="exponential", exponential=(*_, Policy() as policy))
+                | ConvexProgram(tag="power", power=(*_, Policy() as policy))
                 | ConvexProgram(tag="semidefinite", semidefinite=(*_, Policy() as policy))
             ):
                 return policy
@@ -248,11 +296,17 @@ def _exp_rows(x: object, fields: "Fields", cp: object) -> tuple[object, ...]:
     return tuple(cp.log_sum_exp(_as_mat(a) @ x) <= bound for a, bound in fields.terms)
 
 
+def _pow_rows(x: object, fields: "Fields", cp: object) -> tuple[object, ...]:
+    # per-term PowCone3D membership over three affine images; alpha rides the constraint row, where the KKT closures read it.
+    return tuple(cp.PowCone3D(_as_mat(ax) @ x, _as_mat(ay) @ x, _as_mat(az) @ x, alpha) for ax, ay, az, alpha in fields.pow_terms)
+
+
 _CONE_ROWS: Map[str, ConeRow] = Map.of_seq([
     ("linear", ConeRow(_affine_cost, _no_rows)),
     ("quadratic", ConeRow(_quadratic_cost, _no_rows)),
     ("second_order", ConeRow(_affine_cost, _soc_rows)),
     ("exponential", ConeRow(_affine_cost, _exp_rows)),
+    ("power", ConeRow(_affine_cost, _pow_rows)),
     ("semidefinite", ConeRow(_trace_cost, _no_rows, psd=True)),
 ])
 
@@ -263,6 +317,7 @@ class Fields(Struct, frozen=True):  # GC-tracked: `terms` is a container (tuple 
     rhs: np.ndarray
     lin: np.ndarray | None = None  # the `quadratic` linear term `q`; absent on every other cone
     terms: tuple[tuple[np.ndarray, float], ...] = ()  # SOC/exponential cone terms; empty elsewhere
+    pow_terms: tuple[PowTerm, ...] = ()  # power-cone (a_x, a_y, a_z, alpha) terms; empty elsewhere
 
 
 def _fields(program: ConvexProgram) -> Fields:
@@ -275,6 +330,8 @@ def _fields(program: ConvexProgram) -> Fields:
             return Fields(_as_vec(c), _as_mat(a_ub), _as_vec(b_ub), terms=terms)
         case ConvexProgram(tag="exponential", exponential=(c, terms, a_ub, b_ub, _)):
             return Fields(_as_vec(c), _as_mat(a_ub), _as_vec(b_ub), terms=terms)
+        case ConvexProgram(tag="power", power=(c, pow_terms, a_ub, b_ub, _)):
+            return Fields(_as_vec(c), _as_mat(a_ub), _as_vec(b_ub), pow_terms=pow_terms)
         case ConvexProgram(tag="semidefinite", semidefinite=(c_mat, a_ub, b_ub, _)):
             return Fields(_symm(c_mat), _as_mat(a_ub), _as_vec(b_ub))
         case _ as unreachable:
@@ -284,8 +341,9 @@ def _fields(program: ConvexProgram) -> Fields:
 def _sweep(program: ConvexProgram) -> "RuntimeRail[tuple[ConvexReceipt, ...]]":
     import cvxpy as cp
 
-    if cp.CLARABEL not in cp.installed_solvers():
-        return _uncertified_sweep(program, None)
+    row = _BACKEND[program.policy.backend]
+    if row.solver(cp) not in cp.installed_solvers() or program.tag not in row.cones:
+        return _uncertified_sweep(program, None)  # missing backend and uncovered (backend, cone) pair refuse identically at admission
     objective, constraints, fields, parameters = _assemble(program, cp)
     problem = cp.Problem(_SENSE[program.policy.sense](cp)(objective), constraints)
     if not problem.is_dcp():
@@ -331,7 +389,8 @@ def _solve_bind(
     # rather than a `parameters[name]` KeyError, and a row omitting a registered leaf reuses its prior `value`.
     for name, leaf in parameters.items():
         leaf.value = np.asarray(bind.try_find(name).default_value(leaf.value), dtype=float)
-    problem.solve(solver=cp.CLARABEL, warm_start=True)
+    # SCIPY canon pin: the floor's source-built CPP canon extension aborts the process on canonicalization.
+    problem.solve(solver=_BACKEND[program.policy.backend].solver(cp), warm_start=True, canon_backend=cp.SCIPY_CANON_BACKEND)
     return _convex_key(program, fields, bind).map(lambda key: _certificate(program, problem, constraints, key, cp))
 
 
@@ -346,6 +405,20 @@ def _leaf(name: str, value: np.ndarray, binds: ParamBind, cp: object, parameters
 
 
 _SENSE: Map[Sense, Callable[[object], object]] = Map.of_seq([(Sense.MIN, attrgetter("Minimize")), (Sense.MAX, attrgetter("Maximize"))])
+
+
+class BackendRow(Struct, frozen=True):  # GC-tracked: carries the selector closure and the coverage set
+    solver: Callable[[object], str]  # `(cp) -> solver constant` — the only admission path a backend package takes
+    cones: frozenset[str]  # ConvexProgram tags the backend serves; an uncovered pair folds the uncertified sweep
+
+
+# cvxpy normalizes every backend's status and dual recovery, so the KKT certificate grades identically per row;
+# HiGHS covers the polyhedral/quadratic regime alone and cvxpy refuses its conic hand-off with SolverError at selection.
+_BACKEND: Map[Backend, BackendRow] = Map.of_seq([
+    (Backend.CLARABEL, BackendRow(attrgetter("CLARABEL"), frozenset({"linear", "quadratic", "second_order", "exponential", "power", "semidefinite"}))),
+    (Backend.SCS, BackendRow(attrgetter("SCS"), frozenset({"linear", "quadratic", "second_order", "exponential", "power", "semidefinite"}))),
+    (Backend.HIGHS, BackendRow(attrgetter("HIGHS"), frozenset({"linear", "quadratic"}))),
+])
 
 
 def _certificate(program: ConvexProgram, problem: object, constraints: list[object], key: ContentKey, cp: object) -> ConvexReceipt:
@@ -364,12 +437,12 @@ def _evidence(constraints: list[object], cp: object) -> ConvexEvidence:
     # off `Constraint.args` because `SOC(t, X)`/`ExpCone` carry NO single `.expr` — a uniform `c.expr.value` read raises
     # `AttributeError` on exactly the certificate-bearing SOC/SDP rows.
     cells = ((_CONE_KKT[_cone(c, cp)], c) for c in constraints)
-    rows = [(kkt, np.asarray(c.dual_value, dtype=float), kkt.expr(c)) for kkt, c in cells if c.dual_value is not None]
-    solved = [(kkt, dual, expr) for kkt, dual, expr in rows if expr is not None]
+    rows = [(kkt, c, np.asarray(c.dual_value, dtype=float), kkt.expr(c)) for kkt, c in cells if c.dual_value is not None]
+    solved = [(kkt, c, dual, expr) for kkt, c, dual, expr in rows if expr is not None]
     return ConvexEvidence(
-        duality_gap=float(sum(kkt.slack(dual, expr) for kkt, dual, expr in solved)),
-        primal_infeasibility=max((kkt.primal(expr) for kkt, _, expr in solved), default=0.0),
-        dual_infeasibility=max((kkt.residual(dual) for kkt, dual, _ in solved), default=0.0),
+        duality_gap=float(sum(kkt.slack(dual, expr) for kkt, _, dual, expr in solved)),
+        primal_infeasibility=max((kkt.primal(expr, c) for kkt, c, _, expr in solved), default=0.0),
+        dual_infeasibility=max((kkt.residual(dual, c) for kkt, c, dual, _ in solved), default=0.0),
     )
 
 
@@ -380,6 +453,8 @@ def _cone(constraint: object, cp: object) -> str:
             return "psd"
         case cp.SOC():
             return "soc"
+        case cp.PowCone3D():
+            return "pow"
         case _:
             return "nonneg"
 
@@ -395,33 +470,54 @@ def _slack_inner(dual: np.ndarray, expr: np.ndarray) -> float:
     return float(np.abs(np.sum(dual.ravel() * expr.ravel())))
 
 
-def _residual_nonneg(dual: np.ndarray) -> float:
+def _residual_nonneg(dual: np.ndarray, constraint: object) -> float:
     return float(np.maximum(-dual, 0.0).max(initial=0.0))  # self-dual orthant: `max(−λ, 0)`
 
 
-def _residual_soc(dual: np.ndarray) -> float:
+def _residual_soc(dual: np.ndarray, constraint: object) -> float:
     z = dual.ravel()  # self-dual second-order cone: `max(‖z₁:‖₂ − z₀, 0)`, never an elementwise sign test
     return float(np.maximum(float(np.linalg.norm(z[1:])) - float(z[0]), 0.0)) if z.size else 0.0
 
 
-def _residual_psd(dual: np.ndarray) -> float:
+def _residual_psd(dual: np.ndarray, constraint: object) -> float:
     # self-dual PSD cone: `max(−λ_min(½(Z+Zᵀ)), 0)` over the symmetrized matrix dual's spectrum.
     return float(np.maximum(-np.linalg.eigvalsh(0.5 * (dual + dual.T)).min(initial=0.0), 0.0))
 
 
-def _primal_nonneg(expr: np.ndarray) -> float:
+def _residual_pow(dual: np.ndarray, constraint: object) -> float:
+    # dual power cone: `(u/α)^α (v/(1−α))^(1−α) >= |w|`, `u, v >= 0` — the primal gap over the α-scaled halves.
+    u, v, w = dual.reshape(3, -1)
+    alpha = np.ravel(np.asarray(constraint.alpha.value, dtype=float))
+    return _pow_gap(u / alpha, v / (1.0 - alpha), w, alpha)
+
+
+def _primal_nonneg(expr: np.ndarray, constraint: object) -> float:
     # cvxpy `Inequality` `g(x) <= 0` canonical form: the primal violation is `max(g, 0)`.
     return float(np.maximum(expr, 0.0).max(initial=0.0))
 
 
-def _primal_soc(expr: np.ndarray) -> float:
+def _primal_soc(expr: np.ndarray, constraint: object) -> float:
     z = expr.ravel()  # second-order cone `‖z₁:‖₂ <= z₀`: violation `max(‖z₁:‖₂ − z₀, 0)`
     return float(np.maximum(float(np.linalg.norm(z[1:])) - float(z[0]), 0.0)) if z.size else 0.0
 
 
-def _primal_psd(expr: np.ndarray) -> float:
+def _primal_psd(expr: np.ndarray, constraint: object) -> float:
     # PSD cone `X >> 0`: violation `max(−λ_min(½(X+Xᵀ)), 0)` over the symmetrized matrix's spectrum.
     return float(np.maximum(-np.linalg.eigvalsh(0.5 * (expr + expr.T)).min(initial=0.0), 0.0))
+
+
+def _primal_pow(expr: np.ndarray, constraint: object) -> float:
+    # power cone: `x^α y^(1−α) >= |z|`, `x, y >= 0` — read elementwise over the stacked (3, n) triple.
+    x, y, z = expr.reshape(3, -1)
+    return _pow_gap(x, y, z, np.ravel(np.asarray(constraint.alpha.value, dtype=float)))
+
+
+def _pow_gap(x: np.ndarray, y: np.ndarray, z: np.ndarray, alpha: np.ndarray) -> float:
+    # one membership gap serves primal and α-scaled dual reads: orthant halves clip at zero BEFORE the
+    # fractional power (a negative base under `**α` is nan, which would swallow the very violation measured).
+    mean = np.clip(x, 0.0, None) ** alpha * np.clip(y, 0.0, None) ** (1.0 - alpha)
+    violation = np.maximum(np.abs(z) - mean, 0.0)
+    return float(max(violation.max(initial=0.0), np.maximum(-x, 0.0).max(initial=0.0), np.maximum(-y, 0.0).max(initial=0.0)))
 
 
 def _expr_nonneg(constraint: object) -> np.ndarray | None:
@@ -438,6 +534,14 @@ def _expr_soc(constraint: object) -> np.ndarray | None:
     return None if t is None or x is None else np.append(np.ravel(np.asarray(t, dtype=float)), np.ravel(np.asarray(x, dtype=float)))
 
 
+def _expr_pow(constraint: object) -> np.ndarray | None:
+    # `PowCone3D(x, y, z, α)` carries `args = [x, y, z]`; its dual is the matching `[u, v, w]` triple (a LIST of
+    # three arrays `np.asarray` stacks `(3, n)`), so the primal stacks identically and the inner-product slackness
+    # `u·x + v·y + w·z` cancels per triple at the optimum.
+    values = [a.value for a in constraint.args]
+    return None if any(v is None for v in values) else np.stack([np.ravel(np.asarray(v, dtype=float)) for v in values])
+
+
 def _expr_psd(constraint: object) -> np.ndarray | None:
     # `X >> 0` carries `args = [X]`; the primal value is the optimal matrix the `tr(Z·X)` slackness and the
     # `λ_min(X)` membership read, the same `(n, n)` shape as the symmetric matrix dual `Constraint.dual_value`.
@@ -446,16 +550,17 @@ def _expr_psd(constraint: object) -> np.ndarray | None:
 
 
 class ConeKKT(Struct, frozen=True):  # GC-tracked: carries the four cone-membership closures
-    expr: ConeExpr  # `(Constraint) -> stacked primal value` off `args`, since SOC/PSD carry no `.expr`
+    expr: ConeExpr  # `(Constraint) -> stacked primal value` off `args`, since SOC/PSD/PowCone3D carry no `.expr`
     slack: ConeSlack  # `(dual, expr) -> |⟨λ, g⟩|` complementary-slackness contribution
-    residual: ConeResidual  # `(dual) -> dist(λ, K*)` dual-cone-membership violation
-    primal: ConePrimal  # `(expr) -> dist(g, K)` primal-cone-membership violation
+    residual: ConeResidual  # `(dual, Constraint) -> dist(λ, K*)`; the constraint carries cone parameters (alpha)
+    primal: ConePrimal  # `(expr, Constraint) -> dist(g, K)` primal-cone-membership violation
 
 
 _CONE_KKT: Map[str, ConeKKT] = Map.of_seq([
     ("nonneg", ConeKKT(_expr_nonneg, _slack_separable, _residual_nonneg, _primal_nonneg)),
     ("soc", ConeKKT(_expr_soc, _slack_inner, _residual_soc, _primal_soc)),
     ("psd", ConeKKT(_expr_psd, _slack_inner, _residual_psd, _primal_psd)),
+    ("pow", ConeKKT(_expr_pow, _slack_inner, _residual_pow, _primal_pow)),
 ])
 
 
@@ -464,7 +569,11 @@ def _seed_arrays(fields: "Fields | None") -> tuple[np.ndarray, ...]:
         return ()
     core = (fields.cost, *((fields.lin,) if fields.lin is not None else ()), fields.mat, fields.rhs)
     term_blocks = tuple(np.append(_as_mat(a).ravel(), bound) for a, bound in fields.terms)
-    return (*core, *term_blocks)
+    pow_blocks = tuple(
+        np.append(np.concatenate([_as_mat(ax).ravel(), _as_mat(ay).ravel(), _as_mat(az).ravel()]), alpha)
+        for ax, ay, az, alpha in fields.pow_terms
+    )
+    return (*core, *term_blocks, *pow_blocks)
 
 
 def _convex_key(program: ConvexProgram, fields: "Fields | None", bind: Map[str, np.ndarray]) -> "RuntimeRail[ContentKey]":

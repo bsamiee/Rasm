@@ -13,6 +13,7 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: client and message family
+- `Proxy(url, *, ssl_context=None, auth=None, headers=None)` admits the `http`/`https`/`socks5`/`socks5h` schemes alone and raises on any other; url userinfo is stripped into `.auth` as a `(username, password)` pair, so a credential spelled in the url never survives on `.url` and never overrides a passed `auth`.
 
 | [INDEX] | [SYMBOL]             | [TYPE_FAMILY] | [CAPABILITY]                                            |
 | :-----: | :------------------- | :------------ | :------------------------------------------------------ |
@@ -114,6 +115,8 @@
 - Large bodies stream through `AsyncClient.stream` with `aiter_bytes`/`aiter_lines`; `aiter_raw` yields undecoded bytes for content-encoding passthrough, and full-body `aread`/`json()` serves small payloads only.
 - Cross-cutting observation binds `event_hooks={"request": [...], "response": [...]}` at construction, where `raise_for_status` and span enrichment hang.
 - Transport is injected: `MockTransport(handler)` for tests, `ASGITransport(app=)`/`WSGITransport(app=)` for in-process app checks, `mounts={scheme: transport}` for per-scheme routing, `AsyncHTTPTransport(retries=, proxy=)` in production.
+- A proxy binds on the transport that carries the request — `AsyncHTTPTransport(proxy=Proxy(...), retries=, http2=, limits=)`, itself the `next_transport` of any wrapping cache transport — never as `AsyncClient(proxy=)`: a client-level proxy builds a fresh bare `AsyncHTTPTransport` per url pattern and `_transport_for_url` returns that mount ahead of an explicit `transport=`, so every matched request bypasses the injected transport's caching, retries, and instrumentation.
+- Environment proxies resolve only for a client that injects no transport: `allow_env_proxies` is `trust_env and transport is None`, so `HTTP_PROXY`/`HTTPS_PROXY`/`ALL_PROXY` are silently inert wherever a `transport=` is supplied and egress is whatever that transport declares.
 - `aclose`/`close` drains the pool under the host drain choreography.
 
 [STACKING]:
@@ -131,5 +134,5 @@
 [RAIL_LAW]:
 - Package: `httpx`
 - Owns: async/sync HTTP/1.1 and HTTP/2 transport, connection pooling, the `Auth` flow protocol, streaming bodies, per-phase timeouts and pool limits, event hooks, transport/proxy injection, the `codes` status enum, and the full error taxonomy
-- Accept: one reused `AsyncClient` with explicit `Timeout`/`Limits`/`Auth`/`base_url`, `http2` where negotiated, `stream`+`aiter_*` for large bodies, `event_hooks`, injected `MockTransport`/`ASGITransport`/`mounts`, `stamina`-retried transient faults, `Response.json()` handed to the wire-model decoder, the settled OTel httpx spans
-- Reject: per-request or module-level client construction in service code, bare-float or implicit timeouts, full-body reads of large payloads, transport monkeypatching, hand-rolled auth-challenge or retry ladders, re-parsing `json()` output, a second HTTP client, stdlib `http.client`/`urllib`/`requests`/`urllib3`
+- Accept: one reused `AsyncClient` with explicit `Timeout`/`Limits`/`Auth`/`base_url`, `http2` where negotiated, `stream`+`aiter_*` for large bodies, `event_hooks`, injected `MockTransport`/`ASGITransport`/`mounts`, `Proxy` bound on the carrying `AsyncHTTPTransport`, `stamina`-retried transient faults, `Response.json()` handed to the wire-model decoder, the settled OTel httpx spans
+- Reject: per-request or module-level client construction in service code, bare-float or implicit timeouts, full-body reads of large payloads, transport monkeypatching, `AsyncClient(proxy=)` beside an injected `transport=`, reliance on environment proxies where a transport is injected, hand-rolled auth-challenge or retry ladders, re-parsing `json()` output, a second HTTP client, stdlib `http.client`/`urllib`/`requests`/`urllib3`

@@ -267,9 +267,9 @@ public static class CommitGraph {
 - Entry: `public static CrdtField Merge(CrdtField left, CrdtField right)` is the join-semilattice least-upper-bound, total over the six cases and idempotent; `public static CrdtField Apply(CrdtField state, CrdtOp op)` folds one delta carrying its HLC cell; `public static CrdtField Seed(CrdtOp op)` is the total generated `Switch` materializing a fresh cell's matching empty arm from its first op (the cell-type-stability genesis — a new op case breaks the build here); `public static CrdtField Compact(CrdtField state, VersionVector quiescent, Instant liveness)` reclaims `RgaSequence` tombstones the quiescence horizon proves unreferenceable and evicts `EphemeralMap` entries past the physical liveness deadline.
 - Auto: a CRDT mutation rides one `OpLogEntry` carrying the `CrdtOp` delta as `Payload` so the convergent merge rides the changefeed projected off Marten, and a peer's `SyncMerge.Apply` dispatches the `column-family=crdt` row into `Crdt.Apply` rather than the LWW `Adjudicate` scalar; the OR-set merge is per-element tag-set union minus the union of observed-remove tombstones so add and concurrent remove resolve add-wins; the RGA element id IS the order key (the weave groups by causal predecessor, orders same-predecessor siblings descending by `ElementId`, depth-first-linearizes from the sentinel) so two concurrent inserts converge to one deterministic order on every peer; the PN-counter folds per-origin increments; the MV-register keeps every value its `VersionVector` context dominates none of; the `EphemeralMap` keeps one entry per origin where an incoming `Beat` supersedes only on a strictly-dominating `Hlc`, a `Leave` evicts add-wins-loses against a strictly-later `Beat`, and `Compact` evicts every entry whose last-beat physical instant precedes the liveness deadline — presence expiry reads the physical instant, never the op-count quiescence horizon.
 - Receipt: a converged merge rides `SyncApplyReceipt`; a tombstone, live-element, compacted-tombstone, and live-presence count fold into the `store.crdt.merge` fact.
-- Packages: NodaTime, LanguageExt.Core, Thinktecture.Runtime.Extensions, BCL inbox — no hasher: every CRDT identity is the `ElementId` order key or the wire owner's `ContentKey`, so a `System.IO.Hashing` row here is the stale admission the algebra never composes.
+- Packages: NodaTime, LanguageExt.Core, Thinktecture.Runtime.Extensions, Generator.Equals (`[Equatable]`/`[CustomEquality]` — payload-true state equality), BCL inbox — no hasher: every CRDT identity is the `ElementId` order key or the wire owner's `ContentKey`, so a `System.IO.Hashing` row here is the stale admission the algebra never composes.
 - Growth: a new replicated type is one `CrdtField` case plus one `CrdtOp` arm plus one `Merge`/`Apply` arm plus one `Seed` arm the generated total `Switch` forces; zero new surface — a per-type merge service, a second convergence engine, or an op-transform rebase is the deleted form because the join-semilattice subsumes idempotency, commutativity, and reorder tolerance.
-- Boundary: `Merge` is a join-semilattice least-upper-bound so any partition of any permutation of the op multiset applied any number of times converges to identical state — the strict superset of the `Version/ledger#MERGE_LAW` LWW `Adjudicate`, which survives only as the `LwwRegister` arm; the `RgaSequence` carries tombstones so a deleted slot stays stable for later concurrent inserts and `Compact` reclaims only when the quiescence horizon dominates the cell's lamport stamp; the `OrSet` `Merge` is the per-element live-tag union minus the union of both tombstone sets through `Set.Except` (a `Set.Remove(Set)` is the rejected spelling); the `MvRegister` is a causal anti-chain keeping a value iff no other value's context strictly dominates it; the `PnCounter` is one per-origin map of `(Sequence, Positive, Negative)` running totals monotone under sequence-max merge, so a replayed or reordered `Increment` is absorbed idempotently (a delta-adding fold is the deleted non-idempotent form); the RGA element id is `(Guid Origin, ulong Logical)` and IS the convergent order key, never positional, so the `RgaCell` carries no redundant `Hlc`; the `EphemeralMap` is per-origin-LWW-by-HLC under add-wins liveness — `Compact` is the durable-presence distinction (an entry whose last-beat physical instant precedes the liveness deadline is a peer that stopped beating, so eviction is convergence-correct and idempotent), presence liveness a physical-time horizon distinct from the RGA op-count tombstone-GC horizon, and the `Maintain` op carries BOTH (`Quiescent` for sequence GC, `Liveness` for presence expiry); `Crdt.Merge` reads no wall clock — the `Hlc` cell from the Marten event stamp is the only ordering input, so convergence is deterministic; the `(left, right)` and `(state, op)` tuple `switch`es are total on the diagonal (one arm per CRDT type) and the off-diagonal `_` arm is unreachable by the cell-type-stability invariant — a `(NodeId, Field)` cell is one fixed `CrdtField` arm for its whole lifetime (`Crdt.Seed` — the total generated `CrdtOp.Switch` — materializes a fresh cell's matching empty arm from its FIRST op, and a decoded op whose type disagrees with its cell is contract drift the `CrdtWire.Decode` `CommitFault.DecodeDrift` rail already rejects before this fold), so a cross-type merge is structurally impossible rather than a silent identity-return, and the `_ => left`/`_ => state` arm is the unreachable totality floor, never a soft fallback that hides type drift.
+- Boundary: `Merge` is a join-semilattice least-upper-bound so any partition of any permutation of the op multiset applied any number of times converges to identical state — the strict superset of the `Version/ledger#MERGE_LAW` LWW `Adjudicate`, which survives only as the `LwwRegister` arm; the `RgaSequence` carries tombstones so a deleted slot stays stable for later concurrent inserts and `Compact` reclaims only when the quiescence horizon dominates the cell's lamport stamp; the `OrSet` `Merge` is the per-element live-tag union minus the union of both tombstone sets through `Set.Except` (a `Set.Remove(Set)` is the rejected spelling); the `MvRegister` is a causal anti-chain keeping a value iff no other value's context strictly dominates it; the `PnCounter` is one per-origin map of `(Sequence, Positive, Negative)` running totals monotone under sequence-max merge, so a replayed or reordered `Increment` is absorbed idempotently (a delta-adding fold is the deleted non-idempotent form); the RGA element id is `(Guid Origin, ulong Logical)` and IS the convergent order key, never positional, so the `RgaCell` carries no redundant `Hlc`; the `EphemeralMap` is per-origin-LWW-by-HLC under add-wins liveness — `Compact` is the durable-presence distinction (an entry whose last-beat physical instant precedes the liveness deadline is a peer that stopped beating, so eviction is convergence-correct and idempotent), presence liveness a physical-time horizon distinct from the RGA op-count tombstone-GC horizon, and the `Maintain` op carries BOTH (`Quiescent` for sequence GC, `Liveness` for presence expiry); `Crdt.Merge` reads no wall clock — the `Hlc` cell from the Marten event stamp is the only ordering input, so convergence is deterministic; the `(left, right)` and `(state, op)` tuple `switch`es are total on the diagonal (one arm per CRDT type) and the off-diagonal `_` arm is unreachable by the cell-type-stability invariant — a `(NodeId, Field)` cell is one fixed `CrdtField` arm for its whole lifetime (`Crdt.Seed` — the total generated `CrdtOp.Switch` — materializes a fresh cell's matching empty arm from its FIRST op, and a decoded op whose type disagrees with its cell is contract drift the `CrdtWire.Decode` `CommitFault.DecodeDrift` rail already rejects before this fold), so a cross-type merge is structurally impossible rather than a silent identity-return, and the `_ => left`/`_ => state` arm is the unreachable totality floor, never a soft fallback that hides type drift; convergence is OBSERVED as state equality, so every payload-bearing case and cell is `[Equatable]` with `CrdtBytes` — the one span comparer — on each `ReadOnlyMemory<byte>` member (`MvEntry` and `PresenceCell` lift the former tuples into equatable owners so `Distinct` and map equality read content), the carrier staying `ReadOnlyMemory<byte>` because `CrdtWire.Decode` lands zero-copy slices and an `ImmutableArray<byte>` swap re-types the wire-decode seam.
 
 ```csharp signature
 public readonly record struct ElementId(Guid Origin, ulong Logical) : IComparable<ElementId> {
@@ -280,37 +280,52 @@ public readonly record struct ElementId(Guid Origin, ulong Logical) : IComparabl
     }
 }
 
-public readonly record struct RgaCell(ElementId Id, ElementId After, ReadOnlyMemory<byte> Value, bool Tombstone) {
+// CrdtBytes is the ONE payload comparer: convergence proves by state equality, and a ReadOnlyMemory member
+// compares by buffer coordinates, so a re-decoded replica of identical bytes reads unequal without it.
+public sealed class CrdtBytes : IEqualityComparer<ReadOnlyMemory<byte>> {
+    public static readonly CrdtBytes Default = new();
+    public bool Equals(ReadOnlyMemory<byte> left, ReadOnlyMemory<byte> right) => left.Span.SequenceEqual(right.Span);
+    public int GetHashCode(ReadOnlyMemory<byte> value) { HashCode hash = new(); hash.AddBytes(value.Span); return hash.ToHashCode(); }
+}
+
+[Equatable]
+public readonly partial record struct RgaCell(ElementId Id, ElementId After, [property: CustomEquality(typeof(CrdtBytes))] ReadOnlyMemory<byte> Value, bool Tombstone) {
     public static readonly ElementId Origin = ElementId.Head;
 }
+
+[Equatable]
+public sealed partial record MvEntry([property: CustomEquality(typeof(CrdtBytes))] ReadOnlyMemory<byte> Value, VersionVector Context, Hlc Cell);
+
+[Equatable]
+public sealed partial record PresenceCell([property: CustomEquality(typeof(CrdtBytes))] ReadOnlyMemory<byte> State, Hlc Cell);
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, SwitchMethods = SwitchMapMethodsGeneration.Default)]
 public abstract partial record CrdtOp {
     private CrdtOp() { }
-    public sealed record Set(string Field, ReadOnlyMemory<byte> Value, Hlc Cell, Guid Origin) : CrdtOp;
-    public sealed record Write(string Field, ReadOnlyMemory<byte> Value, VersionVector Context, Hlc Cell, Guid Origin) : CrdtOp;
+    [Equatable] public sealed partial record Set(string Field, [property: CustomEquality(typeof(CrdtBytes))] ReadOnlyMemory<byte> Value, Hlc Cell, Guid Origin) : CrdtOp;
+    [Equatable] public sealed partial record Write(string Field, [property: CustomEquality(typeof(CrdtBytes))] ReadOnlyMemory<byte> Value, VersionVector Context, Hlc Cell, Guid Origin) : CrdtOp;
     public sealed record Add(string Field, UInt128 Element, ElementId Tag) : CrdtOp;
     public sealed record Remove(string Field, UInt128 Element, Seq<ElementId> ObservedTags) : CrdtOp;
     // Per-origin RUNNING TOTALS, not a bare delta: Sequence is the origin's monotone op counter and
     // Positive/Negative its cumulative sums, so Apply is a max-merge — a replayed or reordered Increment
     // converges identically (the idempotent join-semilattice law a delta-adding fold cannot satisfy).
     public sealed record Increment(string Field, Guid Origin, long Sequence, long Positive, long Negative) : CrdtOp;
-    public sealed record InsertAfter(string Field, ElementId Predecessor, ElementId Id, ReadOnlyMemory<byte> Value) : CrdtOp;
+    [Equatable] public sealed partial record InsertAfter(string Field, ElementId Predecessor, ElementId Id, [property: CustomEquality(typeof(CrdtBytes))] ReadOnlyMemory<byte> Value) : CrdtOp;
     public sealed record Delete(string Field, ElementId Id) : CrdtOp;
     public sealed record Maintain(string Field, VersionVector Quiescent, Instant Liveness) : CrdtOp;
-    public sealed record Beat(string Field, Guid Origin, ReadOnlyMemory<byte> State, Hlc Cell) : CrdtOp;
+    [Equatable] public sealed partial record Beat(string Field, Guid Origin, [property: CustomEquality(typeof(CrdtBytes))] ReadOnlyMemory<byte> State, Hlc Cell) : CrdtOp;
     public sealed record Leave(string Field, Guid Origin, Hlc Cell) : CrdtOp;
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record CrdtField {
     private CrdtField() { }
-    public sealed record LwwRegister(ReadOnlyMemory<byte> Value, Hlc Cell, Guid Origin) : CrdtField;
-    public sealed record MvRegister(Seq<(ReadOnlyMemory<byte> Value, VersionVector Context, Hlc Cell)> Values) : CrdtField;
+    [Equatable] public sealed partial record LwwRegister([property: CustomEquality(typeof(CrdtBytes))] ReadOnlyMemory<byte> Value, Hlc Cell, Guid Origin) : CrdtField;
+    public sealed record MvRegister(Seq<MvEntry> Values) : CrdtField;
     public sealed record OrSet(HashMap<UInt128, Set<ElementId>> Live, Set<ElementId> Tombstoned) : CrdtField;
     public sealed record PnCounter(HashMap<Guid, (long Sequence, long Positive, long Negative)> Origins) : CrdtField;
     public sealed record RgaSequence(Seq<RgaCell> Cells) : CrdtField;
-    public sealed record EphemeralMap(HashMap<Guid, (ReadOnlyMemory<byte> State, Hlc Cell)> Live) : CrdtField;
+    public sealed record EphemeralMap(HashMap<Guid, PresenceCell> Live) : CrdtField;
 }
 
 public static class Crdt {
@@ -322,15 +337,15 @@ public static class Crdt {
     // for that cell hits the fixed diagonal arm in Apply.
     public static CrdtField Seed(CrdtOp op) => op.Switch<CrdtField>(
         set: static _ => new CrdtField.LwwRegister(ReadOnlyMemory<byte>.Empty, Hlc.Zero, Guid.Empty),
-        write: static _ => new CrdtField.MvRegister(Seq<(ReadOnlyMemory<byte> Value, VersionVector Context, Hlc Cell)>()),
+        write: static _ => new CrdtField.MvRegister(Seq<MvEntry>()),
         add: static _ => new CrdtField.OrSet(HashMap<UInt128, Set<ElementId>>(), Set<ElementId>()),
         remove: static _ => new CrdtField.OrSet(HashMap<UInt128, Set<ElementId>>(), Set<ElementId>()),
         increment: static _ => new CrdtField.PnCounter(HashMap<Guid, (long Sequence, long Positive, long Negative)>()),
         insertAfter: static _ => new CrdtField.RgaSequence(Seq<RgaCell>()),
         delete: static _ => new CrdtField.RgaSequence(Seq<RgaCell>()),
         maintain: static _ => new CrdtField.RgaSequence(Seq<RgaCell>()),
-        beat: static _ => new CrdtField.EphemeralMap(HashMap<Guid, (ReadOnlyMemory<byte> State, Hlc Cell)>()),
-        leave: static _ => new CrdtField.EphemeralMap(HashMap<Guid, (ReadOnlyMemory<byte> State, Hlc Cell)>()));
+        beat: static _ => new CrdtField.EphemeralMap(HashMap<Guid, PresenceCell>()),
+        leave: static _ => new CrdtField.EphemeralMap(HashMap<Guid, PresenceCell>()));
 
     public static CrdtField Merge(CrdtField left, CrdtField right) => (left, right) switch {
         (CrdtField.LwwRegister l, CrdtField.LwwRegister r) => (r.Cell, r.Origin).CompareTo((l.Cell, l.Origin)) > 0 ? r : l,
@@ -345,7 +360,7 @@ public static class Crdt {
 
     public static CrdtField Apply(CrdtField state, CrdtOp op) => (state, op) switch {
         (CrdtField.LwwRegister reg, CrdtOp.Set set) => (set.Cell, set.Origin).CompareTo((reg.Cell, reg.Origin)) > 0 ? new CrdtField.LwwRegister(set.Value, set.Cell, set.Origin) : reg,
-        (CrdtField.MvRegister mv, CrdtOp.Write w) => new CrdtField.MvRegister(AntiChain(mv.Values.Filter(h => !w.Context.Dominates(h.Context)).Add((w.Value, w.Context, w.Cell)))),
+        (CrdtField.MvRegister mv, CrdtOp.Write w) => new CrdtField.MvRegister(AntiChain(mv.Values.Filter(h => !w.Context.Dominates(h.Context)).Add(new MvEntry(w.Value, w.Context, w.Cell)))),
         (CrdtField.OrSet s, CrdtOp.Add add) => new CrdtField.OrSet(s.Live.AddOrUpdate(add.Element, e => e.Add(add.Tag), Set(add.Tag)), s.Tombstoned),
         (CrdtField.OrSet s, CrdtOp.Remove rem) when toSet(rem.ObservedTags) is var observed => new CrdtField.OrSet(s.Live.AddOrUpdate(rem.Element, e => e.Except(observed), Set<ElementId>()).Filter(static t => t.Count > 0), s.Tombstoned.Union(observed)),
         (CrdtField.PnCounter c, CrdtOp.Increment inc) => new CrdtField.PnCounter(
@@ -353,7 +368,7 @@ public static class Crdt {
         (CrdtField.RgaSequence seq, CrdtOp.InsertAfter ins) => new CrdtField.RgaSequence(Weave(seq.Cells, Seq(new RgaCell(ins.Id, ins.After, ins.Value, false)))),
         (CrdtField.RgaSequence seq, CrdtOp.Delete del) => new CrdtField.RgaSequence(seq.Cells.Map(c => c.Id == del.Id ? c with { Tombstone = true } : c)),
         (CrdtField.RgaSequence seq, CrdtOp.Maintain m) => Compact(seq, m.Quiescent, m.Liveness),
-        (CrdtField.EphemeralMap map, CrdtOp.Beat b) => new CrdtField.EphemeralMap(map.Live.AddOrUpdate(b.Origin, h => h.Cell.CompareTo(b.Cell) >= 0 ? h : (b.State, b.Cell), (b.State, b.Cell))),
+        (CrdtField.EphemeralMap map, CrdtOp.Beat b) => new CrdtField.EphemeralMap(map.Live.AddOrUpdate(b.Origin, h => h.Cell.CompareTo(b.Cell) >= 0 ? h : new PresenceCell(b.State, b.Cell), new PresenceCell(b.State, b.Cell))),
         (CrdtField.EphemeralMap map, CrdtOp.Leave l) => new CrdtField.EphemeralMap(map.Live.Find(l.Origin).Filter(h => h.Cell.CompareTo(l.Cell) > 0).IsSome ? map.Live : map.Live.Remove(l.Origin)),
         (CrdtField.EphemeralMap map, CrdtOp.Maintain m) => Compact(map, m.Quiescent, m.Liveness),
         _ => state,
@@ -369,7 +384,8 @@ public static class Crdt {
     public static Seq<ReadOnlyMemory<byte>> Materialize(CrdtField.RgaSequence seq) => seq.Cells.Filter(static c => !c.Tombstone).Map(static c => c.Value);
     public static Seq<(Guid Origin, ReadOnlyMemory<byte> State)> Live(CrdtField.EphemeralMap map) => toSeq(map.Live.Map(static (o, s) => (o, s.State)).Values);
 
-    static Seq<(ReadOnlyMemory<byte> Value, VersionVector Context, Hlc Cell)> AntiChain(Seq<(ReadOnlyMemory<byte> Value, VersionVector Context, Hlc Cell)> values) =>
+    // Distinct rides MvEntry's generated equality — CrdtBytes on Value — so a re-decoded duplicate write collapses.
+    static Seq<MvEntry> AntiChain(Seq<MvEntry> values) =>
         toSeq(values.Distinct()).Filter(c => !values.Exists(o => !o.Context.Equals(c.Context) && o.Context.Dominates(c.Context)));
 
     static Seq<RgaCell> Weave(Seq<RgaCell> left, Seq<RgaCell> right) {

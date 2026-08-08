@@ -1,10 +1,10 @@
 # [BIM_EVENTS]
 
-`BimEvent` is the closed domain-fact family every model-mutating Bim rail mints — a commit landed, an issue-board mutation, a validation verdict, an export artifact, an energy artifact — and `BimEnvelope` is its one CloudEvents 1.0 projection: type `rasm.bim.<domain>.<fact>`, source the composing service instance, subject the fact's content identity, and the distributed-tracing extension (`traceparent`/`tracestate`) stamped from the ambient `Activity` so W3C context rides brokers end to end. Every event carries content keys, closed vocabulary keys, and `GlobalId` sets — never payload bytes: the addressed artifact, commit, or topic resolves through the one content-key space, so a consumer joins the fact back to its object-plane material without a second identity scheme.
+`BimEvent` is the closed domain-fact family every model-mutating Bim rail mints, and `BimEnvelope` is its one CloudEvents 1.0 projection: type `rasm.bim.<domain>.<fact>`, source the composing service instance, subject the fact's content identity, `traceparent`/`tracestate` stamped from the ambient `Activity` so W3C context rides brokers end to end. Every event carries content keys, closed vocabulary keys, and `GlobalId` sets — never payload bytes: the addressed fact resolves through the one content-key space, so a consumer joins back to object-plane material without a second identity scheme.
 
-Events complete the observability split the hook rail opens: a `Model/observability#HOOK_RAIL` point is the in-process best-effort tap whose subscriber faults shield into the registry evidence cell, and a `BimEvent` is the durable cross-process fact a lossless consumer reads — the "a subscriber that must never lose an event is a durable outbox consumer" law lands here as the outbox payload. `BimEvent` composes the `Review/versioning#VERSION_GRAPH` `CommitKey`, the `Review/issues#BCF_ARCHIVE` topic identity, the `Review/validation#IDS_FACETS` `IdsAudit` receipt, the `Exchange/export#EXPORT_RAIL` `ExportArtifact` seal, and the `Energy/exchange#ENERGY_EXCHANGE` `ArtifactKey` grammar as settled vocabulary; each owning rail carries its own `- Events:` mint row naming the case it projects.
+Events complete the observability split the hook rail opens: a `Model/observability#HOOK_RAIL` point is the in-process best-effort tap whose subscriber faults shield into the registry evidence cell, and a `BimEvent` is the durable cross-process fact a lossless consumer reads — the durable-outbox-consumer law lands here as the outbox payload. `BimEvent` composes each owning rail's key grammar as settled vocabulary; every owning rail carries its own `- Events:` mint row naming the case it projects.
 
-Wire posture is HOST-LOCAL, envelope-only: `CloudNative.CloudEvents` and `CloudNative.CloudEvents.SystemTextJson` are the only foreign surfaces, confined to the `BimEnvelope` fences — transport bindings (Kafka, MQTT, NATS, AMQP), broker retry, and delivery policy stay app-tier composition, and the durable outbox row is the `Rasm.Persistence` object plane's, joined by the encoded envelope bytes. Faults route the `Model/faults#FAULT_BAND` `BimFault` arms BARE — a malformed envelope, an unknown event type, an undecodable body, a re-addressed subject, and every slot failing its own canonical admission all lift `CodecReject` under one `event-<subject>-<defect>` detail grammar the raising site composes, zero new cases.
+Wire posture is HOST-LOCAL, envelope-only: `CloudNative.CloudEvents` and `CloudNative.CloudEvents.SystemTextJson` are the only foreign surfaces, confined to the `BimEnvelope` fences — transport bindings, broker retry, and delivery policy stay app-tier composition, and the durable outbox row is the `Rasm.Persistence` object plane's, joined by the encoded envelope bytes. Faults route the `Model/faults#FAULT_BAND` `BimFault` arms BARE — every envelope, type, body, subject, and slot defect lifts `CodecReject` under one `event-<subject>-<defect>` detail grammar the raising site composes.
 
 ## [01]-[INDEX]
 
@@ -79,11 +79,9 @@ public sealed partial class GlobalIdSet {
             glyph is >= '0' and <= '9' or >= 'A' and <= 'Z' or >= 'a' and <= 'z' or '_' or '$');
 }
 
-// ContentKeySet is the same law over the content-key space: sorted-distinct at construction, and the wire form is
-// the 32-hex rendering each key round-trips through. The two sets wore raw Seq<string>/Seq<UInt128> slots with
-// their ordering and distinctness re-proved at each admission site, so a case that grew a set had to grow a gate
-// too — and the parents set proved ordering on the HEX TEXT while the fact carried the numeric values, two
-// orderings that agree only because the hex rendering is fixed-width.
+// ContentKeySet holds the same law over the content-key space: sorted-distinct at construction, with the wire
+// form the 32-hex rendering each key round-trips through — hex-text ordering agrees with the numeric ordering
+// only because the rendering is fixed-width.
 [ValueObject<Seq<UInt128>>]
 public sealed partial class ContentKeySet {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Seq<UInt128> value) =>
@@ -92,9 +90,9 @@ public sealed partial class ContentKeySet {
     public static ContentKeySet Of(Seq<UInt128> keys) => Create(keys);
 }
 
-// The one wire-side set probe both admissions share: distinct under the ordinal comparer AND already in ordinal
-// order. It reads the ARRAY the producer sent, so a set the producer sorted differently fails here rather than
-// being quietly re-sorted into a shape the sender never emitted.
+// Both admissions share this one wire-side probe: distinct under the ordinal comparer AND already in ordinal
+// order, read on the ARRAY the producer sent — a set the producer sorted differently fails here rather than
+// re-sorting quietly into a shape the sender never emitted.
 static class WireSet {
     public static bool Ordered(ImmutableArray<string> values) =>
         values.Distinct(StringComparer.Ordinal).Count() == values.Length
@@ -189,7 +187,7 @@ public sealed record EncodedEnvelope(ReadOnlyMemory<byte> Body, ContentType Fram
 // `Admit` stays the hand-written inbound rail. Five signatures stand in for one `[MapDerivedType]` switch: the
 // wire records share no base, because a common base forces STJ polymorphism and its `$type` discriminator then
 // enters the structured-mode body every peer parses as a flat camelCase record.
-[Mapper]
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Both)]
 [UseStaticMapper(typeof(WireCodec))]
 public static partial class BimEventWire {
     public static partial CommitLandedWire Wire(BimEvent.CommitLanded fact);
@@ -208,7 +206,7 @@ public static class WireCodec {
     public static string Key(InterchangeFormat format) => format.Key;
     public static string Key(ArtifactKey artifact) => artifact.Value;
     public static string? Text(Option<string> value) => value.Match(static v => v, static () => (string?)null);
-    // The sets render off their VALUE, already sorted-distinct by construction, so the wire array is canonical
+    // Sets render off their VALUE, already sorted-distinct by construction, so the wire array is canonical
     // without a sort at the mapper and two mints of one fact render byte-identically.
     public static ImmutableArray<string> Keys(ContentKeySet keys) => [.. keys.Value.Map(Hex)];
     public static ImmutableArray<string> Texts(GlobalIdSet values) => [.. values.Value];
@@ -364,11 +362,9 @@ public static class BimEnvelope {
             ? Fin.Succ(mutation)
             : Fin.Fail<BimIssueMutation>(Detail.EventMutationMiss.At(key, value ?? ""));
 
-    // The slot-parameterized admissions carry their wire-slot name as a SUBJECT on their own roster row, so the
-    // family has the fixed grep prefix the retired infixed grammar (`event-<slot>-malformed`) could never own.
-    // Producer text NORMALIZES once at the envelope boundary rather than being refused: surrounding whitespace is
-    // a producer's formatting artifact and never a semantic difference, so rejecting it turned away legal upstream
-    // values over a defect the boundary can simply remove. Emptiness after the trim is the real failure.
+    // Slot-parameterized admissions carry their wire-slot name as a SUBJECT on their own roster row, giving the
+    // family one fixed grep prefix. Producer text NORMALIZES once at the envelope boundary: surrounding
+    // whitespace is a formatting artifact, never a semantic difference — emptiness after the trim is the failure.
     static Fin<string> Required(string? value, string slot, Op key) =>
         value?.Trim() is { Length: > 0 } trimmed
             ? Fin.Succ(trimmed)
@@ -389,8 +385,8 @@ public static class BimEnvelope {
         ? Fin.Succ(Option<string>.None)
         : GuidText(value, slot, key).Map(Some);
 
-    // The content-key set proves its ordering on the WIRE TEXT — the fixed-width 32-hex rendering the outbound
-    // half emits — then mints through the set owner, which re-normalizes on the numeric values. The two agree by
+    // Content-key admission proves ordering on the WIRE TEXT — the fixed-width 32-hex rendering the outbound
+    // half emits — then mints through the set owner, which re-normalizes on the numeric values; the two agree by
     // construction because the rendering is order-preserving at fixed width.
     static Fin<ContentKeySet> ContentKeys(ImmutableArray<string> values, string slot, Op key) =>
         WireSet.Ordered(values)

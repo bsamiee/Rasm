@@ -31,12 +31,10 @@
 - [18]-[RECIPE](.planning/execution/recipe.md): Content-keyed recipe execution on the thread lane.
 
 [EVIDENCE]:
-- [19]-[IDENTITY](.planning/evidence/identity.md): Python content-key implementation proving the shared digest contract.
-- [20]-[REPRODUCTION](.planning/evidence/reproduction.md): Seed-reproduction corpus and its parity fold.
-- [21]-[EVIDENCE](.planning/evidence/evidence.md): Evidence union, catalogue member facts, and grammar registry.
-
-[CLOCK]:
-- [22]-[CLOCK](.planning/clock/clock.md): HLC stamp, element id, tenant, and causal frame.
+- [19]-[CLOCK](.planning/evidence/clock.md): HLC stamp, element id, tenant, and causal frame.
+- [20]-[IDENTITY](.planning/evidence/identity.md): Python content-key implementation proving the shared digest contract.
+- [21]-[REPRODUCTION](.planning/evidence/reproduction.md): Seed-reproduction corpus and its parity fold.
+- [22]-[EVIDENCE](.planning/evidence/evidence.md): Evidence union, catalogue member facts, and grammar registry.
 
 ## [02]-[DOMAIN_PACKAGES]
 

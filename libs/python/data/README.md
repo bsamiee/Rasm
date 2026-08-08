@@ -142,7 +142,7 @@ Domain-specific libraries admitted by this folder; versions centralize in the ro
 - `bw2analyzer` — Brightway contribution and comparison analysis on the solve leg.
 - `bw-processing` — Brightway matrix-datapackage substrate over COO triples.
 - `olca-ipc` — live openLCA IPC/REST client, carrying `olca-schema` as its wire model.
-- `premise` — FLOOR-GATED; `impact/scenario#SCENARIO` refuses every build while the marker holds (`llvmlite` ships no cp315 wheel and its source build needs an LLVM dev package the scientific lane lacks); prospective ecoinvent background-database transformer over IAM scenarios.
+- `premise` — FLOOR-GATED; `impact/scenario#SCENARIO` refuses every build while the marker holds; prospective ecoinvent background-database transformer over IAM scenarios.
 
 ## [03]-[SUBSTRATE_PACKAGES]
 

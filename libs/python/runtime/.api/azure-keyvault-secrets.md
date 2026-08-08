@@ -33,6 +33,8 @@
 
 [PUBLIC_TYPE_SCOPE]: exception taxonomy
 - every arm derives from `azure.core.exceptions.AzureError`; `HttpResponseError.status_code` carries the Key Vault HTTP status, `ResourceNotFoundError` the typed 404 MISS arm.
+- `ServiceRequestTimeoutError` subclasses `ServiceRequestError` and `ServiceResponseTimeoutError` subclasses `ServiceResponseError`, so the retry row's two dotted spellings already cover all four arms through the MRO and a timeout row duplicates one of them.
+- Key Vault spells a 429 throttle with NO named class — it arrives as a bare `HttpResponseError` carrying the code on `status_code` — so a name-matched retry target never reaches it and it surfaces as a hard boundary fault, unlike the Vault `RateLimitExceeded` and GCP `TooManyRequests` arms.
 
 | [INDEX] | [SYMBOL]                      | [STATUS] | [CAPABILITY]                                               |
 | :-----: | :---------------------------- | :------: | :--------------------------------------------------------- |
@@ -65,12 +67,22 @@
 |  [02]   | `secret.value`                                  | property | the resolved secret string lifted to `SecretStr`     |
 |  [03]   | `await async_client.get_secret(name, version=)` | instance | asyncio twin for a native-async resolve leg          |
 
+[ENTRYPOINT_SCOPE]: client release
+- unlike the GCP client, `SecretClient` carries BOTH a bare `close()` and the context-manager pair, so the bracket is the spelling and the bare call is the escape a non-lexical lifetime needs.
+
+| [INDEX] | [SURFACE]                  | [SHAPE]  | [CAPABILITY]                                         |
+| :-----: | :------------------------- | :------- | :--------------------------------------------------- |
+|  [01]   | `client.close()`           | release  | retires the `azure-core` pipeline; returns `None`    |
+|  [02]   | `__enter__` / `__exit__`   | bracket  | the `with` form the per-read arm takes               |
+|  [03]   | `__aenter__` / `__aexit__` | bracket  | `aio.SecretClient` twin, closed by `await close()`   |
+
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- consume law: TWO legs off one credential. Declared model fields fold through `AzureKeyVaultSettingsSource(settings_cls, url=, credential=)` — the source takes the `TokenCredential` itself, never a pre-built `SecretClient` — while per-service `(service, username)` ladder credentials resolve at call time through `execution/admission#ADMISSION` `CloudVault.read`'s direct `SecretClient(vault_url, credential).get_secret(...)`, a read no construction-time settings source can structurally serve. This boundary reads secrets, never mints, rotates, or deletes them; the admin/soft-delete surface is never admitted.
-- ladder law: the `execution/admission` `SecretTier.cloud` case carries `vault_url` in one `TierRow(SecretTier.CLOUD, Some(Feature.SECRET_MANAGER), RetryClass.SECRET)` beside the GCP and Vault rows — gated by `Feature.SECRET_MANAGER`/`Killswitch.DISABLE_SECRET_MANAGER`, retried under the shared `RetryClass.SECRET` `stamina` policy, so a transiently-unreachable vault retries inside one derivation span rather than failing on the first RPC fault.
-- miss-vs-fault law: `ResourceNotFoundError` (404) is a MISS the ladder walks to the next tier, matching the GCP `NotFound` and Vault `InvalidPath` arms; the `ServiceRequestError`/`ServiceResponseError`/timeout arms are transients the `RetryClass.SECRET` backoff rides; `ClientAuthenticationError` is a hard boundary fault the `guarded` envelope surfaces, never a silent empty read.
+- consume law: TWO legs off one credential. Declared model fields fold through `AzureKeyVaultSettingsSource(settings_cls, url=, credential=)`, which takes the `TokenCredential` itself and never a pre-built `SecretClient`; per-service `(service, username)` ladder credentials resolve at call time through `CloudVault.read`'s direct `SecretClient(vault_url, credential).get_secret(...)`, a read no construction-time source serves. This boundary reads secrets and never mints, rotates, or deletes them.
+- ladder law: `SecretTier.cloud` carries `vault_url` in one `execution/admission#SETTINGS` `TierRow(SecretTier.CLOUD, Some(Feature.SECRET_MANAGER))` beside the GCP and Vault rows, gated by `Feature.SECRET_MANAGER`/`Killswitch.DISABLE_SECRET_MANAGER`; `RetryClass.SECRET` spells once at the dispatch applying it, never as a ladder column repeating one value per rung, so a transiently-unreachable vault retries inside one derivation span.
+- miss-vs-fault law: `ResourceNotFoundError` (404) is a MISS the ladder walks to the next tier, matching the GCP `NotFound` and Vault `InvalidPath` arms; `ServiceRequestError`/`ServiceResponseError` are the two transients the `RetryClass.SECRET` backoff names, carrying both timeout subclasses through the MRO; `ClientAuthenticationError` and the unnamed 429 are hard boundary faults the `guarded` envelope surfaces, never a silent empty read.
+- release law: the per-read arm brackets `with SecretClient(vault_url, credential) as client:` so the `azure-core` pipeline retires on every exit path, and the credential brackets with it under the same `with` — a client or credential left for GC strands its connection pool across every ladder walk, and the async twin closes through `await client.close()` under `async with`.
 - credential law: authentication is a deployment-resolved `TokenCredential` (managed or workload identity, or a `DefaultAzureCredential` chain from `azure-identity`), never inline secret material; the resolved secret crosses as `SecretStr`, and a per-tenant `vault_url` scopes multi-tenant reads so one admitted boundary serves every app shape without a shared mutable client.
 
 [STACKING]:
@@ -79,12 +91,12 @@
 - transport leg: the client's own `azure-core` HTTP pipeline is internal, distinct from the `.api/httpx.md` transport the runtime owns — the runtime never reaches into it.
 
 [LOCAL_ADMISSION]:
-- admits `SecretClient` construction and its `credential=` injection into `AzureKeyVaultSettingsSource`; `get_secret` and the async twin ride the source, never a scattered direct call.
+- admits `SecretClient` construction, its `credential=` injection into `AzureKeyVaultSettingsSource`, and the `with` bracket retiring both handles on the read arm; `get_secret` and the async twin ride the source, never a scattered direct call.
 - lazy import defers the `azure.keyvault.secrets`/`azure-core` stack to the gated arm's first fire, matching the `hvac` and `google-cloud-secret-manager` cold binds; the sync client offloads through `anyio.to_thread.run_sync` under `_PROBE_BAND`.
 - `TokenCredential` resolution, `api_version` pinning, and pipeline retry/timeout defaults arrive settled from the client; this page owns only the read-slice the cloud-tier row consumes.
 
 [RAIL_LAW]:
 - Package: `azure-keyvault-secrets`
 - Owns: the Azure Key Vault read client closing the cloud secret-resolution provider family beside the GCP and Vault arms
-- Accept: one `vault_url`-scoped, `TokenCredential`-authenticated `SecretClient` whose `get_secret` lifts `.value` to `SecretStr`, its `credential=` injection into `AzureKeyVaultSettingsSource`, the `SecretTier.cloud` `TierRow` gated by `Feature.SECRET_MANAGER` and retried under `RetryClass.SECRET`, `ResourceNotFoundError` as a ladder MISS with the `ServiceRequestError`/`ServiceResponseError`/timeout arms as retried transients, the sync read offloaded through `anyio.to_thread.run_sync`
-- Reject: a direct `get_secret` placed OUTSIDE the `CloudVault.read` arm or the settings source, the admin/soft-delete surface (`set_secret`/`begin_delete_secret`/`purge_deleted_secret`/`update_secret_properties`/`backup_secret`) the runtime does not own, inline credential material beside the `TokenCredential` resolution, a bare-`str` resolved secret beside `SecretStr`, a shared mutable process-global `SecretClient` colliding across tenants, a parallel cloud-secret owner beside the one `SecretTier.cloud` discrimination
+- Accept: one `vault_url`-scoped, `TokenCredential`-authenticated `SecretClient` whose `get_secret` lifts `.value` to `SecretStr`, the `with` bracket retiring client and credential together, its `credential=` injection into `AzureKeyVaultSettingsSource`, the `SecretTier.cloud` `TierRow` gated by `Feature.SECRET_MANAGER` and retried under `RetryClass.SECRET`, `ResourceNotFoundError` as a ladder MISS with `ServiceRequestError`/`ServiceResponseError` carrying their timeout subclasses as retried transients, the sync read offloaded through `anyio.to_thread.run_sync`
+- Reject: a direct `get_secret` placed OUTSIDE the `CloudVault.read` arm or the settings source, an unbracketed client or credential left for GC where `close()` retires the pipeline, a named 429 arm the taxonomy does not define, the admin/soft-delete surface (`set_secret`/`begin_delete_secret`/`purge_deleted_secret`/`update_secret_properties`/`backup_secret`) the runtime does not own, inline credential material beside the `TokenCredential` resolution, a bare-`str` resolved secret beside `SecretStr`, a shared mutable process-global `SecretClient` colliding across tenants, a parallel cloud-secret owner beside the one `SecretTier.cloud` discrimination

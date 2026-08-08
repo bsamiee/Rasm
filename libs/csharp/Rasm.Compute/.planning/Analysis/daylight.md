@@ -2,30 +2,28 @@
 
 Rasm.Compute daylight runner owns the `Discipline.Daylight` assessment arm: it answers worst-design-day direct sun hours, mean shadow fraction, sky-view factor, and Perez all-weather diffuse irradiance at each target's reference plane, every one derived from the kernel `Rasm` solar almanac against the clash BVH. Weather-less requests require an explicit site, and present weather failures remain typed failures rather than silently degrading.
 
-Site and hourly direct-normal/diffuse-horizontal irradiance arrive through the energy lane's own `WeatherRef` surface read by the admitted OpenStudio `EpwFile` reader (`latitude()`/`longitude()`/`timeZone()`/`elevation()` headers, `data()` → `EpwDataPoint.directNormalRadiation()`/`diffuseHorizontalRadiation()` hourly reads); shadow and obstruction rays reuse the clash BVH through `ClashScale.Occluded` over the `AccelerationStructure` the kernel `Spatial.Apply(SpatialOp.Wire)` node-link wire decodes (`Solver/clash` owns the decode) — one ray engine, never a daylight-local walk; the app stages that decoded scene on the request as `ObstructionScene`, its content key riding the assessment content-key fold so a re-shaded site re-keys. Solar position composes the kernel `Rasm/Numerics/calculus#SOLAR_EPHEMERIS` `SolarPosition.At`/`SunPath` over the validated `SolarSite` — the same owner `Rasm.AppUi` viewport sun-light and the Materials environment adapter compose, so no package-local ephemeris exists. Zero new central pins — `EpwFile` and the clash BVH are admitted substrate.
-
 ## [01]-[INDEX]
 
 - [02]-[SKY_AND_SHADOW]: `RunDaylight` folds the Perez all-weather sky rows over the EPW ingress against the clash-BVH shadow-ray cast at design-day and hourly cadence.
 
 ## [02]-[SKY_AND_SHADOW]
 
-- Owner: `PerezBand` `[SmartEnum<string>]` the eight published all-weather clearness bands, each carrying the full six-coefficient `(F11, F12, F13, F21, F22, F23)` row and the two brightening terms it evaluates (the published table, never a hardcoded interpolation nor a truncated column set); `DaylightPolicy` the sampling-cadence value object; `SkyState` the per-hour sky carrier (sun position, DNI + DHI, derived sky brightness Δ, resolved `PerezBand`); `WeatherIngress` the `EpwFile` boundary off the `WeatherRef` surface; `DaylightAnalysis` the runner fold.
+- Owner: `PerezBand` `[SmartEnum<string>]` the eight published all-weather clearness bands, each carrying the full six-coefficient `(F11, F12, F13, F21, F22, F23)` row and the two brightening terms it evaluates (the published table, never a hardcoded interpolation nor a truncated column set); `DaylightPolicy` the sampling-cadence value object; `SkyState` the per-hour sky carrier (sun position, DNI + DHI, derived sky brightness Δ, resolved `PerezBand`); `WeatherSource` the two-row ingress axis (the admitted `EpwFile` SWIG row off the `WeatherRef` surface · the gridded netCDF-4/HDF5 corpus row with its declared cell and required explicit-site companion); `WeatherIngress` the boundary folding either row into one `WeatherObservations`; `DaylightAnalysis` the runner fold.
 - Cases: with weather — per-target `worst-day-sun-hours`, `mean-shadow-fraction`, `sky-view-factor` (the hemisphere ray fan), `perez-diffuse-irradiance` (the hourly isotropic-dome + circumsolar sum over each hour's resolved band); weather-less — the degrade: the same geometric facts at the design days off the solar kernel over the request's explicit `Site`, the `sky-state` fact stating `"geometry-only"` inline, never a silently-defaulted sky; absent both weather and an explicit site the run rails `AssessmentInputMissing`.
 - Law: the design-day sweep yields TWO declared reductions over one sample set, never one mixed aggregate — `worst-day-sun-hours` is the MINIMUM per-day lit-sample total across every requested design day (a day whose sun never clears the horizon reads zero rather than dropping out of the reduction), and `mean-shadow-fraction` is the occluded share of every above-horizon sample pooled across all of them; each is a separately named fact because a design brief accepts on the worst day and reports on the mean.
 - Law: circumsolar admission is probed PER WEATHER HOUR at the policy cadence — each retained `SkyState` casts its own occlusion ray along its own sun direction, so a target the morning sun reaches and the afternoon sun does not reads two different circumsolar admissions; a design-day-mean visibility ratio smeared across the annual sum reports a fabricated sky at every hour it was not measured at.
-- Entry: `Run(graph, request, geometry, clock)` resolves the target points and obstruction scene through the `GeometrySource` port (an unresolvable target rails `AnalysisFailed(Admission, Input)`), reads optional weather through `WeatherIngress.Read` (a present-but-malformed EPW rails typed; an absent EPW selects the geometry-only degrade over the request's explicit `Site`), and mints the fact stream; the governing ratio is the worst target's required/achieved sun-hours (EN 17037 minimum-sunlight, the route row's citation).
-- Receipt: rides the one `ComputeReceipt.Assessment` case, no daylight-local receipt; the `sky-state` fact (`perez:<band>` or `geometry-only`) makes the degrade auditable off the baked node.
-- Packages: NREL.OpenStudio.macOS-arm64 (the `EpwFile` reader — `latitude()`/`longitude()`/`timeZone()`/`elevation()`, `data()` → `EpwDataPoint.directNormalRadiation()`/`diffuseHorizontalRadiation()` `OptionalDouble` under the SWIG `is_initialized()`-then-`get()` discipline — the energy lane's own pin), Rasm (project — the kernel `Spatial.Apply(SpatialOp.Wire)` node-link wire the staged scene decodes from, and the `Numerics/calculus#SOLAR_EPHEMERIS` `SolarPosition`/`SolarSite`/`SunPosition` solar almanac), Rasm.Element, NodaTime, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox.
-- Growth: a new sky model is one band-table swap on the same `SkyState` carrier; a tilted-plane fact (a window vertical-sky-component) composes the row's `Horizon` term beside the `Circumsolar` one already folded; a re-cadenced sweep or hemisphere fan is one `DaylightPolicy` column; zero new surface.
-- Boundary: shadow rays are `Solver/clash#CLASH_AND_TWIN` `ClashScale.Occluded` over the decoded kernel BVH — one ray engine on the one acceleration owner, never a daylight-local traversal; sky ingress is the energy lane's own `WeatherRef` surface through the admitted `EpwFile` reader, never a second weather decode path nor a weather column on the sampling policy; the kernel `Numerics/calculus#SOLAR_EPHEMERIS` almanac is composed, never re-derived. The EN 17037 reference plane is HORIZONTAL, so the plane-of-array form collapses exactly: the isotropic weight `(1 + cos S)/2` becomes the measured sky-view factor, the circumsolar ratio `a/b` is unity under an above-horizon sun, and the horizon band's `sin S` factor is zero — the fold composes `Circumsolar` alone and `Horizon` stays row surface the tilted case reads, never a term applied at a tilt that annihilates it. Every sampling count and step is a `DaylightPolicy` column that folds the assessment content key, never a runner constant a re-cadenced sweep silently re-uses the cached answer of.
+- Entry: `Run(graph, request, geometry, sink, clock)` resolves the target points and obstruction scene through the `GeometrySource` port (an unresolvable target rails `AnalysisFailed(Admission, Input)`), reads optional weather through `WeatherIngress.Read` over the source axis (a present-but-malformed source rails typed; an absent one selects the geometry-only degrade over the request's explicit `Site`; the gridded row reads one rank-3 single-cell annual hyperslab per variable at the request's declared cell), and mints the fact stream; the governing ratio is the worst target's required/achieved sun-hours (EN 17037 minimum-sunlight, the route row's citation). Under weather the runner also lands the annual per-sensor irradiance matrix through the threaded `AssessmentSink` — `[targets, probedHours]` chunked `[1, probedHours]` target-outermost onto `sink.Store` with the same evidence crossing `sink.Series` in temporal form — and the result carries the artifact's content key on `ResultBlob`.
+- Receipt: rides the one `ComputeReceipt.Assessment` case, no daylight-local receipt; the `sky-state` fact (`perez:<band>` or `geometry-only`) makes the degrade auditable off the baked node, and the weather-bearing run's `ResultBlob` names the annual matrix artifact.
+- Packages: NREL.OpenStudio.macOS-arm64 (the `EpwFile` reader — `latitude()`/`longitude()`/`timeZone()`/`elevation()`, `data()` → `EpwDataPoint.directNormalRadiation()`/`diffuseHorizontalRadiation()` `OptionalDouble` under the SWIG `is_initialized()`-then-`get()` discipline — the energy lane's own pin), PureHDF (`NativeDataset.Read<T>(H5DatasetAccess, Span<T>, …)`, `HyperslabSelection`, `IH5Object.Attribute`/`AttributeExists`, `H5File`, `H5Dataset<T>` — the gridded row and the matrix artifact), Rasm (project — the kernel `Spatial.Apply(SpatialOp.Wire)` node-link wire the staged scene decodes from, and the `Numerics/calculus#SOLAR_EPHEMERIS` `SolarPosition`/`SolarSite`/`SunPosition` solar almanac), Rasm.Element, NodaTime, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox.
+- Growth: a new sky model is one band-table swap on the same `SkyState` carrier; a tilted-plane fact (a window vertical-sky-component) composes the row's `Horizon` term beside the `Circumsolar` one already folded; a re-cadenced sweep or hemisphere fan is one `DaylightPolicy` column; sDA/ASE-class EN 17037 hour-threshold metrics are ONE reduction over the stored matrix rows — the scalar mean cannot reach them, and no re-run is ever needed; a new gridded variable is one `WeatherSource.Gridded` column; zero new surface.
+- Boundary: shadow rays are `Solver/clash#CLASH_AND_TWIN` `ClashScale.Occluded` over the decoded kernel BVH — one ray engine on the one acceleration owner, never a daylight-local traversal, and the app stages the decoded scene on the request as `ObstructionScene`, its content key riding the assessment content-key fold so a re-shaded site re-keys; sky ingress rides the two-row `WeatherSource` axis — the energy lane's own `WeatherRef` surface through the admitted `EpwFile` reader, and the gridded corpus row over `Runtime/codecs#HDF_ARCHIVE` whose netCDF SEMANTICS (CF `units`/`calendar`, coordinate datasets) resolve ABOVE the raw-HDF5 rail (PureHDF surfaces raw objects), gating `hours since <date>` on a standard calendar and refusing the rest typed — never a second weather decode path nor a weather column on the sampling policy; the gridded corpus keys by CONTENT KEY beside its declared cell and year span, never by path; the kernel `Numerics/calculus#SOLAR_EPHEMERIS` almanac is composed, never re-derived — the same owner `Rasm.AppUi` viewport sun-light and the Materials environment adapter compose. EN 17037 fixes the reference plane HORIZONTAL, so the plane-of-array form collapses exactly: the isotropic weight `(1 + cos S)/2` becomes the measured sky-view factor, the circumsolar ratio `a/b` is unity under an above-horizon sun, and the horizon band's `sin S` factor is zero — the fold composes `Circumsolar` alone and `Horizon` stays row surface the tilted case reads, never a term applied at a tilt that annihilates it. Every sampling count and step is a `DaylightPolicy` column that folds the assessment content key, never a runner constant a re-cadenced sweep silently re-uses the cached answer of.
 
 ```csharp signature
 // --- [TYPES] -------------------------------------------------------------------------------
-// The eight published Perez clearness bands (overcast 1.000–1.065 through pristine >6.200) carry the whole
-// six-coefficient row: the band resolves from the derived ε, and F11..F13 / F21..F23 are the two independent
-// linear forms in sky brightness Δ and solar zenith. Dropping F13/F23 collapses the zenith dependence the
-// model's whole low-sun behaviour rides on, so the row transcribes all six or none.
+// PerezBand transcribes the eight published clearness bands (overcast 1.000–1.065 through pristine >6.200),
+// each row carrying the whole six-coefficient set: the band resolves from the derived ε, and F11..F13 / F21..F23
+// are the two independent linear forms in sky brightness Δ and solar zenith. Dropping F13/F23 collapses the
+// zenith dependence the model's whole low-sun behaviour rides on, so the row transcribes all six or none.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class PerezBand {
@@ -80,10 +78,9 @@ public sealed partial class DaylightPolicy {
                 : new ValidationError(message: "<daylight-policy-invalid>");
 }
 
-// One hour of sky, derived ONCE at ingress because every column is site-and-instant data no target varies:
-// the almanac sun position the circumsolar ray reuses, the EPW DNI/DHI pair, the Perez sky brightness Δ, and
-// the band the clearness ε resolves. A per-target re-derivation runs the ephemeris once per target per hour
-// for one answer.
+// SkyState derives one hour of sky ONCE at ingress because every column is site-and-instant data no target
+// varies: almanac sun position the circumsolar ray reuses, EPW DNI/DHI pair, Perez sky brightness Δ, and the
+// band the clearness ε resolves. Per-target re-derivation runs the ephemeris once per target per hour for one answer.
 public readonly record struct SkyState(Instant At, SunPosition Sun, double DirectNormalWm2, double DiffuseHorizontalWm2, double Brightness, PerezBand Band) {
     const double SolarConstantWm2 = 1367.0;
 
@@ -118,16 +115,45 @@ public sealed record ObstructionScene(UInt128 Key, AccelerationStructure Index, 
 
 // Per-target finding crosses weather and geometry-only paths in one shape; each sun column names its own
 // reduction, so no consumer can read the worst day's hours as an annual mean or the pooled shadow share as a daily one.
-public readonly record struct DaylightFinding(NodeId Target, double WorstDaySunHours, double MeanShadowFraction, double SkyViewFactor, double PerezDiffuseWm2);
+// `HourlyPlaneWm2` is the per-probed-hour reference-plane global irradiance (diffuse + unoccluded direct) the
+// annual matrix artifact rows — EMPTY on a geometry-only run, which measures no sky.
+public readonly record struct DaylightFinding(NodeId Target, double WorstDaySunHours, double MeanShadowFraction, double SkyViewFactor, double PerezDiffuseWm2, double[] HourlyPlaneWm2);
 
 // --- [BOUNDARIES] --------------------------------------------------------------------------
+// Two-row weather source axis. netCDF SEMANTICS resolve ABOVE the raw-HDF5 rail — PureHDF surfaces raw groups,
+// datasets, and attributes — so the CF `units`/`calendar` attributes read and GATE at this boundary, and a
+// corpus outside `hours since <date>` on a standard calendar refuses typed rather than mis-dating a year of sky.
+[Union]
+public abstract partial record WeatherSource {
+    private WeatherSource() { }
+
+    public sealed record Epw(WeatherRef Weather) : WeatherSource;
+
+    // One shared gridded corpus serves many sites, so the assessment fold reads the corpus CONTENT KEY — never the
+    // path — with the declared cell indices and year span joined beside it. On the request the app stages the
+    // resolved cell exactly as it stages the obstruction scene, and the explicit `SolarSite` is the REQUIRED
+    // companion — a gridded corpus names cells, never a site.
+    public sealed record Gridded(string Path, UInt128 CorpusKey, int LatIndex, int LonIndex, int Years, string DniVar, string DhiVar) : WeatherSource;
+}
+
+// `Cell` reports which corpus cell served — None on the EPW row, whose file IS its site.
+public sealed record WeatherObservations(SolarSite Site, Seq<SkyState> Hours, Option<(UInt128 CorpusKey, int LatIndex, int LonIndex, int Years)> Cell);
+
 // EPW ingress off the WeatherRef surface: header site + hourly sky states under the SWIG OptionalDouble
 // is_initialized()-then-get() discipline — an absent hourly value contributes no SkyState hour, never a fabricated zero.
 // Exemption: the SWIG vector walk and per-handle using discipline are the native marshaling statement seam.
 public static class WeatherIngress {
-    public static Fin<(SolarSite Site, Seq<SkyState> Hours)> Read(WeatherRef weather, Option<SolarSite> overrideSite = default) {
+    public static Fin<WeatherObservations> Read(WeatherSource source, Option<SolarSite> overrideSite = default) =>
+        source.Switch(
+            state: overrideSite,
+            epw: static (site, row) => ReadEpw(row.Weather, site),
+            gridded: static (site, row) => site.Match(
+                Some: at => ReadGridded(row, at),
+                None: static () => Fin.Fail<WeatherObservations>(new ComputeFault.AssessmentInputMissing("<daylight-gridded-site-required>"))));
+
+    static Fin<WeatherObservations> ReadEpw(WeatherRef weather, Option<SolarSite> overrideSite) {
         if (!File.Exists(weather.EpwPath)) {
-            return Fin.Fail<(SolarSite, Seq<SkyState>)>(new ComputeFault.AnalysisFailed(SolvePhase.Admission, FailureKind.Input, $"<daylight-weather-missing:{weather.EpwPath}>"));
+            return Fin.Fail<WeatherObservations>(new ComputeFault.AnalysisFailed(SolvePhase.Admission, FailureKind.Input, $"<daylight-weather-missing:{weather.EpwPath}>"));
         }
         try {
             using OpenStudio.Path epwPath = OpenStudio.OpenStudioUtilitiesCore.toPath(weather.EpwPath);
@@ -149,27 +175,77 @@ public static class WeatherIngress {
                 }
             }
             return hours.Count > 0
-                ? Fin.Succ((site, toSeq(hours)))
-                : Fin.Fail<(SolarSite, Seq<SkyState>)>(new ComputeFault.AnalysisFailed(SolvePhase.Extraction, FailureKind.Input, "<daylight-weather-no-valid-daylight-hours>"));
+                ? Fin.Succ(new WeatherObservations(site, toSeq(hours), None))
+                : Fin.Fail<WeatherObservations>(new ComputeFault.AnalysisFailed(SolvePhase.Extraction, FailureKind.Input, "<daylight-weather-no-valid-daylight-hours>"));
         }
         catch (Exception ex) when (ex is SystemException or ApplicationException) {
-            return Fin.Fail<(SolarSite, Seq<SkyState>)>(new ComputeFault.AnalysisFailed(SolvePhase.Admission, FailureKind.Input, $"<daylight-weather-malformed:{ex.GetType().Name}>"));
+            return Fin.Fail<WeatherObservations>(new ComputeFault.AnalysisFailed(SolvePhase.Admission, FailureKind.Input, $"<daylight-weather-malformed:{ex.GetType().Name}>"));
         }
+    }
+
+    // Gridded arm over Runtime/codecs#HDF_ARCHIVE: one OpenRead per ingress; each irradiance variable reads as
+    // ONE rank-3 single-cell annual hyperslab `[hours, 1, 1]` at the DECLARED cell, so a continent-scale corpus
+    // costs one column per variable. The /latitude and /longitude coordinate datasets bound the declared cell,
+    // and the /time `units`/`calendar` attributes date the year — the netCDF convention gates here, above the rail.
+    static Fin<WeatherObservations> ReadGridded(WeatherSource.Gridded source, SolarSite site) =>
+        HdfArchive.Open(new HdfSource.Path(source.Path), HdfArchivePolicy.Interchange)
+            .Bind(handle => Try.lift(() => {
+                    using (handle) {
+                        long latExtent = (long)handle.Dataset("latitude").Space.Dimensions[0];
+                        long lonExtent = (long)handle.Dataset("longitude").Space.Dimensions[0];
+                        if (source.LatIndex < 0 || source.LatIndex >= latExtent || source.LonIndex < 0 || source.LonIndex >= lonExtent) {
+                            throw new InvalidDataException($"<daylight-gridded-cell:{source.LatIndex}:{source.LonIndex}>");
+                        }
+
+                        NativeDataset time = handle.Dataset("time");
+                        string units = time.Attribute("units").Read<string>();
+                        string calendar = time.AttributeExists("calendar") ? time.Attribute("calendar").Read<string>() : "standard";
+                        if (calendar is not ("standard" or "gregorian") || !units.StartsWith("hours since ", StringComparison.Ordinal)) {
+                            throw new InvalidDataException($"<daylight-gridded-calendar:{calendar}:{units}>");
+                        }
+
+                        Offset offset = Offset.FromTicks((long)(site.TimezoneHours * NodaConstants.TicksPerHour));
+                        LocalDate epochDate = LocalDatePattern.Iso.Parse(units["hours since ".Length..].Trim()[..10]).GetValueOrThrow();
+                        Instant epoch = epochDate.AtMidnight().WithOffset(offset).ToInstant();
+                        int hours = checked((int)time.Space.Dimensions[0]);
+                        double[] dni = Cell(handle, source.DniVar, hours, source.LatIndex, source.LonIndex);
+                        double[] dhi = Cell(handle, source.DhiVar, hours, source.LatIndex, source.LonIndex);
+                        List<SkyState> sky = new(hours);
+                        for (int i = 0; i < hours; i++) {
+                            if (double.IsFinite(dni[i]) && dni[i] >= 0.0 && double.IsFinite(dhi[i]) && dhi[i] >= 0.0) {
+                                SkyState hour = SkyState.Of(site, offset, epoch + Duration.FromHours(i), dni[i], dhi[i]);
+                                if (hour.Sun.AboveHorizon) { sky.Add(hour); }
+                            }
+                        }
+
+                        return sky.Count > 0
+                            ? new WeatherObservations(site, toSeq(sky), Some((source.CorpusKey, source.LatIndex, source.LonIndex, source.Years)))
+                            : throw new InvalidDataException("<daylight-weather-no-valid-daylight-hours>");
+                    }
+                }).Run()
+                .MapFail(static error => (Error)new ComputeFault.AnalysisFailed(SolvePhase.Admission, FailureKind.Input, $"<daylight-gridded:{error.Message}>")));
+
+    static double[] Cell(HdfHandle handle, string variable, int hours, int latIndex, int lonIndex) {
+        double[] column = new double[hours];
+        handle.Dataset(variable).Read<double>(
+            handle.Access, column.AsSpan(),
+            new HyperslabSelection(3, [0UL, (ulong)latIndex, (ulong)lonIndex], [(ulong)hours, 1UL, 1UL]));
+        return column;
     }
 }
 
 // --- [OPERATIONS] --------------------------------------------------------------------------
 public static class DaylightAnalysis {
-    public static Fin<AssessmentResult> Run(ElementGraph graph, AssessmentRequest.Daylight request, GeometrySource geometry, IClock clock) =>
+    public static Fin<AssessmentResult> Run(ElementGraph graph, AssessmentRequest.Daylight request, GeometrySource geometry, AssessmentSink sink, IClock clock) =>
         from _ in !request.DesignDays.IsEmpty && double.IsFinite(request.RequiredSunHours) && request.RequiredSunHours >= 0.0
             ? Fin.Succ(unit)
             : Fin.Fail<Unit>(new ComputeFault.AssessmentInputMissing("<daylight-request-invalid>"))
         from scene in DaylightScene.Of(graph, request, geometry)
         from weather in request.Weather.Match(
-            Some: weather => WeatherIngress.Read(weather).Map(static value => Some(value)),
-            None: static () => Fin.Succ(Option<(SolarSite Site, Seq<SkyState> Hours)>.None))
+            Some: source => WeatherIngress.Read(source, request.Site).Map(static value => Some(value)),
+            None: static () => Fin.Succ(Option<WeatherObservations>.None))
         // Site evidence is REQUIRED for any sun sweep: the EPW header supplies it under weather, the request's
-        // explicit Site carries the geometry-only run, and absent both the run rails typed — never a fabricated site.
+        // explicit Site carries the geometry-only run and the gridded row, and absent both the run rails typed.
         from site in (weather.Map(static w => w.Site) | request.Site)
             .ToFin(new ComputeFault.AssessmentInputMissing("<daylight-site-unresolved:no-weather-and-no-explicit-site>"))
         from findings in scene.Targets.TraverseM(target => Target(scene, target, site, weather.Map(static w => w.Hours), request)).As()
@@ -185,11 +261,65 @@ public static class DaylightAnalysis {
                 .Map(perez => Seq(AssessmentFact.Text("sky-state", $"perez:{Dominant(w.Hours).Key}")) + perez),
             // Degrade stated inline on the result — never a silently-defaulted sky.
             None: () => Fin.Succ(Seq(AssessmentFact.Text("sky-state", "geometry-only"))))
+        from matrix in weather.Match(
+            Some: w => Matrix(findings, w, request, sink).Map(Some),
+            None: static () => Fin.Succ(Option<UInt128>.None))
         select AssessmentResult.Of(
             request.Route,
             perTarget.Bind(static rows => rows) + skyFacts,
             govern,
-            new Provenance("DaylightAnalysis", request.Route.Standard, request.Route.SolverVersion, clock.GetCurrentInstant()));
+            new Provenance("DaylightAnalysis", request.Route.Standard, request.Route.SolverVersion, clock.GetCurrentInstant()),
+            matrix);
+
+    // Annual per-sensor irradiance MATRIX through the assessment sink: `[targets, probedHours]` chunked
+    // `[1, probedHours]` TARGET-OUTERMOST — one chunk per target at the target's own ordinal — landing
+    // content-addressed through sink.Store, with the probed instants and per-target hour rows also crossing
+    // sink.Series so the series lane holds the same evidence in temporal form. The stored matrix is what the
+    // scalar mean cannot be: sDA/ASE-class EN 17037 hour-threshold metrics are ONE reduction over its rows.
+    static Fin<UInt128> Matrix(Seq<DaylightFinding> findings, WeatherObservations weather, AssessmentRequest.Daylight request, AssessmentSink sink) =>
+        Try.lift(() => {
+                Seq<SkyState> probed = toSeq(Enumerable.Range(0, weather.Hours.Count)
+                    .Where(index => index % request.Policy.OcclusionCadenceHours == 0)
+                    .Select(index => weather.Hours[index]));
+                int hours = probed.Count;
+                H5Dataset<double[]> slot = new(fileDims: [(ulong)findings.Count, (ulong)hours], chunks: [1u, (uint)Math.Max(1, hours)], datasetCreation: HdfArchivePolicy.Interchange.Creation());
+                H5File graph = new() { ["irradiance"] = slot };
+                graph.Attributes["targets"] = findings.Map(static f => f.Target.Value).ToArray();
+                graph.Attributes["cadence-hours"] = request.Policy.OcclusionCadenceHours;
+                graph.Attributes["hours"] = hours;
+                using MemoryStream staged = new();
+                using (HdfWriter session = HdfArchive.Begin(graph, staged, HdfArchivePolicy.Interchange)) {
+                    int ordinal = 0;
+                    foreach (DaylightFinding finding in findings) {
+                        session.WriteChunk(slot, finding.HourlyPlaneWm2, ordinal, grid: [findings.Count, 1], chunkShape: [1u, (uint)Math.Max(1, hours)]);
+                        ordinal++;
+                    }
+                }
+
+                return (Bytes: (ReadOnlyMemory<byte>)staged.ToArray(), Probed: probed);
+            }).Run()
+            .MapFail(static error => (Error)new ComputeFault.AnalysisFailed(SolvePhase.Extraction, FailureKind.Output, $"<daylight-matrix:{error.Message}>"))
+            .Bind(built => sink.Store(built.Bytes)
+                .Bind(key => sink
+                    .Series(findings.Bind(finding => built.Probed
+                        .Zip(toSeq(finding.HourlyPlaneWm2))
+                        .Map(pair => (Series: SeriesKey(request.Scene.Key, finding.Target), At: pair.First.At, Value: pair.Second))))
+                    .Map(_ => key)));
+
+    // Series identity is content-derived from the scene key and the target id — framed, never a path or a
+    // hand-joined string whose separator a target id could carry.
+    static UInt128 SeriesKey(UInt128 sceneKey, NodeId target) {
+        ArrayBufferWriter<byte> preimage = new();
+        Span<byte> head = preimage.GetSpan(16);
+        BinaryPrimitives.WriteUInt128LittleEndian(head, sceneKey);
+        preimage.Advance(16);
+        byte[] id = System.Text.Encoding.UTF8.GetBytes(target.Value);
+        Span<byte> frame = preimage.GetSpan(4);
+        BinaryPrimitives.WriteInt32LittleEndian(frame, id.Length);
+        preimage.Advance(4);
+        preimage.Write(id);
+        return ContentHash.Of(preimage.WrittenSpan);
+    }
 
     // Per-target fold over three independent ray families on the ONE clash BVH — the design-day sun sweep, the
     // cosine-weighted sky-view fan, and the hourly circumsolar gate; a failed occlusion probe rails the typed wire fault.
@@ -197,15 +327,16 @@ public static class DaylightAnalysis {
         Vector3 origin = scene.SamplePoints[target];
         return from sweep in DesignSweep(scene, origin, site, request)
                from skyView in SkyView(scene, origin, request.Policy)
-               from diffuse in hours.Match(
+               from hourly in hours.Match(
                    Some: sky => HourlyDiffuse(scene, origin, sky, skyView, request.Policy),
-                   None: static () => Fin.Succ(0.0))
+                   None: static () => Fin.Succ((MeanDiffuse: 0.0, PlaneWm2: System.Array.Empty<double>())))
                select new DaylightFinding(
                    target,
                    WorstDaySunHours(sweep, request.DesignDays, request.Policy.SunStepHours),
                    MeanShadowFraction(sweep),
                    skyView,
-                   diffuse);
+                   hourly.MeanDiffuse,
+                   hourly.PlaneWm2);
     }
 
     // Design-day sun sweep: the policy step walks each requested day from local midnight and every above-horizon
@@ -223,14 +354,14 @@ public static class DaylightAnalysis {
             .As();
     }
 
-    // The acceptance reduction: the MINIMUM lit-hour total over the requested design days. The fold walks the
-    // requested days rather than the sample groups, so a day the sun never clears the horizon on contributes its
-    // honest zero instead of vanishing from the extremum and lifting the worst case.
+    // Acceptance reduction takes the MINIMUM lit-hour total over the requested design days, walking the requested
+    // days rather than the sample groups, so a day the sun never clears the horizon on contributes its honest
+    // zero instead of vanishing from the extremum and lifting the worst case.
     static double WorstDaySunHours(Seq<(LocalDate Day, bool Occluded)> sweep, Seq<LocalDate> days, double stepHours) =>
         days.Map(day => sweep.Count(sample => sample.Day == day && !sample.Occluded) * stepHours)
             .Fold(double.PositiveInfinity, static (worst, hours) => Math.Min(worst, hours));
 
-    // The reporting reduction: the occluded share of every above-horizon sample pooled across all design days.
+    // Reporting reduction pools the occluded share of every above-horizon sample across all design days.
     static double MeanShadowFraction(Seq<(LocalDate Day, bool Occluded)> sweep) =>
         sweep.IsEmpty ? 0.0 : sweep.Count(static sample => sample.Occluded) / (double)sweep.Count;
 
@@ -251,14 +382,21 @@ public static class DaylightAnalysis {
 
     // Mean reference-plane diffuse over the retained sky hours at the policy cadence: each hour casts ITS OWN
     // circumsolar ray, so the disc term enters exactly at the hours whose sun this target can see. The stride
-    // subsamples the hour stream and the mean divides by what was probed, so cadence changes fidelity, never scale.
-    static Fin<double> HourlyDiffuse(DaylightScene scene, Vector3 origin, Seq<SkyState> hours, double skyView, DaylightPolicy policy) =>
+    // subsamples the hour stream and the mean divides by what was probed, so cadence changes fidelity, never
+    // scale. The per-hour PLANE vector returns beside the mean — global horizontal at the reference plane,
+    // diffuse plus the unoccluded direct projection — because the matrix artifact rows it verbatim.
+    static Fin<(double MeanDiffuse, double[] PlaneWm2)> HourlyDiffuse(DaylightScene scene, Vector3 origin, Seq<SkyState> hours, double skyView, DaylightPolicy policy) =>
         toSeq(Enumerable.Range(0, hours.Count).Where(index => index % policy.OcclusionCadenceHours == 0).Select(index => hours[index]))
             .TraverseM(hour => ClashScale.Occluded(scene.Scene, origin, hour.Sun.Direction, scene.SceneDiameter)
-                .Map(occluded => Diffuse(hour, skyView, occluded)))
+                .Map(occluded => {
+                    double diffuse = Diffuse(hour, skyView, occluded);
+                    double direct = occluded ? 0.0 : hour.DirectNormalWm2 * Math.Max(0.0, Math.Cos(hour.Sun.ZenithDeg * Math.PI / 180.0));
+                    return (Diffuse: diffuse, Plane: diffuse + direct);
+                }))
             .As()
-            .Map(static probed => probed.Fold((Sum: 0.0, Count: 0), static (acc, term) => (acc.Sum + term, acc.Count + 1)))
-            .Map(static acc => acc.Count > 0 ? acc.Sum / acc.Count : 0.0);
+            .Map(static probed => (
+                MeanDiffuse: probed.IsEmpty ? 0.0 : probed.Map(static term => term.Diffuse).Sum() / probed.Count,
+                PlaneWm2: probed.Map(static term => term.Plane).ToArray()));
 
     // Perez plane-of-array diffuse specialized to the horizontal reference plane: the isotropic dome carries the
     // measured sky-view factor in place of the analytic `(1 + cos S)/2`, the circumsolar disc rides `a/b = 1` under

@@ -279,20 +279,22 @@ public sealed partial record SampledCurve {
 // [Equatable] (never stacked on a record-root union). [Equatable] is LOAD-BEARING, not decorative: the Graph/element#NODE_MODEL
 // Node.Material carries this MaterialComposition as a member, the Node.Material [Equatable] drill descends ONE [Equatable] link
 // per hop, so a record-root MaterialComposition would be an opaque equality leaf and the Rasm.Persistence 3-way StructuralMerge
-// would key Nodes[id].Composition WHOLE-composition (the deleted coarse form). As a class-root [Equatable] union with the
-// Layers/Constituents [OrderedEquality]-marked Seq members (themselves [Equatable] MaterialLayer/MaterialConstituent, drilling
-// to .Thickness/.Fraction) and the [Equatable] SectionProperties section, the drill localizes a changed layer thickness to
-// Nodes[id].Composition.Layers[2].Thickness — the member granularity the RFC 6902 patch egress requires. The generated Switch/
-// Map survive [Equatable] (only equality moves to Generator.Equals); a class-root case has NO `with`, so ProfileSet.With and
-// WithSection RECONSTRUCT through the public positional ctor rather than a copy across the private-ctor type boundary.
+// would key Nodes[id].Composition WHOLE-composition (the deleted coarse form). [Equatable] seats PER NESTED CASE —
+// a root seat is the compile-proven silent form whose case members reference-compare — so each case's generated
+// equality reads the Layers/Constituents [OrderedEquality]-marked Seq members (themselves [Equatable]
+// MaterialLayer/MaterialConstituent, drilling to .Thickness/.Fraction) and the [Equatable] SectionProperties
+// section, and the case comparer's Inequalities localizes a changed layer thickness to Composition.Layers[2]
+// .Thickness after discrimination — the member granularity the RFC 6902 patch egress requires. The generated
+// Switch/Map survive [Equatable] (only equality moves to Generator.Equals); a class-root case has NO `with`, so
+// ProfileSet.With and WithSection RECONSTRUCT through the public positional ctor rather than a copy across the
+// private-ctor type boundary.
 [Union]
-[Equatable]
 public abstract partial class MaterialComposition {
  private MaterialComposition() { }
 
  // Single alone carries no admission invariant — a public positional ctor is safe, and the Of-prefixed factory mirrors it
  // as a TOTAL constructor so the family is named uniformly without a fake Fin rail.
- public sealed partial class Single(MaterialId material) : MaterialComposition { public MaterialId Material { get; } = material; }
+ [Equatable] public sealed partial class Single(MaterialId material) : MaterialComposition { public MaterialId Material { get; } = material; }
 
  // Three SET cases carry admission invariants — a PRIVATE ctor + internal Seed re-hydration forces every admission
  // through the Of factory (the relation#EDGE_ALGEBRA / acoustic#ACOUSTIC_FOLDS shape), so an empty or degenerate set is
@@ -300,6 +302,7 @@ public abstract partial class MaterialComposition {
  // IfcMaterialLayerSet is an ordered buildup, layer 1 = the reference-line-side ply; an IfcMaterialProfileSet declares its
  // primary first) so [OrderedEquality] matches both the physical order semantics AND the stored-order CanonicalBytes
  // iteration; Constituents likewise iterate in stored order, keeping equality aligned with the order-sensitive content key.
+ [Equatable]
  public sealed partial class LayerSet : MaterialComposition {
   [property: OrderedEquality] public Seq<MaterialLayer> Layers { get; }
   private LayerSet(Seq<MaterialLayer> layers) => Layers = layers;
@@ -315,6 +318,7 @@ public abstract partial class MaterialComposition {
  // consumer resolves one-hop: the declared Composite when a compound set carries one, else the primary row's own profile,
  // so the two-level store keeps row zero's plate geometry a composite-overwrites-primary read destroys. Priority is
  // junction-resolution precedence, NOT principal rank, so the primary stays the IFC declaration order the exporter fixed.
+ [Equatable]
  public sealed partial class ProfileSet : MaterialComposition {
   [property: OrderedEquality] public Seq<MaterialProfile> Profiles { get; }
   public Option<ProfileRef> Composite { get; }
@@ -333,6 +337,7 @@ public abstract partial class MaterialComposition {
   public ProfileSet With(SectionProperties section) => new(Profiles, Composite, Some(section));
  }
 
+ [Equatable]
  public sealed partial class ConstituentSet : MaterialComposition {
   [property: OrderedEquality] public Seq<MaterialConstituent> Constituents { get; }
   private ConstituentSet(Seq<MaterialConstituent> constituents) => Constituents = constituents;
@@ -621,9 +626,10 @@ public sealed partial class ImpactCategory {
 // member (the Environmental Impacts ImmutableArray<double> — an ImmutableArray IS IEnumerable<double> where a
 // ReadOnlyMemory<double> is NOT) carries [OrderedEquality] for content equality, NOT the reference equality a bare
 // ReadOnlyMemory<double> member would take.
-// The generated Switch/Map survive [Equatable]; a class-root case has NO `with`.
+// The generated Switch/Map survive [Equatable] — seated PER NESTED CASE, a root seat being the compile-proven
+// silent form whose case members reference-compare; the root-declared Evidence property folds into each case's
+// generated comparison through the ancestor walk. A class-root case has NO `with`.
 [Union]
-[Equatable]
 public abstract partial class MaterialPropertySet {
  private MaterialPropertySet(PropertyEvidence evidence) {
   Evidence = evidence.Normalized();
@@ -631,6 +637,7 @@ public abstract partial class MaterialPropertySet {
 
  public PropertyEvidence Evidence { get; }
 
+ [Equatable]
  public sealed partial class Mechanical(MeasureValue density, MeasureValue youngsModulus, MeasureValue yieldStrength, MeasureValue ultimateStrength, double poissonsRatio, double thermalExpansionPerK, PropertyEvidence evidence) : MaterialPropertySet(evidence) {
   public MeasureValue Density { get; } = density;
   public MeasureValue YoungsModulus { get; } = youngsModulus;
@@ -663,6 +670,7 @@ public abstract partial class MaterialPropertySet {
  // the independent in-plane shear, Strength1Parallel/Strength2Perpendicular the two principal compression/bearing
  // strengths (timber's fc0k/fc90k); a third out-of-plane axis is one further column when a genuinely-3D orthotropic
  // consumer admits it, never a parallel case.
+ [Equatable]
  public sealed partial class Orthotropic(MeasureValue density, MeasureValue e1Parallel, MeasureValue e2Perpendicular, MeasureValue shearModulus, MeasureValue strength1Parallel, MeasureValue strength2Perpendicular, double thermalExpansionPerK, PropertyEvidence evidence) : MaterialPropertySet(evidence) {
   public MeasureValue Density { get; } = density;
   public MeasureValue E1Parallel { get; } = e1Parallel;
@@ -672,6 +680,7 @@ public abstract partial class MaterialPropertySet {
   public MeasureValue Strength2Perpendicular { get; } = strength2Perpendicular;
   public double ThermalExpansionPerK { get; } = thermalExpansionPerK;
  }
+ [Equatable]
  public sealed partial class Thermal(MeasureValue conductivity, MeasureValue specificHeat, Option<MeasureValue> uValue, double vapourResistanceFactor, PropertyEvidence evidence, Option<SampledCurve> conductivityCurve = default) : MaterialPropertySet(evidence) {
   public MeasureValue Conductivity { get; } = conductivity;
   public MeasureValue SpecificHeat { get; } = specificHeat;
@@ -687,6 +696,7 @@ public abstract partial class MaterialPropertySet {
   // is a material whose source declared no curve, never a fabricated one-point table.
   public Option<SampledCurve> ConductivityCurve { get; } = conductivityCurve;
  }
+ [Equatable]
  public sealed partial class Acoustic(global::Rasm.Element.Composition.Acoustic spectrum, PropertyEvidence evidence) : MaterialPropertySet(evidence) {
   public global::Rasm.Element.Composition.Acoustic Spectrum { get; } = spectrum;
   // Forwarding reads so the Rasm.Materials marshaller and the Rasm.Compute layered-STC fold read the
@@ -710,6 +720,7 @@ public abstract partial class MaterialPropertySet {
  // Reaction is an OPTION: a producer whose fire truth is a TESTED-SYSTEM resistance alone (an IGU build with EI minutes
  // and no substance reaction class to author) declares absence rather than fabricating a class; Smoke/Droplets ride the
  // reaction declaration, so an absent reaction carries NotSpecified sub-classes by construction.
+ [Equatable]
  public sealed partial class Fire(Option<FireRating> reaction, SmokeClass smoke, DropletClass droplets, FireResistance resistance, PropertyEvidence evidence) : MaterialPropertySet(evidence) {
   public Option<FireRating> Reaction { get; } = reaction;
   public SmokeClass Smoke { get; } = smoke;
@@ -732,6 +743,7 @@ public abstract partial class MaterialPropertySet {
  // base Evidence (Declaration("epd", registrationNumber, validUntil LocalDate)); a per-case Epd/ValidUntilYear column
  // pair is the deleted parallel provenance, a DOUBLE-STORE of the evidence concept the Bim egress can only dodge with
  // a suppression flag.
+ [Equatable]
  public sealed partial class Environmental(MeasurementBasis basis, ImmutableArray<double> impacts, Option<double> recycledContent, Option<double> endOfLifeRecovery, PropertyEvidence evidence) : MaterialPropertySet(evidence) {
   public MeasurementBasis Basis { get; } = basis;
   [property: OrderedEquality] public ImmutableArray<double> Impacts { get; } = impacts;
@@ -805,6 +817,7 @@ public abstract partial class MaterialPropertySet {
 
   public static Environmental Empty => Baseline.Value;
  }
+ [Equatable]
  public sealed partial class Cost(MeasurementBasis basis, Currency currency, double supplyPerUnit, double installPerUnit, double lifecyclePerUnit, PropertyEvidence evidence) : MaterialPropertySet(evidence) {
   public MeasurementBasis Basis { get; } = basis;
   public Currency Currency { get; } = currency;
@@ -819,6 +832,7 @@ public abstract partial class MaterialPropertySet {
  // reads (C = αM + βK — a per-material FE input, None when uncalibrated, a zero leg a legitimate pure mass- or
  // stiffness-proportional model); StructuralLossFactor the DERIVED hysteretic FE input s = 2ζ (exact by the linear-
  // viscous FE convention, never a stored column that could drift from ζ).
+ [Equatable]
  public sealed partial class Damping(double dampingRatio, Option<(double AlphaPerS, double BetaS)> rayleigh, PropertyEvidence evidence) : MaterialPropertySet(evidence) {
   public double DampingRatio { get; } = dampingRatio;
   public Option<(double AlphaPerS, double BetaS)> Rayleigh { get; } = rayleigh;
@@ -833,6 +847,7 @@ public abstract partial class MaterialPropertySet {
  // WaterAbsorptionKgPerM2SqrtS the OPTIONAL capillary A-value (liquid transport; None for non-capillary materials) — a
  // raw double because its kg/(m²·√s) dimension carries a FRACTIONAL time exponent the integer Dimension 7-vector
  // cannot express, the declared unit riding the name per the ThermalExpansionPerK precedent.
+ [Equatable]
  public sealed partial class Hygrothermal(double porosity, MeasureValue waterContent80Rh, MeasureValue freeWaterSaturation, Option<double> waterAbsorptionKgPerM2SqrtS, Option<SampledCurve> sorptionIsotherm, Option<SampledCurve> liquidTransport, Option<SampledCurve> moistureConductivity, PropertyEvidence evidence) : MaterialPropertySet(evidence) {
   public double Porosity { get; } = porosity;
   public MeasureValue WaterContent80Rh { get; } = waterContent80Rh;
@@ -853,6 +868,7 @@ public abstract partial class MaterialPropertySet {
  // D_RCM as a ChlorideDiffusivity-typed m²/s MeasureValue (Create over the L²T⁻¹ signature); AgeingExponent the fib
  // decay exponent α in D(t) = D₀(t₀/t)^α, a [0,1] fraction — the three inputs the EN 206 exposure-class service-life
  // verification reads per material.
+ [Equatable]
  public sealed partial class Durability(double carbonationRateMmPerSqrtYear, MeasureValue chlorideDiffusion, double ageingExponent, PropertyEvidence evidence) : MaterialPropertySet(evidence) {
   public double CarbonationRateMmPerSqrtYear { get; } = carbonationRateMmPerSqrtYear;
   public MeasureValue ChlorideDiffusion { get; } = chlorideDiffusion;
@@ -863,6 +879,7 @@ public abstract partial class MaterialPropertySet {
  // plus front/back reflectances (coated glass is side-asymmetric), the thermal-IR band a transmittance plus front/back
  // hemispherical emissivities (Kirchhoff: ε IS the IR absorptance). All nine are [0,1] spectral-average fractions;
  // the band absorptances are DERIVED remainders (1 − τ − ρ), never stored columns that could break conservation.
+ [Equatable]
  public sealed partial class Optical(double visibleTransmittance, double visibleReflectanceFront, double visibleReflectanceBack, double solarTransmittance, double solarReflectanceFront, double solarReflectanceBack, double thermalIrTransmittance, double thermalIrEmissivityFront, double thermalIrEmissivityBack, PropertyEvidence evidence) : MaterialPropertySet(evidence) {
   public double VisibleTransmittance { get; } = visibleTransmittance;
   public double VisibleReflectanceFront { get; } = visibleReflectanceFront;

@@ -13,6 +13,8 @@ Its backend is recovered from the store URL scheme through the `runtime/transpor
 
 - Owner: `TensorStore` — one frozen store; one `create`/`write_region`/`read_region` entrypoint family owns all modalities by the recovered backend and the `Indexing`/arity axes the value carries, never a per-engine reader family and never a per-arm sync portal. Every I/O leg opens its `_TRACER` span — trace parity with the sibling spatial and egress I/O legs, the runtime fence marking a failed leg's span — off the faults-owned `scoped` stamp carrying the version and semconv triple, its `kind` reading residence off `TensorBackend.span_kind(ref)` so an object-store leg publishes the client boundary a distributed trace joins on and a local-path leg stays `INTERNAL` whichever engine serves it.
 - Law: `TensorBackend.reached` is the ONE gate `create` crosses and it proves TWO conditions in one read — `_UNREACHED`, the import-time `find_spec` row over `_ENGINE_MODULE`, so an engine the manifest holds below the interpreter floor answers `BoundaryFault(import_=)` naming the absent module instead of raising `ModuleNotFoundError` from a lazy provider import mid-leg; then `_TS_DRIVER`, so a residence the async engine addresses no kvstore driver for answers `BoundaryFault(resource=)` naming the missing driver by scheme instead of raising mid-leg from a spec builder. `for_ref` reads residence for the PREFERENCE and reach for the engine, so an unnamed remote ref lands on whichever engine this floor resolves while a caller-NAMED engine below the floor still refuses by module name — the verbatim-selection law holds exactly where a caller made a selection to honour. `write_region`/`read_region` ride the `self.backend` construction already proved, which is exactly what makes the driver read total below the gate.
+- Law: `write_region` crosses the owner's `ResourceGuard` before any region lands — one guard per opened store, composition-bound — so two same-process apps racing one array refuse typed at the guard as `concurrent-write` instead of interleaving regions mid-snapshot; the guard spans the whole staged write, nothing queues behind it, and cross-process coordination stays the chunk grid's own per-chunk atomicity, which the guard never substitutes for.
+- Law: both mutation legs land durable evidence on the `python:runtime/observability/journal#LEDGER` plane and the read leg lands none — an operational `AuditFact` carrying the coordinate that leg moved, plus a `STORAGE` `MeterFact` where bytes landed, so arming records without metering and a region write records both. Both legs are already awaitable, which is what makes them the seat under the runtime producer-seam law; the facts mint off the settled outcome so none names a write the store refused, and the record rail binds into each verdict. The receipt fan keeps the series and the journal keeps the fact — neither re-mints the other's number.
 - Growth: a new filter is one `_FILTER` row plus one `TensorFilter` case; a new compressor one `_COMPRESSOR` row under the existing `compress` case; a new selection mode one `Indexing` literal plus one `_ZARR_WRITE`/`_ZARR_READ` row; a new engine one `TensorBackend` member plus one delegate row and one `_ENGINE_MODULE` floor row, `span_kind` deriving from residence with no per-engine arm at all; a new cloud backend is one `StoreBackend` row at the runtime owner that `_TS_DRIVER` picks up with zero edits here; a stored-domain resize one `TensorStore.resize` entry over the catalogued `tensorstore` `resize`/`zarr` `Array.resize`; zero new surface.
 - Boundary: no compute-package numeric trio (labelled-array compute is `compute`), no production tensor session, no durable product store, and no `xarray` re-derivation of the dense store — `data` emits a portable content-addressed chunked store. `zarr.codecs.numcodecs` is the absorbed live home for the numcodecs-named rows; `numcodecs.zarr3` is the deprecated spelling emitting a `DeprecationWarning`, a rejected import. Deleted forms: an engine selected with no floor gate ahead of its lazy import; a hardcoded `LocalStore` on the sync arm, which wrote a local directory for a cloud residence and left the async distribution as the only remote path; a `span_kind` keyed on the engine, which mislabels a sync-engine cloud leg `INTERNAL`; and a bare `trace.get_tracer(scope)` beside the faults-owned `scoped` stamp.
 
@@ -25,18 +27,20 @@ from typing import TYPE_CHECKING, Any, Final, Literal, assert_never
 
 import zarr
 import zarr.codecs.numcodecs as nc
+from anyio import BusyResourceError, ResourceGuard
 from beartype import beartype
 from expression import Error, Ok, Result, case, tag, tagged_union
-from expression.collections import Map
-from msgspec import Struct
+from expression.collections import Block, Map
+from msgspec import Struct, field
 from opentelemetry import trace
 from opentelemetry.trace import SpanKind
 from zarr import codecs as zc
 
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import FAULT_CONF, BoundaryFault, RuntimeRail, async_boundary, scoped
+from rasm.runtime.journal import Actor, Assigned, AuditFact, Fact, Journal, MeterFact, Party, Resource, Retain
 from rasm.runtime.metrics import Metrics
-from rasm.runtime.receipts import Receipt
+from rasm.runtime.receipts import DEFAULT_SCOPE, Receipt, ScopeKey
 from rasm.runtime.roots import OBJECT_STORE_SCHEMES, STORE_BACKENDS, ResourceRef, store_handle
 
 if TYPE_CHECKING:
@@ -47,6 +51,11 @@ if TYPE_CHECKING:
 
 # faults-owned scope stamp: `scoped` binds the version and semconv triple, so no page re-spells the pin.
 _TRACER: Final = scoped(trace.get_tracer, "rasm.data.gridded.store")
+
+# the metric segment this owner's receipt rows, its series, its content keys, and its audit verbs all derive from,
+# spelled once so a rename cannot leave the live series and the durable row standing under two names. The plan
+# receipt shares it deliberately: budget-versus-peak history prunes on the same partition as the store it planned.
+DOMAIN: Final[str] = "tensor"
 
 type Shape = tuple[int, ...]
 type ChunkGrid = tuple[int, ...]
@@ -277,15 +286,15 @@ class TensorReceipt(Struct, frozen=True):
         # the SAME pair handed `Metrics.record` beside the identity this store minted — so the durable row lands in
         # the `tensor` partition a predicate prunes and rejoins the live series its twin emitted. A contributor
         # omitting them writes every row it ever produces into one nameless partition.
-        Metrics.record({"rasm.tensor.byte_volume": float(self.bytes_stored)}, domain="tensor", kind=self.backend.value)
+        Metrics.record({"rasm.tensor.byte_volume": float(self.bytes_stored)}, domain=DOMAIN, kind=self.backend.value)
         return (
             Receipt.of(
-                "tensor",
+                DOMAIN,
                 (
                     "emitted",
                     self.backend.value,
                     {
-                        "domain": "tensor",
+                        "domain": DOMAIN,
                         "kind": self.backend.value,
                         "key": self.content_key.hex,
                         "shape": "x".join(map(str, self.shape)),
@@ -306,18 +315,32 @@ class TensorStore(Struct, frozen=True):
     chunking: TensorChunking
     dtype: DType
     codec: TensorCodec
+    # the composition this store's evidence and signals partition under, arriving exactly as every sibling data
+    # owner takes it: an embedded composition writing a second app's arrays otherwise lands its facts under the
+    # host's scope, where no reader can tell the two apart.
+    scope: ScopeKey = DEFAULT_SCOPE
+    # app-neutral single-writer guard, one per opened store: a second same-process writer refuses typed at the
+    # guard instead of interleaving region writes; cross-process safety stays the chunk grid's own atomicity.
+    guard: ResourceGuard = field(default_factory=lambda: ResourceGuard("writing"))
 
     @classmethod
     @beartype(conf=FAULT_CONF)
     async def create(
-        cls, ref: ResourceRef, shape: Shape, dtype: DType, chunking: TensorChunking, codec: TensorCodec = TensorCodec()
+        cls,
+        ref: ResourceRef,
+        shape: Shape,
+        dtype: DType,
+        chunking: TensorChunking,
+        codec: TensorCodec = TensorCodec(),
+        *,
+        scope: ScopeKey = DEFAULT_SCOPE,
     ) -> "RuntimeRail[TensorStore]":
         # async on the caller's loop — a per-call `anyio.run` mints a fresh loop and refuses to start inside a running one.
         backend = TensorBackend.for_ref(ref)
 
         async def _open() -> TensorStore:
             await backend.create(ref, shape, dtype, chunking, codec)
-            return TensorStore(backend, ref, shape, chunking, dtype, codec)
+            return TensorStore(backend, ref, shape, chunking, dtype, codec, scope=scope)
 
         # object-store tensor I/O carries a span per leg — the trace-parity law with the sibling spatial/egress I/O legs;
         # the fence inside marks the span ERROR + record_exception on a failed leg. Reach gates inside the span so an
@@ -328,7 +351,16 @@ class TensorStore(Struct, frozen=True):
                 case Result(tag="error", error=refused):
                     return Error(refused)
                 case Result(tag="ok"):
-                    return await async_boundary("tensor.create", _open)
+                    # arming records because it is a MUTATION with no bytes: the async engine opens its spec with
+                    # `delete_existing`, so a create over a live array replaces it, and the audit line naming the
+                    # grid it armed is the only surface that movement leaves. The record rail binds into the
+                    # verdict, so an armed evidence plane refusing it surfaces before a caller holds the handle.
+                    match await async_boundary("tensor.create", _open):
+                        case Result(tag="ok", ok=store):
+                            armed = _evidence(store, "create", (Assigned(path="/shape", next="x".join(map(str, shape))),), 0)
+                            return (await Journal.record(armed, scope=scope)).map(lambda _landed: store)
+                        case refused:
+                            return Error(refused.error)
                 case unreachable:
                     assert_never(unreachable)
 
@@ -356,11 +388,26 @@ class TensorStore(Struct, frozen=True):
             kind=TensorBackend.span_kind(self.ref),
             attributes={"rasm.tensor.backend": self.backend.value, "rasm.tensor.regions": len(staged)},
         ):
-            return (await async_boundary("tensor.write_region", _write)).bind(
-                lambda stored: ContentIdentity.of("tensor", tuple(block.tobytes() for _, block in staged)).map(
+            # the guard spans the WHOLE staged write — sequential regions included — so a second same-process
+            # writer refuses immediately as `concurrent-write` rather than interleaving its regions mid-snapshot.
+            try:
+                with self.guard:
+                    written = await async_boundary("tensor.write_region", _write)
+            except BusyResourceError:
+                return Error(BoundaryFault(boundary=("tensor.write_region", "concurrent-write")))
+            # durable evidence lands off the SETTLED receipt, so the content key the fact names is the one the
+            # snapshot actually keyed and no fact stands for a write the store refused; the meter carries the
+            # volume this leg stored, the audit line the identity it landed under.
+            match written.bind(
+                lambda stored: ContentIdentity.of(DOMAIN, tuple(block.tobytes() for _, block in staged)).map(
                     lambda key: _receipt(self, stored, key)
                 )
-            )
+            ):
+                case Result(tag="ok", ok=receipt):
+                    landed = _evidence(self, "write", (Assigned(path="/content", next=receipt.content_key.hex),), receipt.bytes_stored)
+                    return (await Journal.record(landed, scope=self.scope)).map(lambda _landed: receipt)
+                case refused:
+                    return Error(refused.error)
 
     async def read_region(self, region: TensorRegion) -> "RuntimeRail[np.ndarray]":
         with _TRACER.start_as_current_span(
@@ -533,6 +580,23 @@ _READ: "Final[Map[TensorBackend, Callable[[ResourceRef, TensorRegion], Awaitable
 ])
 
 
+def _evidence(store: "TensorStore", operation: str, change: "tuple[Assigned, ...]", stored: int) -> "Block[Fact]":
+    # the durable half of a store mutation: arming a grid and landing a region are both governed writes, so both
+    # record, and only the leg that moved bytes meters. The verb spells `<domain>.<operation>` under the runtime
+    # producer grammar — the same segment the live byte-volume series carries — so one fact greps against the series
+    # its receipt twin emitted, and the diff carries whichever coordinate that leg actually moved. `read_region`
+    # reaches this fold nowhere: a region read reconstructs no incident and prices no residence.
+    audited = AuditFact(
+        action=f"{DOMAIN}.{operation}",
+        actor=Party(kind=Actor.SERVICE, key=DOMAIN),
+        target=Party(kind="array", key=str(store.ref.path)),
+        retention=Retain.OPERATIONAL,
+        change=change,
+    )
+    metered = MeterFact(resource=Resource.STORAGE, quantity=stored, surface=str(store.ref.path))
+    return Block.of_seq((audited, metered) if stored else (audited,))
+
+
 def _receipt(store: TensorStore, bytes_stored: int, key: ContentKey) -> TensorReceipt:
     return TensorReceipt(
         backend=store.backend,
@@ -694,12 +758,12 @@ class PlanReceipt(Struct, frozen=True):
         # while a fabricated instrument would meter a byte volume no leg moved.
         return (
             Receipt.of(
-                "tensor",
+                DOMAIN,
                 (
                     "planned",
                     self.op,
                     {
-                        "domain": "tensor",
+                        "domain": DOMAIN,
                         "kind": self.op,
                         "executor": self.executor,
                         "allowed_mem": self.allowed_mem,

@@ -6,7 +6,7 @@ Every selecting verb admits its query through `IfcSelector` (`ifc/selector#SELEC
 
 ## [01]-[INDEX]
 
-- [02]-[ANALYSIS]: analysis verbs over one `AnalysisRow` algebra, the `IfcSelector` gate, the `OCC_NATIVE` retry row, the columnar row egress, and kind-specific graduation evidence under `BIM_COMPLIANCE`.
+- [02]-[ANALYSIS]: analysis verbs over one `AnalysisRow` algebra, the `IfcSelector` gate, the `OCC_NATIVE` retry row, the columnar row egress, the `run_async` twin recording the BCF arm's operational trail, and kind-specific graduation evidence under `BIM_COMPLIANCE`.
 
 ## [02]-[ANALYSIS]
 
@@ -14,9 +14,10 @@ Every selecting verb admits its query through `IfcSelector` (`ifc/selector#SELEC
 - Entry: `run` takes the model, the kind, the free-form `query`, and the `composition` custody key. `query` meaning is kind-fixed through the `QUERY_SPLIT` table — pure selector, `a#b` side pair, or spec path/JSON table — read ONCE at the `_dispatch` head so every row governs the arm it keys, the four empty-delimiter rows included and the `BCF` row governing the BCF arm, where a hardcoded `CLASH` key leaves five of six rows unread. `CLASH`/`BCF` sides arrive pre-split and validate under one polymorphic batch parse aborting on the first malformed member, an empty query defaulting both sides to whole-model mode. `BCF` is the composition apex, re-running the clash leg and stacking overlaps into `bcf` topics with viewpoints AND the OCC-rendered `get_viewpoint_snapshot` image bound per topic, never a same-string round-trip.
 - Auto: IDS reads BOTH verdict depths off one validation pass — per-spec entity ratio and the `Json(ids).report()` roll-up, `percent_checks_pass` on the `Results` ROOT and `total_applicable_*` totals on the `ResultsSpecification` rows, never conflated — excluding a `status is None` not-applicable spec whose `0.0` row poisons the evidence mean. Space-program validation measures through the package that owns measurement: `ifc5d.qto.quantify` folds the shared `RuleSet` base-quantity table over the space set and the grade reads the `Qto_SpaceBaseQuantities.NetFloorArea` cell off the returned `ResultsDict`, so no local `get_psets(qtos_only=True)` key fold and no unit-scale square survive — the take-off already converts to the model's declared project units, the ONE regime the program table is read in. Two exclusions are distinct and both named: a space absent from the program table carries no program signal and is excluded from grading, while a space the take-off could not measure is a TYPED REFUSAL on its own `unquantified` axis, never a `0.0` area grading as total non-compliance.
 - Receipt: receipts carry the census, frames carry the rows. `contribute` emits one row per run — row count, subject count, archive extent where one exists, and the residual ledger — because a whole-model take-off is one fact key per element per quantity and a flattened row stream turns the runtime receipt into a hundred-thousand-key dict per run; `frame` projects those rows as ONE columnar `EvidenceFrame` through the graduation port, columns off the first row's `facts` keys exactly as the sibling lifecycle rollup does. `evidence` ledger is kind-specific, never a row count — IDS keys per-entity AND per-check failing fractions, `SPACE_PROGRAM` the per-space failing fraction beside its unquantified count, `CLASH` the unresolved-cluster count, takeoff/BCF the empty-result fraction — so a model breaching its ceiling fails the carrier's `admitted` verdict rather than crossing clean. `graduates` and `frame` derive their own `ContentKey` from the receipt's `spec` — kind plus the validated query projection — through the spine's `evidence_key`, so no caller mints a key for evidence it did not produce. `_distributed` records the `non-compliant` fraction as the `rasm.geometry.compliance.noncompliant` charter measure at the producing fold; the cluster-count and empty-fraction keys name no charter row and record nothing, a count or boolean gate earning no histogram.
+- Law: the BCF arm alone lands durable evidence on the `python:runtime/observability/journal#LEDGER` plane — one `OPERATIONAL` `AuditFact` keyed on the run's `spec`, its topic GUIDs the subject index — because that arm AUTHORS an archive the data seam persists while every other kind reads the model and produces a verdict nothing keeps. `run_async` is its seat, the awaitable twin this caller-floor owner mints over the band hop, since recording suspends and `_distributed` is a synchronous charter projection. No meter rides the leg: the archive crosses as receipt payload and the data seam charges the write it performs, so a byte count at both tiers bills one artifact twice.
 - Packages: `ifcopenshell`, `ifctester`, `ifcclash`, `bcf-client`, and `ifc5d` (`qto.quantify` the space base-quantity take-off, its `rules` key arriving as the sibling lifecycle owner's `RuleSet` vocabulary rather than a second transcription) per the fence imports; `IfcSelector` is the only `filter_elements` caller.
-- Growth: a new verb is one `AnalysisKind` row, one `of_*` constructor and one `facts` arm, one dispatch arm, one `QUERY_SPLIT` row, and one `evidence` key — the frame column set following from `facts` with no edit here; a new selection axis is one `IfcSelector` grammar alternative, never a local query-parse fold; a new quantity axis on the space grade is one `SPACE_AREA` cell row; IDS document AUTHORING (`Ids(...)`/facet family/`to_xml`) is the named next verb once a consumer supplies a rule vocabulary — one row, never a second engine.
-- Boundary: no re-derivation of the C# `IfcSemanticModel` spatial hierarchy; no durable store — topic rows and the archive bytes are the wire carry, the durable `.bcfzip`, IDS-report, and frame writes the data seam's; no Rhino/GH mutation; no raw `query` string threaded past admission into `filter_elements`; no hand-rolled quantity-key fold where `ifc5d.qto` owns measurement; no per-row fact map on the receipt stream where the frame is the columnar carrier.
+- Growth: a new verb is one `AnalysisKind` row, one `of_*` constructor and one `facts` arm, one dispatch arm, one `QUERY_SPLIT` row, and one `evidence` key — the frame column set following from `facts` with no edit here, and a durable trail only where the verb WRITES something, as one `_evidence` arm; a new selection axis is one `IfcSelector` grammar alternative, never a local query-parse fold; a new quantity axis on the space grade is one `SPACE_AREA` cell row; IDS document AUTHORING (`Ids(...)`/facet family/`to_xml`) is the named next verb once a consumer supplies a rule vocabulary — one row, never a second engine.
+- Boundary: no re-derivation of the C# `IfcSemanticModel` spatial hierarchy; no ledger, custody, or retention window minted here, the plane arriving bound at the composition root and this owner declaring a `Retain` class alone; no durable store — topic rows and the archive bytes are the wire carry, the durable `.bcfzip`, IDS-report, and frame writes the data seam's; no Rhino/GH mutation; no raw `query` string threaded past admission into `filter_elements`; no hand-rolled quantity-key fold where `ifc5d.qto` owns measurement; no per-row fact map on the receipt stream where the frame is the columnar carrier.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -27,12 +28,13 @@ from tempfile import TemporaryDirectory
 from typing import TYPE_CHECKING, Final, Literal, NotRequired, TypedDict, assert_never
 
 from beartype import beartype
-from expression import Ok, case, tag, tagged_union
-from expression.collections import Map
+from expression import Error, Ok, Result, case, tag, tagged_union
+from expression.collections import Block, Map
 from msgspec import Struct
 from msgspec.json import decode
 
 from rasm.geometry.graduation import (
+    EVIDENCE_DOMAIN,
     EvidenceFrame,
     EvidenceScope,
     GeometryHandoff,
@@ -44,6 +46,7 @@ from rasm.geometry.graduation import (
 from rasm.geometry.ifc.costing import RuleSet
 from rasm.geometry.ifc.selector import IfcSelector
 from rasm.runtime.faults import FAULT_CONF, RuntimeRail
+from rasm.runtime.journal import Actor, Assigned, AuditFact, Fact, Journal, Party, Retain
 from rasm.runtime.receipts import DEFAULT_SCOPE, Receipt, ScopeKey
 from rasm.runtime.resilience import RetryClass, guarded_sync
 
@@ -125,6 +128,10 @@ class AnalysisRow:
 
 ANALYSIS_SUBJECT: Final[GeometrySubject] = GeometrySubject.BIM_COMPLIANCE
 
+# this owner's one name, serving the receipt label and the durable audit actor alike, so a rename cannot leave a
+# receipt stream and an evidence-plane actor column under two spellings.
+OWNER: Final[str] = "rasm.geometry.ifc.analysis"
+
 # One delimiter row per kind, read ONCE at the `_dispatch` head so every row governs the arm it keys — the four
 # empty-delimiter rows the no-split path and the `BCF` row the BCF arm, where a hardcoded `CLASH` key leaves five of six
 # rows spelling nothing. Mirrors the sibling `PHASE_DELIMITER` fold, never a `.get` default that drops a kind.
@@ -185,7 +192,7 @@ class AnalysisResult(Struct, frozen=True, gc=False):
         # receipt keeps the counts and the residual ledger the ceiling gates on, and the archive extent only where one
         # exists, so a kind that authored nothing publishes no zero-length claim.
         yield Receipt.of(
-            "rasm.geometry.ifc.analysis",
+            OWNER,
             (
                 "emitted",
                 self.kind.value,
@@ -234,6 +241,27 @@ def _distributed(result: AnalysisResult, composition: ScopeKey) -> AnalysisResul
     return result
 
 
+def _evidence(result: AnalysisResult) -> "Block[Fact]":
+    # `_distributed`'s durable twin, and the BCF arm alone reaches it: that arm AUTHORS a `.bcfzip` the data seam
+    # persists, so the issue set it opened against a model is a record an audit reads back, where every other kind
+    # reads the model and produces a verdict nothing keeps. `OPERATIONAL` is the class — an issue log is the routine
+    # project trail, not the disposal evidence a mutation leaves. Topic GUIDs are the subject index, this producer's
+    # one honest source. No meter rides here: the archive crosses as receipt payload and the data seam charges the
+    # write it actually performs, so a byte count on both tiers bills one artifact twice.
+    if result.kind is not AnalysisKind.BCF:
+        return Block.empty()
+    return Block.singleton(
+        AuditFact(
+            action=f"{EVIDENCE_DOMAIN}.{result.kind.value}",
+            actor=Party(kind=Actor.SERVICE, key=OWNER),
+            target=Party(kind="model", key=result.spec),
+            retention=Retain.OPERATIONAL,
+            change=(Assigned(path="/topics", next=str(len(result.rows))), Assigned(path="/archive", next=str(len(result.product)))),
+            subjects=result.subjects,
+        )
+    )
+
+
 class IfcAnalysis:
     @staticmethod
     def run(
@@ -248,6 +276,21 @@ class IfcAnalysis:
             lambda: IfcAnalysis._dispatch(model, kind, query).map(lambda result: _distributed(result, composition)),
             composition=composition,
         )
+
+    @staticmethod
+    async def run_async(
+        model: "ifcopenshell.file", kind: AnalysisKind, query: str, *, composition: ScopeKey = DEFAULT_SCOPE
+    ) -> "RuntimeRail[AnalysisResult]":
+        # the awaitable twin over the band hop: every verb runs caller-floor on a live pybind11 handle, so `run` is
+        # synchronous whole and recording — which SUSPENDS — cannot land inside it or inside `_distributed`, the sync
+        # charter projection this leg pairs with. The twin runs the same fold and records the BCF arm's authored
+        # issue set past it; every other kind mints an empty block and this leg costs one map read. The record rail
+        # BINDS into the verdict, so an armed plane refusing an issue-log fact reaches the caller that owns it.
+        match IfcAnalysis.run(model, kind, query, composition=composition):
+            case Result(tag="ok", ok=result):
+                return (await Journal.record(_evidence(result), scope=composition)).map(lambda _landed: result)
+            case refused:
+                return Error(refused.error)
 
     @staticmethod
     @beartype(conf=FAULT_CONF)

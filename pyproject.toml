@@ -92,7 +92,7 @@ dependencies = [
     "jaxtyping",                                    # [COMPUTE]: array/PyTree shape-and-dtype contracts, jaxtyped(typechecker=beartype); jax-free at import
     "lineax; python_version<'3.15'",                # [COMPUTE]: JAX linear solvers
     "mpmath",                                       # [COMPUTE]: arbitrary-precision real and complex math
-    "numba; python_version<'3.15'",                 # [COMPUTE]: LLVM JIT accelerator
+    "numba; python_version<'3.15'",                 # [COMPUTE]: LLVM JIT accelerator; setup.py refuses cp315
     "numpy",                                        # [COMPUTE]: array substrate
     "optax; python_version<'3.15'",                 # [COMPUTE]: first-order JAX optimizers for optimistix
     "optimistix; python_version<'3.15'",            # [COMPUTE]: JAX nonlinear solvers and adjoint VJP
@@ -104,7 +104,7 @@ dependencies = [
     "scipy",                                        # [COMPUTE]: numerical algorithms
     "scs",                                          # [COMPUTE]: SCS first-order operator-splitting conic solver beside Clarabel; cvxpy SCS backend
     "sectionproperties",                            # [GEOMETRY]: cross-section property solver enrichment
-    "sparse; python_version<'3.15'",                # [COMPUTE]: sparse n-D arrays
+    "sparse; python_version<'3.15'",                # [COMPUTE]: sparse n-D arrays; hard numba dep
     "sympy",                                        # [COMPUTE]: symbolic expressions beside the python-flint/mpmath ground domains
     "uncertainties",                                # [COMPUTE]: first-order error propagation with correlated_values/unumpy
     # --- [STATISTICS_ML]
@@ -115,7 +115,7 @@ dependencies = [
     "onnx",                                         # [COMPUTE]: model graph IR
     "onnxruntime; python_version<'3.15'",           # [COMPUTE]: model runtime
     "pyDOE3",                                       # [COMPUTE]: classical DOE design matrices — factorial, fractional-factorial, Box-Behnken, central-composite, Plackett-Burman, and GSD response-surface designs beside the SALib samplers and scipy.qmc floors
-    "pymc<5.27",                                    # [COMPUTE]: probabilistic programming; ceiling holds pytensor 2 — pytensor 3 hard-requires numba (no cp315)
+    "pymc<5.27",                                    # [COMPUTE]: probabilistic programming; ceiling holds pytensor 2 — pytensor 3 hard-requires numba
     "salib",                                        # [COMPUTE]: global sensitivity analysis
     "scikit-learn",                                 # [COMPUTE]: classical ML and ONNX export
     "skl2onnx",                                     # [COMPUTE]: sklearn-to-ONNX converter
@@ -237,7 +237,7 @@ dependencies = [
     "epdx<1.0",                                     # [DATA]: EPDx environmental product declaration interchange; 1.x ships no mac wheel and a broken sdist
     "olca-ipc",                                     # [DATA]: openLCA IPC client for foreground/background LCA interchange
     "openepd",                                      # [DATA]: OpenEPD declarations and PCR material-impact payloads
-    "premise; python_version<'3.15'",               # [DATA]: prospective LCA scenario database transformer; llvmlite ships no cp315 wheel and its source build needs an LLVM dev package the scientific lane lacks — numba 0.66.0 itself resolves on cp315
+    "premise; python_version<'3.15'",               # [DATA]: prospective LCA scenario database transformer; numba-gated through sparse
     # --- [PLOTTING_VIZ]
     "altair",
     "great-tables",                                # [ARTIFACTS]: publication-quality display tables

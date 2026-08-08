@@ -13,7 +13,7 @@ Recipe VOCABULARY stays queenbee's and the execution machinery stays `lbt-recipe
 - Owner: `RecipeExecution` holds the one `LanePolicy` its runs drain and offload under — capacity and deadline arrive as the caller's `execution/admission#CONTEXT` budget projection at construction, never a per-call knob — and the `Option[ResourceRoot]` remote specs resolve against. `RecipeSpec.recipe` selector discriminates by VALUE — a catalog member or an external folder path — never a `packaged: bool` beside it, and an external folder's empty readback roster derives from the baked `package.json` contract through `_declared`, never a hand-mirrored list.
 - Entry: `execute` threads the caller's session cache as a value — a prior `DrainReceipt.cache` re-enters as the next call's carrier, so elision is threaded state, never hidden owner state. `interface` is the schema projection for submission-constructing consumers; execution always returns through `execute`, never a second runner.
 - Auto: span presence IS execution evidence — one `recipe.execute` span wraps the executed leg, the engine gate and coercion ride the `guarded` derivation span at staging, and a cache-elided replay opens no execute span. Subprocess environment discipline stays `lbt_recipes`' own (`--env` PATH/RAYPATH, cleared `PYTHONHOME`) — this owner never re-derives the shell line. Deliverables are row-driven and typed: handler-parsed lists and `DataCollection` objects, never a path the caller must re-parse.
-- Growth: a new simulation workflow is one `RecipeName` member with one `RECIPES` row; a new engine one `Engine` member with one `ENGINE_CHECK` row; a new remote asset kind one `AssetFetch` on the spec; a new run-policy dimension one `RecipeRow` column or one `RecipeSpec` Option folded into the `RecipeSettings` default; the cloud-submission modality (a Pollination platform `Job` POST composing the queenbee shapes against `interface`) enters as one more execute arm over the same `RecipeSpec` when a consumer names it, never a parallel owner.
+- Growth: a new simulation workflow is one `RecipeName` member with one `RECIPES` row, its output roster riding the shared anchor the moment a second row declares the same set; a new engine one `Engine` member with one `ENGINE_CHECK` row; a new remote asset kind one `AssetFetch` on the spec; a new run-policy dimension one `RecipeRow` column or one `RecipeSpec` Option folded into the `RecipeSettings` default; the cloud-submission modality (a Pollination platform `Job` POST composing the queenbee shapes against `interface`) enters as one more execute arm with its own `@overload` over the same `RecipeSpec` when a consumer names it, never a parallel owner — an arm with no overload lands every caller on the runtime union.
 - Boundary: no luigi scheduling, no handler resolution or chain ordering, no engine probing beside `version.check_*`, and no recipe-schema re-mint — queenbee owns the vocabulary, and a `msgspec`/protobuf mirror of a queenbee model is a single-mint violation. queenbee's click CLI and urllib transfer stay rejected: `cyclopts` and the roots rail own those concerns. No durable run ledger — the session cache is lane-local, and durable reuse stays the C# `Rasm.Persistence` ledger consumed at the wire. Engines are external binaries; no simulation runs in-process.
 
 ```python signature
@@ -21,7 +21,7 @@ Recipe VOCABULARY stays queenbee's and the execution machinery stays `lbt-recipe
 from collections.abc import Buffer, Iterable
 from enum import StrEnum
 from pathlib import Path
-from typing import TYPE_CHECKING, Final
+from typing import TYPE_CHECKING, Final, overload
 
 from expression import Error, Nothing, Ok, Option, Result
 from expression.collections import Block, Map
@@ -84,6 +84,12 @@ ENGINE_CHECK: Final[Map[Engine, str]] = Map.of_seq([
 ])
 
 _COMFORT_ENGINES: Final[frozenset[Engine]] = frozenset({Engine.RADIANCE, Engine.OPENSTUDIO, Engine.ENERGYPLUS})
+_RADIANCE: Final[frozenset[Engine]] = frozenset({Engine.RADIANCE})
+# rosters two or more catalog rows declare identically hoist to one anchor, so the annual-daylight pair and the three
+# comfort maps cannot drift into two spellings of one recipe contract; a per-recipe tail rides the row's own spread.
+_DAYLIGHT_METRICS: Final[tuple[str, ...]] = ("da", "cda", "udi", "udi-lower", "udi-upper", "grid-summary")
+_IRRADIANCE_METRICS: Final[tuple[str, ...]] = ("average-irradiance", "peak-irradiance", "cumulative-radiation")
+_COMFORT_METRICS: Final[tuple[str, ...]] = ("tcp", "csp", "hsp", "condition")
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -172,14 +178,21 @@ class RecipeExecution(Struct, frozen=True):
     lane: LanePolicy
     root: Option[ResourceRoot] = Nothing
 
+    @overload
+    async def execute(self, spec: Block[RecipeSpec], cache: Map[ContentKey, RecipeProduct] = ...) -> "DrainReceipt[RecipeProduct]": ...
+    @overload
+    async def execute(self, spec: RecipeSpec, cache: Map[ContentKey, RecipeProduct] = ...) -> "RuntimeRail[RecipeProduct]": ...
     async def execute(
         self, spec: "RecipeSpec | Block[RecipeSpec]", cache: Map[ContentKey, RecipeProduct] = Map.empty()
     ) -> "RuntimeRail[RecipeProduct] | DrainReceipt[RecipeProduct]":
+        # the overloads carry the per-modality output so a caller narrows on the SHAPE it hands in; without them both
+        # the plural and the singular caller land on the runtime union and every downstream projection mis-types.
         match spec:
             case Block() as many:
-                units: Block[Admit[RecipeProduct]] = Block.empty()
-                for one in many:  # Exemption: async sequential prepare — staging awaits asset IO per spec; the drain is the concurrent leg.
-                    units = units.append(Block.singleton(await self._admitted(one)))
+                # Exemption: async sequential prepare — staging awaits asset IO per spec, so the comprehension is the
+                # one expression that fold admits; the drain below is the concurrent leg. Threading the accumulator
+                # through a per-step `append` instead recopies the whole Block once per spec.
+                units: Block[Admit[RecipeProduct]] = Block.of_seq([await self._admitted(one) for one in many])
                 return await self.lane.drain(units, cache)
             case lone:
                 staged = await self._prepared(lone)
@@ -201,12 +214,15 @@ class RecipeExecution(Struct, frozen=True):
         # staging is blocking work (engine probes, handler coercion copying artifact trees), so it declares the RELEASING trait — the
         # offload fence converts the handler/spawn raises. Project root resolves FIRST, so every asset lands beneath the one
         # folder the handler chains read and `run` executes in; the acquisition fault short-circuits.
+        # each guard re-mints its fault onto THIS entry's payload type: returning the upstream carrier verbatim ships a
+        # `RuntimeRail[str]` or a `RuntimeRail[int]` under a `RuntimeRail[_Staged]` annotation — it resolves at runtime
+        # and mis-types every downstream projection, the same class the drain-arm overload closes above.
         rooted = await self.lane.offload(Kernel.of(_rooted, KernelTrait.RELEASING), spec)
         if rooted.is_error():
-            return rooted
+            return Error(rooted.error)
         acquired = await self._acquired(spec.assets, Path(rooted.ok))
         if acquired.is_error():
-            return acquired
+            return Error(acquired.error)
         return (await self.lane.offload(Kernel.of(_staged, KernelTrait.RELEASING), spec, rooted.ok)).bind(lambda rail: rail)
 
     async def _acquired(self, assets: Block[AssetFetch], root: Path) -> "RuntimeRail[int]":
@@ -221,12 +237,15 @@ class RecipeExecution(Struct, frozen=True):
         # later bad row never strands a half-landed asset set behind a refusal.
         roster = traverse(lambda asset: _confined(root, asset.relative), assets)
         if roster.is_error():
-            return roster
+            return Error(roster.error)
         landed: RuntimeRail[int] = Ok(0)
-        for asset, destination in zip(assets, roster.ok, strict=True):  # Exemption: async sequential acquisition — each read awaits the roots rail, each landing awaits the thread-band hop, the carrier rebinds per step.
+        # Exemption: async sequential acquisition — each read awaits the roots rail, each landing awaits the
+        # thread-band hop, and the carrier rebinds per step. Every early exit re-mints onto this entry's own payload
+        # type rather than forwarding the upstream `Block[Path]`/`bytes` carrier under an `int` annotation.
+        for asset, destination in zip(assets, roster.ok, strict=True):
             match await live.child(asset.source).map(lambda ref: live.read(ref, Delivery.WHOLE)).default_with(_refused):
-                case Result(tag="error") as refused:
-                    return refused
+                case Result(tag="error", error=fault):
+                    return Error(fault)
                 case Result(tag="ok", ok=payload):
                     written = await self.lane.offload(Kernel.of(_landed, KernelTrait.RELEASING), str(destination), payload)
                     landed = landed.bind(lambda n: written.map(lambda one: n + one))
@@ -367,20 +386,20 @@ def _interface(spec: RecipeSpec) -> "RecipeInterface":
 # output rows are the recipes' REAL declared output names (each recipe's package.json contract) —
 # a row naming an output the recipe never declares breaks output_value_by_name at readback.
 RECIPES: Final[Map[RecipeName, RecipeRow]] = Map.of_seq([
-    (RecipeName.ANNUAL_DAYLIGHT, RecipeRow(outputs=("da", "cda", "udi", "udi-lower", "udi-upper", "grid-summary"), engines=frozenset({Engine.RADIANCE}), workers=2)),
-    (RecipeName.ANNUAL_DAYLIGHT_ENHANCED, RecipeRow(outputs=("da", "cda", "udi", "udi-lower", "udi-upper", "grid-summary"), engines=frozenset({Engine.RADIANCE}), workers=2)),
-    (RecipeName.ANNUAL_IRRADIANCE, RecipeRow(outputs=("average-irradiance", "peak-irradiance", "cumulative-radiation"), engines=frozenset({Engine.RADIANCE}), workers=2)),
-    (RecipeName.CUMULATIVE_RADIATION, RecipeRow(outputs=("cumulative-radiation", "average-irradiance"), engines=frozenset({Engine.RADIANCE}), workers=2)),
-    (RecipeName.DIRECT_SUN_HOURS, RecipeRow(outputs=("direct-sun-hours", "cumulative-sun-hours"), engines=frozenset({Engine.RADIANCE}), workers=2)),
-    (RecipeName.DAYLIGHT_FACTOR, RecipeRow(outputs=("results", "grid-summary"), engines=frozenset({Engine.RADIANCE}), workers=2)),
-    (RecipeName.POINT_IN_TIME_GRID, RecipeRow(outputs=("results",), engines=frozenset({Engine.RADIANCE}), workers=2)),
-    (RecipeName.POINT_IN_TIME_VIEW, RecipeRow(outputs=("results",), engines=frozenset({Engine.RADIANCE}), workers=2)),
-    (RecipeName.SKY_VIEW, RecipeRow(outputs=("results",), engines=frozenset({Engine.RADIANCE}), workers=2)),
-    (RecipeName.IMAGELESS_ANNUAL_GLARE, RecipeRow(outputs=("ga", "results"), engines=frozenset({Engine.RADIANCE}), workers=2)),
+    (RecipeName.ANNUAL_DAYLIGHT, RecipeRow(outputs=_DAYLIGHT_METRICS, engines=_RADIANCE, workers=2)),
+    (RecipeName.ANNUAL_DAYLIGHT_ENHANCED, RecipeRow(outputs=_DAYLIGHT_METRICS, engines=_RADIANCE, workers=2)),
+    (RecipeName.ANNUAL_IRRADIANCE, RecipeRow(outputs=_IRRADIANCE_METRICS, engines=_RADIANCE, workers=2)),
+    (RecipeName.CUMULATIVE_RADIATION, RecipeRow(outputs=("cumulative-radiation", "average-irradiance"), engines=_RADIANCE, workers=2)),
+    (RecipeName.DIRECT_SUN_HOURS, RecipeRow(outputs=("direct-sun-hours", "cumulative-sun-hours"), engines=_RADIANCE, workers=2)),
+    (RecipeName.DAYLIGHT_FACTOR, RecipeRow(outputs=("results", "grid-summary"), engines=_RADIANCE, workers=2)),
+    (RecipeName.POINT_IN_TIME_GRID, RecipeRow(outputs=("results",), engines=_RADIANCE, workers=2)),
+    (RecipeName.POINT_IN_TIME_VIEW, RecipeRow(outputs=("results",), engines=_RADIANCE, workers=2)),
+    (RecipeName.SKY_VIEW, RecipeRow(outputs=("results",), engines=_RADIANCE, workers=2)),
+    (RecipeName.IMAGELESS_ANNUAL_GLARE, RecipeRow(outputs=("ga", "results"), engines=_RADIANCE, workers=2)),
     (RecipeName.ANNUAL_ENERGY_USE, RecipeRow(outputs=("eui", "sql"), engines=frozenset({Engine.OPENSTUDIO, Engine.ENERGYPLUS}), workers=2)),
-    (RecipeName.ADAPTIVE_COMFORT_MAP, RecipeRow(outputs=("tcp", "csp", "hsp", "condition", "degrees-from-neutral"), engines=_COMFORT_ENGINES, workers=2)),
-    (RecipeName.PMV_COMFORT_MAP, RecipeRow(outputs=("tcp", "csp", "hsp", "condition", "pmv"), engines=_COMFORT_ENGINES, workers=2)),
-    (RecipeName.UTCI_COMFORT_MAP, RecipeRow(outputs=("tcp", "csp", "hsp", "condition", "utci", "category"), engines=_COMFORT_ENGINES, workers=2)),
+    (RecipeName.ADAPTIVE_COMFORT_MAP, RecipeRow(outputs=(*_COMFORT_METRICS, "degrees-from-neutral"), engines=_COMFORT_ENGINES, workers=2)),
+    (RecipeName.PMV_COMFORT_MAP, RecipeRow(outputs=(*_COMFORT_METRICS, "pmv"), engines=_COMFORT_ENGINES, workers=2)),
+    (RecipeName.UTCI_COMFORT_MAP, RecipeRow(outputs=(*_COMFORT_METRICS, "utci", "category"), engines=_COMFORT_ENGINES, workers=2)),
 ])
 ```
 

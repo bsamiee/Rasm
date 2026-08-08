@@ -41,7 +41,7 @@
 
 | [INDEX] | [SURFACE]                                                               | [SHAPE]  | [CAPABILITY]                           |
 | :-----: | :---------------------------------------------------------------------- | :------- | :------------------------------------- |
-|  [01]   | `OTLPMetricExporter(..., preferred_temporality, preferred_aggregation)` | ctor     | metric exporter, temporality prefs     |
+|  [01]   | `OTLPMetricExporter(..., preferred_*, max_export_batch_size)`           | ctor     | metric exporter, prefs, batch bound    |
 |  [02]   | `export(metrics_data, timeout_millis=10_000) -> MetricExportResult`     | instance | encode + POST `MetricsData` with retry |
 |  [03]   | `force_flush(timeout_millis=10_000) -> bool`                            | instance | no-op true                             |
 |  [04]   | `shutdown(timeout_millis=30_000) -> None`                               | instance | release session, abort backoff         |
@@ -58,7 +58,8 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- All three exporters share `endpoint`, `certificate_file`, `client_key_file`, `client_certificate_file`, `headers`, `timeout`, `compression`, `session`; span/log add keyword-only `meter_provider` (drives internal self-observability metrics under `OTEL_PYTHON_SDK_INTERNAL_METRICS_ENABLED`), metric adds `preferred_temporality`/`preferred_aggregation`.
+- All three exporters share `endpoint`, `certificate_file`, `client_key_file`, `client_certificate_file`, `headers`, `timeout`, `compression`, `session`; span/log add keyword-only `meter_provider` (drives internal self-observability metrics under `OTEL_PYTHON_SDK_INTERNAL_METRICS_ENABLED`), metric adds `preferred_temporality`, `preferred_aggregation`, and `max_export_batch_size` beside its own keyword-only `meter_provider`.
+- `max_export_batch_size` bounds the metric leg alone and belongs on the EXPORTER, matching the gRPC peer: `PeriodicExportingMetricReader` hands its whole collection to one `export` call, so a composition leaving this slot unset ships one unbounded request where the same geometry on a batch processor already bounds spans and logs.
 - `endpoint` resolves explicit arg, else the per-signal env (`OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` family, used verbatim), else `OTEL_EXPORTER_OTLP_ENDPOINT` with the signal path appended (`v1/traces` / `v1/metrics` / `v1/logs`), else `DEFAULT_ENDPOINT`.
 - `timeout` resolves explicit arg, else `OTEL_EXPORTER_OTLP_*_TIMEOUT`, else `DEFAULT_TIMEOUT`.
 - `headers` resolves explicit `dict`, else `parse_env_headers(OTEL_EXPORTER_OTLP_*_HEADERS, liberal=True)`; auth tokens ride here, merged into `session.headers` beside `Content-Type: application/x-protobuf` and the OTel `User-Agent`.

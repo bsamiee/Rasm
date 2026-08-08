@@ -172,12 +172,13 @@ _CORPUS: Final[Block[CorpusFixture]] = Block.of_seq((
         rows=Block.empty(),
     ),
     # CRDT_OP_SET — the op multiset whose divergent-delivery folds converge byte-identically; it graduates through the MERKLE
-    # arm over the LE child-transcription spine.
+    # arm over the LE child-transcription spine. The anchor is the CODEC that mints and drains those bytes, not the state
+    # fold that consumes them: the round-trip claim freezes on the encode/decode pair, so the state cluster owes nothing.
     CorpusFixture(
         name="crdt-op-set",
         kind="infrastructure",
         state="design_pin",
-        source="python:runtime/transport/wire#CRDT_STATE",
+        source="python:runtime/transport/wire#CRDT_CODEC",
         fmt="crdt-op",
         reference=Nothing,
         rows=Block.empty(),
@@ -187,7 +188,7 @@ _CORPUS: Final[Block[CorpusFixture]] = Block.of_seq((
         name="hlc-two-half",
         kind="infrastructure",
         state="design_pin",
-        source="python:runtime/clock/clock#CLOCK",
+        source="python:runtime/evidence/clock#CLOCK",
         fmt="hlc-stamp",
         reference=Nothing,
         rows=Block.empty(),
@@ -224,9 +225,12 @@ class SeedReproduction(Struct, frozen=True):
             if KEY_FMT.fullmatch(fixture.fmt) is not None
             else Error(BoundaryFault(config=(f"corpus.{fixture.name}", f"{fixture.fmt!r} breaches {KEY_FMT.pattern}")))
         )
+        # the census builds ONCE and the walrus binds it inside the guard the conditional evaluates first, so the
+        # collision test and the returned map are the same value — three constructions of one tree would let a future
+        # edit change the returned census without moving the test that admitted it.
         return traversed(rails, by=Disposition.ACCUMULATE).bind(
-            lambda pairs: Ok(Map.of_seq(pairs))
-            if len(Map.of_seq(pairs)) == len(pairs)
+            lambda pairs: Ok(census)
+            if len(census := Map.of_seq(pairs)) == len(pairs)
             else Error(BoundaryFault(config=("corpus.fmt", "two fixtures claim one producing tag")))
         )
 

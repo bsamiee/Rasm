@@ -637,7 +637,7 @@ public sealed record BcfApiExtensionsBody(
 // recursive element mapping, and [MapperIgnoreSource] pins the deliberate Snapshot drop so the
 // unmapped-member diagnostic stays loud for every OTHER column — a silently dropped field is a
 // build warning, never a hollow round-trip claim.
-[Mapper]
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Both)]
 public static partial class BcfWireMapper {
     [MapperIgnoreSource(nameof(BcfViewpoint.Snapshot))]
     public static partial BcfViewpointWire ToWire(BcfViewpoint viewpoint);

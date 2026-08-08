@@ -136,7 +136,7 @@ config:
 ---
 flowchart LR
     accTitle: Data package Python host-runtime seam registry
-    accDescr: Data sub-domain owners exchanging content identity, transport, receipts, thread boundaries, and the durable evidence port with the Python host runtime sibling.
+    accDescr: Data sub-domain owners exchanging content identity, transport, receipts, thread boundaries, the durable evidence port, and the evidence facts their mutation legs record back through it with the Python host runtime sibling.
     subgraph data[DATA]
         Tabular[Tabular interchange]
         Egress[Object egress]
@@ -154,6 +154,10 @@ flowchart LR
     Query e3@-->|"[RECEIPT]: QueryReceipt"| Runtime
     Gridded e19@-->|"[RECEIPT]: TensorReceipt"| Runtime
     Mesh e2@-->|"[CONTENT_KEY]: ContentIdentity"| Runtime
+    Tabular e30@-->|"[SHAPE]: Fact"| Runtime
+    Egress e31@-->|"[SHAPE]: Fact"| Runtime
+    Materialize e32@-->|"[SHAPE]: Fact"| Runtime
+    Gridded e33@-->|"[SHAPE]: Fact"| Runtime
     Runtime e4@-->|"[TRANSPORT]: ResourceRef"| Tabular
     Runtime e28@-->|"[PORT]: Ledger"| Tabular
     Runtime e20@-->|"[TRANSPORT]: ResourceRef"| Egress
@@ -243,6 +247,8 @@ flowchart LR
 ```
 
 Fences split by peer plane — host runtime, Python siblings, C# peers. Each collapsed edge stands for every contract at that kind between the two owners, and the owning pages enumerate the rest.
+
+The `[PORT]` and `[SHAPE]: Fact` edges are the two halves of one evidence spine and run opposite: runtime declares the `Ledger` a data owner implements, and every data mutation leg records its own facts back through that port's writer. The producing legs are awaitable by law, so a synchronous entrypoint carries no such edge.
 
 Intra-`data` relations are composition, never seams; `[02]-[STRATA]` renders the acyclic import DAG this registry excludes.
 

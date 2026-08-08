@@ -128,6 +128,7 @@ flowchart LR
     subgraph geometry[GEOMETRY]
         Graduation[Graduation spine]
         Mesh[Mesh tessellation]
+        Ifc[IFC producers]
         Scan[Scan ingest]
         Energy[Energy band]
     end
@@ -148,6 +149,9 @@ flowchart LR
     Graduation e11@-->|"[RECEIPT]: BenchmarkReceipt"| Runtime
     Mesh e16@-->|"[IMPORT]: ObjectStoreLane"| Runtime
     Mesh e17@-->|"[LEDGER]: FactJournal"| Data
+    Graduation e19@-->|"[SHAPE]: Fact"| Runtime
+    Ifc e20@-->|"[SHAPE]: Fact"| Runtime
+    Mesh e21@-->|"[SHAPE]: Fact"| Runtime
     Runtime e12@-->|"[PORT]: Kernel"| Mesh
     Runtime e13@-->|"[PORT]: Kernel"| Scan
     Runtime e14@-->|"[PORT]: measured"| Graduation
@@ -159,7 +163,9 @@ Each collapsed edge stands for every contract between that sub-domain and that p
 
 Both `arrow_bytes` edges name the data-owned crossing: `EvidenceFrame` and the energy `ResultFrame` are the geometry-side columnar carriers, each crossing as its declared column roster beside its sealed arrays, admitted by the data `tabular/columnar` `arrow_columns` entry and serialized through the `tabular/interop` `arrow_bytes` fold it feeds, so the data tier holds one admitting entry and one canonical byte fold and no geometry frame type crosses as a foreign shape.
 
-`ObjectStoreLane` and `FactJournal` are the two COMPOSITION-ROOT edges: the mesh servicer takes a built store lane as the daemon's durable artifact tier and binds the `Ledger`/`Custody` pair the runtime daemon entry journals through, so both arrive as values a root supplies and neither folder mints a handle, a credential, or a retention of its own.
+`ObjectStoreLane` and `FactJournal` are the two COMPOSITION-ROOT edges: the mesh servicer takes a built store lane as the daemon's durable artifact tier and binds the `Ledger`/`Custody` pair the runtime daemon entry journals through, so both arrive as values a root supplies and no geometry page mints a store handle, a credential, a key custody, or a retention WINDOW. Declaring a fact's own `Retain` class belongs to the producing fold instead: the class rides the fact under the journal's policy law, while the window pricing that class and the groom executing it stay the runtime owner's.
+
+The `[LEDGER]` and `[SHAPE]: Fact` edges are one evidence spine running opposite: the servicer binds the data-tier `Ledger` implementer into the runtime port at composition, and every producing leg records back through that port's writer. Producing legs are awaitable by law, so a synchronous entrypoint reaches the plane through its own twin. `Resource.COMPUTE` charges once per crossing at the graduation weave's async close, and the IFC and mesh edges carry the mutation, storage, and request evidence their own folds own.
 
 `BenchmarkReceipt` carries the whole bench observability contract on one rail — the `Bench.run` measurement tier, the `Signals`-harvested receipt row, and the `bench_terminal` `JobRun.bounded` process-terminal envelope. `Kernel` carries the HOSTILE process-offload contract every compiled mesh and scan kernel crosses through `LanePolicy.offload`; the lane conduit's pickled pulse tap rides it, so `GeometryPulse` beats reach the runtime `Hooks` registry through the parent-side drain.
 

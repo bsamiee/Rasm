@@ -2,12 +2,12 @@
 
 The dataset-reference identity owner and the folder's scan base: one polymorphic `DatasetRef` discriminating by source shape, the cross-engine lazy/streaming scan, the request-scoped DuckDB session rail, the typed columnar egress, and the content-keyed query receipt. The folder's scan base above `interop` alone — it imports that one module downward for the `arrow_bytes` serialization and holds zero back-edges, so every other folder composition edge points strictly down into it.
 
-`DuckDbSession` authors the connect-install-attach lifecycle once and is composed downward by `tabular/query`, `tabular/materialize`, `spatial/query`, and `tabular/lakehouse`, each supplying its own `DuckDbExtension` and `Attach` rows rather than a hand-rolled `duckdb.connect()`-plus-install site; `quote_ident`/`quote_literal` are the exported quoting folds every composing owner spells its identifiers and URI literals through, so one escape rule serves the whole DuckDB plane; the same session owns the engine-profiling harvest — DuckDB exposes no scrape surface, so the profiled bracket IS the engine's observability, folded onto the one `QueryReceipt` stream and projected onto the runtime metric spine as `domain="query"` measures. `ScanPlan` sources refs, globs, and wire rows; SQL naming its own sources is `tabular/query#QUERY` `QuerySpec.Sql`'s concern — the standing scan/query boundary. The `predicate_count` fold and its `_PREDICATE_NODES` widening are declared here and imported by `tabular/query#QUERY` `_provenance`, so scan and query receipts count predicates off one source. `arrow_bytes` is the `tabular/interop#INTEROP` whole-table serialization every content key over a table payload rides, imported downward and never re-spelled; `arrow_columns` stays this owner's own admitting half — the one entry converting a producer's declared column roster and sealed arrays into that table. Three wire seams cross the edge as data endpoints: `tabular ← python:artifacts/documents` (the `Corpus` arm over `to_corpus_record` records), `tabular/columnar ← graph/graph` (the `pyarrow` `Table.join` left-outer enrichment of a `GraphResult.frame` node table), and `tabular/columnar ← python:geometry/graduation` (the `EvidenceFrame` and energy `ResultFrame` carriers through `arrow_columns`). Every receipt wires through runtime `ReceiptContributor` and keys by runtime `ContentIdentity`.
+`DuckDbSession` authors the connect-install-attach lifecycle once and is composed downward by `tabular/query`, `tabular/materialize`, `spatial/query`, and `tabular/lakehouse`, each supplying its own `DuckDbExtension` and `Attach` rows rather than a hand-rolled `duckdb.connect()`-plus-install site; `quote_ident`/`quote_literal` are the exported quoting folds every composing owner spells its identifiers and URI literals through, so one escape rule serves the whole DuckDB plane; the same session owns the engine-profiling harvest — DuckDB exposes no scrape surface, so the profiled bracket IS the engine's observability, folded onto the one `QueryReceipt` stream and projected onto the runtime metric spine as `domain="query"` measures. `ScanPlan` sources refs, globs, and wire rows; SQL naming its own sources is `tabular/query#QUERY` `QuerySpec.Sql`'s concern — the standing scan/query boundary. The `predicate_count` fold and its `_PREDICATE_NODES` widening are declared here and imported by `tabular/query#QUERY` `_provenance`, so scan and query receipts count predicates off one source. `arrow_bytes` is the `tabular/interop#INTEROP` whole-table serialization every content key over a table payload rides, imported downward and never re-spelled; `arrow_columns` stays this owner's own admitting half — the one entry converting a producer's declared column roster and sealed arrays into that table — and `admit_evidence` is the geometry frame-family admission above it, landing subject and producer-key join columns on the scan plane. Three wire seams cross the edge as data endpoints: `tabular ← python:artifacts/documents` (the `Corpus` arm over `to_corpus_record` records), `tabular/columnar ← graph/graph` (the `pyarrow` `Table.join` left-outer enrichment of a `GraphResult.frame` node table), and `tabular/columnar ← python:geometry/graduation` (the `EvidenceFrame` and energy `ResultFrame` carriers through `arrow_columns`). Every receipt wires through runtime `ReceiptContributor` and keys by runtime `ContentIdentity`.
 
 ## [01]-[INDEX]
 
 - [02]-[DATASET]: the `DatasetRef` identity owner discriminating the columnar source shapes.
-- [03]-[SCAN]: the DuckDB session rail, the engine scan plans, the typed egress, the `arrow_columns` admitting fold, and the content-keyed query receipt.
+- [03]-[SCAN]: the DuckDB session rail, the engine scan plans with their awaitable twin, the typed egress, the `arrow_columns` admitting fold, and the content-keyed query receipt.
 
 ## [02]-[DATASET]
 
@@ -75,10 +75,12 @@ class DatasetRef(Struct, frozen=True):
 - Owner: `ScanPlan` — the engine/projection/predicate/partition policy tagged union; `WindowFunction` the analytical window-verb row carrying its OVER-node spelling; `ExcelSpec` the named decode-policy `Struct` the `Excel` case carries; `Attach` the attached-catalog row `DuckDbSession` folds into its own `ATTACH` statement; `SecretRow` over the closed `SecretType` vocabulary the same session issues once per connection as `CREATE SECRET … PROVIDER credential_chain` DDL, and `remote_store` the one obstore-backed filesystem handle it registers; `ColumnarEgress` the typed export over single-file Arrow/Parquet/IPC targets and the hive-partitioned Parquet tree alike; `QueryReceipt` the one receipt fold over scan plus transform plus egress, carrying the optional column-level `lineage_edges` the `tabular/query#QUERY` `QueryEngine` populates (`sqlglot.lineage` over the qualified SQL, `ibis.to_sql` over the bound expression) and the scan path leaves empty, plus the optional `EngineProfile` the profiled bracket harvests. Every case terminates in the same `RuntimeRail[pa.Table]` over the Arrow C Data Interface.
 - Cases: closed by `assert_never`, each binding the engine or wire that owns it. `ArrowDataset` takes a pre-built `pyarrow.dataset.Expression` predicate the body never re-parses from a string. `IoSource` lifts a `DatasetRef` into a `LazyFrame` through `register_io_source` reading the same `DatasetKind.scan_reader` the `PolarsLazy` arm reads, so the plugin-pushed and direct-lazy scans over one ref fold the byte-identical receipt. The distributed out-of-core runner is the `tabular/query#QUERY` `QuerySpec.Streaming` daft case, never a scan arm; a connection-sourced remote read is `QuerySpec.Remote`, never a scan arm — this owner sources files, globs, and the two wire-ingest rows, never a database connection.
 - Entry: `execute(plan, dataset)` returns `RuntimeRail[pa.Table]` over the Arrow C Data Interface for the egress hop; `scan(plan, dataset)` binds the same materialization into `RuntimeRail[tuple[pa.Table, QueryReceipt]]`, threading `QueryReceipt.railed(..., predicate_count=plan.predicate_count)` so the scan-only path carries the egress path's receipt. `ScanPlan.predicate_count` is the one derived projection over the case axis — the `DuckDb` arm calling the exported `predicate_count(sql)` fold `tabular/query#QUERY` `_provenance` shares, so scan and query count predicates identically, never a hardcoded `0`. `QueryReceipt.railed` derives the content key off the canonical Arrow bytes through the railed `ContentIdentity.of` and `.map`s the resolved key into the receipt; `QueryReceipt.of` is the plain factory taking the already-resolved key.
+- Entry: `scan_async` is the awaitable twin over one `on_thread` band hop, splitting two entrypoints off one body exactly as the sibling `tabular/lakehouse#LAKEHOUSE` and `tabular/egress#EGRESS` owners do — a blocking native scan never runs inline on a caller's loop, and the hop stops being hand-rolled at every async consumer. It is also the one seat this owner lands durable evidence from: the profiled bracket's engine seconds cross onto the `python:runtime/observability/journal#LEDGER` plane as a `COMPUTE` `MeterFact` in the millisecond unit the live duration series already exports, and an unprofiled receipt meters nothing, exactly as it records no series. Recording suspends by law, so the synchronous `scan` and `execute` carry no producer leg and `contribute` stays the pure receipt projection.
 - Entry: `ColumnarEgress` splits its write in two — `emit` lands the bytes and answers the `Landed` file-and-byte evidence, `write` composes that half with the scan-plane `QueryReceipt`. An evidence-plane commit takes `emit`, because a `QueryReceipt` minted for it enters the receipt stream as a query-domain row and prices a residence's own storage as a query.
 - Auto: the polars path selects its lazy reader off `dataset.kind` through `DatasetKind.scan_reader`, then runs `.select().filter().collect(engine="streaming")` — `engine="streaming"` the streaming spelling, never the `collect(streaming=True)` flag. `ScanPlan.DuckDb` binds the admitted ref as the one `source` view through the `_DUCK_READER` `DatasetKind`-keyed row — a SQL TABLE FUNCTION beside the extension it needs, because DuckDB exposes only a few readers as connection methods and the analytics residence's own reader is `delta_scan` — so the SQL is source-scoped by construction and the evidence table answers an interactive read. `RemoteGlob` opens `DuckDbSession(extensions=(DuckDbExtension.HTTPFS, …), filesystem=remote_store(dataset.ref))` so `register_filesystem` threads an `obstore.fsspec.FsspecStore` over the SAME Rust core, `STORE_RETRY` envelope, and credential resolution every other remote read in the branch crosses — `UPath.fs` is the deleted form, resolving fsspec's own `s3fs`/`gcsfs`/`adlfs` backend as a second provider stack the estate's pinned retry config never reaches. Cold `polars`, `fastexcel`, and `obstore.fsspec` imports defer at module scope. Every engine harvests its OWN payload through the case that carries it — DuckDB the profiling JSON its connection answers, polars its node-timing frame, Daft its `DataFrame.metrics` rows — and `ProfileHarvest.scalar` stays the portable floor an engine publishing no payload rides; each case answers zero for the facts its engine measures nowhere rather than aliasing latency onto them.
+- Law: `admit_evidence` is the geometry frame-family admission row over the standing seam — the wire-carried subject discriminant and the PRODUCER's `ContentKey` land as lead columns on the admitted table, so cross-model deviation trends, quality rollups, and section-property queries join scan- and lake-side frames on `content_key` with zero receipt parsing, and the receipt subject spells `{subject}:{key}` under the same `domain="query"` projection every scan row rides. The subject stays an opaque wire literal here: data dispatches on no member, so a mirrored `GeometrySubject` roster would be an unread copy the geometry owner already censuses — a new frame family admits with zero edits on this page.
 - Receipt: the scan contributes an emitted-phase `Receipt.of(owner, ("emitted", subject, facts))` row through `ReceiptContributor` (the two-argument owner-plus-evidence factory, the `(Phase, subject, facts)` triple, never a four-positional call) and produces a `QueryReceipt` keyed by `ContentIdentity` over the canonical `arrow_bytes`, never the `engine:source` string a content change cannot move. The `Excel`/`Corpus` wire arms key over their decoded Arrow bytes so a re-ingest of an unchanged workbook or corpus reuses its key, and the `Excel` arm stamps its path-shaped decode evidence as Arrow schema metadata so it rides the uniform `pa.Table` into the receipt rather than vanishing at the bare return. Receipts stay truth and instruments stay projections: a profile-bearing `contribute` records the engine latency and row count onto the runtime `Metrics.record` mapping arm under `domain="query"`, keyed by the engine tag, and an unprofiled receipt records nothing.
-- Packages: `polars`, `duckdb`, `pyarrow`, `sqlglot`, `fastexcel`, `obstore` (`fsspec.FsspecStore` — the sanctioned filesystem-interface bridge over the branch object-store core, reached exactly where DuckDB demands a filesystem handle and never as a second IO owner), `tabular/interop` (`arrow_bytes`, the folder's one whole-table IPC serialization this owner keys every receipt through and never re-spells), `beartype` (`@beartype(conf=FAULT_CONF)` on the `execute`/`scan` entrypoints; the `QueryReceipt`/`ScanPlan`/`ColumnarEgress` staticmethods over already-admitted values carry no decorator), runtime (`RuntimeRail`/`ContentIdentity`/`ReceiptContributor`/`FAULT_CONF`/`ResourceRef`, and `Metrics.record` as the one instrument projection port — the DBAPI span train (`PsycopgInstrumentor`/`SQLite3Instrumentor`) activates at the runtime composition root, never at data altitude). The `DuckDbSession` owner authors the connect-install-register lifecycle once with the `DuckDbExtension` rows as seed data. The `pyarrow` `Table.join` left-outer join is the data-side endpoint of the `tabular/columnar ← graph/graph [WIRE]` seam, enriching a `GraphResult.frame` node-index-keyed table by the stable `node` key.
+- Packages: `polars`, `duckdb`, `pyarrow`, `sqlglot`, `fastexcel`, `obstore` (`fsspec.FsspecStore` — the sanctioned filesystem-interface bridge over the branch object-store core, reached exactly where DuckDB demands a filesystem handle and never as a second IO owner), `tabular/interop` (`arrow_bytes`, the folder's one whole-table IPC serialization this owner keys every receipt through and never re-spells), `beartype` (`@beartype(conf=FAULT_CONF)` on the `execute`/`scan` entrypoints; the `QueryReceipt`/`ScanPlan`/`ColumnarEgress` staticmethods over already-admitted values carry no decorator), runtime (`RuntimeRail`/`ContentIdentity`/`ReceiptContributor`/`FAULT_CONF`/`ResourceRef`/`async_boundary`/`on_thread`, `Journal.record` as the durable evidence port and `Metrics.record` as the one instrument projection port — the DBAPI span train (`PsycopgInstrumentor`/`SQLite3Instrumentor`) activates at the runtime composition root, never at data altitude). The `DuckDbSession` owner authors the connect-install-register lifecycle once with the `DuckDbExtension` rows as seed data. The `pyarrow` `Table.join` left-outer join is the data-side endpoint of the `tabular/columnar ← graph/graph [WIRE]` seam, enriching a `GraphResult.frame` node-index-keyed table by the stable `node` key.
 - Growth: a new engine is one `ScanPlan` case; a new DuckDB extension is one `DuckDbExtension` row (repository and attach type both row properties) every session consumer names for free; a new attachable catalog is one `_ATTACH_TYPE` row its `Attach` value then spells for free; a new object-store scheme is one `_SCHEME_EXTENSION` row every remote scan reads; a new in-engine credential type is one `SecretType` member with its `_SECRET_EXTENSION` row, the session's extension union and its DDL both deriving; a bespoke object-store credential provider is the existing `remote_store` argument, never a second store construction; a new lazy-pushdown source is one `DatasetKind.scan_reader` row the polars arms and the `IoSource` plugin already forward; a new DuckDB-readable ref kind is one `_DUCK_READER` row naming its table function beside the extension that function needs; a new window verb is one `WindowFunction` row; a new decode knob is one `ExcelSpec` field; a new corpus wire field is one column `from_pylist` already folds; a new egress format is one `ColumnarEgress` branch answering its own `Landed` evidence; a new native profile shape is one `ProfileHarvest` case; a new harvested profile fact is one `EngineProfile` field; a new query instrument is one measure name in `contribute` and one `InstrumentSpec` row on the runtime metrics owner.
 - Boundary: no durable query rails, no global DuckDB connection, the `DuckDbSession` bracket request-scoped by law; a hand-written `ATTACH` beside the `Attach` session row and a page-private SQL-quoting twin beside the exported `quote_ident`/`quote_literal` folds are the deleted forms, both drifting the escape and dialect rule the moment one owner meets a name the other never tested; a free-form `con.sql(sql)` scan arm binding no admitted source where the `DuckDb` case binds the ref's `source` view and `QuerySpec.Sql` owns self-sourced SQL; a `scan_remote`/`scan_glob`/`window_rank`/`read_excel`/`ingest_corpus` method family, a generic receipt abstraction, a per-engine egress class family, a second SQL engine or second transport owner are the deleted forms; a `fastexcel` `ScanPlan` backend row where it is a `DatasetKind`-plus-capsule producer; a per-format polars IO plugin where one `register_io_source` reads `dataset.kind`; a local graph node-table owner or a `graph`-named `ScanPlan` arm where the `graph/graph#GRAPH` `GraphResult.frame` node table left-joins through the existing `pyarrow` `Table.join`; a pre-loaded-httpfs assumption; a `UPath.fs` handle handed to `register_filesystem` where `remote_store` bridges the one branch store, which second provider stack authenticates, retries, and pools outside every envelope the estate pins; key material spelled into a `CREATE SECRET` statement where `PROVIDER credential_chain` reads the provider's own chain, and a `CREATE OR REPLACE SECRET` whose silent replacement hides a caller's colliding row; a whole-table serialization re-spelled here beside the imported `tabular/interop#INTEROP` `arrow_bytes`, which two spellings of one byte stream fork into two content keys for one frame; and an undecorated `execute`/`scan` admitting a caller argument without the `@beartype(conf=FAULT_CONF)` public-seam contract.
 
@@ -103,18 +105,20 @@ lazy import polars as pl
 lazy from obstore.fsspec import FsspecStore
 
 from beartype import beartype
-from expression import case, tag, tagged_union
-from expression.collections import Map
+from expression import Error, Result, case, tag, tagged_union
+from expression.collections import Block, Map
 from msgspec import Struct
 from msgspec.json import Decoder as JsonDecoder
 from msgspec.json import decode as json_decode
 from msgspec.json import encode as json_encode
 
 from rasm.data.tabular.interop import arrow_bytes
-from rasm.runtime.faults import FAULT_CONF, RuntimeRail, boundary
+from rasm.runtime.faults import FAULT_CONF, RuntimeRail, async_boundary, boundary
 from rasm.runtime.identity import ContentIdentity, ContentKey
+from rasm.runtime.journal import Journal, MeterFact, Resource
+from rasm.runtime.lanes import on_thread
 from rasm.runtime.metrics import Metrics
-from rasm.runtime.receipts import Receipt
+from rasm.runtime.receipts import DEFAULT_SCOPE, Receipt, ScopeKey
 from rasm.runtime.roots import STORE_RETRY, ResourceRef
 
 if TYPE_CHECKING:
@@ -751,6 +755,36 @@ def scan(plan: ScanPlan, dataset: DatasetRef, profiling: ProfileMode = ProfileMo
     )
 
 
+def _metered(receipt: QueryReceipt) -> "Block[MeterFact]":
+    # engine COMPUTE as integral milliseconds off the profile the ENGINE measured, matching the unit the live
+    # duration series already exports; journal quantities are integral by constraint, so a finer need is a smaller
+    # unit row and never a decimal. An unprofiled receipt meters nothing — a wall-clock stand-in would reach the
+    # cost fold priced as engine time the engine never spent.
+    return (
+        Block.empty()
+        if receipt.profile is None
+        else Block.of_seq((MeterFact(resource=Resource.COMPUTE, quantity=round(receipt.profile.latency_s * 1000.0), surface=receipt.engine),))
+    )
+
+
+@beartype(conf=FAULT_CONF)
+async def scan_async(
+    plan: ScanPlan, dataset: DatasetRef, profiling: ProfileMode = ProfileMode.OFF, *, scope: ScopeKey = DEFAULT_SCOPE
+) -> "RuntimeRail[tuple[pa.Table, QueryReceipt]]":
+    # the awaitable twin the sibling `tabular/lakehouse#LAKEHOUSE` and `tabular/egress#EGRESS` owners already split
+    # off one body, and the ONE seat this owner lands durable evidence from. Every arm below `execute` is a blocking
+    # native scan, so an async composition reaching the synchronous entry stalls its loop for the whole read, and
+    # recording SUSPENDS under the never-shed law, which no synchronous entry can do. One `on_thread` band hop
+    # carries both — the hop an async consumer otherwise hand-rolls around `execute` — and the record rail binds
+    # into the verdict, so an armed evidence plane refusing a compute fact surfaces and an unarmed one costs a block.
+    railed = await async_boundary(f"scan.{plan.tag}", lambda: on_thread(scan, plan, dataset, profiling))
+    match railed.bind(lambda rail: rail):
+        case Result(tag="ok", ok=(table, receipt)):
+            return (await Journal.record(_metered(receipt), scope=scope)).map(lambda _landed: (table, receipt))
+        case refused:
+            return Error(refused.error)
+
+
 def _run(plan: ScanPlan, dataset: DatasetRef, profiling: ProfileMode = ProfileMode.OFF) -> pa.Table:
     source = str(dataset.ref.path)
     match plan:
@@ -888,6 +922,25 @@ def arrow_columns(columns: tuple[str, ...], table: Mapping[str, np.ndarray]) -> 
     # producer declared, and taking the mapping's own order re-schemas the table whenever a producer rebuilds it.
     # Producers catch a width mismatch at their own admission fence; this fold converts an already-rectangular table.
     return pa.table({name: table[name] for name in columns})
+
+
+def admit_evidence(
+    subject: str, key: ContentKey, columns: tuple[str, ...], table: Mapping[str, np.ndarray]
+) -> "RuntimeRail[tuple[pa.Table, QueryReceipt]]":
+    # geometry frame-family admission: the producing subject and ContentKey become the two lead JOIN columns —
+    # `subject` the wire-carried GeometrySubject literal, `content_key` the producer's own key hex — so an admitted
+    # deviation band, quality metric, section property, or analytic board queries beside every columnar source and
+    # joins back to its producing evidence by key. The receipt re-keys the ADMITTED table (lead columns included)
+    # through the canonical `arrow_bytes` fold; the producer's key survives as the column, never as the receipt key.
+    def build() -> pa.Table:
+        admitted = arrow_columns(columns, table)
+        rows = admitted.num_rows
+        keyed = admitted.add_column(0, "content_key", pa.array([key.hex] * rows, type=pa.string()))
+        return keyed.add_column(0, "subject", pa.array([subject] * rows, type=pa.string()))
+
+    return boundary(f"columnar.evidence.{subject}", build).bind(
+        lambda admitted: QueryReceipt.railed("evidence", f"{subject}:{key.hex}", admitted).map(lambda receipt: (admitted, receipt))
+    )
 ```
 
 ## [04]-[RESEARCH]

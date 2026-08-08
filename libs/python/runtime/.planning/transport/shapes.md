@@ -2,23 +2,23 @@
 
 Python's mint of the suite wire vocabulary: every canonical `msgspec.Struct` the transport carries is minted HERE, field-for-field against the schema authority its own producer declares — the corpus-homed `.proto` the `DESCRIPTOR_DRIFT` contract defines for a descriptor-backed family, the producer's positional key roster for an appearance document that holds no descriptor source by ruling. Single-mint law: this page is the branch's one wire-shape owner and no sibling authors a second — the `.proto` sources, the HLC layout, and the `FaultDetail` schema are contract facts every branch mints against, `csharp:Rasm.Compute/Runtime/wire#PROTO_VOCABULARY` the peer mint of the same table. Additive drift is tolerated by construction because cross-language evolution rides the contract's additive-only rule, which this branch's own gate applies exactly as its peers apply theirs, never a Python-side `forbid_unknown_fields` that breaks the additive contract.
 
-Two registries carry that mint because the suite runs two schema authorities: `PROTO_VOCABULARY` binds each descriptor-backed shape to its generated `channels_pb2` message, `MIRROR_VOCABULARY` binds each appearance document to the producer's own positional key roster the corpus contract names its authority, and `aligned` is the one boot gate proving both — compiled descriptors match the descriptor rows — field names and 64-bit decode floors — before the first RPC; the registry lives one tier below `transport/wire#PROTO_TRANSCODE` because a wire-side registry forces a `shapes -> wire` back-edge from the gate. Canonical-bytes custody is recorded here and re-minted nowhere in this folder: the length- and count-framed content-key byte stream the `evidence/identity#IDENTITY` key runs over is the payload-agnostic `CANONICAL_BYTE_IDENTITY` contract layout, each branch writing it from its own canonical writer with parity proving at the corpus; the CRDT op-log msgpack arrays are self-delimiting, the amendment governing content keys, not wire framing.
+Three registries carry that mint because the suite runs two schema authorities over one dial surface: `PROTO_VOCABULARY` binds each descriptor-backed shape to its generated `channels_pb2` message, `MIRROR_VOCABULARY` binds each appearance document to the producer's own positional key roster the corpus contract names its authority, `SERVICE_VOCABULARY` binds every service and method name this branch dials or serves to the compiled service that proves it, and `aligned` is the one boot gate proving all three — field names, 64-bit decode floors, and service-method resolution — before the first RPC; the registry lives one tier below `transport/wire#PROTO_TRANSCODE` because a wire-side registry forces a `shapes -> wire` back-edge from the gate. Canonical-bytes custody is recorded here and re-minted nowhere in this folder: the length- and count-framed content-key byte stream the `evidence/identity#IDENTITY` key runs over is the payload-agnostic `CANONICAL_BYTE_IDENTITY` contract layout, each branch writing it from its own canonical writer with parity proving at the corpus; the CRDT op-log msgpack arrays are self-delimiting, the amendment governing content keys, not wire framing.
 
 ## [01]-[INDEX]
 
 - [02]-[VOCABULARY]: wire slot types, the `GeometryPayload` envelope family, the canonical service shapes, and the tessellation pair.
-- [03]-[REGISTRY_AND_DRIFT]: the `PROTO_VOCABULARY`/`MIRROR_VOCABULARY` seed tables, the static-codegen contract, and the `aligned` boot gate over both.
+- [03]-[REGISTRY_AND_DRIFT]: the `PROTO_VOCABULARY`/`MIRROR_VOCABULARY`/`SERVICE_VOCABULARY` seed tables, the static-codegen contract, and the `aligned` boot gate over all three.
 
 ## [02]-[VOCABULARY]
 
 - Owner: a descriptor-backed shape spells the producer's snake_case proto names verbatim — `MessageToDict(preserving_proto_field_name=True)` keys the mapping by them — so no `rename=` layer exists and the struct declaration IS the wire contract. A MIRROR shape carries no descriptor at all: its authority is the producer's own integer-keyed record roster, its slot NAMES are this branch's reading spelling and decode nothing by themselves, and its slot ORDER against that key roster is the whole contract. The two families therefore prove differently and never share a gate — `PROTO_VOCABULARY` against compiled descriptors, `MIRROR_VOCABULARY` against declared key rosters — because a mirror bound to a generated message names a message the corpus contract forecloses and raises at the descriptor lookup before the first RPC.
 - Cases: every scalar slot carries its proto3 zero default because `MessageToDict` omits a field at its default value — a default-less slot rejects the producer's legitimate zero, so presence is the proto3 no-presence contract, never a required-field re-mint. Nested message slots spell `T | None = None` — proto message absence is a real wire value, the one place `None` crosses inward, collapsed by the consuming owner at its seam. Explicit presence rides every scalar whose producer MEASURES nothing on one of its arms, spelling `T | None = None` for that reason alone: the field distinguishes unmeasured from measured-zero, so folding it onto the zero default reads a measurement no producer took. The press divergence a single-lane run never measures and the chart residual an uncalibrated capture never solves are the two standing instances, and a scalar every arm of its producer measures keeps the zero default, since `None` there rejects a legitimate zero. Presence is a slot pair — the producer's `optional` keyword and this shape — so a mirror landing one half alone still reads honestly on this branch while the descriptor still collapses the two states, which is why the pair lands as one edit at both ends. `SolveRequest` deliberately carries bare column-major `float64` bytes, never a tensor envelope, per the producer's no-geometry-envelope law.
-- Auto: no shape lifts the causal halves to `Hlc` — the `clock/clock#CLOCK` owner reconstructs causal cells at full 100-ns tick fidelity from the carrier slots, and a `datetime`-mediated lift here truncates to microseconds. `Packed` types the two producer-open envelopes, open within the additive-only contract by the producer's own design and never widened past the declared slots. `TessellationRequest`/`TessellationReceipt` are contract rows this registry mints and streams over the existing `artifact_frame` leg — geometry `mesh/serve` binds the field floor by symbol, minting no wire shape. `GaussianSplatScan` rides the same leg on the same authority: framing a document as `artifact_frame` bytes decides how it MOVES and never whether the vocabulary proves it, so a standalone artefact still rows here and geometry `scan/ingestion` keeps its own typed interior beside the wire mirror rather than a second wire shape.
+- Auto: `Stamp` mirrors the producer's own proto `Timestamp` column and truncates the 100-ns tick to microseconds BY CONSTRUCTION — the echo is evidence riding beside a receipt, never the causal authority — so the `evidence/clock#CLOCK` owner reconstructs cells at full tick fidelity from the carrier slots and no shape here lifts the halves to `Hlc`; a consumer ordering on a decoded `Stamp` reads a coarser clock than the one the stamp was minted on. `Packed` types the two producer-open envelopes, open within the additive-only contract by the producer's own design and never widened past the declared slots. `TessellationRequest`/`TessellationReceipt` are contract rows this registry mints and streams over the existing `artifact_frame` leg — geometry `mesh/serve` binds the field floor by symbol, minting no wire shape. `GaussianSplatScan` rides the same leg on the same authority: framing a document as `artifact_frame` bytes decides how it MOVES and never whether the vocabulary proves it, so a standalone artefact still rows here and geometry `scan/ingestion` keeps its own typed interior beside the wire mirror rather than a second wire shape.
 - Law: PRODUCER DIRECTION is a per-family fact this page records and never averages. `MaterialWire`, `OpenPbrGroupsWire`, and the `WireColor` leaf form the appearance family, DECODE-ONLY: `csharp:Rasm.Materials/Appearance/interchange#MATERIAL_WIRE` is the sole producer of the OpenPBR parameter algebra, the conductor key, the capture receipt, and the appearance content hash, so these structs mirror that projection field-for-field and a python-side lowering, conductor table, or key derivation is the named cross-language drift defect. That family is the MIRROR arm whole — its producer carries a positional integer-keyed record and a Web-camelCase JSON leg over ONE member roster and no proto declaration beside them, the corpus contract ruling a descriptor source there a second schema for one wire, so a `PROTO_VOCABULARY` row binding any of them to a generated message names a message no source emits. The neutral seam SUMMARY is deliberately NO row on either registry: no producer emits a standalone summary document — its one wire leg is the `rasm.element.v1` `AppearanceWire` payload inside `NodeWire` (`csharp:Rasm.Element/Graph/wire#WIRE_CODEC`, `Graph/element.proto`, a pending `DESCRIPTOR_DRIFT` source) — so the shape lands here as one `PROTO_VOCABULARY` row against the generated element message when that descriptor source lands, and a mirror row asserting a positional order no wire carries is the producer-less-family defect this registry refuses. `WireProvenance` is the one leaf both families carry: the set documents reach it through their descriptor and the appearance payload through its key roster, so it rows on BOTH registries and stays one shape, exactly as it stays one shape across the two producers. `TextureSetWire` with its `ChannelWire`/`PackWire`/`PressReceiptWire` leaves forms the baked-set family, DECODE-ONLY on the same authority, `csharp:Rasm.Materials/Raster/set#TEXTURE_SET` pressing the plane bytes and keying the set, and it REUSES `WireProvenance` rather than minting a second capture receipt. `AssetSetManifest` and its `MapEntry`/`PackEntry`/`IblEntry` leaves run the other way — `artifacts/graphic/texture/set#TEXTURE_SET` FILLS them behind its merkle set key and the peers decode. Both set documents stand DISTINCT and neither name covers the other: the C# one hangs behind an `AppearanceKey` and carries a press receipt, the python one carries a `kind` discriminant and an IBL entry, and one channel roster, transfer vocabulary, normal convention, and pack order serve both — two producers under two names sharing one frozen vocabulary. Their hex spellings also diverge and neither derives from the other: the C# document carries its content addresses UPPERCASE and the python one lowercase, so a consumer joining a key across the pair lowers, never uppercases. Every family spells repeated slots `list[...]` because the frozen cross-branch fragment declares them so and the producer constructs them so; `convert` coerces either container inward, so the declaration follows the fragment rather than re-spelling it, and the interior owners that consume these documents hold their own immutable collections. Every addressed plane on BOTH set documents is a level-ordered address-triple list — `PlaneRefWire` on the C# family, `PlaneRef` on the python one, per the fragment's plane-levels law — one triple for a self-pyramiding container and one per level otherwise, so no level past the base crosses undigested; the container key rides its own column on every channel, pack, and map row because the alpha-association gate selects on it and an extension parse is the unspellable form that column replaces.
 - Receipt: `FaultDetail` is the typed conflict the whole suite converges on, riding the `TransactionReceipt.conflict` slot in band and the `grpc-status-details-bin` trailer out of band; `transport/serve#SERVE` owns the Python trailer egress and ingress — this page owns only the shape.
 - Packages: `msgspec`, `protobuf`, and the faults rail per the fence imports; `transport/wire#PROTO_TRANSCODE` runs the `convert(strict=False)` decimal-string coercion leg.
 - Growth: a new descriptor-backed message is one `Struct` with one `PROTO_VOCABULARY` row the gate proves on the next boot; a new mirror document is one `Struct` with one `MIRROR_VOCABULARY` row carrying its producer's key roster, never a registry row minting a descriptor its producer never declared; a new field on an existing message is one slot with its proto3 zero default, seated where the producer's own declaration reads it while its `.proto` number appends past the last — the gate keys on NAME sets, so declaration order carries the mirror's field-for-field readability and number order carries the contract's additive-only rule, and re-seating a number to match a reading position breaks every peer already decoding the numbers below it; a new sibling-consumer field floor is one registry row pair, never a sibling vocabulary. Every peer-produced DOCUMENT lands as its whole struct family — each nested envelope carries its own row, because the gate walks a registered row's top-level fields alone and an unregistered leaf drifts field-silently while its parent still passes.
-- Boundary: shapes and the registry only — no codec, span, retry, or transcode body (`transport/wire#PROTO_TRANSCODE`), no causal lift (`clock/clock#CLOCK`), no trailer pack/unpack (`transport/serve#SERVE`).
+- Boundary: shapes and the registry only — no codec, span, retry, or transcode body (`transport/wire#PROTO_TRANSCODE`), no causal lift (`evidence/clock#CLOCK`), no trailer pack/unpack (`transport/serve#SERVE`).
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -31,7 +31,7 @@ from msgspec import Meta, Struct
 # --- [TYPES] ----------------------------------------------------------------------------
 
 # proto3 JSON emits 64-bit fields as decimal strings; the msgspec C core rejects any integer bound past int64 at codec/convert
-# build, so only the ge=0 floor rides the slot — the <2**64 ceiling is the clock#CLOCK owner's railed decode check.
+# build, so only the ge=0 floor rides the slot — the <2**64 ceiling is the evidence/clock#CLOCK owner's railed decode check.
 type WireU64 = Annotated[int, Meta(ge=0)]
 type Stamp = Annotated[datetime, Meta(tz=True)]
 type Packed = dict[str, object]
@@ -483,15 +483,18 @@ class AssetSetManifest(Struct, frozen=True):
 
 ## [03]-[REGISTRY_AND_DRIFT]
 
-- Owner: `PROTO_VOCABULARY` binds each descriptor-backed shape to its generated message and `MIRROR_VOCABULARY` binds each mirror document to its producer's integer-key roster; `aligned` proves both in one pass, so one boot answer covers every registered wire whatever proves it. The nested envelope shapes are registered rows on both registries because a census walks only a registered row's own fields — an unregistered nested message drifts field-silently while its parent row still passes. `transport/wire#PROTO_TRANSCODE` builds its codec instances from the rows and `transport/serve#SERVE` resolves servicer codec pairs by name; the daemon composition root runs `aligned` once before serve binds.
+- Owner: `PROTO_VOCABULARY` binds each descriptor-backed shape to its generated message, `MIRROR_VOCABULARY` binds each mirror document to its producer's integer-key roster, and `SERVICE_VOCABULARY` binds each dialed or served service to its method roster; `aligned` proves all three in one pass, so one boot answer covers every registered wire and every dial path whatever proves it. The nested envelope shapes are registered rows on both wire registries because a census walks only a registered row's own fields — an unregistered nested message drifts field-silently while its parent row still passes. `transport/wire#PROTO_TRANSCODE` builds its codec instances from the rows and `transport/serve#SERVE` resolves servicer codec pairs by name and mounts its routes under the `WireService`/`WireMethod` members; the daemon composition root runs `aligned` once before serve binds.
+- Auto: a service row carries the FULL name AND its method roster because a renamed rpc is the same dead dial a renamed service is — grpc resolves `/{service}/{method}` as one path and a miss answers `UNIMPLEMENTED` at the first call rather than at boot, so both halves seat here and both resolve in the same pass. The roster spans what this branch SPELLS: the two compute rows `geometry/mesh/serve` registers, the diagnostic capsule's own, and the capability dial path; the health servicer earns no row, since `grpc_health.v1`'s generated stub pins its own name and this branch writes no literal there to drift.
+- Auto: `ServiceProof` closes the honest column the pool cannot answer for. A `POOLED` row resolves in the default descriptor pool under the corpus-homed header's ONE declared package, so a `rasm.runtime.`-rooted spelling names a service no descriptor set emits and refuses at boot. The `BROKERED` capability path carries no compiled service at all — its methods ARE the descriptor ids the `csharp:Rasm.AppHost/Agent/capability#SDK_CODEGEN` broker mints per capability and `CapabilityInvoke.discover` reads at runtime — so the row states that it rides no descriptor proof rather than failing a gate that was never in the pool's power.
 - Auto: a mirror row's roster is the producer's `[Key(n)]` ORDER, and the empty roster means that order IS this struct's declaration order — the positional record's default and the shape every verified sibling holds — so only a producer that APPENDED a column past its frozen block spells a roster out, and `_mirror` proves the spelled roster against the live slot set rather than trusting either end. Order is the whole mirror contract because the positional array carries no names: a slot seated at the wrong index decodes a neighbour's value silently, where a descriptor row's same defect surfaces as an unmapped name.
 - Auto: the codegen contract is static and build-time — `grpc_tools.protoc.main(["-I<proto-root>", "--python_out=<pkg>", "--pyi_out=<pkg>", "rasm/channels.proto"])` mints `rasm.runtime._pb2.channels_pb2` from the corpus-homed `.proto`, with `command.build_package_protos(package_root, strict_mode=True)` the CI form failing on the first compile error. `GRPC_PYTHON_DISABLE_DYNAMIC_STUBS=1` seals off the `sys.meta_path` dynamic-stub path backing `grpc.protos(...)` — the runtime imports the generated module, never generates at import time.
 - Packages: `protobuf`, `msgspec.inspect`, `grpcio-tools`, and `expression` per the fence imports.
-- Growth: a new wire pair is one `PROTO_VOCABULARY` row the gate proves and wire transcodes; a new mirror document is one `MIRROR_VOCABULARY` row the same gate proves and the mirror codec decodes; a new structural assertion is one arm in `_drift` or `_mirror`, never a second gate; a new sibling consumer binds existing rows by symbol.
-- Boundary: the gate proves structure, not values — byte-level round-trip parity is the `evidence/reproduction#SEED_REPRODUCTION` corpus's, and the additive-drift admission rule is the contract's, applied by this branch's own gate rather than read off a peer's classifier. Extra compiled fields the struct lacks stay flagged here: this branch dropping a contract field is a decode gap even when the contract admits the addition. A mirror row is proved against a DECLARED roster rather than a compiled artefact, so its census answers slot-count and slot-order alone and a producer renaming a column behind an unchanged key is invisible to it by construction — that half is the corpus mirror-census law's, run where both member rosters are readable.
+- Growth: a new wire pair is one `PROTO_VOCABULARY` row the gate proves and wire transcodes; a new mirror document is one `MIRROR_VOCABULARY` row the same gate proves and the mirror codec decodes; a new served or dialed method is one `WireMethod` member on its service's roster and a new service one `WireService` member with its `SERVICE_VOCABULARY` row; a new structural assertion is one arm in `_drift`, `_mirror`, or `_service`, never a second gate; a new sibling consumer binds existing rows by symbol.
+- Boundary: the gate proves structure, not values — byte-level round-trip parity is the `evidence/reproduction#SEED_REPRODUCTION` corpus's, and the additive-drift admission rule is the contract's, applied by this branch's own gate rather than read off a peer's classifier. `GeometryPayload` oneof exclusivity stays outside it on that same line: at-most-one-arm-set is a property of a VALUE, so the producer's own `WhichOneof` is where that law holds and a boot census reading declarations proves nothing about it. Extra compiled fields the struct lacks stay flagged here: this branch dropping a contract field is a decode gap even when the contract admits the addition. A mirror row is proved against a DECLARED roster rather than a compiled artefact, so its census answers slot-count and slot-order alone and a producer renaming a column behind an unchanged key is invisible to it by construction — that half is the corpus mirror-census law's, run where both member rosters are readable.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+from enum import StrEnum
 from typing import Final
 
 import msgspec
@@ -503,7 +506,32 @@ from google.protobuf.message import Message
 from msgspec import Struct
 
 from rasm.runtime._pb2 import channels_pb2
-from rasm.runtime.faults import BoundaryFault, RuntimeRail
+from rasm.runtime.faults import BoundaryFault, RuntimeRail, boundary
+
+# --- [TYPES] ----------------------------------------------------------------------------
+
+
+# Fully-qualified service names this branch dials or serves. `rasm.compute.v1` is the corpus-homed header's ONE
+# declared package (`csharp:Rasm.Compute/Runtime/wire#PROTO_VOCABULARY`), so every compiled service qualifies under
+# it and a differently-rooted spelling names a service no descriptor set emits.
+class WireService(StrEnum):
+    COMPUTE = "rasm.compute.v1.ComputeService"
+    ARTIFACT_SYNC = "rasm.compute.v1.ArtifactSync"
+    DIAGNOSTIC = "rasm.compute.v1.Diagnostic"
+    CAPABILITY = "rasm.capability"
+
+
+# rpc names verbatim off the contract's own service table; the dial path concatenates a service with one of these
+# and nothing normalizes case or separators, so the member text IS the wire spelling.
+class WireMethod(StrEnum):
+    TESSELLATE = "Tessellate"
+    SYNC = "Sync"
+    CAPTURE_BUNDLE = "CaptureBundle"
+
+
+class ServiceProof(StrEnum):
+    POOLED = "pooled"  # a compiled service the default descriptor pool resolves by full name
+    BROKERED = "brokered"  # a broker-minted path whose methods are runtime descriptor ids; no compiled service stands behind it
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -598,6 +626,18 @@ MIRROR_ORDER: Final[Map[str, tuple[str, ...]]] = Map.of_seq(
 # NAME off this table rather than by reflecting a `T | None` annotation back to its struct — one declared
 # correspondence the census proves against the rosters, where the reflection would silently answer nothing for the
 # optional spelling every nested slot carries and hand `convert` a bare list where a struct stands.
+# service full name -> its rpc roster and the proof class standing behind it. A dial is `/{service}/{method}` as ONE
+# path, so the two halves seat on one row and resolve in one pass; `WireMethod` members hash as their own text, so
+# the roster reads straight against the compiled method-name keys with no projection between them.
+SERVICE_VOCABULARY: Final[tuple[tuple[WireService, tuple[WireMethod, ...], ServiceProof], ...]] = (
+    (WireService.COMPUTE, (WireMethod.TESSELLATE,), ServiceProof.POOLED),
+    (WireService.ARTIFACT_SYNC, (WireMethod.SYNC,), ServiceProof.POOLED),
+    (WireService.DIAGNOSTIC, (WireMethod.CAPTURE_BUNDLE,), ServiceProof.POOLED),
+    # the capability leg's "methods" are the broker's per-capability descriptor ids resolved at discovery, so the
+    # roster is empty BY CONSTRUCTION and the row declares that no pool lookup can prove it.
+    (WireService.CAPABILITY, (), ServiceProof.BROKERED),
+)
+
 MIRROR_NESTED: Final[Map[str, str]] = Map.of_seq([
     ("base_color", "wire_color"),
     ("specular_color", "wire_color"),
@@ -647,14 +687,44 @@ def _mirror(name: str, struct: type[Struct], roster: tuple[str, ...]) -> Block[s
     return absent.append(phantom).append(seated).append(unrouted)
 
 
+def _service(name: WireService, methods: tuple[WireMethod, ...], proof: ServiceProof) -> Block[str]:
+    # `FindServiceByName` RAISES on an unregistered name — precisely the drift this arm exists to name — so the
+    # lookup rides the faults fence and its refusal lands as a census row rather than as a boot traceback. A
+    # BROKERED row short-circuits before the pool is touched: there is nothing compiled for it to miss.
+    return (
+        Block.empty()
+        if proof is ServiceProof.BROKERED
+        else boundary("shapes.services", lambda: descriptor_pool.Default().FindServiceByName(name))
+        .map(
+            lambda compiled: Block.of_seq(sorted(frozenset(methods) - frozenset(compiled.methods_by_name))).map(
+                lambda gap: f"{name}.{gap}:method-unrostered"
+            )
+        )
+        .default_value(Block.singleton(f"{name}:service-name-unresolvable"))
+    )
+
+
 def aligned() -> RuntimeRail[int]:
-    # ONE boot answer over both registries: a descriptor-backed row proves against its compiled message and a mirror
-    # row against its producer's key roster, and the two name spaces stay disjoint EXCEPT where one leaf legitimately
-    # crosses on both wires — so the duplicate check runs per registry rather than over their union, where the shared
-    # `wire_provenance` leaf would read as a collision.
-    rows = len(PROTO_VOCABULARY) + len(MIRROR_VOCABULARY)
-    doubled = len(frozenset(name for name, _, _ in PROTO_VOCABULARY)) != len(PROTO_VOCABULARY) or len(MIRROR_ORDER) != len(MIRROR_VOCABULARY)
-    drift = Block.of_seq(PROTO_VOCABULARY).collect(lambda row: _drift(*row)).append(Block.of_seq(MIRROR_VOCABULARY).collect(lambda row: _mirror(*row)))
+    # ONE boot answer over all three registries: a descriptor-backed row proves against its compiled message, a
+    # mirror row against its producer's key roster, and a service row against the compiled service its dial path
+    # names. The name spaces stay disjoint EXCEPT where one leaf legitimately crosses both wires — so the duplicate
+    # check runs per registry rather than over their union, where the shared `wire_provenance` leaf would read as a
+    # collision.
+    rows = len(PROTO_VOCABULARY) + len(MIRROR_VOCABULARY) + len(SERVICE_VOCABULARY)
+    doubled = any(
+        unique != len(table)
+        for unique, table in (
+            (len(frozenset(name for name, _, _ in PROTO_VOCABULARY)), PROTO_VOCABULARY),
+            (len(MIRROR_ORDER), MIRROR_VOCABULARY),
+            (len(frozenset(name for name, _, _ in SERVICE_VOCABULARY)), SERVICE_VOCABULARY),
+        )
+    )
+    drift = (
+        Block.of_seq(PROTO_VOCABULARY)
+        .collect(lambda row: _drift(*row))
+        .append(Block.of_seq(MIRROR_VOCABULARY).collect(lambda row: _mirror(*row)))
+        .append(Block.of_seq(SERVICE_VOCABULARY).collect(lambda row: _service(*row)))
+    )
     return (
         Error(BoundaryFault(config=("shapes.registry", "duplicate-row-name")))
         if doubled
@@ -669,4 +739,6 @@ def aligned() -> RuntimeRail[int]:
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
 -->
+
+(none)
 

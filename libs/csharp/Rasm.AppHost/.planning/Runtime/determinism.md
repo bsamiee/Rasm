@@ -79,14 +79,17 @@ public static class Preimage {
 // The environment-identity record the estate mints HERE. `Rasm.Compute/Runtime/receipts#BENCHMARK_CLAIMS`
 // composes it as the claim `host` column through Compute's own legal reference; `Rasm.Persistence` and the Rhino
 // host decode `HostFingerprintWire` and import no type. A Compute-side declaration would close the S1-to-S3 cycle
-// the branch acyclicity law forbids, so the spine declares and every consumer composes downward.
-public sealed record HostFingerprint(
+// the branch acyclicity law forbids, so the spine declares and every consumer composes downward. Equality is
+// generated: Stamps is a FrozenDictionary the synthesized record form compares by reference, so same-host
+// fingerprints read unequal without [UnorderedEquality]; digest comparisons stay EnvFingerprint.Digest's.
+[Equatable]
+public sealed partial record HostFingerprint(
     string Machine,
     string Os,
     string Arch,
     int Processors,
     string Runtime,
-    FrozenDictionary<string, string> Stamps) : ISpanFormattable, IUtf8SpanFormattable {
+    [property: UnorderedEquality] FrozenDictionary<string, string> Stamps) : ISpanFormattable, IUtf8SpanFormattable {
     // `Current` mints ambiently: `Processors` reads the host count, which over-reports a cgroup-limited container,
     // so a composer holding an admitted budget substitutes it at its own tier — `Rasm.Compute/Runtime/receipts`
     // `#BENCHMARK_CLAIMS` `HostFingerprint.Effective` is that substitution and the only mint a claim admits.

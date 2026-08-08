@@ -220,6 +220,7 @@ flowchart LR
     subgraph artifacts[PY:ARTIFACTS]
         Core[Core spine]
         Document[Document]
+        Delivery[Delivery]
         Visualization[Visualization]
         Drawing[Drawing]
         Graphic[Graphic]
@@ -254,7 +255,15 @@ flowchart LR
     Runtime e16@-->|"[SHAPE]: AssetSetManifest"| Graphic
     Graphic e17@-->|"[WIRE]: AssetSetManifest"| Materials
     Graphic e18@-->|"[WIRE]: AssetSetManifest"| Interchange
+    Core e19@-->|"[SHAPE]: Fact"| Runtime
+    Delivery e20@-->|"[SHAPE]: Fact"| Runtime
+    Document e21@-->|"[SHAPE]: Fact"| Runtime
+    Graphic e22@-->|"[SHAPE]: Fact"| Runtime
+    Media e23@-->|"[SHAPE]: Fact"| Runtime
+    Exchange e24@-->|"[SHAPE]: Fact"| Runtime
 ```
+
+`[SHAPE]: Fact` edges are the evidence half of the runtime seam and run outward: `core/receipt` builds each kind's `AuditFact` and `MeterFact` fan off the receipt it already carries, and every producer leg records that block through the runtime journal writer. Producing legs stay AWAITABLE by law — recording suspends on a bounded intake — so the synchronous `contribute` projection carries no such edge. Delivery, PDF finishing, credentialing, and conformance record under the regulatory class; every production plane records under the operational one.
 
 Frozen names spell from the owner's endpoint page: `SignedArtifact` from Rasm.Persistence with the runtime `ContentKey` minting beneath it, `IToleranceEncoder` bytes from Rasm.Fabrication admitted into `GdtFrame` at dimensioning, and the graduation hub as `HandoffAxis`, C#-spelled `GraduationEvidence`.
 
@@ -298,6 +307,8 @@ High-order producer planes sit on a shared primitive substrate. `graphic` and `t
 - Dual-license provider pairs split by import reachability: no copyleft module is reachable from the permissive footing.
 - Derivable constants land as policy tables on the owner, and each footing's closure audits from its imports alone.
 - `contribute` records numeric facts through the runtime metrics arm; render duration stays a runtime fact, never a receipt's.
+- `core/receipt.evidence` is the one durable-fact builder every kind funnels through; each producer's async leg awaits the record and a sync entrypoint records nothing.
+- Retention class per kind and the metered fact rows are receipt-owned tables; the aging window and the resource series stay the journal's.
 - Production facts fire on the `core/hooks` point rows at the issue seams and the contribute fold.
 - Observability subscribes through `Production.subscribed` at the app root, never in producer code.
 - Issue-scope baggage the issue bracket binds attributes every signal; tenant promotion stays runtime-owned.

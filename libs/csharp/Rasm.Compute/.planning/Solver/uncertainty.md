@@ -15,7 +15,7 @@ Variance-reduced draws ride `LowDiscrepancy` through inverse transform; every ps
 - Entry: `public static Fin<UncertaintyResult> Propagate(Seq<RandomVariable> inputs, UncertaintyPolicy policy, Func<DesignPoint, Fin<Seq<double>>> evaluate, IClock clock)` validates every input distribution, unique names, policy bounds, method/design compatibility, response component, supplied-limit-state shape, and correlation matrix before dispatch. `Component` faults a short or non-finite response vector; no first-component or zero fallback exists.
 - Auto: `Propagate` builds the optional Gaussian-copula `Transform` (identity when absent) and dispatches the `UqStrategy` driver off the `UncertaintyMethod.Strategy` row — the matrix-sampling driver draws the `LowDiscrepancy.Sobol` unit matrix, shapes it per `SampleDesign` (space-filling, LHS-stratified, the Saltelli `(2+d)·N` A/B/AB block, or the Morris `(d+1)·r` randomized-permutation trajectory grid), maps each unit row through the copula and the per-axis `Quantile`, evaluates, and reduces to the moment fold with the Saltelli/Morris payload or the composed `SensitivityTornado` first-order; the spectral-fit driver builds the orthonormal basis over the per-input `RecurrenceCoefficients` in the format its route consumes — a dense Vandermonde for thin-QR, COO triplets for the sparse-QR route — and reads mean/variance/Sobol closed-form from the coefficient masses; the reliability-search driver runs HLRF to the standard-normal MPP scoring `β`/`pf`/importance-factors, the SORM row adding the Breitung curvature correction; the subset driver conditions successive populations on intermediate thresholds through the Au-Beck sampler so a `pf~10⁻⁶` rare event resolves in `O(N·log pf)` evaluations. State threads as one immutable fold accumulator, never a per-method mutable loop.
 - Receipt: `Receipt` projects the full `UncertaintyResult` onto the widened `Uncertainty` `ComputeReceipt` case — method key, realized sample/evaluation count, nullable mean/variance/skewness/kurtosis (a method that does not estimate a moment carries `null`, never `NaN` or a fabricated failure), quantiles, the three index slots the `SensitivityPayload` case fills (Sobol first and total, Morris μ* and σ, reliability importance factors — each case writing the slots it measured and leaving the rest empty), the physical MPP, the surrogate `R²` and residual standard error the spectral fit calibrates, `pf`, and `β` — under `ReceiptScope.Execution`.
-- Packages: MathNet.Numerics, HyperJet (the exact-AD FORM/SORM gradient/Hessian leg via `SensitivityLaw`), System.Numerics.Tensors, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm (project, `Deterministic.Source` as the one draw owner), Rasm.Persistence (project), BCL inbox
+- Packages: PureHDF (`H5File` graph assignment and `H5Dataset(object, chunks:, fileDims:)` behind the ensemble seal — mechanics stay the `Runtime/codecs#HDF_ARCHIVE` owner), MathNet.Numerics, HyperJet (the exact-AD FORM/SORM gradient/Hessian leg via `SensitivityLaw`), System.Numerics.Tensors, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm (project, `Deterministic.Source` as the one draw owner), Rasm.Persistence (project), BCL inbox
 - Boundary: the spectral fit solves on the `Tensor/blas#DENSE_ALGEBRA` route with the `DenseSubstrate` composition selected, threaded as a POLICY VALUE — an ambient substrate cell let two compositions in one process overwrite each other's choice and stamped receipts with whatever the cell held at read time. The returned `DenseSolve` carries the row that SERVED beside its witnessed residual, so a native leg declining this operand is a fact the carrier holds rather than an assumption from the row asked for.
 - Growth: a new propagation strategy is one `UncertaintyMethod` row binding its `UqStrategy` driver, `SampleDesign`, and draw lane; a new input distribution is one `RandomVariable` case lowering to its `Quantile`/`Standardize`/`Recurrence` — an Askey-family input binds a closed-form `RecurrenceCoefficients` constructor, a non-Askey input falls to the one `Stieltjes` construction with zero new surface; a new sensitivity family is one `SensitivityPayload` case with its own receipt projection arm; a new response statistic is one field on `UncertaintyResult` with one slot on the `Uncertainty` receipt; a `MonteCarloRunner`/`LatinHypercubeSampler`/`PceFitter`/`FormSolver`/`SormSolver`/`SaltelliSobol`/`MorrisScreening`/`SubsetSimulator` sibling family is collapsed onto one `UqStrategy`-dispatched (total `Switch`) `Uncertainty` fold, a `MomentsResult`/`ReliabilityResult`/`SensitivityResult` result trio onto the one `UncertaintyResult` carrier, a `NormalVariable`/`WeibullVariable`/`EmpiricalVariable` class family onto the one `RandomVariable` union, and a `HermiteBasis`/`LegendreBasis`/`LaguerreBasis`/`JacobiBasis` polynomial-evaluator family onto the one `RecurrenceCoefficients` orthonormal recurrence.
 - Boundary: `evaluate` is the single solver coupling, and the sample fold is SEQUENTIAL because that contract is the bare synchronous `Fin` — a campaign wanting overlapped evaluation composes `Solver/sweep#SWEEP_AND_BUDGET`, which owns the `IO`-lifted oracle and the chunked fan-out, rather than this lane growing a second oracle shape. Variance-reduced designs use the owned `LowDiscrepancy` generator and every pseudo-random step draws from `Deterministic.Source` on the method's lane; a bare `new Random(seed)` forks replay across runtimes and has no site left.
@@ -361,12 +361,12 @@ public static class Uncertainty {
     }
 
     public static Fin<UncertaintyResult> Propagate(
-        Seq<RandomVariable> inputs, UncertaintyPolicy policy, Func<DesignPoint, Fin<Seq<double>>> evaluate, IClock clock) =>
+        Seq<RandomVariable> inputs, UncertaintyPolicy policy, Func<DesignPoint, Fin<Seq<double>>> evaluate, IClock clock, Option<(Func<Stream> Sink, HdfArchivePolicy Policy)> archive = default) =>
         from _ in policy.Validate(inputs)
         from transform in Copula(inputs.Count, policy)
         from result in policy.Method.Strategy.Switch(
-            state: (Inputs: inputs, Policy: policy, Transform: transform, Evaluate: evaluate, Clock: clock),
-            matrixSampling: static s => SampleAndReduce(s.Inputs, s.Policy, s.Transform, s.Evaluate, s.Clock),
+            state: (Inputs: inputs, Policy: policy, Transform: transform, Evaluate: evaluate, Clock: clock, Archive: archive),
+            matrixSampling: static s => SampleAndReduce(s.Inputs, s.Policy, s.Transform, s.Evaluate, s.Clock, s.Archive),
             spectralFit: static s => Spectral(s.Inputs, s.Policy, s.Transform, s.Evaluate, s.Clock),
             reliabilitySearch: static s => Reliability(s.Inputs, s.Policy, s.Transform, s.Evaluate, s.Clock),
             subset: static s => Subset(s.Inputs, s.Policy, s.Transform, s.Evaluate, s.Clock))
@@ -414,9 +414,46 @@ public static class Uncertainty {
     // one — the ranking the method exists to produce.
     readonly record struct SampleMatrix(Seq<double[]> Unit, Seq<ImmutableArray<double>> Physical);
 
-    static Fin<UncertaintyResult> SampleAndReduce(Seq<RandomVariable> inputs, UncertaintyPolicy policy, Transform transform, Func<DesignPoint, Fin<Seq<double>>> evaluate, IClock clock) =>
+    static Fin<UncertaintyResult> SampleAndReduce(Seq<RandomVariable> inputs, UncertaintyPolicy policy, Transform transform, Func<DesignPoint, Fin<Seq<double>>> evaluate, IClock clock, Option<(Func<Stream> Sink, HdfArchivePolicy Policy)> archive) =>
         Design(inputs, policy, transform)
-            .Bind(design => Sample(design.Physical, policy, evaluate).Map(responses => Reduce(inputs, policy, design, responses, clock)));
+            .Bind(design => Sample(design.Physical, policy, evaluate)
+                .Bind(responses => EnsembleSeal(archive, inputs, policy, design, responses)
+                    .Map(_ => Reduce(inputs, policy, design, responses, clock))));
+
+    // Ensemble store: the whole propagation — unit block, physical block, response block — as one create-only
+    // container, sample axis outermost, chunk rows on the DESIGN'S OWN block structure (the Saltelli A/B/AB half,
+    // the Morris d+1 trajectory leg, else one bounded row band), so a Saltelli half-block or one trajectory reads
+    // back as exactly one hyperslab and a rare-event campaign's evidence outlives its terminal scalar. Absent
+    // capability, nothing writes; a write fault fails the propagation — the caller asked for the artifact.
+    static Fin<Unit> EnsembleSeal(Option<(Func<Stream> Sink, HdfArchivePolicy Policy)> archive, Seq<RandomVariable> inputs, UncertaintyPolicy policy, SampleMatrix design, Seq<Seq<double>> responses) =>
+        archive.Match(
+            None: () => Fin.Succ(unit),
+            Some: capability => Try.lift(() => {
+                int rows = design.Physical.Count, dim = inputs.Count;
+                int m = responses.IsEmpty ? 0 : responses[0].Count;
+                int block = policy.Method == UncertaintyMethod.SobolSaltelli ? Math.Max(1, Math.Max(2, policy.Samples) / 2)
+                    : policy.Method == UncertaintyMethod.Morris ? dim + 1
+                    : Math.Min(rows, 4096);
+                double[] unitBlock = new double[rows * dim], physicalBlock = new double[rows * dim], responseBlock = new double[rows * m];
+                for (int row = 0; row < rows; row++) {
+                    design.Unit[row].AsSpan(0, Math.Min(dim, design.Unit[row].Length)).CopyTo(unitBlock.AsSpan(row * dim));
+                    design.Physical[row].AsSpan()[..Math.Min(dim, design.Physical[row].Length)].CopyTo(physicalBlock.AsSpan(row * dim));
+                    for (int objective = 0; objective < m; objective++) { responseBlock[row * m + objective] = responses[row][objective]; }
+                }
+                uint band = (uint)Math.Min(rows, block);
+                H5DatasetCreation creation = capability.Policy.Creation();
+                H5File graph = new() {
+                    ["unit"] = new H5Dataset(unitBlock, chunks: [band, (uint)dim], fileDims: [(ulong)rows, (ulong)dim], datasetCreation: creation),
+                    ["physical"] = new H5Dataset(physicalBlock, chunks: [band, (uint)dim], fileDims: [(ulong)rows, (ulong)dim], datasetCreation: creation),
+                    ["responses"] = new H5Dataset(responseBlock, chunks: [band, (uint)Math.Max(1, m)], fileDims: [(ulong)rows, (ulong)Math.Max(1, m)], datasetCreation: creation),
+                };
+                graph.Attributes["method"] = policy.Method.Key;
+                graph.Attributes["samples"] = policy.Samples;
+                graph.Attributes["seed"] = policy.Seed;
+                graph.Attributes["block"] = block;
+                graph.Write(capability.Sink());
+                return unit;
+            }).Run().MapFail(static error => (Error)new ComputeFault.ModelRejected($"<uq-ensemble-seal:{error.Message}>")));
 
     static Fin<SampleMatrix> Design(Seq<RandomVariable> inputs, UncertaintyPolicy policy, Transform transform) {
         int count = Math.Max(2, policy.Samples), dim = inputs.Count;

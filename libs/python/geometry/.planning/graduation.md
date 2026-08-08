@@ -15,6 +15,7 @@ Three geometry-owned surfaces ride that spine: `EvidenceCost` prices every cross
 - Owner: `GeometrySubject` — the closed union the folder graduates, each member a frozen wire literal; `EvidenceScope` — the closed tracer-scope table, one member per producing page; `evidence_key` — the folder's one content-key derivation every graduating producer folds its own `spec` through; `GeometryHandoff` — the frozen crossing carrier owning the `admitted` verdict, the `wire()` projection that IS the compute crossing, and a `contribute` receipt stream; `evidence_run` — the one weave every producer threads, the runtime `measured` spine composed once here with the geometry close-out and never re-authored.
 - Cases: the union is DIFFERENTIATED, one member per evidence class, each owner binding its own. Scan produces `REGISTRATION_TRANSFORM`, `SCAN_DEVIATION`, and (with mesh/repair) `RECONSTRUCTED_MESH`; graph produces `TOPOLOGY_GRAPH`, `NETWORK_GRAPH` (features and algebra co-produce it), `FORM_FINDING`, and `NUMERICAL_PRIMITIVE` (the retained compas-numerics member); mesh/brep, mesh/repair, and graph/algebra co-produce `MESH_ALGEBRA`; ifc produces `BIM_COMPLIANCE`, `BIM_LIFECYCLE`, `SECTION_PROPERTY`; energy produces `BUILDING_ENERGY`, `THERMAL_COMFORT`. Two or three producers of one subject stay one member, never parallel vocabularies; a page earns its `EvidenceScope` member the moment its rail returns through `evidence_run`, and an engine or gate page whose receipts an enclosing weave harvests holds none.
 - Law: `EvidenceCost` is the resource-cost ledger on every crossing — the runtime `Cost` substrate bracket samples it, so cpu, rss, io, and context switches cross one sampling owner and this folder mints no second process handle, and `_priced` folds the wall clock beside that delta three ways at once: span facts (`cost.*`), the `UNIVERSAL_MEASURES` rows through the one `_recorded` projection (tenant baggage rides the runtime `_attributed` fold, the composition stamp the caller's key), and one harvested `rasm.geometry.evidence` cost receipt carrying the io and switch columns no geometry instrument row duplicates. `outcome` discriminates the settle from the refusal and the unwind, so the two crossings whose price a reader hunts survive the close-out an Ok-arm terminal drops; the close-out itself runs fenced, because a raise from inside a `finally` replaces the producer fault it exists to price, and its own refusal lands as a span event rather than re-entering the emit path that just failed. Parent-observed cost only: a `KernelTrait.HOSTILE` kernel's worker-floor burn is the profile lane's evidence, never re-priced here.
+- Law: the weave's ASYNC close is the folder's ONE `Resource.COMPUTE` seat on the `python:runtime/observability/journal#LEDGER` plane — every evidence-producing page crosses this weave, so the crossing's own measured cpu charges exactly once here and a second COMPUTE fact at any page below the weave bills one burn twice under two surfaces. The async arm is the whole seat by the producer-seam law: recording suspends, so the sync arm records nothing and a synchronous crossing's cost stays the span, the charter rows, and the cost receipt it already carries — declaring a sync dispatch async to reach the seat bands the coroutine MINT and prices the awaited body at zero, the exact defect `_awaiting` exists to refuse. The record runs shielded under one bounded grace and its rail is DISCARDED, because this close-out runs inside `finally`: a cancelled crossing still burned the cpu it owes, an unbounded shield behind an unrelieved intake turns a bounded teardown into a hang no scope can trip, and a rail bound here replaces the producer fault the close-out exists to price. `EVIDENCE_DOMAIN` derives off the charter's own spelling law and is the one domain segment every geometry audit verb carries, so a producer's `<domain>.<operation>` verb greps against the series its evidence twin emitted.
 - Law: `CHARTER` + `UNIVERSAL_MEASURES` are geometry's dashboard authority — each `MeasureRow` names its `rasm.<domain>.<measure>` spelling, UCUM unit, source receipt field, and aggregation, keyed by `GeometrySubject`, deriving its roster segment off the spelling exactly as the runtime instrument row derives its own. `charter_of` folds the universal cost rows onto the subject's own and IS what `MEASURES` unions, so the roster can never diverge from the fold a consumer reads. Every declared column is load-bearing at the install gate: `_KIND` projects the row's `Aggregation` onto the instrument family the runtime census mounts, so unit and fold are PROVED against the mounted row rather than transcribed and trusted — the divergence class a pair-only gate admits is a series exported against a descriptor scaled by a thousand. `charter_record` and the weave close-out share the one `_recorded` projection, which groups by derived domain, so a measure this folder does not own the segment of still records onto its own row, and the subject derives the recorded `kind` so no producing page spells a discriminant literal. Runtime owns the matching mapped `INSTRUMENTS` row per pair and ts iac owns the dashboard compile leg; a measure whose owning fold already records it — the `rasm.bench.*` family off `BenchmarkReceipt.contribute` — never enters the charter, because a second recording doubles one series.
 - Law: `evidence_key(subject, spec)` is the folder's ONE content-key derivation and a graduating producer derives its own key from its own inputs — each receipt folds the `spec` projection that DEFINES its evidence (source payload beside the op discriminant, bytes or textual discriminant on one polymorphic entry) through the TOTAL mint, so no `graduates()` takes a key from its caller and no rail wraps an infallible fold. A caller-supplied key makes the receipt assert a content identity the producer never computed, and two callers keying one evidence differently fork the namespace the runtime identity owner exists to close; the subject namespaces the format, so two subjects over identical bytes never collide, and a receipt's frame projection keys the same evidence through the same fold, so `graduates()` and `frame()` never disagree on one result's identity.
 - Law: runtime `Kernel.of` mints `Kernel.name` from each hostile target, and runtime `traced_kernel` passes that name directly to `Profiles.phase`; geometry contributes the target and carries no parallel profile-subject registry.
@@ -26,9 +27,9 @@ Three geometry-owned surfaces ride that spine: `EvidenceCost` prices every cross
 - Entry: `evidence_run(scope, operation, dispatch, upstream=None, *, composition=DEFAULT_SCOPE)` is the one polymorphic weave, modality discriminated through `_awaiting`, never an `evidence_run_async` sibling — the probe mirrors the runtime `measured` split WHOLE, callable instances included, because a narrower name-only probe routes an async-`__call__` instance to the sync arm and prices its awaited body at zero. Each arm wraps the dispatch and delegates span, fence, conditional harvest, and OK/ERROR close to the runtime `measured` weave under the scope's tracer name. Each arm FLATTENS through `_flat`, so a `lane.offload` or rail-returning fold absorbs un-nested and a bare value lifts `Ok`, then closes through `_priced` in `finally` — the one cost-record-rename terminal on the live span, reached by the settle, the refusal, and the unwind alike — and the serve leg composes the weave under `EvidenceScope.MESH_SERVE`, so serve latency is one weave composition and pool depth stays the runtime lane spine's own gauges. `GeometryHandoff.of` mints, `breaches` folds residual-over-ceiling into the verdict `admitted` reads, `wire()` projects the dict the receipt stream and compute seam consume.
 - Output: per-row evidence crosses as a FRAME and a receipt carries counts and the residual ledger — a fold flattening every result row into the receipt's fact map grows that map with the model, so the row set rides the columnar port and the receipt keeps the census. `EvidenceFrame` is that port beside `wire()` — subject-discriminated, content-keyed, read-only numpy columns — and each admitted family projects one frame through its own `frame()` row (deviation bands, quality metrics, section properties, analysis rows, lifecycle rollups, analytic boards through `AnalyticValue.tabled()`), every row returning the rail `of` carries so a ragged table names its offending COLUMNS at its producer instead of raising past it. Extent reads the leading axis, so a scalar column — the 0-d seal whose `len` raises — refuses as its own producer defect rather than escaping the rail the port exists to hold. `crossing()` is the one physical egress every frame reaches: the declared column roster and its sealed arrays fold through the data tier's own `arrow_columns` admitting entry into canonical `arrow_bytes`, keyed on the emitted octets, so no producer transposes a table around that entry and no page re-schemas off a mapping's insertion order. Its `table` field is the crossing payload beside the energy `ResultFrame`.
 - Receipt: `GeometryHandoff.contribute` yields one `Receipt.of("rasm.geometry.graduation", ("emitted", subject, wire))` row per crossing — every crossing IS emitted, compute deciding on the wire — beside one `rejected` row carrying the breach roster when a ceiling fails, so a breach reads at refusal grade and names WHICH limit failed and how instead of publishing under a quieter level than a clean crossing. `of` also lands the crossing as one `rasm.geometry.graduation` span event on the live producer span. Producer receipts stay on the producing pages; this owner receipts only the crossing, the weave's cost, and the frame projection.
-- Packages: `anyio` (the bench fold's per-round loop driver), `expression` (`Block`/`Map`), `msgspec` (`Struct` carrier), `numpy` (frame columns), `opentelemetry-api` — the ONE page that names the OTel tracer/span API, every sibling composing `evidence_run` — data `tabular/columnar` (`arrow_columns` as the admitting entry the frame crossing hands its declared roster to) with `tabular/interop` (`arrow_bytes` as the one canonical IPC-stream fold), and runtime (`RuntimeRail`/`BoundaryFault`, `boundary` as the fence the `finally` close-out and the frame crossing carry, `measured`/`Signals`/`OPEN` as the span-fence-harvest spine, `Cost` as the ONE process-spend sampling bracket, `ContentKey` with `ContentIdentity` as the one key mint `evidence_key` and the frame crossing fold, `Receipt`, `Metrics.record` as the one instrument projection port, `MEASURES` imported as `CENSUS` as the roster the install gate proves against, `Bench`/`BenchmarkReceipt` as the measurement tier `bench_seam` composes and `Bench.graded`/`BenchKernel`/`BenchMode`/`BenchSubject`/`BenchThreshold`/`BenchVerdict` as the grading tier `CORPUS` rosters into, `HookPoint`/`Hooks`/`Modality` as the registry `registered` claims its whole roster through in one gated transition, and `RuntimeContext`/`JobRun` as the process-terminal envelope `bench_terminal` composes).
-- Growth: a new evidence class is one `GeometrySubject` member and its producing binding, shipping the compute-side decode ripple; a new producing page is one `EvidenceScope` member; a new cross-cutting concern on the weave is one composition inside `evidence_run`, never a per-page re-weave; a producer whose result carries `span_facts` gains span-visible evidence with zero weave edit; a new dashboard measure is one `MeasureRow` beside its runtime mapped `INSTRUMENTS` counterpart row in the SAME change, the install gate refusing a lagging, mis-united, or mis-folded row by name; a new aggregation intent is one `Aggregation` member and one `_KIND` row; a new substrate cost column reaches the span facts and the cost receipt through `Cost.facts` with zero edit here, earning a `MeasureRow` only where a board joins on it; a new hostile kernel names itself through runtime `Kernel.of`; a new mid-operation fact is one `GeometryPulse` member and one kernel `pulsed` call, zero conduit edits; a new frame family is one `frame()` row on its receipt owner, reaching the Arrow tier through `crossing()` with zero further edit; a new graduating producer is one `spec` projection on its receipt beside a keyless `graduates()` folding `evidence_key`, never a widened caller signature; a new bench subject is one `bench_seam` composition on its producing page over `bench_subject`, zero runtime edits, and it joins the graded set as one `CORPUS` row plus one bound thunk under the same derived id; a new regression budget is one `BenchBand` member and one `_CEILING` cell, never a per-row literal; a new corpus extent is one constant and one more roster row, never a re-fed thunk under an existing row's history; a process-terminal bench harness is one `bench_terminal` wrap composing the runtime `JobRun.bounded` envelope; a new crossing exit state is one `CrossingExit` member reaching the cost receipt and the span through `facts`; a new composition is one `ScopeKey` threaded through the `composition` keyword every entry carries, never a sibling registry, and a new weave-composing owner carries the composition FIELD beside its lane rather than re-reading a default at each call — a default-stamped series silently unions an embedded composition's charter with the root's; the crossing is one-way data, no reverse direction.
-- Boundary: no compute import anywhere in the folder, the crossing being `wire()` data; no page-local tracer mint, emit pair, or inline span manager anywhere in the folder — the runtime `measured` weave owns span lifecycle and harvest, this owner adds only the geometry close-out; no folder-local process handle or `oneshot` bracket beside the runtime `Cost` owner, and no folder-local honest-RSS or no-peak rationale re-stated beside it; a sync-declared dispatch MINTING an awaitable bands the mint alone, the settle riding the runtime `measured` continuation, so an async kernel declares the async modality to band its await; every weave span opens INTERNAL and nests beneath the live seam parent — the runtime `ServerHost` interceptor owns the SERVER span at the gRPC seam; no second subject vocabulary, bare-`str` subject, or per-receipt `subject` field racing the union. Mid-operation facts cross ONLY the lane `PulseConduit` through `pulsed` — an offloaded `KernelTrait.HOSTILE` kernel reaches the queue proxy alone, `Hooks.fire` runs parent-side in the drain, and the `rasm.geometry.graduation` span event stays the completion-grain tap beside the best-effort pulse stream. `"numerical-primitive"` carrying compliance, lifecycle, or section evidence breaches the differentiated members; cost never rides `wire()` — the crossing widens only by the co-shipped trace carrier; the compute graduation interior is compute's to own — this owner only mints and projects. No folder-minted measurement window, sample fold, quantile derivation, bar comparison, or verdict counter beside the runtime bench tier, and no page-side bench-subject f-string beside `bench_subject` — a producing page hands a subject and a thunk, never a spelling of its own.
+- Packages: `anyio` (the bench fold's per-round loop driver), `expression` (`Block`/`Map`), `msgspec` (`Struct` carrier), `numpy` (frame columns), `opentelemetry-api` — the ONE page that names the OTel tracer/span API, every sibling composing `evidence_run` — data `tabular/columnar` (`arrow_columns` as the admitting entry the frame crossing hands its declared roster to) with `tabular/interop` (`arrow_bytes` as the one canonical IPC-stream fold), and runtime (`RuntimeRail`/`BoundaryFault`, `boundary` as the fence the `finally` close-out and the frame crossing carry, `measured`/`Signals`/`OPEN` as the span-fence-harvest spine, `Cost` as the ONE process-spend sampling bracket, `ContentKey` with `ContentIdentity` as the one key mint `evidence_key` and the frame crossing fold, `Receipt`, `Metrics.record` as the one instrument projection port, `MEASURES` imported as `CENSUS` as the roster the install gate proves against, `Bench`/`BenchmarkReceipt` as the measurement tier `bench_seam` composes and `Bench.graded`/`BenchKernel`/`BenchMode`/`BenchSubject`/`BenchThreshold`/`BenchVerdict` as the grading tier `CORPUS` rosters into, `HookPoint`/`Hooks`/`Modality` as the registry `registered` claims its whole roster through in one gated transition, `Journal`/`MeterFact`/`Resource` as the durable evidence plane the weave's async close charges each crossing's cpu onto, and `RuntimeContext`/`JobRun` as the process-terminal envelope `bench_terminal` composes).
+- Growth: a new evidence class is one `GeometrySubject` member and its producing binding, shipping the compute-side decode ripple; a new producing page is one `EvidenceScope` member; a new cross-cutting concern on the weave is one composition inside `evidence_run`, never a per-page re-weave; a producer whose result carries `span_facts` gains span-visible evidence with zero weave edit; a new dashboard measure is one `MeasureRow` beside its runtime mapped `INSTRUMENTS` counterpart row in the SAME change, the install gate refusing a lagging, mis-united, or mis-folded row by name; a new aggregation intent is one `Aggregation` member and one `_KIND` row; a new substrate cost column reaches the span facts and the cost receipt through `Cost.facts` with zero edit here, earning a `MeasureRow` only where a board joins on it; a new hostile kernel names itself through runtime `Kernel.of`; a new mid-operation fact is one `GeometryPulse` member and one kernel `pulsed` call, zero conduit edits; a new frame family is one `frame()` row on its receipt owner, reaching the Arrow tier through `crossing()` with zero further edit; a new graduating producer is one `spec` projection on its receipt beside a keyless `graduates()` folding `evidence_key`, never a widened caller signature; a new bench subject is one `bench_seam` composition on its producing page over `bench_subject`, zero runtime edits, and it joins the graded set as one `CORPUS` row plus one bound thunk under the same derived id; a new regression budget is one `BenchBand` member and one `_CEILING` cell, never a per-row literal; a new corpus extent is one constant and one more roster row, never a re-fed thunk under an existing row's history; a process-terminal bench harness is one `bench_terminal` wrap composing the runtime `JobRun.bounded` envelope; a new crossing exit state is one `CrossingExit` member reaching the cost receipt and the span through `facts`; a newly metered geometry resource is one `MeterFact` at the fold that owns the quantity, never a second `Resource.COMPUTE` seat beside this weave's; a new composition is one `ScopeKey` threaded through the `composition` keyword every entry carries, never a sibling registry, and a new weave-composing owner carries the composition FIELD beside its lane rather than re-reading a default at each call — a default-stamped series silently unions an embedded composition's charter with the root's; the crossing is one-way data, no reverse direction.
+- Boundary: no compute import anywhere in the folder, the crossing being `wire()` data; no page-local tracer mint, emit pair, or inline span manager anywhere in the folder — the runtime `measured` weave owns span lifecycle and harvest, this owner adds only the geometry close-out; no folder-local process handle or `oneshot` bracket beside the runtime `Cost` owner, and no folder-local honest-RSS or no-peak rationale re-stated beside it; a sync-declared dispatch MINTING an awaitable bands the mint alone, the settle riding the runtime `measured` continuation, so an async kernel declares the async modality to band its await; every weave span opens INTERNAL and nests beneath the live seam parent — the runtime `ServerHost` interceptor owns the SERVER span at the gRPC seam; no second subject vocabulary, bare-`str` subject, or per-receipt `subject` field racing the union; no second `Resource.COMPUTE` meter below this weave and no producer-side re-sampling of a burn the close-out already charged, and no ledger, custody, or retention minted here — the plane arrives bound at the composition root and every `Journal.record` on it folds lawfully to zero where none was installed. Mid-operation facts cross ONLY the lane `PulseConduit` through `pulsed` — an offloaded `KernelTrait.HOSTILE` kernel reaches the queue proxy alone, `Hooks.fire` runs parent-side in the drain, and the `rasm.geometry.graduation` span event stays the completion-grain tap beside the best-effort pulse stream. `"numerical-primitive"` carrying compliance, lifecycle, or section evidence breaches the differentiated members; cost never rides `wire()` — the crossing widens only by the co-shipped trace carrier; the compute graduation interior is compute's to own — this owner only mints and projects. No folder-minted measurement window, sample fold, quantile derivation, bar comparison, or verdict counter beside the runtime bench tier, and no page-side bench-subject f-string beside `bench_subject` — a producing page hands a subject and a thunk, never a spelling of its own.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -53,6 +54,7 @@ from rasm.runtime.admission import RuntimeContext
 from rasm.runtime.faults import BoundaryFault, RuntimeRail, boundary
 from rasm.runtime.hooks import HookPoint, Hooks, Modality
 from rasm.runtime.identity import ContentIdentity, ContentKey
+from rasm.runtime.journal import Journal, MeterFact, Resource
 from rasm.runtime.metrics import MEASURES as CENSUS
 from rasm.runtime.metrics import InstrumentKind, Metrics
 from rasm.runtime.profiles import Bench, BenchKernel, BenchMode, BenchSubject, BenchThreshold, BenchVerdict, BenchmarkReceipt, JobRun
@@ -158,6 +160,11 @@ class SpanFacts(Protocol):
 # frozen tuple compute inherits as decode-only wire data; a union change lands as a compute ripple, never a silent admit.
 SUBJECTS: Final[tuple[str, ...]] = tuple(member.value for member in GeometrySubject)
 
+# declared `wire()` key roster and trace-join spelling — producer truths the compute `mirror_aligned` boot gate reads,
+# fed by the composing root beside SUBJECTS; a `wire()` re-shape lands its row here in the same change.
+WIRE_FIELDS: Final[tuple[str, ...]] = ("subject", "key", "measured", "ceilings", "admitted", "trace")
+LINK_KIND: Final[str] = "geometry-graduation"
+
 # p95 bar per declared band, in milliseconds — the ONE place the folder's regression policy is stated, so tuning a
 # whole class of seams is one cell rather than a hunt across eight roster rows.
 _CEILING: Final[Map[BenchBand, float]] = Map.of_seq([(BenchBand.WIRE, 250.0), (BenchBand.SOLVE, 2_000.0), (BenchBand.BATCH, 30_000.0)])
@@ -167,6 +174,11 @@ _CEILING: Final[Map[BenchBand, float]] = Map.of_seq([(BenchBand.WIRE, 250.0), (B
 # extent is a second roster row rather than a silently re-fed thunk under the first row's history.
 CORPUS_POINTS: Final[int] = 250_000  # scan-corpus cloud census the registration and reconstruction feeds bind
 CORPUS_SPACES: Final[int] = 64  # building-corpus space census the model admission feed binds
+
+# shielded grace the weave's crossing meter awaits under: a cancelled crossing still burned the cpu it owes, so the
+# charge survives the cancel, while an unbounded shield behind an intake nothing is draining converts a bounded
+# teardown into a hang. One cell, so the whole folder's close-out patience tunes here.
+METER_GRACE: Final[float] = 1.0
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -194,6 +206,11 @@ UNIVERSAL_MEASURES: Final[tuple[MeasureRow, ...]] = (
     MeasureRow("rasm.geometry.evidence.cpu_time", "s", "cpu_s", Aggregation.SUM),
     MeasureRow("rasm.geometry.evidence.rss_delta", "By", "rss_bytes", Aggregation.MAX),
 )
+
+# the one domain segment every geometry series carries, DERIVED off the charter's own spelling law rather than
+# re-spelled per producing page: a producer's `<domain>.<operation>` audit verb reads the same segment its metric
+# projection records under, so one grep joins a durable fact to the series its evidence twin emitted.
+EVIDENCE_DOMAIN: Final[str] = UNIVERSAL_MEASURES[0].domain
 
 _MESH_MEASURES: Final[tuple[MeasureRow, ...]] = (
     MeasureRow("rasm.geometry.mesh.genus", "1", "genus", Aggregation.MAX),
@@ -530,7 +547,7 @@ def _linked(upstream: Mapping[str, str] | None) -> None:
         return
     linked = trace.get_current_span(propagate.extract(upstream)).get_span_context()
     if linked.is_valid:
-        trace.get_current_span().add_link(linked, {"rasm.link.kind": "geometry-graduation"})
+        trace.get_current_span().add_link(linked, {"rasm.link.kind": LINK_KIND})
 
 
 def _outcome(railed: "RuntimeRail[object] | None") -> CrossingExit:
@@ -541,7 +558,7 @@ def _outcome(railed: "RuntimeRail[object] | None") -> CrossingExit:
 
 def _priced(
     scope: EvidenceScope, operation: str, started: float, before: Cost, composition: ScopeKey, railed: "RuntimeRail[object] | None"
-) -> None:
+) -> "Option[EvidenceCost]":
     # geometry close-out on the live measured span — OK status, ERROR marking, and span end stay the runtime weave's.
     # Reading the RAIL rather than a cleared value puts every arm through here: `None` marks the unwind the runtime
     # fence is about to convert, an `Error` the refusal, an `Ok` the settle, where a close-out hung off the Ok arm
@@ -551,8 +568,9 @@ def _priced(
     # GeometrySubject renames span `{operation}:{subject}` so trace search keys on subjects. Fencing the body is
     # mandatory because it also runs inside a `finally`: an unfenced raise there replaces the producer fault this
     # close-out exists to price, so its refusal lands as a span event — the one sink that cannot re-enter the emit
-    # path it just failed on.
-    def close() -> None:
+    # path it just failed on. The priced ledger returns rather than dying inside the fence, because the async arm's
+    # crossing meter charges the same measured burn and a second sampling bracket there would price a different one.
+    def close() -> EvidenceCost:
         cleared = railed.to_option().default_value(None) if railed is not None else None
         ledger = EvidenceCost.of(scope, operation, _outcome(railed), started, before)
         span = trace.get_current_span()
@@ -564,10 +582,33 @@ def _priced(
                 span.update_name(f"{operation}:{subject.value}")
         _recorded(UNIVERSAL_MEASURES, ledger.facts(), scope.page, composition)
         Signals.emit(ledger, OPEN, scope=composition)
+        return ledger
 
-    boundary(f"{scope.value}.priced", close).swap().map(
-        lambda fault: trace.get_current_span().add_event("rasm.geometry.evidence.refused", {"rasm.fault.tag": fault.tag})
-    )
+    priced = boundary(f"{scope.value}.priced", close)
+    priced.swap().map(lambda fault: trace.get_current_span().add_event("rasm.geometry.evidence.refused", {"rasm.fault.tag": fault.tag}))
+    return priced.to_option()
+
+
+async def _charged(priced: "Option[EvidenceCost]", composition: ScopeKey) -> None:
+    # the folder's ONE `Resource.COMPUTE` seat: every evidence-producing page crosses this weave, so the crossing's
+    # own measured cpu charges here once and a second COMPUTE fact at any page below bills one burn twice. Quantity
+    # floors to whole milliseconds and clamps at zero, because `Quantity` admits `int >= 0` and a sampling boundary
+    # that reads a delta below it would refuse the whole fact at decode rather than under-report one charge; the
+    # surface spells the same `<scope>:<operation>` coordinate the cost receipt keys on, so charge and evidence join.
+    # The scope SHIELDS under one bounded grace — a cancelled crossing still burned the cpu it owes, while an
+    # unbounded shield behind an unrelieved intake converts a bounded teardown into a hang — and the record's rail is
+    # DISCARDED because this runs inside `finally`, where binding it would replace the producer fault being priced.
+    # An unarmed composition costs one map read here and records nothing, exactly as the three-state intake law says.
+    for ledger in priced.to_list():  # Exemption: the charge must suspend, and no expression form awaits
+        with anyio.move_on_after(METER_GRACE, shield=True):
+            await Journal.record(
+                MeterFact(
+                    resource=Resource.COMPUTE,
+                    quantity=max(int(ledger.spend.cpu_ms), 0),
+                    surface=f"{ledger.scope.value}:{ledger.operation}",
+                ),
+                scope=composition,
+            )
 
 
 def _flat[T](value: "T | RuntimeRail[T]") -> "RuntimeRail[T]":
@@ -596,7 +637,8 @@ def evidence_run[T](
     # weave's tracer opens under; `composition` is the custody key its harvest emits under, threaded whole, so a
     # weave line and a `charter_record` series stamp the same composition an app root bound into `LanePolicy.of`. Each arm flattens the dispatch, hands the rail
     # to the close-out, and closes that bracket in `finally`, so refusal and unwind price exactly as a settle does,
-    # and runtime `_flat` then passes the finished rail through unchanged.
+    # and runtime `_flat` then passes the finished rail through unchanged. The async arm's `finally` also awaits the
+    # crossing charge — the durable seat the sync arm structurally cannot hold, since recording suspends.
     started, before = perf_counter(), Cost.own()
     if _awaiting(dispatch):
 
@@ -607,7 +649,9 @@ def evidence_run[T](
                 railed = _flat(await dispatch())
                 return railed
             finally:
-                _priced(scope, operation, started, before, composition, railed)
+                # the async arm alone reaches the crossing meter: the sync close below cannot suspend, so its
+                # crossing prices onto the span, the charter rows, and the cost receipt and charges nothing.
+                await _charged(_priced(scope, operation, started, before, composition, railed), composition)
 
         return measured(scope.value, operation, OPEN, woven, composition=composition)
 

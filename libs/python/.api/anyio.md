@@ -168,6 +168,19 @@
 |  [06]   | `current_time()`                     | clock          | backend monotonic time                                 |
 |  [07]   | `current_effective_deadline()`       | clock          | nearest active cancel deadline                         |
 
+[ENTRYPOINT_SCOPE]: synchronization primitives
+- rail: concurrency
+- Constructors carry a keyword-only tail past `*` — `fast_acquire=` on `Lock`/`Semaphore`, `max_value=` on `Semaphore`; each primitive publishes `statistics()` as its one contention probe.
+
+| [INDEX] | [SURFACE]                       | [ENTRY_FAMILY] | [RAIL]                                                          |
+| :-----: | :------------------------------ | :------------- | :-------------------------------------------------------------- |
+|  [01]   | `Event()`                       | latch          | `set()`/`is_set()`/`wait()`; set once, never reset              |
+|  [02]   | `Lock()`                        | mutex          | `async with`/`acquire`/`acquire_nowait`/`release`/`locked`      |
+|  [03]   | `Semaphore(initial_value)`      | slots          | `async with`/`acquire`/`acquire_nowait`/`release`/`value`       |
+|  [04]   | `Condition(lock=None)`          | predicate      | `wait()`/`wait_for(predicate)`/`notify(n=1)`/`notify_all()`     |
+|  [05]   | `CapacityLimiter(total_tokens)` | limiter        | `async with`/`acquire`/`release`; `total_tokens` resizes live   |
+|  [06]   | `ResourceGuard(action="using")` | custody        | sync `with`; overlapping `__enter__` raises `BusyResourceError` |
+
 [ENTRYPOINT_SCOPE]: memory streams
 - rail: concurrency
 
@@ -252,6 +265,7 @@
 - `create_memory_object_stream[T](...)` is subscripted for the item type; `send_nowait`/`receive_nowait` raise `WouldBlock`, and a send onto a closed receive end raises `BrokenResourceError`.
 - Closing the LAST send end drains losslessly: every buffered item still delivers, `__aiter__` then stops and a direct `receive()` raises `EndOfStream`, so a graceful shutdown closes the send end and awaits the consumer instead of cancelling it. `clone()` opens an additional send end, and the receiver terminates only once every clone closes.
 - Cancelled `receive()` sheds nothing: `send_nowait` skips a receiver already carrying a pending cancellation and buffers instead, and a receiver whose item landed before the scope tripped returns that item before the cancellation surfaces at its next checkpoint, so a `move_on_after` window around `receive()` is a batching primitive rather than a drop.
+- `ResourceGuard(action=)` fences a single-consumer resource: the sync `with` raises `BusyResourceError` on an overlapping entry, detecting OVERLAP and not ownership, so a sequential hand-off between tasks passes and only a live second caller rails. It seats on the wrapping surface that delegates the pull, since a guard placed inside an async generator never fires at all — the interpreter rejects the frame re-entry first, raising an untyped `RuntimeError` that names the frame instead of the resource.
 - TLS rides `connect_tcp(..., tls=True, tls_hostname=...)` inline or `streams.tls.TLSStream.wrap(...)` over any `ByteStream`; peer cert and ALPN read through `stream.extra(TLSAttribute.*)`.
 - Offload splits by cost: `to_thread.run_sync` bounds a `CapacityLimiter` thread pool (40 default), `to_process.run_sync` crosses a persistent subprocess by pickle, `to_interpreter.run_sync` dispatches a PEP-734 subinterpreter (own GIL, in-process) where only PEP-734-shareable values cross copy-free — a non-shareable payload still pickles on the hop, so serialization cost is a lane-selection input. Worker raises and deaths surface as `BrokenWorkerProcess`/`BrokenWorkerInterpreter`.
 - `from_thread.BlockingPortalProvider(backend, backend_options)` shares one loop across many threads; `portal.call`/`portal.start_task_soon`/`portal.wrap_async_context_manager` bridge sync callers in, raising `RunFinishedError` after the loop closes.

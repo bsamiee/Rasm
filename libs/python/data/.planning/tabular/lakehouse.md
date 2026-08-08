@@ -16,18 +16,19 @@ Time travel is one vocabulary both directions of the axis read: `Read`/`Restore`
 - Owner: `Residence` rows the analytics planes by CAPABILITY — `ResidenceRow` answering the estate residence floor (`fits`, `ingest`, `tenancy`, `retain`, `degrade`, `cap` typed `False`) beside this owner's own extension of kind, format, partition roster, clustering roster, writer tuning, retention window, and an arming `TableLayout`, with `degrade` DERIVED off `_REFUSAL`, so a format losing an op degrades every residence riding it with zero row edits and a hand-written degradation sentence cannot drift from the refusal producing it.
 - Owner: `TableLayout` states the authored table spec as DATA — schema, `PartitionTransform`-keyed partition pairs, sort order, properties — and each format arm projects that one declaration onto its own grammar (`bucket[16]` tokens at the iceberg catalog, `bucket(16, col)` SQL at ducklake, bare columns at delta), so a second residence arms through the same row shape and a transform a format cannot spell refuses by name rather than vanishing.
 - Owner: `TableFormat.PARQUET` seats the object-plane tree as a FORMAT rather than a writer hanging off the residence family — its `_REFUSAL` cells state the whole non-transactionality, its armed write and read inherit the reach gate, the commit veto, the retry envelope, the span, and the receipt every sibling format rides, and `ResidenceRow.degrade` then derives the cold row's degradation from those cells instead of a hand-kept sentence beside them. Provider-dialect divergence stays a row: `_PARQUET_EXISTING` projects the write mode onto the tree's collision policy and `_PARQUET_CODEC` the writer's codec roster onto its file options, a codec the tree cannot spell refusing by name rather than downgrading.
-- Law: `contribute` records the file-churn pair under `domain="lake"` keyed by operation, so the commit plane projects onto the metric spine beside its tabular siblings.
+- Law: `contribute` records the file-churn pair under the owner's own `DOMAIN` segment keyed by operation, so the commit plane projects onto the metric spine beside its tabular siblings.
 - Law: a RESIDENCE commit records nothing — metering the plane that stores the receipt stream feeds a series back into the stream it just wrote.
 - Law: `contribute` spells `domain` and `kind` into its facts as the SAME pair it hands `Metrics.record`, so a stored evidence row rejoins the series its live twin emitted.
 - Law: `quantity` stays receipt-only, its `LakeUnit` varying per arm, so one descriptor never carries four magnitudes.
 - Law: a non-committing op moves no files and records nothing, keeping read and changefeed arms off the commit series.
-- Entry: `Lakehouse.open` admits a dataset, format policy, in-engine credential rows, and composition scope through ONE `_ADMIT` row read — the row's `kinds` set gating the ref shape and its `needs` roster the coordinates — where three hand-written arms checked the ref kind on the Delta arm alone and let a Lance or Iceberg handle open over a CSV ref; the admitted `kind` rides the handle, so `_admitted` proves a residence commit holds the SUBJECT its row names rather than merely a table in the right format. `sink` and the awaitable `sink_async` are the evidence plane's one ingest over that admission, folding a receipt stream through `receipt_frame` and the row's INGEST plan — the awaitable leg exists because a composition draining its own receipts on an event loop otherwise stalls it for every commit. `maintain` runs the same row's MAINTAIN plan scoped to a named generation, the entrypoint a scheduled job calls. `run` and the awaitable `run_async` both read ONE `_gated` prologue — the reach matrix, then the `LAKE_COMMIT_POINT` veto for a committing op — and select the same envelope, the awaitable leg adding one `on_thread` band hop because every arm is a blocking native commit an async composition otherwise runs inline on its loop. `Read`, `ChangeFeed`, and dry-run `Vacuum` ride the bare boundary rail; a refused cell answers its typed row ahead of both the hook point and the retry envelope, and the veto's own fact never rides out as the gate's value.
+- Entry: `Lakehouse.open` admits a dataset, format policy, in-engine credential rows, composition scope, and the `LakePlane` role the handle's table plays on the evidence spine through ONE `_ADMIT` row read — the row's `kinds` set gating the ref shape and its `needs` roster the coordinates — where three hand-written arms checked the ref kind on the Delta arm alone and let a Lance or Iceberg handle open over a CSV ref; the admitted `kind` rides the handle, so `_admitted` proves a residence commit holds the SUBJECT its row names rather than merely a table in the right format. `sink` and the awaitable `sink_async` are the evidence plane's one ingest over that admission, folding a receipt stream through `receipt_frame` and the row's INGEST plan — the awaitable leg exists because a composition draining its own receipts on an event loop otherwise stalls it for every commit. `maintain` runs the same row's MAINTAIN plan scoped to a named generation, the entrypoint a scheduled job calls. `run` and the awaitable `run_async` both read ONE `_gated` prologue — the reach matrix, then the `LAKE_COMMIT_POINT` veto for a committing op — and select the same envelope, the awaitable leg adding one `on_thread` band hop because every arm is a blocking native commit an async composition otherwise runs inline on its loop. `Read`, `ChangeFeed`, and dry-run `Vacuum` ride the bare boundary rail; a refused cell answers its typed row ahead of both the hook point and the retry envelope, and the veto's own fact never rides out as the gate's value. Every committing arm additionally crosses the owner's `ResourceGuard` — one per opened owner, composition-bound — so two same-process apps racing one table refuse at the guard as `concurrent-commit` instead of surfacing as a late provider conflict after the loser's full write; the guard wraps the whole retry envelope, nothing queues behind it, and cross-process coordination stays the format's own optimistic-commit protocol.
 - Entry: the composition root's RECEIPT-DRAIN handler is `sink`'s one caller, named here exactly as `tabular/materialize#MATERIALIZE` names `register_data_hooks` as the package's one hook-registration fold: the root draining a scope's receipt stream calls `Lakehouse.sink(receipts, Residence.EVIDENCE, tenant=…, at=…)` carrying the tenancy and instant THAT drain observed, and that call is the residence's whole writer. No page inside this package invokes it — a commit running after the producing context moved stamps whatever tenancy happens to be active — so a composition binding no drain handler writes no evidence plane, which is the stated diagnosis rather than a silent gap. The journal window is the `runtime/observability/journal#LEDGER` port's own plane behind `tabular/journal#JOURNAL`, never a second ingest into this one.
-- Receipt: the snapshot identity is one polymorphic `_snapshot` method discriminating `match self.table_format`, folded by one `_receipt` projector — never three sibling `_<format>_snapshot` factories nor a parallel `_SNAPSHOT` dispatch dict — and it reads the provider handle the ARM already opened, so a receipt costs no second log load and a travelling read keys on the version it pinned rather than on head. `LakeReceipt` keys by `ContentIdentity.of("lake", f"{table_uri}@{version}")`, which returns a rail the projector threads through `.map` so a digest fault propagates rather than a `Result` landing in the `content_key` slot; the `(table_uri, version)` payload pins the committed snapshot stable across a re-open of an unchanged version. `files_added`/`files_removed` carry the COMMIT's own churn off `_COMMIT_METRIC` — the snapshot's file roster counts every file the table holds, so reading it as an append's evidence prices one generation at the whole residence's size — while `byte_length` carries the volume that operation's own provider measures and `(quantity, unit)` the arm's own measure over the closed `LakeUnit` vocabulary, so a row count, a fragment count, and an expired-snapshot count each report as what they are rather than folding into a field named for files. Stock and flow never sum: the ledger slots every fact on the operation, so a `read` row carries the residence's held volume and a `write` row its written volume. `payload` carries the frame an op MOVES — the change feed alone today — because a count-only receipt forces its one row-consuming consumer to re-open the provider this owner already read. `contribute` emits `Receipt.of("lakehouse", ("emitted", subject, facts))` whose counts ride as native `int` the `enc_hook=repr` renderer serializes without a pre-coerce.
+- Receipt: the snapshot identity is one polymorphic `_snapshot` method discriminating `match self.table_format`, folded by one `_receipt` projector — never three sibling `_<format>_snapshot` factories nor a parallel `_SNAPSHOT` dispatch dict — and it reads the provider handle the ARM already opened, so a receipt costs no second log load and a travelling read keys on the version it pinned rather than on head. `LakeReceipt` keys by `ContentIdentity.of(DOMAIN, f"{table_uri}@{version}")`, which returns a rail the projector threads through `.map` so a digest fault propagates rather than a `Result` landing in the `content_key` slot; the `(table_uri, version)` payload pins the committed snapshot stable across a re-open of an unchanged version. `files_added`/`files_removed` carry the COMMIT's own churn off `_COMMIT_METRIC` — the snapshot's file roster counts every file the table holds, so reading it as an append's evidence prices one generation at the whole residence's size — while `byte_length` carries the volume that operation's own provider measures and `(quantity, unit)` the arm's own measure over the closed `LakeUnit` vocabulary, so a row count, a fragment count, and an expired-snapshot count each report as what they are rather than folding into a field named for files. Stock and flow never sum: the ledger slots every fact on the operation, so a `read` row carries the residence's held volume and a `write` row its written volume. `payload` carries the frame an op MOVES — the change feed alone today — because a count-only receipt forces its one row-consuming consumer to re-open the provider this owner already read. `contribute` emits `Receipt.of(OWNER, ("emitted", subject, facts))` whose counts ride as native `int` the `enc_hook=repr` renderer serializes without a pre-coerce.
 - Receipt: `quantity` and `matched` split an upsert's LANDED rows from its REDELIVERED ones — Iceberg answers the pair natively off `UpsertResult.rows_inserted`/`rows_updated`, and the Delta arm reads `num_target_rows_inserted`/`num_target_rows_updated` because `num_output_rows` counts the rewritten output files — inserted, updated, and copied together — and so exceeds the offered batch whenever an untouched row shares a rewritten file; a consumer deriving duplicates by subtracting one fused tally from its own batch length reports zero forever.
 - Receipt: `ReceiptFact` is the durable evidence row and `receipt_frame` its one projection, folding each receipt through the union's OWN `project()` so a new `Receipt` case reaches the residence with zero edits here. `_LIFTED` states the evidence contract as data — `domain`, `kind`, `owner`, `subject`, and `key` reach typed columns while every other fact survives verbatim in the open map, because the residence exists to keep the dimensions a metrics view cap drops.
 - Packages: `deltalake` owns the Delta arms — its `PostCommitHookProperties` and `TableAlterer.add_constraint` are MINED as `WriteTuning` hook fields and the `Evolve.constraints` clause, while `TableFeatures`/deletion-vector protocol enablement is DECLINED as the C# `Rasm.Persistence` at-rest concern; the predicate-bearing Delta read pushes SQL through the native `QueryBuilder` DataFusion surface, no SQL->pyarrow-DNF lowering owner minted. `pyiceberg` is the catalog-write fallback only (its `Table` annotation rides `TYPE_CHECKING`), gated behind the runtime lacking the core-loadable DuckDB `iceberg` read extension; `create_table_if_not_exists` is the idempotent create the `Ensure` arm plants through, `Table.update_spec`/`UpdateSpec.add_field` authoring the partition spec off name-keyed transform TOKENS the provider parses (`bucket[16]`, `truncate[4]`) and `Table.update_sort_order`/`UpdateSortOrder.asc`/`desc` the sort order, both gated on the table's own `spec()`/`sort_order()` reading empty. `pylance` owns the Lance dataset/version-travel/index arms and the predicate-scoped `LanceDataset.update` mutation; `pyarrow` is the write carrier. `tabular/columnar#SCAN` supplies the ONE session rail every DuckLake and Iceberg arm reuses — `DuckDbSession`/`DuckDbExtension`/`Attach` carrying the attach as session data beside the `SecretRow` credential rows the engine's own pushdown readers resolve through, `remote_store` the obstore-backed filesystem handle the tree writer registers, `quote_ident`/`quote_literal` the one escape rule, and `ColumnarEgress.Dataset` with its `emit`/`Landed` half the `PARQUET` write arm commits through, while `tabular/interop#INTEROP` supplies `arrow_bytes`, the folder's one serialization the tree's generation token digests; the `ducklake` and `iceberg` SQL surfaces are `data/.api/duckdb-extensions.md` rows [06] and [04], its `[04]-[DUCKLAKE]` cluster carrying every attach, snapshot, change-feed, and maintenance statement. runtime supplies `RuntimeRail`/`BoundaryFault`/`boundary`/`ContentIdentity`/`ReceiptContributor`/`Receipt` with the `FAULT_CONF`, `RetryClass.LAKE_COMMIT`, and `guarded_sync` the admission and commit rails bind.
-- Growth: a new lake operation is one `LakeOp` case absorbed by the `(format, tag)` dispatch, naming its `LakeUnit` on the receipt; a new partition transform is one `PartitionTransform` member with its per-format projection row and, where its grammar carries one, one `_WIDTH_TRANSFORMS` entry, an absent projection row refusing that cell by name; a residence needing an authored table is one `ResidenceRow` `layout` value, the INGEST plan already carrying the arming; a newly counted quantity kind is one `LakeUnit` row; a new write mode a `Literal` row on `Write` beside its `_PARQUET_EXISTING` projection; a new codec a `Compression` row beside its `_PARQUET_CODEC` projection, an absent projection refusing that cell rather than downgrading it; a new writer-tuning knob a `WriteTuning` field; a newly reported commit metric one `_COMMIT_METRIC` row carrying the provider's own key spelling; a new residence lifecycle phase one `LakePhase` member with its `ops` arm, every entrypoint reading the plan it returns; a new Lance vector index kind a `VectorIndex` `Literal` row (a scalar/FTS kind a `ScalarIndex` row), both absorbed by the one `_VECTOR_INDEX`-routed `Index` arm; a new DuckDB-backed capability one `DuckDbExtension` row and its `(DUCKLAKE|ICEBERG, *)` SQL arm; a further table format (Hudi, Paimon) one `TableFormat` member with its `_ADMIT` row, its `_REFUSAL` rows, and its arms on this same owner; a new analytics residence one `_RESIDENCE` row naming its own partition and clustering rosters; a new lifted evidence column one `_LIFTED` key beside its `_RECEIPT_SCHEMA` field, every producer already spelling it in facts; a new reference kind beyond tag and branch is one `Literal` member with its `_ICEBERG_REFERENCE` create/retire pair, the Lance arms taking it off the same discriminant; a new commit-governance concern is one subscriber the app root attaches on `LAKE_COMMIT_POINT`, zero owner edits.
+- Growth: a new lake operation is one `LakeOp` case absorbed by the `(format, tag)` dispatch, naming its `LakeUnit` on the receipt; a new partition transform is one `PartitionTransform` member with its per-format projection row and, where its grammar carries one, one `_WIDTH_TRANSFORMS` entry, an absent projection row refusing that cell by name; a residence needing an authored table is one `ResidenceRow` `layout` value, the INGEST plan already carrying the arming; a newly counted quantity kind is one `LakeUnit` row; a new write mode a `Literal` row on `Write` beside its `_PARQUET_EXISTING` projection; a new codec a `Compression` row beside its `_PARQUET_CODEC` projection, an absent projection refusing that cell rather than downgrading it; a new writer-tuning knob a `WriteTuning` field; a newly reported commit metric one `_COMMIT_METRIC` row carrying the provider's own key spelling; a new residence lifecycle phase one `LakePhase` member with its `ops` arm, every entrypoint reading the plan it returns; a new Lance vector index kind a `VectorIndex` `Literal` row (a scalar/FTS kind a `ScalarIndex` row), both absorbed by the one `_VECTOR_INDEX`-routed `Index` arm; a new DuckDB-backed capability one `DuckDbExtension` row and its `(DUCKLAKE|ICEBERG, *)` SQL arm; a further table format (Hudi, Paimon) one `TableFormat` member with its `_ADMIT` row, its `_REFUSAL` rows, and its arms on this same owner; a new analytics residence one `_RESIDENCE` row naming its own partition and clustering rosters; a new lifted evidence column one `_LIFTED` key beside its `_RECEIPT_SCHEMA` field, every producer already spelling it in facts; a new reference kind beyond tag and branch is one `Literal` member with its `_ICEBERG_REFERENCE` create/retire pair, the Lance arms taking it off the same discriminant; a new commit-governance concern is one subscriber the app root attaches on `LAKE_COMMIT_POINT`, zero owner edits; a further evidence-spine role a table can play is one `LakePlane` member the producer leg reads.
+- Law: a caller's commit that MOVED files lands durable evidence on the `python:runtime/observability/journal#LEDGER` plane — one operational `AuditFact` carrying the version arrival beside the file churn as a typed diff, plus a `STORAGE` `MeterFact` over the volume the arm's own provider measured. Two planes are excluded and neither is optional: a `LakePlane.LEDGER` handle holds the evidence ledger's OWN relations, so a fact recorded there lands through this very commit and the stream feeds itself without bound; a residence commit stores the receipt stream, so its fact drains as a receipt the root sinks back into that same residence — the identical regress one hop longer, and the reason `contribute` already meters no residence commit. `residence is None` alone discriminates neither, since a journal commit carries exactly that; the plane the handle admitted at `open` does, and it declares at the ledger rather than being inferred here.
 - Boundary: analytics residences carry NO view cap and NO cardinality ceiling — the `cap` column is typed `False`, so the budget a metrics plane needs is unrepresentable here rather than merely discouraged.
 - Boundary: no worker, scheduler, or retention executor enters for telemetry — `maintain` is the residence row's MAINTAIN plan and the deploy plane's own scheduled job supplies the cadence, so every expiry rides the residence's own mechanism and a row whose format refuses both passes derives an EMPTY plan rather than answering two refusals a scheduler reads as failure.
 - Boundary: `sink` reads no baggage — tenant and observation instant arrive from the composition that drained the receipts, because a commit running after the producing context moved stamps whatever tenancy happens to be active.
@@ -35,7 +36,7 @@ Time travel is one vocabulary both directions of the axis read: `Read`/`Restore`
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
-from collections.abc import Iterable, Iterator, Mapping
+from collections.abc import Awaitable, Callable, Iterable, Iterator, Mapping
 from contextlib import contextmanager
 from copy import replace
 from datetime import UTC, date, datetime, timedelta
@@ -44,6 +45,7 @@ from typing import TYPE_CHECKING, Any, Final, Literal, assert_never
 
 import lance
 import pyarrow as pa
+from anyio import BusyResourceError, ResourceGuard
 import pyarrow.compute as pc
 import pyarrow.dataset as pads
 from beartype import beartype
@@ -85,6 +87,7 @@ from rasm.data.tabular.interop import arrow_bytes
 from rasm.runtime.faults import FAULT_CONF, BoundaryFault, RuntimeRail, async_boundary, boundary, scoped
 from rasm.runtime.hooks import HookPoint, Hooks, Modality
 from rasm.runtime.identity import ContentIdentity, ContentKey
+from rasm.runtime.journal import Actor, Assigned, AuditFact, Fact, Journal, MeterFact, Party, Resource, Retain, Shifted
 from rasm.runtime.metrics import Metrics
 from rasm.runtime.lanes import on_thread
 from rasm.runtime.receipts import DEFAULT_SCOPE, Receipt, ScopeKey
@@ -201,6 +204,16 @@ class LakePhase(StrEnum):
     # taking a drain a second rewrites its entire history a second.
     INGEST = "ingest"
     MAINTAIN = "maintain"
+
+
+class LakePlane(StrEnum):
+    # what a handle's table IS to the evidence spine, declared at `open` and read only by the journal producer leg.
+    # `LEDGER` marks the relations the `python:runtime/observability/journal#LEDGER` implementer commits its own
+    # landings through: a producer leg there would record a fact whose landing re-enters this same commit, feeding
+    # the stream from itself without bound. Residence emptiness cannot discriminate them — a journal commit carries
+    # `residence=None` exactly as a caller's commit does — so the ledger's plane rides its own admitted coordinate.
+    CALLER = "caller"
+    LEDGER = "ledger"
 
 
 class Residence(StrEnum):
@@ -494,6 +507,12 @@ class ResidenceRow(Struct, frozen=True):
 # mutation-edge hook point: the data composition fold registers the row; a VETO tap gates commit pre-flight.
 LAKE_COMMIT_POINT: Final[HookPoint[LakeCommit]] = HookPoint(id="rasm.data.lakehouse.commit", payload=LakeCommit, modality=Modality.VETO)
 
+# this owner's two names spelled once — the receipt owner label the audit actor also identifies as, and the metric
+# segment its content keys, its lifted facts, and its audit verbs all derive from — so a rename cannot leave a
+# series, a durable column, and a verb standing under three spellings of one owner.
+OWNER: Final[str] = "lakehouse"
+DOMAIN: Final[str] = "lake"
+
 
 class LakeReceipt(Struct, frozen=True):
     table_uri: str
@@ -533,18 +552,18 @@ class LakeReceipt(Struct, frozen=True):
         if (self.files_added or self.files_removed) and self.residence is None:
             Metrics.record(
                 {"rasm.lake.commit.files_added": float(self.files_added), "rasm.lake.commit.files_removed": float(self.files_removed)},
-                domain="lake",
+                domain=DOMAIN,
                 kind=self.operation,
             )
         yield Receipt.of(
-            "lakehouse",
+            OWNER,
             (
                 "emitted",
                 self.table_uri,
                 {
                     # `domain`/`kind`/`key` are the lifted evidence contract `receipt_frame` reads: the SAME pair this
                     # contributor hands `Metrics.record` beside the key it minted, so a durable row rejoins its series.
-                    "domain": _RESIDENCE[self.residence].domain if self.residence is not None else "lake",
+                    "domain": _RESIDENCE[self.residence].domain if self.residence is not None else DOMAIN,
                     "kind": self.operation,
                     "key": self.content_key.hex,
                     "format": self.table_format,
@@ -557,6 +576,31 @@ class LakeReceipt(Struct, frozen=True):
                 },
             ),
         )
+
+
+def _evidence(receipt: LakeReceipt, plane: LakePlane) -> Block[Fact]:
+    # the durable half of a commit, and TWO exclusions carry it. A `LEDGER` plane is the evidence ledger's own
+    # relations: a fact recorded there lands through this very commit, so the stream feeds itself without bound.
+    # A residence commit is the receipt stream's own store: its fact drains as a receipt the root sinks BACK into
+    # that residence, which commits again — the same regress one hop longer, and the reason `contribute` already
+    # records no metric for it. Churn is the third gate: a metadata-only op moved no file and evidences nothing.
+    # The verb derives from the op tag under the runtime `<domain>.<operation>` grammar, so a new `LakeOp` case
+    # reaches the journal with zero rows here, and the meter carries the volume this operation's own provider
+    # measured — a format reporting none records its audit line alone rather than an invented charge.
+    if plane is not LakePlane.CALLER or receipt.residence is not None or not (receipt.files_added or receipt.files_removed):
+        return Block.empty()
+    audited = AuditFact(
+        action=f"{DOMAIN}.{receipt.operation}",
+        actor=Party(kind=Actor.SERVICE, key=OWNER),
+        target=Party(kind="table", key=receipt.table_uri),
+        retention=Retain.OPERATIONAL,
+        change=(
+            Assigned(path="/version", next=str(receipt.version)),
+            Shifted(path="/files", prior=str(receipt.files_removed), next=str(receipt.files_added)),
+        ),
+    )
+    metered = MeterFact(resource=Resource.STORAGE, quantity=receipt.byte_length, surface=receipt.table_uri)
+    return Block.of_seq((audited, metered) if receipt.byte_length else (audited,))
 
 
 # --- [SERVICES] -------------------------------------------------------------------------
@@ -586,6 +630,13 @@ class Lakehouse(Struct, frozen=True):
     # store bridge above cannot serve them. One row per identity, carried as session data the arms thread through.
     secrets: tuple[SecretRow, ...] = ()
     scope: ScopeKey = DEFAULT_SCOPE
+    # the evidence-spine role this handle's table plays; only the durable-evidence ledger's own relations declare
+    # `LEDGER`, and the default keeps every caller's table journalled without a keyword at the open site.
+    plane: LakePlane = LakePlane.CALLER
+    # app-neutral single-writer guard, one per opened owner: two same-process compositions racing one table die at
+    # the guard as a typed refusal instead of a late provider commit conflict after the loser's full write; the
+    # cross-process half stays the format's own optimistic-commit protocol, which this guard never substitutes for.
+    guard: ResourceGuard = field(default_factory=lambda: ResourceGuard("committing"))
 
     @classmethod
     @beartype(conf=FAULT_CONF)
@@ -599,6 +650,7 @@ class Lakehouse(Struct, frozen=True):
         dsn: str | None = None,
         secrets: tuple[SecretRow, ...] = (),
         scope: ScopeKey = DEFAULT_SCOPE,
+        plane: LakePlane = LakePlane.CALLER,
     ) -> "RuntimeRail[Lakehouse]":
         # ONE row read admits every format: the row's `kinds` set gates the ref shape and its `needs` roster gates the
         # coordinates, where three hand-written arms checked the ref kind on the Delta arm alone — so a Lance or
@@ -621,6 +673,7 @@ class Lakehouse(Struct, frozen=True):
                 filesystem=remote_store(dataset.ref),
                 secrets=secrets,
                 scope=scope,
+                plane=plane,
             )
         )
 
@@ -730,11 +783,29 @@ class Lakehouse(Struct, frozen=True):
         with _TRACER.start_as_current_span(subject, attributes=self._dimensions(op)):
             return self._gated(op, data).bind(
                 lambda admitted: (
-                    guarded_sync(RetryClass.LAKE_COMMIT, self._apply, admitted, data, subject=subject)
+                    self._exclusive(lambda: guarded_sync(RetryClass.LAKE_COMMIT, self._apply, admitted, data, subject=subject), subject)
                     if admitted.committing
                     else boundary(subject, lambda: self._apply(admitted, data))
                 ).bind(lambda rail: rail)
             )
+
+    def _exclusive[T](self, commit: "Callable[[], RuntimeRail[T]]", subject: str) -> "RuntimeRail[T]":
+        # the guard wraps the WHOLE committing envelope — retry attempts included — so a second same-process
+        # writer refuses immediately with the typed row rather than queueing behind a commit it will conflict with.
+        try:
+            with self.guard:
+                return commit()
+        except BusyResourceError:
+            return Error(BoundaryFault(boundary=(subject, "concurrent-commit")))
+
+    async def _exclusive_async[T](self, commit: "Callable[[], Awaitable[RuntimeRail[T]]]", subject: str) -> "RuntimeRail[T]":
+        # sync guard, awaited body: `ResourceGuard` refuses re-entry rather than waiting, so holding it across
+        # the awaited band hop is exactly the single-writer semantics — the second writer errors, nothing queues.
+        try:
+            with self.guard:
+                return await commit()
+        except BusyResourceError:
+            return Error(BoundaryFault(boundary=(subject, "concurrent-commit")))
 
     @beartype(conf=FAULT_CONF)
     async def run_async(self, op: LakeOp, data: pa.Table | None = None) -> "RuntimeRail[LakeReceipt]":
@@ -742,7 +813,11 @@ class Lakehouse(Struct, frozen=True):
         # an async composition reaching the synchronous entrypoint stalls its whole event loop for the duration
         # of a commit. The awaitable leg reads the SAME gate and the SAME envelope selection over one `on_thread`
         # band hop, exactly as the sibling `tabular/egress#EGRESS` owner splits two entrypoints off one row set;
-        # `_gated` crosses a `match` closed by `assert_never` here because the fenced leg is awaited.
+        # `_gated` crosses a `match` closed by `assert_never` here because the fenced leg is awaited. It is also the
+        # ONE seat durable evidence lands from, under the runtime producer-seam law: recording suspends, so the
+        # synchronous `run` records nothing and a composition wanting commit evidence reaches this leg — which every
+        # async composition already does. The record rail BINDS into the verdict, so an armed plane refusing a commit
+        # fact surfaces here while a composition that installed none folds to the lawful no-op and costs one block.
         subject = self._subject(op)
         with _TRACER.start_as_current_span(subject, attributes=self._dimensions(op)):
             match self._gated(op, data):
@@ -750,11 +825,17 @@ class Lakehouse(Struct, frozen=True):
                     return Error(fault)
                 case Result(tag="ok", ok=admitted):
                     fenced = (
-                        await guarded(RetryClass.LAKE_COMMIT, on_thread, self._apply, admitted, data, subject=subject)
+                        await self._exclusive_async(
+                            lambda: guarded(RetryClass.LAKE_COMMIT, on_thread, self._apply, admitted, data, subject=subject), subject
+                        )
                         if admitted.committing
                         else await async_boundary(subject, lambda: on_thread(self._apply, admitted, data))
                     )
-                    return fenced.bind(lambda rail: rail)
+                    match fenced.bind(lambda rail: rail):
+                        case Result(tag="ok", ok=receipt):
+                            return (await Journal.record(_evidence(receipt, self.plane), scope=self.scope)).map(lambda _landed: receipt)
+                        case refused:
+                            return Error(refused.error)
                 case unreachable:
                     assert_never(unreachable)
 
@@ -906,7 +987,9 @@ class Lakehouse(Struct, frozen=True):
             case TableFormat.DELTA, LakeOp(tag="changefeed", changefeed=(start, end)):
                 # `load_cdf` answers an arro3 `RecordBatchReader`; the zero-copy PyCapsule re-import lands the pyarrow
                 # frame this owner hands out, so a change-feed consumer folds the receipt payload instead of re-opening
-                # `DeltaTable` behind the owner that already read it.
+                # `DeltaTable` behind the owner that already read it. The re-import STAYS pyarrow: the downstream
+                # partition split needs `sort_by` and `isin`, neither of which `arro3.compute` spells, so the arro3
+                # kernel substitution is refuted for this hop.
                 table = DeltaTable(self.table_uri)
                 feed = pa.table(table.load_cdf(starting_version=start, ending_version=end).read_all())
                 return self._receipt(op, quantity=feed.num_rows, unit=LakeUnit.ROWS, payload=feed, handle=table)
@@ -1174,7 +1257,7 @@ class Lakehouse(Struct, frozen=True):
                 # provider's own contract names a per-write basename as what turns that policy into an append. The
                 # token is the frame's own content digest, so a retried write is idempotent and two distinct frames
                 # stay disjoint, and that SAME digest keys the receipt because a tree holds no snapshot to key on.
-                return ContentIdentity.of("lake", arrow_bytes(data)).bind(
+                return ContentIdentity.of(DOMAIN, arrow_bytes(data)).bind(
                     lambda key: ColumnarEgress.Dataset(
                         self.table_uri,
                         partition_by,
@@ -1275,7 +1358,7 @@ class Lakehouse(Struct, frozen=True):
         # generations onto one identity.
         snapshot, churn_added, churn_removed, churn_bytes = self._snapshot(op, handle)
         version = snapshot if pinned is None else pinned
-        identity = Ok(key) if key is not None else ContentIdentity.of("lake", f"{self.table_uri}@{version}".encode())
+        identity = Ok(key) if key is not None else ContentIdentity.of(DOMAIN, f"{self.table_uri}@{version}".encode())
         return identity.map(
             lambda resolved: LakeReceipt(
                 table_uri=self.table_uri,

@@ -13,8 +13,9 @@ Three polymorphic surfaces carry every variation: `Distribution` over the `pymc`
 - Owner: `Inference` — `InferenceSpec` is the frozen request; `InferenceReceipt.graduates` routes the measured-versus-ceiling ledger through the shared `graduation/handoff#GRADUATION` admission rail, the same gate the sibling solver, convex, and array-layout owners feed, never a parallel admission body.
 - Cases: `Distribution` is one union read in both roles, each case carrying its canonical parameters as a typed tuple — never a stringly `dict[str, float]` drifting from the class signature; the union's own keyword constructor is the construction surface, no parallel factory family re-wraps the cases.
 - Auto: PyMC owns the model lowering and the JAX/Numba handoff — this page never re-drives `pymc.sampling.jax`, the `nutpie.compile_pymc_model`/`sample` pair, or the raw `blackjax` kernel algebra, and the accelerated engines install only so PyMC's own dispatch resolves them, never as imports here. Sampling never retries: the posterior draw is the evidence, and worker-death handling stays the lane's.
-- Output: `ConvergenceBar` folds against the `_RESIDUALS` table, so a new convergence dimension is one `_Residual` row and one bar field; a `metropolis` trace carries no `diverging` sample stat — divergence counting is a gradient-sampler diagnostic — so the membership gate contributes `0` rather than a spurious `KeyError`, and a non-gradient sampler trivially clears the default bar.
-- Growth: a new distribution is one `Distribution` case and one `declare` arm usable in either role; a new sampler engine is one `SamplerBackend` case or one `external_nuts` name; a new convergence dimension is one `ConvergenceBar` field and one `_Residual`; a new per-variable diagnostic is one `PosteriorSummary` field.
+- Output: `ConvergenceBar` folds against the `_RESIDUALS` table, so a new convergence dimension is one `_Residual` row and one bar field; a `metropolis` trace carries no `diverging` sample stat — divergence counting is a gradient-sampler diagnostic — so the membership gate contributes `0` rather than a spurious `KeyError`, and a non-gradient sampler trivially clears the default bar. Predictive fit is one `_score` fold with two rows behind the `loo_cells` pointwise budget — the full PSIS-LOO matrix within it, the `loo_subsample` difference estimator above it with one `update_subsample` refinement while the sub-sampling SE dominates; `ELPDData.kind` stays `"loo"` on BOTH rows, so the receipt discriminates on the typed `subsample_obs`/`subsample_se` pair (`None` spells the full fold), and the subsampled `pareto_k` keeps full length with NaN at unsampled rows, read nan-aware.
+- Law: the async `run` fold charges one `Resource.RECORD` `MeterFact` over the sample population — draws times chains off the `SamplerPlan`, surfaced by the sampler engine — because that fold is the nearest async owner of a count the offloaded kernel produced and binds no plane for. The charge lands off the cleared arm alone, since a run refused at admission drew nothing, and the plan carries the two factors separately where the receipt fuses them into one `draws` column. The resource already names its series at the journal owner, so no metric row is minted beside the receipt fan.
+- Growth: a new distribution is one `Distribution` case and one `declare` arm usable in either role; a new sampler engine is one `SamplerBackend` case or one `external_nuts` name; a new convergence dimension is one `ConvergenceBar` field and one `_Residual`; a new per-variable diagnostic is one `PosteriorSummary` field; a new predictive-scoring row is one `_score` arm behind its `SamplerPlan` policy field.
 
 ```python signature
 from collections.abc import Callable, Iterable
@@ -31,6 +32,7 @@ from msgspec import Struct
 from rasm.compute.graduation.handoff import EvidenceScope, GraduationReceipt, HandoffAxis, evidence_run
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import FAULT_CONF, RuntimeRail, boundary
+from rasm.runtime.journal import Journal, MeterFact, Resource
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.receipts import DEFAULT_SCOPE, Receipt, ScopeKey
 from rasm.runtime.workers import Kernel, KernelTrait
@@ -176,6 +178,9 @@ class SamplerPlan(Struct, frozen=True):
     chains: int = 4
     seed: int = 0
     hdi_prob: float = 0.94
+    loo_cells: int = 10_000_000  # full-pointwise budget: `n_obs * draws * chains` above it selects the subsampled row
+    loo_obs: int = 400  # subsampled-row observation count; one `update_subsample` refinement adds the same count again
+    loo_refine: float = 0.25  # refinement trigger: refine once while `subsampling_se > loo_refine * se`
     bar: ConvergenceBar = msgspec.field(default_factory=ConvergenceBar)
 
 
@@ -225,6 +230,8 @@ class InferenceReceipt(Struct, frozen=True):
     ppc_mean: float
     elpd: float
     p_eff: float  # arviz-1.x `ELPDData.p` effective-parameter count; never the removed `p_loo`
+    subsample_obs: int | None  # `ELPDData.subsample_size`; None spells the full pointwise fold — `kind` stays "loo" on BOTH rows
+    subsample_se: float | None  # `ELPDData.subsampling_se` sub-sampling half of the SE; None on the full fold
     pareto_k_max: float
     prior_sensitivity_max: float
     divergences: int
@@ -308,6 +315,16 @@ def _fit_kernel(spec: "InferenceSpec") -> "RuntimeRail[InferenceReceipt]":
     return boundary(f"inference.{spec.plan.backend.engine}", lambda: Inference._fit(spec))
 
 
+def _metered(engine: str, plan: SamplerPlan) -> MeterFact:
+    # `Resource.RECORD` prices the SAMPLE surface a posterior consumed — draws times chains, the whole population
+    # the sampler drew rather than the per-chain figure a plan reads as its knob — so a wide multi-chain run bills
+    # the work it did. The resource already names `Series.TALLY` at the journal owner, so this charge mints no
+    # metric row beside the receipt fan, and the surface is the sampler engine, the axis a cost fold cuts on. The
+    # PLAN carries the quantity rather than the receipt, which folds the two axes into one `draws` column: reading
+    # the product back off a fused slot leaves no site where the two factors are separately auditable.
+    return MeterFact(resource=Resource.RECORD, quantity=plan.draws * plan.chains, surface=engine)
+
+
 class Inference:
     @staticmethod
     async def run(spec: InferenceSpec, lane: LanePolicy, *, composition: ScopeKey = DEFAULT_SCOPE) -> RuntimeRail[InferenceReceipt]:
@@ -322,7 +339,14 @@ class Inference:
             return (await lane.offload(Kernel.of(_fit_kernel, trait), spec)).bind(lambda rail: rail)
 
         facts = {"engine": engine, "likelihood": spec.likelihood.tag, "draws": spec.plan.draws, "chains": spec.plan.chains}
-        return await evidence_run(EvidenceScope.INFERENCE, f"inference.{engine}", dispatch, facts=facts, composition=composition)
+        settled = await evidence_run(EvidenceScope.INFERENCE, f"inference.{engine}", dispatch, facts=facts, composition=composition)
+        # this fold is the nearest async owner of the sample population — the offloaded kernel binds no plane — so
+        # the charge lands here off the CLEARED arm: a run refused at admission drew nothing to bill for.
+        match settled:
+            case Result(tag="ok", ok=receipt):
+                return (await Journal.record(_metered(engine, spec.plan), scope=composition)).map(lambda _landed: receipt)
+            case refused:
+                return Error(refused.error)
 
     @staticmethod
     @beartype(conf=FAULT_CONF)
@@ -339,7 +363,7 @@ class Inference:
             ppc = pymc.sample_posterior_predictive(trace, model=model, var_names=["observation"], random_seed=plan.seed, return_inferencedata=True)
         summary = arviz.summary(trace, var_names=names, kind="all")
         hdi = arviz.hdi(trace, var_names=names, prob=plan.hdi_prob)
-        loo = arviz.loo(trace, var_name="observation", pointwise=True)
+        loo = _score(trace, plan, n_obs=int(np.ascontiguousarray(spec.observed).size))
         psense = arviz.psense_summary(trace)
         # `r_hat` column carries the underscore and the credible interval reads the `hdi` Dataset's `ci_bound` coordinate,
         # never the removed `hdi_3%`/`hdi_97%` summary columns.
@@ -368,13 +392,33 @@ class Inference:
             ppc_mean=float(ppc.posterior_predictive["observation"].mean().to_numpy()),
             elpd=float(loo.elpd),
             p_eff=float(loo.p),
-            pareto_k_max=float(np.asarray(loo.pareto_k).max()),
+            subsample_obs=None if loo.subsample_size is None else int(loo.subsample_size),
+            subsample_se=None if loo.subsampling_se is None else float(loo.subsampling_se),
+            # subsampled `pareto_k` keeps FULL observation length with NaN at unsampled rows — structural absence,
+            # so the max is nan-aware; on the full fold nanmax equals max.
+            pareto_k_max=float(np.nanmax(np.asarray(loo.pareto_k))),
             prior_sensitivity_max=float(np.asarray(psense["prior"]).max()),
             divergences=int(trace.sample_stats["diverging"].to_numpy().sum()) if "diverging" in trace.sample_stats else 0,
             draws=plan.draws * plan.chains,
             bar=plan.bar,
             model_key=model_key,
         )
+
+
+def _score(trace: "DataTree", plan: SamplerPlan, n_obs: int) -> object:
+    # one predictive-fit fold with two rows behind the pointwise-cell budget: the full PSIS-LOO matrix within
+    # `loo_cells`, the difference-estimator subsample above it, refined ONCE by `update_subsample` while the
+    # sub-sampling half of the SE dominates. Both rows return one `ELPDData`; the refinement seed is the plan
+    # seed at a declared ordinal offset, never a re-draw of the original subsample.
+    import arviz
+
+    if n_obs * plan.draws * plan.chains <= plan.loo_cells:
+        return arviz.loo(trace, var_name="observation", pointwise=True)
+    scored = arviz.loo_subsample(trace, observations=min(plan.loo_obs, n_obs), var_name="observation", seed=plan.seed)
+    remaining = n_obs - int(scored.subsample_size)
+    if remaining > 0 and float(scored.subsampling_se) > plan.loo_refine * float(scored.se):
+        return arviz.update_subsample(scored, trace, observations=min(plan.loo_obs, remaining), seed=plan.seed + 1)
+    return scored
 
 
 def _study_payload(spec: InferenceSpec) -> StudyPayload:

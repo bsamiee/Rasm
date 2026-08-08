@@ -1,15 +1,19 @@
 # [BIM_EXPORT_RAIL]
 
-`BimExport.Export` folds one TOTAL `InterchangeCodec.Switch` over the `ExportPayload` union — `Soup` the flat `ImportedGeometry` triangle carrier, `Scene` the per-element `ElementScene` (a content-keyed mesh pool with placed `ElementInstance` rows) — dispatching GLB through the SharpGLTF `SceneBuilder`/`MeshBuilder` path under Draco/meshopt encode, `.bim` through the `dotbim` instancing wire, FBX/Collada through `AssimpNetter` `AssimpContext.ExportToBlob`, OpenUSD through `UniversalSceneDescription` `UsdStage`, and the 3D-Tiles 1.1 `.subtree` availability bitstream through the `subtree` `SubtreeCreator`. Dispatch is the generated exhaustive `InterchangeCodec.Switch` mirroring `import#IMPORT_RAIL`, so a new codec row BREAKS this call site at compile time and a `==` ladder with a silent `export-codec-miss` tail is the deleted form. `BimExport.Author` mints the per-element glTF scene as a `GlbScene` — one `NodeBuilder` per element NAMED by its seam GlobalId, one logical mesh per distinct content key (N repeats travel as N nodes over ONE mesh, `EXT_mesh_gpu_instancing` a policy threshold) — so the `GlobalId`→`Node` index `TileMetadata` and `AnimateSchedule` bind against is MINTED HERE, never caller-walked. IFC STEP/XML/JSON never re-authors here: `ExportIfc` DELEGATES to the seam `Projection/egress#IFC_EGRESS` `SemanticProjector.Emit` (the ONE Bim-internal `ElementGraph`→`DatabaseIfc` re-author — `PredefinedType` egress gate [PREDEFINED_TOKEN_RULING], 1:1 `GlobalId` round-trip [H6], diff-derived `OwnerHistory` [H9], material/classification/relationship re-author), this rail OWNING only the artifact seal (`ExportArtifact` with the Compute content key) and reading serialization off the `format#FORMAT_AXIS` `InterchangeFormat.Serialization` column.
+`BimExport.Export` folds one TOTAL `InterchangeCodec.Switch` over the `ExportPayload` union — `Soup` the flat `ImportedGeometry` triangle carrier, `Scene` the content-keyed per-element `ElementScene` — dispatching GLB through SharpGLTF under Draco/meshopt encode, `.bim` through the `dotbim` instancing wire, FBX/Collada through `AssimpContext.ExportToBlob`, OpenUSD through `UniversalSceneDescription` `UsdStage`, and 3D-Tiles `.subtree` availability through `SubtreeCreator`; the Switch mirrors `import#IMPORT_RAIL`, so a new codec row BREAKS this call site at compile time.
 
-Settled vocabulary arrives from the seam `Graph/element#ELEMENT_GRAPH` `ElementGraph`/`Element` (a consumer reads the baked `Element`, never a stored record), the seam `Rasm.Element/Projection/projection#INTERCHANGE_CARRIER` `ImportedGeometry` carrier the `import#IMPORT_RAIL` produces and `BimIo.ImportIfc` re-decode, the `format#FORMAT_AXIS` codec/extension rows, and the `Rasm.Compute/Runtime/codecs#CONTENT_ADDRESSING` `InterchangeIdentity` content key; a sealed `ExportArtifact` feeds that Compute seam. Retired `BimModel`/`BimElement` carriers and a hand-rolled `IfcBuildingElementProxy` re-author — a lossy SECOND IFC-egress owner — are GONE, every emit HOST-LOCAL.
+`BimExport.Author` mints the per-element glTF scene as a `GlbScene` — one `NodeBuilder` per element NAMED by its seam GlobalId, one logical mesh per distinct content key, N repeats travelling as N nodes over ONE mesh with `EXT_mesh_gpu_instancing` a policy threshold — so the `GlobalId`→`Node` index `TileMetadata` and `AnimateSchedule` bind against is MINTED HERE, never caller-walked.
+
+IFC STEP/XML/JSON never re-authors here: `ExportIfc` DELEGATES to the seam `Projection/egress#IFC_EGRESS` `SemanticProjector.Emit` — the ONE Bim-internal `ElementGraph`→`DatabaseIfc` re-author — this rail OWNING only the artifact seal (`ExportArtifact` with the Compute content key) and reading serialization off the `format#FORMAT_AXIS` `InterchangeFormat.Serialization` column.
+
+Settled vocabulary arrives from the seam `Graph/element#ELEMENT_GRAPH` `ElementGraph`/`Element` (a consumer reads the baked `Element`, never a stored record), the seam `Rasm.Element/Projection/projection#INTERCHANGE_CARRIER` `ImportedGeometry` carrier the `import#IMPORT_RAIL` produces and `BimIo.ImportIfc` re-decode, the `format#FORMAT_AXIS` codec/extension rows, and the `Rasm.Compute/Runtime/codecs#CONTENT_ADDRESSING` `InterchangeIdentity` content key; a sealed `ExportArtifact` feeds that Compute seam, and every emit stays HOST-LOCAL.
 
 ## [01]-[INDEX]
 
-- [02]-[EXPORT_RAIL]: artifact emit — the `ExportPayload` `Soup`/`Scene` union through one TOTAL `InterchangeCodec.Switch` (GLB with Draco/meshopt encode, the per-element `GlbScene` author + `EXT_mesh_gpu_instancing`, the `dotbim` instancing wire, AssimpNetter FBX/Collada, `UsdStage`); the `GltfChannel` canonical-channel binding roster, the `MaterialFinish`/`ChannelImage` pooled material identity authoring the seam appearance summary as linear glTF factors and binding every texture map onto one `MaterialBuilder` — sampler wrap and min/mag pair, the core-container fallback an extension-obliging primary degrades to, and the obliged `KhrExtension` rows registered from the payload itself; the IFC STEP/XML/JSON leg DELEGATING to the seam `Projection/egress#IFC_EGRESS` `SemanticProjector.Emit`, this rail owning only the `ExportArtifact` seal + the `InterchangeFormat.Serialization` column read.
+- [02]-[EXPORT_RAIL]: artifact emit — the `ExportPayload` `Soup`/`Scene` union through one TOTAL `InterchangeCodec.Switch`; the `GltfChannel` canonical-channel roster and the `MaterialFinish`/`ChannelImage` pooled material identity binding every texture map onto one `MaterialBuilder`; the IFC leg DELEGATING to the seam `Projection/egress#IFC_EGRESS` `SemanticProjector.Emit`, this rail owning only the `ExportArtifact` seal and the `InterchangeFormat.Serialization` column read.
 - [03]-[TILE_METADATA]: per-tile `EXT_structural_metadata` schema/class/property-table over the seam `Graph/element#ELEMENT_GRAPH` `Element` semantic (the baked element, not a stored record), bound through `EXT_mesh_features` over the `Staged`-authored per-vertex `_FEATURE_ID_0` row stamps the `GlbScene.Rows` index names.
 - [04]-[BIM_LOD]: `Meshopt.Simplify`/`SimplifySloppy` build the per-element LOD pyramid, `Meshopt.BuildMeshlets` bands meshlet residency, and each LOD carries the content key the `Rasm.Compute/Runtime/codecs#TILE_PARTITION` pyramid addresses.
-- [05]-[SCHEDULE_ANIMATION]: `AnimateSchedule` bakes the `Planning/schedule#SCHEDULE` `ScheduleNetwork` construction sequence into per-element glTF visibility/scale keyframe tracks through `ModelRoot.CreateAnimation` and the `KHR_node_visibility` channel over the `Author`-minted `GlbScene` `GlobalId`→`Node` index, with the in-progress tint riding the `KHR_animation_pointer` material base-colour channel glTF's absent per-node colour forces, so a 4D schedule exports as one animated GLB a web viewer scrubs.
+- [05]-[SCHEDULE_ANIMATION]: `AnimateSchedule` bakes the `Planning/schedule#SCHEDULE` `ScheduleNetwork` construction sequence into per-element glTF visibility/scale keyframe tracks through `ModelRoot.CreateAnimation` and the `KHR_node_visibility` channel over the `Author`-minted `GlbScene` `GlobalId`→`Node` index, the in-progress tint riding the `KHR_animation_pointer` material base-colour channel — a 4D schedule exports as one animated GLB a web viewer scrubs.
 - [06]-[ROUNDTRIP]: `RoundTrip` folds an `ElementGraph` emit→`BimIo.ImportIfc` schema-sniffed re-decode→`Project`→`Assemble` cycle across the IFC STEP/ifcXML/ifcJSON serializations into one lossless-verification matrix, witnessing per-element fidelity by the seam content key joined on the 1:1 `ExternalId` and naming the divergent members through the `Generator.Equals` structured diff.
 - [07]-[TILE_AVAILABILITY]: `TileAvailability` authors the 3D-Tiles 1.1 implicit-tiling `.subtree` availability bitstream over the `subtree` `SubtreeCreator`/`SubtreeCreator3D`/`Tile`/`Tile3D`/`MortonIndex` surface and witnesses it back through `SubtreeReader.ReadSubtree` onto a content-keyed `SubtreeReceipt`, completing the tileset side the `SharpGLTF.Ext.3DTiles` per-tile content leg cannot reach and retiring the hand-rolled implicit-tiling bitstream.
 - [08]-[COBIE_EMIT]: `CobieEmit.Export` the COBie FM-handover XLSX author — a transient `CobieModel` folded `Instances.New<T>` from the seam `ElementGraph` (facility/floor/space, type/component, `CobieAttribute` rows) and sealed through `ExportToTable`, content-keyed off the kernel `ContentHash`; never a held xBIM `IModel` and never the parallel xBIM IFC reader.
@@ -207,10 +211,11 @@ public sealed record ChannelImage {
     // dependency on an extension whose absence renders untextured with no diagnostic.
     public Option<ReadOnlyMemory<byte>> Fallback { get; }
     public string Name { get; }
-    // The UV SET this map samples through. Its truth is the decode's own evidence: tessellation#EXPLICIT_TESSELLATION
-    // lands the bound texture identity beside the coordinate lane on ExplicitTessellation.Textures, so the composing
-    // edge resolves the set from THAT correspondence rather than defaulting every binding to 0 — a model carrying
-    // two parameterizations then samples both maps through the first one's coordinates and renders plausibly wrong.
+    // CoordinateSet names the UV set this map samples through, and its truth is the decode's own evidence:
+    // tessellation#EXPLICIT_TESSELLATION lands the bound texture identity beside the coordinate lane on
+    // ExplicitTessellation.Textures, so the composing edge resolves the set from THAT correspondence rather than
+    // defaulting every binding to 0 — a model carrying two parameterizations then samples both maps through the
+    // first one's coordinates and renders plausibly wrong.
     public int CoordinateSet { get; }
     public TextureWrapMode WrapS { get; }
     public TextureWrapMode WrapT { get; }
@@ -315,15 +320,15 @@ public sealed record ChannelImage {
 // summary are the untinted default the flat-soup and mixed-repeat paths take.
 // DoubleSided is the RENDER-REPRESENTATION toggle beside the reflectance vector, never a summary column: every
 // AppearanceSummary channel answers how a painted face reflects, this one answers WHICH faces the material paints,
-// and widening the frozen seven-value preimage to carry it re-keys every stored Node.Appearance. Its producer is
-// the Semantics/appearance#APPEARANCE_PROJECTION StyledAppearance.DoubleSided bit the IFC IfcSurfaceSide attribute
+// and widening the frozen seven-value preimage to carry it re-keys every stored Node.Appearance. Its producer is the
+// Semantics/appearance#APPEARANCE_PROJECTION StyledAppearance.DoubleSided bit the IFC IfcSurfaceSide attribute
 // declares, so the exported glTF states the sidedness the source file stated rather than the format default —
-// glTF doubleSided defaults FALSE, so a two-sided IFC style left unwritten culls every interior face and a curtain
-// wall, a railing infill, and a thin partition each vanish when viewed from inside the model.
+// glTF doubleSided defaults FALSE, so a two-sided IFC style left unwritten culls every interior face and thin
+// two-sided elements vanish when viewed from inside the model.
 public sealed record MaterialFinish(Option<AppearanceSummary> Surface, Seq<ChannelImage> Images, bool DoubleSided) {
     public static readonly MaterialFinish White = new(Option<AppearanceSummary>.None, Seq<ChannelImage>(), DoubleSided: false);
 
-    // The bit arrives REQUIRED beside the summary: its holder is the composition edge reading a
+    // doubleSided arrives REQUIRED beside the summary: its holder is the composition edge reading a
     // Semantics/appearance#APPEARANCE_PROJECTION StyledAppearance, which carries both, and a defaulted slot lets
     // whichever caller omits it assert single-sided over a source that declared otherwise.
     public static MaterialFinish Of(AppearanceSummary surface, bool doubleSided) =>
@@ -475,8 +480,8 @@ public sealed record ElementScene {
             Seq(new ElementInstance("soup", "soup", "IfcBuildingElementProxy", key, Matrix4x4.Identity, MaterialFinish.White)));
     }
 
-    // Obliges unions the extension rows this scene's own bound maps demand across every instance finish, deduped.
-    // The declared write set reads THIS rather than the InterchangePolicy roster alone, so a caller who bound a
+    // Obliges unions the extension rows this scene's own bound maps demand across every instance finish, deduped; the
+    // declared write set reads THIS rather than the InterchangePolicy roster alone, so a caller who bound a
     // KTX2 map without listing KHR_texture_basisu still declares the extension the writer emits.
     public Seq<KhrExtension> Obliges => Instances.Bind(static instance => instance.Finish.Obliges).Distinct();
 
@@ -509,8 +514,8 @@ public sealed record ElementScene {
         var (vBase, iBase, slot) = (0, 0, 0);
         foreach (var pooled in keys) {
             var mesh = Pool[pooled];
-            // An entry is ONE baked single-block carrier, so its lead block IS its declared set and its shading
-            // key; both ride forward onto the pooled block rather than being re-derived from the arena.
+            // Every entry is ONE baked single-block carrier, so its lead block IS its declared set and its shading
+            // key; both ride forward onto the pooled block rather than re-deriving from the arena.
             var entry = mesh.Blocks.Head();
             foreach (var lane in lanes) {
                 if (entry.Declared.Contains(lane.Channel) && BimExport.Lane(mesh, lane.Channel).Case is float[] source) {
@@ -599,11 +604,11 @@ public static partial class BimExport {
             : Option<float[]>.None;
 
     // Presence is TWO facts, and every arm on this page needs both: the arena must carry the descriptor, and every
-    // BLOCK inside it must have declared the channel. A pooled arena is dense by construction, so a descriptor
+    // BLOCK inside it must have declared the channel. Pooled arenas are dense by construction, so a descriptor
     // alone answers Some for a carrier where only one of N blocks was ever mapped — and a partially-declaring
     // source then encoded, decimated, and bound against ranges that are the arena's zero rather than an authored
-    // value. Gating the ONE reader is what carries that law to the mesh-builder layout, the Draco attribute set,
-    // the meshopt stream roster, and the LOD weight vector with no per-arm test.
+    // value. Gating the ONE reader is what carries that law to the mesh-builder layout, the Draco attribute set, the
+    // meshopt stream roster, and the LOD weight vector with no per-arm test.
     static Option<float[]> Sliced(ImportedGeometry geometry, EncodingChannel channel) =>
         geometry.Lanes.Descriptors.Find(descriptor => descriptor.Channel == channel).Map(descriptor => {
             float[] raw = new float[descriptor.Floats];
@@ -711,7 +716,7 @@ public static partial class BimExport {
                 || Math.Abs(scale.X - 1f) > 1e-4f || Math.Abs(scale.Y - 1f) > 1e-4f || Math.Abs(scale.Z - 1f) > 1e-4f) {
                 throw new InvalidDataException($"<dotbim-nonrigid-placement:{instance.GlobalId}>");
             }
-            // The packed word binds ONCE per element off the kernel byte leg and the four lanes unpack it; the
+            // One packed word binds per element off the kernel byte leg and the four lanes unpack it; the
             // rail's refusal arm is seam-discharged (the summary's channels are unit-gated at AppearanceSummary.Of),
             // so the collapse rides this boundary capsule's own throw funnel like every other fault in the body.
             uint rgba = instance.Finish.Rgba(key).ThrowIfFail();
@@ -839,14 +844,13 @@ public static partial class BimExport {
     // _FEATURE_ID_0 ordinal EXT_mesh_features reads. Both getters THROW past their declared arity rather than
     // returning a zero vector, because a silent (0,0) is the same forged attribute the two-type split exists to
     // refuse; every setter is a no-op return, since SharpGLTF's own assembly writes fragments back through them
-    // and a throwing setter would abort a write the builder is entitled to perform over values the constructor
-    // already fixed.
-    // The contract is THREE interfaces deep, not one: IVertexCustom : IVertexMaterial : IVertexReflection, so a
+    // and a throwing setter would abort a write the builder is entitled to perform over values the constructor already fixed.
+    // IVertexCustom runs THREE interfaces deep — IVertexCustom : IVertexMaterial : IVertexReflection — so a
     // fragment owes the morph pair (Subtract/Add over VertexMaterialDelta), the encoding declaration
     // (GetEncodingAttributes), and Validate — Validate is IVertexCustom's, NOT IVertexGeometry's, which declares no
-    // such member. The morph pair is the SharpGLTF VertexEmpty shape verbatim: a stamp-only fragment has no
-    // interpolable channel, so Subtract returns VertexMaterialDelta.Zero and Add is a no-op — a delta computed off
-    // the ordinal would interpolate a property-table ROW INDEX across a morph and address the wrong element.
+    // such member. Its morph pair is the SharpGLTF VertexEmpty shape verbatim: a stamp-only fragment has no
+    // interpolable channel, so Subtract returns VertexMaterialDelta.Zero and Add is a no-op — a delta computed off the
+    // ordinal would interpolate a property-table ROW INDEX across a morph and address the wrong element.
     // GetEncodingAttributes DECLARES the emitted accessor layout the Toolkit encodes against, so the feature ordinal
     // writes as the scalar Float1 EXT_mesh_features reads and the mapped layout declares its TEXCOORD_0 beside it —
     // an unimplemented declaration writes the attribute under a guessed default format.
@@ -1106,7 +1110,7 @@ public static partial class BimExport {
         ];
     }
 
-    // The written extension set is the UNION of the policy roster and the payload's own obliged rows, deduped,
+    // Written extensions are the UNION of the policy roster and the payload's own obliged rows, deduped,
     // NARROWED through the format axis's declared write capability — `KhrExtension.Writables` — so a read-only
     // vocabulary row (an import-classified `_ior` or `_pbrSpecularGlossiness`) never enters as write support it
     // cannot fill, per the folder phantom-extension ruling. A caller who bound a KTX2 or transform-bearing map
@@ -1481,7 +1485,7 @@ public static partial class BimExport {
 
 - Owner: `RoundTrip` the lossless verification matrix folding a seam `ElementGraph` emit→re-decode→`Project`→`Assemble` cycle across the IFC STEP/ifcXML/ifcJSON serializations into a typed `RoundTripReport` that witnesses per-element AND per-property field fidelity by the seam's structured member diff joined on the 1:1 `ExternalId` GlobalId, so the codec proves losslessness rather than asserting it; `RoundTripReport` the receipt partitioned by `InterchangeFormat` carrying the lossless-element count, the dropped-element set, and the per-element divergent-member set.
 - Entry: `RoundTrip.Verify(ElementGraph source, InterchangeFormat format, ProjectionContext ctx, IClock clock, IIfcTypeReconciler reconciler, IIfcProfileStore profiles)` runs the source graph through one IFC serialization and back — emitting through the `EXPORT_RAIL` `BimExport.ExportIfc` (which delegates to `Projection/egress#IFC_EGRESS` `SemanticProjector.Emit`), re-decoding the artifact bytes through the `import#IMPORT_RAIL` `BimIo.ImportIfc` (the ONE `DatabaseIfc` decode owner — its `SemanticProjector.Sniff` schema sniff constructs the ifcXML/ifcJSON database at the EMITTED `ReleaseVersion`, so the reimport lands at the schema the export wrote, never the GeometryGym default [H8]; a page-local `new DatabaseIfc()` re-decode is the deleted form), re-projecting through a fresh `SemanticProjector(db, reconciler, profiles)` and folding the delta onto a `Genesis(source.Header)` seed through the seam `Projection/projection#PROJECTION_CONTRACT` `ProjectionAssembly.Assemble` (the `IfcLegality` constraint admitting the re-imported edges), then comparing the source and reimported graphs by baked-element member diff — `Fin<T>` aborts on a codec reject, a re-decode fault, or a predefined-gate reject in either leg (`Model/faults#FAULT_BAND` `BimFault.CodecReject`/`ModelRejected`/`UnmappedClass`) lifting BARE onto the `Fin<T>` rail (band 2600, `Expected`-derived), no `.ToError()` hop; `RoundTrip.Matrix(ElementGraph source, ProjectionContext ctx, IClock clock, IIfcTypeReconciler reconciler, IIfcProfileStore profiles)` lifts the verify over the IFC STEP/XML/JSON triad (`InterchangeFormat.Ifc`/`IfcXml`/`IfcJson`) onto the per-format `Map<string, RoundTripReport>` fidelity matrix so a single call witnesses which serialization preserves which field.
-- Auto: `Verify` emits the graph through one IFC serialization, re-decodes through `BimIo.ImportIfc`, re-projects and assembles the reimported `ElementGraph`, then folds the source-vs-reimported comparison through the seam diff — each rooted `Object` baked into an `Element` keyed by its 1:1 `ExternalId` GlobalId (the `NodeId` is freshly minted each re-ingest [H6], so the join is the GlobalId), a no-divergence element lossless, a divergence naming its changed members through the `Generator.Equals` `Inequalities` (EXCLUDING the freshly-minted `Id` and the child-owned `Parts` paths), a source GlobalId absent from the reimport dropped. `RoundTripReport` reads the lossless count, the per-element divergent-member set (down to the exact `Properties[..].DataType`/`Quantities[..].Unit` path), and the dropped set; the geometry leg crosses the `tessellation#TESSELLATION_BRIDGE` companion, so the matrix witnesses semantic-graph and property fidelity in-process while geometry fidelity rides the companion. `Matrix` lifts `Verify` over the `InterchangeFormat` triad, keying the per-format reports so one matrix compares serializations.
+- Auto: `Verify` emits the graph through one IFC serialization, re-decodes through `BimIo.ImportIfc`, re-projects and assembles the reimported `ElementGraph`, then folds the source-vs-reimported comparison through the seam diff — each rooted `Object` baked into an `Element` keyed by its 1:1 `ExternalId` GlobalId (the `NodeId` is freshly minted each re-ingest [H6], so the join is the GlobalId), a no-divergence element lossless, a divergence naming its changed members through the `Generator.Equals` `Inequalities` composed BARE — the noise axes (`Id`, `ExternalId`, `History`, `Parts`) are `[IgnoreEquality]` at the `Rasm.Element` owner, so no call-site filter roster exists — a source GlobalId absent from the reimport dropped. `RoundTripReport` reads the lossless count, the per-element divergent-member set (down to the exact `Properties[..].DataType`/`Quantities[..].Unit` path), and the dropped set; the geometry leg crosses the `tessellation#TESSELLATION_BRIDGE` companion, so the matrix witnesses semantic-graph and property fidelity in-process while geometry fidelity rides the companion. `Matrix` lifts `Verify` over the `InterchangeFormat` triad, keying the per-format reports so one matrix compares serializations.
 - Receipt: the `RoundTripReport` per format is the codec-fidelity evidence — a per-format fidelity matrix proving which serialization preserves which field, an interchange-policy losslessness witness, and a codec regression oracle; the STEP report typically reads the highest match ratio (the canonical IFC physical file), the XML/JSON reports surfacing any serialization-specific field loss, and the divergent-member set the exact members a round-trip drops.
 - Packages: GeometryGymIFC_Core, Rasm.Element, Generator.Equals, LanguageExt.Core, NodaTime, Rasm
 - Growth: a new serialization format is one `InterchangeFormat` row the `Matrix` triad widens to; a new fidelity dimension (a placement-key match, a coverage round-trip) is one column on `RoundTripReport` over the same baked-element diff; a new comparison basis rides the existing `Generator.Equals` `Inequalities`; never a second element-comparison surface, never a per-format report record family, and never a parallel fidelity store.
@@ -1499,10 +1503,8 @@ public sealed record RoundTripReport(
 }
 
 public static class RoundTrip {
-    // The matrix rows DERIVE from the format#FORMAT_AXIS Serialization column narrowed by RoundTrippable, so a new
-    // IFC wire form joins the fidelity matrix with zero edit here — a hand-listed triad went stale the moment the
-    // zipped-STEP row round-tripped, and it silently reported a matrix over three serializations as a matrix over
-    // every one the codec emits.
+    // Matrix rows DERIVE from the format#FORMAT_AXIS Serialization column narrowed by RoundTrippable, so a new
+    // IFC wire form joins the fidelity matrix with zero edit here.
     static readonly Seq<InterchangeFormat> IfcTriad =
         toSeq(InterchangeFormat.Items.Where(static f => f.RoundTrippable && f.Serialization.IsSome));
 
@@ -1549,17 +1551,13 @@ public static class RoundTrip {
             .ToMap();
 
     // Generator.Equals member-level structured diff names the divergent members (Properties[..].FireRating,
-    // Materials[0].Composition.Layers[2].Thickness) — EXCLUDING the freshly-minted Id paths (the rooted NodeId differs
-    // each re-ingest but is not a fidelity loss) and the Parts composition paths (each child element owns its own row,
-    // a dropped child surfacing in `dropped`), so a serialization that drops a property data type or a quantity unit
-    // surfaces the EXACT member, never a "content" placeholder; lossless iff the filtered diff is empty.
+    // Materials[0].Composition.Layers[2].Thickness), so a serialization that drops a property data type or a
+    // quantity unit surfaces the EXACT member, never a "content" placeholder; lossless iff the diff is empty.
+    // Noise axes — freshly-minted Id, join-key ExternalId, provenance History, child-owned Parts — carry
+    // [IgnoreEquality] AT the Rasm.Element owner (Review/diff law), so Inequalities composes BARE and a call-site
+    // member-name filter roster is the deleted form the owner-side annotation forecloses.
     static Seq<string> Divergence(Element source, Element reimported) =>
         toSeq(Element.EqualityComparer.Default.Inequalities(source, reimported))
-            .Filter(static i => i.Path.Segments switch {
-                [{ Kind: MemberPathSegmentKind.Property, Value: "Parts" }, ..] => false,
-                [.., { Kind: MemberPathSegmentKind.Property, Value: "Id" }]    => false,
-                _                                                              => true,
-            })
             .Map(static i => i.Path.ToString());
 }
 ```
@@ -1690,7 +1688,7 @@ public sealed partial class CobieReason {
 
 public readonly record struct CobieDegrade(CobieReason Reason, string Subject);
 
-// The handover pairs the sealed artifact with what the fold could not carry, so a caller reads a thin register
+// CobieHandover pairs the sealed artifact with what the fold could not carry, so a caller reads a thin register
 // as thin rather than as complete — the EnergyOutcome.Emitted shape applied to the FM leg.
 public sealed record CobieHandover(ExportArtifact Artifact, Seq<CobieDegrade> Degrades);
 
@@ -1786,14 +1784,14 @@ public static class CobieEmit {
         asset.ExternalId = Identity(node);
     }
 
-    // Identity is the seam ExternalId GlobalId where the source carried one, else the node id — so a COBie row and
-    // the IFC emit of the same graph join on one key and a reconstructed element still reaches a stable cell.
+    // Identity resolves to the seam ExternalId GlobalId where the source carried one, else the node id — a COBie row
+    // and the IFC emit of the same graph join on one key and a reconstructed element still reaches a stable cell.
     static string Identity(Node.Object node) =>
         node.ExternalId.IfNone(node.Id.Value.ToString());
 
-    // The component's host space: the nearest containing spatial node the Compose edges name. An element hosted by
-    // a storey or the building alone lands facility-scoped rather than dropping, so an FM register never loses a
-    // component to an unsubdivided floor.
+    // Host resolves the component's host space — the nearest containing spatial node the Compose edges name; an
+    // element hosted by a storey or the building alone lands facility-scoped rather than dropping, so an FM
+    // register never loses a component to an unsubdivided floor.
     static Option<CobieSpace> Host(ElementGraph graph, Node.Object node, Dictionary<NodeId, CobieSpace> spaces) =>
         graph.EdgesAt(node.Id).Choose(e =>
             e is Relationship.Compose c && c.Part == node.Id && c.SubKind != ComposeKind.Reference
@@ -1826,10 +1824,11 @@ public static class CobieEmit {
                     CobieAttribute attribute = model.Instances.New<CobieAttribute>(a => {
                         a.Name = template.Code;
                         a.Description = bag.SetName;
-                        // The declared token where either source stated one, else the seam dimension's own SI symbol —
-                        // the canonical emit unit the template owner names for exactly this absence. SiSymbol is itself
-                        // Option (a composed dimension the roster does not name), so the fallback BINDS through both
-                        // absences onto one blank rather than nesting an Option a COBie string cell cannot carry.
+                        // Unit takes the declared token where either source stated one, else the seam dimension's own
+                        // SI symbol — the canonical emit unit the template owner names for exactly this absence.
+                        // SiSymbol is itself Option (a composed dimension the roster does not name), so the fallback
+                        // BINDS through both absences onto one blank rather than nesting an Option a COBie string
+                        // cell cannot carry.
                         a.Unit = template.Unit.IfNone(() => template.SiDimension.Bind(static d => d.SiSymbol).IfNone(""));
                     });
                     asset.Attributes.Add(attribute);
@@ -1838,10 +1837,10 @@ public static class CobieEmit {
                         : held.Add(new CobieDegrade(CobieReason.ValueUnrenderable, $"{bag.SetName}.{row.Key}"));
                 }));
 
-    // The value lowering is ONE dispatch over the seam PropertyValue union onto the typed Set overloads
+    // Value lowering is ONE dispatch over the seam PropertyValue union onto the typed Set overloads
     // CobieAttribute publishes — a numeric quantity lands as a FloatValue the spreadsheet computes on, a boolean
-    // as a BooleanValue, an instant as a DateTimeValue. Rendering every case to text was the deleted form: it made
-    // an area and a fire rating the same kind of cell.
+    // as a BooleanValue, an instant as a DateTimeValue, never one text cell that makes an area and a fire rating the
+    // same kind.
     static bool Valued(CobieAttribute attribute, PropertyValue value) => value.Switch(
         state: attribute,
         measure:    static (a, m) => { a.Set(m.Value.Si); return true; },

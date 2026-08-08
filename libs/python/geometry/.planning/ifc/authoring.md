@@ -2,23 +2,24 @@
 
 IFC model mutation as a transactional verb script — write side the analysis and lifecycle hops read against. `IfcAuthor` dispatches the `ifcopenshell.api.<module>.<action>(file, **kwargs)` usecase callables over one `AuthorVerb` vocabulary whose member VALUE is the dotted usecase, so the vocabulary IS the name-to-usecase map; every keyword spelling, argument arity, requiredness, and mint capability DERIVES from the live signature at a `@cache`-memoized `_row`, and one `apply` entry folds a whole op tuple under a single `begin_transaction`/`end_transaction`. Widening the surface is one enum row, never a parallel create/edit/assign method family over the usecase set `ifcopenshell` already dispatches and never a second transcription of a contract the package publishes.
 
-Each script is an immutable left-fold over a frozen `AuthorCarry` short-circuiting on the first `Error`; transaction and provenance concerns are AOP decorators over the one `_run` rail — `@transactional` fences rollback across both a rail fault and a provider exception, `@stamped` projects owner-history provenance onto the receipt — never re-derived per verb body. `AuthorReceipt` is itself the `ReceiptContributor`, and `apply` returns through the folder's own `evidence_run` weave under `EvidenceScope.IFC_AUTHORING`, so the folder's one MUTATING surface carries the same span, cost bracket, and conditional harvest every sibling producer does. Across the `IfcWire` seam this mutation receipt is what the C# `Rasm.Bim` `IfcSemanticModel` re-projection reads — Authoring mutates the model and emits evidence, never graduating a `GeometrySubject`.
+Each script is an immutable left-fold over a frozen `AuthorCarry` short-circuiting on the first `Error`; transaction and provenance concerns are AOP decorators over the one `_run` rail — `@transactional` fences rollback across both a rail fault and a provider exception, `@stamped` projects owner-history provenance onto the receipt — never re-derived per verb body. `AuthorReceipt` is itself the `ReceiptContributor`, and `apply` returns through the folder's own `evidence_run` weave under `EvidenceScope.IFC_AUTHORING`, so the folder's one MUTATING surface carries the same span, cost bracket, and conditional harvest every sibling producer does. `apply_async` is the awaitable twin carrying that same fold's regulatory audit trail onto the durable evidence plane once the transaction fence has closed. Across the `IfcWire` seam this mutation receipt is what the C# `Rasm.Bim` `IfcSemanticModel` re-projection reads — Authoring mutates the model and emits evidence, never graduating a `GeometrySubject`.
 
 ## [01]-[INDEX]
 
-- [02]-[AUTHORING]: the signature-derived authoring surface — the closed dotted-usecase vocabulary, the one `AuthorPayload` slot/value shape, the `AuthorCarry` transaction fold under the `@transactional`/`@stamped` aspects woven inside the `evidence_run` weave, and the `AuthorReceipt`/`MutationFact` receipt that is itself the `ReceiptContributor`.
+- [02]-[AUTHORING]: the signature-derived authoring surface — the closed dotted-usecase vocabulary, the one `AuthorPayload` slot/value shape, the `AuthorCarry` transaction fold under the `@transactional`/`@stamped` aspects woven inside the `evidence_run` weave, the `AuthorReceipt`/`MutationFact` receipt that is itself the `ReceiptContributor`, and the `apply_async` twin recording the regulatory mutation trail past the transaction fence.
 
 ## [02]-[AUTHORING]
 
 - Owner: `IfcAuthor` — boundary capsule over one `apply` entry, holding only the `composition` custody key it threads into the weave; the usecase callable resolved from the derived row is the single polymorphic dispatch, never a method per usecase, and accumulation state lives in the fold, not the owner.
 - Cases: `AuthorVerb` rows ARE the vocabulary and each row is exactly its dotted usecase, so the enum carries the whole name-to-usecase correspondence and no parallel table restates it. `_row` derives everything else from `inspect.signature` over the resolved callable: one `VerbArgument` per parameter carrying its keyword, whether it takes entity instances, whether it takes a COLLECTION of them, and whether it is required, plus the `Capability.MINTS` flag off an entity-bearing return. The per-usecase relating spelling is a fact the signature publishes, never a policy this owner owns, so a transcribed keyword column and the re-keyer that would consume it are both deleted forms — a transcription drifts silently, and `owner.update_owner_history` taking `element` is exactly the drift it drifts into. `AuthorPayload` is one shape for the same reason: `bind` maps a usecase keyword to the ordered slots filling it — one slot for a scalar entity parameter, several for a collection, the arity read off the parameter's own declared type — and `values` carries the literal arguments, so a case family split by argument shape has nothing left to discriminate. Host-coupled usecases stay out of the vocabulary by the same law the derivation serves: `geometry.add_representation` declares `blender_object`/`geometry` parameters this lane cannot supply, so the host-free `add_mesh_representation`/`add_profile_representation` mint and the `assign_representation` bind are the rows that carry representation authoring.
 - Entry: `apply` takes an `ifcopenshell.file` and an `AuthorOp` tuple, returning `RuntimeRail[AuthorReceipt]` through the `evidence_run` weave — a provider exception converts to a `BoundaryFault` once at the weave's fence, an unresolved slot and every admission divergence arrive already typed on the rail, and both fault sources meet on one carrier. A relating verb consumes prior slots through its `bind` map, so a build-a-wall-in-a-storey script is one ordered op list, never manual id-chaining.
+- Law: the durable mutation trail lands on the `python:runtime/observability/journal#LEDGER` plane as one `REGULATORY` `AuditFact` per mutation, and `apply_async` is its ONE seat — the awaitable twin this wholly-synchronous owner mints over the band hop, since recording suspends and the live pybind11 handle admits no async fold of its own. The seat is PAST the transaction fence by law, never inside it: a suspending record between `begin_transaction` and `end_transaction` lets an unrelieved intake hold a half-applied model open, and the facts mint off the settled receipt so a rolled-back script records nothing rather than a trail of mutations no model kept. The verb is the usecase's own dotted spelling and the subjects are `MutationFact.guid` alone — a non-minting verb indexes nothing rather than forging a subject — and no meter rides this leg, the crossing's cpu being the graduation weave's one charge.
 - Law: authoring runs on the caller floor by charter — the live `ifcopenshell.file` is the engine's in-process resource, a pybind11 handle no pickle seam carries, and a transactional mutation script is not idempotent: it earns no lane crossing, and any future kernel wrapping a mutating script declares `idempotent=False` so a worker-death retry never re-applies a half-committed mutation the rollback fence cannot see.
 - Auto: `apply` threads the graduation weave, so the span opens under the caller's composition and nests beneath it, `_priced` brackets the transaction's real cost on the settle, the refusal, AND the unwind, and the weave's conditional harvest emits `AuthorReceipt.contribute` on the cleared `Ok` — the transaction depth, the minted GUIDs, the `edited` census, and the provenance flag reach the receipt stream by the same path every sibling's evidence does. Inside it `@transactional` closes the batch on a clean `Ok`, runs `undo()` before `end_transaction()` on a typed `Error` rail OR a raised op so a half-applied script never persists, and projects transaction depth onto the receipt via `replace`, never the `len(facts)` op count; `@stamped` sets the provenance flag from whether the script carried an owner-history op. `to_kwargs` is the admission gate the derived roster makes possible: an argument the usecase never declares, a required one left unsupplied, a scalar entity parameter bound to anything but one slot, and an unresolved slot each name themselves BEFORE the transaction commits, where an unproven kwargs bag surfaces every one of them as a provider `TypeError` several ops into a committed batch. Per-op kernel stacks four `ifcopenshell` reads into one `MutationFact` — the usecase mutation, `guid.compress` on the minted GlobalId, the `get_psets` key count, the `traverse` subtree count — and `REMOVE` reads `get_inverse` BEFORE the delete, off the usecase's OWN first entity keyword, because the usecase severs the entity and the inverse-reference count is unreadable after.
 - Receipt: `AuthorReceipt` implements `contribute` structurally (against the `@runtime_checkable` protocol, never subclassing it) and carries the same `MutationFact` block as the typed return, so evidence is structured field-by-field, not a free-form log. `edited` and `depth` are distinct evidence — `depth` is the transaction nesting the `@transactional` aspect projects, `edited` counts the mutations that minted NO addressable entity, read off the actual outcome rather than the declared capability, since a relating usecase returning `None` mints nothing and a capability-declared count misses exactly that case.
-- Packages: `ifcopenshell` (the `api.<module>.<action>` usecase callables and the listener shim that carries their unwrapped `__signature__`, the `begin_transaction`/`undo`/`end_transaction` stack, the `guid.compress` codec, and the `get_psets`/`get_inverse`/`traverse` read graph the mutation footprint joins against), geometry graduation (`evidence_run`/`EvidenceScope` the weave), runtime (`RuntimeRail`/`BoundaryFault`, `railed` the bound `effect.result` builder, `Receipt`/`ReceiptContributor`, `ScopeKey`/`DEFAULT_SCOPE` the custody key), `expression` (the `Result` rails, `Map` for the slot vocabulary and the payload bindings, `Block` for the fact stream and the divergence roster, `Option` for the derived-shape probe), `msgspec` (`Struct`, `structs.replace`), stdlib `enum` (`Flag` for `Capability`, `StrEnum` for `AuthorVerb`), stdlib `inspect`/`typing` (the signature and annotation readers the contract derives from), stdlib `functools`/`importlib` (the memoized resolution).
-- Growth: a new authoring capability is one `AuthorVerb` row — its keyword contract, arity, requiredness, and mint capability all derive at first use; a new capability dimension is one `Capability` member the `in row.cap` tests pick up without a new column; a new footprint-read verb is one `_FOOTPRINT` member, the one axis no signature publishes. Zero new dispatcher, no per-usecase method, no payload case.
-- Boundary: `ifcopenshell` owns entity construction, usecase dispatch, the transaction stack, the GUID codec, the inverse/traverse graph, AND the argument contract — no hand-rolled STEP writer, no local UUID/GlobalId fold, no transcribed keyword spelling, no `guid.expand` on the write side (the minted GlobalId is already compressed; `expand` is the read-side codec). `api.extract_docs` is NOT that contract's reader: it introspects a `Usecase.__init__` only a handful of legacy api modules still define and reads `object.__init__` on the rest, so the signature over the wrapped callable is the one live source. No durable store and no Rhino/GH mutation. No Blender-coupled usecase enters the vocabulary. Relating verbs consume in-script slots and never re-query the model by string GUID when the minting op is in the same script.
+- Packages: `ifcopenshell` (the `api.<module>.<action>` usecase callables and the listener shim that carries their unwrapped `__signature__`, the `begin_transaction`/`undo`/`end_transaction` stack, the `guid.compress` codec, and the `get_psets`/`get_inverse`/`traverse` read graph the mutation footprint joins against), geometry graduation (`evidence_run`/`EvidenceScope` the weave), runtime (`RuntimeRail`/`BoundaryFault`, `railed` the bound `effect.result` builder, `Receipt`/`ReceiptContributor`, `ScopeKey`/`DEFAULT_SCOPE` the custody key, `Journal` with the `AuditFact`/`Party`/`Actor`/`Retain`/`Change` vocabulary the durable trail records through), `expression` (the `Result` rails, `Map` for the slot vocabulary and the payload bindings, `Block` for the fact stream and the divergence roster, `Option` for the derived-shape probe), `msgspec` (`Struct`, `structs.replace`), stdlib `enum` (`Flag` for `Capability`, `StrEnum` for `AuthorVerb`), stdlib `inspect`/`typing` (the signature and annotation readers the contract derives from), stdlib `functools`/`importlib` (the memoized resolution).
+- Growth: a new authoring capability is one `AuthorVerb` row — its keyword contract, arity, requiredness, and mint capability all derive at first use, its audit verb arriving with it; a new capability dimension is one `Capability` member the `in row.cap` tests pick up without a new column; a new footprint-read verb is one `_FOOTPRINT` member, the one axis no signature publishes; a newly audited footprint column is one `_changed` arm. Zero new dispatcher, no per-usecase method, no payload case.
+- Boundary: `ifcopenshell` owns entity construction, usecase dispatch, the transaction stack, the GUID codec, the inverse/traverse graph, AND the argument contract — no hand-rolled STEP writer, no local UUID/GlobalId fold, no transcribed keyword spelling, no `guid.expand` on the write side (the minted GlobalId is already compressed; `expand` is the read-side codec). `api.extract_docs` is NOT that contract's reader: it introspects a `Usecase.__init__` only a handful of legacy api modules still define and reads `object.__init__` on the rest, so the signature over the wrapped callable is the one live source. No durable store and no Rhino/GH mutation, and no ledger, custody, or retention window minted here — the evidence plane arrives bound at the composition root and `apply_async` records a `Retain` class alone. No Blender-coupled usecase enters the vocabulary. Relating verbs consume in-script slots and never re-query the model by string GUID when the minting op is in the same script.
 
 ```python signature
 import functools
@@ -28,13 +29,14 @@ from collections.abc import Callable, Generator, Iterable, Sequence
 from enum import Flag, StrEnum, auto
 from typing import TYPE_CHECKING, Final, get_args, get_origin
 
-from expression import Error, Nothing, Ok, Option, Some
+from expression import Error, Nothing, Ok, Option, Result, Some
 from expression.collections import Block, Map
 from msgspec import Struct
 from msgspec.structs import replace
 
 from rasm.geometry.graduation import EvidenceScope, evidence_run
 from rasm.runtime.faults import BoundaryFault, RuntimeRail, railed
+from rasm.runtime.journal import Actor, Assigned, AuditFact, Change, Cleared, Fact, Journal, Party, Retain
 from rasm.runtime.receipts import DEFAULT_SCOPE, Receipt, ScopeKey
 
 if TYPE_CHECKING:  # worker-only: every runtime `ifcopenshell` reference rides a function-local `import ifcopenshell.<sub>  # ruff:ignore[import-outside-top-level]`, so the module loads clean under the boundary-scope import policy
@@ -80,6 +82,10 @@ class Capability(Flag):
 
 
 # --- [CONSTANTS] -----------------------------------------------------------------------
+
+# this owner's one name, serving the receipt label and the audit actor identity alike, so a rename cannot strand a
+# receipt stream under one spelling and a durable actor column under another.
+OWNER: Final[str] = "rasm.geometry.ifc.authoring"
 
 # annotation origins that mark a COLLECTION parameter, so a `list[entity_instance]` keyword consumes several slots
 # while a scalar one consumes exactly one — arity read off the parameter's declared type, never a payload flag.
@@ -174,6 +180,9 @@ class AuthorCarry(Struct, frozen=True):
 
 class AuthorReceipt(Struct, frozen=True):
     schema: str
+    # the mutated model's own durable identity — the compressed `IfcProject` GlobalId — because a schema token names
+    # a FORMAT and the audit target, the C# re-projection, and a support bundle all ask WHICH model this batch touched.
+    model: str
     facts: "Block[MutationFact]"
     guids: tuple[str, ...]
     edited: int  # non-minting mutations against existing entities
@@ -182,12 +191,13 @@ class AuthorReceipt(Struct, frozen=True):
 
     def contribute(self) -> "Iterable[Receipt]":
         yield Receipt.of(
-            "rasm.geometry.ifc.authoring",
+            OWNER,
             (
                 "emitted",
                 "mutation",
                 {
                     "schema": self.schema,
+                    "model": self.model,
                     "verbs": ",".join(f.verb for f in self.facts),
                     "guids": ",".join(self.guids),
                     "psets": sum(f.psets for f in self.facts),
@@ -250,8 +260,57 @@ def _row(verb: AuthorVerb) -> IfcApiVerb:
     return IfcApiVerb(usecase=verb.value, cap=mints | (Capability.READS if verb in _FOOTPRINT else Capability.NONE), arguments=arguments)
 
 
+def _project(model: "ifcopenshell.file") -> str:
+    # the model's own identity, read once beside `model.schema` at the same fold: the `IfcProject` GlobalId compressed
+    # exactly as every minted GUID on this page is, empty for a file carrying no project root, so a durable audit row
+    # and the receipt name one model rather than a format token that names every IFC4 file in the estate.
+    import ifcopenshell.guid  # ruff:ignore[import-outside-top-level]
+
+    projects = model.by_type("IfcProject")
+    return ifcopenshell.guid.compress(projects[0].GlobalId) if projects and projects[0].GlobalId else ""
+
+
 def _slotted(slots: "Map[str, object]", slot: str) -> "RuntimeRail[object]":
     return Ok(slots[slot]) if slot in slots else Error(BoundaryFault(resource=("ifc.authoring.slot", slot)))
+
+
+def _changed(fact: MutationFact) -> tuple[Change, ...]:
+    # the mutation's own footprint as a TYPED diff rather than a rendered sentence: a minting verb ASSIGNS the
+    # compressed GlobalId it produced, `REMOVE` CLEARS the dependent subtree it severed — the one count unreadable
+    # after the usecase runs, which is why `_step` reads it first — and a pset footprint rides only where the verb's
+    # `READS` capability actually took one. A zero row asserting a count nobody measured is the shape this omits.
+    return (
+        *((Assigned(path="/guid", next=fact.guid),) if fact.guid else ()),
+        *(
+            (Cleared(path="/subtree", prior=str(fact.subtree)),)
+            if fact.verb is AuthorVerb.REMOVE
+            else (Assigned(path="/subtree", next=str(fact.subtree)),)
+        ),
+        *((Assigned(path="/psets", next=str(fact.psets)),) if fact.psets else ()),
+    )
+
+
+def _evidence(receipt: AuthorReceipt) -> "Block[Fact]":
+    # ONE audit row per mutation, offered as one batch, minted off the SETTLED receipt: `@transactional` undoes on an
+    # `Error` rail or a raised op, so a rolled-back script records nothing rather than an audit trail of mutations no
+    # model kept. The verb IS the usecase's own dotted `<module>.<action>` spelling — already the runtime verb
+    # grammar — so an audit line greps against the `ifcopenshell.api` namespace the mutation actually ran and no
+    # second verb table stands between them. Retention is REGULATORY because a model mutation is the disposal
+    # evidence a project reads back years later, and `MutationFact.guid` is this branch's one honest subject source:
+    # a verb that minted no addressable entity indexes nothing rather than forging a subject from a schema token. No
+    # meter rides this leg — it moves no bytes, and the crossing's cpu is the graduation weave's one COMPUTE charge.
+    target = Party(kind="model", key=receipt.model)
+    actor = Party(kind=Actor.SERVICE, key=OWNER)
+    return receipt.facts.map(
+        lambda fact: AuditFact(
+            action=fact.verb.value,
+            actor=actor,
+            target=target,
+            retention=Retain.REGULATORY,
+            change=_changed(fact),
+            subjects=(fact.guid,) if fact.guid else (),
+        )
+    )
 
 
 def _proven(row: IfcApiVerb, divergences: "Block[str]") -> "RuntimeRail[tuple[()]]":
@@ -310,13 +369,30 @@ class IfcAuthor:
             EvidenceScope.IFC_AUTHORING, f"apply.{len(script)}", lambda: self._run(model, script), composition=self._composition
         )
 
+    async def apply_async(self, model: "ifcopenshell.file", script: tuple[AuthorOp, ...]) -> "RuntimeRail[AuthorReceipt]":
+        # the awaitable twin over the band hop, and the folder's ONE durable mutation trail. `apply` is synchronous
+        # whole — the live `ifcopenshell.file` is an in-process pybind11 handle and the transaction stack blocks — so
+        # the record cannot land inside it: recording SUSPENDS, and a suspension between `begin_transaction` and
+        # `end_transaction` hands an unrelieved intake the power to hold a half-applied model open past its fence.
+        # This leg runs the same fold and records once the fence has closed, so the transaction boundary stays exactly
+        # where `@transactional` puts it. The record rail BINDS into the verdict — an armed plane refusing a mutation
+        # fact is a governance failure this caller owns — while a composition that installed no plane folds to the
+        # lawful no-op and pays one map read.
+        match self.apply(model, script):
+            case Result(tag="ok", ok=receipt):
+                return (await Journal.record(_evidence(receipt), scope=self._composition)).map(lambda _landed: receipt)
+            case refused:
+                return Error(refused.error)
+
     @_stamped
     @_transactional
     def _run(self, model: "ifcopenshell.file", script: tuple[AuthorOp, ...]) -> "RuntimeRail[AuthorReceipt]":
         folded: RuntimeRail[AuthorCarry] = functools.reduce(
             lambda acc, op: acc.bind(lambda carry: self._step(model, carry, op)), script, Ok(AuthorCarry())
         )
-        return folded.map(lambda carry: AuthorReceipt(model.schema, carry.facts, tuple(f.guid for f in carry.facts if f.guid), carry.edited))
+        return folded.map(
+            lambda carry: AuthorReceipt(model.schema, _project(model), carry.facts, tuple(f.guid for f in carry.facts if f.guid), carry.edited)
+        )
 
     def _step(self, model: "ifcopenshell.file", carry: AuthorCarry, op: AuthorOp) -> "RuntimeRail[AuthorCarry]":
         row = _row(op.verb)

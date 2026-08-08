@@ -1,21 +1,21 @@
 # [PY_RUNTIME_LOGGING]
 
-`LogPipeline` owns the structlog processor chain and the one log egress every event crosses — native, foreign, and the interpreter's own terminal doors alike. One `shared_chain` table feeds both render paths, so a new concern is one row reaching native chain and foreign stdlib bridge together, and one bound row caps every value's depth, width, and length before either render reads it. Its armed egress pair resolves the raised exception, then tees onto a log record carrying event name as body, remaining fields as attributes, and the SDK-derived exception triple — handing the dict on so the console renders what the wire took.
+`LogPipeline` owns the structlog processor chain and the one log egress every event crosses — native, foreign, and the interpreter's own stderr doors alike. One `shared_chain` table feeds both render paths, so a new concern is one row reaching native chain and foreign stdlib bridge together, and one bound row caps every value's depth, width, and length before either render reads it. Its armed egress pair resolves the raised exception, then tees onto a log record carrying event name as body, remaining fields as attributes, and the SDK-derived exception triple — handing the dict on so the console renders what the wire took.
 
 `Signals.emit`/`emit_async`, the `Receipt` fold, the `Redaction` model, and `LEVEL_METHOD` arrive settled from `observability/receipts#RECEIPT`; the `scoped` instrumentation stamp and the `Scope`/`SCOPES` row it binds arrive from `reliability/faults#FAULT`, the one tier below every emitting owner. `LogShip` is the policy value `observability/telemetry#TELEMETRY` threads into its install, so one value drives both halves of the egress — provider registration there, chain arm here. Chain-resident `redact` applies whatever `Redaction` the emit bound under `REDACTION_KEY`, and a foreign record with no bound policy folds through the keep-all `OPEN`.
 
 ## [01]-[INDEX]
 
-- [02]-[PIPELINE]: one shared processor chain, `LogShip` policy over its `SHIP_OTLP` row, trace-context, payload-bound, and redaction processors, fault-resolution and wire-projection paired under `LogLimits`, scope-keyed configure custody, one console handler hosting the foreign leg, and `DOORS` arming the interpreter's terminal hooks.
+- [02]-[PIPELINE]: one shared processor chain, `LogShip` policy over its `SHIP_OTLP` row, logger-name, trace-context, payload-bound, and redaction processors, fault-resolution and wire-projection paired under `LogLimits`, scope-keyed configure custody, one console handler hosting the foreign leg, and `DOORS` chaining every interpreter hook that writes past the handler roster.
 
 ## [02]-[PIPELINE]
 
 - Owner: `LogPipeline.configure` wires the whole pipeline once — the shared chain, the folded filtering floor, the console handler's `ProcessorFormatter`, the stdlib root floor, and the process doors — and re-configure re-formats the held handler in place, so an embedding host's handlers survive untouched. `shared_chain` builds the one processor table each configure, so its limits-parameterized rows carry the folded caps as policy rather than a literal: the native structlog path appends `ProcessorFormatter.wrap_for_formatter`, the foreign pre-chain reads the identical rows behind one reseated `ExtraAdder`, so a bridged grpcio/apscheduler/executor record's `extra` fields join the event before the correlation, callsite, traceback, bound, redaction, and wire rows every native event also crosses, and the three keys the formatter seeded ahead of that merge survive it. One writer owns stdout: the native path routes through `stdlib.LoggerFactory` into the same handler the foreign path lands on, so no binary-layer render races the text layer for the stream.
 - Cases: `LogShip` is the egress vocabulary and `SHIP_OTLP` its one dispatch row — `CONSOLE` renders the JSON line and seats no wire row at all, `OTLP_CONSOLE` renders that same line and seats the `faulted`/`shipped` pair projecting every event onto the registered `LoggerProvider`, standing as the exporting process-root default, the deployed collector admitting an OTLP receiver alone. Console-silent rows stay refused: the console handler's `ProcessorFormatter` is the one seam a foreign stdlib record crosses the shared chain through, so silencing it silences the foreign leg's wire projection with it. Arming decides table MEMBERSHIP rather than a per-event branch, so an unarmed process pays nothing per line, and an armed one reaching the chain before the telemetry install resolves the API no-op logger. That projection is the one row leaving the process, so it runs fenced and its attribute cap truncates a producer's tail rather than the diagnosis: a wedged queue, a retired provider, or a cleaner refusal costs the wire line alone, never the console residue beside it or the caller's next statement, and a flooded line still carries its traceback, stack, and callsite.
 - Entry: `configure(floor, ship, limits=, scope=)` returns a `LogReceipt` — the floor keys `LEVEL_METHOD` for the filtering wrapper and the stdlib root level, the ship value is the same one the caller hands `Telemetry.install`, and `limits` is the per-composition cap policy. Chain rows resolve their logger through the registered provider alone and name no provider instance, so the spec rail is a `SimpleLogRecordProcessor(InMemoryLogRecordExporter())` added to that one provider: every native and foreign line lands as a `ReadableLogRecord` a spec reads back off `get_finished_logs()` and asserts body, severity, timestamp, and attribute shape against, with no collector and no second registration against the set-once global. Custody keys by `ScopeKey` like every sibling owner: a same-scope re-configure with identical columns restamps `REENTRANT`, and a changed column re-folds. `_posture` is that fold — the strictest reading of every live composition's request, the finest floor and the tightest caps, with the wire arming as a union because a sink is a destination a composition adds and never one it takes from a host — so an embedded composition can neither silence a host's debug floor nor loosen its payload bound. Every admitted change restamps the whole registry with the fold's result, so a stored row is never a posture the process has moved past and `REENTRANT` answers the live floor, egress arm, and caps rather than the ones standing when that scope first configured.
-- Auto: `trace_context` is the one writer of the three correlation keys — a valid span context off `trace.get_current_span().get_span_context()` stamps `trace_id` as `032x`, `span_id` as `016x`, and the integer `trace_flags`, an invalid one strips whatever a foreign record's `extra` injected — so a console line correlates to the C#-parented trace or to nothing, never to a caller-supplied string; the wire record resolves the identical correlation from the ambient context at construction, so those three keys ride `RECORD_SLOTS` rather than duplicating as attributes. `bounded` is the one value coercion both renders read: every non-opaque value narrows to the OTLP-admissible shape under the folded depth, width, and length caps, degrades past them through the receipt encoder's own conversion, and leaves a mixed-type collection in a shape the record cleaner keeps whole — so console serializer and wire attribute carry one identical fact and a cyclic or input-scaled producer container raises no `RecursionError` out of the log call. `redact` runs last among the mutators and scrubs the fully assembled line — receipt facts, ambient contextvars fields, callsite rows, the structured traceback, and the timestamp — so no injector lands a classified value downstream of the policy the emit bound, and its `hash` class digests a value the bound already closed. `CallsiteParameterAdder`, `StackInfoRenderer`, and `stdlib.LoggerFactory` share one `IGNORED_FRAMES` roster naming all three emit machineries — receipts' fold, this page's doors, and the faults tier's carried-fault line — so callsite fields, the rendered stack, and the stdlib logger name each resolve the producing owner. Traceback rendering spells its transformer rather than taking the preconfigured `dict_tracebacks`, whose frame-locals default carries every local of every frame under names no `Redaction` table ever rowed and whose rich default reaches for an unadmitted package. `_severity` derives the OTel band arithmetically — the bands are four wide and decade-aligned to stdlib numbering — reading a foreign record's exact `levelno` when one is present and the receipts-owned row otherwise, so a library registering its own level name reaches the wire in-band instead of killing the formatter on a name lookup, and it carries that registered name out beside the band because `severity_text` is the source's own spelling and the band is only what a backend orders on.
-- Packages: `structlog` (chain, `ProcessorFormatter`, `ExtraAdder`, `LoggerFactory`, filtering wrapper, callsite and stack rows, the traceback transformer), `opentelemetry-api` (span-context read and the logs emit seam), `msgspec` (the policy and receipt `Struct` pair, `structs.replace`/`asdict`, the `to_builtins` value conversion), `expression` (`Option`/`Block`/`Map`), stdlib `logging`/`sys`/`threading` — this page is the one sanctioned stdlib-logging call site and the one owner of the interpreter's terminal hooks — faults (`SCOPES`, `Scope`, `boundary`, `scoped`), and receipts (`DEFAULT_SCOPE`, `ENCODE`, `EventDict`, `LEVEL_METHOD`, `LogLevel`, `OPEN`, `REDACTION_KEY`, `Redaction`, `ScopeKey`).
-- Growth: a new chain concern is one `shared_chain` row reaching both render paths; a new egress target is one `LogShip` member with its `SHIP_OTLP` row; a new cap is one `LogLimits` column reaching the bound and the meet together; a new callsite field is one `CALLSITE` member; a new terminal-hook door is one `DOORS` row spelling its own payload projection; a new record slot is one entry on the roster `RECORD_SLOTS` derives from; a new log level reaches this page through the receipts-owned `LEVEL_METHOD` row with no edit here.
+- Auto: `trace_context` is the one writer of the three correlation keys — a valid span context off `trace.get_current_span().get_span_context()` stamps `trace_id` as `032x`, `span_id` as `016x`, and the integer `trace_flags`, an invalid one strips whatever a foreign record's `extra` injected — so a console line correlates to the C#-parented trace or to nothing, never to a caller-supplied string; the wire record resolves the identical correlation from the ambient context at construction, so those three keys ride `RECORD_SLOTS` rather than duplicating as attributes. `bounded` is the one value coercion both renders read: every non-opaque value narrows to the OTLP-admissible shape under the folded depth, width, and length caps, degrades past them through the receipt encoder's own conversion, and leaves a mixed-type collection in a shape the record cleaner keeps whole — so console serializer and wire attribute carry one identical fact and a cyclic or input-scaled producer container raises no `RecursionError` out of the log call. `redact` runs last among the mutators and scrubs the fully assembled line — receipt facts, ambient contextvars fields, callsite rows, the structured traceback, and the timestamp — so no injector lands a classified value downstream of the policy the emit bound, and its `hash` class digests a value the bound already closed. `CallsiteParameterAdder`, `StackInfoRenderer`, and `stdlib.LoggerFactory` share one `IGNORED_FRAMES` roster naming all three emit machineries — receipts' fold, this page's doors, and the faults tier's carried-fault line — so callsite fields, the rendered stack, and the deduced logger name each resolve the producing owner, and `add_logger_name` lands that name on the line off the same `_record` discriminant the severity and clock rows read, answering a bridged record with its producer's own logger where every signal of this process shares one instrumentation scope. Traceback rendering spells its transformer rather than taking the preconfigured `dict_tracebacks`, whose frame-locals default carries every local of every frame under names no `Redaction` table ever rowed and whose rich default reaches for an unadmitted package. `_severity` derives the OTel band arithmetically — the bands are four wide and decade-aligned to stdlib numbering — reading a foreign record's exact `levelno` when one is present and the receipts-owned row otherwise, so a library registering its own level name reaches the wire in-band instead of killing the formatter on a name lookup, and it carries that registered name out beside the band because `severity_text` is the source's own spelling and the band is only what a backend orders on.
+- Packages: `structlog` (chain, `ProcessorFormatter`, `ExtraAdder`, `LoggerFactory`, filtering wrapper, logger-name, callsite and stack rows, the traceback transformer), `opentelemetry-api` (span-context read and the logs emit seam), `msgspec` (the policy and receipt `Struct` pair, `structs.replace`/`asdict`, the `to_builtins` value conversion), `expression` (`Option`/`Block`/`Map`), stdlib `logging`/`sys`/`threading`/`warnings` — this page is the one sanctioned stdlib-logging call site and the one owner of the interpreter's stderr doors — faults (`SCOPES`, `Scope`, `boundary`, `scoped`), and receipts (`DEFAULT_SCOPE`, `ENCODE`, `EventDict`, `LEVEL_METHOD`, `LogLevel`, `OPEN`, `REDACTION_KEY`, `Redaction`, `ScopeKey`).
+- Growth: a new chain concern is one `shared_chain` row reaching both render paths; a new egress target is one `LogShip` member with its `SHIP_OTLP` row; a new cap is one `LogLimits` column reaching the bound and the meet together; a new callsite field is one `CALLSITE` member; a new interpreter door is one `DOORS` row spelling its own severity and payload projection; a new record slot is one entry on the roster `RECORD_SLOTS` derives from; a new log level reaches this page through the receipts-owned `LEVEL_METHOD` row with no edit here.
 - Boundary: this page renders, projects, and ships; it constructs no provider, exporter, or processor of the OTLP pipeline — `observability/telemetry#TELEMETRY` alone registers the `LoggerProvider` this chain resolves, and every runtime module below the composition root emits through `Signals`, never a direct stdlib-logging call. No SDK import enters: the logs API carries the whole emit seam, so the cold `sdk._logs` tier reifies at telemetry's install alone and `LogLimits` is a page-owned policy shape rather than the SDK type whose import reifies that tier in every composition root. Exception semantics stay the SDK's — handing `emit` the raised object is what lands the module-qualified type, the message, and the stack under the specification's own attribute names, so this page spells none of the three and admits no constant for them. SDK env-resolved record limits stand behind the wire as the deployment ceiling; the chain-resident bound is the policy floor both renders cross, applied before the record exists so a hostile payload reaches neither the console serializer nor the batch queue.
 
 ```python signature
@@ -23,6 +23,7 @@
 import logging  # the ONE sanctioned stdlib-logging call site: the console handler, the root floor, and the foreign bridge
 import sys
 import threading
+import warnings
 from collections.abc import Callable, Mapping, Sequence, Set
 from enum import StrEnum
 from functools import cache, partial
@@ -50,7 +51,9 @@ from rasm.runtime.receipts import DEFAULT_SCOPE, ENCODE, LEVEL_METHOD, OPEN, RED
 type ChainEvent = structlog.typing.EventDict
 
 # per-door payload projection: each interpreter hook spells its own arity — three positionals, one thread-args record,
-# one unraisable record — and folds onto the pair one shared emitter takes, so that emitter never grows a hook branch.
+# one unraisable record, one warning sextet — and folds onto the pair one shared emitter takes, so that emitter never
+# grows a hook branch. The pair's first half is the RAISED object where the door reports one and `None` where it
+# reports an event that never raised, so the SDK's exception derivation runs on exactly the doors that carry one.
 type Uncaught = Callable[..., tuple[BaseException | None, EventDict]]
 
 
@@ -88,11 +91,13 @@ CALLSITE: Final[frozenset[structlog.processors.CallsiteParameter]] = frozenset({
     structlog.processors.CallsiteParameter.THREAD_NAME,
 })
 
-# rows the CHAIN writes downstream of a producer's own fields — the structured traceback, the rendered stack, and the
-# four callsite keys. Chain insertion order alone drops exactly those first under a flooded line, a producer's own
-# fields and the ambient contextvars both merging ahead of them, so the projection ranks this roster first and the
-# count cap truncates a producer's tail rather than the diagnosis every incident is reconstructed from.
-DIAGNOSTIC: Final[tuple[str, ...]] = ("exception", "stack", *sorted(parameter.value for parameter in CALLSITE))
+# rows the CHAIN writes downstream of a producer's own fields — the emitting logger's name, the structured traceback,
+# the rendered stack, and the four callsite keys. Chain insertion order alone drops exactly those first under a flooded
+# line, a producer's own fields and the ambient contextvars both merging ahead of them, so the projection ranks this
+# roster first and the count cap truncates a producer's tail rather than the diagnosis every incident is reconstructed
+# from. `logger` leads it: a bridged record's name is the one key that says WHICH library spoke, and every signal of
+# this process shares one instrumentation scope, so nothing else on the wire carries that fact.
+DIAGNOSTIC: Final[tuple[str, ...]] = ("logger", "exception", "stack", *sorted(parameter.value for parameter in CALLSITE))
 
 # slot the fault row resolves and the wire row consumes: `emit` derives the whole semantic exception triple from the
 # live object, so no constant here spells an exception attribute name and no package admission gates one.
@@ -358,7 +363,7 @@ def shipped(count: int, _: object, __: str, event: ChainEvent) -> ChainEvent:
     # provider the composition root already shut down, or a record-cleaner refusal would otherwise raise straight out
     # of the caller's own `log.info` on the native leg, where structlog fences no processor — taking the console
     # residue and the producer's next statement with a line neither was asked to carry. The rail is discarded by the
-    # law the terminal doors state: the one sink that would report it is the plane this fence just caught refusing.
+    # law the process doors state: the one sink that would report it is the plane this fence just caught refusing.
     number, text = _severity(event)
     boundary(
         "logging.ship",
@@ -383,13 +388,14 @@ def _shown(value: object) -> str:
     return boundary("logging.door", lambda: repr(value)).default_with(lambda _refused: f"<{type(value).__name__}>")
 
 
-def _reported(door: str, fold: tuple[BaseException | None, EventDict]) -> None:
+def _reported(door: str, level: LogLevel, fold: tuple[BaseException | None, EventDict]) -> None:
     # the door's own line: projection and render reach the chain as ONE call, so the fence above wraps both and
-    # neither can strand the predecessor hook behind it.
-    structlog.get_logger().critical(door, exc_info=fold[0], **fold[1])
+    # neither can strand the predecessor hook behind it. Severity is the ROW's, resolved through the receipts-owned
+    # binding, so no door names a level verb and a deprecation never reports at the severity a crash earns.
+    LEVEL_METHOD[level][1](structlog.get_logger())(door, exc_info=fold[0], **fold[1])
 
 
-def _uncaught(door: str, project: Uncaught, prior: Callable[..., object], *payload: object) -> None:
+def _uncaught(door: str, level: LogLevel, project: Uncaught, prior: Callable[..., object], *payload: object) -> None:
     # one emitter every door shares: its row projects that hook's own payload, the line crosses the whole chain so the
     # crash reaches the wire carrying its semantic exception triple, and the captured predecessor STILL runs — leaving
     # an embedding host's own hook and the interpreter's stderr traceback exactly as they stood. Projection and chain
@@ -400,7 +406,7 @@ def _uncaught(door: str, project: Uncaught, prior: Callable[..., object], *paylo
     # would otherwise skip a host's own hook on its way out. The rail is discarded by law: the one sink that would
     # carry it is the plane this fence caught refusing.
     try:
-        boundary(door, lambda: _reported(door, project(*payload)))
+        boundary(door, lambda: _reported(door, level, project(*payload)))
     finally:
         prior(*payload)
 
@@ -423,19 +429,34 @@ def _posture(receipts: Map[ScopeKey, LogReceipt]) -> tuple[LogLevel, bool, LogLi
 # the chain half of the egress cannot diverge on an identity comparison neither side owns.
 SHIP_OTLP: Final[Map[LogShip, bool]] = Map.of_seq([(LogShip.CONSOLE, False), (LogShip.OTLP_CONSOLE, True)])
 
-# every terminal interpreter door whose default writes an unstructured traceback straight to stderr, below the handler
-# roster and outside every chain: a dead thread, an uncaught main-thread raise, and a finalizer's unraisable are among
-# the lines an operator most needs on the wire and the ones this owner would otherwise never see. A row names the module
-# slot it wraps and projects that hook's own payload shape onto the shared emitter; a new door is one row. A row
-# rendering a producer-owned object reaches it through `_shown` rather than a bare `repr`: the object whose finalizer
-# just died is precisely the one whose `__repr__` refuses, and its raise would take the whole crash report with it.
-# A row projects only what its hook knows that the chain does not: `origin` therefore names the dead finalizer's own
-# object and nothing else, the dying thread already reaching every line as the callsite row's `thread_name` because
-# each hook runs ON the thread it reports — a second key for that one fact would fork the name across two rows.
-DOORS: Final[Block[tuple[ModuleType, str, Uncaught]]] = Block.of_seq([
-    (sys, "excepthook", lambda _kind, raised, _traceback: (raised, {})),
-    (sys, "unraisablehook", lambda event: (event.exc_value, {"origin": _shown(event.object), "detail": event.err_msg or ""})),
-    (threading, "excepthook", lambda args: (args.exc_value, {})),
+# every interpreter door whose default writes past the whole handler roster to stderr, outside every chain: a dead
+# thread, an uncaught main-thread raise, a finalizer's unraisable, and a raised warning are among the lines an operator
+# most needs on the wire and the ones this owner would otherwise never see. A row names the module slot it wraps, the
+# severity its class of event reports at, and the projection folding that hook's own payload onto the shared emitter;
+# a new door is one row. Every row CHAINS — `setattr` captures whatever hook stood before it and the emitter runs that
+# predecessor after the line — so an embedding host keeps its own hook and the interpreter keeps its stderr report,
+# and the warning leg rides that one arming path and one payload grammar exactly as its terminal siblings do.
+# A row rendering a producer-owned object reaches it through `_shown` rather than a bare `repr`: the object whose
+# finalizer just died is precisely the one whose `__repr__` refuses, and its raise would take the whole crash report
+# with it. A row projects only what its hook knows that the chain does not, so `origin` names the dead finalizer's own
+# object and the warning's own source line — a warning is raised at a site no callsite row can reach, that row
+# resolving the door's own frame — while the dying thread already reaches every line as the callsite row's
+# `thread_name`, each hook running ON the thread it reports, and a second key for that fact would fork one name.
+DOORS: Final[Block[tuple[ModuleType, str, LogLevel, Uncaught]]] = Block.of_seq([
+    (sys, "excepthook", "critical", lambda _kind, raised, _traceback: (raised, {})),
+    (sys, "unraisablehook", "critical", lambda event: (event.exc_value, {"origin": _shown(event.object), "detail": event.err_msg or ""})),
+    (threading, "excepthook", "critical", lambda args: (args.exc_value, {})),
+    (
+        # Warning objects ride `detail` rather than the raised slot: one carries no traceback, so handing it to the
+        # SDK's exception derivation would stamp a semantic exception triple whose stack every reader then hunts for.
+        warnings,
+        "showwarning",
+        "warning",
+        lambda message, category, filename, lineno, *_rest: (
+            None,
+            {"origin": f"{filename}:{lineno}", "kind": category.__name__, "detail": _shown(message)},
+        ),
+    ),
 ])
 
 
@@ -458,6 +479,12 @@ def shared_chain(limits: LogLimits, otlp: bool) -> tuple[structlog.typing.Proces
     return (
         structlog.contextvars.merge_contextvars,
         structlog.processors.add_log_level,
+        # `logger` reads the SAME `_record` discriminant the severity and clock rows read: a bridged record answers its
+        # producer's own logger name, a native event the name `LoggerFactory` deduced past `IGNORED_FRAMES`. Seated
+        # downstream of the foreign merge, so a library binding `logger` in its own `extra` cannot claim another
+        # producer's identity, and it is the only key naming which library spoke — the instrumentation scope names this
+        # process, and `pathname` names a file whose distribution a reader would have to resolve back to a package.
+        structlog.stdlib.add_logger_name,
         trace_context,
         structlog.processors.CallsiteParameterAdder(parameters=CALLSITE, additional_ignores=IGNORED_FRAMES),
         structlog.processors.StackInfoRenderer(additional_ignores=IGNORED_FRAMES),
@@ -555,12 +582,9 @@ class LogPipeline:
             if cls._console is None:
                 # process doors arm once with the first composition and never disarm — arming is additive exactly as the
                 # egress union is, each door wrapping whatever hook stood before it, so a second composition finds them
-                # standing and an embedding host keeps its own. The warnings bridge is the fourth door and stdlib-owned:
-                # it routes `showwarning` onto a logger, so every deprecation a dependency raises crosses this same chain
-                # instead of writing past the whole handler roster to stderr.
-                logging.captureWarnings(capture=True)
-                for host, slot, project in DOORS:
-                    setattr(host, slot, partial(_uncaught, f"{host.__name__}.{slot}", project, getattr(host, slot)))
+                # standing and an embedding host keeps its own.
+                for host, slot, level, project in DOORS:
+                    setattr(host, slot, partial(_uncaught, f"{host.__name__}.{slot}", level, project, getattr(host, slot)))
 
             cls._console = handler
             cls._receipts = stamped

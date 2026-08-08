@@ -9,13 +9,13 @@ Tenant attribution joins at the backend through the `rasm.tenant` baggage fold o
 ## [01]-[INDEX]
 
 - [02]-[HOOK_RAIL]: derived `COMPUTE_POINTS` table over the `SCOPE_DOMAIN` correspondence, closed payload family, measure-mapping rows with their `MEASURES` descriptor roster and its census proof, and the registration/tap split under one `ComputeInstall` receipt.
-- [03]-[RESOURCE_LEDGER]: `ResourceUsage` band over the runtime `Cost` bracket, its settled/raised outcome, and the `ledgered` hub weave every producer rides.
+- [03]-[RESOURCE_LEDGER]: `ResourceUsage` band over the runtime `Cost` bracket, its settled/raised outcome, and the `ledgered` hub weave every producer rides with the package's one `Resource.COMPUTE` charge in its async close.
 
 ## [02]-[HOOK_RAIL]
 
 - Owner: `COMPUTE_POINTS` — one derived point table, never hand-enumerated rows: the `Domain` literal is the point-id domain set `POINT_DOMAINS` projects, `SCOPE_DOMAIN` maps every `EvidenceScope` member onto one domain totally, and the lifecycle pair (`dispatched` enter fact, `resolved` resource band) derives per domain by comprehension, so a new module leaf is one `SCOPE_DOMAIN` row whose lifecycle points already exist. Ids spell `rasm.<DOMAIN>.<domain>.<point>` under the runtime `runtime/observability/hooks#HOOKS` grammar off the one `DOMAIN` segment constant the tap argument also reads, and a colliding registration refuses structurally within the composition it registers into. That point-id `<domain>` segment is Tier-0's carved-out hook vocabulary, disjoint from the capability roster the census gate resolves against, so each keeps its own name and neither shadows the other.
 - Cases: every `Domain` member carries its derived pair; graduation carries two admission facts beside its pair — `rasm.compute.graduation.admitted` as an `OBSERVE` fact off the cleared receipt, `rasm.compute.graduation.rejected` on a `REPLAY` ring (`buffer=64`) so a late-attaching diagnostic subscriber drains the recent refusals on attach, then observes forward. `VETO` admission lands as one more row when an app claims the policy; `Modality` already carries the arm.
-- Entry: `registered(composition)` is the library leg and `ComputeInstall` its receipt — the `MEASURES` descriptor proof and the `SCOPE_DOMAIN` totality proof BOTH run before any registration, so a measure the census never admitted, one whose unit or fold the census mounts differently, and an unmapped module leaf each refuse at composition with typed evidence rather than as a dispatch-time `KeyError`, a producer-killing record fault, or a board silently reading a rescaled series; the two read-only families accumulate into ONE refusal, and the registration phase then claims the WHOLE point roster in one gated transition whose own collisions report together, since a descriptor divergence returned ahead of the scope walk hides every leaf behind it and a per-point traverse leaves the half-mounted custody a refusal can never retire; `tapped(composition)` is the app leg — per point one `tap_receipts` and one `tap_metrics` subscription, the id's domain segment riding the tap's `kind` slot and landing under the runtime `rasm.kind` attribute, so the backend discriminates domains on one instrument family. Both legs default `DEFAULT_SCOPE` and thread the caller's key otherwise, so an embedded composition owns its points, taps, and refusal receipts. Producers hold no fire call: the hub weave fires the lifecycle points and the graduation rail its admission facts, so every producer dispatch reports itself.
+- Entry: `registered(composition)` is the library leg and `ComputeInstall` its receipt — the `MEASURES` descriptor proof and the `SCOPE_DOMAIN` totality proof BOTH run before any registration, so a measure the census never admitted, one whose unit or fold the census mounts differently, and an unmapped module leaf each refuse at composition with typed evidence rather than as a dispatch-time `KeyError`, a producer-killing record fault, or a board silently reading a rescaled series; the two read-only families accumulate into ONE refusal, and the registration phase then claims the WHOLE point roster in one gated transition whose own collisions report together, since a descriptor divergence returned ahead of the scope walk hides every leaf behind it and a per-point traverse leaves the half-mounted custody a refusal can never retire; `tapped(composition)` is the app leg — one package-identity `tap_receipts` value subscribed to every point beside a per-point `tap_metrics`, the id's domain segment riding the tap's `kind` slot and landing under the runtime `rasm.kind` attribute, so the backend discriminates domains on one instrument family. Both legs default `DEFAULT_SCOPE` and thread the caller's key otherwise, so an embedded composition owns its points, taps, and refusal receipts. Producers hold no fire call: the hub weave fires the lifecycle points and the graduation rail its admission facts, so every producer dispatch reports itself.
 - Measures: `_measures` is the one polymorphic projection every metrics tap shares — keys spell the runtime instrument rows exactly, so `Metrics.record`'s census resolution is a lookup, never a rename; a payload without numeric measures projects `{}` and contributes receipts alone. `MEASURES` carries the WHOLE descriptor per row — spelling, UCUM unit, and mounted instrument family — derives each row's roster segment off its own spelling, and IS what `registered` proves against the imported runtime `CENSUS` map, so this table is the transcription source its census counterpart reads and a unit or fold divergence refuses by name instead of silently rescaling a board.
 - Growth: a new module leaf is one `SCOPE_DOMAIN` row; a new point domain is one `Domain` literal member whose pair derives; a new measure is one instrument-name constant, one `MEASURES` row, one `_measures` arm, and its runtime mapped `INSTRUMENTS` row in the SAME change, the install gate refusing a lagging, mis-united, or mis-folded row by name; a new substrate cost column is one `ResourceUsage` field off `Cost`, reaching the receipt line with no tap edit and earning a measure only where a board joins on it; a new admission fact is one point row and one fire arm on the owning rail; a new composition is one `ScopeKey` threaded from the hub binding through every leg, never a sibling registry.
 - Boundary: the runtime owns the registry, the taps, the domain roster, and the instrument table — `domain="compute"` is a `DOMAINS` row and each measure a mapped `InstrumentSpec` row on `runtime/observability/metrics#METRIC`, a runtime ripple landing in the same change, never a compute-side mint. Composition custody reaches point rows, tap fan-out, and recorded series alike: `tapped` threads its key into `Hooks.tap_metrics(..., scope=composition)`, so an embedded composition's series carry its stamp exactly as its receipts do and a page-local recording closure beside the tap stays the forked projection this owner refuses. No folder-local process handle or `oneshot` bracket beside the runtime `Cost` owner, and no folder-local honest-RSS or no-peak rationale re-stated beside it. Libraries register points only; subscriber attachment stays at app composition, and no second egress rides beside the taps.
@@ -28,6 +28,7 @@ from sys import exception
 from time import perf_counter
 from typing import Final, Literal, get_args
 
+import anyio
 from expression import Error, Nothing, Option, Some
 from expression.collections import Block, Map
 from msgspec import Struct
@@ -35,6 +36,7 @@ from msgspec import Struct
 from rasm.compute.graduation.handoff import EvidenceScope
 from rasm.runtime.faults import BoundaryFault, Disposition, RuntimeRail, traversed
 from rasm.runtime.hooks import HookPoint, Hooks, Modality
+from rasm.runtime.journal import Journal, MeterFact, Resource
 from rasm.runtime.metrics import MEASURES as CENSUS
 from rasm.runtime.metrics import InstrumentKind
 from rasm.runtime.receipts import DEFAULT_SCOPE, OPEN, Cost, Receipt, ScopeKey, Signals
@@ -50,6 +52,11 @@ type Outcome = Literal["settled", "raised"]
 # roster segment every compute measure and every point id records under; the runtime DOMAINS row admits it, and the
 # census map keys on the pair, so the tap argument and the id derivation read one spelling.
 DOMAIN: Final[str] = "compute"
+
+# the producing PACKAGE identity every receipt tap attributes its rows to, derived off that one segment so a rename
+# cannot fork the owner label from the domain, and estate-rooted like every other receipt owner. The per-fact subject
+# is the FIRED point's own and resolves inside the tap, so no call site here re-spells a point id as an owner.
+PACKAGE: Final[str] = f"rasm.{DOMAIN}"
 
 # derived column law: the Literal IS the point-id domain set, so point derivation, `SCOPE_DOMAIN` codomain, and tap kind
 # attribute can never disagree. This roster stays spelled APART from the runtime `DOMAINS` capability roster the census
@@ -69,6 +76,11 @@ EVIDENCE_DURATION: Final[str] = "rasm.compute.evidence.duration"
 EVIDENCE_CPU: Final[str] = "rasm.compute.evidence.cpu_time"
 EVIDENCE_RSS: Final[str] = "rasm.compute.evidence.rss_delta"
 GRADUATION_RESIDUALS: Final[str] = "rasm.compute.graduation.residual_count"
+
+# shielded grace the band's crossing charge awaits under: a cancelled dispatch still burned the cpu it owes, so the
+# charge survives the cancel, while an unbounded shield behind an intake nothing is draining converts a bounded
+# teardown into a hang. One cell, so the whole package's close-out patience tunes here.
+METER_GRACE: Final[float] = 1.0
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -282,9 +294,13 @@ def tapped(composition: ScopeKey = DEFAULT_SCOPE) -> RuntimeRail[int]:
     # Both taps subscribe into the caller's composition AND record under it, so an embedded second composition never
     # drains the first's facts and its series carry its own stamp rather than unioning into the root's; a tap on a
     # point this composition never registered refuses on the runtime subscribe fence.
+    # the receipts tap is point-INDEPENDENT: it takes the package identity and derives each row's subject from the
+    # fired point itself, so one value subscribes to every point and a per-point mint would be the same tap built
+    # once per row. The metrics tap stays per point, since `kind` is that point's own domain segment.
+    receipts = Hooks.tap_receipts(PACKAGE, scope=composition)
     rails = COMPUTE_POINTS.collect(
         lambda point: Block.of_seq([
-            Hooks.subscribe(point.id, Hooks.tap_receipts(point.id, scope=composition), scope=composition),
+            Hooks.subscribe(point.id, receipts, scope=composition),
             Hooks.subscribe(point.id, Hooks.tap_metrics(_measures, domain=DOMAIN, kind=_domain(point.id), scope=composition), scope=composition),
         ])
     )
@@ -295,9 +311,10 @@ def tapped(composition: ScopeKey = DEFAULT_SCOPE) -> RuntimeRail[int]:
 
 - Owner: `ResourceUsage` — wallclock beside the runtime `Cost` substrate delta (cpu, rss, io, context switches) around each measured kernel, with the settled-or-raised outcome; the band is a hook payload, so it reaches metrics, receipts, and log lines through the taps rather than a second emit surface, and the backend joins solve cost to the `rasm.tenant` baggage the runtime promotes. Columns stay flat because the generic receipt tap is a shallow `structs.asdict` and OTLP log attributes refuse a nested mapping.
 - Entry: `ledgered` is the ONE band bracket — the hub weave leg `evidence_run` composes around every producer dispatch, enter fact, band, exit fact — so every module-level measured kernel contributes the band with zero per-solver code, and a kernel outside the weave composes the same wrap rather than a settle-only sibling that returned its band as a value: handing a resource band back into domain code inverts the tap law this page holds, duplicates the bracket, and drops the raising arm the wrap already covers.
+- Law: the band's ASYNC close is the package's ONE `Resource.COMPUTE` seat on the `python:runtime/observability/journal#LEDGER` plane — every producer dispatch rides this weave, so the burn charges here once, surfaced by the point domain the taps already discriminate on, and a second COMPUTE fact at any producer bills it twice. The async arm is the whole seat by the producer-seam law: recording suspends, so the sync arm bands, fires, and charges nothing, and declaring a sync dispatch async to reach the seat bands the coroutine MINT and prices the awaited body at zero. The record runs shielded under one bounded grace and its rail is DISCARDED, because this runs inside `finally`: a cancelled dispatch still burned the cpu it owes, an unbounded shield behind an unrelieved intake turns a bounded teardown into a hang, and a rail bound here replaces the kernel fault the band exists to price. No `RETENTION` table seats here — `MeterFact` carries `REGULATORY` by constitution and every compute audit class is fixed by what its own producer WRITES rather than by which axis produced it, so a table keyed on `Domain` or `HandoffAxis` carries one value per row and decides nothing.
 - Auto: the band closes in `finally` and `sys.exception()` decides its outcome — a raising kernel is exactly the dispatch whose resource price matters most, the weave's boundary fence one level up converts that raise, and an exit fact fired on the settled path alone loses every expensive failure. Sampling itself is the runtime `Cost` bracket's: one `oneshot` collection per edge, `cpu_times` never `cpu_percent` because attribution needs exact spend rather than a since-last-call ratio shared across readers, io platform-gated independently, and RSS an instantaneous pair whose signed delta claims no unobserved peak. Refused fires — pre-registration, unregistered id, wrong composition — land as rejected receipts through `fired` under the same `ScopeKey`, never a silent drop.
-- Growth: a new band field is one `ResourceUsage` field off the substrate `Cost` column, one `_measures` key where a board joins on it, and its runtime instrument row in the same change; a new sampling site is nothing — the weave already covers every producer.
-- Boundary: the substrate bracket reads its own process handle, which inside a lane is the worker's; cross-process aggregation stays the runtime lanes owner's, and this page mints no handle and no bracket of its own. Awaited bands price whole-process spend across the await window, so a concurrent task's burn lands in the same band — the crossing price, never isolated kernel attribution. Sync-declared dispatch minting an awaitable bands the mint alone — the settle rides the runtime `measured` continuation — so an async kernel declares the async modality to band its await.
+- Growth: a new band field is one `ResourceUsage` field off the substrate `Cost` column, one `_measures` key where a board joins on it, and its runtime instrument row in the same change; a new sampling site is nothing — the weave already covers every producer; a newly metered compute resource is one `MeterFact` at the fold that owns the quantity, never a second `Resource.COMPUTE` seat beside this band's.
+- Boundary: no second `Resource.COMPUTE` meter below this weave and no producer-side re-sampling of a burn the band already charged; no ledger, custody, or retention window minted here — the plane arrives bound at the composition root and every `Journal.record` in this package folds lawfully to zero where none was installed. The substrate bracket reads its own process handle, which inside a lane is the worker's; cross-process aggregation stays the runtime lanes owner's, and this page mints no handle and no bracket of its own. Awaited bands price whole-process spend across the await window, so a concurrent task's burn lands in the same band — the crossing price, never isolated kernel attribution. Sync-declared dispatch minting an awaitable bands the mint alone — the settle rides the runtime `measured` continuation — so an async kernel declares the async modality to band its await.
 
 ```python signature
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -333,11 +350,29 @@ def ledgered[T](
         fired(enter, EvidenceFired(scope=scope.value, subject=subject), composition)
         return Cost.own(), perf_counter()
 
-    def closed(before: Cost, started: float) -> None:
+    def closed(before: Cost, started: float) -> ResourceUsage:
         # `sys.exception()` is the active-exception read: it returns the propagating exception during a `finally`
-        # unwind and None on the settled return, so the exit fact never claims a settle it did not observe.
+        # unwind and None on the settled return, so the exit fact never claims a settle it did not observe. The band
+        # RETURNS so the async arm charges the burn it already sampled — a second bracket there prices a different one.
         outcome: Outcome = "raised" if exception() is not None else "settled"
-        fired(resolve, ResourceUsage.of(scope, subject, outcome, started, before), composition)
+        band = ResourceUsage.of(scope, subject, outcome, started, before)
+        fired(resolve, band, composition)
+        return band
+
+    async def charged(band: ResourceUsage) -> None:
+        # the package's ONE `Resource.COMPUTE` seat: every producer dispatch rides this weave, so the burn charges
+        # here once and a second COMPUTE fact at any producer bills it twice. Quantity converts the band's UCUM
+        # second back to whole milliseconds and clamps at zero, because `Quantity` admits `int >= 0` and a delta a
+        # sampling boundary reads below it refuses the whole fact at decode; the surface is the point domain, the
+        # same discriminant the taps already ride, so charge and series cut on one axis. The scope SHIELDS under one
+        # bounded grace — a cancelled dispatch still burned the cpu it owes, while an unbounded shield behind an
+        # unrelieved intake converts a bounded teardown into a hang — and the record's rail is DISCARDED because
+        # this runs inside `finally`, where binding it would replace the kernel fault the band exists to price. An
+        # unjournalled composition folds to the lawful no-op and pays one map read.
+        with anyio.move_on_after(METER_GRACE, shield=True):
+            await Journal.record(
+                MeterFact(resource=Resource.COMPUTE, quantity=max(int(band.cpu_s * 1000.0), 0), surface=domain), scope=composition
+            )
 
     if _awaiting(dispatch):
 
@@ -346,7 +381,9 @@ def ledgered[T](
             try:  # Exemption: the two-sided band close is the platform-forced statement kernel — no expression form observes an unwind.
                 return await dispatch()
             finally:
-                closed(before, started)
+                # the async arm alone reaches the charge: recording suspends, so the sync arm below bands, fires,
+                # and records nothing, its dispatch's cost staying the exit fact and its taps.
+                await charged(closed(before, started))
 
         return sampled_async
 

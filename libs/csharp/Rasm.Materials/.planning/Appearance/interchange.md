@@ -1445,22 +1445,9 @@ public sealed record StageRequestWire(
     public static bool CorpusBorne => false;
 
     // neural#MODEL_REGISTRY StageRequest.Of already gated the request — a blocked licence has no request to project — so Of transcribes alone and
-    // carries no second gate whose verdict could differ from the first.
-    public static StageRequestWire Of(StageRequest request) =>
-        new(Stage: request.Stage.Key, ModelCardId: request.ModelCardId.Value, LicenseClass: request.LicenseClass.Key,
-            Inputs: request.Inputs.Map(static input => input.Wire switch {
-                var flat => new StageInputWire(flat.Stage, flat.Role, flat.Key),
-            }).ToArray(),
-            InputWidth: (uint)request.InputWidth.Value, InputHeight: (uint)request.InputHeight.Value,
-            OutputWidth: (uint)request.OutputWidth.Value, OutputHeight: (uint)request.OutputHeight.Value,
-            TileWidth: request.TileWidth, TileHeight: request.TileHeight,
-            Overlap: request.Overlap, PadMode: request.PadMode, Bucket: request.Bucket,
-            Provider: request.Provider.Key, Precision: request.Precision.Key, Seed: request.Seed,
-            Op: request.Op.ToString(),
-            // Absence lowers to the empty string, the SAME spelling WireProvenance's attribution pair takes: a card
-            // whose weights the caller supplies has no registry digest, and ContentAddress.Validate refuses "" so the
-            // absent case can never round-trip into a fabricated address.
-            Artefact: request.Artefact.Map(static digest => digest.ToValue()).IfNone(string.Empty));
+    // carries no second gate whose verdict could differ from the first. The transcription is the generated
+    // TextureWireMap.ToWire row set, so a new StageRequest member cannot silently miss the wire.
+    public static StageRequestWire Of(StageRequest request) => TextureWireMap.ToWire(request);
 }
 
 // THE INFERENCE RESULT. ProviderUsed is the provider AFTER any refusal, PartitionCount the graph fragmentation the
@@ -1540,12 +1527,39 @@ public sealed record StageResultWire(
 }
 
 // --- [OPERATIONS] --------------------------------------------------------------------------
-// TextureWireMap GENERATES the texture-side transcription. Only the press receipt is a genuine member-for-member mirror, so it is the only method
-// here: every other document derives at least one column (a roster order, a lowered leaf, an Option projection) and a mapper generating half a
-// projection leaves the other half looking optional. RequiredMappingStrategy.Both still makes the receipt's completeness a build fact rather than
-// a review habit.
+// TextureWireMap GENERATES the texture-side transcription: the press receipt member-for-member mirror and the
+// reader-free stage-request rows. Reader-free matters on the stage row — a [MapPropertyFromSource] reader would
+// suppress source-side RMG020 for the whole mapping, so derivations ride type-level user mappings instead and a
+// new StageRequest member forces a wire slot or the declared Layout-style waiver. Every other document derives a
+// roster order or a lowered leaf and stays a hand projection, because a mapper generating half a projection
+// leaves the other half looking optional.
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Both, EnabledConversions = MappingConversionType.None)]
 public static partial class TextureWireMap {
+    [MapProperty("Stage.Key", nameof(StageRequestWire.Stage))]
+    [MapProperty("ModelCardId.Value", nameof(StageRequestWire.ModelCardId))]
+    [MapProperty("LicenseClass.Key", nameof(StageRequestWire.LicenseClass))]
+    [MapProperty("InputWidth.Value", nameof(StageRequestWire.InputWidth))]
+    [MapProperty("InputHeight.Value", nameof(StageRequestWire.InputHeight))]
+    [MapProperty("OutputWidth.Value", nameof(StageRequestWire.OutputWidth))]
+    [MapProperty("OutputHeight.Value", nameof(StageRequestWire.OutputHeight))]
+    [MapProperty("Provider.Key", nameof(StageRequestWire.Provider))]
+    [MapProperty("Precision.Key", nameof(StageRequestWire.Precision))]
+    [MapperIgnoreSource(nameof(StageRequest.Layout))]  // interior tensor-layout note the executor re-derives, never a wire column
+    public static partial StageRequestWire ToWire(StageRequest request);
+
+    static uint Unsigned(int value) => (uint)value;
+
+    static string OpKey(Op op) => op.ToString();
+
+    // Absence lowers to the empty string, the SAME spelling WireProvenance's attribution pair takes: a card whose
+    // weights the caller supplies has no registry digest, and ContentAddress.Validate refuses "" so the absent
+    // case can never round-trip into a fabricated address.
+    static string AddressOrEmpty(Option<ContentAddress> address) => address.Map(static digest => digest.ToValue()).IfNone(string.Empty);
+
+    static StageInputWire InputRow(StageInput input) => new(input.Wire.Stage, input.Wire.Role, input.Wire.Key);
+
+    static StageInputWire[] InputRows(Seq<StageInput> inputs) => [.. inputs.Map(InputRow)];
+
     [MapProperty(new[] { nameof(PressReceipt.Backend), nameof(PressBackend.Key) }, new[] { nameof(PressReceiptWire.Backend) })]
     [MapPropertyFromSource(nameof(PressReceiptWire.PlanKey), Use = nameof(PlanHex))]
     [MapPropertyFromSource(nameof(PressReceiptWire.GraphKey), Use = nameof(GraphHex))]

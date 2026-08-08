@@ -2,11 +2,12 @@
 
 One graph-payload owner over a license-split backend triangle: the permissive `rustworkx` analysis core, the `networkx` codec/egress lane, and the GPL-confined `igraph` community engine carrying the Leiden/Louvain/Infomap split rustworkx lacks and the BSD core cannot license. Its backend is recovered from the source shape, never a knob, and analysis collapses onto ONE kernel: every algorithm runs on `rustworkx` keyed by its stable non-recycled integer index, a `networkx` or `igraph` source converting once through the one-way `_as_rx` bridge, so the `NodeId` stays the rx `int` the node-keyed frame seam joins on.
 
-Payload identity is the railed `ContentIdentity` fingerprint over the canonical node-link wire, never a `repr(dict)` byte stream. `GraphResult.frame` lowers node-index-keyed results into one canonical `node`-keyed `pa.Table` the `tabular/columnar#SCAN` plane left-joins by `node` — a centrality run is a left-join enrichment, never a re-keyed copy. `igraph`'s GPL core stays in this data graph rail and is never linked into a host-distributed plugin.
+Payload identity is the railed `ContentIdentity` fingerprint over the canonical node-link wire, never a `repr(dict)` byte stream. `GraphResult.frame` lowers node-index-keyed results into one canonical `node`-keyed `pa.Table` the `tabular/columnar#SCAN` plane left-joins by `node` — a centrality run is a left-join enrichment, never a re-keyed copy. `igraph`'s GPL core stays in this data graph rail and is never linked into a host-distributed plugin. `LayerTopology` is the decode-side admission of the C#-minted layer wire feeding the containment graph, and the capacity-network flow family rides the sibling `graph/network#NETWORK` owner over the networkx lane this kernel does not spell.
 
 ## [01]-[INDEX]
 
 - [02]-[GRAPH]: the `GraphPayload` owner — one rustworkx kernel over `_as_rx`-coerced sources, family-folded algorithm intent, typed result receipts, content-keyed egress.
+- [03]-[TOPOLOGY]: the `LayerTopology` boundary decoder — wire-carried layer and relation keys folded into the containment node-link source, detached override facts, the identity-to-index map the frame join reads.
 
 ## [02]-[GRAPH]
 
@@ -176,7 +177,9 @@ class GraphAlgorithm:
 
 @tagged_union(frozen=True)
 class GraphResult:
-    tag: Literal["order", "path", "paths", "scores", "matrix", "partition", "tree", "coloring", "matching", "layout", "scalar", "flag"] = tag()
+    tag: Literal[
+        "order", "path", "paths", "scores", "matrix", "partition", "tree", "coloring", "matching", "layout", "scalar", "flag", "flows"
+    ] = tag()
     order: tuple[NodeId, ...] = case()
     path: tuple[NodeId, ...] = case()
     paths: tuple[tuple[NodeId, ...], ...] = case()
@@ -189,6 +192,8 @@ class GraphResult:
     layout: tuple[tuple[NodeId, tuple[float, float]], ...] = case()
     scalar: float = case()
     flag: bool = case()
+    # edge-keyed flow assignment the `graph/network#NETWORK` owner mints: (source, target, flow) per edge.
+    flows: tuple[tuple[NodeId, NodeId, float], ...] = case()
 
     def frame(self) -> "RuntimeRail[pa.Table]":
         return boundary(f"graph.frame.{self.tag}", lambda: _frame(self))
@@ -340,8 +345,15 @@ def _frame(result: GraphResult) -> "pa.Table":  # ruff:ignore[too-many-return-st
             return pa.Table.from_pydict({"node": list(nodes), "rank": list(range(len(nodes)))})
         case GraphResult(tag="layout", layout=rows):
             return pa.Table.from_pydict({"node": [n for n, _ in rows], "x": [xy[0] for _, xy in rows], "y": [xy[1] for _, xy in rows]})
+        case GraphResult(tag="flows", flows=rows):
+            # EDGE-keyed frame: the join keys on the (source, target) pair rather than the lone `node` column.
+            return pa.Table.from_pydict({
+                "source": [u for u, _, _ in rows],
+                "target": [v for _, v, _ in rows],
+                "flow": [f for _, _, f in rows],
+            })
         case _:
-            raise ValueError(f"{result.tag} carries no per-node index row; only scores/coloring/partition/order/layout key the node table")
+            raise ValueError(f"{result.tag} carries no index row; only scores/coloring/partition/order/layout/flows key a join table")
 
 
 # --- [RUSTWORKX_KERNEL] -----------------------------------------------------------------
@@ -574,7 +586,71 @@ flowchart TD
     receipt -->|contribute| sink["runtime ReceiptContributor"]
 ```
 
-## [03]-[RESEARCH]
+## [03]-[TOPOLOGY]
+
+- Owner: `LayerTopology` — the decode-side admission of the C#-minted layer-topology wire: one `LayerFact` row per layer carrying identity, parent nesting, element membership, and sort order, one `OverrideFact` row per probed per-viewport override, both DETACHED facts and never a host layer handle. `layer_graph` folds the fact rows into the graph plane's node-link source — nodes the layer and member identities, directed edges the nesting and membership relations — returning the `GraphPayload` beside the identity-to-index `Map` a caller keys its queries and the `GraphResult.frame` left-join through.
+- Law: the wire schema and codec MINT in C# beside the `csharp:Rasm.Rhino/Document/layers#TREE_SNAPSHOT` emitter — this decode model mirrors the landed `LayerNode` concept (identity, `Parent` nesting, membership, `SortIndex`, per-detail overrides) and re-proves field-for-field when the corpus schema pin lands at the C# owner; a decoder-side field the pinned schema does not spell is the drift the re-proof deletes. Overrides stay detached data on the decoded value: a per-viewport visibility is display evidence, never a graph edge, so containment analysis reads one topology whichever viewport a consumer audits.
+- Entry: containment ancestry is `analyze(GraphAlgorithm(ancestors=...))`, membership closure `descendants`, nesting depth the `bfs` order — the existing kernel answers every organizational query with zero new algorithm surface, and the node-keyed frame left-joins layer organization onto the scan plane by `node` exactly as every enrichment does.
+- Growth: a new wire fact family is one `Struct` row on `LayerTopology` and one edge or detached fold in `layer_graph`; a new relation kind is one edge-payload literal; zero new surface.
+- Boundary: decode only — this plane re-mints no wire, holds no host handle, and answers no render/print product query (the face and condition columns stay C#-side evidence); an orphan parent key refuses typed at the fold, mirroring the emitter's own orphan refusal, never a silently dropped edge.
+
+```python signature
+class LayerFact(Struct, frozen=True):
+    # one detached layer row off the C# tree snapshot: `layer` and `members` are wire identity KEYS,
+    # `parent` the nesting key (`None` at a root), `sort_index` the sibling order the emitter proved.
+    layer: str
+    name: str
+    parent: str | None = None
+    members: tuple[str, ...] = ()
+    sort_index: int = 0
+
+
+class OverrideFact(Struct, frozen=True):
+    # probed per-viewport override — detached display evidence, never a graph edge.
+    layer: str
+    viewport: str
+    visible: bool
+
+
+class LayerTopology(Struct, frozen=True):
+    facts: tuple[LayerFact, ...]
+    overrides: tuple[OverrideFact, ...] = ()
+
+    @staticmethod
+    def decoded(raw: bytes) -> "RuntimeRail[LayerTopology]":
+        return boundary("graph.topology.decode", lambda: _TOPOLOGY_DECODER.decode(raw))
+
+
+_TOPOLOGY_DECODER: Final = msgspec.json.Decoder(LayerTopology)
+
+# edge payload literals: the relation vocabulary the containment queries and the frame join read.
+NESTS: Final[str] = "nests"
+MEMBER: Final[str] = "member"
+
+
+def layer_graph(topology: LayerTopology) -> "RuntimeRail[tuple[GraphPayload, Map[str, NodeId]]]":
+    def build() -> "tuple[Any, Map[str, NodeId]]":
+        graph = rx.PyDiGraph(multigraph=False)
+        layers = {fact.layer: graph.add_node(fact.layer) for fact in topology.facts}
+        orphans = tuple(fact.layer for fact in topology.facts if fact.parent is not None and fact.parent not in layers)
+        if orphans:
+            # mirror of the emitter's own orphan refusal: a nesting key outside the fact set is wire damage,
+            # never a droppable edge — the boundary fence rails this into the typed fault.
+            raise ValueError(f"<orphan-parents:{orphans}>")
+        # distinct-first: an element key shared by two layers mints ONE node — a per-occurrence add_node
+        # would strand duplicate nodes behind the last-written index; sorted assignment keeps indices stable.
+        distinct = {key for fact in topology.facts for key in fact.members} - set(layers)
+        members = {key: graph.add_node(key) for key in sorted(distinct)}
+        graph.add_edges_from([(layers[fact.parent], layers[fact.layer], NESTS) for fact in topology.facts if fact.parent is not None])
+        graph.add_edges_from([(layers[fact.layer], members[key], MEMBER) for fact in topology.facts for key in fact.members])
+        return graph, Map.of_seq((*layers.items(), *members.items()))
+
+    return boundary("graph.topology.build", build).bind(
+        lambda built: GraphPayload.of(built[0]).map(lambda payload: (payload, built[1]))
+    )
+```
+
+## [04]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.

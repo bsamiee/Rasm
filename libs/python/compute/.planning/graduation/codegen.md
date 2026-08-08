@@ -1,25 +1,27 @@
 # [PY_COMPUTE_CODEGEN]
 
-`StubCodegen` is the typed-stub projector: it decodes the C# graduation-evidence bundle once, polymorphically over the wire format the seam chose, and folds each owner descriptor into `msgspec.Struct` stub source and a JSON Schema `$defs` projection through the stdlib `ast` builder — downstream compute composes against the C# owner row by import rather than by re-typing it. Bundles are consumed at the boundary and never re-minted: this owner emits type stubs and schema only, never runtime behavior, and imports nothing from a C# interior.
+`StubCodegen` is the typed-stub projector: it decodes the C# graduation-evidence bundle once — canonical UTF-8 JSON under the producer's CamelCase wire policy, the one format `csharp:Rasm.Compute/Model/identity#GRADUATION_EVIDENCE` emits — and folds each owner descriptor into `msgspec.Struct` stub source and a JSON Schema `$defs` projection through the stdlib `ast` builder; downstream compute composes against the C# owner row by import rather than by re-typing it. Bundles are consumed at the boundary and never re-minted: this owner emits type stubs and schema only, never runtime behavior, and imports nothing from a C# interior.
 
-Descriptor descent is ONE `_fold` recursion schema run by three `FieldAlgebra` interpreters — `_NODE` annotation nodes, `_TYPES` scalar-type collection, `_REFS` nested-edge collection — and the `defstruct` field type IS `ast.unparse(_fold(field, _NODE))`, so the stub annotation and the schema field type cannot diverge on shape. `emit` rides the hub `evidence_run` weave from `graduation/handoff#EVIDENCE_WEAVE`; the `EvidenceBundle` wire is OFFLINE — msgspec json/msgpack bytes at rest, never the UDS gRPC leg — so it stays compute-owned and enters no runtime `transport/shapes` registry row until the crossing moves onto the gRPC channel.
+Descriptor descent is ONE `_fold` recursion schema run by three `FieldAlgebra` interpreters — `_NODE` annotation nodes, `_TYPES` scalar-type collection, `_REFS` nested-edge collection — and the `defstruct` field type IS `ast.unparse(_fold(field, _NODE))`, so the stub annotation and the schema field type cannot diverge on shape. `emit` rides the hub `evidence_run` weave from `graduation/handoff#EVIDENCE_WEAVE`; the `EvidenceBundle` wire is OFFLINE — msgspec json bytes at rest, never the UDS gRPC leg — so it stays compute-owned and enters no runtime `transport/shapes` registry row until the crossing moves onto the gRPC channel.
 
 ## [01]-[INDEX]
 
-- [02]-[STUB_CODEGEN]: the wire-decoded `FieldNode` union, the one `_fold` catamorphism under three interpreters, the format-and-target-polymorphic `emit` rail, and the `drift` round-trip gate on one `StubCodegen` owner.
+- [02]-[STUB_CODEGEN]: the wire-decoded `FieldNode` union, the one `_fold` catamorphism under three interpreters, the target-polymorphic `emit` rail with its `emit_async` operational trail, and the `drift` round-trip gate on one `StubCodegen` owner.
 
 ## [02]-[STUB_CODEGEN]
 
-- Owner: `StubCodegen` — it reads `EvidenceBundle`, `OwnerDescriptor`, and the `FieldNode` leaf union, the shape the C# graduation evidence already carries. `FieldScalar` is the scalar-kind vocabulary whose runtime type lives in the one `_SCALAR` table; the composite kinds are `FieldDescriptor` union cases, not enum members, because they carry sub-shape.
-- Cases: the shape kind lives in the case the discriminant selects — parallel `element`/`nested` optionals racing the kind have no owner — and the decoder targets the closed `FieldNode` leaf union, never the open base. `schema_hook` stays reserved for a genuinely custom-typed field: the `key` scalar's `ContentKey` is itself a `Struct` and renders as a struct `$ref` without a hook.
-- Entry: `emit(raw, *, wire, target)` is polymorphic over the inbound wire format AND the outbound `EmitTarget` — a consumer wanting only the wire-contract schema or only the importable stub selects a target, never a second generator; both projections descend the same fold over the same decoded descriptors, so they can never disagree on the field set.
-- Auto: a `schema_version` the decoder does not carry rails on the typed `("codegen.decode", "schema-version:...")` band, never a best-effort decode off a drifted wire shape; `drift` proves decode AND emit round-trip byte-stability against the producer-minted `evidence-bundle` `CorpusFixture` in the runtime reproduction corpus, a byte drift railing typed.
-- Growth: a new wire primitive is one `FieldScalar` member and one `_SCALAR` row the three interpreters absorb with zero extra surface; a new composite shape is one `FieldDescriptor` case, one `FieldNode` union member, one `_fold` arm, and one constructor field on each interpreter; a new inbound wire format is one `WireFormat` member and one decoder row; a new output artifact is one `EmitTarget` member and one fold arm.
+- Owner: `StubCodegen` — it decodes the LANDED peer mint `csharp:Rasm.Compute/Model/identity#GRADUATION_EVIDENCE`: `EvidenceBundle` mirrors `GraduationEvidence(SchemaVersion, Owners, BundleKey)` under the `ComputeWireContext` CamelCase policy (`rename="camel"`), `OwnerDescriptor` its `(Name, Fields)` pair, and the `FieldNode` leaf union the six `[JsonDerivedType]` kind literals `scalar`/`array`/`nested`/`mapping`/`optional`/`union` — one agreed roster at both ends, no assumed shape. `FieldScalar` transcribes the peer's eight locked rows; its runtime type lives in the one `_SCALAR` table; the composite kinds are `FieldDescriptor` union cases, not enum members, because they carry sub-shape.
+- Cases: the shape kind lives in the case the discriminant selects — parallel `element`/`nested` optionals racing the kind have no owner — and the decoder targets the closed `FieldNode` leaf union, never the open base. `schema_hook` stays reserved for a genuinely custom-typed field: the `key` scalar's `ContentKey` is itself a `Struct` and renders as a struct `$ref` without a hook. `bundle_key` crosses as the bare 32-hex key render — the `[02.28]` `evidence-key` precedent and the estate x32 content-key law — parsed by `_bundle_key` into the typed `ContentKey`, never a raw integer column double precision shreds.
+- Entry: `emit(raw, *, target)` is polymorphic over the outbound `EmitTarget` — a consumer wanting only the wire-contract schema or only the importable stub selects a target, never a second generator; both projections descend the same fold over the same decoded descriptors, so they can never disagree on the field set. Inbound wire stays the producer's one canonical UTF-8 JSON form; no second decode arm exists without a producer emitting it.
+- Auto: a `schema_version` the decoder does not carry rails on the typed `("codegen.decode", "schema-version:...")` band — the peer pins `Schema = "1"` — never a best-effort decode off a drifted wire shape; a malformed `bundle_key` render rails on the `("codegen.decode", "bundle-key:...")` band; `drift` proves decode AND emit round-trip byte-stability against the producer-minted `evidence-bundle` `CorpusFixture` in the runtime reproduction corpus, a byte drift railing typed.
+- Law: a landed emission reaches the `python:runtime/observability/journal#LEDGER` plane as one `OPERATIONAL` `AuditFact` keyed on the bundle it projected, and `emit_async` is its ONE seat — the awaitable twin this pure fold mints over the band hop, since recording suspends. The fact mints off the CLEARED projection, so a decode or render fault names no stub nobody generated, and the target is the bundle key rather than a path: this owner writes no file, so naming a location asserts a write nobody made. `drift` stays on the sync leg by design — a golden-fixture re-emit proves byte stability and journalling it fills the plane with reproduction noise under one repeated key. No meter rides the leg, the fold's cpu being the resource band's one charge.
+- Growth: a new wire primitive is one `FieldScalar` member and one `_SCALAR` row the three interpreters absorb with zero extra surface, landed beside the peer's `FieldScalar` row in the same change; a new composite shape is one `FieldDescriptor` case, one `FieldNode` union member, one `_fold` arm, and one constructor field on each interpreter, beside the peer's case and `[JsonDerivedType]` literal; a new inbound wire format re-mints the `WireFormat` axis as one member and one decoder row when a producer emits it; a new output artifact is one `EmitTarget` member and one fold arm.
 
 ```python signature
 import ast
 import decimal
 import importlib
+import re
 from collections.abc import Callable, Iterable
 from enum import StrEnum
 from functools import reduce
@@ -28,18 +30,18 @@ from typing import Annotated, Final, Literal, assert_never
 import msgspec
 from beartype import beartype
 from beartype.vale import Is
-from expression import Error, Ok
-from expression.collections import Map
+from expression import Error, Ok, Result
+from expression.collections import Block, Map
 from msgspec import Struct
 
-from rasm.compute.graduation.handoff import EvidenceScope, evidence_run
+from rasm.compute.graduation.handoff import EVIDENCE_DOMAIN, EvidenceScope, evidence_run
 from rasm.runtime.identity import ContentKey
 from rasm.runtime.faults import FAULT_CONF, BoundaryFault, RuntimeRail, boundary
+from rasm.runtime.journal import Actor, Assigned, AuditFact, Fact, Journal, Party, Retain
 from rasm.runtime.receipts import DEFAULT_SCOPE, Receipt, ScopeKey
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type WireFormat = Literal["json", "msgpack"]
 type EmitTarget = Literal["stub", "schema", "both"]
 # boundary-input refinement the `@beartype(conf=FAULT_CONF)` fence on `_decode` checks in O(1); an empty
 # payload raises `BeartypeCallHintViolation` the `CLASSIFY` `api` row folds onto the rail.
@@ -72,9 +74,12 @@ _SCALAR: Final[Map[FieldScalar, type]] = Map.of_seq([
     (FieldScalar.DECIMAL, decimal.Decimal),
 ])
 
-# schema versions this decoder CARRIES; a decoded bundle outside the set rails on the
-# `("codegen.decode", "schema-version:...")` typed fault band, never a best-effort decode.
+# schema versions this decoder CARRIES — the peer pins `GraduationEvidence.Schema = "1"`; a decoded bundle
+# outside the set rails on the `("codegen.decode", "schema-version:...")` typed fault band, never a best-effort decode.
 _SCHEMA_VERSIONS: Final[frozenset[str]] = frozenset({"1"})
+
+# bare 32-hex bundle-key render, the `[02.28]` `evidence-key` precedent under the estate x32 content-key law.
+_BUNDLE_KEY: Final[re.Pattern[str]] = re.compile(r"[0-9a-f]{32}")
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -120,10 +125,11 @@ class OwnerDescriptor(Struct, frozen=True):
     fields: tuple[FieldNode, ...]
 
 
-class EvidenceBundle(Struct, frozen=True):
+class EvidenceBundle(Struct, frozen=True, rename="camel"):
+    # CamelCase wire policy of the peer's `ComputeWireContext`: `schemaVersion`/`bundleKey` on the octets, snake here.
     schema_version: str
     owners: tuple[OwnerDescriptor, ...]
-    bundle_key: ContentKey
+    bundle_key: str  # bare 32-hex key render; `_bundle_key` admits it into the typed `ContentKey`
 
 
 class GeneratedModule(Struct, frozen=True):
@@ -161,10 +167,9 @@ class FieldAlgebra[T](Struct, frozen=True):
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
-_DECODER: Final[Map[WireFormat, msgspec.json.Decoder[EvidenceBundle] | msgspec.msgpack.Decoder[EvidenceBundle]]] = Map.of_seq([
-    ("json", msgspec.json.Decoder(type=EvidenceBundle)),
-    ("msgpack", msgspec.msgpack.Decoder(type=EvidenceBundle)),
-])
+# ONE canonical UTF-8 JSON form (injected `JsonTypeInfo`, CamelCase policy) is the producer's whole emission, so one
+# decoder serves the crossing; a second inbound format re-mints the `WireFormat` axis only with a producer behind it.
+_JSON: Final[msgspec.json.Decoder[EvidenceBundle]] = msgspec.json.Decoder(type=EvidenceBundle)
 
 
 def _sub(value: str, *elts: ast.expr) -> ast.expr:
@@ -222,6 +227,36 @@ _REFS: Final[FieldAlgebra[frozenset[str]]] = FieldAlgebra(
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
+def _bundle_key(render: str) -> RuntimeRail[ContentKey]:
+    # bare 32-hex admission before any render work; `byte_length` is producer-local and never wire data, so the
+    # decoded key carries 0 and every downstream read is the hex render, which round-trips byte-identically.
+    if _BUNDLE_KEY.fullmatch(render) is None:
+        return Error(BoundaryFault(boundary=("codegen.decode", f"bundle-key:{render[:40]}")))
+    return Ok(ContentKey(value=int(render, 16), fmt="graduation-evidence", byte_length=0))
+
+
+def _evidence(module: GeneratedModule) -> Block[Fact]:
+    # the durable half of an emission, minted off the CLEARED projection so a decode or render fault names no stub
+    # nobody generated. `OPERATIONAL` is the class: a generated stub is reproducible from its own bundle key, so the
+    # trail answers which bundle this process projected and when — an incident-window question, never a seven-year
+    # hold. The target is the bundle key rather than a path, because this owner writes no file: the projection is a
+    # value its caller persists, and naming a location here would assert a write nobody made. No meter rides the leg
+    # — the emission moves no bytes across a boundary, and the fold's cpu is the resource band's one COMPUTE charge.
+    return Block.singleton(
+        AuditFact(
+            action=f"{EVIDENCE_DOMAIN}.codegen",
+            actor=Party(kind=Actor.SERVICE, key=EvidenceScope.CODEGEN.value),
+            target=Party(kind="bundle", key=module.bundle_key.hex),
+            retention=Retain.OPERATIONAL,
+            change=(
+                Assigned(path="/schema_version", next=module.schema_version),
+                Assigned(path="/owner_count", next=str(module.owner_count)),
+                Assigned(path="/field_count", next=str(module.field_count)),
+            ),
+        )
+    )
+
+
 def _fold[T](node: FieldNode, alg: FieldAlgebra[T]) -> T:
     match node:
         case ScalarField(scalar=scalar):
@@ -242,19 +277,35 @@ def _fold[T](node: FieldNode, alg: FieldAlgebra[T]) -> T:
 
 class StubCodegen:
     @staticmethod
-    def emit(raw: bytes, *, wire: WireFormat = "json", target: EmitTarget = "both", composition: ScopeKey = DEFAULT_SCOPE) -> RuntimeRail[GeneratedModule]:
+    def emit(raw: bytes, *, target: EmitTarget = "both", composition: ScopeKey = DEFAULT_SCOPE) -> RuntimeRail[GeneratedModule]:
         # weave owns span, fence, and the contributor harvest on the clean exit.
         def rail() -> RuntimeRail[GeneratedModule]:
             return (
-                boundary("codegen.decode", lambda: StubCodegen._decode(raw, wire))
+                boundary("codegen.decode", lambda: StubCodegen._decode(raw))
                 .bind(StubCodegen._carried)
-                .bind(lambda bundle: boundary("codegen.render", lambda: StubCodegen._render(bundle, target)))
+                .bind(lambda bundle: _bundle_key(bundle.bundle_key).map(lambda key: (bundle, key)))
+                .bind(lambda pair: boundary("codegen.render", lambda: StubCodegen._render(pair[0], pair[1], target)))
             )
 
-        return evidence_run(EvidenceScope.CODEGEN, f"emit.{wire}.{target}", rail, facts={"wire": wire, "target": target, "byte_count": len(raw)}, composition=composition)
+        return evidence_run(EvidenceScope.CODEGEN, f"emit.{target}", rail, facts={"target": target, "byte_count": len(raw)}, composition=composition)
 
     @staticmethod
-    def drift(golden: bytes, expected: GeneratedModule, *, wire: WireFormat = "json") -> RuntimeRail[GeneratedModule]:
+    async def emit_async(
+        raw: bytes, *, target: EmitTarget = "both", composition: ScopeKey = DEFAULT_SCOPE
+    ) -> RuntimeRail[GeneratedModule]:
+        # the awaitable twin over the band hop, seated at the emit rail's SUCCESS map: `emit` is a pure decode-render
+        # fold that opens no loop, and recording suspends, so the trail cannot land inside it. `drift` stays on the
+        # sync leg by design — a golden-fixture re-emit proves byte stability and records nothing, where journalling
+        # it would fill the plane with reproduction noise carrying one bundle key over and over. The record rail
+        # BINDS into the verdict: a stub the plane could not account for must not read as emitted.
+        match StubCodegen.emit(raw, target=target, composition=composition):
+            case Result(tag="ok", ok=module):
+                return (await Journal.record(_evidence(module), scope=composition)).map(lambda _landed: module)
+            case refused:
+                return Error(refused.error)
+
+    @staticmethod
+    def drift(golden: bytes, expected: GeneratedModule) -> RuntimeRail[GeneratedModule]:
         # golden bundle re-emits and the projection must equal the pinned expected byte-for-byte under the deterministic encoder.
         pinned = msgspec.json.Encoder(order="deterministic")
 
@@ -263,7 +314,7 @@ class StubCodegen:
                 return Ok(module)
             return Error(BoundaryFault(boundary=("codegen.drift", expected.schema_version)))
 
-        return StubCodegen.emit(golden, wire=wire).bind(check)
+        return StubCodegen.emit(golden).bind(check)
 
     @staticmethod
     def _carried(bundle: EvidenceBundle) -> RuntimeRail[EvidenceBundle]:
@@ -273,19 +324,19 @@ class StubCodegen:
 
     @staticmethod
     @beartype(conf=FAULT_CONF)
-    def _decode(raw: RawBundle, wire: WireFormat) -> EvidenceBundle:
+    def _decode(raw: RawBundle) -> EvidenceBundle:
         # beartype fence sits on the thunk the `boundary` wraps, NOT on `emit`, so a `RawBundle` breach and a `DecodeError`
         # both land INSIDE the fence and fold onto the rail.
-        return _DECODER[wire].decode(raw)
+        return _JSON.decode(raw)
 
     @staticmethod
-    def _render(bundle: EvidenceBundle, target: EmitTarget) -> GeneratedModule:
+    def _render(bundle: EvidenceBundle, key: ContentKey, target: EmitTarget) -> GeneratedModule:
         owners = bundle.owners
         return GeneratedModule(
             schema_version=bundle.schema_version,
             owner_count=len(owners),
             field_count=sum(len(owner.fields) for owner in owners),
-            bundle_key=bundle.bundle_key,
+            bundle_key=key,
             source=StubCodegen._source(owners) if target in ("stub", "both") else "",
             schema=msgspec.json.schema_components(StubCodegen._owner_types(owners))[1] if target in ("schema", "both") else {},
         )

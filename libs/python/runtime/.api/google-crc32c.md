@@ -27,7 +27,7 @@
 
 [STACKING]:
 - `google-cloud-secret-manager`(`.api/google-cloud-secret-manager.md`): `value(payload.data)` compares against `SecretPayload.data_crc32c` inside the `CloudVault.read` fence between `access_secret_version` and a trusted payload; a mismatch is the retried `IntegrityError`, never a trusted read.
-- within-lib: a module-scope `lazy` import beside the Secret Manager client in the `admission.md` `[03]-[SETTINGS]` prelude, so the digest costs nothing until the gated cloud arm first fires.
+- within-lib: a module-scope `lazy` import beside the Secret Manager client in the `execution/admission#SETTINGS` prelude, so the digest costs nothing until the gated cloud arm first fires.
 
 [LOCAL_ADMISSION]:
 - `value(data) -> int` is the sole admitted entry; `extend` and the streaming `Checksum` stay unconsumed, and admitting either needs a live fence rather than a speculative re-catalog.

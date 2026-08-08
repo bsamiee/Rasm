@@ -2,24 +2,25 @@
 
 `Journal` owns the branch's durable evidence plane: one append-only stream of `AuditFact` and `MeterFact` rows draining through a bounded rail into whatever `Ledger` a composition binds, priced by exact-decimal rating and aged under one `Retain` vocabulary. Missing metric points read as dashboard gaps while a missing row is an evidence or billing defect, so appends suspend and retry without bound and every series projected beside them carries zero authority. Erasure destroys key material and never a row, so unreadable IS erased and the append-only plane survives whole.
 
-Receipt emission, redaction, and the `ScopeKey` axis arrive settled from `observability/receipts#RECEIPT`, the `MEASURES` census from `observability/metrics#METRIC`, the point registry and install record from `observability/hooks#HOOKS`, the rail and its fences from `reliability/faults#FAULT`, `Hlc` and `Tenant` from `clock/clock#CLOCK`, `SecretBoundary` from `execution/admission#SETTINGS` as the one KEK reader the vault custody posture composes, and `ContentIdentity` from `evidence/identity#IDENTITY`. `Ledger` binds at the composition root that S0 never satisfies, stays async whole so no landing stalls the loop, and refuses unbound or structurally unmet with typed evidence.
+Receipt emission, redaction, and the `ScopeKey` axis arrive settled from `observability/receipts#RECEIPT`, the `MEASURES` census from `observability/metrics#METRIC`, the point registry and install record from `observability/hooks#HOOKS`, the rail and its fences from `reliability/faults#FAULT`, `Hlc` and `Tenant` from `evidence/clock#CLOCK`, `SecretBoundary` from `execution/admission#SETTINGS` as the one KEK reader the vault custody posture composes, and `ContentIdentity` from `evidence/identity#IDENTITY`. `Ledger` binds at the composition root that S0 never satisfies, stays async whole so no landing stalls the loop, and refuses unbound or structurally unmet with typed evidence.
 
 ## [01]-[INDEX]
 
 - [02]-[FACT]: closed `Fact` family over its `Change` diff cases, the per-record projections every fold reads, the writer-owned stamp law with its wall-clock crossing, the `Retain` class table and its horizon, and the subject spine.
-- [03]-[LEDGER]: `Ledger` port, content-keyed row projection, never-shedding bounded rail with its lossless close and unlanded roster, and the groom fold.
+- [03]-[LEDGER]: `Ledger` port, content-keyed row projection, never-shedding bounded rail with its lossless close and unlanded roster, the three-state intake and async-seam laws every producer binds against, and the groom fold.
 - [04]-[RATING]: associative rollup monoid over a totally-ordered price key and the exact-decimal charge fold under one terminal quantize.
 - [05]-[SHREDDER]: `SubjectKey` custody identity, AAD-bound envelope algebra over one native crossing, total open, portability export, and erasure as key destruction.
 
 ## [02]-[FACT]
 
 - Owner: two msgspec-tagged records close the `Fact` family — `AuditFact` carries actor, action, target, the closed `Change` diff over JSON-pointer paths, and the subjects it touched; `MeterFact` carries an integral quantity against the `Resource` vocabulary — each holding its own disjoint field set, so the wire tag IS the family discriminant and no type column stands beside a payload bag. Each record ALSO carries its own `stream`, `retention`, `gate`, `kind`, `subjects`, and `measures` projection, so the ledger, the drain, the gate, and the series read one shape and no consuming fold re-derives the discriminant at a site that can drift from its siblings. `Series` closes this owner's measure vocabulary and `install` proves the whole of it against the census, so units live at their one owner and a second spelling here cannot diverge.
-- Cases: `Change` splits by which sides a diff carries — `Assigned` the arrival, `Cleared` the departure, `Shifted` both — so a policy fold types every evidence shape and a free-form details bag never enters. `Party` splits by which vocabulary its kind axis closes on — the actor half on `Actor`, refused at decode outside that roster, the target half open because a target names whatever noun its verb touched — so one shape serves both positions and neither carries a second class column to disagree with. `Resource` transcribes the cross-branch metering roster whole; a fifth resource lands as one `RESOURCES` row beside its rate row in BOTH branch spellings — this one and `libs/typescript/data/.planning/journal/fact.md` `_RESOURCES` — since a runtime-local addition forks a vocabulary the peer prices against. Metric-egress tenancy diverges from that peer BY DESIGN: the drain projects OUTSIDE any producer's context and the budgeted attribute fold `observability/metrics#METRIC` owns resolves tenancy from baggage, so this branch's journal series carry no tenant dimension at all and tenancy resolves on the row, where the peer prices the tag per resource on its own row; the fact row carries tenancy identically on both, so only the lossy metric projection differs.
+- Cases: `Change` splits by which sides a diff carries — `Assigned` the arrival, `Cleared` the departure, `Shifted` both — so a policy fold types every evidence shape and a free-form details bag never enters. `Party` splits by which vocabulary its kind axis closes on — the actor half on `Actor`, refused at decode outside that roster, the target half open because a target names whatever noun its verb touched — so one shape serves both positions and neither carries a second class column to disagree with. `Resource` transcribes the cross-branch metering roster whole; a further resource lands as one `RESOURCES` row beside its rate row in BOTH branch spellings — this one and `libs/typescript/data/.planning/journal/fact.md` `_RESOURCES` — since a runtime-local addition forks a vocabulary the peer prices against. Metric-egress tenancy diverges from that peer BY DESIGN: the drain projects OUTSIDE any producer's context and the budgeted attribute fold `observability/metrics#METRIC` owns resolves tenancy from baggage, so this branch's journal series carry no tenant dimension at all and tenancy resolves on the row, where the peer prices the tag per resource on its own row; the fact row carries tenancy identically on both, so only the lossy metric projection differs.
 - Entry: `Journal.record` is the one stamp authority — it merges the inbound `CausalFrame` half a caller threads, joins this process's own physical sample, ticks the successor under the gate, and REPLACES the slot on every fact it admits. Caller-threaded stamps make identity a discipline rather than a construction, since the content key covers the stamped payload and two producers reusing one coordinate collapse two genuine facts onto one key. Wall time never orders the stream: rows sort on `Hlc.packed`, which survives a ledger carrying no identity column and reconstructs order across processes that shared no sequence.
 - Entry: `at` is the one crossing from wall clock into that coordinate and refuses a naive instant, so a billing window a human settles on and a groom cutoff both derive in the unit the stream already sorts on; every tick conversion runs integer arithmetic end to end, so a settlement boundary lands exact and no float mantissa rounds a stamp. `horizon` never touches wall clock at all — it subtracts each finite window in ticks from this owner's own sample, so cutoff and stamp share one time base by construction.
-- Auto: retention is constitution for one stream and policy for the other — a `MeterFact` is `REGULATORY` because it is billing truth, an `AuditFact` names the class its own policy demands — so the groom horizon reads one column and no consumer re-derives a stream's class. Tenancy rides `Tenant | None` on the wire under `omit_defaults`, the domain reading absence as single-tenant, so an unattributed fact records absence and never forges a tenancy its caller never held.
+- Auto: retention is constitution for one stream and policy for the other — a `MeterFact` is `REGULATORY` because it is billing truth, an `AuditFact` names the class its own policy demands — so the groom horizon reads one column and no consumer re-derives a stream's class.
+- Auto: tenancy resolves at the WRITER — `record` fills a `None` slot from the one `TENANT_BAGGAGE` entry the `observability/metrics#METRIC` attribute fold already keys on, so ambient tenancy reaches the durable row through one reader rather than five producers each spelling the same lookup, and a fact arriving WITH tenancy keeps it verbatim, since a producer recording on behalf of one tenant from inside another's context is exactly what a re-read overwrites. Absence past that fold is genuine: the wire omits it under `omit_defaults` and the domain reads absence as single-tenant, so an unattributed fact records absence and never forges a tenancy nobody held. The metric tenant BUDGET never crosses over with the key — it bounds a series value axis, and this plane carries no cardinality ceiling to bound.
 - Auto: `AuditFact.subjects` IS the portability index, carried on the fact and projected onto its row, so the export scan and the erasure key on ONE composite and the spine law holds by construction rather than through a companion table a ledger writes inside the same landing. Facts naming no subject index nothing and stay invisible to every subject read.
-- Growth: a new evidence kind is one `Change` case with its arm in every consuming fold; a new actor class is one `Actor` member in both branch spellings; a new metered resource is one `Resource` member with its `RESOURCES` row and its rate row; a new fact stream is one more tagged record carrying the family's projections, which the row fold, the gate, the drain, and the groom inherit unedited; a new retention class is one `Retain` member with its `WINDOWS` row; a new derived series is one `Series` member the census admits; a new diff grammar is one `Pointer` pattern edit; a newly classified field is one `FACT_REDACTION` row.
+- Growth: a new evidence kind is one `Change` case with its arm in every consuming fold; a new actor class is one `Actor` member in both branch spellings; a new metered resource is one `Resource` member with its `RESOURCES` row and its rate row; a new fact stream is one more tagged record carrying the family's projections, which the row fold, the gate, the drain, and the groom inherit unedited; a new retention class is one `Retain` member with its `WINDOWS` row; a new derived series is one `Series` member the census admits; a new diff grammar is one `Pointer` pattern edit; a newly classified field is one `FACT_REDACTION` row. A `Resource` member also widens what `Rating` completeness means at the next settlement — `rated` refuses by name on a resource its caller-supplied rating omits — so the rate row lands with the member or the first window carrying it settles nothing.
 - Boundary: this family carries the retention KEY and never the window — `WINDOWS` prices the class and the ledger executes the reclaim, so no page outside this owner spells a duration. Quantities stay integral by constraint, which is what keeps the exact-decimal crossing in `[04]` free of any float: a fractional need is a smaller unit row, never a decimal quantity.
 
 ```python signature
@@ -47,13 +48,15 @@ from msgspec import Meta, Struct, to_builtins
 from msgspec.json import schema_components
 from msgspec.msgpack import Decoder, Encoder
 from msgspec.structs import replace
+from opentelemetry import baggage
+from opentelemetry import context as otel_context
 
 from rasm.runtime.admission import SecretBoundary, SecretShape
 from rasm.runtime.clock import CausalFrame, Hlc, Tenant
 from rasm.runtime.faults import SCOPES, BoundaryFault, Disposition, RuntimeRail, Scope, async_boundary, boundary, traversed
 from rasm.runtime.hooks import HookPoint, Hooks, Modality
 from rasm.runtime.identity import ContentIdentity, ContentKey
-from rasm.runtime.metrics import MEASURES, Metrics
+from rasm.runtime.metrics import MEASURES, TENANT_BAGGAGE, Metrics
 from rasm.runtime.receipts import DEFAULT_SCOPE, OPEN, REDACTED, Receipt, Redaction, ScopeKey, Signals
 
 lazy from cryptography.exceptions import InvalidTag, UnsupportedAlgorithm  # cold native tier: reified at the first crossing
@@ -85,6 +88,7 @@ class Actor(StrEnum):
 
 class Resource(StrEnum):
     COMPUTE = "compute"
+    RECORD = "record"
     REQUEST = "request"
     STORAGE = "storage"
     TOKEN = "token"
@@ -473,6 +477,7 @@ class JournalReceipt(Struct, frozen=True):
 # mounts the instrument, so a row can never mount a spelling its census counterpart disagrees with.
 RESOURCES: Final[Map[Resource, Series]] = Map.of_seq([
     (Resource.COMPUTE, Series.DURATION),
+    (Resource.RECORD, Series.TALLY),
     (Resource.REQUEST, Series.TALLY),
     (Resource.STORAGE, Series.VOLUME),
     (Resource.TOKEN, Series.TALLY),
@@ -589,13 +594,16 @@ def _censused() -> RuntimeRail[Block[Series]]:
 - Owner: `Landing.accepted` NAMES the rows the plane did not already hold and `duplicate` names the redeliveries the content key matched, both as keys, because the drain's line, its series, and its metered quantities fire off the accepted half ALONE — the append retry never exhausts, so a batch replayed after a lost acknowledgement costs one absorbed duplicate rather than a doubled charge and a doubled audit line, and a half reported as a bare tally names no row that filter can read. One fused count across both arms satisfies the completeness sum while claiming zero redelivery, and zero redelivery is indistinguishable from a wedged retry re-offering one window forever; `rasm.journal.deduped` carries that half off the drain, so an inflated `accepted` deletes the one signal proving at-least-once delivery is happening.
 - Cases: every port member awaits, because a ledger writes durably and the drain runs on the loop — a synchronous member stalls the scheduler for the whole batch, and the branch admits no on-loop blocking arm; the install proof refuses a member present yet not a coroutine function, which otherwise faults inside the retry indistinguishable from a dead ledger. `_chained` is the one async bind carrying a settled rail into an awaited continuation, `_resolved` composing it over the bound carrier, so an unbound scope refuses once and a custody-and-ledger chain short-circuits with no hand-repeated match.
 - Law: `install` proves the census and the port structurally, registers the point rows, and binds only then — a measure or a member missing refuses at the bind naming it, where an unchecked bind defers the failure into the unbounded retry and reads as a dead ledger forever. Re-entry returns the standing receipt, so a second composition-root pass never swaps a ledger out from under a live drain; point registration latches per scope, because ids are composition-unique and the registry ships no retirement.
-- Law: `closed` retires custody with the intake, so a composition that shuts down re-arms by installing again rather than adopting a closed stream every `record` then rails `resource` against. Unlanded rows survive that retirement, since a shutdown owing them is exactly when a caller reads them.
-- Entry: `record` folds arity off the value so a lone fact and a batch of either stream take one entry, and stamps every fact it admits; `drained` is the composition-root coroutine a task group starts — `tg.start` blocks on its readiness signal, so no producer suspends into an intake nothing reads, and the root reads the terminal tally off the child handle — and `closed` is its lossless counterpart. Recording is async by law — the send suspends under back-pressure, and no synchronous spelling can suspend — so a sync producer re-enters the loop through the portal bridge exactly as every other foreign-thread crossing does. Both refuse on an unbound scope with a `config` fault naming the port.
+- Law: `closed` retires custody with the intake and MARKS the scope retired, so a composition that shuts down re-arms by installing again rather than adopting a closed stream every `record` then rails `resource` against, and the mark is what lets `record` separate a plane that died from one that never existed — `_pointed` cannot, latching past every retirement by design. Unlanded rows survive that retirement, since a shutdown owing them is exactly when a caller reads them.
+- Law: `record` resolves THREE intake states and never two — an armed scope sends, a scope whose custody `closed` RETIRED refuses with the `config` fault naming the port, and a scope no composition ever installed folds to `Ok(0)`. That third state is a deployment DECLARATION that this process journals nothing: its facts drop lawfully, so every producer binds the same rail into its verdict whatever the deployment armed, a refusal on an armed plane still surfaces, and an unarmed one costs one map read. The unarmed fold records no series either — a drop counter prices the hot path of a composition that asked for no plane, and the install census proving this owner's measures never ran on that scope. Collapsing the pair into one refusal fails every producer's verdict wherever evidence was never deployed; collapsing it the other way renders retired custody — a producer outliving its own plane, which is a real fault — as lawful silence.
+- Law: a producer records at the nearest ASYNC fold that OWNS the fact, and a synchronous `contribute` never records — recording suspends by law, so a sync projection can only shed exactly what the never-shed rail refuses to shed, and the derived series is already `contribute`'s own half. An owner whose whole surface is synchronous mints its awaitable leg over the band hop its callers hand-roll rather than moving the record onto the loop-blocking side. A producer's `action` spells `<domain>.<operation>` — the same `domain` segment its metric projection carries beside the operation its own dispatch names — so one verb greps against the series its evidence twin emitted and no central verb registry stands between them.
+- Entry: `record` folds arity off the value so a lone fact and a batch of either stream take one entry, and stamps every fact it admits; `drained` is the composition-root coroutine a task group starts — `tg.start` blocks on its readiness signal, so no producer suspends into an intake nothing reads, and the root reads the terminal tally off the child handle — and `closed` is its lossless counterpart. Recording is async by law — the send suspends under back-pressure, and no synchronous spelling can suspend — so a sync producer re-enters the loop through the portal bridge exactly as every other foreign-thread crossing does. `drained` and `closed` refuse an unbound scope with a `config` fault naming the port; `record` splits that absence under the three-state law above.
 - Auto: the ledger lands the batch FIRST and its `Landing` must PARTITION the offered keys — disjoint halves whose union is the whole set — so a short write, an overlapping half, and a foreign key all retry rather than projecting; only an exact landing projects, only its ACCEPTED half does, and an observer never reads a fact the durable plane refused or already held. Retry attempts never exhaust and the decorrelated-jitter delay caps, so a dead ledger costs a bounded cadence a fleet never synchronizes on, while the bounded intake propagates pressure back through the suspended writer; the deferral counter reports the ledger and the drain's occupancy probe reports intake depth with suspended senders, so a full intake behind a healthy ledger is visible pressure too.
 - Auto: shutdown closes the intake and awaits the drain, never cancels it — `anyio` delivers every buffered fact after the last send end closes, so the partial window flushes, `drained` returns its tally, and nothing in flight sheds. Roots that must nevertheless bound the wait wrap the await in their own `CancelScope` and read `pending` after it trips: a tripped scope returns no value, so the drain's terminal deposits BOTH the batch it was retrying and the checkpoint-free sweep of whatever still sat in the buffer, and every fact either landed or is named. Deadline parameters here instead re-thread the cancellation a scope already owns and cap the steady-state retry the never-shed law forbids capping.
 - Receipt: `install` deposits its receipt on the `observability/hooks#HOOKS` install record, so a support bundle answers which durable plane a composition wrote to, under which vocabulary, and as which service, without this owner minting a second custody surface for the bundle to read.
 - Law: `_pending` ACCUMULATES and settles by key — `_owed` appends and `_settled` removes exactly the keys a landing covered, so a scope re-installed after `closed` still owes what its prior drain never landed. Replacing the slot hands the next session's first batch that debt to overwrite, and a blanket clear erases it on the first success, both shedding evidence on the one plane whose whole thesis is that nothing sheds.
 - Growth: a new durable coordinate is one `FactRow` column reaching the ledger and the row projection; a new read shape is one `Scan` case with its ledger arm; a new drain posture is one flow or backoff constant; a new ledger family is one implementer of the port with zero edits here.
+- Boundary: a `Ledger` implementer's own landing path records NOTHING — `landed` reaches durability through whatever commit surface that implementer composes, so a producer leg seated on that surface re-enters `record` for every batch it lands and the stream feeds itself without bound. The implementer's composed owners therefore discriminate the ledger's OWN relations from a caller's and record only the caller's, and the durable plane's emptiness cannot do it for them: a journal commit is indistinguishable from a caller's commit by residence alone, so the discriminant is the relation identity the ledger's tables declare at open.
 - Boundary: this owner opens no connection, mints no statement, and names no engine — the ledger executes every landing, scan, tally, and reclaim through its own mechanism, so retention, compaction, and rollup ride machinery a ledger already carries and no worker or scheduler surface enters this branch for telemetry. Append gating admits or refuses and never transforms: the veto fold's returned payload is discarded by law, because a subscriber rewriting evidence makes the plane it observes a second author.
 
 ```python signature
@@ -718,6 +726,20 @@ def _partitions(landing: Landing, rows: Block[FactRow]) -> bool:
     )
 
 
+def _tenanted(fact: Fact) -> Fact:
+    # the ONE baggage reader on this plane: a producer leaving `tenant` unset is asking the writer to resolve it, so
+    # the ambient W3C entry the metrics attribute fold already keys on fills the slot here instead of at every
+    # producer. A fact arriving WITH tenancy passes through untouched — recording on behalf of one tenant from inside
+    # another's context is the case a re-read silently overwrites — and the guard reads the slot before the context,
+    # so an attributed batch never pays a baggage lookup per fact. The metric tenant budget stays out: it bounds a
+    # series value axis and this plane bounds no cardinality.
+    match baggage.get_baggage(TENANT_BAGGAGE, otel_context.get_current()) if fact.tenant is None else None:
+        case str() as tenant if tenant:
+            return replace(fact, tenant=Tenant(tenant))
+        case _:
+            return fact
+
+
 def _reclaimed(swept: Groomed, scope: ScopeKey) -> Groomed:
     _series({Series.GROOMED: float(swept.reclaimed)}, Motion.GROOM, scope)
     return swept
@@ -765,6 +787,10 @@ class Journal:
     _pending: ClassVar[Map[ScopeKey, Block[FactRow]]] = Map.empty()
     _receipts: ClassVar[Map[ScopeKey, JournalReceipt]] = Map.empty()
     _pointed: ClassVar[frozenset[ScopeKey]] = frozenset()
+    # the one coordinate separating a scope whose custody was RETIRED from a scope no root ever installed: both
+    # answer an absent intake, and only the first is a fault. `closed` marks, `_bind` clears — so a re-armed scope
+    # sends again — while `_pointed` cannot serve here, since a point latch survives every retirement by design.
+    _retired: ClassVar[frozenset[ScopeKey]] = frozenset()
     _stamp: ClassVar[Hlc] = UNSTAMPED
     # per-scope install lock, distinct from the custody gate BY LAW: install registers points through `Hooks`,
     # which takes its own lock, so holding `_gate` across that call would mint the two-lock ordering `_bind`'s
@@ -846,6 +872,7 @@ class Journal:
             cls._bound = cls._bound.add(scope, Bound(ledger=ledger, custody=custody, service=service))
             cls._intake, cls._drain = cls._intake.add(scope, send), cls._drain.add(scope, receive)
             cls._receipts = cls._receipts.add(scope, receipt)
+            cls._retired = cls._retired - {scope}
         return Hooks.installed(OWNER, receipt, scope=scope)
 
     @classmethod
@@ -862,20 +889,30 @@ class Journal:
         # so a fact orders strictly after the cause its caller saw; the send AWAITS, so a full intake stalls its
         # producer rather than dropping a row nothing replays.
         offered = Block.of_seq((source,) if isinstance(source, AuditFact | MeterFact) else source)
-        # binding order is load-bearing: the intake resolves FIRST, so an unbound scope refuses without firing an
-        # admission policy over facts no plane accepts; the fault mints lazily, so the hot producer path allocates
-        # nothing for a refusal that never fires. The stamp is the LAST step and only on the admitted path, since
-        # the cell it ticks is process-wide: stamping ahead of the gates advances this node's successor for every
-        # refused batch, so an unbound scope or a vetoing subscriber leaves gaps in the one coordinate the stream
-        # sorts on, and the gate reads each record's default `UNSTAMPED` slot exactly as its declaration promises.
-        gated = cls._intake.try_find(scope).to_result_with(lambda: BoundaryFault(config=("journal.record", "ledger unbound"))).bind(
-            lambda send: cls._admitted(offered, scope).map(lambda _admitted: send)
-        )
-        match gated:
-            case Result(tag="ok", ok=send):
-                return await cls._offered(send, offered.map(lambda fact: replace(fact, stamp=cls.stamped(causal))))
-            case refused:
-                return Error(refused.error)
+        # binding order is load-bearing: the intake resolves FIRST, so a scope with no live plane settles without
+        # firing an admission policy over facts nothing accepts, and the two absent states settle apart. RETIRED is
+        # a fault — this producer outlived the plane it writes to. UNARMED is a lawful no-op answering the count it
+        # landed: no composition ever installed here, which is a deployment declaration that this process journals
+        # nothing, so a producer binds one rail either way and pays one map read where evidence was never deployed.
+        # Nothing is recorded on that path — a drop counter prices the hot path of a composition that asked for no
+        # plane, and the census proving this owner's measures never ran on a scope no install crossed.
+        match cls._intake.try_find(scope):
+            case Option(tag="some", some=send):
+                # the stamp is the LAST step and only on the admitted path, since the cell it ticks is process-wide:
+                # stamping ahead of the gates advances this node's successor for every refused batch, so a vetoing
+                # subscriber leaves gaps in the one coordinate the stream sorts on, and the gate reads each record's
+                # default `UNSTAMPED` slot exactly as its declaration promises. Tenancy resolves BEFORE the gate, so
+                # a subscriber judges the row the plane will store rather than the caller's unattributed draft.
+                attributed = Block.of_seq(_tenanted(fact) for fact in offered)
+                match cls._admitted(attributed, scope):
+                    case Result(tag="ok"):
+                        return await cls._offered(send, attributed.map(lambda fact: replace(fact, stamp=cls.stamped(causal))))
+                    case refused:
+                        return Error(refused.error)
+            case _ if scope in cls._retired:
+                return Error(BoundaryFault(config=("journal.record", "journal custody retired")))
+            case _:
+                return Ok(0)
 
     @staticmethod
     def _admitted(facts: Block[Fact], scope: ScopeKey) -> RuntimeRail[Block[Fact]]:
@@ -939,9 +976,10 @@ class Journal:
     @classmethod
     def closed(cls, *, scope: ScopeKey = DEFAULT_SCOPE) -> RuntimeRail[None]:
         # graceful shutdown IS closing the intake: every buffered fact still delivers, the partial window flushes,
-        # and `drained` returns clean. Custody RETIRES with the close, so a later `install` re-arms this scope
-        # instead of adopting a closed stream every `record` then rails `resource` against; unlanded rows and the
-        # point latch survive that retirement, because a shutdown owing rows is exactly when a caller reads them
+        # and `drained` returns clean. Custody RETIRES with the close and the scope MARKS retired, so a later
+        # `install` re-arms it instead of adopting a closed stream every `record` then rails `resource` against, and
+        # a fact offered meanwhile refuses as the fault it is rather than folding into the never-installed no-op;
+        # unlanded rows and the point latch survive that retirement, because a shutdown owing rows is exactly when a caller reads them
         # and the registry retires no id. Stays synchronous so a signal handler, an atexit hook, or a non-async
         # `finally` reaches it with no loop. One gate pass decides ownership of the receive end against `drained`'s
         # take, so exactly one of the two ever holds it and the close arm is LOSSLESS: a scope closed before any
@@ -952,6 +990,7 @@ class Journal:
             service = cls._bound.try_find(scope).map(lambda bound: bound.service)
             cls._intake, cls._drain = cls._intake.remove(scope), cls._drain.remove(scope)
             cls._bound, cls._receipts = cls._bound.remove(scope), cls._receipts.remove(scope)
+            cls._retired = cls._retired | {scope}
         taken.bind(lambda receive: service.map(lambda name: cls._stranded(scope, receive, name)))
         return held.to_result_with(lambda: BoundaryFault(config=("journal.close", "ledger unbound"))).map(lambda send: send.close())
 
